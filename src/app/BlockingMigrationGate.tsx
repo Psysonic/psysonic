@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { retryBlockingMigration } from '@/app/hooks/useMigrationOrchestrator';
+import { scheduleStartupSplashDismiss } from '@/app/startupSplash';
 import { useMigrationStore } from '../store/migrationStore';
 
 function MigrationModal() {
@@ -12,19 +13,30 @@ function MigrationModal() {
   const scopeBrowseProjectionProgress = useMigrationStore(s => s.scopeBrowseProjectionProgress);
   const inspect = useMigrationStore(s => s.inspect);
   const error = useMigrationStore(s => s.lastError);
+  const isNavidromeCanonical = step === 'navidromeCanonical';
   const isGenreTags = step === 'genreTags';
   const isScopeBrowseProjection = step === 'scopeBrowseProjection';
-  const migrationTitle = isGenreTags
+  const migrationTitle = isNavidromeCanonical
+    ? t('migration.migrating')
+    : isGenreTags
     ? t('migration.genreTagsTitle')
     : isScopeBrowseProjection
       ? t('migration.scopeBrowseProjectionTitle')
       : t('migration.migrating');
-  const migrationBody = isGenreTags
+  const migrationBody = isNavidromeCanonical
+    ? t('migration.working')
+    : isGenreTags
     ? t('migration.genreTagsBody')
     : isScopeBrowseProjection
       ? t('migration.scopeBrowseProjectionBody')
       : (progress ? `${progress.stage} - ${progress.table}` : t('migration.working'));
-  const activeProgress = isGenreTags ? genreTagsProgress : isScopeBrowseProjection ? scopeBrowseProjectionProgress : progress;
+  const activeProgress = isNavidromeCanonical
+    ? null
+    : isGenreTags ? genreTagsProgress : isScopeBrowseProjection ? scopeBrowseProjectionProgress : progress;
+
+  useEffect(() => {
+    scheduleStartupSplashDismiss();
+  }, []);
 
   const migratedRows = (inspect?.library.totalLegacyRows ?? 0) + (inspect?.analysis.totalLegacyRows ?? 0);
   return (
@@ -46,11 +58,11 @@ function MigrationModal() {
         color: 'var(--text)',
       }}
       >
-        {phase === 'inspecting' && (
+        {(phase === 'idle' || phase === 'inspecting') && (
           <>
-            <h3>{isGenreTags ? t('migration.genreTagsTitle') : isScopeBrowseProjection ? t('migration.scopeBrowseProjectionTitle') : t('migration.preparing')}</h3>
+             <h3>{isNavidromeCanonical ? t('migration.preparing') : isGenreTags ? t('migration.genreTagsTitle') : isScopeBrowseProjection ? t('migration.scopeBrowseProjectionTitle') : t('migration.preparing')}</h3>
             <p style={{ color: 'var(--text-muted)' }}>
-              {isGenreTags ? t('migration.genreTagsBody') : isScopeBrowseProjection ? t('migration.scopeBrowseProjectionBody') : t('migration.preparingBody')}
+               {isNavidromeCanonical ? t('migration.preparingBody') : isGenreTags ? t('migration.genreTagsBody') : isScopeBrowseProjection ? t('migration.scopeBrowseProjectionBody') : t('migration.preparingBody')}
             </p>
           </>
         )}
@@ -72,7 +84,7 @@ function MigrationModal() {
         )}
         {phase === 'error' && (
           <>
-            <h3>{isGenreTags ? t('migration.genreTagsFailed') : isScopeBrowseProjection ? t('migration.scopeBrowseProjectionFailed') : t('migration.failed')}</h3>
+             <h3>{isNavidromeCanonical ? t('migration.failed') : isGenreTags ? t('migration.genreTagsFailed') : isScopeBrowseProjection ? t('migration.scopeBrowseProjectionFailed') : t('migration.failed')}</h3>
             <p style={{ color: 'var(--text-muted)' }}>{String(error ?? '').slice(0, 200)}</p>
             <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
               <button className="btn-primary" onClick={() => retryBlockingMigration()}>{t('migration.retry')}</button>
@@ -95,11 +107,6 @@ function MigrationModal() {
 
 export default function BlockingMigrationGate({ children }: { children: ReactNode }) {
   const phase = useMigrationStore(s => s.phase);
-  const isBlocking = phase === 'inspecting' || phase === 'running' || phase === 'error';
-  return (
-    <>
-      {children}
-      {isBlocking ? <MigrationModal /> : null}
-    </>
-  );
+  const isBlocking = phase !== 'completed';
+  return isBlocking ? <MigrationModal /> : children;
 }
