@@ -1,12 +1,12 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-pub mod cli;
 mod benchmark;
+pub mod cli;
 mod cover_cache;
 mod lib_commands;
-mod library_identity_maintenance;
 pub(crate) mod library_analysis_backfill;
+mod library_identity_maintenance;
 pub mod theme_animation;
 pub(crate) mod theme_import;
 
@@ -93,6 +93,24 @@ fn scheduler_idle_payload(
                 "background",
             )
         })
+}
+
+fn scheduler_error_idle_payload(
+    error: &psysonic_library::sync::SyncError,
+    server_id: &str,
+    library_scope: &str,
+) -> Option<psysonic_library::LibrarySyncIdlePayload> {
+    matches!(
+        error,
+        psysonic_library::sync::SyncError::IdentityTransition(_)
+    )
+    .then(|| psysonic_library::LibrarySyncIdlePayload::err(
+        server_id,
+        library_scope,
+        "delta_sync",
+        "background",
+        &error.to_string(),
+    ))
 }
 
 /// Shared handle to OS media controls (MPRIS2 on Linux, Now Playing on macOS, SMTC on Windows).
@@ -185,6 +203,10 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_library::commands::library_resolve_entity_sources,
             psysonic_library::commands::library_resolve_album_overlay,
             psysonic_library::commands::library_sync_bind_session,
+            psysonic_library::commands::library_identity_transition_status,
+            psysonic_library::commands::library_identity_transition_ack,
+            psysonic_library::commands::library_identity_transition_probe,
+            psysonic_library::commands::library_identity_transition_run_native_migration,
             psysonic_library::commands::library_sync_clear_session,
             psysonic_library::commands::library_set_playback_hint,
             psysonic_library::commands::library_get_playback_hint,
@@ -824,6 +846,13 @@ pub fn run() {
                                 {
                                     return;
                                 }
+                                let subsonic = psysonic_integration::subsonic::subsonic_client_with_registry(
+                                    Some(registry.as_ref()),
+                                    &session.server_id,
+                                    session.base_url.clone(),
+                                    session.username.clone(),
+                                    session.password.clone(),
+                                );
                                 let foreground_active = foreground_blocks_scheduler_session(
                                     runtime.current_job().as_ref(),
                                     &session.server_id,
@@ -840,13 +869,6 @@ pub fn run() {
                                     psysonic_library::sync::capability::CapabilityFlags::new(
                                         flags_bits,
                                     );
-                                let subsonic = psysonic_integration::subsonic::subsonic_client_with_registry(
-                                    Some(registry.as_ref()),
-                                    &session.server_id,
-                                    session.base_url.clone(),
-                                    session.username.clone(),
-                                    session.password.clone(),
-                                );
                                 let mut sched =
                                     psysonic_library::sync::scheduler::BackgroundScheduler::new(
                                         &runtime.store,
@@ -926,11 +948,23 @@ pub fn run() {
                                             );
                                         }
                                     }
-                                    Err(err) => crate::app_deprintln!(
-                                        "[library-sync] scheduler recorded server failure server_id={}: {}",
-                                        session.server_id,
-                                        err
-                                    ),
+                                    Err(err) => {
+                                        crate::app_deprintln!(
+                                            "[library-sync] scheduler recorded server failure server_id={}: {}",
+                                            session.server_id,
+                                            err
+                                        );
+                                        if let Some(payload) = scheduler_error_idle_payload(
+                                            &err,
+                                            &session.server_id,
+                                            &scope,
+                                        ) {
+                                            let _ = app_for_session.emit(
+                                                psysonic_library::LibrarySyncProgressPayload::IDLE_EVENT_NAME,
+                                                &payload,
+                                            );
+                                        }
+                                    }
                                 }
                             }
                         })
@@ -1058,10 +1092,17 @@ pub fn run() {
                         else {
                             return TrackEnrichmentPlan::default();
                         };
+                        let track_id = psysonic_library::navidrome_identity::resolve_remapped_id(
+                            &runtime.store,
+                            server_id,
+                            "track",
+                            track_id,
+                        )
+                        .unwrap_or_else(|_| track_id.to_string());
                         match psysonic_library::enrichment::plan_track_enrichment(
                             &runtime.store,
                             server_id,
-                            track_id,
+                            &track_id,
                             content_hash,
                             enrichment_now_unix_ms(),
                         ) {
@@ -1088,10 +1129,16 @@ pub fn run() {
                         else {
                             return Err("library runtime unavailable".into());
                         };
+                        let track_id = psysonic_library::navidrome_identity::resolve_remapped_id(
+                            &runtime.store,
+                            server_id,
+                            "track",
+                            track_id,
+                        )?;
                         psysonic_library::enrichment::store_track_enrichment_facts(
                             &runtime.store,
                             server_id,
-                            track_id,
+                            &track_id,
                             content_hash,
                             facts,
                             enrichment_now_unix_ms(),
@@ -1510,6 +1557,10 @@ pub fn run() {
             psysonic_library::commands::library_analysis_progress,
             psysonic_library::commands::library_count_live_tracks,
             psysonic_library::commands::library_sync_bind_session,
+            psysonic_library::commands::library_identity_transition_status,
+            psysonic_library::commands::library_identity_transition_ack,
+            psysonic_library::commands::library_identity_transition_probe,
+            psysonic_library::commands::library_identity_transition_run_native_migration,
             psysonic_library::commands::library_sync_clear_session,
             psysonic_library::commands::library_set_playback_hint,
             psysonic_library::commands::library_get_playback_hint,
@@ -1870,6 +1921,32 @@ mod scheduler_driver_tests {
             ..skipped
         };
         assert!(scheduler_idle_payload(&census_only, "s1", "").is_some());
+    }
+
+    #[test]
+    fn scheduler_identity_transition_maps_to_failed_background_idle_payload() {
+        let payload = scheduler_error_idle_payload(
+            &psysonic_library::sync::SyncError::IdentityTransition(
+                "canonical migration required".into(),
+            ),
+            "s1",
+            "scope",
+        )
+        .unwrap();
+
+        assert!(!payload.ok);
+        assert_eq!(payload.source, "background");
+        assert_eq!(payload.kind, "delta_sync");
+        assert!(payload
+            .error
+            .as_deref()
+            .is_some_and(|error| error.contains("canonical migration required")));
+        assert!(scheduler_error_idle_payload(
+            &psysonic_library::sync::SyncError::Transport("offline".into()),
+            "s1",
+            "scope",
+        )
+        .is_none());
     }
 }
 

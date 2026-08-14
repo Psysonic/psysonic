@@ -31,7 +31,10 @@ vi.mock('@/utils/server/rewriteFrontendStoreKeys', () => ({
   rewriteFrontendStoreKeys: (servers: unknown) => rewriteFrontendStoreKeysMock(servers),
 }));
 
-import { useMigrationOrchestrator } from '@/app/hooks/useMigrationOrchestrator';
+import {
+  useMigrationOrchestrator,
+} from '@/app/hooks/useMigrationOrchestrator';
+import { resetBlockingMigrationCoordinatorForTests } from '@/store/migrationCoordinator';
 
 const DONE_FLAG = 'psysonic-server-key-migration-v1';
 const REAL_MIGRATION_TEST_OVERRIDE = '__PSYSONIC_REAL_MIGRATION_TEST__';
@@ -49,6 +52,7 @@ describe('useMigrationOrchestrator', () => {
     libraryScopeBrowseProjectionInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
     libraryScopeBrowseProjectionRunMock.mockResolvedValue(undefined);
     rewriteFrontendStoreKeysMock.mockClear();
+    resetBlockingMigrationCoordinatorForTests();
     localStorage.clear();
     useAuthStore.setState({
       servers: [
@@ -58,7 +62,7 @@ describe('useMigrationOrchestrator', () => {
       isLoggedIn: true,
     });
     useMigrationStore.setState({
-      phase: 'inspecting',
+      phase: 'idle',
       step: null,
       needsMigration: false,
       inspect: null,

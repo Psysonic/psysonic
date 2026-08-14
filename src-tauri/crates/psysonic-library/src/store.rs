@@ -12,7 +12,7 @@ use tauri::Manager;
 ///
 /// Migration checklist (wiring, data backfill, open/swap path):
 /// psysonic-workdocs `ai/agent-rules/08-library-db-migrations.md`.
-pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 26;
+pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 29;
 
 /// One-time data repair after migration 014 (`artist.name_sort`).
 pub(crate) const ARTIST_NAME_SORT_RECONCILE_ID: &str = "artist_name_sort_reconcile_v1";
@@ -89,6 +89,15 @@ pub(crate) const MIGRATION_025_IDENTITY_INVALIDATION: &str =
 /// Version 26: resumable cursor for bounded post-sync library tagging.
 pub(crate) const MIGRATION_026_LIBRARY_TAG_CURSOR: &str =
     include_str!("../migrations/026_library_tag_cursor.sql");
+/// Version 27: durable Navidrome canonical-ID transition state and entity remap journal.
+pub(crate) const MIGRATION_027_NAVIDROME_CANONICAL_IDS: &str =
+    include_str!("../migrations/027_navidrome_canonical_ids.sql");
+/// Version 28: durable cursor for bounded canonical-ID candidate probing.
+pub(crate) const MIGRATION_028_IDENTITY_PROBE_CURSOR: &str =
+    include_str!("../migrations/028_identity_probe_cursor.sql");
+/// Version 29: indexed text cursor for bounded inactive-alias baseline scans.
+pub(crate) const MIGRATION_029_IDENTITY_ALIAS_CURSOR: &str =
+    include_str!("../migrations/029_identity_alias_cursor.sql");
 
 /// Embedded migrations. Ordered ascending by `version`; the runner sorts
 /// defensively before applying so the source order can stay readable.
@@ -109,6 +118,9 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (24, MIGRATION_024_COMPOSER_BROWSE_PROJECTION),
     (25, MIGRATION_025_IDENTITY_INVALIDATION),
     (26, MIGRATION_026_LIBRARY_TAG_CURSOR),
+    (27, MIGRATION_027_NAVIDROME_CANONICAL_IDS),
+    (28, MIGRATION_028_IDENTITY_PROBE_CURSOR),
+    (29, MIGRATION_029_IDENTITY_ALIAS_CURSOR),
 ];
 
 /// Idempotent repair — also runs after the migration runner on every open so
@@ -1110,6 +1122,7 @@ fn open_database_connections(
 
 fn prepare_write_connection_for_open(conn: &Connection) -> rusqlite::Result<()> {
     run_migrations(conn)?;
+    ensure_navidrome_identity_schema(conn)?;
     maybe_reconcile_artist_name_sort(conn)?;
     maybe_reconcile_artist_name_fold(conn)?;
     maybe_reconcile_replay_gain_peak(conn)?;
@@ -1150,13 +1163,14 @@ fn reconcile_ready_rows_with_ingest_cursors(conn: &Connection) -> rusqlite::Resu
 
     let tx = conn.unchecked_transaction()?;
     for (server_id, library_scope, raw_cursor) in candidates {
-        let has_ingest_cursor = raw_cursor.as_deref().is_some_and(|raw| {
-            match serde_json::from_str::<serde_json::Value>(raw) {
-                Ok(serde_json::Value::Object(cursor)) => !cursor.is_empty(),
-                Ok(serde_json::Value::Null) => false,
-                Ok(_) | Err(_) => true,
-            }
-        });
+        let has_ingest_cursor =
+            raw_cursor.as_deref().is_some_and(|raw| {
+                match serde_json::from_str::<serde_json::Value>(raw) {
+                    Ok(serde_json::Value::Object(cursor)) => !cursor.is_empty(),
+                    Ok(serde_json::Value::Null) => false,
+                    Ok(_) | Err(_) => true,
+                }
+            });
         if !has_ingest_cursor {
             continue;
         }
@@ -1216,6 +1230,30 @@ fn sync_state_ignored_articles_column_exists(conn: &Connection) -> rusqlite::Res
     Ok(column_exists > 0)
 }
 
+fn identity_probe_cursor_column_exists(conn: &Connection) -> rusqlite::Result<bool> {
+    let column_exists: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('server_identity_transition') \
+             WHERE name = 'probe_cursor'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    Ok(column_exists > 0)
+}
+
+fn identity_alias_cursor_column_exists(conn: &Connection) -> rusqlite::Result<bool> {
+    let column_exists: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('library_data_migration') \
+             WHERE name = 'cursor_text'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+    Ok(column_exists > 0)
+}
+
 /// Apply schema 014 idempotently — mirrors `migrations/014_artist_name_sort.sql`
 /// but tolerates a partial prior apply (missing one column / re-run).
 fn apply_migration_14(conn: &Connection) -> rusqlite::Result<()> {
@@ -1242,6 +1280,33 @@ fn apply_migration_22(conn: &Connection) -> rusqlite::Result<()> {
     )?;
     maybe_reconcile_artist_name_fold(conn)?;
     Ok(())
+}
+
+/// Apply schema 028 idempotently so a crash after its single `ADD COLUMN`
+/// but before the migration marker is recorded recovers on the next open.
+fn apply_migration_28(conn: &Connection) -> rusqlite::Result<()> {
+    if !identity_probe_cursor_column_exists(conn)? {
+        conn.execute_batch(MIGRATION_028_IDENTITY_PROBE_CURSOR)?;
+    }
+    Ok(())
+}
+
+fn apply_migration_29(conn: &Connection) -> rusqlite::Result<()> {
+    if !identity_alias_cursor_column_exists(conn)? {
+        conn.execute_batch("ALTER TABLE library_data_migration ADD COLUMN cursor_text TEXT;")?;
+    }
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_album_artist_ref \
+         ON album(server_id, artist_id) \
+         WHERE artist_id IS NOT NULL AND artist_id != '';",
+    )?;
+    Ok(())
+}
+
+fn ensure_navidrome_identity_schema(conn: &Connection) -> rusqlite::Result<()> {
+    conn.execute_batch(MIGRATION_027_NAVIDROME_CANONICAL_IDS)?;
+    apply_migration_28(conn)?;
+    apply_migration_29(conn)
 }
 
 fn record_schema_migration(conn: &Connection, version: i64) -> rusqlite::Result<()> {
@@ -1687,6 +1752,16 @@ pub(crate) fn run_migrations_with(
             record_schema_migration(conn, version)?;
             continue;
         }
+        if version == 28 {
+            apply_migration_28(conn)?;
+            record_schema_migration(conn, version)?;
+            continue;
+        }
+        if version == 29 {
+            apply_migration_29(conn)?;
+            record_schema_migration(conn, version)?;
+            continue;
+        }
         conn.execute_batch(sql)?;
         match version {
             20 => mark_projection_migration_complete_if_empty(
@@ -1900,11 +1975,146 @@ mod tests {
     }
 
     #[test]
-    fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
+    fn migration_028_adds_identity_probe_cursor_without_changing_transition_state() {
         let conn = Connection::open_in_memory().unwrap();
+        let migrations_through_27: Vec<(i64, &str)> = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(version, _)| *version <= 27)
+            .collect();
         run_migrations_with(
             &conn,
-            &MIGRATIONS[..MIGRATIONS.len() - 1],
+            &migrations_through_27,
+            LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+            handle_breaking_schema_bump,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO server_identity_transition \
+             (server_id, canonical_version, state, probe_old_id, probe_new_id, detected_at) \
+             VALUES ('s1', 2, 'retryable', 'old', 'new', 123)",
+            [],
+        )
+        .unwrap();
+
+        run_migrations(&conn).unwrap();
+
+        let state: (String, Option<String>, Option<String>, Option<String>) = conn
+            .query_row(
+                "SELECT state, probe_old_id, probe_new_id, probe_cursor \
+                 FROM server_identity_transition WHERE server_id = 's1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(
+            state,
+            (
+                "retryable".into(),
+                Some("old".into()),
+                Some("new".into()),
+                None
+            )
+        );
+    }
+
+    #[test]
+    fn migration_028_recovers_after_column_landed_without_marker() {
+        let conn = Connection::open_in_memory().unwrap();
+        let migrations_through_27: Vec<(i64, &str)> = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(version, _)| *version <= 27)
+            .collect();
+        run_migrations_with(
+            &conn,
+            &migrations_through_27,
+            LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+            handle_breaking_schema_bump,
+        )
+        .unwrap();
+        conn.execute_batch(MIGRATION_028_IDENTITY_PROBE_CURSOR)
+            .expect("apply partial migration ddl");
+
+        run_migrations(&conn).expect("recover partial migration");
+
+        assert!(identity_probe_cursor_column_exists(&conn).unwrap());
+        let recorded: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE version = 28)",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(recorded);
+    }
+
+    #[test]
+    fn migration_029_adds_text_cursor_and_album_artist_index() {
+        let conn = Connection::open_in_memory().unwrap();
+        let migrations_through_28: Vec<(i64, &str)> = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(version, _)| *version <= 28)
+            .collect();
+        run_migrations_with(
+            &conn,
+            &migrations_through_28,
+            LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+            handle_breaking_schema_bump,
+        )
+        .unwrap();
+
+        run_migrations(&conn).unwrap();
+
+        assert!(identity_alias_cursor_column_exists(&conn).unwrap());
+        let index_exists: bool = conn
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM sqlite_master \
+                 WHERE type = 'index' AND name = 'idx_album_artist_ref')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert!(index_exists);
+    }
+
+    #[test]
+    fn open_repairs_identity_schema_when_markers_exist_but_objects_are_missing() {
+        let conn = Connection::open_in_memory().unwrap();
+        run_migrations(&conn).unwrap();
+        conn.execute_batch(
+            "DROP TABLE entity_id_remap;
+             DROP TABLE server_identity_transition;",
+        )
+        .unwrap();
+
+        prepare_write_connection_for_open(&conn).unwrap();
+
+        let identity_tables: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master \
+                 WHERE type = 'table' AND name IN ('entity_id_remap', 'server_identity_transition')",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(identity_tables, 2);
+        assert!(identity_probe_cursor_column_exists(&conn).unwrap());
+        assert!(identity_alias_cursor_column_exists(&conn).unwrap());
+    }
+
+    #[test]
+    fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
+        let conn = Connection::open_in_memory().unwrap();
+        let migrations_through_25: Vec<(i64, &str)> = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(version, _)| *version <= 25)
+            .collect();
+        run_migrations_with(
+            &conn,
+            &migrations_through_25,
             LIBRARY_DB_MIN_COMPATIBLE_VERSION,
             handle_breaking_schema_bump,
         )
@@ -2126,7 +2336,10 @@ mod tests {
         assert_eq!(trigger_count, 3);
         assert_eq!(fts_matches, 1, "open repair rebuilds missed FTS rows");
         assert_eq!(cursor, "{}", "ready rows cannot retain ingest cursors");
-        assert_eq!(local_count, 2, "repair refreshes the persisted count snapshot");
+        assert_eq!(
+            local_count, 2,
+            "repair refreshes the persisted count snapshot"
+        );
         reopened
             .verify_operational_schema()
             .expect("reopened database satisfies backup-import health checks");
