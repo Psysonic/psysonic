@@ -401,6 +401,16 @@ jobs:
           VITE_LASTFM_API_SECRET: ${{ secrets.VITE_LASTFM_API_SECRET }}
           APPIMAGE_EXTRACT_AND_RUN: 1
         run: npm run tauri:build -- --bundles deb,rpm,appimage
+      - name: patch AppImage to prefer host WebKitGTK
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: |
+          curl -fsSL -o /tmp/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /tmp/appimagetool
+          for f in src-tauri/target/release/bundle/appimage/*.AppImage; do
+            APPIMAGETOOL=/tmp/appimagetool scripts/appimage-prefer-host-webkit.sh "$f"
+          done
       - name: upload Linux artifacts
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
