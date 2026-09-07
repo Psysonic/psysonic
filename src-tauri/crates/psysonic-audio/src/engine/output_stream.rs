@@ -44,8 +44,10 @@ fn open_stream_with_verified_rate(
     }
 
     #[cfg(target_os = "linux")]
-    let builder = rodio::DeviceSinkBuilder::default()
-        .with_device(device.clone())
+    // Preserve Rodio's stability-focused fixed buffer while overriding the
+    // fields whose exact ALSA-negotiated values the mixer must use.
+    let builder = rodio::DeviceSinkBuilder::from_device(device.clone())
+        .map_err(|error| format!("failed to configure audio output device: {error}"))?
         .with_channels(
             std::num::NonZeroU16::new(config.channels())
                 .ok_or_else(|| "audio output configuration has zero channels".to_string())?,
