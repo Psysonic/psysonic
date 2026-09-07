@@ -1,4 +1,5 @@
 import type {
+  DiscordCoverSource,
   LoudnessLufsPreset,
   LyricsSourceConfig,
   TrackPreviewLocation,
@@ -44,6 +45,9 @@ export const DEFAULT_COVER_SOURCES: CoverSourcePref[] = [
   { source: 'apple',  enabled: true },
   { source: 'lastfm', enabled: true },
 ];
+
+/** Discord publishing opt-in default: app icon only (#1299 — server URLs are published to Discord's image proxy, so this stays off until the user opts in). */
+export const DEFAULT_DISCORD_COVER_SOURCE: DiscordCoverSource = 'none';
 
 /** Upper bound for mix min-rating thresholds (UI shows five stars, only 1…this many are selectable). */
 export const MIX_MIN_RATING_FILTER_MAX_STARS = 3;

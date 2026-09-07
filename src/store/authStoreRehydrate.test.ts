@@ -231,33 +231,19 @@ describe('computeAuthStoreRehydration — lyrics', () => {
   });
 });
 
-describe('computeAuthStoreRehydration — discordCoverSource → coverSources (PR #1299)', () => {
+describe('computeAuthStoreRehydration — discordCoverSource → Discord gate (PR #1299 / review of #1502)', () => {
   const SENTINEL_KEY = 'psysonic-discord-server-cover-revival-v1';
-  const ALL_DISABLED = [
-    { source: 'server' as const, enabled: false },
-    { source: 'apple' as const, enabled: false },
-    { source: 'lastfm' as const, enabled: false },
-  ];
-  const SERVER_ONLY = [
-    { source: 'server' as const, enabled: true },
-    { source: 'apple' as const, enabled: false },
-    { source: 'lastfm' as const, enabled: false },
-  ];
-  const APPLE_ONLY = [
-    { source: 'server' as const, enabled: false },
-    { source: 'apple' as const, enabled: true },
-    { source: 'lastfm' as const, enabled: false },
-  ];
 
   beforeEach(() => {
     resetAuthStore();
     localStorage.clear();
   });
 
-  it('coerces a stale pre-#1246 "server" value to an all-disabled chain exactly once', () => {
+  it('coerces a stale pre-#1246 "server" value to the Discord gate off, exactly once', () => {
     const base = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: 'server' } as AuthState);
-    expect(patch.coverSources).toEqual(ALL_DISABLED);
+    expect(patch.discordCoverSource).toBe('none');
+    expect('coverSources' in patch).toBe(false);
     expect(localStorage.getItem(SENTINEL_KEY)).toBe('1');
   });
 
@@ -265,7 +251,7 @@ describe('computeAuthStoreRehydration — discordCoverSource → coverSources (P
     localStorage.setItem(SENTINEL_KEY, '1');
     const base = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: 'server' } as AuthState);
-    expect(patch.coverSources).toEqual(SERVER_ONLY);
+    expect(patch.discordCoverSource).toBe('server');
   });
 
   it('sets the sentinel on first rehydrate even when the value is not "server"', () => {
@@ -274,27 +260,38 @@ describe('computeAuthStoreRehydration — discordCoverSource → coverSources (P
     expect(localStorage.getItem(SENTINEL_KEY)).toBe('1');
   });
 
-  it('maps "apple" and "none" onto the chain', () => {
+  it('maps "apple" and "none" onto the Discord gate without touching the in-app chain', () => {
     const base = useAuthStore.getState();
     const apple = computeAuthStoreRehydration({ ...base, discordCoverSource: 'apple' } as AuthState);
-    expect(apple.coverSources).toEqual(APPLE_ONLY);
+    expect(apple.discordCoverSource).toBe('apple');
     const none = computeAuthStoreRehydration({ ...base, discordCoverSource: 'none' } as AuthState);
-    expect(none.coverSources).toEqual(ALL_DISABLED);
+    expect(none.discordCoverSource).toBe('none');
+    expect('coverSources' in apple).toBe(false);
+    expect('coverSources' in none).toBe(false);
   });
 
-  it('is a no-op when no legacy discordCoverSource is present (never clobbers persisted chain)', () => {
-    // Once the legacy field is gone the migration must not force the chain back
-    // to all-disabled — doing so would overwrite the persisted coverSources on
-    // every rehydrate and block the external album-cover chain (PR #1299 follow-up).
-    const withSources = useAuthStore.getState();
+  it('never writes coverSources (the chain stays enabled-by-default for every install)', () => {
+    // The maintainer-required fix: the old migration shipped the chain disabled
+    // for every existing install (legacy 'none' mapped to all-sources-off while
+    // fresh installs got all three enabled). The chain is app artwork, not a
+    // Discord disclosure, so the migration must not touch it at all.
+    const base = useAuthStore.getState();
+    for (const legacy of ['server', 'apple', 'none', 'garbage']) {
+      const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: legacy } as unknown as AuthState);
+      expect('coverSources' in patch).toBe(false);
+    }
+  });
+
+  it('is a no-op when no legacy discordCoverSource is present (never clobbers persisted gate)', () => {
+    // Once the legacy field is gone the migration must not force the Discord
+    // gate back to 'none' — doing so would overwrite the user's persisted
+    // choice on every rehydrate.
+    const withGate = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({
-      ...withSources,
-      coverSources: [
-        { source: 'server', enabled: true },
-        { source: 'apple', enabled: true },
-        { source: 'lastfm', enabled: false },
-      ],
-    } as AuthState);
+      ...withGate,
+      discordCoverSource: undefined,
+    } as unknown as AuthState);
+    expect('discordCoverSource' in patch).toBe(false);
     expect('coverSources' in patch).toBe(false);
   });
 });

@@ -5,8 +5,10 @@ import { useThemeStore } from '@/store/themeStore';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
+import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
 import { SettingsSubCard, SettingsField } from '@/features/settings/components/SettingsSubCard';
 import { BackdropSourceList } from '@/features/settings/components/BackdropSourceList';
+import type { DiscordCoverSource } from '@/store/authStoreTypes';
 import type { BackdropSurface } from '@/store/themeStore';
 import type { BackdropSource } from '@/cover/artistBackdrop';
 import { CoverSourceList } from '@/features/settings/components/CoverSourceList';
@@ -30,6 +32,11 @@ export function IntegrationsTab() {
       : s === 'fanart'
         ? t('settings.backdropSourceFanart')
         : t('settings.backdropSourceNavidrome');
+  const discordCoverOptions: SegmentedOption<DiscordCoverSource>[] = [
+    { id: 'none', label: t('settings.discordCoverNone') },
+    { id: 'server', label: t('settings.discordCoverServer') },
+    { id: 'apple', label: t('settings.discordCoverApple') },
+  ];
   const coverSourceLabel = (s: CoverSource): string =>
     s === 'server' ? t('settings.coverSourceServer')
     : s === 'apple' ? t('settings.coverSourceApple')
@@ -78,6 +85,15 @@ export function IntegrationsTab() {
           </SettingsGroup>
           {auth.discordRichPresence && (
             <>
+              <SettingsGroup title={t('settings.discordCoverTitle')} desc={t('settings.discordCoverDesc')}>
+                <SettingsSegmented
+                  options={discordCoverOptions}
+                  value={auth.discordCoverSource}
+                  onChange={auth.setDiscordCoverSource}
+                  ariaLabel={t('settings.discordCoverTitle')}
+                />
+              </SettingsGroup>
+
               <SettingsGroup title={t('settings.discordTemplates')} desc={t('settings.discordTemplatesDesc')}>
                 <SettingsSubCard>
                   <SettingsField label={t('settings.discordTemplateName')}>

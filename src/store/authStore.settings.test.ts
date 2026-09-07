@@ -228,6 +228,15 @@ describe('replay-gain related setters (write through to player store)', () => {
   });
 });
 
+describe('discord cover source setters', () => {
+  it('setDiscordCoverSource accepts none / server / apple', () => {
+    for (const src of ['none', 'server', 'apple'] as const) {
+      useAuthStore.getState().setDiscordCoverSource(src);
+      expect(useAuthStore.getState().discordCoverSource).toBe(src);
+    }
+  });
+});
+
 describe('cover source chain setters', () => {
   it('setCoverSources stores the ordered chain', () => {
     useAuthStore.getState().setCoverSources(DEFAULT_COVER_SOURCES);

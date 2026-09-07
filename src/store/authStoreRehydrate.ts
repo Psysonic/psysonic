@@ -11,7 +11,6 @@ import {
   clampStoredLoudnessPreAnalysisAttenuationRefDb,
 } from '@/lib/audio/loudnessPreAnalysisSlider';
 import {
-  DEFAULT_COVER_SOURCES,
   DEFAULT_LOUDNESS_PRE_ANALYSIS_ATTENUATION_DB,
   clampScrobbleThresholdPercent,
 } from './authStoreDefaults';
@@ -26,13 +25,13 @@ import {
 import type {
   AuthState,
   ArtistBrowseCreditMode,
+  DiscordCoverSource,
   DurationMode,
   LyricsSourceConfig,
   QueueDisplayMode,
   SeekbarStyle,
   WindowButtonStyle,
 } from './authStoreTypes';
-import type { CoverSourcePref } from '@/cover/coverSources';
 import { migrateLegacyLastfm, sanitizeAccounts, sanitizeScrobbleQueue } from '../music-network';
 import { deriveLibraryBrowseServerIdsWithFallback } from '@/lib/library/libraryBrowseScope';
 import { sanitizeDebugLoggingDepth } from '@/lib/perf/debugLoggingMode';
@@ -190,10 +189,12 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
             )
           : DEFAULT_LOUDNESS_PRE_ANALYSIS_ATTENUATION_DB);
 
-  // Migrate the legacy single-value discordCoverSource → the ordered
-  // coverSources chain. Resolve the effective legacy value through the two
-  // prior migrations (enableAppleMusicCoversDiscord boolean; PR #1246/#1299
-  // 'server' revival guard), then map it to the equivalent chain.
+  // Migrate the legacy single-value discordCoverSource → the Discord publishing
+  // gate (`discordCoverSource`), resolving the effective legacy value through
+  // the two prior migrations (enableAppleMusicCoversDiscord boolean; PR
+  // #1246/#1299 'server' revival guard). The in-app `coverSources` chain is
+  // NOT touched: it keeps its enabled-by-default default (DEFAULT_COVER_SOURCES)
+  // for every install — the chain is app artwork, not a Discord disclosure.
   let effectiveDiscordCover: unknown =
     (state as { discordCoverSource?: unknown }).discordCoverSource;
   const legacyAppleCovers = (state as { enableAppleMusicCoversDiscord?: unknown }).enableAppleMusicCoversDiscord;
@@ -209,20 +210,18 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
   } catch { /* ignore */ }
   delete (state as { enableAppleMusicCoversDiscord?: unknown }).enableAppleMusicCoversDiscord;
 
-  const coverSourcesMigrated: { coverSources?: CoverSourcePref[] } = (() => {
-    // One-time migration of the legacy `discordCoverSource` field only. When that
-    // field is absent (already migrated, or a modern install) this must be a
-    // no-op — otherwise the all-disabled default below would overwrite the
-    // persisted coverSources chain on every rehydrate, silencing any sources the
-    // user enabled (and blocking the §5 external album-cover chain).
+  const discordCoverSourceMigrated: { discordCoverSource?: DiscordCoverSource } = (() => {
+    // One-time migration of the legacy `discordCoverSource` field into the
+    // Discord gate of the same name. When the field is absent (already
+    // migrated, or a modern install) this must be a no-op — otherwise it would
+    // overwrite the user's persisted Discord choice on every rehydrate.
     const rawDiscordCover = (state as { discordCoverSource?: unknown }).discordCoverSource;
     if (rawDiscordCover === undefined && legacyAppleCovers !== true) return {};
-    const only = (src: CoverSourcePref['source']): CoverSourcePref[] =>
-      (['server', 'apple', 'lastfm'] as const).map(s => ({ source: s, enabled: s === src }));
-    if (effectiveDiscordCover === 'apple') return { coverSources: only('apple') };
-    if (effectiveDiscordCover === 'server') return { coverSources: only('server') };
-    // 'none' / undefined / garbage → chain off (preserves "no large image" intent).
-    return { coverSources: DEFAULT_COVER_SOURCES.map(s => ({ ...s, enabled: false })) };
+    if (effectiveDiscordCover === 'apple') return { discordCoverSource: 'apple' };
+    if (effectiveDiscordCover === 'server') return { discordCoverSource: 'server' };
+    // 'none' / undefined+legacy-apple / garbage → gate off (preserves the
+    // "no large image" intent of the legacy value).
+    return { discordCoverSource: 'none' };
   })();
   delete (state as unknown as Record<string, unknown>).discordCoverSource;
   // One-time: legacy unified `maxCacheMb` cap removed from Settings (offline + IDB covers).
@@ -407,7 +406,7 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
     ...queueDisplayModeMigrated,
     ...artistBrowseCreditModeMigrated,
     ...linuxWaylandTextRenderProfileMigrated,
-    ...coverSourcesMigrated,
+    ...discordCoverSourceMigrated,
     ...maxCacheMbMigrated,
   };
 }

@@ -22,6 +22,7 @@ export function setupDiscordPresence(): () => void {
   let discordPrevTemplateLargeText: string | null = null;
   let discordPrevTemplateName: string | null = null;
   let discordPrevCoverSources: CoverSourcePref[] | null = null;
+  let discordPrevDiscordCoverSource: string | null = null;
   let discordPrevShareBase: string | null = null;
 
   function syncDiscord() {
@@ -29,6 +30,7 @@ export function setupDiscordPresence(): () => void {
     const currentTime = getPlaybackProgressSnapshot().currentTime;
     const {
       discordRichPresence,
+      discordCoverSource,
       coverSources,
       discordTemplateDetails,
       discordTemplateState,
@@ -43,6 +45,7 @@ export function setupDiscordPresence(): () => void {
         discordPrevTrackKey = null;
         discordPrevIsPlaying = null;
         discordPrevCoverSources = null;
+        discordPrevDiscordCoverSource = null;
         discordPrevShareBase = null;
         discordPrevTemplateDetails = null;
         discordPrevTemplateState = null;
@@ -64,9 +67,11 @@ export function setupDiscordPresence(): () => void {
     const currentTrackKey = ownedEntityKey(currentTrack);
     const trackChanged = currentTrackKey !== discordPrevTrackKey;
     const playingChanged = isPlaying !== discordPrevIsPlaying;
-    const coverSourceChanged = coverSources !== discordPrevCoverSources;
+    const coverSourceChanged =
+      coverSources !== discordPrevCoverSources ||
+      discordCoverSource !== discordPrevDiscordCoverSource;
     const shareBaseChanged =
-      coverSources.some(s => s.source === 'server' && s.enabled) &&
+      discordCoverSource !== 'none' &&
       shareBase !== discordPrevShareBase;
     const detailsTemplateChanged = discordTemplateDetails !== discordPrevTemplateDetails;
     const stateTemplateChanged = discordTemplateState !== discordPrevTemplateState;
@@ -77,6 +82,7 @@ export function setupDiscordPresence(): () => void {
     discordPrevTrackKey = currentTrackKey;
     discordPrevIsPlaying = isPlaying;
     discordPrevCoverSources = coverSources;
+    discordPrevDiscordCoverSource = discordCoverSource;
     discordPrevShareBase = shareBase;
     discordPrevTemplateDetails = discordTemplateDetails;
     discordPrevTemplateState = discordTemplateState;
@@ -98,13 +104,23 @@ export function setupDiscordPresence(): () => void {
       }).catch(() => {});
     };
 
-    // Resolve the ordered chain to a publishable URL. getAlbumInfo2 always
-    // queries the *active* server, so a mixed-server queue whose playing track
-    // isn't from the active server must skip the 'server' source rather than
-    // ask the wrong server for that album id (PR #1246 context) — we pass no
-    // albumId in that case, which makes the 'server' step a no-op and the chain
-    // falls through to apple/lastfm.
+    // What Discord may publish is a separate opt-in from the in-app chain
+    // (#1299): 'none' shows the app icon only — nothing is fetched, nothing is
+    // published. 'server' publishes the ordered in-app chain verbatim (every
+    // URL still passes the credential-blind sanitizer + placeholder filter).
+    // 'apple' publishes the chain with the 'server' row dropped: external
+    // lookups need no server, so this can never publish a server share URL.
+    // getAlbumInfo2 always queries the *active* server, so a mixed-server
+    // queue whose playing track isn't from the active server must skip the
+    // 'server' source rather than ask the wrong server for that album id (PR
+    // #1246 context) — we pass no albumId in that case, which makes the
+    // 'server' step a no-op and the chain falls through to apple/lastfm.
     const trackKey = currentTrackKey;
+    const publishSources =
+      discordCoverSource === 'none' ? []
+      : discordCoverSource === 'apple'
+        ? coverSources.filter(s => s.source !== 'server')
+        : coverSources;
     const chainCtx = {
       albumId: !playbackServerDiffersFromActive() ? currentTrack.albumId : undefined,
       artist: currentTrack.artist ?? undefined,
@@ -113,13 +129,14 @@ export function setupDiscordPresence(): () => void {
       shareBase,
     };
     void (async () => {
-      const url = await resolveCoverForDiscord(useAuthStore.getState().coverSources, chainCtx);
+      const url = await resolveCoverForDiscord(publishSources, chainCtx);
       // Staleness guard: drop if playback moved on, presence disabled, or the
-      // chain changed while requests were in flight.
+      // gate/chain changed while requests were in flight.
       const latest = useAuthStore.getState();
       const liveTrack = usePlayerStore.getState().currentTrack;
       if (!liveTrack || ownedEntityKey(liveTrack) !== trackKey) return;
-      if (!latest.discordRichPresence || latest.coverSources !== coverSources) return;
+      if (!latest.discordRichPresence) return;
+      if (latest.discordCoverSource !== discordCoverSource || latest.coverSources !== coverSources) return;
       sendPresence(url);
     })();
   }
