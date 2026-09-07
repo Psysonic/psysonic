@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * On Windows the update dialog now installs the new version itself, the way it already does on macOS: the installer is downloaded, its signature is checked against the key built into the app, and it runs in the background. Psysonic closes and reopens by itself when it is done.
 * Until now Windows only offered the installer as a download to run by hand. Installs of this version and later update in place; an older install still downloads the next installer once.
 
+### Rate the current track with a global shortcut
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1503](https://github.com/Psysonic/psysonic/pull/1503)**
+
+* Settings → Input → Global shortcuts now offers separate, unbound actions for assigning 1–5 stars to the current track, even while Psysonic is out of focus.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again
@@ -74,6 +80,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), reported by MrMiniblock on Discord, PR [#1499](https://github.com/Psysonic/psysonic/pull/1499)**
 
 * Opening an album or artist from a long playlist and then going back now restores the previous scroll position instead of returning to the top.
+
+### Unfocused visualizers stop drawing in the background
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@netherguy4](https://github.com/netherguy4), PR [#1505](https://github.com/Psysonic/psysonic/pull/1505)**
+
+* Switching to another application no longer leaves the Now Playing visualizer consuming rendering time in the background. It pauses by default and resumes when Psysonic regains focus.
+* The behaviour can be changed under **Settings → Appearance → Visualizer**. Waveform progress continues to update while the window is unfocused.
 
 ## [1.52.0]
 
