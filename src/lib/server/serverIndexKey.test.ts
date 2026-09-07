@@ -8,10 +8,7 @@ vi.mock('@/store/authStore', () => ({
   },
 }));
 
-import {
-  looksLikeGeneratedProfileId,
-  resolveStorageServerIndexKey,
-} from '@/lib/server/serverIndexKey';
+import { resolveStorageServerIndexKey } from '@/lib/server/serverIndexKey';
 
 const PROFILE_ID = '7d9f7c36-1c55-4a6f-ae24-87ab823f5b61';
 
@@ -35,11 +32,13 @@ describe('resolveStorageServerIndexKey', () => {
     expect(resolveStorageServerIndexKey('mpserver')).toBe('mpserver');
   });
 
-  it('does not mistake an unconfigured bare hostname for a minted id', () => {
-    // Decodes into the window, but it is exactly the timestamp width and
-    // therefore carries no random suffix — `generateId()` always appends one.
-    expect(looksLikeGeneratedProfileId('mpserver')).toBe(false);
+  it('keeps unconfigured bare hostnames whatever their base36 shape', () => {
+    // Both decode into the profile-id minting window, so no prefix rule can
+    // separate them from an ephemeral id. This resolver keeps them; refusing
+    // ephemeral identity is the analysis boundary's job, using the store's
+    // record of minted ids rather than a guess at the shape.
     expect(resolveStorageServerIndexKey('mpserver')).toBe('mpserver');
+    expect(resolveStorageServerIndexKey('mpserver01')).toBe('mpserver01');
     expect(resolveStorageServerIndexKey('http://mpserver')).toBe('mpserver');
   });
 
@@ -49,34 +48,6 @@ describe('resolveStorageServerIndexKey', () => {
     expect(resolveStorageServerIndexKey('localhost')).toBe('localhost');
     expect(resolveStorageServerIndexKey('navidrome:4533')).toBe('navidrome:4533');
     expect(resolveStorageServerIndexKey('192.0.2.10:4533')).toBe('192.0.2.10:4533');
-  });
-
-  it('only treats a base36 word as a profile id when its timestamp is plausible', () => {
-    expect(looksLikeGeneratedProfileId('mpve60xt6p6nxkbmf6')).toBe(true);
-    // Decode to 2023 and 2025: minted before any Psysonic profile existed.
-    expect(looksLikeGeneratedProfileId('localhost')).toBe(false);
-    expect(looksLikeGeneratedProfileId('mediaserver')).toBe(false);
-    // Decodes to 2056: a timestamp from the future is not a minted id.
-    expect(looksLikeGeneratedProfileId('zerobased')).toBe(false);
-    expect(looksLikeGeneratedProfileId('server-a')).toBe(false);
-  });
-
-  it('accepts generated profile ids with long suffixes and wider timestamps', () => {
-    const mintedApril2026 = Date.UTC(2026, 3, 15);
-    const longId = mintedApril2026.toString(36) + '000000000000em2djky0vz9';
-    expect(longId.length).toBeGreaterThan(24);
-    expect(looksLikeGeneratedProfileId(longId, mintedApril2026)).toBe(true);
-
-    const firstNineDigitTimestamp = 36 ** 8;
-    const futureId = firstNineDigitTimestamp.toString(36) + 'random';
-    expect(looksLikeGeneratedProfileId(futureId, firstNineDigitTimestamp)).toBe(true);
-  });
-
-  it('requires a random suffix: a bare timestamp is not a minted id', () => {
-    const mintedApril2026 = Date.UTC(2026, 3, 15);
-    const stamp = mintedApril2026.toString(36);
-    expect(looksLikeGeneratedProfileId(stamp, mintedApril2026)).toBe(false);
-    expect(looksLikeGeneratedProfileId(`${stamp}a`, mintedApril2026)).toBe(true);
   });
 
   it('normalizes a primary URL into the existing address-derived key', () => {

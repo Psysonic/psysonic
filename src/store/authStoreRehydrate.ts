@@ -213,6 +213,23 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
       localStorage.setItem(discordServerCoverRevivalMigrationKey, '1');
     }
   } catch { /* ignore */ }
+  // Every configured profile id is by definition a minted one, so seeding from
+  // `servers` catches installs that predate the record. Union, never subtract:
+  // a removed profile must keep its entry or its id would read as an address
+  // again. Returns nothing when there is nothing to add, so a rehydrate can
+  // never shrink or rewrite the persisted list.
+  const persistedMintedIds = Array.isArray(state.mintedServerProfileIds)
+    ? state.mintedServerProfileIds.filter((id): id is string => typeof id === 'string' && !!id)
+    : [];
+  const seededMintedIds = new Set(persistedMintedIds);
+  for (const server of state.servers ?? []) {
+    if (server?.id) seededMintedIds.add(server.id);
+  }
+  const mintedServerProfileIdsSeeded: { mintedServerProfileIds?: string[] } =
+    seededMintedIds.size === persistedMintedIds.length
+      ? {}
+      : { mintedServerProfileIds: [...seededMintedIds] };
+
   // One-time: legacy unified `maxCacheMb` cap removed from Settings (offline + IDB covers).
   const maxCacheMbMigrationKey = 'psysonic-max-cache-mb-removed-v1';
   let maxCacheMbMigrated: { maxCacheMb?: number } = {};
@@ -397,5 +414,6 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
     ...linuxWaylandTextRenderProfileMigrated,
     ...discordCoverSourceMigrated,
     ...maxCacheMbMigrated,
+    ...mintedServerProfileIdsSeeded,
   };
 }

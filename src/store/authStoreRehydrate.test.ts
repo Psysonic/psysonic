@@ -267,3 +267,46 @@ describe('computeAuthStoreRehydration — discordCoverSource server-revival (PR 
     }
   });
 });
+
+describe('computeAuthStoreRehydration — minted server profile ids', () => {
+  beforeEach(resetAuthStore);
+
+  it('seeds the record from configured servers on installs that predate it', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+        { id: 'profile-b', name: 'B', url: 'https://b.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: [],
+    } as AuthState);
+    expect(patch.mintedServerProfileIds).toEqual(['profile-a', 'profile-b']);
+  });
+
+  it('keeps ids of removed profiles instead of subtracting them', () => {
+    // A removed profile must stay on record: without it, its id would read as
+    // an address again and could reach analysis storage.
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: ['profile-gone'],
+    } as AuthState);
+    expect(patch.mintedServerProfileIds).toEqual(['profile-gone', 'profile-a']);
+  });
+
+  it('is a no-op once every configured id is already on record', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: ['profile-a'],
+    } as AuthState);
+    expect('mintedServerProfileIds' in patch).toBe(false);
+  });
+});

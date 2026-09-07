@@ -125,6 +125,17 @@ export interface AuthState {
   
   // Multi-server
   servers: ServerProfile[];
+  /**
+   * Every server-profile id this install has ever minted, including profiles
+   * that were removed later. A minted id is ephemeral identity and must never
+   * reach durable storage as a server key, while an address-derived key must;
+   * the two cannot be told apart by shape, because a profile id is base36 and
+   * so is a single-label hostname. Membership here is the non-ambiguous test —
+   * the app mints these ids itself, so it knows them by construction.
+   * Append-only: a removed profile keeps its entry, otherwise its id would look
+   * like an address again the moment the profile is gone.
+   */
+  mintedServerProfileIds: string[];
   activeServerId: string | null;
   /** Servers included in Library pages/search. Priority follows `servers` order. */
   libraryBrowseServerIds: string[];

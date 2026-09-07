@@ -9,49 +9,12 @@ export { serverIndexKeyForProfile, serverIndexKeyFromUrl } from '@/lib/server/se
 const SERVER_PROFILE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 /**
- * Shape of a server profile id minted by `generateId()`: `Date.now().toString(36)`
- * followed by `Math.random().toString(36).slice(2)`. Timestamp width grows over
- * time and the random suffix has no useful fixed maximum, so inspect every
- * plausible timestamp width instead of bounding the complete id.
- *
- * The suffix is what separates a minted id from a single-label hostname that
- * happens to decode into the minting window: `generateId()`
- * (`store/authStoreHelpers.ts`) always appends at least one character after the
- * timestamp, so a candidate whose whole length IS the timestamp width cannot be
- * one. That is why the scan requires characters to remain — an eight-character
- * host such as `mpserver` decodes to a plausible timestamp but carries no
- * suffix, and rejecting it would cost that server its analysis identity.
- */
-const GENERATED_PROFILE_ID_RE = /^[0-9a-z]+$/;
-const EARLIEST_GENERATED_PROFILE_ID_MS = Date.UTC(2026, 2, 1);
-const GENERATED_PROFILE_ID_CLOCK_SKEW_MS = 60 * 60 * 1000;
-const EARLIEST_GENERATED_PROFILE_ID_TIMESTAMP_LENGTH =
-  EARLIEST_GENERATED_PROFILE_ID_MS.toString(36).length;
-
-export function looksLikeGeneratedProfileId(candidate: string, nowMs = Date.now()): boolean {
-  if (!GENERATED_PROFILE_ID_RE.test(candidate)) return false;
-  const latestGeneratedProfileIdMs = nowMs + GENERATED_PROFILE_ID_CLOCK_SKEW_MS;
-  const latestTimestampLength = latestGeneratedProfileIdMs.toString(36).length;
-  for (
-    let timestampLength = EARLIEST_GENERATED_PROFILE_ID_TIMESTAMP_LENGTH;
-    timestampLength <= latestTimestampLength && timestampLength < candidate.length;
-    timestampLength += 1
-  ) {
-    const mintedAtMs = parseInt(candidate.slice(0, timestampLength), 36);
-    if (
-      mintedAtMs >= EARLIEST_GENERATED_PROFILE_ID_MS
-      && mintedAtMs <= latestGeneratedProfileIdMs
-    ) return true;
-  }
-  return false;
-}
-
-/**
  * Resolve a durable storage key from a profile UUID, primary URL, or existing
  * index key. Unknown UUIDs are rejected rather than leaking ephemeral profile
- * identity into storage. Base36 profile ids cannot be distinguished safely
- * from valid single-label hostnames here, so callers with narrower acceptance
- * requirements must apply them at their domain boundary.
+ * identity into storage. A base36 profile id cannot be told apart from a valid
+ * single-label hostname by its shape, so callers that must refuse ephemeral
+ * identity check the store's record of minted ids at their own boundary — see
+ * `resolveAnalysisServerIndexKey` in `features/playback/store/analysisTrackRef`.
  */
 export function resolveStorageServerIndexKey(serverIdOrKey: string): string | null {
   const candidate = serverIdOrKey.trim();
