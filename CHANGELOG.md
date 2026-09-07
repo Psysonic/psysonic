@@ -48,6 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Settings → Input → Global shortcuts now offers separate, unbound actions for assigning 1–5 stars to the current track, even while Psysonic is out of focus.
 
+### Psysonic follows your desktop's theme
+
+**By [@Manwe-777](https://github.com/Manwe-777), PR [#1507](https://github.com/Psysonic/psysonic/pull/1507)**
+
+* On a Linux desktop that publishes its colours — Omarchy does out of the box — Psysonic now themes itself to match, and re-themes itself within a couple of seconds when you switch your desktop theme. No restart, nothing to keep in sync by hand.
+* The generated theme appears in Settings → Themes as `Desktop — <your theme's name>`, next to a **Follow desktop theme** switch. Existing installs keep the theme they already had and start with the switch off; picking any other theme by hand also turns following off, so your choice sticks.
+* Any other desktop works too: point `PSYSONIC_PALETTE_FILE` at a file of `name = "#rrggbb"` lines. Naming only a background, a foreground and an accent is enough — the rest of the theme is derived from those three.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again

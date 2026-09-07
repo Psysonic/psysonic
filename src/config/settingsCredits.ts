@@ -522,6 +522,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Now-playing badge shows the real decoded stream format on server transcode (PR #1338)',
       'Audio visualizer across Now Playing, radio and fullscreen player surfaces (PR #1375)',
       'Per-address Navidrome streaming quality with original-stream analysis and cache isolation (PR #1334)',
+      'Theme that follows the palette your desktop publishes, live (PR #1507)',
     ],
   },
   {
