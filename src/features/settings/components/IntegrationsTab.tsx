@@ -91,6 +91,10 @@ export function IntegrationsTab() {
                   value={auth.discordCoverSource}
                   onChange={auth.setDiscordCoverSource}
                   ariaLabel={t('settings.discordCoverTitle')}
+                  // These three labels differ by more than a factor of two in
+                  // length, and translations widen the gap. Equal-width
+                  // segments would clip the longest one at both ends.
+                  className="settings-segmented-auto"
                 />
               </SettingsGroup>
 
