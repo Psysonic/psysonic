@@ -6,7 +6,10 @@ import { useAuthStore } from '@/store/authStore';
 import { serverIndexKeyForProfile } from '@/lib/server/serverIndexKey';
 import { useDeviceSyncStore, type DeviceSyncSource } from '@/features/deviceSync/store/deviceSyncStore';
 import { useDeviceSyncJobStore } from '@/features/deviceSync/store/deviceSyncJobStore';
+import { showToast } from '@/lib/dom/toast';
 import { runDeviceSyncExecute, runDeviceSyncSummaryPrompt, type SyncDelta } from './runDeviceSyncExecution';
+
+vi.mock('@/lib/dom/toast', () => ({ showToast: vi.fn() }));
 
 describe('runDeviceSyncSummaryPrompt ownership', () => {
   beforeEach(() => {
@@ -24,6 +27,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       scanning: false,
     });
     useDeviceSyncJobStore.getState().reset();
+    vi.mocked(showToast).mockClear();
   });
 
   it('uses the captured source owner even when another server is active', async () => {
@@ -159,6 +163,35 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
     expect(invokeMock).not.toHaveBeenCalledWith('calculate_sync_payload', expect.anything());
   });
 
+  it('shows a specific error when two tracks map to the same device path', async () => {
+    const owner = makeServer({ id: 'owner', url: 'https://owner.test' });
+    const serverIndexKey = serverIndexKeyForProfile(owner);
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey,
+    };
+    useAuthStore.setState(makeAuthState({ servers: [owner], activeServerId: owner.id }));
+    useDeviceSyncStore.setState({
+      targetDir: '/device', sources: [source], pendingDeletion: [], pendingPlanChecked: true,
+    });
+    onInvoke('calculate_sync_payload', () => {
+      throw 'DEVICE_SYNC_PATH_IDENTITY_COLLISION:Artist/Album/01 - Song.flac';
+    });
+
+    await runDeviceSyncSummaryPrompt({
+      targetDir: '/device',
+      sources: [source],
+      pendingDeletion: [],
+      layoutMode: 'self-contained',
+      playlistPathMode: 'playlist-relative',
+      t: ((key: string) => key) as never,
+      setPreSyncLoading: vi.fn(),
+      setPreSyncOpen: vi.fn(),
+      setSyncDelta: vi.fn(),
+    });
+
+    expect(showToast).toHaveBeenCalledWith('deviceSync.pathCollision', 5000, 'error');
+  });
+
   it('refuses to execute a preview after its source selection changes', async () => {
     const owner = makeServer({ id: 'owner', url: 'https://owner.test' });
     const serverIndexKey = serverIndexKeyForProfile(owner);
@@ -200,5 +233,70 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
     expect(setPreSyncOpen).toHaveBeenCalledWith(false);
     expect(useDeviceSyncJobStore.getState().status).toBe('idle');
     expect(invokeMock).not.toHaveBeenCalledWith('sync_batch_to_device', expect.anything());
+  });
+
+  it.each([
+    ['DEVICE_SYNC_DEVICE_CHANGED', 'deviceSync.deviceChanged', true],
+    ['DEVICE_SYNC_CLEANUP_FAILED', 'deviceSync.cleanupFailed', false],
+  ])('preserves the actionable finalize reason %s', async (error, toastKey, reject) => {
+    const owner = makeServer({ id: 'owner', url: 'https://owner.test' });
+    const serverIndexKey = serverIndexKeyForProfile(owner);
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey,
+    };
+    useAuthStore.setState(makeAuthState({ servers: [owner], activeServerId: owner.id }));
+    useDeviceSyncStore.setState({
+      targetDir: '/device',
+      targetDeviceId: 'device-1',
+      sources: [source],
+      pendingDeletion: [],
+      pendingPlanChecked: true,
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+    });
+    onInvoke('finalize_device_sync', () => {
+      if (reject) throw error;
+      return { deleted: 0, cleanupFailed: true };
+    });
+    const context = {
+      targetDir: '/device',
+      deviceId: 'device-1',
+      planId: 'plan-1',
+      serverIndexKey,
+      sources: [source],
+      deletionSourceKeys: [],
+      layoutMode: 'shared-album-tree' as const,
+      playlistPathMode: 'device-rooted' as const,
+      deferredDeletePaths: [],
+      playlists: [],
+      manifestFiles: [],
+      manifestPlaylists: [],
+    };
+
+    await runDeviceSyncExecute({
+      syncDelta: {
+        planId: 'plan-1',
+        deviceId: 'device-1',
+        addBytes: 0,
+        addCount: 0,
+        delBytes: 0,
+        delCount: 0,
+        reclaimableBytes: 0,
+        availableBytes: 1,
+        tracks: [],
+        deletePaths: [],
+        deferredDeletePaths: [],
+        playlists: [],
+        manifestFiles: [],
+        manifestPlaylists: [],
+        context,
+      },
+      t: ((key: string) => key) as never,
+      setPreSyncOpen: vi.fn(),
+      scanDevice: vi.fn(),
+    });
+
+    expect(showToast).toHaveBeenCalledWith(toastKey, 5000, 'error');
+    expect(useDeviceSyncJobStore.getState().status).toBe('failed');
   });
 });

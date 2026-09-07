@@ -6,6 +6,7 @@ import { useDeviceSyncJobStore } from '@/features/deviceSync/store/deviceSyncJob
 import { useDeviceSyncStore } from '@/features/deviceSync/store/deviceSyncStore';
 import { showToast } from '@/lib/dom/toast';
 import { finalizeDeviceSyncJob } from '@/features/deviceSync/utils/finalizeDeviceSyncJob';
+import { showDeviceSyncErrorToast } from '@/features/deviceSync/utils/deviceSyncErrorToast';
 
 async function scanCompletedTarget(targetDir: string): Promise<void> {
   const store = useDeviceSyncStore.getState();
@@ -63,9 +64,9 @@ export function useDeviceSyncJobEvents(): void {
               showToast(i18n.t('deviceSync.syncResult', {
                 done: payload.done, skipped: payload.skipped, total: payload.total,
               }), 5000, 'info');
-            } catch {
+            } catch (error) {
               useDeviceSyncJobStore.getState().fail(payload.done, payload.skipped, 1);
-              showToast(i18n.t('deviceSync.fetchError'), 3000, 'error');
+              showDeviceSyncErrorToast(error, i18n.t);
             } finally {
               if (useDeviceSyncStore.getState().targetDir === context.targetDir) {
                 await scanCompletedTarget(context.targetDir);

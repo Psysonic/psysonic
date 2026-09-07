@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   emitTauriEvent,
   invokeMock,
@@ -10,6 +10,9 @@ import { useDeviceSyncJobStore } from '@/features/deviceSync/store/deviceSyncJob
 import { useDeviceSyncStore, type DeviceSyncSource } from '@/features/deviceSync/store/deviceSyncStore';
 import { useDeviceSyncJobEvents } from './useDeviceSyncJobEvents';
 import { NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY } from '@/lib/server/navidromeCanonicalCheckpointStatus';
+import { showToast } from '@/lib/dom/toast';
+
+vi.mock('@/lib/dom/toast', () => ({ showToast: vi.fn() }));
 
 const jobContext = (source: DeviceSyncSource, targetDir: string) => ({
   targetDir,
@@ -39,6 +42,7 @@ describe('useDeviceSyncJobEvents ownership', () => {
       deviceFilePaths: [],
       scanning: false,
     });
+    vi.mocked(showToast).mockClear();
   });
 
   it('writes completion metadata from the immutable job context', async () => {
@@ -104,5 +108,28 @@ describe('useDeviceSyncJobEvents ownership', () => {
     await waitFor(() => expect(useDeviceSyncJobStore.getState()).toMatchObject({
       status: 'cancelled', done: 1, skipped: 0, failed: 0,
     }));
+  });
+
+  it('shows the cleanup failure reason when event-driven finalization is incomplete', async () => {
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey: 'owner.test',
+    };
+    useDeviceSyncJobStore.getState().startSync('job-1', 1, jobContext(source, '/device'));
+    useDeviceSyncStore.setState({ targetDir: '/device', sources: [source] });
+    onInvoke('finalize_device_sync', () => ({ deleted: 0, cleanupFailed: true }));
+    onInvoke('list_device_dir_files', () => []);
+    renderHook(() => useDeviceSyncJobEvents());
+    await waitFor(() => expect(tauriMockListenerCount('device:sync:complete')).toBe(1));
+
+    emitTauriEvent('device:sync:complete', {
+      jobId: 'job-1', done: 1, skipped: 0, failed: 0, total: 1,
+    });
+
+    await waitFor(() => expect(useDeviceSyncJobStore.getState().status).toBe('failed'));
+    expect(showToast).toHaveBeenCalledWith(
+      'Sync finished, but some old files could not be removed. Reconnect the same device and sync again.',
+      5000,
+      'error',
+    );
   });
 });

@@ -147,6 +147,27 @@ fn successful_manifest_commit_removes_only_planned_old_files() {
 }
 
 #[test]
+fn cleanup_conflict_keeps_the_committed_manifest_and_pending_plan() {
+    let root = tempfile::tempdir().unwrap();
+    let new_track = root.path().join("Artist/Album/01 - Song.flac");
+    std::fs::create_dir_all(new_track.parent().unwrap()).unwrap();
+    std::fs::write(&new_track, b"new track").unwrap();
+    let payload = payload(
+        root.path(),
+        "owner.test",
+        vec![new_track.to_string_lossy().to_string()],
+    );
+
+    let result = finalize_device_sync_with_validator(root.path(), payload, |_, _| Ok(())).unwrap();
+
+    assert_eq!(result.deleted, 0);
+    assert!(result.cleanup_failed);
+    assert!(new_track.exists());
+    assert!(root.path().join("psysonic-sync.json").exists());
+    assert!(root.path().join(".psysonic-sync-plan.json").exists());
+}
+
+#[test]
 fn finalizer_rejects_a_delete_path_not_issued_by_the_plan() {
     let root = tempfile::tempdir().unwrap();
     let new_track = root.path().join("Artist/Album/01 - Song.flac");

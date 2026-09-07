@@ -25,6 +25,7 @@ import { connectBaseUrlForServer } from '@/lib/server/serverEndpoint';
 import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
 import { getAuthParams, restBaseFromUrl } from '@/lib/api/subsonicClient';
 import { finalizeDeviceSyncJob } from '@/features/deviceSync/utils/finalizeDeviceSyncJob';
+import { showDeviceSyncErrorToast } from '@/features/deviceSync/utils/deviceSyncErrorToast';
 
 export interface SyncDelta {
   planId: string;
@@ -157,8 +158,8 @@ export async function runDeviceSyncSummaryPrompt(deps: RunDeviceSyncSummaryDeps)
         manifestPlaylists: payload.manifestPlaylists,
       },
     });
-  } catch {
-    showToast(t('deviceSync.fetchError'), 3000, 'error');
+  } catch (error) {
+    showDeviceSyncErrorToast(error, t);
     setPreSyncOpen(false);
   } finally {
     setPreSyncLoading(false);
@@ -207,9 +208,9 @@ export async function runDeviceSyncExecute(deps: RunDeviceSyncExecuteDeps): Prom
           3000, 'info',
         );
       }
-    } catch {
+    } catch (error) {
       useDeviceSyncJobStore.getState().fail(0, 0, 1);
-      showToast(t('deviceSync.fetchError'), 3000, 'error');
+      showDeviceSyncErrorToast(error, t);
     }
     await scanDevice();
     return;
@@ -231,15 +232,8 @@ export async function runDeviceSyncExecute(deps: RunDeviceSyncExecuteDeps): Prom
   }).catch((err: unknown) => {
     // The typed facade rejects with an Error whose message is the raw Rust error
     // string (previously invoke rejected with the bare string).
-    const msg = err instanceof Error ? err.message : String(err);
     useDeviceSyncJobStore.getState().fail(0, 0, allTracks.length);
-    if (msg.includes('NOT_ENOUGH_SPACE')) {
-      showToast(t('deviceSync.notEnoughSpace'), 5000, 'error');
-    } else if (msg === 'NOT_MOUNTED_VOLUME') {
-      showToast(t('deviceSync.notMountedVolume'), 5000, 'error');
-    } else {
-      showToast(t('deviceSync.fetchError'), 3000, 'error');
-    }
+    showDeviceSyncErrorToast(err, t);
     void scanDevice();
   });
 }

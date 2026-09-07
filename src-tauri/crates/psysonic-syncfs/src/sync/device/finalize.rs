@@ -327,14 +327,28 @@ fn finalize_device_sync_with_validator(
             cleanup_failed = true;
             break;
         }
-        let path = resolve_within_root(root, relative_path)
-            .ok_or_else(|| "DEVICE_SYNC_DELETE_PATH_INVALID".to_string())?;
-        let Some(path) = checked_existing_path(root, &path.to_string_lossy())? else {
-            continue;
+        let Some(path) = resolve_within_root(root, relative_path) else {
+            cleanup_failed = true;
+            break;
         };
-        let canonical = path.canonicalize().map_err(|error| error.to_string())?;
+        let path = match checked_existing_path(root, &path.to_string_lossy()) {
+            Ok(Some(path)) => path,
+            Ok(None) => continue,
+            Err(_) => {
+                cleanup_failed = true;
+                break;
+            }
+        };
+        let canonical = match path.canonicalize() {
+            Ok(path) => path,
+            Err(_) => {
+                cleanup_failed = true;
+                break;
+            }
+        };
         if desired_files.contains(&canonical) {
-            return Err("DEVICE_SYNC_DELETE_PATH_STILL_DESIRED".to_string());
+            cleanup_failed = true;
+            break;
         }
         match std::fs::remove_file(&path) {
             Ok(()) => {
@@ -347,7 +361,10 @@ fn finalize_device_sync_with_validator(
                 }
             }
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(_) => cleanup_failed = true,
+            Err(_) => {
+                cleanup_failed = true;
+                break;
+            }
         }
     }
     if !cleanup_failed {
