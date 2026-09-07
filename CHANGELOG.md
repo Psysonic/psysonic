@@ -95,6 +95,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Switching to another application no longer leaves the Now Playing visualizer consuming rendering time in the background. It pauses by default and resumes when Psysonic regains focus.
 * The behaviour can be changed under **Settings → Appearance → Visualizer**. Waveform progress continues to update while the window is unfocused.
 
+### Linux playback stays clean under PipeWire again
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@thiagonl](https://github.com/thiagonl), PR [#1509](https://github.com/Psysonic/psysonic/pull/1509)**
+
+* Since 1.51.0, some Linux systems played every track with continuous crackling, dropouts and a dragging sound while flooding the log with buffer-underrun errors. PipeWire output now keeps the stable buffer used by earlier releases while retaining the corrected ALSA sample-rate handling.
+
 ## [1.52.0]
 
 ## Added
