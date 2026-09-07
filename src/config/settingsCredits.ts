@@ -221,6 +221,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Offline downloads — slow-server tolerance, resumable transfers, owner-safe pins, and coordinated cancellation and maintenance (report: jsongerber, PR #1457)',
       'Navidrome canonical-ID upgrade — resumable migration for library, analysis, offline, cache, and persisted app state (PR #1464)',
       'Device Sync — shared album and playlist files with crash-safe device recovery (PR #1501)',
+      'Global shortcuts for 1–5-star current-track ratings (PR #1503)',
     ],
   },
   {
