@@ -13,6 +13,14 @@ const SERVER_PROFILE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab]
  * followed by `Math.random().toString(36).slice(2)`. Timestamp width grows over
  * time and the random suffix has no useful fixed maximum, so inspect every
  * plausible timestamp width instead of bounding the complete id.
+ *
+ * The suffix is what separates a minted id from a single-label hostname that
+ * happens to decode into the minting window: `generateId()`
+ * (`store/authStoreHelpers.ts`) always appends at least one character after the
+ * timestamp, so a candidate whose whole length IS the timestamp width cannot be
+ * one. That is why the scan requires characters to remain — an eight-character
+ * host such as `mpserver` decodes to a plausible timestamp but carries no
+ * suffix, and rejecting it would cost that server its analysis identity.
  */
 const GENERATED_PROFILE_ID_RE = /^[0-9a-z]+$/;
 const EARLIEST_GENERATED_PROFILE_ID_MS = Date.UTC(2026, 2, 1);
@@ -26,7 +34,7 @@ export function looksLikeGeneratedProfileId(candidate: string, nowMs = Date.now(
   const latestTimestampLength = latestGeneratedProfileIdMs.toString(36).length;
   for (
     let timestampLength = EARLIEST_GENERATED_PROFILE_ID_TIMESTAMP_LENGTH;
-    timestampLength <= latestTimestampLength && timestampLength <= candidate.length;
+    timestampLength <= latestTimestampLength && timestampLength < candidate.length;
     timestampLength += 1
   ) {
     const mintedAtMs = parseInt(candidate.slice(0, timestampLength), 36);

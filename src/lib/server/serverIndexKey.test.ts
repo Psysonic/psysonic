@@ -29,15 +29,16 @@ describe('resolveStorageServerIndexKey', () => {
     expect(resolveStorageServerIndexKey('9ee02895-4d12-4faa-9a9f-3fae22b64d18')).toBeNull();
   });
 
-  it('keeps the index key of a configured server even when it is shaped like a profile id', () => {
+  it('keeps the index key of a configured server with a timestamp-shaped hostname', () => {
     // `mpserver` decodes to May 2026, inside the plausible minting window.
     servers.push({ id: PROFILE_ID, url: 'http://mpserver' });
-    expect(looksLikeGeneratedProfileId('mpserver')).toBe(true);
     expect(resolveStorageServerIndexKey('mpserver')).toBe('mpserver');
   });
 
-  it('keeps an unconfigured bare hostname stable even when it resembles a profile id', () => {
-    expect(looksLikeGeneratedProfileId('mpserver')).toBe(true);
+  it('does not mistake an unconfigured bare hostname for a minted id', () => {
+    // Decodes into the window, but it is exactly the timestamp width and
+    // therefore carries no random suffix — `generateId()` always appends one.
+    expect(looksLikeGeneratedProfileId('mpserver')).toBe(false);
     expect(resolveStorageServerIndexKey('mpserver')).toBe('mpserver');
     expect(resolveStorageServerIndexKey('http://mpserver')).toBe('mpserver');
   });
@@ -69,6 +70,13 @@ describe('resolveStorageServerIndexKey', () => {
     const firstNineDigitTimestamp = 36 ** 8;
     const futureId = firstNineDigitTimestamp.toString(36) + 'random';
     expect(looksLikeGeneratedProfileId(futureId, firstNineDigitTimestamp)).toBe(true);
+  });
+
+  it('requires a random suffix: a bare timestamp is not a minted id', () => {
+    const mintedApril2026 = Date.UTC(2026, 3, 15);
+    const stamp = mintedApril2026.toString(36);
+    expect(looksLikeGeneratedProfileId(stamp, mintedApril2026)).toBe(false);
+    expect(looksLikeGeneratedProfileId(`${stamp}a`, mintedApril2026)).toBe(true);
   });
 
   it('normalizes a primary URL into the existing address-derived key', () => {

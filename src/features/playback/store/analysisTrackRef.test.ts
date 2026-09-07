@@ -39,4 +39,15 @@ describe('analysisTrackRef', () => {
       serverIndexKey: 'mpserver',
     });
   });
+
+  it('keeps an address-derived key whose server profile is gone', () => {
+    // A removed profile leaves its rows in the library keyed by address, and
+    // queue entries keep that key. Rejecting it here would silently drop
+    // waveform and loudness for those tracks; only a minted profile id — which
+    // always carries a random suffix — may be refused.
+    expect(analysisTrackRef('track-1', 'mpserver')).toEqual({
+      trackId: 'track-1',
+      serverIndexKey: 'mpserver',
+    });
+  });
 });
