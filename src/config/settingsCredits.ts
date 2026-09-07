@@ -220,6 +220,8 @@ const CONTRIBUTOR_ENTRIES = [
       'Timeline — replay listening history from any selected point (PR #1423)',
       'Offline downloads — slow-server tolerance, resumable transfers, owner-safe pins, and coordinated cancellation and maintenance (report: jsongerber, PR #1457)',
       'Navidrome canonical-ID upgrade — resumable migration for library, analysis, offline, cache, and persisted app state (PR #1464)',
+      'Device Sync — shared album and playlist files with crash-safe device recovery (PR #1501)',
+      'Global shortcuts for 1–5-star current-track ratings (PR #1503)',
     ],
   },
   {
@@ -520,6 +522,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Now-playing badge shows the real decoded stream format on server transcode (PR #1338)',
       'Audio visualizer across Now Playing, radio and fullscreen player surfaces (PR #1375)',
       'Per-address Navidrome streaming quality with original-stream analysis and cache isolation (PR #1334)',
+      'Theme that follows the palette your desktop publishes, live (PR #1507)',
     ],
   },
   {

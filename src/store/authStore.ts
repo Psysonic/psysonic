@@ -49,6 +49,7 @@ export const useAuthStore = create<AuthState>()(
       discordBannerDismissed: false,
       discordBannerAccumulatedUsageMs: 0,
       servers: [],
+      mintedServerProfileIds: [],
       activeServerId: null,
       libraryBrowseServerIds: [],
       musicNetworkAccounts: [],

@@ -2,9 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod benchmark;
+mod canonical_migration;
 pub mod cli;
 mod cover_cache;
-mod canonical_migration;
+pub(crate) mod desktop_palette;
 mod lib_commands;
 pub(crate) mod library_analysis_backfill;
 mod library_identity_maintenance;
@@ -242,7 +243,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_syncfs::cache::hot::get_hot_cache_size,
             psysonic_syncfs::cache::hot::delete_hot_cache_track,
             psysonic_syncfs::cache::hot::purge_hot_cache,
-            psysonic_syncfs::sync::device::sync_track_to_device,
+            psysonic_syncfs::sync::device::download::sync_track_to_device,
             psysonic_syncfs::sync::batch::sync_batch_to_device,
             psysonic_syncfs::sync::batch::cancel_device_sync,
             psysonic_syncfs::sync::device::compute_sync_paths,
@@ -250,6 +251,10 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_syncfs::sync::batch::delete_device_file,
             psysonic_syncfs::sync::batch::delete_device_files,
             psysonic_syncfs::sync::device::get_removable_drives,
+            psysonic_syncfs::sync::device::finalize_device_sync,
+            psysonic_syncfs::sync::device::has_pending_device_sync_plan,
+            psysonic_syncfs::sync::device::pending_device_sync_plan_device_id,
+            psysonic_syncfs::sync::device::device_sync_device_id,
             psysonic_syncfs::sync::device::write_playlist_m3u8,
             psysonic_syncfs::sync::device::rename_device_files,
             psysonic_syncfs::cache::downloads::download_zip,
@@ -346,6 +351,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::sync::tray::set_tray_tooltip,
             crate::lib_commands::sync::tray::set_tray_menu_labels,
             crate::theme_import::import_theme_zip,
+            crate::desktop_palette::read_desktop_palette,
             crate::library_analysis_backfill::library_analysis_backfill_configure,
             // psysonic-integration — typeable subset. Excluded (stay on generate_handler!):
             // the nd_list_*/nd_create_*/nd_update_* + scrobbler (audioscrobbler/listenbrainz/
@@ -486,6 +492,9 @@ pub fn run() {
             #[cfg(debug_assertions)]
             startup::theme_watch::setup(app);
 
+            // Follow the desktop's palette file, when this machine publishes one.
+            desktop_palette::setup(app);
+
             startup::services::initialize(app)?;
 
             // ── Custom title bar on Linux ─────────────────────────────────
@@ -542,6 +551,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             theme_import::import_theme_zip,
+            desktop_palette::read_desktop_palette,
             backup_export_library_db,
             backup_import_library_db,
             backup_rollback_imported_databases,
@@ -826,7 +836,7 @@ pub fn run() {
             psysonic_syncfs::cache::hot::get_hot_cache_size,
             psysonic_syncfs::cache::hot::delete_hot_cache_track,
             psysonic_syncfs::cache::hot::purge_hot_cache,
-            psysonic_syncfs::sync::device::sync_track_to_device,
+            psysonic_syncfs::sync::device::download::sync_track_to_device,
             psysonic_syncfs::sync::batch::sync_batch_to_device,
             psysonic_syncfs::sync::batch::cancel_device_sync,
             psysonic_syncfs::sync::device::compute_sync_paths,
@@ -835,6 +845,10 @@ pub fn run() {
             psysonic_syncfs::sync::batch::delete_device_files,
             psysonic_syncfs::sync::device::get_removable_drives,
             psysonic_syncfs::sync::device::write_device_manifest,
+            psysonic_syncfs::sync::device::finalize_device_sync,
+            psysonic_syncfs::sync::device::has_pending_device_sync_plan,
+            psysonic_syncfs::sync::device::pending_device_sync_plan_device_id,
+            psysonic_syncfs::sync::device::device_sync_device_id,
             psysonic_syncfs::sync::device::read_device_manifest,
             psysonic_syncfs::sync::device::write_playlist_m3u8,
             psysonic_syncfs::sync::device::rename_device_files,
