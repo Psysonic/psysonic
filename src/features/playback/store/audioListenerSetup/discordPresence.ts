@@ -3,7 +3,8 @@ import { commands } from '@/generated/bindings';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { getPlaybackProgressSnapshot } from '@/features/playback/store/playbackProgress';
-import { resolveServerCoverForDiscord } from '@/cover/integrations/discord';
+import { resolveCoverForDiscord } from '@/cover/integrations/discord';
+import type { CoverSourcePref } from '@/cover/coverSources';
 import { serverShareBaseUrl } from '@/lib/server/serverEndpoint';
 import { playbackServerDiffersFromActive } from '@/features/playback/utils/playback/playbackServer';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
@@ -20,7 +21,8 @@ export function setupDiscordPresence(): () => void {
   let discordPrevTemplateState: string | null = null;
   let discordPrevTemplateLargeText: string | null = null;
   let discordPrevTemplateName: string | null = null;
-  let discordPrevCoverSource: string | null = null;
+  let discordPrevCoverSources: CoverSourcePref[] | null = null;
+  let discordPrevDiscordCoverSource: string | null = null;
   let discordPrevShareBase: string | null = null;
 
   function syncDiscord() {
@@ -29,6 +31,7 @@ export function setupDiscordPresence(): () => void {
     const {
       discordRichPresence,
       discordCoverSource,
+      coverSources,
       discordTemplateDetails,
       discordTemplateState,
       discordTemplateLargeText,
@@ -41,7 +44,8 @@ export function setupDiscordPresence(): () => void {
       if (discordPrevTrackKey !== null) {
         discordPrevTrackKey = null;
         discordPrevIsPlaying = null;
-        discordPrevCoverSource = null;
+        discordPrevCoverSources = null;
+        discordPrevDiscordCoverSource = null;
         discordPrevShareBase = null;
         discordPrevTemplateDetails = null;
         discordPrevTemplateState = null;
@@ -63,8 +67,12 @@ export function setupDiscordPresence(): () => void {
     const currentTrackKey = ownedEntityKey(currentTrack);
     const trackChanged = currentTrackKey !== discordPrevTrackKey;
     const playingChanged = isPlaying !== discordPrevIsPlaying;
-    const coverSourceChanged = discordCoverSource !== discordPrevCoverSource;
-    const shareBaseChanged = discordCoverSource === 'server' && shareBase !== discordPrevShareBase;
+    const coverSourceChanged =
+      coverSources !== discordPrevCoverSources ||
+      discordCoverSource !== discordPrevDiscordCoverSource;
+    const shareBaseChanged =
+      discordCoverSource !== 'none' &&
+      shareBase !== discordPrevShareBase;
     const detailsTemplateChanged = discordTemplateDetails !== discordPrevTemplateDetails;
     const stateTemplateChanged = discordTemplateState !== discordPrevTemplateState;
     const largeTextTemplateChanged = discordTemplateLargeText !== discordPrevTemplateLargeText;
@@ -73,7 +81,8 @@ export function setupDiscordPresence(): () => void {
 
     discordPrevTrackKey = currentTrackKey;
     discordPrevIsPlaying = isPlaying;
-    discordPrevCoverSource = discordCoverSource;
+    discordPrevCoverSources = coverSources;
+    discordPrevDiscordCoverSource = discordCoverSource;
     discordPrevShareBase = shareBase;
     discordPrevTemplateDetails = discordTemplateDetails;
     discordPrevTemplateState = discordTemplateState;
@@ -88,7 +97,6 @@ export function setupDiscordPresence(): () => void {
         isPlaying,
         elapsedSecs: isPlaying ? currentTime : null,
         coverArtUrl,
-        fetchItunesCovers: discordCoverSource === 'apple',
         detailsTemplate: discordTemplateDetails,
         stateTemplate: discordTemplateState,
         largeTextTemplate: discordTemplateLargeText,
@@ -96,34 +104,41 @@ export function setupDiscordPresence(): () => void {
       }).catch(() => {});
     };
 
-    // 'apple' is resolved Rust-side via the fetchItunesCovers flag above.
-    // 'none' shows just the app icon. 'server' resolves here via the
-    // credential-blind getAlbumInfo2 resolver (cover/integrations/discord.ts)
-    // — it never sees server auth, unlike the removed builder that leaked the
-    // authenticated Subsonic getCoverArt URL (u/t/s) through Discord's public
-    // external image proxy (PR #1246). The Rust command re-validates whatever
-    // URL arrives here before it ever reaches Discord (defense in depth).
-    //
-    // getAlbumInfo2 always queries the *active* server (subsonicClient's api()
-    // has no per-call server override), so a mixed-server queue whose playing
-    // track isn't from the active server would otherwise ask the wrong server
-    // for that album id. Skip the server lookup — and fall back to the app
-    // icon — for that case rather than risk a wrong or 404ing cover.
-    if (discordCoverSource === 'server' && currentTrack.albumId && !playbackServerDiffersFromActive()) {
-      const trackKey = currentTrackKey;
-      void resolveServerCoverForDiscord(currentTrack.albumId, shareBase).then(url => {
-        // Staleness guard: the resolve is async — drop it if playback moved on,
-        // Rich Presence got disabled, or the cover source changed away from
-        // 'server' while the request was in flight.
-        const latest = useAuthStore.getState();
-        const liveTrack = usePlayerStore.getState().currentTrack;
-        if (!liveTrack || ownedEntityKey(liveTrack) !== trackKey) return;
-        if (!latest.discordRichPresence || latest.discordCoverSource !== 'server') return;
-        sendPresence(url);
-      });
-    } else {
-      sendPresence(null);
-    }
+    // What Discord may publish is a separate opt-in from the in-app chain
+    // (#1299): 'none' shows the app icon only — nothing is fetched, nothing is
+    // published. 'server' publishes the ordered in-app chain verbatim (every
+    // URL still passes the credential-blind sanitizer + placeholder filter).
+    // 'apple' publishes the chain with the 'server' row dropped: external
+    // lookups need no server, so this can never publish a server share URL.
+    // getAlbumInfo2 always queries the *active* server, so a mixed-server
+    // queue whose playing track isn't from the active server must skip the
+    // 'server' source rather than ask the wrong server for that album id (PR
+    // #1246 context) — we pass no albumId in that case, which makes the
+    // 'server' step a no-op and the chain falls through to apple/lastfm.
+    const trackKey = currentTrackKey;
+    const publishSources =
+      discordCoverSource === 'none' ? []
+      : discordCoverSource === 'apple'
+        ? coverSources.filter(s => s.source !== 'server')
+        : coverSources;
+    const chainCtx = {
+      albumId: !playbackServerDiffersFromActive() ? currentTrack.albumId : undefined,
+      artist: currentTrack.artist ?? undefined,
+      album: currentTrack.album ?? undefined,
+      title: currentTrack.title ?? undefined,
+      shareBase,
+    };
+    void (async () => {
+      const url = await resolveCoverForDiscord(publishSources, chainCtx);
+      // Staleness guard: drop if playback moved on, presence disabled, or the
+      // gate/chain changed while requests were in flight.
+      const latest = useAuthStore.getState();
+      const liveTrack = usePlayerStore.getState().currentTrack;
+      if (!liveTrack || ownedEntityKey(liveTrack) !== trackKey) return;
+      if (!latest.discordRichPresence) return;
+      if (latest.discordCoverSource !== discordCoverSource || latest.coverSources !== coverSources) return;
+      sendPresence(url);
+    })();
   }
 
   const unsubDiscordPlayer = usePlayerStore.subscribe(syncDiscord);

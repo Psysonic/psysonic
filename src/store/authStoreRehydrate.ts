@@ -189,30 +189,42 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
             )
           : DEFAULT_LOUDNESS_PRE_ANALYSIS_ATTENUATION_DB);
 
-  // Migrate enableAppleMusicCoversDiscord boolean → discordCoverSource enum.
-  let discordCoverSourceMigrated: { discordCoverSource?: DiscordCoverSource } = {};
+  // Migrate the legacy single-value discordCoverSource → the Discord publishing
+  // gate (`discordCoverSource`), resolving the effective legacy value through
+  // the two prior migrations (enableAppleMusicCoversDiscord boolean; PR
+  // #1246/#1299 'server' revival guard). The in-app `coverSources` chain is
+  // NOT touched: it keeps its enabled-by-default default (DEFAULT_COVER_SOURCES)
+  // for every install — the chain is app artwork, not a Discord disclosure.
+  let effectiveDiscordCover: unknown =
+    (state as { discordCoverSource?: unknown }).discordCoverSource;
   const legacyAppleCovers = (state as { enableAppleMusicCoversDiscord?: unknown }).enableAppleMusicCoversDiscord;
-  if (legacyAppleCovers === true && (!state.discordCoverSource || state.discordCoverSource === 'none')) {
-    discordCoverSourceMigrated = { discordCoverSource: 'apple' };
+  if (legacyAppleCovers === true && (!effectiveDiscordCover || effectiveDiscordCover === 'none')) {
+    effectiveDiscordCover = 'apple';
   }
-  // One-time: the 'server' cover source was removed in PR #1246 (it leaked
-  // authenticated Subsonic credentials) and reinstated in PR #1299 via a
-  // credential-free implementation. A value that predates the reinstatement
-  // must not be silently honored — a user who skipped every build between
-  // those two PRs would otherwise have their pre-#1246 'server' preference
-  // resurrected on first launch, without ever seeing the new opt-in
-  // disclosure copy. Runs exactly once (guarded by a sentinel, same pattern
-  // as the maxCacheMb migration below) so re-selecting 'server' afterward is
-  // never coerced back.
   const discordServerCoverRevivalMigrationKey = 'psysonic-discord-server-cover-revival-v1';
   try {
     if (!localStorage.getItem(discordServerCoverRevivalMigrationKey)) {
-      if ((state as { discordCoverSource?: unknown }).discordCoverSource === 'server') {
-        discordCoverSourceMigrated = { discordCoverSource: 'none' };
-      }
+      if (effectiveDiscordCover === 'server') effectiveDiscordCover = 'none';
       localStorage.setItem(discordServerCoverRevivalMigrationKey, '1');
     }
   } catch { /* ignore */ }
+  delete (state as { enableAppleMusicCoversDiscord?: unknown }).enableAppleMusicCoversDiscord;
+
+  const discordCoverSourceMigrated: { discordCoverSource?: DiscordCoverSource } = (() => {
+    // One-time migration of the legacy `discordCoverSource` field into the
+    // Discord gate of the same name. When the field is absent (already
+    // migrated, or a modern install) this must be a no-op — otherwise it would
+    // overwrite the user's persisted Discord choice on every rehydrate.
+    const rawDiscordCover = (state as { discordCoverSource?: unknown }).discordCoverSource;
+    if (rawDiscordCover === undefined && legacyAppleCovers !== true) return {};
+    if (effectiveDiscordCover === 'apple') return { discordCoverSource: 'apple' };
+    if (effectiveDiscordCover === 'server') return { discordCoverSource: 'server' };
+    // 'none' / undefined+legacy-apple / garbage → gate off (preserves the
+    // "no large image" intent of the legacy value).
+    return { discordCoverSource: 'none' };
+  })();
+  delete (state as unknown as Record<string, unknown>).discordCoverSource;
+
   // Every configured profile id is by definition a minted one, so seeding from
   // `servers` catches installs that predate the record. Union, never subtract:
   // a removed profile must keep its entry or its id would read as an address
