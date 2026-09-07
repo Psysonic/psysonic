@@ -530,6 +530,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.51.0',
     contributions: [
       'Clickable artist credits in the fullscreen, mini and mobile players (PR #1371)',
+      'Configurable album cover source chain with a Last.fm provider (PR #1502)',
     ],
   },
   {
