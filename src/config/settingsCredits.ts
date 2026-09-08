@@ -456,6 +456,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Psysonic Rewind — a year-in-review story and shareable posters in four layouts (PR #1485)',
       'Windows — updates install from inside the app, signed and verified like on macOS (PR #1487)',
       'Servers that refuse browser-style requests can be added and browsed (PR #1511)',
+      'Info tab — the tour dates prompt can be dismissed for good (PR #1513)',
     ],
   },
   {

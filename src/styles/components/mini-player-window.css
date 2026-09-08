@@ -851,6 +851,27 @@ html[data-perf-disable-home-artwork-clip="true"] .home-lite-artwork .song-card-c
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   outline: none;
 }
+/* Decline control. Sits at the end of the title row rather than absolutely
+   positioned, so it cannot overlap a wrapped title in a narrow sidebar. */
+.np-info-bandsintown-prompt-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  padding: 2px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+}
+.np-info-bandsintown-prompt-dismiss:hover,
+.np-info-bandsintown-prompt-dismiss:focus-visible {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 12%, transparent);
+  outline: none;
+}
 .np-info-bandsintown-prompt-desc {
   font-size: 12px;
   color: var(--text-secondary);

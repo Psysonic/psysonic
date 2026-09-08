@@ -102,6 +102,7 @@ export const useAuthStore = create<AuthState>()(
       discordCoverSource: DEFAULT_DISCORD_COVER_SOURCE,
       coverSources: DEFAULT_COVER_SOURCES,
       enableBandsintown: false,
+      bandsintownPromptDismissed: false,
       discordTemplateDetails: '{artist}',
       discordTemplateState: '{title}',
       discordTemplateLargeText: '{album}',

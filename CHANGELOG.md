@@ -70,6 +70,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Some Subsonic servers — Bandcamp's among them — answer requests normally but do not permit them from an app window. Adding one failed with "Could not connect: Network Error" even though the server was reachable the whole time. Psysonic now recognises this and sends those servers' requests the same way it already sends streams and cover art.
 * Servers that work today are unaffected: they keep the exact request path they had.
 
+### Dismiss the tour dates prompt in the info tab
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@Trip7274](https://github.com/Trip7274), PR [#1513](https://github.com/Psysonic/psysonic/pull/1513)**
+
+* The info tab in the right sidebar offers tour dates as an optional feature, but the prompt could not be turned down. It now has a close button that hides it for good, and a short message points to **Settings → Integrations** in case you want the feature later.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again

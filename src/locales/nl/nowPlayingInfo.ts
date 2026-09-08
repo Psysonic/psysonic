@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Optioneel. Laadt concerten van de huidige artiest via de openbare Bandsintown-API.',
   enableBandsintownPrivacy: 'Bij inschakelen wordt de naam van de huidige artiest naar de Bandsintown-API gestuurd om tourdata op te halen. Er worden geen account- of persoonlijke gegevens verzonden.',
   enableBandsintownAction: 'Inschakelen',
+  dismissBandsintownPrompt: 'Niet meer weergeven',
+  bandsintownPromptDismissed: 'Tourdata blijven verborgen. Je kunt ze inschakelen bij Instellingen → Integraties.',
   role: {
     artist: 'Artiest',
     albumArtist: 'Albumartiest',

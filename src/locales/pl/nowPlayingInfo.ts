@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Opcjonalne. Ładuje koncerty bieżącego wykonawcy przez publiczne API Bandsintown.',
   enableBandsintownPrivacy: 'Po włączeniu nazwa aktualnie odtwarzanego wykonawcy jest wysyłana do API Bandsintown w celu pobrania dat koncertów. Żadne konto ani dane osobowe nie opuszczają Twojego urządzenia.',
   enableBandsintownAction: 'Włącz',
+  dismissBandsintownPrompt: 'Nie pokazuj ponownie',
+  bandsintownPromptDismissed: 'Daty tras pozostaną ukryte. Możesz je włączyć w Ustawienia → Integracje.',
   role: {
     artist: 'Wykonawca',
     albumArtist: 'Wykonawca albumu',

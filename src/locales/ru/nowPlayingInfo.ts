@@ -18,6 +18,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Опционально. Загружает концерты текущего исполнителя через публичный API Bandsintown.',
   enableBandsintownPrivacy: 'При включении имя текущего исполнителя отправляется в API Bandsintown для получения дат концертов. Аккаунт и личные данные не передаются.',
   enableBandsintownAction: 'Включить',
+  dismissBandsintownPrompt: 'Больше не показывать',
+  bandsintownPromptDismissed: 'Даты туров останутся скрытыми. Их можно включить в Настройки → Интеграции.',
   role: {
     artist: 'Исполнитель',
     albumArtist: 'Исполнитель альбома',
