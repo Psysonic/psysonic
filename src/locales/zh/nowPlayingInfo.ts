@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: '可选。通过公开的 Bandsintown API 加载当前艺术家的演出。',
   enableBandsintownPrivacy: '启用后，当前播放的艺术家名称将发送到 Bandsintown API 以获取巡演日期。不会发送任何账户或个人数据。',
   enableBandsintownAction: '启用',
+  dismissBandsintownPrompt: '不再显示',
+  bandsintownPromptDismissed: '巡演日期将保持隐藏。你可以在设置 → 集成中启用。',
   role: {
     artist: '艺术家',
     albumArtist: '专辑艺术家',
