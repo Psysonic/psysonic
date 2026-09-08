@@ -63,6 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The generated theme appears in Settings → Themes as `Desktop — <your theme's name>`, next to a **Follow desktop theme** switch. Existing installs keep the theme they already had and start with the switch off; picking any other theme by hand also turns following off, so your choice sticks.
 * Any other desktop works too: point `PSYSONIC_PALETTE_FILE` at a file of `name = "#rrggbb"` lines. Naming only a background, a foreground and an accent is enough — the rest of the theme is derived from those three.
 
+### Servers that refuse browser-style requests can be added
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1511](https://github.com/Psysonic/psysonic/pull/1511)**
+
+* Some Subsonic servers — Bandcamp's among them — answer requests normally but do not permit them from an app window. Adding one failed with "Could not connect: Network Error" even though the server was reachable the whole time. Psysonic now recognises this and sends those servers' requests the same way it already sends streams and cover art.
+* Servers that work today are unaffected: they keep the exact request path they had.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again
