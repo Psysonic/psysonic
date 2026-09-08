@@ -14,6 +14,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useDownloadModalStore } from '@/features/offline';
 import { useZipDownloadStore } from '@/features/offline';
 import { useDragDrop } from '@/lib/dnd/DragDropContext';
+import { useDragPressHandle } from '@/lib/dnd/useDragPress';
 import { useTranslation } from 'react-i18next';
 import type { SpotifyCsvTrack } from '@/features/playlist/utils/spotifyCsvImport';
 import { runPlaylistCsvImport } from '@/features/playlist/utils/runPlaylistCsvImport';
@@ -49,6 +50,8 @@ import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { isSmartPlaylist } from '@/lib/format/playlistClassification';
 import { playlistDetailControls } from '@/features/playlist/utils/playlistSmartUx';
 import { showToast } from '@/lib/dom/toast';
+import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
+import { usePlaylistDetailScrollRestore } from '@/features/playlist/hooks/usePlaylistDetailScrollRestore';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 const PL_COLUMNS: readonly ColDef[] = [
@@ -81,6 +84,8 @@ export default function PlaylistDetail() {
   );
   const touchPlaylist = usePlaylistStore((s) => s.touchPlaylist);
   const { startDrag } = useDragDrop();
+  // Rows are virtualised, so one can be recycled out from under a held button.
+  const dragPress = useDragPressHandle();
   const downloadPlaylist = useOfflineStore(s => s.downloadPlaylist);
   const deleteAlbum = useOfflineStore(s => s.deleteAlbum);
   const activeServerId = useAuthStore(s => s.activeServerId);
@@ -189,6 +194,11 @@ export default function PlaylistDetail() {
     startResize, startFlexColumnResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
   } = useTracklistColumns(detailColumns, 'psysonic_playlist_columns');
+  const resolvedBpmSongs = useResolvedTracklistBpm(
+    songs,
+    colVisible.has('bpm') || sortKey === 'bpm',
+    serverId || undefined,
+  );
 
   usePlaylistRouteEffects({ setContextMenuSongId, setEditingMeta, location, navigate });
 
@@ -327,11 +337,14 @@ export default function PlaylistDetail() {
   // ── Row mousedown: threshold drag for reorder (from anywhere on the row) ──
   const handleRowMouseDown = (e: React.MouseEvent, idx: number) => {
     if (tracksReadOnly) return;
-    startPlaylistRowDrag({ e, idx, songs, selectedIds, isFiltered, startDrag });
+    dragPress.arm(e, {
+      canStart: (ev) => !(ev.target as HTMLElement).closest('button, input'),
+      onStart: (me) => startPlaylistRowDrag({ me, idx, songs, selectedIds, isFiltered, startDrag }),
+    });
   };
 
   // ── Memoized derivations ──────────────────────────────────────
-  const { existingIds, tracks, displayedSongs, displayedTracks, isFiltered } = usePlaylistDerived(songs, {
+  const { existingIds, tracks, displayedSongs, displayedTracks, isFiltered } = usePlaylistDerived(resolvedBpmSongs, {
     filterText, sortKey, sortDir, ratings, starredSongs,
   });
 
@@ -339,6 +352,8 @@ export default function PlaylistDetail() {
   const { handlePlayAll, handleShuffleAll, handleEnqueueAll } = usePlaylistBulkPlayCallbacks({
     songsLength: songs.length, id, tracks, playTrack, enqueue,
   });
+
+  usePlaylistDetailScrollRestore(!loading && playlist !== null);
 
   // ── Render ────────────────────────────────────────────────────
   if (loading) {
@@ -435,7 +450,7 @@ export default function PlaylistDetail() {
         startResize={startResize}
         startFlexColumnResize={startFlexColumnResize}
         tracklistRef={tracklistRef}
-        songs={songs}
+        songs={resolvedBpmSongs}
         displayedSongs={displayedSongs}
         displayedTracks={displayedTracks}
         isFiltered={isFiltered}
@@ -489,6 +504,7 @@ export default function PlaylistDetail() {
         starredSongs={starredSongs}
         handleRate={handleRate}
         handleToggleStar={handleToggleStar}
+        serverId={serverId || undefined}
       />}
 
       {editingMeta && playlist && (

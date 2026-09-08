@@ -1,8 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { computeSyncPaths } from '@/lib/api/syncfs';
 import { fetchTracksForSource } from '@/features/playback/utils/playback/fetchTracksForSource';
-import { trackToSyncInfo, type SyncStatus } from '@/features/deviceSync/utils/deviceSyncHelpers';
-import { deviceSyncSourceKey, type DeviceSyncSource } from '@/features/deviceSync/store/deviceSyncStore';
+import {
+  playlistPathId,
+  trackToSyncInfo,
+  type SyncStatus,
+} from '@/features/deviceSync/utils/deviceSyncHelpers';
+import {
+  deviceSyncSourceKey,
+  type DeviceSyncLayoutMode,
+  type DeviceSyncSource,
+} from '@/features/deviceSync/store/deviceSyncStore';
 
 export interface DeviceSyncSourceStatusesResult {
   sourcePathsMap: Map<string, string[]>;
@@ -14,6 +22,8 @@ export function useDeviceSyncSourceStatuses(
   sources: DeviceSyncSource[],
   pendingDeletion: string[],
   deviceFilePaths: string[],
+  layoutMode: DeviceSyncLayoutMode,
+  configurationDirty: boolean,
 ): DeviceSyncSourceStatusesResult {
   // Map source IDs → computed device paths (for status derivation)
   const [sourcePathsMap, setSourcePathsMap] = useState<Map<string, string[]>>(new Map());
@@ -30,14 +40,40 @@ export function useDeviceSyncSourceStatuses(
     let cancelled = false;
     (async () => {
       const map = new Map<string, string[]>();
-      await Promise.all(sources.map(async source => {
+      const fetched = await Promise.all(sources.map(async source => {
+        try {
+          return { source, tracks: await fetchTracksForSource(source) };
+        } catch {
+          return { source, tracks: [] };
+        }
+      }));
+      const preferredSharedTracks = new Map<string, (typeof fetched)[number]['tracks'][number]>();
+      for (const entry of fetched.filter(entry => entry.source.type !== 'playlist')) {
+        for (const track of entry.tracks) {
+          if (!preferredSharedTracks.has(track.id)) preferredSharedTracks.set(track.id, track);
+        }
+      }
+      for (const entry of fetched.filter(entry => entry.source.type === 'playlist')) {
+        for (const track of entry.tracks) {
+          if (!preferredSharedTracks.has(track.id)) preferredSharedTracks.set(track.id, track);
+        }
+      }
+      await Promise.all(fetched.map(async ({ source, tracks }) => {
         if (cancelled) return;
         try {
-          const tracks = await fetchTracksForSource(source);
+          const pathTracks = layoutMode === 'shared-album-tree'
+            ? tracks.map(track => preferredSharedTracks.get(track.id) ?? track)
+            : tracks;
           const paths = await computeSyncPaths({
-            tracks: tracks.map((tr, idx) => trackToSyncInfo(
+            tracks: pathTracks.map((tr, idx) => trackToSyncInfo(
               tr, '',
-              source.type === 'playlist' ? { name: source.name, index: idx + 1 } : undefined,
+              source.type === 'playlist' && layoutMode === 'self-contained'
+                ? {
+                  id: playlistPathId(source, sources),
+                  name: source.name,
+                  index: idx + 1,
+                }
+                : undefined,
             )),
             destDir: targetDir,
           });
@@ -49,7 +85,7 @@ export function useDeviceSyncSourceStatuses(
       if (!cancelled) setSourcePathsMap(map);
     })();
     return () => { cancelled = true; };
-  }, [targetDir, sources]);
+  }, [targetDir, sources, layoutMode]);
 
   // Derive sync status per source
   const sourceStatuses = useMemo(() => {
@@ -59,6 +95,8 @@ export function useDeviceSyncSourceStatuses(
       const sourceKey = deviceSyncSourceKey(source);
       if (pendingDeletion.includes(sourceKey)) {
         statuses.set(sourceKey, 'deletion');
+      } else if (source.type === 'playlist' && configurationDirty) {
+        statuses.set(sourceKey, 'pending');
       } else {
         const paths = sourcePathsMap.get(sourceKey) ?? [];
         const allSynced = paths.length > 0 && paths.every(p => deviceSet.has(p));
@@ -66,7 +104,7 @@ export function useDeviceSyncSourceStatuses(
       }
     }
     return statuses;
-  }, [sources, pendingDeletion, sourcePathsMap, deviceFilePaths]);
+  }, [sources, pendingDeletion, sourcePathsMap, deviceFilePaths, configurationDirty]);
 
   return { sourcePathsMap, sourceStatuses };
 }

@@ -218,18 +218,20 @@ describe('computeAuthStoreRehydration — lyrics', () => {
     ]);
   });
 
-  it('clears startMinimizedToTray when tray icon is off', () => {
+  it('clears tray-dependent settings when tray icon is off', () => {
     const base = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({
       ...base,
+      minimizeToTray: true,
       startMinimizedToTray: true,
       showTrayIcon: false,
     });
+    expect(patch.minimizeToTray).toBe(false);
     expect(patch.startMinimizedToTray).toBe(false);
   });
 });
 
-describe('computeAuthStoreRehydration — discordCoverSource server-revival (PR #1299)', () => {
+describe('computeAuthStoreRehydration — discordCoverSource → Discord gate (PR #1299 / review of #1502)', () => {
   const SENTINEL_KEY = 'psysonic-discord-server-cover-revival-v1';
 
   beforeEach(() => {
@@ -237,18 +239,19 @@ describe('computeAuthStoreRehydration — discordCoverSource server-revival (PR 
     localStorage.clear();
   });
 
-  it('coerces a stale pre-#1246 "server" value to "none" exactly once', () => {
+  it('coerces a stale pre-#1246 "server" value to the Discord gate off, exactly once', () => {
     const base = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: 'server' } as AuthState);
     expect(patch.discordCoverSource).toBe('none');
+    expect('coverSources' in patch).toBe(false);
     expect(localStorage.getItem(SENTINEL_KEY)).toBe('1');
   });
 
-  it('does not coerce "server" once the sentinel is already set (post-revival user choice)', () => {
+  it('honors a post-revival "server" choice once the sentinel is already set', () => {
     localStorage.setItem(SENTINEL_KEY, '1');
     const base = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: 'server' } as AuthState);
-    expect(patch.discordCoverSource).toBeUndefined();
+    expect(patch.discordCoverSource).toBe('server');
   });
 
   it('sets the sentinel on first rehydrate even when the value is not "server"', () => {
@@ -257,11 +260,81 @@ describe('computeAuthStoreRehydration — discordCoverSource server-revival (PR 
     expect(localStorage.getItem(SENTINEL_KEY)).toBe('1');
   });
 
-  it('does not touch "apple" or "none"', () => {
+  it('maps "apple" and "none" onto the Discord gate without touching the in-app chain', () => {
     const base = useAuthStore.getState();
-    for (const source of ['apple', 'none'] as const) {
-      const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: source } as AuthState);
-      expect(patch.discordCoverSource).toBeUndefined();
+    const apple = computeAuthStoreRehydration({ ...base, discordCoverSource: 'apple' } as AuthState);
+    expect(apple.discordCoverSource).toBe('apple');
+    const none = computeAuthStoreRehydration({ ...base, discordCoverSource: 'none' } as AuthState);
+    expect(none.discordCoverSource).toBe('none');
+    expect('coverSources' in apple).toBe(false);
+    expect('coverSources' in none).toBe(false);
+  });
+
+  it('never writes coverSources (the chain stays enabled-by-default for every install)', () => {
+    // The maintainer-required fix: the old migration shipped the chain disabled
+    // for every existing install (legacy 'none' mapped to all-sources-off while
+    // fresh installs got all three enabled). The chain is app artwork, not a
+    // Discord disclosure, so the migration must not touch it at all.
+    const base = useAuthStore.getState();
+    for (const legacy of ['server', 'apple', 'none', 'garbage']) {
+      const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: legacy } as unknown as AuthState);
+      expect('coverSources' in patch).toBe(false);
     }
+  });
+
+  it('is a no-op when no legacy discordCoverSource is present (never clobbers persisted gate)', () => {
+    // Once the legacy field is gone the migration must not force the Discord
+    // gate back to 'none' — doing so would overwrite the user's persisted
+    // choice on every rehydrate.
+    const withGate = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...withGate,
+      discordCoverSource: undefined,
+    } as unknown as AuthState);
+    expect('discordCoverSource' in patch).toBe(false);
+    expect('coverSources' in patch).toBe(false);
+  });
+});
+
+describe('computeAuthStoreRehydration — minted server profile ids', () => {
+  beforeEach(resetAuthStore);
+
+  it('seeds the record from configured servers on installs that predate it', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+        { id: 'profile-b', name: 'B', url: 'https://b.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: [],
+    } as AuthState);
+    expect(patch.mintedServerProfileIds).toEqual(['profile-a', 'profile-b']);
+  });
+
+  it('keeps ids of removed profiles instead of subtracting them', () => {
+    // A removed profile must stay on record: without it, its id would read as
+    // an address again and could reach analysis storage.
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: ['profile-gone'],
+    } as AuthState);
+    expect(patch.mintedServerProfileIds).toEqual(['profile-gone', 'profile-a']);
+  });
+
+  it('is a no-op once every configured id is already on record', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: ['profile-a'],
+    } as AuthState);
+    expect('mintedServerProfileIds' in patch).toBe(false);
   });
 });

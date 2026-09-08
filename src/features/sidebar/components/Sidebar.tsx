@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useOfflineJobStore } from '@/features/offline';
-import { clearOfflinePinTasks } from '@/features/offline';
+import { cancelAllOfflinePins } from '@/features/offline';
 import { useDeviceSyncJobStore } from '@/features/deviceSync';
 import { useAuthStore } from '@/store/authStore';
 import { useSidebarStore } from '@/features/sidebar/store/sidebarStore';
@@ -11,7 +11,12 @@ import { useTranslation } from 'react-i18next';
 import { PanelLeft, PanelLeftClose, Trash2 } from 'lucide-react';
 import PsysonicLogo from '@/ui/PsysonicLogo';
 import PSmallLogo from '@/ui/PSmallLogo';
-import { usePlaylistStore } from '@/features/playlist';
+import {
+  filterPlaylistsByOwnership,
+  sortPlaylistList,
+  usePlaylistLayoutStore,
+  usePlaylistStore,
+} from '@/features/playlist';
 import OverlayScrollArea from '@/ui/OverlayScrollArea';
 import {
   getLibraryItemsForReorder,
@@ -57,16 +62,30 @@ export default function Sidebar({
   const location = useLocation();
   const isPlaying   = usePlayerStore(s => s.isPlaying);
   const currentTrack = usePlayerStore(s => s.currentTrack);
-  const offlineJobs = useOfflineJobStore(s => s.jobs);
-  const pinQueue = useOfflineJobStore(s => s.pinQueue);
-  const cancelAllDownloadsStore = useOfflineJobStore(s => s.cancelAllDownloads);
-  const activeJobs = offlineJobs.filter(j => j.status === 'queued' || j.status === 'downloading');
-  const activePin = pinQueue.find(p => p.status === 'downloading')
-    ?? pinQueue.find(p => p.status === 'queued');
-  const queuedPinCount = pinQueue.filter(p => p.status === 'queued').length;
+  const activeJobsCount = useOfflineJobStore(s => s.jobs.filter(
+    job => job.status === 'queued' || job.status === 'downloading',
+  ).length);
+  const activePinName = useOfflineJobStore(s => {
+    const activePin = s.pinQueue.find(pin => pin.status === 'downloading')
+      ?? s.pinQueue.find(pin => pin.status === 'queued');
+    if (!activePin) return null;
+    const additionalActivePins = Math.max(
+      0,
+      s.pinQueue.filter(pin => pin.status === 'downloading').length - 1,
+    );
+    return `${activePin.albumName}${additionalActivePins > 0 ? ` +${additionalActivePins}` : ''}`;
+  });
+  const queuedPinCount = useOfflineJobStore(s => {
+    const activePin = s.pinQueue.find(pin => pin.status === 'downloading')
+      ?? s.pinQueue.find(pin => pin.status === 'queued');
+    return Math.max(
+      0,
+      s.pinQueue.filter(pin => pin.status === 'queued').length
+        - (activePin?.status === 'queued' ? 1 : 0),
+    );
+  });
   const cancelAllDownloads = () => {
-    clearOfflinePinTasks();
-    cancelAllDownloadsStore();
+    cancelAllOfflinePins();
   };
   const syncJobStatus = useDeviceSyncJobStore(s => s.status);
   const syncJobDone   = useDeviceSyncJobStore(s => s.done);
@@ -109,10 +128,17 @@ export default function Sidebar({
   const playlistsRaw = usePlaylistStore(s => s.playlists);
   const playlistsLoading = usePlaylistStore(s => s.playlistsLoading);
   const fetchPlaylists = usePlaylistStore(s => s.fetchPlaylists);
-  // Sort playlists alphabetically by name
-  const playlists = useMemo(() => {
-    return [...playlistsRaw].sort((a, b) => a.name.localeCompare(b.name));
-  }, [playlistsRaw]);
+  const playlistListSortKey = usePlaylistLayoutStore(s => s.listSortKey);
+  const playlistOwnershipFilter = usePlaylistLayoutStore(s => s.ownershipFilter);
+  // Ownership filter first, then order — both come from the shared playlist
+  // layout store, so the sidebar and the Playlists page always agree.
+  const playlists = useMemo(
+    () => sortPlaylistList(
+      filterPlaylistsByOwnership(playlistsRaw, playlistOwnershipFilter, servers),
+      playlistListSortKey,
+    ),
+    [playlistsRaw, playlistOwnershipFilter, servers, playlistListSortKey],
+  );
   const [sidebarViewportEl, setSidebarViewportEl] = useState<HTMLDivElement | null>(null);
   const isSidebarScrolling = useSidebarScrollVisible(sidebarViewportEl);
   const unavailableServerIds = useUnavailableServerIds();
@@ -362,7 +388,7 @@ export default function Sidebar({
             selectedLibraryIds.length,
             libraryBrowseScopeVersion,
             hasOfflineContent,
-            activeJobs.length,
+            activeJobsCount,
             isSyncing,
             syncJobTotal,
             sidebarItems.length,
@@ -395,8 +421,8 @@ export default function Sidebar({
           hasNowPlayingTrack={!!currentTrack}
           nowPlayingAtTop={nowPlayingAtTop}
           hasOfflineContent={hasOfflineContent}
-          activeJobsCount={activeJobs.length}
-          activePinName={activePin?.albumName ?? null}
+          activeJobsCount={activeJobsCount}
+          activePinName={activePinName}
           queuedPinCount={queuedPinCount}
           cancelAllDownloads={cancelAllDownloads}
           isSyncing={isSyncing}

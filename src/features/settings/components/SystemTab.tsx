@@ -139,6 +139,7 @@ export function SystemTab() {
                     { value: 'hu', label: t('settings.languageHu') },
                     { value: 'pl', label: t('settings.languagePl') },
                     { value: 'bg', label: t('settings.languageBg') },
+                    { value: 'uk', label: t('settings.languageUk') },
                   ]}
                 />
               </SettingsField>
@@ -163,8 +164,13 @@ export function SystemTab() {
             <div className="settings-section-divider" />
             <SettingsToggle
               label={t('settings.minimizeToTray')}
-              desc={t('settings.minimizeToTrayDesc')}
+              desc={
+                auth.showTrayIcon
+                  ? t('settings.minimizeToTrayDesc')
+                  : t('settings.minimizeToTrayRequiresTray')
+              }
               checked={auth.minimizeToTray}
+              disabled={!auth.showTrayIcon}
               onChange={auth.setMinimizeToTray}
             />
             <div className="settings-section-divider" />

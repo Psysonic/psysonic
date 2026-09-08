@@ -1,6 +1,10 @@
 use rusqlite::{params, OptionalExtension};
 
-use super::ingest::{sync_persisted_track_genre_rows, UPSERT_SQL};
+use super::ingest::{
+    invalidate_album_list_completion, normalize_sparse_album_version_provenance,
+    sync_persisted_track_genre_rows, UPSERT_SQL,
+};
+use super::retarget::retarget_track_references;
 use super::{RemapEntry, RemapStats, TrackRepository, TrackRow};
 
 impl TrackRepository<'_> {
@@ -17,6 +21,29 @@ impl TrackRepository<'_> {
         &self,
         rows: &[TrackRow],
         unstable_track_ids: bool,
+    ) -> Result<RemapStats, String> {
+        self.upsert_batch_with_remap_source(rows, unstable_track_ids, false)
+    }
+
+    /// Remap-aware upsert for payloads that are intentionally sparse.
+    ///
+    /// Missing JSON fields are preserved from the existing row via the
+    /// `UPSERT_SQL` json_patch branch instead of replacing `raw_json` wholesale.
+    /// This is used by Navidrome native delta ingest, whose `/api/song` shape can
+    /// omit richer OpenSubsonic fields such as `artists` and `albumArtists`.
+    pub(crate) fn upsert_sparse_batch_with_remap(
+        &self,
+        rows: &[TrackRow],
+        unstable_track_ids: bool,
+    ) -> Result<RemapStats, String> {
+        self.upsert_batch_with_remap_source(rows, unstable_track_ids, true)
+    }
+
+    fn upsert_batch_with_remap_source(
+        &self,
+        rows: &[TrackRow],
+        unstable_track_ids: bool,
+        sparse_payload: bool,
     ) -> Result<RemapStats, String> {
         if rows.is_empty() {
             return Ok(RemapStats::default());
@@ -50,6 +77,61 @@ impl TrackRepository<'_> {
                             None
                         };
 
+                    // Sparse upsert normally merges against the row at the incoming id.
+                    // During an unstable-id remap that row does not exist yet: the rich
+                    // JSON is still attached to `old_id`. Merge the native payload onto
+                    // that resolved source before inserting the new id, otherwise the
+                    // later old-row deletion would discard the very fields sparse ingest
+                    // is meant to preserve.
+                    let destination_exists = if sparse_payload && detected_old.is_some() {
+                        track_exists(&tx, &r.server_id, &r.id)?
+                    } else {
+                        false
+                    };
+                    // Missing destination fields may be explicit clears whose
+                    // JSON nulls were removed by SQLite `json_patch`. Once a
+                    // destination exists it must win completely; filling gaps
+                    // from the old source could resurrect cleared metadata.
+                    let preserve_remap_source =
+                        sparse_payload && detected_old.is_some() && !destination_exists;
+                    let remap_merged_raw = if preserve_remap_source {
+                        detected_old
+                            .as_deref()
+                            .map(|old_id| {
+                                merge_sparse_raw_from_remap_source(
+                                    &tx,
+                                    &r.server_id,
+                                    old_id,
+                                    &r.raw_json,
+                                )
+                            })
+                            .transpose()?
+                    } else {
+                        None
+                    };
+                    let raw_json = remap_merged_raw.as_deref().unwrap_or(r.raw_json.as_str());
+                    let remap_source_timestamps = if preserve_remap_source {
+                        detected_old
+                            .as_deref()
+                            .map(|old_id| load_remap_source_timestamps(&tx, &r.server_id, old_id))
+                            .transpose()?
+                            .flatten()
+                    } else {
+                        None
+                    };
+                    let server_updated_at = sparse_remap_timestamp(
+                        r.server_updated_at,
+                        &r.raw_json,
+                        &["updatedAt"],
+                        remap_source_timestamps.and_then(|timestamps| timestamps.0),
+                    );
+                    let server_created_at = sparse_remap_timestamp(
+                        r.server_created_at,
+                        &r.raw_json,
+                        &["created", "createdAt"],
+                        remap_source_timestamps.and_then(|timestamps| timestamps.1),
+                    );
+
                     upsert.execute(params![
                         r.server_id,
                         r.id,
@@ -82,12 +164,12 @@ impl TrackRepository<'_> {
                         r.replay_gain_album_db,
                         r.replay_gain_peak,
                         r.content_hash,
-                        r.server_updated_at,
-                        r.server_created_at,
+                        server_updated_at,
+                        server_created_at,
                         if r.deleted { 1_i64 } else { 0 },
                         r.synced_at,
-                        r.raw_json,
-                        0_i64,
+                        raw_json,
+                        if sparse_payload { 1_i64 } else { 0_i64 },
                     ])?;
 
                     if let Some(old_id) = detected_old {
@@ -98,7 +180,7 @@ impl TrackRepository<'_> {
                                 std::slice::from_ref(&old_id),
                             )?,
                         );
-                        remap_existing_to_new(
+                        retarget_track_references(
                             &tx,
                             &r.server_id,
                             &old_id,
@@ -129,6 +211,17 @@ impl TrackRepository<'_> {
 
                 drop(upsert);
                 drop(remap_lookup);
+                if sparse_payload {
+                    for row in rows {
+                        normalize_sparse_album_version_provenance(
+                            &tx,
+                            &row.server_id,
+                            &row.id,
+                            &row.raw_json,
+                        )?;
+                    }
+                    invalidate_album_list_completion(&tx, rows)?;
+                }
                 sync_persisted_track_genre_rows(&tx, rows)?;
                 crate::identity::record_tracks(
                     &tx,
@@ -155,6 +248,108 @@ impl TrackRepository<'_> {
                 Ok(RemapStats { remapped })
             })
     }
+}
+
+fn load_remap_source_timestamps(
+    tx: &rusqlite::Transaction<'_>,
+    server_id: &str,
+    old_id: &str,
+) -> rusqlite::Result<Option<(Option<i64>, Option<i64>)>> {
+    tx.query_row(
+        "SELECT server_updated_at, server_created_at FROM track \
+         WHERE server_id = ?1 AND id = ?2",
+        params![server_id, old_id],
+        |row| Ok((row.get(0)?, row.get(1)?)),
+    )
+    .optional()
+}
+
+fn sparse_remap_timestamp(
+    incoming: Option<i64>,
+    incoming_raw: &str,
+    keys: &[&str],
+    remap_source: Option<i64>,
+) -> Option<i64> {
+    let field_is_present = serde_json::from_str::<serde_json::Value>(incoming_raw)
+        .ok()
+        .is_some_and(|raw| {
+            raw.as_object()
+                .is_some_and(|raw| keys.iter().any(|key| raw.contains_key(*key)))
+        });
+    if field_is_present {
+        incoming
+    } else {
+        incoming.or(remap_source)
+    }
+}
+
+fn track_exists(
+    tx: &rusqlite::Transaction<'_>,
+    server_id: &str,
+    track_id: &str,
+) -> rusqlite::Result<bool> {
+    tx.query_row(
+        "SELECT 1 FROM track WHERE server_id = ?1 AND id = ?2",
+        params![server_id, track_id],
+        |_| Ok(()),
+    )
+    .optional()
+    .map(|row| row.is_some())
+}
+
+/// Merge a sparse incoming row against the rich row that was selected as the
+/// unstable-id remap source. SQLite's `json_patch` gives this exactly the same
+/// semantics as the normal sparse UPSERT: present fields win (including explicit
+/// null clears), while genuinely absent fields survive from the prior row.
+fn merge_sparse_raw_from_remap_source(
+    tx: &rusqlite::Transaction<'_>,
+    server_id: &str,
+    old_id: &str,
+    incoming_raw: &str,
+) -> rusqlite::Result<String> {
+    let old_raw: Option<String> = tx
+        .query_row(
+            "SELECT raw_json FROM track WHERE server_id = ?1 AND id = ?2",
+            params![server_id, old_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    let Some(old_raw) = old_raw else {
+        return Ok(incoming_raw.to_string());
+    };
+
+    tx.query_row(
+        "SELECT CASE \
+           WHEN json_valid(?1) AND json_valid(?2) THEN CASE \
+             WHEN json_type(?2, '$.albumVersion') IS NOT NULL THEN json_remove( \
+               json_patch(?1, ?2), \
+               '$.tags.albumversion', \
+               '$._psysonicAlbumVersionFromList', \
+               '$._psysonicAlbumVersionNeedsListRefresh' \
+             ) \
+             WHEN json_type(?2, '$.tags.albumversion') IS NOT NULL THEN json_remove( \
+               json_patch(?1, ?2), \
+               '$.albumVersion', \
+               '$._psysonicAlbumVersionFromList', \
+               '$._psysonicAlbumVersionNeedsListRefresh' \
+             ) \
+             WHEN ( \
+               NULLIF(TRIM(json_extract(?1, '$.albumVersion')), '') IS NOT NULL \
+               OR NULLIF(TRIM(json_extract(?1, '$.tags.albumversion[0]')), '') IS NOT NULL \
+             ) AND NOT COALESCE( \
+               json_extract(?1, '$._psysonicAlbumVersionFromList') = 1, 0 \
+             ) THEN json_set( \
+               json_patch(?1, ?2), \
+               '$._psysonicAlbumVersionNeedsListRefresh', \
+               json('true') \
+             ) \
+             ELSE json_patch(?1, ?2) \
+           END \
+           ELSE ?2 \
+         END",
+        params![old_raw, incoming_raw],
+        |row| row.get(0),
+    )
 }
 
 // Two single-column lookups instead of one `OR` across `content_hash`
@@ -227,58 +422,4 @@ fn detect_remap_target_cached(
     }
 
     Ok(None)
-}
-
-/// Run the §6.9 retarget half — UPDATE every FK-bound child to the
-/// new id, INSERT into `track_id_history`, DELETE the old `track` row.
-/// `track_offline` has no FK to `track` (spec §5.14) but still needs
-/// its row retargeted so the cached file resolves under the new id.
-fn remap_existing_to_new(
-    tx: &rusqlite::Transaction<'_>,
-    server_id: &str,
-    old_id: &str,
-    new_id: &str,
-    content_hash: Option<&str>,
-    server_path: Option<&str>,
-    remapped_at: i64,
-) -> rusqlite::Result<()> {
-    for table in [
-        "track_offline",
-        "track_extension",
-        "track_fact",
-        "track_artifact",
-        "track_canonical_link",
-        "play_session",
-    ] {
-        tx.execute(
-            &format!(
-                "UPDATE {table} SET track_id = ?1 \
-                 WHERE server_id = ?2 AND track_id = ?3"
-            ),
-            params![new_id, server_id, old_id],
-        )?;
-    }
-    tx.execute(
-        "INSERT INTO track_id_history \
-         (server_id, old_id, new_id, content_hash, server_path, remapped_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6) \
-         ON CONFLICT(server_id, old_id) DO UPDATE SET \
-           new_id = excluded.new_id, \
-           content_hash = excluded.content_hash, \
-           server_path = excluded.server_path, \
-           remapped_at = excluded.remapped_at",
-        params![
-            server_id,
-            old_id,
-            new_id,
-            content_hash,
-            server_path,
-            remapped_at
-        ],
-    )?;
-    tx.execute(
-        "DELETE FROM track WHERE server_id = ?1 AND id = ?2",
-        params![server_id, old_id],
-    )?;
-    Ok(())
 }

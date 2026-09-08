@@ -50,7 +50,11 @@ interface Props {
   handleImportCsv: () => void;
   handleDownload: () => void;
   handleRefreshSmart: () => void;
-  deleteAlbum: (id: string, serverId: string) => void;
+  deleteAlbum: (
+    id: string,
+    serverId: string,
+    pinSource?: { kind: 'playlist'; sourceId: string },
+  ) => void;
   downloadPlaylist: (
     id: string,
     name: string,
@@ -260,7 +264,7 @@ export default function PlaylistHero({
                   disabled={offlineStatus === 'downloading'}
                   onClick={() => {
                     if (offlineStatus === 'cached') {
-                      deleteAlbum(id, activeServerId);
+                      deleteAlbum(id, activeServerId, { kind: 'playlist', sourceId: id });
                     } else if (offlineStatus === 'queued') {
                       dequeueOfflinePin(id, activeServerId);
                     } else if (playlist) {

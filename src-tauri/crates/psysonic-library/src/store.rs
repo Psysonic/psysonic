@@ -1,5 +1,5 @@
 use std::sync::atomic::AtomicBool;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use rusqlite::Connection;
 
@@ -7,8 +7,10 @@ mod connection;
 mod filesystem;
 mod lifecycle;
 mod migrations;
+mod native_strong_keys_reconcile;
 mod open;
 mod reconciles;
+mod track_timestamp_reconcile;
 
 pub use connection::WriteOpTiming;
 #[allow(unused_imports)]
@@ -27,6 +29,10 @@ pub(crate) use migrations::{
     MIGRATION_025_IDENTITY_INVALIDATION, MIGRATION_026_LIBRARY_TAG_CURSOR,
 };
 pub use migrations::{LIBRARY_DB_MIN_COMPATIBLE_VERSION, LIBRARY_DB_SCHEMA_VERSION};
+pub use track_timestamp_reconcile::TrackTimestampBackfillStep;
+/// Every idle-scheduler backfill reports the same three steps; the timestamp
+/// name above stays for its existing callers.
+pub use track_timestamp_reconcile::TrackTimestampBackfillStep as LibraryBackfillStep;
 #[allow(unused_imports)]
 pub(crate) use reconciles::{
     ARTIST_NAME_FOLD_RECONCILE_ID, ARTIST_NAME_SORT_RECONCILE_ID,
@@ -59,6 +65,9 @@ pub struct LibraryStore {
     /// `swap_database_file` / `restore_database_backup` — fail fast instead of
     /// touching in-memory placeholder connections while the file is offline.
     swap_in_progress: AtomicBool,
+    /// Zero permits ordinary writes. A non-zero generation rejects every writer
+    /// except migration work explicitly scoped to the matching generation.
+    migration_write_barrier: Arc<psysonic_core::migration_write_barrier::MigrationWriteBarrier>,
 }
 
 #[cfg(test)]

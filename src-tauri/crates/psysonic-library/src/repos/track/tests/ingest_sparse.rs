@@ -181,6 +181,76 @@ fn a_sparse_payload_keeps_raw_fields_it_did_not_observe() {
 }
 
 #[test]
+fn a_sparse_payload_keeps_play_statistics_it_did_not_mention() {
+    // The count is read back from the server after a scrobble and written to the
+    // column. A later sync whose song objects carry no playCount/played says
+    // nothing about the tally — writing its NULL would drop the fresher figure,
+    // and because the row's own raw_json still holds the older snapshot, the UI
+    // would then fall back to a *smaller* count than it showed a moment ago.
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    let mut played = enriched_row("t1");
+    played.play_count = Some(7);
+    played.played_at = Some(1_700_000_000_000);
+    played.raw_json = serde_json::json!({
+        "id": "t1",
+        "playCount": 7,
+        "played": "2023-11-14T22:13:20Z"
+    })
+    .to_string();
+    repo.upsert_batch(&[played]).unwrap();
+
+    let mut sparse = bulk_row_without_credit("t1");
+    sparse.play_count = None;
+    sparse.played_at = None;
+    sparse.raw_json = serde_json::json!({ "id": "t1", "title": "Track" }).to_string();
+    repo.upsert_sparse_batch_initial_ingest_timed(&[sparse], None)
+        .unwrap();
+
+    let values: (Option<i64>, Option<i64>) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT play_count, played_at FROM track WHERE id = 't1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        values,
+        (Some(7), Some(1_700_000_000_000)),
+        "a payload that never mentions the statistics must not clear them"
+    );
+}
+
+#[test]
+fn a_payload_that_states_the_play_count_still_wins() {
+    // The guard must not turn into "the stored value always wins" — a sync that
+    // does carry the field is the server speaking, including when it says null.
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    let mut played = enriched_row("t1");
+    played.play_count = Some(7);
+    played.raw_json = serde_json::json!({ "id": "t1", "playCount": 7 }).to_string();
+    repo.upsert_batch(&[played]).unwrap();
+
+    let mut corrected = bulk_row_without_credit("t1");
+    corrected.play_count = Some(2);
+    corrected.raw_json = serde_json::json!({ "id": "t1", "playCount": 2 }).to_string();
+    repo.upsert_sparse_batch_initial_ingest_timed(&[corrected], None)
+        .unwrap();
+
+    let count: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row("SELECT play_count FROM track WHERE id = 't1'", [], |row| {
+                row.get(0)
+            })
+        })
+        .unwrap();
+    assert_eq!(count, Some(2), "a stated count wins, even a smaller one");
+}
+
+#[test]
 fn sparse_merge_keeps_genre_projection_aligned_with_the_committed_row() {
     let store = LibraryStore::open_in_memory();
     let repo = TrackRepository::new(&store);
@@ -256,37 +326,41 @@ fn explicit_nulls_clear_preserved_sparse_fields() {
     assert_eq!(values, (None, None, None));
 }
 
-/// `MAX(server_updated_at)` is where the native delta resumes reading. A
-/// bulk pass that does not carry the timestamp must not erase it, on either
-/// upsert shape — a resync that blanks it strands the delta.
+/// `MAX(server_updated_at)` is where the native delta resumes reading, while
+/// `server_created_at` drives New Releases. A bulk pass that carries neither
+/// timestamp must not erase either one on either upsert shape.
 #[test]
-fn a_bulk_pass_does_not_erase_the_delta_watermark() {
+fn a_bulk_pass_does_not_erase_sync_timestamps() {
     let store = LibraryStore::open_in_memory();
     let repo = TrackRepository::new(&store);
     repo.upsert_batch(&[enriched_row("t1")]).unwrap();
 
     let mut bulk = bulk_row_without_credit("t1");
     bulk.server_updated_at = None;
+    bulk.server_created_at = None;
     repo.upsert_sparse_batch_initial_ingest_timed(&[bulk.clone()], None)
         .unwrap();
-    assert_eq!(delta_watermark(&store, "t1"), Some(1_700_000_000));
+    assert_eq!(
+        sync_timestamps(&store, "t1"),
+        (Some(1_700_000_000), Some(1_699_000_000))
+    );
 
     repo.upsert_sparse_batch_initial_ingest_timed(&[bulk], Some(2))
         .unwrap();
     assert_eq!(
-        delta_watermark(&store, "t1"),
-        Some(1_700_000_000),
+        sync_timestamps(&store, "t1"),
+        (Some(1_700_000_000), Some(1_699_000_000)),
         "the resync path must preserve it too"
     );
 }
 
-fn delta_watermark(store: &LibraryStore, id: &str) -> Option<i64> {
+fn sync_timestamps(store: &LibraryStore, id: &str) -> (Option<i64>, Option<i64>) {
     store
         .with_conn("misc", |c| {
             c.query_row(
-                "SELECT server_updated_at FROM track WHERE id = ?1",
+                "SELECT server_updated_at, server_created_at FROM track WHERE id = ?1",
                 params![id],
-                |r| r.get(0),
+                |r| Ok((r.get(0)?, r.get(1)?)),
             )
         })
         .unwrap()

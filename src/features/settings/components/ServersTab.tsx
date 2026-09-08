@@ -20,14 +20,17 @@ import {
 } from '@/lib/server/syncServerHttpContext';
 import { type ServerMagicPayload } from '@/lib/server/serverMagicString';
 import {
+  admitSuccessfulPingForProfile,
   ensureConnectUrlResolved,
   invalidateReachableEndpointCache,
   profileProbeFingerprint,
 } from '@/lib/server/serverEndpoint';
+import { navidromeCanonicalBootstrapIsActive } from '@/lib/server/navidromeCanonicalCheckpointStatus';
 import {
   verifySameServerEndpoints,
   type VerifySameServerResult,
 } from '@/lib/server/serverFingerprint';
+import { runOfflineServerMaintenanceBatch } from '@/features/offline';
 import {
   indexKeyRemapForUrlChange,
   runIndexKeyRemigration,
@@ -243,6 +246,7 @@ export function ServersTab({
     // failure can point the user at what's wrong (bad credentials, gate header,
     // unreachable) instead of silently closing with a tiny status dot.
     const tempId = '_new';
+    let addedId: string | null = null;
     setConnStatus(s => ({ ...s, [tempId]: 'testing' }));
     try {
       // Dual-address: confirm both addresses point at the same server
@@ -267,6 +271,10 @@ export function ServersTab({
       const ping = await pingWithCredentialsForProfile(data, data.url);
       if (ping.ok) {
         const id = auth.addServer(data);
+        addedId = id;
+        const added = useAuthStore.getState().servers.find(server => server.id === id);
+        if (!added) throw new Error('Added server profile was not persisted');
+        await admitSuccessfulPingForProfile(added, data.url, ping);
         const identity = {
           type: ping.type,
           serverVersion: ping.serverVersion,
@@ -280,11 +288,8 @@ export function ServersTab({
           useAuthStore.getState().activeServerId === id,
         );
         setConnStatus(s => ({ ...s, [id]: 'ok' }));
-        const added = useAuthStore.getState().servers.find(s => s.id === id);
-        if (added) {
-          void syncServerHttpContextForProfile(added);
-          void bootstrapIndexedServer(added);
-        }
+        void syncServerHttpContextForProfile(added);
+        void bootstrapIndexedServer(added);
         // Success only: close the form and clear any pasted invite.
         setShowAddForm(false);
         setPastedServerInvite(null);
@@ -299,6 +304,9 @@ export function ServersTab({
         );
       }
     } catch (err) {
+      // An active migration still needs the just-added profile to resolve its
+      // durable owner after reload. Roll back only pre-admission failures.
+      if (addedId && !navidromeCanonicalBootstrapIsActive()) auth.removeServer(addedId);
       setConnStatus(s => ({ ...s, [tempId]: 'error' }));
       showToast(
         err instanceof Error
@@ -332,38 +340,6 @@ export function ServersTab({
     const editGeneration = (editGenerationRef.current[id] ?? 0) + 1;
     editGenerationRef.current[id] = editGeneration;
     const previous = auth.servers.find(s => s.id === id);
-
-    // URL-change remigration — runs BEFORE everything else when the edit
-    // changes the derived index key. User confirms first; on failure the
-    // edit is aborted with a stage-specific toast. Spec §8.
-    const remap = previous ? indexKeyRemapForUrlChange(previous, data) : null;
-    if (remap) {
-      const confirmed = await useConfirmModalStore.getState().request({
-        title: t('settings.urlRemigrationTitle'),
-        message: t('settings.urlRemigrationMessage', {
-          oldKey: remap.oldKey,
-          newKey: remap.newKey,
-        }),
-        confirmLabel: t('settings.urlRemigrationConfirm'),
-        cancelLabel: t('common.cancel'),
-        danger: true,
-      });
-      if (!confirmed) return;
-      setConnStatus(s => ({ ...s, [id]: 'testing' }));
-      const result = await runIndexKeyRemigration(remap);
-      if (!result.ok) {
-        const failureKey =
-          result.failure.stage === 'inspect'
-            ? 'settings.urlRemigrationFailureInspect'
-            : result.failure.stage === 'run'
-            ? 'settings.urlRemigrationFailureRun'
-            : 'settings.urlRemigrationFailureCoverRename';
-        showToast(t(failureKey), 8000, 'error');
-        setConnStatus(s => ({ ...s, [id]: 'error' }));
-        return;
-      }
-    }
-
     const dualAddressChanged =
       data.alternateUrl != null &&
       data.alternateUrl !== '' &&
@@ -390,8 +366,55 @@ export function ServersTab({
       }
     }
 
+    // Keep remigration and profile commit under one maintenance lease so
+    // offline producers never observe a half-switched key.
+    const remap = previous ? indexKeyRemapForUrlChange(previous, data) : null;
+    let profileUpdated = false;
+    if (remap) {
+      const confirmed = await useConfirmModalStore.getState().request({
+        title: t('settings.urlRemigrationTitle'),
+        message: t('settings.urlRemigrationMessage', {
+          oldKey: remap.oldKey,
+          newKey: remap.newKey,
+        }),
+        confirmLabel: t('settings.urlRemigrationConfirm'),
+        cancelLabel: t('common.cancel'),
+        danger: true,
+      });
+      if (!confirmed) return;
+      setConnStatus(s => ({ ...s, [id]: 'testing' }));
+      const result = await runIndexKeyRemigration(
+        remap,
+        operation => runOfflineServerMaintenanceBatch(
+          [remap.oldKey, remap.newKey],
+          async () => {
+            const guardedResult = await operation();
+            if (
+              guardedResult.ok
+              || guardedResult.failure.stage === 'cover-rename'
+            ) {
+              auth.updateServer(id, data);
+              profileUpdated = true;
+            }
+            return guardedResult;
+          },
+        ),
+      );
+      if (!result.ok) {
+        const failureKey =
+          result.failure.stage === 'inspect'
+            ? 'settings.urlRemigrationFailureInspect'
+            : result.failure.stage === 'run'
+            ? 'settings.urlRemigrationFailureRun'
+            : 'settings.urlRemigrationFailureCoverRename';
+        showToast(t(failureKey), 8000, 'error');
+        setConnStatus(s => ({ ...s, [id]: 'error' }));
+        if (result.failure.stage !== 'cover-rename') return;
+      }
+    }
+
     setEditingServerId(null);
-    auth.updateServer(id, data);
+    if (!profileUpdated) auth.updateServer(id, data);
     onPersisted?.();
     const updated = useAuthStore.getState().servers.find(s => s.id === id);
     if (!updated) return;

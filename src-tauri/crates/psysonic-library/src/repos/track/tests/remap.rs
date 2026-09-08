@@ -1,6 +1,8 @@
 use rusqlite::params;
+use serde_json::json;
 
 use super::super::remap::{REMAP_LOOKUP_BY_HASH_SQL, REMAP_LOOKUP_BY_PATH_SQL};
+use super::super::retarget::retarget_track_references;
 use super::*;
 
 fn row_with_id_hash(server: &str, id: &str, hash: &str, path: &str) -> TrackRow {
@@ -122,6 +124,275 @@ fn remap_via_content_hash_replaces_old_row_and_records_history() {
 }
 
 #[test]
+fn sparse_remap_merges_from_resolved_old_row_before_deleting_it() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    let mut old = row_with_id_hash("s1", "tr_old", "deadbeef", "/path/x.flac");
+    old.server_updated_at = Some(1_700_000_123_000);
+    old.server_created_at = Some(1_699_000_123_000);
+    old.raw_json = json!({
+        "id": "tr_old",
+        "artist": "FOVOS, Max Cardona",
+        "artists": [
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "max-cardona", "name": "Max Cardona" }
+        ],
+        "albumArtists": [
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "max-cardona", "name": "Max Cardona" }
+        ],
+        "displayArtist": "FOVOS, Max Cardona"
+    })
+    .to_string();
+    repo.upsert_batch(&[old]).unwrap();
+
+    let mut incoming = row_with_id_hash("s1", "tr_new", "deadbeef", "/path/x.flac");
+    incoming.server_updated_at = None;
+    incoming.server_created_at = None;
+    incoming.raw_json = json!({
+        "id": "tr_new",
+        "artist": "FOVOS, Someone Else",
+        "artists": [
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "someone-else", "name": "Someone Else" }
+        ],
+        "displayArtist": "FOVOS, Someone Else"
+    })
+    .to_string();
+
+    let stats = repo
+        .upsert_sparse_batch_with_remap(&[incoming], true)
+        .unwrap();
+    assert_eq!(stats.remapped.len(), 1);
+
+    let raw: String = store
+        .with_conn("misc", |c| {
+            c.query_row(
+                "SELECT raw_json FROM track WHERE server_id = 's1' AND id = 'tr_new'",
+                [],
+                |row| row.get(0),
+            )
+        })
+        .unwrap();
+    let raw: serde_json::Value = serde_json::from_str(&raw).unwrap();
+
+    // Present current credits replace the old array and display value.
+    assert_eq!(
+        raw["artists"],
+        json!([
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "someone-else", "name": "Someone Else" }
+        ])
+    );
+    assert_eq!(raw["displayArtist"], json!("FOVOS, Someone Else"));
+    // Truly absent rich fields survive from the old id across the remap.
+    assert_eq!(
+        raw["albumArtists"],
+        json!([
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "max-cardona", "name": "Max Cardona" }
+        ])
+    );
+    let timestamps: (Option<i64>, Option<i64>) = store
+        .with_conn("misc", |c| {
+            c.query_row(
+                "SELECT server_updated_at, server_created_at FROM track \
+                 WHERE server_id = 's1' AND id = 'tr_new'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        timestamps,
+        (Some(1_700_000_123_000), Some(1_699_000_123_000)),
+        "timestamps omitted by the sparse remap payload survive the old-id deletion"
+    );
+}
+
+#[test]
+fn sparse_remap_invalidates_album_list_state_and_marks_preserved_version_pending() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    let mut old = row_with_id_hash("s1", "tr_old", "deadbeef", "/path/x.flac");
+    old.raw_json = json!({
+        "id": "tr_old",
+        "tags": { "albumversion": ["", "Stale authoritative value"] }
+    })
+    .to_string();
+    repo.upsert_batch(&[old]).unwrap();
+    store
+        .with_conn_mut("test.seed_library_tag_state", |conn| {
+            conn.execute(
+                "INSERT INTO library_tag_state \
+                 (server_id, folders_hash, last_untagged_count, completed_at) \
+                 VALUES ('s1', '2|1:Main', 0, 1)",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO library_tag_cursor \
+                 (server_id, folders_hash, next_folder_id, next_album_offset, updated_at) \
+                 VALUES ('s1', '2|1:Main', '1', 500, 1)",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let mut incoming = row_with_id_hash("s1", "tr_new", "deadbeef", "/path/x.flac");
+    incoming.raw_json = json!({ "id": "tr_new", "title": "Title" }).to_string();
+    repo.upsert_sparse_batch_with_remap(&[incoming], true)
+        .unwrap();
+
+    let (state_hash, cursor_count, raw): (String, i64, String) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT folders_hash FROM library_tag_state WHERE server_id = 's1'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM library_tag_cursor WHERE server_id = 's1'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT raw_json FROM track WHERE server_id = 's1' AND id = 'tr_new'",
+                    [],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+    let raw: serde_json::Value = serde_json::from_str(&raw).unwrap();
+    assert_eq!(state_hash, "dirty");
+    assert_eq!(cursor_count, 1);
+    assert_eq!(raw["albumVersion"], json!("Stale authoritative value"));
+    assert_eq!(
+        raw["_psysonicAlbumVersionNeedsListRefresh"],
+        json!(true)
+    );
+}
+
+#[test]
+fn sparse_remap_keeps_newer_timestamps_on_an_existing_destination() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    let mut old = row_with_id_hash("s1", "tr_old", "deadbeef", "/path/x.flac");
+    old.server_updated_at = Some(100);
+    old.server_created_at = Some(200);
+    let mut destination = row_with_id_hash("s1", "tr_new", "deadbeef", "/path/x.flac");
+    destination.server_updated_at = Some(300);
+    destination.server_created_at = Some(400);
+    repo.upsert_batch(&[old, destination]).unwrap();
+
+    let mut incoming = row_with_id_hash("s1", "tr_new", "deadbeef", "/path/x.flac");
+    incoming.server_updated_at = None;
+    incoming.server_created_at = None;
+    incoming.raw_json = json!({ "id": "tr_new", "title": "Current" }).to_string();
+
+    let stats = repo
+        .upsert_sparse_batch_with_remap(&[incoming], true)
+        .unwrap();
+    assert_eq!(stats.remapped.len(), 1);
+    assert_eq!(stats.remapped[0].old_id, "tr_old");
+    assert_eq!(stats.remapped[0].new_id, "tr_new");
+
+    let timestamps: (Option<i64>, Option<i64>) = store
+        .with_conn("test.existing_remap_destination", |conn| {
+            conn.query_row(
+                "SELECT server_updated_at, server_created_at FROM track \
+                 WHERE server_id = 's1' AND id = 'tr_new'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(timestamps, (Some(300), Some(400)));
+}
+
+#[test]
+fn sparse_remap_does_not_resurrect_cleared_destination_timestamps() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    let mut old = row_with_id_hash("s1", "tr_old", "deadbeef", "/path/x.flac");
+    old.server_updated_at = Some(100);
+    old.server_created_at = Some(200);
+    old.raw_json = json!({
+        "id": "tr_old",
+        "artists": [{ "id": "ar_old", "name": "Old artist" }],
+        "created": "2024-01-01T00:00:00+02:00"
+    })
+    .to_string();
+    let mut destination = row_with_id_hash("s1", "tr_new", "deadbeef", "/path/x.flac");
+    destination.server_updated_at = None;
+    destination.server_created_at = None;
+    repo.upsert_batch(&[old, destination]).unwrap();
+
+    let mut incoming = row_with_id_hash("s1", "tr_new", "deadbeef", "/path/x.flac");
+    incoming.server_updated_at = None;
+    incoming.server_created_at = None;
+    incoming.raw_json = json!({ "id": "tr_new", "title": "Current" }).to_string();
+    repo.upsert_sparse_batch_with_remap(&[incoming], true)
+        .unwrap();
+
+    let (updated_at, created_at, raw_json): (Option<i64>, Option<i64>, String) = store
+        .with_conn("test.cleared_remap_destination", |conn| {
+            conn.query_row(
+                "SELECT server_updated_at, server_created_at, raw_json FROM track \
+                 WHERE server_id = 's1' AND id = 'tr_new'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!((updated_at, created_at), (None, None));
+    let raw: serde_json::Value = serde_json::from_str(&raw_json).unwrap();
+    assert!(raw.get("artists").is_none());
+    assert!(raw.get("created").is_none());
+}
+
+#[test]
+fn sparse_remap_explicit_null_timestamps_clear_old_values() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    let mut old = row_with_id_hash("s1", "tr_old", "deadbeef", "/path/x.flac");
+    old.server_updated_at = Some(1_700_000_123_000);
+    old.server_created_at = Some(1_699_000_123_000);
+    repo.upsert_batch(&[old]).unwrap();
+
+    let mut incoming = row_with_id_hash("s1", "tr_new", "deadbeef", "/path/x.flac");
+    incoming.server_updated_at = None;
+    incoming.server_created_at = None;
+    incoming.raw_json = json!({
+        "id": "tr_new",
+        "updatedAt": null,
+        "createdAt": null
+    })
+    .to_string();
+
+    repo.upsert_sparse_batch_with_remap(&[incoming], true)
+        .unwrap();
+
+    let timestamps: (Option<i64>, Option<i64>) = store
+        .with_conn("misc", |c| {
+            c.query_row(
+                "SELECT server_updated_at, server_created_at FROM track \
+                 WHERE server_id = 's1' AND id = 'tr_new'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(timestamps, (None, None));
+}
+
+#[test]
 fn remap_via_server_path_only_works_when_hash_missing() {
     let store = LibraryStore::open_in_memory();
     let repo = TrackRepository::new(&store);
@@ -208,4 +479,363 @@ fn remap_is_noop_when_new_id_matches_existing_id() {
         .upsert_batch_with_remap(&[row_with_id_hash("s1", "tr_1", "h", "/p")], true)
         .unwrap();
     assert!(stats.remapped.is_empty());
+}
+
+#[test]
+fn retarget_merges_colliding_preserved_references_without_dropping_history() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    repo.upsert_batch(&[
+        row_with_id_hash("s1", "tr_old", "same", "/music/x.flac"),
+        row_with_id_hash("s1", "tr_new", "same", "/music/x.flac"),
+    ])
+    .unwrap();
+    store
+        .with_conn("test.seed_retarget_collisions", |conn| {
+            conn.execute_batch(
+                "INSERT INTO canonical_track(id, created_at, updated_at) VALUES ('canonical-1', 1, 1);
+                 INSERT INTO track_canonical_link(server_id, track_id, canonical_id, match_method, confidence, linked_at)
+                   VALUES ('s1', 'tr_old', 'canonical-1', 'path', 0.8, 2),
+                          ('s1', 'tr_new', 'canonical-1', 'isrc', 0.9, 1);
+                 INSERT INTO entity_user_rating(server_id, entity_kind, entity_id, rating, fetched_at)
+                   VALUES ('s1', 'track', 'tr_old', 5, 20),
+                          ('s1', 'track', 'tr_new', 3, 10);
+                 INSERT INTO play_session(server_id, track_id, started_at_ms, listened_sec,
+                   position_max_sec, completion, end_reason)
+                   VALUES ('s1', 'tr_old', 1, 1, 1, 'full', 'ended'),
+                          ('s1', 'tr_new', 2, 1, 1, 'full', 'ended');
+                 INSERT INTO track_id_history(server_id, old_id, new_id, remapped_at)
+                   VALUES ('s1', 'older', 'tr_old', 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    store
+        .with_conn_mut("test.retarget_collisions", |conn| {
+            let tx = conn.transaction()?;
+            retarget_track_references(
+                &tx,
+                "s1",
+                "tr_old",
+                "tr_new",
+                Some("same"),
+                Some("/music/x.flac"),
+                30,
+            )?;
+            tx.commit()
+        })
+        .unwrap();
+
+    store
+        .with_conn("test.verify_retarget_collisions", |conn| {
+            assert_eq!(
+                conn.query_row(
+                    "SELECT COUNT(*) FROM play_session WHERE server_id = 's1' AND track_id = 'tr_new'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )?,
+                2
+            );
+            assert_eq!(
+                conn.query_row(
+                    "SELECT rating FROM entity_user_rating WHERE server_id = 's1' AND entity_kind = 'track' AND entity_id = 'tr_new'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )?,
+                5
+            );
+            assert_eq!(
+                conn.query_row(
+                    "SELECT new_id FROM track_id_history WHERE server_id = 's1' AND old_id = 'older'",
+                    [],
+                    |row| row.get::<_, String>(0),
+                )?,
+                "tr_new"
+            );
+            assert_eq!(
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track WHERE server_id = 's1' AND id = 'tr_old'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )?,
+                0
+            );
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[test]
+fn retarget_artifact_collision_preserves_older_valid_content_over_newer_miss() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    repo.upsert_batch(&[
+        row_with_id_hash("s1", "tr_old", "same", "/music/x.flac"),
+        row_with_id_hash("s1", "tr_new", "same", "/music/x.flac"),
+    ])
+    .unwrap();
+    store
+        .with_conn("test.seed_artifact_positive_destination", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_artifact
+                   (server_id, track_id, artifact_kind, format, source_kind, source_id,
+                    content_text, content_bytes, not_found, content_hash, fetched_at, expires_at)
+                 VALUES ('s1', 'tr_new', 'lyrics', 'plain', 'lrclib', 'lrclib',
+                         'valid lyrics', 12, 0, 'positive-hash', 100, 1000),
+                        ('s1', 'tr_old', 'lyrics', 'plain', 'lrclib', 'lrclib',
+                         NULL, 0, 1, 'miss-hash', 200, 300);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    store
+        .with_conn_mut("test.retarget_artifact_positive_destination", |conn| {
+            let tx = conn.transaction()?;
+            retarget_track_references(&tx, "s1", "tr_old", "tr_new", None, None, 250)?;
+            tx.commit()
+        })
+        .unwrap();
+
+    let row: (Option<String>, i64, i64, Option<String>, i64, Option<i64>) = store
+        .with_conn("test.verify_artifact_positive_destination", |conn| {
+            conn.query_row(
+                "SELECT content_text, content_bytes, not_found, content_hash, fetched_at, expires_at
+                 FROM track_artifact WHERE server_id = 's1' AND track_id = 'tr_new'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        row,
+        (
+            Some("valid lyrics".to_string()),
+            12,
+            0,
+            Some("positive-hash".to_string()),
+            100,
+            Some(1000),
+        )
+    );
+}
+
+#[test]
+fn retarget_artifact_collision_promotes_valid_source_over_older_miss() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    repo.upsert_batch(&[
+        row_with_id_hash("s1", "tr_old", "same", "/music/x.flac"),
+        row_with_id_hash("s1", "tr_new", "same", "/music/x.flac"),
+    ])
+    .unwrap();
+    store
+        .with_conn("test.seed_artifact_positive_source", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_artifact
+                   (server_id, track_id, artifact_kind, format, source_kind, source_id,
+                    content_text, content_bytes, not_found, content_hash, fetched_at, expires_at)
+                 VALUES ('s1', 'tr_new', 'lyrics', 'plain', 'lrclib', 'lrclib',
+                         NULL, 0, 1, 'miss-hash', 100, 300),
+                        ('s1', 'tr_old', 'lyrics', 'plain', 'lrclib', 'lrclib',
+                         'valid lyrics', 12, 0, 'positive-hash', 200, 1000);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    store
+        .with_conn_mut("test.retarget_artifact_positive_source", |conn| {
+            let tx = conn.transaction()?;
+            retarget_track_references(&tx, "s1", "tr_old", "tr_new", None, None, 250)?;
+            tx.commit()
+        })
+        .unwrap();
+
+    let row: (Option<String>, i64, i64, Option<String>, i64, Option<i64>) = store
+        .with_conn("test.verify_artifact_positive_source", |conn| {
+            conn.query_row(
+                "SELECT content_text, content_bytes, not_found, content_hash, fetched_at, expires_at
+                 FROM track_artifact WHERE server_id = 's1' AND track_id = 'tr_new'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        row,
+        (
+            Some("valid lyrics".to_string()),
+            12,
+            0,
+            Some("positive-hash".to_string()),
+            200,
+            Some(1000),
+        )
+    );
+}
+
+#[test]
+fn retarget_fact_collision_preserves_current_destination_over_newer_expired_source() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    repo.upsert_batch(&[
+        row_with_id_hash("s1", "tr_old", "same", "/music/x.flac"),
+        row_with_id_hash("s1", "tr_new", "same", "/music/x.flac"),
+    ])
+    .unwrap();
+    store
+        .with_conn("test.seed_fact_current_destination", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_fact
+                   (server_id, track_id, fact_kind, value_int, source_kind, source_id,
+                    confidence, content_hash, fetched_at, expires_at)
+                 VALUES ('s1', 'tr_new', 'bpm', 120, 'analysis', 'oximedia',
+                         0.9, 'current-hash', 100, 1000),
+                        ('s1', 'tr_old', 'bpm', 90, 'analysis', 'oximedia',
+                         0.5, 'expired-hash', 200, 50);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    store
+        .with_conn_mut("test.retarget_fact_current_destination", |conn| {
+            let tx = conn.transaction()?;
+            retarget_track_references(&tx, "s1", "tr_old", "tr_new", None, None, 500)?;
+            tx.commit()
+        })
+        .unwrap();
+
+    let row: (i64, f64, Option<String>, i64, Option<i64>) = store
+        .with_conn("test.verify_fact_current_destination", |conn| {
+            conn.query_row(
+                "SELECT value_int, confidence, content_hash, fetched_at, expires_at
+                 FROM track_fact WHERE server_id = 's1' AND track_id = 'tr_new'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        row,
+        (120, 0.9, Some("current-hash".to_string()), 100, Some(1000))
+    );
+}
+
+#[test]
+fn retarget_fact_collision_promotes_current_source_over_newer_expired_destination() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    repo.upsert_batch(&[
+        row_with_id_hash("s1", "tr_old", "same", "/music/x.flac"),
+        row_with_id_hash("s1", "tr_new", "same", "/music/x.flac"),
+    ])
+    .unwrap();
+    store
+        .with_conn("test.seed_fact_current_source", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_fact
+                   (server_id, track_id, fact_kind, value_int, source_kind, source_id,
+                    confidence, content_hash, fetched_at, expires_at)
+                 VALUES ('s1', 'tr_new', 'bpm', 90, 'analysis', 'oximedia',
+                         0.5, 'expired-hash', 200, 50),
+                        ('s1', 'tr_old', 'bpm', 120, 'analysis', 'oximedia',
+                         0.9, 'current-hash', 100, 1000);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    store
+        .with_conn_mut("test.retarget_fact_current_source", |conn| {
+            let tx = conn.transaction()?;
+            retarget_track_references(&tx, "s1", "tr_old", "tr_new", None, None, 500)?;
+            tx.commit()
+        })
+        .unwrap();
+
+    let row: (i64, f64, Option<String>, i64, Option<i64>) = store
+        .with_conn("test.verify_fact_current_source", |conn| {
+            conn.query_row(
+                "SELECT value_int, confidence, content_hash, fetched_at, expires_at
+                 FROM track_fact WHERE server_id = 's1' AND track_id = 'tr_new'",
+                [],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        row,
+        (120, 0.9, Some("current-hash".to_string()), 100, Some(1000))
+    );
+}
+
+#[test]
+fn retarget_rolls_back_conflicting_canonical_identity() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    repo.upsert_batch(&[
+        row_with_id_hash("s1", "tr_old", "same", "/music/x.flac"),
+        row_with_id_hash("s1", "tr_new", "same", "/music/x.flac"),
+    ])
+    .unwrap();
+    store
+        .with_conn("test.seed_retarget_conflict", |conn| {
+            conn.execute_batch(
+                "INSERT INTO canonical_track(id, created_at, updated_at) VALUES
+                   ('canonical-1', 1, 1), ('canonical-2', 1, 1);
+                 INSERT INTO track_canonical_link(server_id, track_id, canonical_id, match_method, confidence, linked_at)
+                   VALUES ('s1', 'tr_old', 'canonical-1', 'path', 0.8, 1),
+                          ('s1', 'tr_new', 'canonical-2', 'isrc', 0.9, 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let error = store
+        .with_conn_mut("test.retarget_conflict", |conn| {
+            let tx = conn.transaction()?;
+            retarget_track_references(
+                &tx,
+                "s1",
+                "tr_old",
+                "tr_new",
+                Some("same"),
+                Some("/music/x.flac"),
+                2,
+            )?;
+            tx.commit()
+        })
+        .unwrap_err();
+    assert!(error.contains("canonical track link conflict"));
+    assert_eq!(
+        store
+            .with_conn("test.verify_retarget_rollback", |conn| {
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track WHERE server_id = 's1'",
+                    [],
+                    |row| row.get::<_, i64>(0),
+                )
+            })
+            .unwrap(),
+        2
+    );
 }

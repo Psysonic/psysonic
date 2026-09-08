@@ -63,6 +63,140 @@ fn navidrome_song_maps_native_field_shape() {
 }
 
 #[test]
+fn navidrome_song_maps_negative_offset_timestamps() {
+    let raw = json!({
+        "id": "tr_1",
+        "title": "Hello",
+        "createdAt": "2026-08-26T22:04:58.676898-07:00",
+        "updatedAt": "2026-08-26T22:04:58.676898-07:00",
+        "starredAt": "2026-08-26T22:04:58.676898-07:00",
+        "playDate": "2026-08-26T22:04:58.676898-07:00"
+    });
+
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+
+    assert_eq!(row.server_created_at, Some(1_787_807_098_000));
+    assert_eq!(row.server_updated_at, Some(1_787_807_098_000));
+    assert_eq!(row.starred_at, Some(1_787_807_098_000));
+    assert_eq!(row.played_at, Some(1_787_807_098_000));
+}
+
+#[test]
+fn navidrome_song_normalizes_current_participants_into_structured_artist_refs() {
+    let raw = json!({
+        "id": "tr_1",
+        "title": "Adore You (Extended Mix)",
+        "artist": "FOVOS, Someone Else",
+        "artistId": "fovos",
+        "albumArtist": "FOVOS",
+        "displayArtist": "FOVOS, Max Cardona",
+        "displayAlbumArtist": "FOVOS, Max Cardona",
+        "artists": [
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "max-cardona", "name": "Max Cardona" }
+        ],
+        "albumArtists": [
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "max-cardona", "name": "Max Cardona" }
+        ],
+        "participants": {
+            "artist": [
+                { "id": "fovos", "name": "FOVOS" },
+                { "id": "someone-else", "name": "Someone Else" }
+            ],
+            "albumartist": [
+                { "id": "fovos", "name": "FOVOS" }
+            ]
+        }
+    });
+
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    let normalized: serde_json::Value = serde_json::from_str(&row.raw_json).unwrap();
+
+    assert_eq!(
+        normalized["artists"],
+        json!([
+            { "id": "fovos", "name": "FOVOS" },
+            { "id": "someone-else", "name": "Someone Else" }
+        ])
+    );
+    assert_eq!(
+        normalized["albumArtists"],
+        json!([{ "id": "fovos", "name": "FOVOS" }])
+    );
+    assert_eq!(normalized["displayArtist"], json!("FOVOS, Someone Else"));
+    assert_eq!(normalized["displayAlbumArtist"], json!("FOVOS"));
+}
+
+#[test]
+fn navidrome_song_present_participants_clears_missing_roles() {
+    let raw = json!({
+        "id": "tr_1",
+        "title": "Current credits",
+        "artist": "FOVOS",
+        "albumArtist": "FOVOS",
+        "artists": [
+            { "id": "old-track", "name": "Old Track Artist" }
+        ],
+        "albumArtists": [
+            { "id": "old-album", "name": "Old Album Artist" }
+        ],
+        "participants": {
+            "artist": [
+                { "id": "fovos", "name": "FOVOS" }
+            ]
+        }
+    });
+
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    let normalized: serde_json::Value = serde_json::from_str(&row.raw_json).unwrap();
+
+    assert_eq!(
+        normalized["artists"],
+        json!([{ "id": "fovos", "name": "FOVOS" }])
+    );
+    assert_eq!(normalized["albumArtists"], json!([]));
+}
+
+#[test]
+fn navidrome_song_absent_or_null_participants_keeps_compatibility_arrays() {
+    let stale_artists = json!([
+        { "id": "fovos", "name": "FOVOS" },
+        { "id": "max-cardona", "name": "Max Cardona" }
+    ]);
+    let stale_album_artists = json!([
+        { "id": "fovos", "name": "FOVOS" }
+    ]);
+
+    let without_participants = json!({
+        "id": "tr_absent",
+        "title": "Compatibility",
+        "artist": "FOVOS, Max Cardona",
+        "albumArtist": "FOVOS",
+        "artists": stale_artists.clone(),
+        "albumArtists": stale_album_artists.clone()
+    });
+    let null_participants = json!({
+        "id": "tr_null",
+        "title": "Compatibility",
+        "artist": "FOVOS, Max Cardona",
+        "albumArtist": "FOVOS",
+        "artists": stale_artists.clone(),
+        "albumArtists": stale_album_artists.clone(),
+        "participants": null
+    });
+
+    for raw in [without_participants, null_participants] {
+        let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+        let normalized: serde_json::Value = serde_json::from_str(&row.raw_json).unwrap();
+        assert_eq!(normalized["artists"], stale_artists);
+        assert_eq!(normalized["albumArtists"], stale_album_artists);
+        assert_eq!(normalized["displayArtist"], json!("FOVOS, Max Cardona"));
+        assert_eq!(normalized["displayAlbumArtist"], json!("FOVOS"));
+    }
+}
+
+#[test]
 fn navidrome_song_maps_numeric_library_id() {
     let raw = json!({ "id": "tr_1", "title": "Hello", "libraryId": 3 });
     let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
@@ -80,4 +214,85 @@ fn navidrome_song_rounds_decimal_duration_seconds() {
 fn navidrome_song_skips_rows_without_id() {
     let row = navidrome_song_to_track_row("s1", &json!({"title": "no id"}), 1, None);
     assert!(row.is_none());
+}
+
+#[test]
+fn navidrome_song_reads_the_play_date_under_its_own_name() {
+    // Navidrome calls it `playDate`. Reading `playedAt` — a name it never sends —
+    // wrote NULL on every native ingest, and the server's play dates never
+    // arrived. Measured on a real library: 1043 rows carry `playDate`, none
+    // carry `playedAt`.
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "album": "An Album", "duration": 240,
+        "playDate": "2026-08-25T20:55:58Z", "playCount": 4,
+        "starredAt": "2026-08-25T18:00:00Z", "rating": 5
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
+
+    assert!(row.played_at.is_some(), "the play date has to survive the mapper");
+    assert_eq!(row.play_count, Some(4));
+    assert!(row.starred_at.is_some());
+    assert_eq!(row.user_rating, Some(5));
+}
+
+#[test]
+fn navidrome_song_also_accepts_the_subsonic_spelling_of_the_play_date() {
+    // One mapper, either shape — the same row can arrive from the native API or
+    // from a Subsonic-flavoured payload, and neither should lose the date.
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "album": "An Album", "duration": 240,
+        "played": "2026-08-25T20:55:58Z"
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
+
+    assert!(row.played_at.is_some());
+}
+
+#[test]
+fn an_empty_play_date_falls_through_to_the_next_name() {
+    // Navidrome has been seen sending an empty `playDate` for never-played
+    // rows. Settling on the first key that merely holds a string would take
+    // that and never look at the usable date sitting beside it.
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "album": "An Album", "duration": 240,
+        "playDate": "", "played": "2026-08-25T20:55:58Z"
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
+
+    assert!(row.played_at.is_some(), "an unusable first name must not end the search");
+}
+
+#[test]
+fn navidrome_song_reads_strong_keys_under_their_native_names() {
+    // Navidrome's MediaFile serializes the recording id as `mbzRecordingID` and
+    // delivers ISRCs inside `tags` as a string array (model/mediafile.go at
+    // v0.62.0). Reading only `mbzTrackId` / `musicBrainzId` / top-level `isrc`
+    // left both columns NULL across a whole library, so the canonical layer had
+    // nothing to link (#1434).
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "album": "An Album", "duration": 240,
+        "mbzRecordingID": "12345678-1234-4123-8123-123456789abc",
+        "tags": { "isrc": ["USRC17607839", "GBUM71029604"], "genre": ["Ambient"] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
+
+    assert_eq!(row.isrc.as_deref(), Some("USRC17607839"));
+    assert_eq!(
+        row.mbid_recording.as_deref(),
+        Some("12345678-1234-4123-8123-123456789abc")
+    );
+}
+
+#[test]
+fn navidrome_song_treats_blank_strong_keys_as_absent() {
+    // An empty key must not become a canonical identity: `link_track` keys
+    // `canonical_track` on the value, so a blank would merge unrelated rows.
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "album": "An Album", "duration": 240,
+        "isrc": "   ", "mbzRecordingID": "", "tags": { "isrc": ["", "  "] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
+
+    assert_eq!(row.isrc, None);
+    assert_eq!(row.mbid_recording, None);
 }

@@ -72,6 +72,24 @@ export const commands = {
 	libraryClusterRebuild: (serverId: string | null) => typedError<number, string>(__TAURI_INVOKE("library_cluster_rebuild", { serverId })),
 	libraryResolveEntitySources: (request: LibraryResolveEntitySourcesRequest) => typedError<LibraryEntitySourceDto[], string>(__TAURI_INVOKE("library_resolve_entity_sources", { request })),
 	libraryResolveAlbumOverlay: (request: LibraryResolveAlbumOverlayRequest) => typedError<LibraryAlbumOverlayResolutionDto[], string>(__TAURI_INVOKE("library_resolve_album_overlay", { request })),
+	libraryMigrationBegin: (serverIds: string[]) => typedError<MigrationBeginResultDto, string>(__TAURI_INVOKE("library_migration_begin", { serverIds })),
+	libraryMigrationAnalysisUpperRowid: (generation: number, serverId: string, step: AnalysisMigrationStep) => typedError<number, string>(__TAURI_INVOKE("library_migration_analysis_upper_rowid", { generation, serverId, step })),
+	libraryMigrationAnalysisBatch: (request: AnalysisMigrationBatchRequest) => typedError<AnalysisMigrationBatchDto, string>(__TAURI_INVOKE("library_migration_analysis_batch", { request })),
+	libraryMigrationAnalysisFinalize: (generation: number, serverId: string) => typedError<AnalysisMigrationFinalizeDto, string>(__TAURI_INVOKE("library_migration_analysis_finalize", { generation, serverId })),
+	libraryMigrationVerify: (generation: number, serverId: string) => typedError<null, string>(__TAURI_INVOKE("library_migration_verify", { generation, serverId })),
+	libraryMigrationInventory: (serverId: string, serverIndexKey: string, customOfflineDir: string | null, customHotCacheDir: string | null) => typedError<null, string>(__TAURI_INVOKE("library_migration_inventory", { serverId, serverIndexKey, customOfflineDir, customHotCacheDir })),
+	libraryMigrationInspect: () => typedError<MigrationGenerationSnapshotDto, string>(__TAURI_INVOKE("library_migration_inspect")),
+	libraryMigrationUpdatePhase: (generation: number, serverId: string, phase: MigrationPhase) => typedError<null, string>(__TAURI_INVOKE("library_migration_update_phase", { generation, serverId, phase })),
+	libraryMigrationAbort: (generation: number, serverId: string, error: string) => typedError<null, string>(__TAURI_INVOKE("library_migration_abort", { generation, serverId, error })),
+	libraryMigrationRetry: (generation: number, serverId: string) => typedError<null, string>(__TAURI_INVOKE("library_migration_retry", { generation, serverId })),
+	libraryMigrationFinishServer: (generation: number, serverId: string, phase: MigrationPhase) => typedError<null, string>(__TAURI_INVOKE("library_migration_finish_server", { generation, serverId, phase })),
+	libraryMigrationRelease: (generation: number) => typedError<null, string>(__TAURI_INVOKE("library_migration_release", { generation })),
+	libraryMigrationNativePreflight: (generation: number, serverId: string) => typedError<NavidromeNativeMigrationPreflightDto, string>(__TAURI_INVOKE("library_migration_native_preflight", { generation, serverId })),
+	libraryMigrationNativeUpperRowid: (generation: number, serverId: string, step: NavidromeNativeMigrationStep) => typedError<number, string>(__TAURI_INVOKE("library_migration_native_upper_rowid", { generation, serverId, step })),
+	libraryMigrationNativeBatch: (generation: number, serverId: string, step: NavidromeNativeMigrationStep, cursorRowid: number, upperRowid: number, limit: number | null) => typedError<NavidromeNativeMigrationBatchDto, string>(__TAURI_INVOKE("library_migration_native_batch", { generation, serverId, step, cursorRowid, upperRowid, limit })),
+	libraryMigrationNativeFinalize: (generation: number, serverId: string) => typedError<NavidromeNativeMigrationFinalizeDto, string>(__TAURI_INVOKE("library_migration_native_finalize", { generation, serverId })),
+	libraryMigrationBindSession: (request: LibraryMigrationBindSessionRequest) => typedError<null, string>(__TAURI_INVOKE("library_migration_bind_session", { request })),
+	libraryMigrationSyncStart: (generation: number, serverId: string, libraryScope: string | null) => typedError<SyncJobDto, string>(__TAURI_INVOKE("library_migration_sync_start", { generation, serverId, libraryScope })),
 	librarySyncBindSession: (serverId: string, baseUrl: string, username: string, password: string, libraryScope: string | null) => typedError<null, string>(__TAURI_INVOKE("library_sync_bind_session", { serverId, baseUrl, username, password, libraryScope })),
 	librarySyncClearSession: (serverId: string) => typedError<null, string>(__TAURI_INVOKE("library_sync_clear_session", { serverId })),
 	librarySetPlaybackHint: (hint: string) => typedError<null, string>(__TAURI_INVOKE("library_set_playback_hint", { hint })),
@@ -93,6 +111,7 @@ export const commands = {
 	libraryGetPlayerStatsHeatmap: (year: number) => typedError<PlaySessionHeatmapDayDto[], string>(__TAURI_INVOKE("library_get_player_stats_heatmap", { year })),
 	libraryGetPlayerStatsDayDetail: (dateIso: string) => typedError<PlaySessionDayDetailDto, string>(__TAURI_INVOKE("library_get_player_stats_day_detail", { dateIso })),
 	libraryGetPlayerStatsYearBounds: () => typedError<PlaySessionYearBoundsDto, string>(__TAURI_INVOKE("library_get_player_stats_year_bounds")),
+	libraryGetPlayerStatsYearRecap: (year: number) => typedError<PlaySessionYearRecapDto, string>(__TAURI_INVOKE("library_get_player_stats_year_recap", { year })),
 	libraryGetPlayerStatsRecentDays: (limit: number | null) => typedError<PlaySessionRecentDayDto[], string>(__TAURI_INVOKE("library_get_player_stats_recent_days", { limit })),
 	libraryGetRecentPlaySessions: (limit: number | null, sinceMs: number | null) => typedError<PlaySessionDayTrackDto[], string>(__TAURI_INVOKE("library_get_recent_play_sessions", { limit, sinceMs })),
 	libraryPurgeServer: (serverId: string, includeAnalysis: boolean | null, includeOffline: boolean | null) => typedError<PurgeReportDto, string>(__TAURI_INVOKE("library_purge_server", { serverId, includeAnalysis, includeOffline })),
@@ -251,6 +270,7 @@ export const commands = {
 	 *  construct a `psysonic-local://<path>` URL for the audio engine.
 	 */
 	downloadTrackOffline: (trackId: string, serverId: string, url: string, suffix: string, customDir: string | null, downloadId: string | null) => typedError<string, string>(__TAURI_INVOKE("download_track_offline", { trackId, serverId, url, suffix, customDir, downloadId })),
+	migrateNavidromeFilesystemIds: (generation: number, libraryServerId: string, serverIndexKey: string, customOfflineDir: string | null, customHotCacheDir: string | null) => typedError<NavidromeFilesystemMigrationDto, string>(__TAURI_INVOKE("migrate_navidrome_filesystem_ids", { generation, libraryServerId, serverIndexKey, customOfflineDir, customHotCacheDir })),
 	/**
 	 *  Marks the given offline-download ids as cancelled. In-flight
 	 *  `download_track_offline` calls abort their HTTP stream at the next chunk
@@ -324,10 +344,7 @@ export const commands = {
 	deleteHotCacheTrack: (localPath: string, customDir: string | null) => typedError<null, string>(__TAURI_INVOKE("delete_hot_cache_track", { localPath, customDir })),
 	/**  Removes the entire hot cache root (`psysonic-hot-cache` for the active location). */
 	purgeHotCache: (customDir: string | null) => typedError<null, string>(__TAURI_INVOKE("purge_hot_cache", { customDir })),
-	/**
-	 *  Downloads a single track to a USB/SD device using the configured filename template.
-	 *  Emits `device:sync:progress` events with `{ jobId, trackId, status, path? }`.
-	 */
+	/**  Downloads one track through the legacy single-track command. */
 	syncTrackToDevice: (track: TrackSyncInfo, destDir: string, jobId: string) => typedError<SyncTrackResult, string>(__TAURI_INVOKE("sync_track_to_device", { track, destDir, jobId })),
 	/**
 	 *  Downloads a batch of tracks to a USB/SD device with controlled concurrency.
@@ -335,7 +352,7 @@ export const commands = {
 	 *  Emits throttled `device:sync:progress` events (max once per 500ms) and a
 	 *  final `device:sync:complete` event with the summary.
 	 */
-	syncBatchToDevice: (tracks: TrackSyncInfo[], destDir: string, jobId: string, expectedBytes: number, serverId: string | null) => typedError<SyncBatchResult, string>(__TAURI_INVOKE("sync_batch_to_device", { tracks, destDir, jobId, expectedBytes, serverId })),
+	syncBatchToDevice: (tracks: TrackSyncInfo[], destDir: string, jobId: string, expectedBytes: number, expectedDeviceId: string, planId: string, serverId: string | null) => typedError<SyncBatchResult, string>(__TAURI_INVOKE("sync_batch_to_device", { tracks, destDir, jobId, expectedBytes, expectedDeviceId, planId, serverId })),
 	/**  Signals a running `sync_batch_to_device` job to stop after its current tracks finish. */
 	cancelDeviceSync: (jobId: string) => __TAURI_INVOKE<void>("cancel_device_sync", { jobId }),
 	/**
@@ -348,25 +365,28 @@ export const commands = {
 	 *  Deletes a file from the device and prunes empty parent directories
 	 *  (up to 2 levels: album folder, then artist folder).
 	 */
-	deleteDeviceFile: (path: string) => typedError<null, string>(__TAURI_INVOKE("delete_device_file", { path })),
+	deleteDeviceFile: (destDir: string, path: string) => typedError<null, string>(__TAURI_INVOKE("delete_device_file", { destDir, path })),
 	/**
 	 *  Deletes multiple files from the device in one call and prunes empty parent
 	 *  directories. Returns the number of files successfully deleted.
 	 */
-	deleteDeviceFiles: (paths: string[]) => typedError<number, string>(__TAURI_INVOKE("delete_device_files", { paths })),
+	deleteDeviceFiles: (destDir: string, paths: string[]) => typedError<number, string>(__TAURI_INVOKE("delete_device_files", { destDir, paths })),
 	/**
 	 *  Returns all currently mounted removable drives.
 	 *  On Linux these are typically USB sticks / SD cards under /media or /run/media.
 	 *  On macOS they appear under /Volumes. On Windows they are separate drive letters.
 	 */
 	getRemovableDrives: () => __TAURI_INVOKE<RemovableDrive[]>("get_removable_drives"),
+	finalizeDeviceSync: (destDir: string, payload: DeviceSyncFinalizePayload) => typedError<DeviceSyncFinalizeResult, string>(__TAURI_INVOKE("finalize_device_sync", { destDir, payload })),
+	hasPendingDeviceSyncPlan: (destDir: string) => typedError<boolean, string>(__TAURI_INVOKE("has_pending_device_sync_plan", { destDir })),
+	pendingDeviceSyncPlanDeviceId: (destDir: string) => typedError<string | null, string>(__TAURI_INVOKE("pending_device_sync_plan_device_id", { destDir })),
+	deviceSyncDeviceId: (destDir: string) => typedError<string, string>(__TAURI_INVOKE("device_sync_device_id", { destDir })),
 	/**
 	 *  Writes an Extended-M3U playlist at `{dest_dir}/Playlists/{name}/{name}.m3u8`.
-	 *  References are sibling filenames (just `01 - Artist - Title.ext`) so the
-	 *  playlist is self-contained — moving/copying the folder anywhere keeps it
-	 *  working. Tracks are expected to be in playlist order (index starts at 1).
+	 *  Explicit references allow shared album-tree files; omitted references keep
+	 *  the legacy self-contained sibling-filename behavior.
 	 */
-	writePlaylistM3u8: (destDir: string, playlistName: string, tracks: TrackSyncInfo[]) => typedError<null, string>(__TAURI_INVOKE("write_playlist_m3u8", { destDir, playlistName, tracks })),
+	writePlaylistM3u8: (destDir: string, playlistName: string, playlistId: string | null, tracks: TrackSyncInfo[], references: string[] | null) => typedError<null, string>(__TAURI_INVOKE("write_playlist_m3u8", { destDir, playlistName, playlistId, tracks, references })),
 	/**
 	 *  Atomically renames files on the device from their old path to the new fixed-
 	 *  schema path. Intended for the migration flow when switching away from the
@@ -464,6 +484,7 @@ export const commands = {
 	coverCacheRenameServerBucket: (oldKey: string, newKey: string) => typedError<null, string>(__TAURI_INVOKE("cover_cache_rename_server_bucket", { oldKey, newKey })),
 	coverCacheStatsServer: (serverIndexKey: string) => typedError<CoverCacheStatsDto, string>(__TAURI_INVOKE("cover_cache_stats_server", { serverIndexKey })),
 	coverCacheGetPipelineQueueStats: () => typedError<CoverPipelineQueueStatsDto, string>(__TAURI_INVOKE("cover_cache_get_pipeline_queue_stats")),
+	coverCacheMigrateNavidromeIds: (generation: number, serverId: string, serverIndexKey: string) => typedError<CoverCacheNavidromeMigrationDto, string>(__TAURI_INVOKE("cover_cache_migrate_navidrome_ids", { generation, serverId, serverIndexKey })),
 	libraryCoverBackfillBatch: (serverIndexKey: string, libraryServerId: string, cursor: string | null, limit: number | null) => typedError<LibraryCoverBackfillBatchDto, string>(__TAURI_INVOKE("library_cover_backfill_batch", { serverIndexKey, libraryServerId, cursor, limit })),
 	libraryCoverProgress: (serverIndexKey: string, libraryServerId: string) => typedError<LibraryCoverProgressDto, string>(__TAURI_INVOKE("library_cover_progress", { serverIndexKey, libraryServerId })),
 	libraryCoverCatalogSize: (libraryServerId: string) => typedError<number, string>(__TAURI_INVOKE("library_cover_catalog_size", { libraryServerId })),
@@ -608,7 +629,15 @@ export const commands = {
 	serverHttpContextSync: (wire: ServerHttpContextSyncWire) => typedError<null, string>(__TAURI_INVOKE("server_http_context_sync", { wire })),
 	serverHttpContextSyncAll: (entries: ServerHttpContextSyncWire[]) => typedError<null, string>(__TAURI_INVOKE("server_http_context_sync_all", { entries })),
 	backupExportLibraryDb: (destinationPath: string) => typedError<null, string>(__TAURI_INVOKE("backup_export_library_db", { destinationPath })),
-	backupImportLibraryDb: (sourcePath: string) => typedError<null, string>(__TAURI_INVOKE("backup_import_library_db", { sourcePath })),
+	backupImportLibraryDb: (sourcePath: string, canonicalServerIds: string[], migrationGeneration: number, durableFullImportRecovery: boolean) => typedError<null, string>(__TAURI_INVOKE("backup_import_library_db", { sourcePath, canonicalServerIds, migrationGeneration, durableFullImportRecovery })),
+	backupRollbackImportedDatabases: (migrationGeneration: number) => typedError<null, string>(__TAURI_INVOKE("backup_rollback_imported_databases", { migrationGeneration })),
+	backupCommitImportedDatabases: () => typedError<null, string>(__TAURI_INVOKE("backup_commit_imported_databases")),
+	backupInspectFullImportRecovery: () => typedError<{
+	phase: FullImportRecoveryPhase,
+	migrationGeneration: number,
+} | null, string>(__TAURI_INVOKE("backup_inspect_full_import_recovery")),
+	backupRecoverFullImportDatabases: () => typedError<null, string>(__TAURI_INVOKE("backup_recover_full_import_databases")),
+	backupFinalizeFullImportRecovery: () => typedError<null, string>(__TAURI_INVOKE("backup_finalize_full_import_recovery")),
 	registerGlobalShortcut: (shortcut: string, action: string) => typedError<null, string>(__TAURI_INVOKE("register_global_shortcut", { shortcut, action })),
 	unregisterGlobalShortcut: (shortcut: string) => typedError<null, string>(__TAURI_INVOKE("unregister_global_shortcut", { shortcut })),
 	mprisSetMetadata: (title: string | null, artist: string | null, album: string | null, coverUrl: string | null, durationSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_metadata", { title, artist, album, coverUrl, durationSecs })),
@@ -720,6 +749,23 @@ export const commands = {
 	 */
 	setTrayMenuLabels: (playPause: string, next: string, previous: string, showHide: string, quit: string, nothingPlaying: string) => typedError<null, string>(__TAURI_INVOKE("set_tray_menu_labels", { playPause, next, previous, showHide, quit, nothingPlaying })),
 	importThemeZip: (path: string) => typedError<ImportedThemeFiles, string>(__TAURI_INVOKE("import_theme_zip", { path })),
+	/**  Current desktop palette, or `None` when this machine publishes none. */
+	readDesktopPalette: () => typedError<{
+	/**
+	 *  Absolute path the palette was read from — shown in settings so the user
+	 *  can see which file is driving the theme.
+	 */
+	source: string,
+	/**  Human-readable name of the desktop theme, when the source publishes one. */
+	name: string | null,
+	/**  `"dark"` or `"light"` when the source declares it; `None` otherwise. */
+	mode: string | null,
+	/**
+	 *  Colour name → `#rrggbb`. Keys are lowercased verbatim from the file, so
+	 *  the frontend can map whatever vocabulary a given desktop uses.
+	 */
+	colors: { [key in string]: string },
+} | null, string>(__TAURI_INVOKE("read_desktop_palette")),
 	libraryAnalysisBackfillConfigure: (enabled: boolean, serverIndexKey: string, libraryServerId: string, serverUrl: string, username: string, password: string, workers: number) => typedError<null, string>(__TAURI_INVOKE("library_analysis_backfill_configure", { enabled, serverIndexKey, libraryServerId, serverUrl, username, password, workers })),
 	/**
 	 *  Fetch upcoming Bandsintown events for an artist by name.
@@ -781,6 +827,14 @@ export const commands = {
 	resolveStreamUrl: (url: string) => __TAURI_INVOKE<string>("resolve_stream_url", { url }),
 	/**  Clear the Discord Rich Presence activity (e.g. playback stopped). */
 	discordClearPresence: () => typedError<null, string>(__TAURI_INVOKE("discord_clear_presence")),
+	/**
+	 *  Resolve an iTunes artwork URL directly (Discord chain step). Reuses the
+	 *  blocking `search_itunes_artwork` + the managed client/cache so the 1h TTL
+	 *  is shared with the old `discord_update_presence` path.
+	 */
+	resolveAppleCover: (artist: string, album: string, title: string) => typedError<string | null, string>(__TAURI_INVOKE("resolve_apple_cover", { artist, album, title })),
+	/**  Resolve a Last.fm album-cover URL directly (Discord chain step). */
+	resolveLastfmCover: (artist: string, album: string) => __TAURI_INVOKE<string | null>("resolve_lastfm_cover", { artist, album }),
 };
 
 /* Types */
@@ -801,6 +855,33 @@ export type AnalysisFailedTrackDto = {
 	md516kb: string,
 	updatedAt: number,
 };
+
+export type AnalysisMigrationBatchDto = {
+	step: AnalysisMigrationStep,
+	cursorRowid: number,
+	upperRowid: number,
+	processed: number,
+	rewritten: number,
+	collisions: number,
+	done: boolean,
+};
+
+export type AnalysisMigrationBatchRequest = {
+	generation: number,
+	serverId: string,
+	step: AnalysisMigrationStep,
+	cursorRowid: number,
+	upperRowid: number,
+	limit: number | null,
+};
+
+export type AnalysisMigrationFinalizeDto = {
+	ownerlessAnalysisTracksRemoved: number,
+	ownerlessWaveformsRemoved: number,
+	ownerlessLoudnessRemoved: number,
+};
+
+export type AnalysisMigrationStep = "analysis-track" | "waveform-cache" | "loudness-cache";
 
 export type AnalysisPipelineQueueStatsDto = {
 	pipelineWorkers: number,
@@ -944,12 +1025,32 @@ export type CoverCacheEnsureArgs = {
 	 *  the project key (§22). Falls back to the `PSYSONIC_FANART_CLIENT_KEY` env.
 	 */
 	externalArtworkByok?: string | null,
+	/**
+	 *  Ordered external album chain (§5, cover provider chain): the enabled
+	 *  `apple`/`lastfm` sources the server-miss fallback should try when the
+	 *  Navidrome/Subsonic server returns no cover art. `None`/empty = external
+	 *  album fallback off. This keys the album external branch (NOT
+	 *  `external_artwork_enabled`, which is the fanart master toggle).
+	 */
+	externalAlbumSources?: string[] | null,
 };
 
 export type CoverCacheEnsureResult = {
 	hit: boolean,
 	path: string,
 	tier: number,
+	/**
+	 *  mtime (epoch secs) of the returned tier file — the webview appends it as
+	 *  `?v=` to the asset URL so overwritten tiers bust the webview image
+	 *  cache. `0` on miss / unreadable file (versioning degrades gracefully).
+	 */
+	pathVersion?: number,
+};
+
+export type CoverCacheNavidromeMigrationDto = {
+	directoriesScanned: number,
+	directoriesMoved: number,
+	directoriesMerged: number,
 };
 
 export type CoverCachePeekItem = {
@@ -997,6 +1098,71 @@ export type CustomHeaderEntryWire = {
 
 export type CustomHeadersApplyTo = "local" | "public" | "both";
 
+/**  The desktop's active palette, as read off disk. */
+export type DesktopPalette = {
+	/**
+	 *  Absolute path the palette was read from — shown in settings so the user
+	 *  can see which file is driving the theme.
+	 */
+	source: string,
+	/**  Human-readable name of the desktop theme, when the source publishes one. */
+	name: string | null,
+	/**  `"dark"` or `"light"` when the source declares it; `None` otherwise. */
+	mode: string | null,
+	/**
+	 *  Colour name → `#rrggbb`. Keys are lowercased verbatim from the file, so
+	 *  the frontend can map whatever vocabulary a given desktop uses.
+	 */
+	colors: { [key in string]: string },
+};
+
+export type DeviceSyncFinalizePayload = {
+	planId: string,
+	expectedDeviceId: string,
+	ownerServerIndexKey: string,
+	sources: DeviceSyncFinalizeSource[],
+	canonicalIdVersion: number | null,
+	layoutMode: string,
+	playlistPathMode: string,
+	files: DeviceSyncManifestFile[],
+	manifestPlaylists: DeviceSyncManifestPlaylist[],
+	playlists: DeviceSyncFinalizePlaylist[],
+	deferredDeletePaths: string[],
+};
+
+export type DeviceSyncFinalizePlaylist = {
+	name: string,
+	pathId: string | null,
+	tracks: TrackSyncInfo[],
+	references: string[],
+};
+
+export type DeviceSyncFinalizeResult = {
+	deleted: number,
+	cleanupFailed: boolean,
+};
+
+export type DeviceSyncFinalizeSource = {
+	type: string,
+	id: string,
+	name: string,
+	pathId: string | null,
+	serverIndexKey: string,
+	artist: string | null,
+};
+
+export type DeviceSyncManifestFile = {
+	trackId: string,
+	relativePath: string,
+	sourceKeys: string[],
+	sizeBytes: number,
+};
+
+export type DeviceSyncManifestPlaylist = {
+	sourceKey: string,
+	relativePath: string,
+};
+
 export type EndpointKind = "local" | "public";
 
 export type EnqueueSeedFromUrlOutcome = "enqueued" | "alreadyReserved" | "skipped" | "unsupported";
@@ -1032,6 +1198,13 @@ export type FactInputDto = {
 	confidence?: number | null,
 	contentHash?: string | null,
 	expiresAt?: number | null,
+};
+
+export type FullImportRecoveryPhase = "prepared" | "databases-restored" | "committed";
+
+export type FullImportRecoveryStatusDto = {
+	phase: FullImportRecoveryPhase,
+	migrationGeneration: number,
 };
 
 /**  Per-genre album/track totals from the local track catalog (Genres cloud + browse). */
@@ -1101,6 +1274,7 @@ export type LibraryAlbumOverlayCandidateDto = {
 	id: string,
 	name: string,
 	artist: string | null,
+	version?: string | null,
 };
 
 /**
@@ -1155,6 +1329,15 @@ export type LibraryEntitySourceDto = {
 	sizeBytes: number | null,
 	starredAt: number | null,
 	userRating: number | null,
+};
+
+export type LibraryMigrationBindSessionRequest = {
+	generation: number,
+	serverId: string,
+	baseUrl: string,
+	username: string,
+	password: string,
+	libraryScope: string | null,
 };
 
 /**
@@ -1302,6 +1485,19 @@ export type LoudnessCachePayload = {
 	updatedAt: number,
 };
 
+export type MigrationBeginResultDto = {
+	generation: number,
+	created: boolean,
+	servers: MigrationBeginServerDto[],
+};
+
+export type MigrationBeginServerDto = {
+	serverId: string,
+	previousPhase: MigrationPhase | null,
+};
+
+export type MigrationGenerationSnapshotDto = { state: "inactive"; lastGeneration: number } | { state: "active"; generation: number; servers: MigrationServerSnapshotDto[] };
+
 export type MigrationInspectReport = {
 	needsMigration: boolean,
 	hasSkippedUnknownServerRows: boolean,
@@ -1312,6 +1508,8 @@ export type MigrationInspectReport = {
 	analysis: MigrationScopeInspect,
 	mappings: ServerIndexMapping[],
 };
+
+export type MigrationPhase = "pending" | "native" | "analysis" | "cover" | "frontend" | "cleanup" | "sync" | "retryable" | "blocked" | "legacy" | "not-applicable" | "ready";
 
 export type MigrationRunResult = {
 	library: MigrationRunScope,
@@ -1332,6 +1530,44 @@ export type MigrationScopeInspect = {
 	skippedUnknownServerRows: number,
 	tables: { [key in string]: number },
 };
+
+export type MigrationServerSnapshotDto = {
+	serverId: string,
+	phase: MigrationPhase,
+	error: string | null,
+};
+
+export type NavidromeFilesystemMigrationDto = {
+	offlineFilesScanned: number,
+	offlineFilesMoved: number,
+	offlineFilesMerged: number,
+	hotCacheFilesScanned: number,
+	hotCacheFilesMoved: number,
+	hotCacheFilesMerged: number,
+	offlinePathsRetargeted: number,
+};
+
+export type NavidromeNativeMigrationBatchDto = {
+	step: NavidromeNativeMigrationStep,
+	cursorRowid: number,
+	upperRowid: number,
+	processed: number,
+	moved: number,
+	merged: number,
+	done: boolean,
+};
+
+export type NavidromeNativeMigrationFinalizeDto = {
+	derivedRowsRemoved: number,
+};
+
+export type NavidromeNativeMigrationPreflightDto = {
+	artistsScanned: number,
+	albumsScanned: number,
+	tracksScanned: number,
+};
+
+export type NavidromeNativeMigrationStep = "artist" | "album" | "track";
 
 /**  Payload returned by Navidrome's `/auth/login`. */
 export type NdLoginResult = {
@@ -1415,6 +1651,31 @@ export type PlaySessionInputDto = {
 	durationSecHint?: number | null,
 };
 
+export type PlaySessionRecapDayDto = {
+	date: string,
+	listenedSec: number | null,
+	playCount: number,
+};
+
+export type PlaySessionRecapGenreDto = {
+	name: string,
+	listenedSec: number | null,
+	playCount: number,
+};
+
+/**  One ranked row in the year recap (top artist, album, or track). */
+export type PlaySessionRecapItemDto = {
+	name: string,
+	/**  Artist for album/track rows; `None` for artist rows. */
+	secondary: string | null,
+	/**  Representative owner for cover loading (album rows only). */
+	serverId: string | null,
+	albumId: string | null,
+	coverArtId: string | null,
+	listenedSec: number | null,
+	playCount: number,
+};
+
 /**  Summary for one day in the recent-days list (no track rows). */
 export type PlaySessionRecentDayDto = {
 	date: string,
@@ -1429,6 +1690,34 @@ export type PlaySessionRecentDayDto = {
 export type PlaySessionYearBoundsDto = {
 	minYear: number | null,
 	maxYear: number | null,
+};
+
+/**
+ *  Cross-server aggregates for the shareable year recap — one call, one small
+ *  payload, so the frontend never streams a year of raw sessions over IPC.
+ */
+export type PlaySessionYearRecapDto = {
+	topArtists: PlaySessionRecapItemDto[],
+	topAlbums: PlaySessionRecapItemDto[],
+	topTracks: PlaySessionRecapItemDto[],
+	topGenres: PlaySessionRecapGenreDto[],
+	/**  Top tracks of the leading top artist (artist-spotlight poster). */
+	topArtistTracks: PlaySessionRecapItemDto[],
+	/**  Listening sessions built from the leading top artist's plays alone. */
+	topArtistSessionCount: number,
+	/**  Track plays per local hour of day, index 0–23. */
+	hourlyPlayCounts: number[],
+	totalListenedSec: number | null,
+	/**  Portion of `total_listened_sec` spent on lossless containers. */
+	losslessListenedSec: number | null,
+	/**
+	 *  Listened seconds inside the longest listening session of the year
+	 *  (30-minute idle gap clustering, pauses excluded).
+	 */
+	longestSessionSec: number | null,
+	/**  Artists whose first recorded session ever falls inside this year. */
+	newArtistCount: number,
+	busiestDay: PlaySessionRecapDayDto | null,
 };
 
 /**  Cross-server year summary for the Player stats tab. */
@@ -1632,12 +1921,12 @@ export type TrackSyncInfo = {
 	/**  Duration in seconds — needed for Extended M3U (#EXTINF) playlist entries. */
 	duration?: number | null,
 	/**
-	 *  When set, the track belongs to a playlist source and is placed under
+	 *  When set, the self-contained layout places this track under
 	 *  `Playlists/{name}/` with `playlist_index` as its filename prefix.
-	 *  Same track synced from both an album and a playlist source ends up twice
-	 *  on the device — once in the album tree, once in the playlist folder.
 	 */
 	playlistName?: string | null,
+	/**  Stable source identity used to disambiguate playlists with the same display name. */
+	playlistId?: string | null,
 	playlistIndex?: number | null,
 };
 

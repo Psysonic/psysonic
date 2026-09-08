@@ -1,13 +1,20 @@
 use rusqlite::params;
+use serde_json::json;
 
+use crate::repos::TrackRepository;
 use super::super::reconciles::{
     maybe_reconcile_artist_name_fold, maybe_reconcile_artist_name_sort,
     maybe_reconcile_duration_sec_backfill, maybe_reconcile_library_id_backfill,
-    maybe_reconcile_orphan_browse_rows, ARTIST_NAME_FOLD_RECONCILE_ID,
-    ARTIST_NAME_SORT_RECONCILE_ID, DURATION_SEC_BACKFILL_RECONCILE_ID,
-    LIBRARY_ID_BACKFILL_RECONCILE_ID, ORPHAN_BROWSE_RECONCILE_ID,
+    maybe_reconcile_orphan_browse_rows, maybe_reconcile_track_timestamp_backfill,
+    ARTIST_NAME_FOLD_RECONCILE_ID, ARTIST_NAME_SORT_RECONCILE_ID,
+    DURATION_SEC_BACKFILL_RECONCILE_ID, LIBRARY_ID_BACKFILL_RECONCILE_ID,
+    ORPHAN_BROWSE_RECONCILE_ID,
 };
-use super::super::LibraryStore;
+use super::super::native_strong_keys_reconcile::{
+    maybe_reconcile_native_strong_keys_backfill, NATIVE_STRONG_KEYS_BACKFILL_RECONCILE_ID,
+};
+use super::super::track_timestamp_reconcile::TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID;
+use super::super::{LibraryBackfillStep, LibraryStore, TrackTimestampBackfillStep};
 
 #[test]
 fn migration_022_backfills_unicode_artist_name_fold() {
@@ -314,6 +321,299 @@ fn library_id_backfill_reconcile_is_idempotent() {
 }
 
 #[test]
+fn track_timestamp_backfill_restores_offset_dates_once() {
+    type TimestampRow = (String, Option<i64>, Option<i64>, Option<i64>, Option<i64>);
+
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_conn_mut("test.seed_timestamp_backfill", |conn| {
+            conn.execute(
+                "DELETE FROM library_data_migration WHERE id = ?1",
+                params![TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID],
+            )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, \
+                   raw_json, server_created_at, server_updated_at, starred_at, played_at) \
+                 VALUES ('s1', 'repair', 'Repair', 'Al', 1, 0, 1, \
+                    '{\"createdAt\":\"2026-08-26T22:04:58.676898-07:00\",\
+                       \"updatedAt\":\"2024-01-01T00:00:00+02:00\",\
+                       \"starred\":true,\
+                       \"starredAt\":\"2026-08-26T22:04:58.676898-07:00\",\
+                       \"playDate\":\"2026-08-26T22:04:58.676898-07:00\"}', \
+                    NULL, NULL, 777, 888)",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, \
+                   raw_json, server_created_at, server_updated_at, starred_at, played_at) \
+                 VALUES ('s1', 'invalid', 'Invalid', 'Al', 1, 0, 1, \
+                    '{\"createdAt\":\"not-a-date\"}', 42, 42, 42, 42)",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, \
+                   raw_json, server_created_at, server_updated_at) \
+                 VALUES ('s1', 'positive', 'Positive', 'Al', 1, 0, 1, \
+                   '{\"created\":\"2024-01-01T00:00:00+02:00\"}', \
+                   1704067200000, NULL)",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, \
+                   raw_json, server_created_at, server_updated_at) \
+                 VALUES ('s1', 'authoritative', 'Authoritative', 'Al', 1, 0, 1, \
+                   '{\"createdAt\":\"2026-08-26T22:04:58.676898-07:00\",\
+                      \"updatedAt\":\"2024-01-01T00:00:00+02:00\"}', 100, 200)",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, \
+                   raw_json, server_created_at, server_updated_at) \
+                 VALUES ('s1', 'stale-alias', 'Stale alias', 'Al', 1, 0, 1, \
+                   '{\"createdAt\":null,\"created\":\"2026-08-26T22:04:58.676898-07:00\"}', \
+                   NULL, NULL)",
+                [],
+            )?;
+            conn.execute_batch(
+                "CREATE TABLE timestamp_update_audit (track_id TEXT NOT NULL); \
+                 CREATE TRIGGER audit_timestamp_update \
+                 AFTER UPDATE OF server_created_at, server_updated_at ON track \
+                 BEGIN \
+                   INSERT INTO timestamp_update_audit (track_id) VALUES (NEW.id); \
+                 END;",
+            )?;
+            Ok(())
+        })
+        .expect("seed tracks");
+
+    store
+        .with_conn(
+            "test.timestamp_backfill",
+            maybe_reconcile_track_timestamp_backfill,
+        )
+        .expect("timestamp backfill");
+
+    let timestamps: Vec<TimestampRow> = store
+        .with_read_conn(|conn| {
+            conn.prepare(
+                "SELECT id, server_created_at, server_updated_at, starred_at, played_at \
+                 FROM track WHERE server_id = 's1' ORDER BY id",
+            )?
+            .query_map([], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })?
+            .collect()
+        })
+        .expect("backfilled timestamps");
+    assert_eq!(
+        timestamps,
+        vec![
+            ("authoritative".into(), Some(100), Some(200), None, None),
+            ("invalid".into(), Some(42), Some(42), Some(42), Some(42)),
+            ("positive".into(), Some(1_704_060_000_000), None, None, None),
+            (
+                "repair".into(),
+                Some(1_787_807_098_000),
+                Some(1_704_060_000_000),
+                Some(777),
+                Some(888),
+            ),
+            ("stale-alias".into(), None, None, None, None),
+        ]
+    );
+    let updated_ids: Vec<String> = store
+        .with_read_conn(|conn| {
+            conn.prepare("SELECT track_id FROM timestamp_update_audit ORDER BY track_id")?
+                .query_map([], |row| row.get(0))?
+                .collect()
+        })
+        .expect("timestamp update audit");
+    assert_eq!(
+        updated_ids,
+        vec!["positive".to_string(), "repair".to_string()],
+        "the reconcile must not rewrite unaffected or authoritative rows"
+    );
+
+    store
+        .with_conn_mut("test.clear_repaired_timestamp", |conn| {
+            conn.execute(
+                "UPDATE track SET server_created_at = NULL WHERE id = 'repair'",
+                [],
+            )
+        })
+        .expect("clear repaired timestamp");
+    store
+        .with_conn(
+            "test.timestamp_backfill_again",
+            maybe_reconcile_track_timestamp_backfill,
+        )
+        .expect("guarded timestamp backfill");
+    let created_after: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT server_created_at FROM track WHERE id = 'repair'",
+                [],
+                |row| row.get(0),
+            )
+        })
+        .expect("created timestamp after guarded re-run");
+    assert_eq!(created_after, None);
+}
+
+#[test]
+fn track_timestamp_backfill_is_not_part_of_database_open() {
+    let store = LibraryStore::open_in_memory();
+    let marker_count: i64 = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT COUNT(*) FROM library_data_migration WHERE id = ?1",
+                params![TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID],
+                |row| row.get(0),
+            )
+        })
+        .expect("timestamp marker count");
+    assert_eq!(marker_count, 0);
+}
+
+#[test]
+fn sparse_created_clear_is_not_repaired_from_a_retained_legacy_alias() {
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_conn_mut("test.seed_sparse_created_clear", |conn| {
+            conn.execute(
+                "DELETE FROM library_data_migration WHERE id = ?1",
+                params![TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID],
+            )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, \
+                   raw_json, server_created_at) \
+                 VALUES ('s1', 't1', 'Track', 'Album', 1, 0, 1, \
+                   '{\"id\":\"t1\",\"created\":\"2026-08-26T22:04:58.676898-07:00\"}', NULL)",
+                [],
+            )?;
+            Ok(())
+        })
+        .expect("seed sparse created clear");
+
+    let incoming = crate::sync::mapping::navidrome_song_to_track_row(
+        "s1",
+        &json!({ "id": "t1", "title": "Track", "createdAt": null }),
+        2,
+        None,
+    )
+    .unwrap();
+    TrackRepository::new(&store)
+        .upsert_sparse_batch_with_remap(&[incoming], false)
+        .expect("sparse timestamp clear");
+
+    let stored_raw: serde_json::Value = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT raw_json FROM track WHERE server_id = 's1' AND id = 't1'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+        })
+        .map(|raw| serde_json::from_str(&raw).unwrap())
+        .expect("stored sparse JSON");
+    assert!(stored_raw.get("createdAt").is_none());
+    assert!(stored_raw.get("created").is_some());
+
+    store
+        .with_conn(
+            "test.timestamp_backfill_after_sparse_clear",
+            maybe_reconcile_track_timestamp_backfill,
+        )
+        .expect("timestamp backfill after sparse clear");
+    let created_at: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT server_created_at FROM track WHERE server_id = 's1' AND id = 't1'",
+                [],
+                |row| row.get(0),
+            )
+        })
+        .expect("created timestamp after sparse clear");
+    assert_eq!(created_at, None);
+}
+
+#[test]
+fn track_timestamp_backfill_processes_one_resumable_batch() {
+    let store = LibraryStore::open_in_memory();
+    store.set_bulk_ingest_active(true);
+    assert_eq!(
+        store.run_track_timestamp_backfill_batch().unwrap(),
+        TrackTimestampBackfillStep::Deferred
+    );
+    store.set_bulk_ingest_active(false);
+
+    store
+        .with_conn_mut("test.seed_timestamp_batches", |conn| {
+            let tx = conn.transaction()?;
+            for index in 0..1_001 {
+                tx.execute(
+                    "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, raw_json) \
+                     VALUES ('s1', ?1, 'Track', 'Album', 1, 0, 1, '{}')",
+                    [format!("track-{index}")],
+                )?;
+            }
+            tx.commit()
+        })
+        .expect("seed timestamp batches");
+
+    assert_eq!(
+        store.run_track_timestamp_backfill_batch().unwrap(),
+        TrackTimestampBackfillStep::Pending
+    );
+    let first_cursor: (i64, Option<i64>) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT cursor_rowid, completed_at FROM library_data_migration WHERE id = ?1",
+                params![TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .expect("first timestamp cursor");
+    assert_eq!(first_cursor, (1_000, None));
+
+    assert_eq!(
+        store.run_track_timestamp_backfill_batch().unwrap(),
+        TrackTimestampBackfillStep::Pending
+    );
+    let second_cursor: (i64, Option<i64>) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT cursor_rowid, completed_at FROM library_data_migration WHERE id = ?1",
+                params![TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .expect("second timestamp cursor");
+    assert_eq!(second_cursor, (1_001, None));
+
+    assert_eq!(
+        store.run_track_timestamp_backfill_batch().unwrap(),
+        TrackTimestampBackfillStep::Complete
+    );
+    let completed_at: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT completed_at FROM library_data_migration WHERE id = ?1",
+                params![TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID],
+                |row| row.get(0),
+            )
+        })
+        .expect("completed timestamp marker");
+    assert!(completed_at.is_some());
+}
+
+#[test]
 fn duration_sec_backfill_rounds_decimal_raw_duration_once() {
     let store = LibraryStore::open_in_memory();
     store
@@ -385,4 +685,220 @@ fn duration_sec_backfill_rounds_decimal_raw_duration_once() {
         })
         .expect("duration after guarded re-run");
     assert_eq!(duration_after, 0);
+}
+
+fn seed_strong_key_track(
+    conn: &rusqlite::Connection,
+    id: &str,
+    deleted: i64,
+    isrc: Option<&str>,
+    mbid_recording: Option<&str>,
+    raw_json: &str,
+) -> rusqlite::Result<usize> {
+    conn.execute(
+        "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, \
+           raw_json, isrc, mbid_recording) \
+         VALUES ('s1', ?1, 'T', 'Al', 1, ?2, 1, ?3, ?4, ?5)",
+        params![id, deleted, raw_json, isrc, mbid_recording],
+    )
+}
+
+#[test]
+fn native_strong_keys_backfill_fills_columns_from_raw_json_and_links_once() {
+    type ColumnRow = (String, Option<String>, Option<String>);
+    type LinkRow = (String, String, i64);
+
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_conn_mut("test.seed_strong_keys", |conn| {
+            conn.execute(
+                "DELETE FROM library_data_migration WHERE id = ?1",
+                params![NATIVE_STRONG_KEYS_BACKFILL_RECONCILE_ID],
+            )?;
+            // The native mapper gap: keys only in raw_json, both columns NULL.
+            seed_strong_key_track(
+                conn,
+                "native",
+                0,
+                None,
+                None,
+                r#"{"mbzRecordingID":"mb-native","tags":{"isrc":["USRC-N1","USRC-N2"]}}"#,
+            )?;
+            seed_strong_key_track(conn, "mbid-only", 0, None, None, r#"{"mbzRecordingID":"mb-only"}"#)?;
+            // Keyed before the bulk link pass existed: column set, never linked.
+            seed_strong_key_track(conn, "keyed-unlinked", 0, Some("USRC-K"), None, "{}")?;
+            seed_strong_key_track(conn, "already-linked", 0, Some("USRC-L"), None, "{}")?;
+            // ADR-7: a populated hot column is never rewritten from raw_json.
+            seed_strong_key_track(
+                conn,
+                "column-wins",
+                0,
+                Some("USRC-COL"),
+                None,
+                r#"{"tags":{"isrc":["USRC-RAW"]}}"#,
+            )?;
+            seed_strong_key_track(conn, "no-keys", 0, None, None, r#"{"tags":{"genre":["Ambient"]}}"#)?;
+            seed_strong_key_track(conn, "tombstone", 1, None, None, r#"{"mbzRecordingID":"mb-dead"}"#)?;
+            conn.execute_batch(
+                "INSERT INTO canonical_track (id, created_at, updated_at) VALUES ('isrc:USRC-L', 1, 1); \
+                 INSERT INTO canonical_identity (canonical_id, kind, value) \
+                   VALUES ('isrc:USRC-L', 'isrc', 'USRC-L'); \
+                 INSERT INTO track_canonical_link \
+                   (server_id, track_id, canonical_id, match_method, confidence, linked_at) \
+                   VALUES ('s1', 'already-linked', 'isrc:USRC-L', 'isrc', 1.0, 1);",
+            )?;
+            Ok(())
+        })
+        .expect("seed tracks");
+
+    store
+        .with_conn(
+            "test.strong_keys_backfill",
+            maybe_reconcile_native_strong_keys_backfill,
+        )
+        .expect("strong-key backfill");
+
+    let columns: Vec<ColumnRow> = store
+        .with_read_conn(|conn| {
+            conn.prepare(
+                "SELECT id, isrc, mbid_recording FROM track WHERE server_id = 's1' ORDER BY id",
+            )?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect()
+        })
+        .expect("backfilled columns");
+    assert_eq!(
+        columns,
+        vec![
+            ("already-linked".into(), Some("USRC-L".into()), None),
+            ("column-wins".into(), Some("USRC-COL".into()), None),
+            ("keyed-unlinked".into(), Some("USRC-K".into()), None),
+            ("mbid-only".into(), None, Some("mb-only".into())),
+            ("native".into(), Some("USRC-N1".into()), Some("mb-native".into())),
+            ("no-keys".into(), None, None),
+            ("tombstone".into(), None, None),
+        ]
+    );
+
+    let links: Vec<LinkRow> = store
+        .with_read_conn(|conn| {
+            conn.prepare(
+                "SELECT track_id, canonical_id, linked_at FROM track_canonical_link \
+                 WHERE server_id = 's1' ORDER BY track_id",
+            )?
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect()
+        })
+        .expect("canonical links");
+    assert_eq!(
+        links[0],
+        ("already-linked".into(), "isrc:USRC-L".into(), 1),
+        "an existing link is left alone"
+    );
+    let linked: Vec<(&str, &str)> = links[1..]
+        .iter()
+        .map(|(track_id, canonical_id, _)| (track_id.as_str(), canonical_id.as_str()))
+        .collect();
+    assert_eq!(
+        linked,
+        vec![
+            ("column-wins", "isrc:USRC-COL"),
+            ("keyed-unlinked", "isrc:USRC-K"),
+            ("mbid-only", "mbid_recording:mb-only"),
+            ("native", "isrc:USRC-N1"),
+        ],
+        "no link for rows without a key or for tombstones"
+    );
+
+    store
+        .with_conn_mut("test.clear_backfilled_isrc", |conn| {
+            conn.execute("UPDATE track SET isrc = NULL WHERE id = 'native'", [])
+        })
+        .expect("clear backfilled isrc");
+    store
+        .with_conn(
+            "test.strong_keys_backfill_again",
+            maybe_reconcile_native_strong_keys_backfill,
+        )
+        .expect("guarded strong-key backfill");
+    let isrc_after: Option<String> = store
+        .with_read_conn(|conn| {
+            conn.query_row("SELECT isrc FROM track WHERE id = 'native'", [], |row| row.get(0))
+        })
+        .expect("isrc after guarded re-run");
+    assert_eq!(isrc_after, None, "the completion marker stops the pass");
+}
+
+#[test]
+fn native_strong_keys_backfill_processes_one_resumable_batch() {
+    let store = LibraryStore::open_in_memory();
+    store.set_bulk_ingest_active(true);
+    assert_eq!(
+        store.run_native_strong_keys_backfill_batch().unwrap(),
+        LibraryBackfillStep::Deferred
+    );
+    store.set_bulk_ingest_active(false);
+
+    store
+        .with_conn_mut("test.seed_strong_key_batches", |conn| {
+            let tx = conn.transaction()?;
+            for index in 0..1_001 {
+                tx.execute(
+                    "INSERT INTO track (server_id, id, title, album, duration_sec, deleted, synced_at, raw_json) \
+                     VALUES ('s1', ?1, 'Track', 'Album', 1, 0, 1, '{}')",
+                    [format!("track-{index}")],
+                )?;
+            }
+            tx.commit()
+        })
+        .expect("seed strong-key batches");
+
+    assert_eq!(
+        store.run_native_strong_keys_backfill_batch().unwrap(),
+        LibraryBackfillStep::Pending
+    );
+    let first_cursor: (i64, Option<i64>) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT cursor_rowid, completed_at FROM library_data_migration WHERE id = ?1",
+                params![NATIVE_STRONG_KEYS_BACKFILL_RECONCILE_ID],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .expect("first strong-key cursor");
+    assert_eq!(first_cursor, (1_000, None));
+
+    assert_eq!(
+        store.run_native_strong_keys_backfill_batch().unwrap(),
+        LibraryBackfillStep::Pending
+    );
+    assert_eq!(
+        store.run_native_strong_keys_backfill_batch().unwrap(),
+        LibraryBackfillStep::Complete
+    );
+    let completed_at: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT completed_at FROM library_data_migration WHERE id = ?1",
+                params![NATIVE_STRONG_KEYS_BACKFILL_RECONCILE_ID],
+                |row| row.get(0),
+            )
+        })
+        .expect("completed strong-key marker");
+    assert!(completed_at.is_some());
+}
+
+#[test]
+fn native_strong_keys_backfill_is_not_part_of_database_open() {
+    let store = LibraryStore::open_in_memory();
+    let marker_count: i64 = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT COUNT(*) FROM library_data_migration WHERE id = ?1",
+                params![NATIVE_STRONG_KEYS_BACKFILL_RECONCILE_ID],
+                |row| row.get(0),
+            )
+        })
+        .expect("strong-key marker count");
+    assert_eq!(marker_count, 0);
 }

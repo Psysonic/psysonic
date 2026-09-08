@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
 import { createAudioSettingsActions } from './authAudioSettingsActions';
 import { createCacheStorageActions } from './authCacheStorageActions';
 import { createDiscordSettingsActions } from './authDiscordSettingsActions';
@@ -14,6 +14,8 @@ import { createSkipStarActions } from './authSkipStarActions';
 import { createTrackPreviewActions } from './authTrackPreviewActions';
 import { createUiAppearanceActions } from './authUiAppearanceActions';
 import {
+  DEFAULT_COVER_SOURCES,
+  DEFAULT_DISCORD_COVER_SOURCE,
   DEFAULT_LOUDNESS_PRE_ANALYSIS_ATTENUATION_DB,
   DEFAULT_LYRICS_SOURCES,
   DEFAULT_TRACK_PREVIEW_LOCATIONS,
@@ -38,6 +40,7 @@ import {
 } from '@/lib/perf/debugLoggingMode';
 import { createDiscordBannerActions } from './authDiscordBannerActions';
 import { setLibraryBrowseScopeSource } from '@/lib/library/libraryBrowseScope';
+import { createNavidromeCanonicalMigrationAwareJSONStorage } from '@/lib/util/safeStorage';
 import { PAUSE_RESUME_FADE_DEFAULT_SECS } from '@/lib/audio/pauseResumeFade';
 
 export const useAuthStore = create<AuthState>()(
@@ -46,9 +49,11 @@ export const useAuthStore = create<AuthState>()(
       discordBannerDismissed: false,
       discordBannerAccumulatedUsageMs: 0,
       servers: [],
+      mintedServerProfileIds: [],
       activeServerId: null,
       libraryBrowseServerIds: [],
       musicNetworkAccounts: [],
+      musicNetworkScrobbleQueue: [],
       enrichmentPrimaryId: null,
       scrobblingMasterEnabled: true,
       scrobbleThresholdPercent: SCROBBLE_THRESHOLD_PERCENT_DEFAULT,
@@ -95,7 +100,8 @@ export const useAuthStore = create<AuthState>()(
       clockFormat: 'auto',
       showOrbitTrigger: true,
       discordRichPresence: false,
-      discordCoverSource: 'none',
+      discordCoverSource: DEFAULT_DISCORD_COVER_SOURCE,
+      coverSources: DEFAULT_COVER_SOURCES,
       enableBandsintown: false,
       discordTemplateDetails: '{artist}',
       discordTemplateState: '{title}',
@@ -204,7 +210,19 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'psysonic-auth',
-      storage: createJSONStorage(() => localStorage),
+      storage: createNavidromeCanonicalMigrationAwareJSONStorage(),
+      version: 1,
+      // Version 1 moves post-hydration repairs into `merge`. Returning the
+      // version-0 payload unchanged makes Zustand rewrite the repaired state.
+      migrate: persistedState => persistedState,
+      merge: (persistedState, currentState) => {
+        const state = {
+          ...currentState,
+          ...(persistedState as Partial<AuthState> | undefined),
+        };
+        const patch = computeAuthStoreRehydration(state);
+        return { ...state, ...patch };
+      },
       partialize: state => {
         const {
           musicFolders: _mf,
@@ -216,9 +234,7 @@ export const useAuthStore = create<AuthState>()(
       },
       onRehydrateStorage: () => (state, error) => {
         if (error || !state) return;
-        useAuthStore.setState(computeAuthStoreRehydration(state));
-        const current = useAuthStore.getState();
-        void syncAllServerHttpContexts(current.servers, current.subsonicServerIdentityByServer);
+        void syncAllServerHttpContexts(state.servers, state.subsonicServerIdentityByServer);
       },
     }
   )

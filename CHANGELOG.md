@@ -9,6 +9,113 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 >
 
 
+## [1.53.0]
+
+## Added
+
+### Scrobbles are no longer lost when a service is unreachable
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1482](https://github.com/Psysonic/psysonic/pull/1482)**
+
+* A play that could not be sent — no connection, a service that was down, an expired login — used to disappear without a trace. It is now kept and sent later, automatically: when the connection returns, when you reconnect the service, and otherwise every few minutes. Kept plays survive restarting Psysonic.
+* Each destination in Settings → Integrations shows how many plays are still waiting to be sent, so a service that has quietly fallen behind is visible.
+* Plays are kept for 14 days, which is as far back as the services accept them.
+
+### Psysonic Rewind — your year in music as a shareable poster
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1485](https://github.com/Psysonic/psysonic/pull/1485)**
+
+* The statistics page gains a Psysonic Rewind card: play your year back as a story, then save it as a poster. Four layouts — overview, artist spotlight, album spotlight, and nerd stats — each in story (9:16) and square (1:1) format, drawn in a dedicated dark poster style with a live preview.
+* Everything is computed locally from your own play history — your data never leaves your device, and the poster says so.
+
+### Windows updates install from inside the app
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1487](https://github.com/Psysonic/psysonic/pull/1487)**
+
+* On Windows the update dialog now installs the new version itself, the way it already does on macOS: the installer is downloaded, its signature is checked against the key built into the app, and it runs in the background. Psysonic closes and reopens by itself when it is done.
+* Until now Windows only offered the installer as a download to run by hand. Installs of this version and later update in place; an older install still downloads the next installer once.
+
+### Choose where missing album covers come from
+
+**By [@enncoded](https://github.com/enncoded), PR [#1502](https://github.com/Psysonic/psysonic/pull/1502)**
+
+* Settings → Integrations → Album artwork lets you order and switch the sources Psysonic falls back to when your server has no cover for an album: the server itself, Apple Music, and now Last.fm. The first enabled source that returns an image wins, and dragging reorders them.
+* Discord keeps its own separate switch under Rich Presence and still publishes nothing until you pick an option there.
+
+### Device Sync playlists reuse songs already on the device
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1501](https://github.com/Psysonic/psysonic/pull/1501)**
+
+* Albums and playlists now share one physical copy of each song instead of placing another copy inside every playlist folder. Playlist files point to the shared artist and album path, saving device space, transfer time, and duplicate entries in portable-player libraries.
+* Existing Device Sync layouts migrate on the next sync. Interrupted work keeps a recovery plan and only resumes or removes old files when the same removable device is connected again.
+
+### Rate the current track with a global shortcut
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1503](https://github.com/Psysonic/psysonic/pull/1503)**
+
+* Settings → Input → Global shortcuts now offers separate, unbound actions for assigning 1–5 stars to the current track, even while Psysonic is out of focus.
+
+### Psysonic follows your desktop's theme
+
+**By [@Manwe-777](https://github.com/Manwe-777), PR [#1507](https://github.com/Psysonic/psysonic/pull/1507)**
+
+* On a Linux desktop that publishes its colours — Omarchy does out of the box — Psysonic now themes itself to match, and re-themes itself within a couple of seconds when you switch your desktop theme. No restart, nothing to keep in sync by hand.
+* The generated theme appears in Settings → Themes as `Desktop — <your theme's name>`, next to a **Follow desktop theme** switch. Existing installs keep the theme they already had and start with the switch off; picking any other theme by hand also turns following off, so your choice sticks.
+* Any other desktop works too: point `PSYSONIC_PALETTE_FILE` at a file of `name = "#rrggbb"` lines. Naming only a background, a foreground and an accent is enough — the rest of the theme is derived from those three.
+
+## Fixed
+
+### Shared Top Albums pictures show their covers again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1478](https://github.com/Psysonic/psysonic/pull/1478)**
+
+* The picture created from Statistics → Most Played Albums drew every album as an empty tile, showing only the rank and the play count. The New Albums export lost its covers the same way.
+* Covers now come from the same place the album cards get theirs, so a shared picture also reuses artwork that is already on screen instead of fetching it a second time.
+
+### Update dialog buttons stay inside the dialog
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1488](https://github.com/Psysonic/psysonic/pull/1488)**
+
+* In languages with long button labels, such as German, the "Install now" button of the update dialog ran past the right edge of the dialog. The dialog is wider now, and should the labels still not fit side by side, the buttons move to a second row instead of being cut off.
+
+### Navidrome libraries get their ISRC and MusicBrainz ids back, and analysis no longer fails on a stray server key
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1490](https://github.com/Psysonic/psysonic/pull/1490)**
+
+* Libraries indexed from Navidrome's native API kept the ISRC and MusicBrainz recording id of every track out of the local index, because the importer looked for field names Navidrome does not send. Both are read under their real names now, and a one-time background pass fills them in for existing libraries and links the tracks that were never linked, in small batches while Psysonic is idle.
+* Since 1.51.0 the audio analysis could write its results under a server key the library index did not know, and every attempt then failed with a foreign-key error in the log. An unresolved generated server-profile id is now rejected at the analysis boundary, so analysis is skipped for that track instead of failing without rejecting valid keys used by other storage features.
+
+### Library rebuilds remove tracks deleted from Navidrome again
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1497](https://github.com/Psysonic/psysonic/pull/1497)**
+
+* Albums and tracks deleted from a Navidrome server no longer remain as fragmented ghost entries after rebuilding a selected library.
+
+### Multi-disc album subtitles appear again
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@BjarneMJ](https://github.com/BjarneMJ), PR [#1498](https://github.com/Psysonic/psysonic/pull/1498)**
+
+* Album Detail now shows OpenSubsonic per-disc subtitles returned by Navidrome, such as "The demos", instead of falling back to only "Disc 3" and "Disc 4" after loading the album from the local library index.
+
+### Playlist pages return to where you left off
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by MrMiniblock on Discord, PR [#1499](https://github.com/Psysonic/psysonic/pull/1499)**
+
+* Opening an album or artist from a long playlist and then going back now restores the previous scroll position instead of returning to the top.
+
+### Unfocused visualizers stop drawing in the background
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@netherguy4](https://github.com/netherguy4), PR [#1505](https://github.com/Psysonic/psysonic/pull/1505)**
+
+* Switching to another application no longer leaves the Now Playing visualizer consuming rendering time in the background. It pauses by default and resumes when Psysonic regains focus.
+* The behaviour can be changed under **Settings → Appearance → Visualizer**. Waveform progress continues to update while the window is unfocused.
+
+### Linux playback stays clean under PipeWire again
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@thiagonl](https://github.com/thiagonl), PR [#1509](https://github.com/Psysonic/psysonic/pull/1509)**
+
+* Since 1.51.0, some Linux systems played every track with continuous crackling, dropouts and a dragging sound while flooding the log with buffer-underrun errors. PipeWire output now keeps the stable buffer used by earlier releases while retaining the corrected ALSA sample-rate handling.
+
 ## [1.52.0]
 
 ## Added
@@ -37,6 +144,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The table lists cover, title, artist, song count, year, duration and the date an album was added, and drops columns from the right as the space narrows. Title and year sort from the column headers.
 * Song count, duration and the added date now reach every album browse surface, including filtered views and the lossless catalogue, where one or the other used to be blank.
 * Albums added in the last two days show the new-release ribbon on the All Albums grid as well, not only under New Releases.
+
+### Telling your own playlists apart from shared ones
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1454](https://github.com/Psysonic/psysonic/pull/1454)**
+
+* A server hands over your own playlists together with every public playlist of everyone else on it, all in one undivided list. The Playlists page can now separate them into your own, the ones you share, and the ones other people share with you.
+* The switch only appears once something on the server is actually shared, and it works alongside the folder view and the search box instead of replacing either.
+* Your playlists are now recognised as yours no matter how the username was capitalised when the server profile was created. A mismatch there previously also left the delete button greyed out on your own playlists.
+
+### Playlist covers in the sidebar, and a sortable playlist list
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1455](https://github.com/Psysonic/psysonic/pull/1455)**
+
+* The sidebar playlist list shows each playlist's cover and how many songs it holds. Playlists without their own cover keep the plain list icon.
+* The list can be ordered by name, by when a playlist was created, or by how many songs it has. The setting is remembered and applies to the sidebar and the Playlists page alike — the page had no ordering of its own until now.
+* The personal / shared split from the previous entry now applies to the sidebar list as well.
+
+### Offline downloads — resume interruptions and survive slow servers
+
+**By [@cucadmuh](https://github.com/cucadmuh), issue reported by [@jsongerber](https://github.com/jsongerber), PR [#1457](https://github.com/Psysonic/psysonic/pull/1457)**
+
+* Original-quality offline downloads no longer fail just because the whole transfer takes more than two minutes. The timeout now measures stalled reads, so a slow server can keep sending for as long as data continues to arrive.
+* Interrupted downloads can resume from a verified partial file instead of starting over. Changed or unsafe server responses discard the partial cleanly, while cancellation, disk-space reservations and concurrent download attempts no longer race the final file.
+* Album, artist, playlist and favourites pins now keep every owner, survive restarts and server-address migrations, and do not return after the user cancels them.
+
+### Every track an artist performs on
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by MrMiniblock, PR [#1458](https://github.com/Psysonic/psysonic/pull/1458)**
+
+* An artist page showed five popular tracks and offered no way to reach the rest. It now has two tabs: the familiar ranking, and the complete list of everything that artist performs on — their own records as well as the compilations and guest appearances they turn up on.
+* The full list is ordered by album, disc and track number, and can be sorted by any column. Which columns are shown is up to you: title, album and duration to begin with, and artist, genre, year, format, plays, last played and BPM available from the column menu.
+* It is loaded the moment you open the tab, straight from the local index, so the artist page itself stays as quick to open as before.
+
+### Navidrome ID upgrades keep local libraries intact
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1464](https://github.com/Psysonic/psysonic/pull/1464)**
+
+* When a future Navidrome release switches albums, artists and tracks to canonical IDs, Psysonic pauses startup while it safely updates the local library, analysis results, offline downloads, cached covers and saved app state, then verifies everything with a full sync.
+* The migration resumes after an interruption and protects normal playback, sync, imports and background work from seeing a half-converted library. Navidrome 0.63.2 and older servers, and other Subsonic servers, continue without migration.
+
+### Ukrainian translation
+
+**By [@albedych](https://github.com/albedych), PR [#1465](https://github.com/Psysonic/psysonic/pull/1465)**
+
+* Full Ukrainian (Українська) UI translation — selectable from the language picker on the Settings and Login screens.
+* Counts read naturally in Ukrainian: the one, few and many plural forms are all translated, so quantities such as 1, 2 and 5 items no longer fall back to English.
+* Library identity keys now fold Ukrainian Cyrillic (ї → і) the way Russian and Bulgarian already do, so the same release still merges into a single entry across servers. The keys are rebuilt once after updating, which takes a few seconds on a large library.
 
 ## Changed
 
@@ -68,6 +222,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Lines could light up close to a second after they were sung, and inconsistently so — some on time, others noticeably behind. The player only learned the playback position about once per second, which is imperceptible on a clock but not in lyrics, so the position is now followed continuously between those updates.
 * The fullscreen rail was worst affected, because it picked its line from an even coarser signal than its own word highlighting used. Every lyrics view now reads the same position, including after seeking to a line while paused.
+
+### Live Search no longer shows the same result twice
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by HiveMind on the Psysonic Discord, PR [#1448](https://github.com/Psysonic/psysonic/pull/1448)**
+
+* Artists, albums and songs could each appear twice when the local index and the server response used different forms of the same server identity. Live Search now aligns that identity before combining the results, while still keeping genuinely separate matches from different servers.
+
+### Navidrome multi-artist credits survive background sync
+
+**By [@devyeah1978](https://github.com/devyeah1978), PR [#1449](https://github.com/Psysonic/psysonic/pull/1449)**
+
+* Navidrome delta updates no longer collapse structured track and album artist credits into one comma-joined artist. Current native credits replace stale names while richer OpenSubsonic artist references remain intact when the native response omits them.
+
+### Linux shortcuts work immediately after returning to the app
+
+**By [@cucadmuh](https://github.com/cucadmuh), issue reported by HiveMind on the Psysonic Discord, PR [#1450](https://github.com/Psysonic/psysonic/pull/1450)**
+
+* **Linux/KDE Plasma:** Alt+Tab could return to Psysonic while leaving its webview without keyboard focus, so Space, F11 and other in-app shortcuts did nothing until the window was clicked. Psysonic now restores keyboard focus as soon as the native window is reactivated.
+
+### Drags no longer start on their own when a press goes nowhere
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1456](https://github.com/Psysonic/psysonic/pull/1456)**
+
+* Albums were fixed above; the same problem sat in every other place a track can be dragged from — the queue and the mini-player queue, playlists, favorites, search results, Random Mix and the song cards on Home. Holding the mouse button while the list changed underneath left a drag primed, and the next movement picked up a row that was no longer on screen.
+* A press whose release never arrives now ends with whatever replaces it — the pointer leaving the window, the app losing focus, or the system taking the drag over — instead of waiting for a mouse-up that is never delivered.
+
+### Individual libraries can be selected again after updating
+
+**By [@cucadmuh](https://github.com/cucadmuh), issue reported by [@tummydummy](https://github.com/tummydummy), PR [#1459](https://github.com/Psysonic/psysonic/pull/1459)**
+
+* Updating from Psysonic 1.50 to 1.51 could leave the library selector stuck on **All libraries**: clicking an individual music folder closed the menu without changing the selection. Existing saved scope is now repaired during startup, and an empty scope restores the active server before saving a new choice.
+
+### Closing Psysonic cannot leave it hidden without a tray icon
+
+**By [@cucadmuh](https://github.com/cucadmuh), issue reported by [@hello-foma](https://github.com/hello-foma), PR [#1460](https://github.com/Psysonic/psysonic/pull/1460)**
+
+* Turning off **Show Tray Icon** now also turns off both tray-dependent settings. **Minimize to Tray** and **Start Minimized to Tray** stay unavailable until the tray icon is enabled again.
+* Existing saved settings with the unsafe combination are repaired during startup, so closing the window exits instead of hiding Psysonic with no way to reopen it.
+
+### Analysed BPM appears consistently across tracklists
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1461](https://github.com/Psysonic/psysonic/pull/1461)**
+
+* Album, artist, favourites and playlist tracklists now show and sort by the locally analysed BPM when it is available, instead of continuing to use the BPM embedded in the track tag.
+
+### Play counts and last played dates for tracks played in Psysonic
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1463](https://github.com/Psysonic/psysonic/pull/1463)**
+
+* Tracks played inside the app kept showing an empty play count and no last played date, even once the server had recorded the play.
+* Root cause: the last played date was stored locally but never carried back into the track lists, and the play count was not written at all after a scrobble. Both now update as soon as a play is reported — the count is read back from the server that just accepted it, so it stays the same number the server shows and plays from other clients are never lost or double-counted.
+* Native Navidrome connections read the wrong field for the last played date, so it never arrived at all; they now read the one the server actually sends, and tracks that were already stored without it show their date again without waiting for a resync.
+
+### Ukrainian settings notices no longer drop their warnings
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1467](https://github.com/Psysonic/psysonic/pull/1467)**
+
+* Nine settings descriptions in Ukrainian had been shortened to their first sentence, which silently removed the warnings the English text carries — that a settings backup stores passwords in plain text, that a Discord server cover exposes your server's public address, that external artwork is off by default and is provided by fanart.tv, and that playback-rate changes do not apply to radio, previews or Orbit.
+* The missing sentences are back; the rest of the Ukrainian wording is unchanged.
+* The README language list includes Ukrainian again.
+
+### The help page describes the app as it is today
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1468](https://github.com/Psysonic/psysonic/pull/1468)**
+
+* Three answers had stopped being true: the page still said only one server can be active at a time, it knew only gapless and crossfade without mentioning AutoDJ, and it sent people to a Settings → Queue tab that no longer exists to restrict auto-added tracks to a genre, which is no longer possible either.
+* Nine topics that were never covered are now there: browsing several servers at once, the timeline queue view with Play from Here, capping the streaming bitrate per server address, the table view on the album pages, telling your own playlists from shared ones, the Composers page, the audio visualizer, the theme store and the background sources.
+* All of it in every language the app ships in.
+
+### Navidrome dates with UTC offsets populate New Releases again
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1470](https://github.com/Psysonic/psysonic/pull/1470)**
+
+* Navidrome timestamps with negative UTC offsets no longer disappear from the local index, so New Releases, favourites and last played dates populate correctly during sync. Existing creation dates with safely identifiable old values are repaired gradually in the background; ambiguous cleared legacy values wait for a later sync rather than risk restoring stale data.
+
+### Different album versions stay separate
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1471](https://github.com/Psysonic/psysonic/pull/1471)**
+
+* Standard, deluxe, remastered and other physical versions of the same album no longer collapse into one release in combined libraries, artist discographies or Album Detail. Matching copies of the same version still merge across servers.
+* Existing libraries rebuild their derived identity keys once after updating; the library database and user state are unchanged.
+
+### Synced lyrics in FLAC files show every line
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), issue reported by [@Naharie](https://github.com/Naharie), PR [#1474](https://github.com/Psysonic/psysonic/pull/1474)**
+
+* A FLAC whose lyrics tag is written one field per line only showed the first line, while the same lyrics in an MP3 displayed in full. Every part of the lyrics is now reassembled, whether the tag was written line by line, verse by verse or as a single block.
+* Word-by-word highlighting keeps pointing at the right words across the reassembled lines, and a malformed lyrics response no longer leaves the panel stuck loading.
 
 ## [1.51.0] - 2026-08-17
 

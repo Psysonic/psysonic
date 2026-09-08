@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { ChevronRight, Heart, Play, Plus, RefreshCw, Square } from 'lucide-react';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
@@ -21,7 +21,8 @@ import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
-import { appendServerQuery } from '@/lib/navigation/detailServerScope';
+import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
+import { navigateToAlbumDetail } from '@/lib/navigation/albumDetailNavigation';
 
 const PL_CENTERED = new Set(['favorite', 'rating', 'duration', 'playCount', 'bpm']);
 
@@ -43,6 +44,7 @@ interface Props {
   starredSongs: Set<string>;
   handleRate: (songId: string, rating: number) => void;
   handleToggleStar: (song: SubsonicSong, e: React.MouseEvent) => void;
+  serverId?: string;
 }
 
 export default function PlaylistSuggestions({
@@ -52,10 +54,11 @@ export default function PlaylistSuggestions({
   contextMenuSongId, setContextMenuSongId,
   hoveredSuggestionId, setHoveredSuggestionId,
   addSong, startPreview,
-  ratings, starredSongs, handleRate, handleToggleStar,
+  ratings, starredSongs, handleRate, handleToggleStar, serverId,
 }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const openContextMenu = usePlayerStore(s => s.openContextMenu);
   const starredOverrides = usePlayerStore(s => s.starredOverrides);
   const userRatingOverrides = usePlayerStore(s => s.userRatingOverrides);
@@ -66,9 +69,14 @@ export default function PlaylistSuggestions({
   const suggestionsVisible = usePlaylistLayoutStore(s =>
     s.items.find(i => i.id === 'suggestions')?.visible !== false);
 
+  const resolvedBpmSuggestions = useResolvedTracklistBpm(
+    suggestions,
+    visibleCols.some(column => column.key === 'bpm'),
+    serverId,
+  );
   const filteredSuggestions = React.useMemo(
-    () => suggestions.filter(s => !existingIds.has(s.id)),
-    [suggestions, existingIds],
+    () => resolvedBpmSuggestions.filter(s => !existingIds.has(s.id)),
+    [resolvedBpmSuggestions, existingIds],
   );
 
   useWarmTrackListAlbumCovers(filteredSuggestions, COVER_ARTIST_TOP_TRACK_CSS_PX, {
@@ -193,8 +201,9 @@ export default function PlaylistSuggestions({
                       <span className={`track-artist${song.albumId ? ' track-artist-link' : ''}`} style={{ cursor: song.albumId ? 'pointer' : 'default' }} onClick={e => {
                         if (!song.albumId) return;
                         e.stopPropagation();
-                        const query = appendServerQuery(undefined, song.serverId);
-                        navigate(`/album/${song.albumId}${query ? `?${query}` : ''}`);
+                        navigateToAlbumDetail(navigate, location, song.albumId, {
+                          serverId: song.serverId,
+                        });
                       }}>{song.album}</span>
                     </div>
                   );

@@ -9,6 +9,25 @@ import {
 import { useDeviceSyncJobStore } from '@/features/deviceSync/store/deviceSyncJobStore';
 import { useDeviceSyncStore, type DeviceSyncSource } from '@/features/deviceSync/store/deviceSyncStore';
 import { useDeviceSyncJobEvents } from './useDeviceSyncJobEvents';
+import { NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY } from '@/lib/server/navidromeCanonicalCheckpointStatus';
+import { showToast } from '@/lib/dom/toast';
+
+vi.mock('@/lib/dom/toast', () => ({ showToast: vi.fn() }));
+
+const jobContext = (source: DeviceSyncSource, targetDir: string) => ({
+  targetDir,
+  deviceId: 'device-1',
+  planId: 'plan-1',
+  serverIndexKey: source.serverIndexKey,
+  sources: [source],
+  deletionSourceKeys: [],
+  layoutMode: 'self-contained' as const,
+  playlistPathMode: 'playlist-relative' as const,
+  deferredDeletePaths: [],
+  playlists: [],
+  manifestFiles: [],
+  manifestPlaylists: [],
+});
 
 describe('useDeviceSyncJobEvents ownership', () => {
   beforeEach(() => {
@@ -16,11 +35,14 @@ describe('useDeviceSyncJobEvents ownership', () => {
     useDeviceSyncStore.setState({
       targetDir: null,
       sources: [],
+      legacySources: [],
+      legacyTargetDir: null,
       checkedIds: [],
       pendingDeletion: [],
       deviceFilePaths: [],
       scanning: false,
     });
+    vi.mocked(showToast).mockClear();
   });
 
   it('writes completion metadata from the immutable job context', async () => {
@@ -30,27 +52,84 @@ describe('useDeviceSyncJobEvents ownership', () => {
       name: 'Album',
       serverIndexKey: 'owner.test',
     };
-    useDeviceSyncJobStore.getState().startSync('job-1', 1, {
-      targetDir: '/old-device',
-      serverIndexKey: source.serverIndexKey,
-      sources: [source],
-    });
+    useDeviceSyncJobStore.getState().startSync('job-1', 1, jobContext(source, '/old-device'));
     useDeviceSyncStore.setState({ targetDir: '/new-device', sources: [] });
-    onInvoke('write_device_manifest', () => undefined);
-    const scanDevice = vi.fn(async () => undefined);
-
-    renderHook(() => useDeviceSyncJobEvents(((key: string) => key) as never, scanDevice));
+    onInvoke('finalize_device_sync', () => ({ deleted: 0, cleanupFailed: false }));
+    renderHook(() => useDeviceSyncJobEvents());
     await waitFor(() => expect(tauriMockListenerCount('device:sync:complete')).toBe(1));
 
     emitTauriEvent('device:sync:complete', {
       jobId: 'job-1', done: 1, skipped: 0, failed: 0, total: 1,
     });
 
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('write_device_manifest', {
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith('finalize_device_sync', expect.objectContaining({
       destDir: '/old-device',
-      ownerServerIndexKey: 'owner.test',
-      sources: [source],
+      payload: expect.objectContaining({
+        expectedDeviceId: 'device-1',
+        ownerServerIndexKey: 'owner.test',
+        sources: [expect.objectContaining(source)],
+      }),
+    })));
+    expect(invokeMock).not.toHaveBeenCalledWith('list_device_dir_files', expect.anything());
+  });
+
+  it('does not write completion metadata after migration locks the window', async () => {
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey: 'owner.test',
+    };
+    useDeviceSyncJobStore.getState().startSync('job-1', 1, jobContext(source, '/device'));
+    localStorage.setItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY, '1');
+
+    renderHook(() => useDeviceSyncJobEvents());
+    await waitFor(() => expect(tauriMockListenerCount('device:sync:complete')).toBe(1));
+    emitTauriEvent('device:sync:complete', {
+      jobId: 'job-1', done: 1, skipped: 0, failed: 0, total: 1,
+    });
+
+    await waitFor(() => expect(useDeviceSyncJobStore.getState().status).toBe('failed'));
+    expect(invokeMock).not.toHaveBeenCalledWith('finalize_device_sync', expect.anything());
+  });
+
+  it('keeps cancellation active until the native completion event confirms it', async () => {
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey: 'owner.test',
+    };
+    useDeviceSyncJobStore.getState().startSync('job-1', 2, jobContext(source, '/device'));
+    useDeviceSyncJobStore.getState().requestCancel();
+
+    renderHook(() => useDeviceSyncJobEvents());
+    await waitFor(() => expect(tauriMockListenerCount('device:sync:complete')).toBe(1));
+    expect(useDeviceSyncJobStore.getState().status).toBe('cancelling');
+
+    emitTauriEvent('device:sync:complete', {
+      jobId: 'job-1', done: 1, skipped: 0, failed: 0, total: 2, cancelled: true,
+    });
+
+    await waitFor(() => expect(useDeviceSyncJobStore.getState()).toMatchObject({
+      status: 'cancelled', done: 1, skipped: 0, failed: 0,
     }));
-    expect(scanDevice).not.toHaveBeenCalled();
+  });
+
+  it('shows the cleanup failure reason when event-driven finalization is incomplete', async () => {
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey: 'owner.test',
+    };
+    useDeviceSyncJobStore.getState().startSync('job-1', 1, jobContext(source, '/device'));
+    useDeviceSyncStore.setState({ targetDir: '/device', sources: [source] });
+    onInvoke('finalize_device_sync', () => ({ deleted: 0, cleanupFailed: true }));
+    onInvoke('list_device_dir_files', () => []);
+    renderHook(() => useDeviceSyncJobEvents());
+    await waitFor(() => expect(tauriMockListenerCount('device:sync:complete')).toBe(1));
+
+    emitTauriEvent('device:sync:complete', {
+      jobId: 'job-1', done: 1, skipped: 0, failed: 0, total: 1,
+    });
+
+    await waitFor(() => expect(useDeviceSyncJobStore.getState().status).toBe('failed'));
+    expect(showToast).toHaveBeenCalledWith(
+      'Sync finished, but some old files could not be removed. Reconnect the same device and sync again.',
+      5000,
+      'error',
+    );
   });
 });

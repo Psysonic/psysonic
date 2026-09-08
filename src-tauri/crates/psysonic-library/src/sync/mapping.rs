@@ -22,11 +22,46 @@ const ALBUM_TO_TRACK_RAW_KEYS: &[(&str, &str)] = &[
     ("compilation", "compilation"),
     ("isCompilation", "isCompilation"),
     ("releaseTypes", "releaseTypes"),
+    ("version", "albumVersion"),
     ("artists", "albumArtists"),
     ("albumArtists", "albumArtists"),
     ("displayArtist", "displayAlbumArtist"),
     ("displayAlbumArtist", "displayAlbumArtist"),
 ];
+
+pub(crate) fn album_version_from_tags(raw: &Value) -> Option<&str> {
+    match raw.pointer("/tags/albumversion") {
+        Some(Value::String(version)) => {
+            Some(str::trim(version.as_str())).filter(|version| !version.is_empty())
+        }
+        Some(Value::Array(versions)) => versions.iter().find_map(|version| {
+            version
+                .as_str()
+                .map(str::trim)
+                .filter(|version| !version.is_empty())
+        }),
+        _ => None,
+    }
+}
+
+fn track_raw_json(raw: &Value) -> String {
+    let needs_normalized_version = raw
+        .as_object()
+        .is_some_and(|object| !object.contains_key("albumVersion"));
+    if needs_normalized_version {
+        if let Some(version) = album_version_from_tags(raw) {
+            let mut normalized = raw.clone();
+            if let Some(object) = normalized.as_object_mut() {
+                object.insert(
+                    "albumVersion".to_string(),
+                    Value::String(version.to_string()),
+                );
+            }
+            return normalized.to_string();
+        }
+    }
+    raw.to_string()
+}
 
 /// Copy album-level OpenSubsonic fields onto each track `raw_json` during S2/getAlbum
 /// ingest, so track-grouped album browse can filter compilations and the album header
@@ -43,9 +78,18 @@ const ALBUM_TO_TRACK_RAW_KEYS: &[(&str, &str)] = &[
 /// authoritative ids sitting in the same `getAlbum` response and push the UI back onto
 /// name matching.
 pub fn merge_album_open_subsonic_track_raw(raw_album: &Value, raw_song: &mut Value) {
+    let track_tag_version = album_version_from_tags(raw_song).map(str::to_string);
     let Some(obj) = raw_song.as_object_mut() else {
         return;
     };
+    if !obj
+        .get("albumVersion")
+        .is_some_and(is_usable_participant_value)
+    {
+        if let Some(version) = track_tag_version {
+            obj.insert("albumVersion".to_string(), Value::String(version));
+        }
+    }
     for (album_key, track_key) in ALBUM_TO_TRACK_RAW_KEYS {
         if obj.get(*track_key).is_some_and(is_usable_participant_value) {
             continue;
@@ -54,6 +98,17 @@ pub fn merge_album_open_subsonic_track_raw(raw_album: &Value, raw_song: &mut Val
             if is_usable_participant_value(v) {
                 obj.insert((*track_key).to_string(), v.clone());
             }
+        }
+    }
+    if !obj
+        .get("albumVersion")
+        .is_some_and(is_usable_participant_value)
+    {
+        if let Some(version) = album_version_from_tags(raw_album) {
+            obj.insert(
+                "albumVersion".to_string(),
+                Value::String(version.to_string()),
+            );
         }
     }
 }
@@ -189,19 +244,66 @@ pub fn subsonic_song_to_track_row(
             .and_then(|rg| rg.get("trackPeak"))
             .and_then(|v| v.as_f64()),
         content_hash: None,
-        server_updated_at: raw_value
-            .get("updatedAt")
-            .and_then(Value::as_str)
-            .and_then(parse_iso_ms_str),
-        server_created_at: raw_value
-            .get("created")
-            .or_else(|| raw_value.get("createdAt"))
-            .and_then(|v| v.as_str())
-            .and_then(parse_iso_ms_str),
+        server_updated_at: parse_raw_iso_ms(raw_value, &["updatedAt"]),
+        server_created_at: parse_raw_iso_ms(raw_value, &["created", "createdAt"]),
         deleted: false,
         synced_at,
-        raw_json: raw_value.to_string(),
+        raw_json: track_raw_json(raw_value),
     }
+}
+
+/// Normalize Navidrome native artist data onto the OpenSubsonic keys the rest
+/// of Psysonic consumes. Native flat artist strings are current display values,
+/// so when present they replace stale `displayArtist` / `displayAlbumArtist`.
+///
+/// `participants` has a stricter contract: an absent or null field means the
+/// native endpoint did not provide structured credits, so sparse merge may keep
+/// the previously stored OpenSubsonic arrays for compatibility. Once a
+/// participants object is present, however, it is authoritative as a whole.
+/// Present roles replace their arrays and missing roles become empty arrays so a
+/// later `json_patch` cannot retain stale structured credits.
+fn normalize_navidrome_participants(raw: &Value) -> Value {
+    let mut normalized = raw.clone();
+    let Some(obj) = normalized.as_object_mut() else {
+        return normalized;
+    };
+
+    if let Some(artist) = raw.get("artist") {
+        obj.insert("displayArtist".to_string(), artist.clone());
+    }
+    if let Some(album_artist) = raw.get("albumArtist") {
+        obj.insert("displayAlbumArtist".to_string(), album_artist.clone());
+    }
+
+    let Some(participants_value) = raw.get("participants") else {
+        return normalized;
+    };
+    if participants_value.is_null() {
+        return normalized;
+    }
+
+    let empty = Value::Array(Vec::new());
+    if let Some(participants) = participants_value.as_object() {
+        obj.insert(
+            "artists".to_string(),
+            participants.get("artist").cloned().unwrap_or_else(|| empty.clone()),
+        );
+        obj.insert(
+            "albumArtists".to_string(),
+            participants
+                .get("albumartist")
+                .or_else(|| participants.get("albumArtist"))
+                .cloned()
+                .unwrap_or(empty),
+        );
+    } else {
+        // A non-null malformed value still means the server supplied the field;
+        // do not fall back to stale structured credits.
+        obj.insert("artists".to_string(), empty.clone());
+        obj.insert("albumArtists".to_string(), empty);
+    }
+
+    normalized
 }
 
 /// Project a Navidrome `/api/song` row (native REST shape) into a
@@ -215,16 +317,15 @@ pub fn navidrome_song_to_track_row(
     synced_at: i64,
     library_id_fallback: Option<&str>,
 ) -> Option<TrackRow> {
+    let normalized = normalize_navidrome_participants(raw);
+    let raw = &normalized;
     let id = raw.get("id").and_then(|v| v.as_str())?.to_string();
     let title = raw
         .get("title")
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    let server_updated_at = raw
-        .get("updatedAt")
-        .and_then(|v| v.as_str())
-        .and_then(parse_iso_ms_str);
+    let server_updated_at = parse_raw_iso_ms(raw, &["updatedAt"]);
     let library_id = json_string_field(raw, "libraryId")
         .or_else(|| json_string_field(raw, "library_id"))
         .or_else(|| json_string_field(raw, "musicFolderId"))
@@ -250,34 +351,38 @@ pub fn navidrome_song_to_track_row(
         bit_rate: raw.get("bitRate").and_then(|v| v.as_i64()),
         size_bytes: raw.get("size").and_then(|v| v.as_i64()),
         cover_art_id: string_field(raw, "coverArtId").or_else(|| string_field(raw, "coverArt")),
-        starred_at: raw
-            .get("starredAt")
-            .and_then(|v| v.as_str())
-            .and_then(parse_iso_ms_str),
+        starred_at: parse_raw_iso_ms(raw, &["starredAt"]),
         user_rating: raw.get("rating").and_then(|v| v.as_i64()),
         play_count: raw.get("playCount").and_then(|v| v.as_i64()),
-        played_at: raw
-            .get("playedAt")
-            .and_then(|v| v.as_str())
-            .and_then(parse_iso_ms_str),
+        // Navidrome's own API calls this `playDate`; `playedAt` was never one of
+        // its names, so reading only that wrote NULL on every native ingest and
+        // the server's play dates never arrived. Measured on a real library:
+        // 1043 rows carry `playDate`, none carry `playedAt`.
+        //
+        // The other two names are defensive, not load-bearing: this mapper is
+        // only ever handed a native payload today (Subsonic answers go through
+        // `subsonic_song_to_track_row`), so they cost nothing and would catch a
+        // payload shape that changed under us rather than silently dropping the
+        // date again.
+        // Parsing happens inside the search, not after it: stopping at the first
+        // key that merely holds a string would settle on an empty `playDate` —
+        // which Navidrome has been seen to send for never-played rows — and
+        // never look at a usable `played` beside it.
+        played_at: parse_raw_iso_ms(raw, &["playDate", "played", "playedAt"]),
         server_path: string_field(raw, "path"),
         library_id,
-        isrc: string_field(raw, "isrc"),
-        mbid_recording: string_field(raw, "mbzTrackId")
-            .or_else(|| string_field(raw, "musicBrainzId")),
+        isrc: navidrome_isrc_from_raw(raw),
+        mbid_recording: navidrome_mbid_recording_from_raw(raw),
         bpm: raw.get("bpm").and_then(|v| v.as_i64()),
         replay_gain_track_db: raw.get("rgTrackGain").and_then(|v| v.as_f64()),
         replay_gain_album_db: raw.get("rgAlbumGain").and_then(|v| v.as_f64()),
         replay_gain_peak: raw.get("rgTrackPeak").and_then(|v| v.as_f64()),
         content_hash: None,
         server_updated_at,
-        server_created_at: raw
-            .get("createdAt")
-            .and_then(|v| v.as_str())
-            .and_then(parse_iso_ms_str),
+        server_created_at: parse_raw_iso_ms(raw, &["createdAt"]),
         deleted: false,
         synced_at,
-        raw_json: raw.to_string(),
+        raw_json: track_raw_json(raw),
     })
 }
 
@@ -291,6 +396,47 @@ fn json_string_field(raw: &Value, key: &str) -> Option<String> {
 
 fn string_field(raw: &Value, key: &str) -> Option<String> {
     json_string_field(raw, key)
+}
+
+/// MusicBrainz recording id as Navidrome's native `/api/song` row carries it.
+/// `MediaFile` (`model/mediafile.go`, verified at v0.62.0 and master) serializes
+/// it as `mbzRecordingID`; there is no top-level `mbzTrackId` or `musicBrainzId`
+/// in that struct. Reading only those two names left `mbid_recording` NULL on
+/// every natively ingested row — measured on a 27k-track library: 0 rows with
+/// either strong-key column set, 8,854 rows with `mbzRecordingID` in `raw_json`
+/// (issue #1434). The old names stay as fallbacks for Subsonic-flavoured
+/// payloads handed to this mapper.
+pub(crate) fn navidrome_mbid_recording_from_raw(raw: &Value) -> Option<String> {
+    ["mbzRecordingID", "mbzTrackId", "musicBrainzId"]
+        .iter()
+        .find_map(|key| first_non_empty_string(raw.get(*key)))
+}
+
+/// ISRC from a native row. Navidrome has no top-level `isrc` field; the codes
+/// arrive inside `tags`, which `model/tag.go` (v0.62.0) declares as
+/// `type Tags map[TagName][]string` with `TagISRC TagName = "isrc"` — so always
+/// a string array (8,956 rows in the same library, all arrays). A top-level
+/// `isrc` — string or array, the OpenSubsonic shape — is still honoured first.
+/// The first non-empty entry wins, matching what the typed Subsonic `Song` does
+/// with its `isrc` array.
+pub(crate) fn navidrome_isrc_from_raw(raw: &Value) -> Option<String> {
+    first_non_empty_string(raw.get("isrc"))
+        .or_else(|| first_non_empty_string(raw.pointer("/tags/isrc")))
+}
+
+/// A string, or the first usable entry of a string array. Blank strings are
+/// "absent": the canonical layer keys identities on these values, and an empty
+/// key must never become an identity.
+fn first_non_empty_string(value: Option<&Value>) -> Option<String> {
+    match value? {
+        Value::String(text) => Some(text.clone()).filter(|text| !text.trim().is_empty()),
+        Value::Array(items) => items.iter().find_map(|item| {
+            item.as_str()
+                .filter(|text| !text.trim().is_empty())
+                .map(str::to_string)
+        }),
+        _ => None,
+    }
 }
 
 /// Navidrome's native API reports seconds as either an integer or a decimal.
@@ -310,31 +456,42 @@ fn parse_iso_ms(s: Option<&str>) -> Option<i64> {
     s.and_then(parse_iso_ms_str)
 }
 
+fn parse_raw_iso_ms(raw: &Value, keys: &[&str]) -> Option<i64> {
+    keys.iter().find_map(|key| {
+        raw.get(*key)
+            .and_then(Value::as_str)
+            .and_then(parse_iso_ms_str)
+    })
+}
+
 /// Lightweight ISO-8601 → epoch-ms parser. Supports the Navidrome /
 /// OpenSubsonic shape (`2024-06-01T12:00:00Z` or
 /// `2024-06-01T12:00:00.123+02:00`). Falls back to `None` on parse
 /// failure — sync code never panics on a bad timestamp.
 pub(crate) fn parse_iso_ms_str(s: &str) -> Option<i64> {
-    // Strip fractional + timezone before doing the manual parse —
-    // SQLite stores starred_at / played_at as integer ms, so we only
-    // need second precision rounded up from the offset.
+    // Strip fractional seconds before doing the manual parse. The schema keeps
+    // millisecond integers, but sync ordering only requires second precision.
     let trimmed = s.trim();
     if trimmed.is_empty() {
         return None;
     }
-    // Accept either `Z`, `+HH:MM`, or no suffix. Reduce to a flat
-    // `YYYY-MM-DDTHH:MM:SS` core for parsing — server-side timestamps
-    // are already in UTC for Navidrome, and we don't track timezone
-    // in the schema column.
-    let core = trimmed
-        .find(|c: char| {
-            c == '.'
-                || c == 'Z'
-                || c == '+'
-                || (c == '-' && trimmed.find('T').is_some_and(|t| trimmed[t..].contains(c)))
-        })
-        .map(|i| &trimmed[..i])
-        .unwrap_or(trimmed);
+    // Search for a timezone sign only after `T`. Searching the whole string
+    // mistakes the first date separator in `2026-08-26...-07:00` for the offset.
+    let timezone_index = trimmed.find('T').and_then(|time_index| {
+        trimmed[time_index + 1..]
+            .find(['Z', '+', '-'])
+            .map(|offset| time_index + 1 + offset)
+    });
+    let core_end = [trimmed.find('.'), timezone_index]
+        .into_iter()
+        .flatten()
+        .min()
+        .unwrap_or(trimmed.len());
+    let core = &trimmed[..core_end];
+    let timezone_offset_seconds = match timezone_index {
+        Some(index) => parse_timezone_offset_seconds(&trimmed[index..])?,
+        None => 0,
+    };
     let mut parts = core.split(['T', '-', ':']);
     let year: i64 = parts.next()?.parse().ok()?;
     let month: i64 = parts.next()?.parse().ok()?;
@@ -359,8 +516,29 @@ pub(crate) fn parse_iso_ms_str(s: &str) -> Option<i64> {
     let doy = (153 * m + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
     let days = era * 146_097 + doe - 719_468;
-    let seconds = days * 86_400 + hour * 3600 + minute * 60 + second;
+    let seconds = days * 86_400 + hour * 3600 + minute * 60 + second - timezone_offset_seconds;
     Some(seconds.saturating_mul(1000))
+}
+
+fn parse_timezone_offset_seconds(suffix: &str) -> Option<i64> {
+    if suffix == "Z" {
+        return Some(0);
+    }
+    let (sign, offset) = match suffix.as_bytes().first()? {
+        b'+' => (1, &suffix[1..]),
+        b'-' => (-1, &suffix[1..]),
+        _ => return None,
+    };
+    let (hours, minutes) = offset.split_once(':')?;
+    if hours.len() != 2 || minutes.len() != 2 {
+        return None;
+    }
+    let hours: i64 = hours.parse().ok()?;
+    let minutes: i64 = minutes.parse().ok()?;
+    if hours > 23 || minutes > 59 {
+        return None;
+    }
+    Some(sign * (hours * 3_600 + minutes * 60))
 }
 
 /// UTC ISO-8601 with `Z` suffix for Subsonic `starred` payloads.

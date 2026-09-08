@@ -218,6 +218,10 @@ const CONTRIBUTOR_ENTRIES = [
       'Random Mix — combine several selected genres into one balanced mix (request: Gypsy on Psysonic Discord, PR #1421)',
       'Audio controls — configurable pause/resume fade for native playback and internet radio (PR #1422)',
       'Timeline — replay listening history from any selected point (PR #1423)',
+      'Offline downloads — slow-server tolerance, resumable transfers, owner-safe pins, and coordinated cancellation and maintenance (report: jsongerber, PR #1457)',
+      'Navidrome canonical-ID upgrade — resumable migration for library, analysis, offline, cache, and persisted app state (PR #1464)',
+      'Device Sync — shared album and playlist files with crash-safe device recovery (PR #1501)',
+      'Global shortcuts for 1–5-star current-track ratings (PR #1503)',
     ],
   },
   {
@@ -446,6 +450,11 @@ const CONTRIBUTOR_ENTRIES = [
       'Theme Store — a random theme of the moment, surfacing older themes above the search box (PR #1357)',
       'Visualizer — separate switches for Now Playing and the fullscreen player (PR #1378)',
       'Cards: full name on hover when the text is cut off, optional in Appearance (PR #1433)',
+      'Playlists — a header switch separating your own playlists from the ones shared with you (PR #1454)',
+      'Sidebar — playlist covers and song counts, plus sorting by name, creation date or size (PR #1455)',
+      'Artist pages — an All Tracks tab listing everything an artist performs on, with pickable sortable columns (PR #1458)',
+      'Psysonic Rewind — a year-in-review story and shareable posters in four layouts (PR #1485)',
+      'Windows — updates install from inside the app, signed and verified like on macOS (PR #1487)',
     ],
   },
   {
@@ -513,6 +522,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Now-playing badge shows the real decoded stream format on server transcode (PR #1338)',
       'Audio visualizer across Now Playing, radio and fullscreen player surfaces (PR #1375)',
       'Per-address Navidrome streaming quality with original-stream analysis and cache isolation (PR #1334)',
+      'Theme that follows the palette your desktop publishes, live (PR #1507)',
     ],
   },
   {
@@ -520,6 +530,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.51.0',
     contributions: [
       'Clickable artist credits in the fullscreen, mini and mobile players (PR #1371)',
+      'Configurable album cover source chain with a Last.fm provider (PR #1502)',
     ],
   },
   {
@@ -541,6 +552,20 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.52.0',
     contributions: [
       'Configurable scrobble threshold and force-scrobble action (PR #1425)',
+    ],
+  },
+  {
+    github: 'devyeah1978',
+    since: '1.52.0',
+    contributions: [
+      'Navidrome delta sync preserves structured multi-artist credits (PR #1449)',
+    ],
+  },
+  {
+    github: 'albedych',
+    since: '1.52.0',
+    contributions: [
+      'Ukrainian translation, with Ukrainian Cyrillic folding in library identity keys (PR #1465)',
     ],
   },
 ] as const;

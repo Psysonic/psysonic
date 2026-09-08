@@ -1691,6 +1691,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs4"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e72ed92b67c146290f88e9c89d60ca163ea417a446f61ffd7b72df3e7f1dfd5"
+dependencies = [
+ "rustix 1.1.4",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
 name = "fs_extra"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4129,7 +4139,7 @@ dependencies = [
 
 [[package]]
 name = "psysonic"
-version = "1.52.0-dev"
+version = "1.53.0-dev"
 dependencies = [
  "biquad",
  "dasp_sample",
@@ -4185,7 +4195,7 @@ dependencies = [
 
 [[package]]
 name = "psysonic-analysis"
-version = "1.52.0-dev"
+version = "1.53.0-dev"
 dependencies = [
  "ebur128",
  "futures-util",
@@ -4206,7 +4216,7 @@ dependencies = [
 
 [[package]]
 name = "psysonic-audio"
-version = "1.52.0-dev"
+version = "1.53.0-dev"
 dependencies = [
  "alsa",
  "biquad",
@@ -4238,19 +4248,21 @@ dependencies = [
 
 [[package]]
 name = "psysonic-core"
-version = "1.52.0-dev"
+version = "1.53.0-dev"
 dependencies = [
  "libc",
+ "md5",
  "reqwest",
  "serde",
  "specta",
  "tauri",
+ "tokio",
  "url",
 ]
 
 [[package]]
 name = "psysonic-integration"
-version = "1.52.0-dev"
+version = "1.53.0-dev"
 dependencies = [
  "discord-rich-presence",
  "futures-util",
@@ -4268,7 +4280,7 @@ dependencies = [
 
 [[package]]
 name = "psysonic-library"
-version = "1.52.0-dev"
+version = "1.53.0-dev"
 dependencies = [
  "psysonic-core",
  "psysonic-integration",
@@ -4284,8 +4296,9 @@ dependencies = [
 
 [[package]]
 name = "psysonic-syncfs"
-version = "1.52.0-dev"
+version = "1.53.0-dev"
 dependencies = [
+ "fs4",
  "futures-util",
  "id3",
  "lofty",
@@ -4305,6 +4318,7 @@ dependencies = [
  "tempfile",
  "tokio",
  "url",
+ "windows-sys 0.61.2",
  "wiremock",
 ]
 

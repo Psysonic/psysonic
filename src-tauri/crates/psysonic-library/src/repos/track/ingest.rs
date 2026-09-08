@@ -85,6 +85,140 @@ pub(super) fn sync_persisted_track_genre_rows(
     Ok(())
 }
 
+pub(super) fn invalidate_album_list_completion(
+    tx: &Transaction<'_>,
+    rows: &[TrackRow],
+) -> rusqlite::Result<()> {
+    let server_ids: HashSet<&str> = rows.iter().map(|row| row.server_id.as_str()).collect();
+    for server_id in server_ids {
+        tx.execute(
+            "INSERT INTO library_tag_state \
+             (server_id, folders_hash, last_untagged_count, completed_at) \
+             VALUES (?1, 'dirty', 0, 0) \
+             ON CONFLICT(server_id) DO UPDATE SET \
+               folders_hash = 'dirty', last_untagged_count = 0, completed_at = 0",
+            [server_id],
+        )?;
+    }
+    Ok(())
+}
+
+pub(super) fn normalize_sparse_album_version_provenance(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    track_id: &str,
+    incoming_raw: &str,
+) -> rusqlite::Result<()> {
+    let Ok(serde_json::Value::Object(incoming)) = serde_json::from_str(incoming_raw) else {
+        return Ok(());
+    };
+    if incoming.contains_key("albumVersion") {
+        tx.execute(
+            "UPDATE track SET raw_json = json_remove( \
+               json_patch('{}', raw_json), \
+               '$.tags.albumversion', \
+               '$._psysonicAlbumVersionFromList', \
+               '$._psysonicAlbumVersionNeedsListRefresh' \
+             ) WHERE server_id = ?1 AND id = ?2 AND json_valid(raw_json)",
+            params![server_id, track_id],
+        )?;
+        return Ok(());
+    }
+    let albumversion = incoming
+        .get("tags")
+        .and_then(serde_json::Value::as_object)
+        .and_then(|tags| tags.get("albumversion"));
+    let Some(albumversion) = albumversion else {
+        tx.execute(
+            "UPDATE track SET raw_json = json_set( \
+               raw_json, \
+               '$.albumVersion', \
+               COALESCE( \
+                 CASE WHEN json_type( \
+                   raw_json, '$.tags.albumversion' \
+                 ) = 'text' THEN NULLIF(TRIM(json_extract( \
+                   raw_json, '$.tags.albumversion' \
+                 )), '') END, \
+                 (SELECT TRIM(tag.value) \
+                  FROM json_each( \
+                    CASE WHEN json_type( \
+                      raw_json, '$.tags.albumversion' \
+                    ) = 'array' THEN raw_json ELSE '{}' END, \
+                    '$.tags.albumversion' \
+                  ) AS tag \
+                  WHERE tag.type = 'text' \
+                    AND NULLIF(TRIM(tag.value), '') IS NOT NULL \
+                  LIMIT 1) \
+               ), \
+               '$._psysonicAlbumVersionNeedsListRefresh', json('true') \
+             ) WHERE server_id = ?1 AND id = ?2 \
+               AND json_valid(raw_json) \
+               AND json_type(raw_json, '$') = 'object' \
+               AND NULLIF(TRIM(json_extract( \
+                 raw_json, '$.albumVersion' \
+               )), '') IS NULL \
+               AND NOT COALESCE(json_extract( \
+                 raw_json, '$._psysonicAlbumVersionFromList' \
+               ) = 1, 0) \
+               AND ( \
+                 (json_type(raw_json, '$.tags.albumversion') = 'text' \
+                  AND NULLIF(TRIM(json_extract( \
+                    raw_json, '$.tags.albumversion' \
+                  )), '') IS NOT NULL) \
+                 OR EXISTS ( \
+                   SELECT 1 FROM json_each( \
+                     CASE WHEN json_type( \
+                       raw_json, '$.tags.albumversion' \
+                     ) = 'array' THEN raw_json ELSE '{}' END, \
+                     '$.tags.albumversion' \
+                   ) AS tag \
+                   WHERE tag.type = 'text' \
+                     AND NULLIF(TRIM(tag.value), '') IS NOT NULL \
+                 ) \
+               )",
+            params![server_id, track_id],
+        )?;
+        return Ok(());
+    };
+    let version = match albumversion {
+        serde_json::Value::String(version) => Some(version.as_str()),
+        serde_json::Value::Array(versions) => versions.iter().find_map(|version| {
+            version
+                .as_str()
+                .map(str::trim)
+                .filter(|version| !version.is_empty())
+        }),
+        _ => None,
+    }
+    .map(str::trim)
+    .filter(|version| !version.is_empty());
+    if let Some(version) = version {
+        tx.execute(
+            "UPDATE track SET raw_json = json_set( \
+               json_remove( \
+                 json_patch('{}', raw_json), \
+                 '$.albumVersion', \
+                 '$._psysonicAlbumVersionFromList', \
+                 '$._psysonicAlbumVersionNeedsListRefresh' \
+               ), \
+               '$.albumVersion', ?3 \
+             ) WHERE server_id = ?1 AND id = ?2 AND json_valid(raw_json)",
+            params![server_id, track_id, version],
+        )?;
+    } else {
+        tx.execute(
+            "UPDATE track SET raw_json = json_remove( \
+               json_patch('{}', raw_json), \
+               '$.albumVersion', \
+               '$._psysonicAlbumVersionFromList', \
+               '$._psysonicAlbumVersionNeedsListRefresh' \
+             ) WHERE server_id = ?1 AND id = ?2 AND json_valid(raw_json)",
+            params![server_id, track_id],
+        )?;
+    }
+    Ok(())
+}
+
 impl TrackRepository<'_> {
     /// Batch upsert without remap detection. Suitable for generic
     /// Subsonic servers where `UnstableTrackIds` is clear (track ids
@@ -226,6 +360,20 @@ impl TrackRepository<'_> {
                         }
                     }
                     drop(upsert);
+                    if sparse_payload {
+                        for row in rows {
+                            normalize_sparse_album_version_provenance(
+                                &tx,
+                                &row.server_id,
+                                &row.id,
+                                &row.raw_json,
+                            )?;
+                        }
+                        // A sparse song payload may omit album-level version data.
+                        // Invalidate completion before the best-effort list pass so
+                        // a failed request is retried on the next scheduler tick.
+                        invalidate_album_list_completion(&tx, rows)?;
+                    }
                     sync_persisted_track_genre_rows(&tx, rows)?;
                     crate::identity::mark_cluster_keys_dirty(
                         &tx,
@@ -239,7 +387,7 @@ impl TrackRepository<'_> {
     }
 }
 
-pub(super) const UPSERT_SQL: &str = r#"
+pub(crate) const UPSERT_SQL: &str = r#"
 INSERT INTO track (
   server_id, id, title, title_sort, artist, artist_id, album, album_id,
   album_artist, duration_sec, track_number, disc_number, year, genre, suffix,
@@ -287,8 +435,27 @@ ON CONFLICT(server_id, id) DO UPDATE SET
   cover_art_id         = excluded.cover_art_id,
   starred_at           = excluded.starred_at,
   user_rating          = excluded.user_rating,
-  play_count           = excluded.play_count,
-  played_at            = excluded.played_at,
+  -- Play statistics survive a payload that does not mention them. A sync whose
+  -- song objects carry no playCount/played says nothing about the tally; writing
+  -- its NULL would drop a count this app had just read back from the server, and
+  -- the row's own raw_json still holds the older snapshot the UI would fall back
+  -- to. Key present (even as explicit null) still wins, same shape as
+  -- server_updated_at below: absence means "not mentioned", not "cleared".
+  play_count           = CASE
+    WHEN json_valid(excluded.raw_json)
+     AND json_type(excluded.raw_json, '$.playCount') IS NOT NULL
+      THEN excluded.play_count
+    WHEN excluded.play_count IS NOT NULL THEN excluded.play_count
+    ELSE track.play_count
+  END,
+  played_at            = CASE
+    WHEN json_valid(excluded.raw_json)
+     AND (json_type(excluded.raw_json, '$.played') IS NOT NULL
+       OR json_type(excluded.raw_json, '$.playDate') IS NOT NULL)
+      THEN excluded.played_at
+    WHEN excluded.played_at IS NOT NULL THEN excluded.played_at
+    ELSE track.played_at
+  END,
   server_path          = excluded.server_path,
   -- P20: never let a sync path that omits library membership (OpenSubsonic
   -- whole-server search3/getAlbumList2 carry no libraryId) clobber a library_id
@@ -312,12 +479,47 @@ ON CONFLICT(server_id, id) DO UPDATE SET
     WHEN excluded.server_updated_at IS NOT NULL THEN excluded.server_updated_at
     ELSE track.server_updated_at
   END,
-  server_created_at    = excluded.server_created_at,
+  server_created_at    = CASE
+    WHEN json_valid(excluded.raw_json)
+     AND (json_type(excluded.raw_json, '$.created') IS NOT NULL
+       OR json_type(excluded.raw_json, '$.createdAt') IS NOT NULL)
+      THEN excluded.server_created_at
+    WHEN excluded.server_created_at IS NOT NULL THEN excluded.server_created_at
+    ELSE track.server_created_at
+  END,
   deleted              = excluded.deleted,
   synced_at            = excluded.synced_at,
   raw_json             = CASE
     WHEN ?37 != 0 AND json_valid(track.raw_json) AND json_valid(excluded.raw_json)
-      THEN json_patch(track.raw_json, excluded.raw_json)
+      THEN CASE
+        WHEN json_type(excluded.raw_json, '$.albumVersion') IS NOT NULL
+          THEN json_remove(
+            json_patch(track.raw_json, excluded.raw_json),
+            '$.tags.albumversion',
+            '$._psysonicAlbumVersionFromList',
+            '$._psysonicAlbumVersionNeedsListRefresh'
+          )
+        WHEN json_type(excluded.raw_json, '$.tags.albumversion') IS NOT NULL
+          THEN json_remove(
+            json_patch(track.raw_json, excluded.raw_json),
+            '$.albumVersion',
+            '$._psysonicAlbumVersionFromList',
+            '$._psysonicAlbumVersionNeedsListRefresh'
+          )
+        WHEN (
+          NULLIF(TRIM(json_extract(track.raw_json, '$.albumVersion')), '') IS NOT NULL
+          OR NULLIF(TRIM(json_extract(track.raw_json, '$.tags.albumversion[0]')), '') IS NOT NULL
+        ) AND NOT COALESCE(
+          json_extract(track.raw_json, '$._psysonicAlbumVersionFromList') = 1,
+          0
+        )
+          THEN json_set(
+            json_patch(track.raw_json, excluded.raw_json),
+            '$._psysonicAlbumVersionNeedsListRefresh',
+            json('true')
+          )
+        ELSE json_patch(track.raw_json, excluded.raw_json)
+      END
     ELSE excluded.raw_json
   END
 "#;
@@ -370,8 +572,22 @@ ON CONFLICT(server_id, id) DO UPDATE SET
   cover_art_id         = excluded.cover_art_id,
   starred_at           = excluded.starred_at,
   user_rating          = excluded.user_rating,
-  play_count           = excluded.play_count,
-  played_at            = excluded.played_at,
+  -- Preserve play statistics a payload does not mention (see UPSERT above).
+  play_count           = CASE
+    WHEN json_valid(excluded.raw_json)
+     AND json_type(excluded.raw_json, '$.playCount') IS NOT NULL
+      THEN excluded.play_count
+    WHEN excluded.play_count IS NOT NULL THEN excluded.play_count
+    ELSE track.play_count
+  END,
+  played_at            = CASE
+    WHEN json_valid(excluded.raw_json)
+     AND (json_type(excluded.raw_json, '$.played') IS NOT NULL
+       OR json_type(excluded.raw_json, '$.playDate') IS NOT NULL)
+      THEN excluded.played_at
+    WHEN excluded.played_at IS NOT NULL THEN excluded.played_at
+    ELSE track.played_at
+  END,
   server_path          = excluded.server_path,
   -- P20: preserve prior library_id when a sync path omits it (see UPSERT above).
   library_id           = COALESCE(NULLIF(excluded.library_id, ''), track.library_id),
@@ -389,12 +605,47 @@ ON CONFLICT(server_id, id) DO UPDATE SET
     WHEN excluded.server_updated_at IS NOT NULL THEN excluded.server_updated_at
     ELSE track.server_updated_at
   END,
-  server_created_at    = excluded.server_created_at,
+  server_created_at    = CASE
+    WHEN json_valid(excluded.raw_json)
+     AND (json_type(excluded.raw_json, '$.created') IS NOT NULL
+       OR json_type(excluded.raw_json, '$.createdAt') IS NOT NULL)
+      THEN excluded.server_created_at
+    WHEN excluded.server_created_at IS NOT NULL THEN excluded.server_created_at
+    ELSE track.server_created_at
+  END,
   deleted              = 0,
   synced_at            = excluded.synced_at,
   raw_json             = CASE
     WHEN ?38 != 0 AND json_valid(track.raw_json) AND json_valid(excluded.raw_json)
-      THEN json_patch(track.raw_json, excluded.raw_json)
+      THEN CASE
+        WHEN json_type(excluded.raw_json, '$.albumVersion') IS NOT NULL
+          THEN json_remove(
+            json_patch(track.raw_json, excluded.raw_json),
+            '$.tags.albumversion',
+            '$._psysonicAlbumVersionFromList',
+            '$._psysonicAlbumVersionNeedsListRefresh'
+          )
+        WHEN json_type(excluded.raw_json, '$.tags.albumversion') IS NOT NULL
+          THEN json_remove(
+            json_patch(track.raw_json, excluded.raw_json),
+            '$.albumVersion',
+            '$._psysonicAlbumVersionFromList',
+            '$._psysonicAlbumVersionNeedsListRefresh'
+          )
+        WHEN (
+          NULLIF(TRIM(json_extract(track.raw_json, '$.albumVersion')), '') IS NOT NULL
+          OR NULLIF(TRIM(json_extract(track.raw_json, '$.tags.albumversion[0]')), '') IS NOT NULL
+        ) AND NOT COALESCE(
+          json_extract(track.raw_json, '$._psysonicAlbumVersionFromList') = 1,
+          0
+        )
+          THEN json_set(
+            json_patch(track.raw_json, excluded.raw_json),
+            '$._psysonicAlbumVersionNeedsListRefresh',
+            json('true')
+          )
+        ELSE json_patch(track.raw_json, excluded.raw_json)
+      END
     ELSE excluded.raw_json
   END,
   resync_gen           = excluded.resync_gen

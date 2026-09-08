@@ -2,8 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod benchmark;
+mod canonical_migration;
 pub mod cli;
 mod cover_cache;
+pub(crate) mod desktop_palette;
 mod lib_commands;
 pub(crate) mod library_analysis_backfill;
 mod library_identity_maintenance;
@@ -129,6 +131,24 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_library::commands::library_cluster_rebuild,
             psysonic_library::commands::library_resolve_entity_sources,
             psysonic_library::commands::library_resolve_album_overlay,
+            canonical_migration::library_migration_begin,
+            canonical_migration::library_migration_analysis_upper_rowid,
+            canonical_migration::library_migration_analysis_batch,
+            canonical_migration::library_migration_analysis_finalize,
+            canonical_migration::library_migration_verify,
+            canonical_migration::library_migration_inventory,
+            psysonic_library::commands::library_migration_inspect,
+            psysonic_library::commands::library_migration_update_phase,
+            psysonic_library::commands::library_migration_abort,
+            psysonic_library::commands::library_migration_retry,
+            psysonic_library::commands::library_migration_finish_server,
+            canonical_migration::library_migration_release,
+            psysonic_library::commands::library_migration_native_preflight,
+            psysonic_library::commands::library_migration_native_upper_rowid,
+            psysonic_library::commands::library_migration_native_batch,
+            psysonic_library::commands::library_migration_native_finalize,
+            psysonic_library::commands::library_migration_bind_session,
+            psysonic_library::commands::library_migration_sync_start,
             psysonic_library::commands::library_sync_bind_session,
             psysonic_library::commands::library_sync_clear_session,
             psysonic_library::commands::library_set_playback_hint,
@@ -144,6 +164,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_library::commands::library_get_player_stats_heatmap,
             psysonic_library::commands::library_get_player_stats_day_detail,
             psysonic_library::commands::library_get_player_stats_year_bounds,
+            psysonic_library::commands::library_get_player_stats_year_recap,
             psysonic_library::commands::library_get_player_stats_recent_days,
             psysonic_library::commands::library_get_recent_play_sessions,
             psysonic_library::commands::library_purge_server,
@@ -200,6 +221,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_analysis::commands::analysis_prune_pending_to_track_ids,
             // psysonic-syncfs (calculate_sync_payload + write/read_device_manifest excluded: serde_json::Value)
             psysonic_syncfs::cache::offline::download_track_offline,
+            psysonic_syncfs::cache::id_migration::migrate_navidrome_filesystem_ids,
             psysonic_syncfs::cache::offline::cancel_offline_downloads,
             psysonic_syncfs::cache::offline::clear_offline_cancel,
             psysonic_syncfs::cache::offline::delete_offline_track,
@@ -221,7 +243,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_syncfs::cache::hot::get_hot_cache_size,
             psysonic_syncfs::cache::hot::delete_hot_cache_track,
             psysonic_syncfs::cache::hot::purge_hot_cache,
-            psysonic_syncfs::sync::device::sync_track_to_device,
+            psysonic_syncfs::sync::device::download::sync_track_to_device,
             psysonic_syncfs::sync::batch::sync_batch_to_device,
             psysonic_syncfs::sync::batch::cancel_device_sync,
             psysonic_syncfs::sync::device::compute_sync_paths,
@@ -229,6 +251,10 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_syncfs::sync::batch::delete_device_file,
             psysonic_syncfs::sync::batch::delete_device_files,
             psysonic_syncfs::sync::device::get_removable_drives,
+            psysonic_syncfs::sync::device::finalize_device_sync,
+            psysonic_syncfs::sync::device::has_pending_device_sync_plan,
+            psysonic_syncfs::sync::device::pending_device_sync_plan_device_id,
+            psysonic_syncfs::sync::device::device_sync_device_id,
             psysonic_syncfs::sync::device::write_playlist_m3u8,
             psysonic_syncfs::sync::device::rename_device_files,
             psysonic_syncfs::cache::downloads::download_zip,
@@ -250,6 +276,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             cover_cache::cover_cache_rename_server_bucket,
             cover_cache::cover_cache_stats_server,
             cover_cache::cover_cache_get_pipeline_queue_stats,
+            cover_cache::cover_cache_migrate_navidrome_ids,
             cover_cache::library_cover_backfill_batch,
             cover_cache::library_cover_progress,
             cover_cache::library_cover_catalog_size,
@@ -298,6 +325,11 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::app_api::network::server_http_context_sync_all,
             crate::lib_commands::app_api::backup::backup_export_library_db,
             crate::lib_commands::app_api::backup::backup_import_library_db,
+            crate::lib_commands::app_api::backup::backup_rollback_imported_databases,
+            crate::lib_commands::app_api::backup::backup_commit_imported_databases,
+            crate::lib_commands::app_api::backup::backup_inspect_full_import_recovery,
+            crate::lib_commands::app_api::backup::backup_recover_full_import_databases,
+            crate::lib_commands::app_api::backup::backup_finalize_full_import_recovery,
             crate::lib_commands::app_api::integration::register_global_shortcut,
             crate::lib_commands::app_api::integration::unregister_global_shortcut,
             crate::lib_commands::app_api::integration::mpris_set_metadata,
@@ -319,11 +351,14 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::sync::tray::set_tray_tooltip,
             crate::lib_commands::sync::tray::set_tray_menu_labels,
             crate::theme_import::import_theme_zip,
+            crate::desktop_palette::read_desktop_palette,
             crate::library_analysis_backfill::library_analysis_backfill_configure,
             // psysonic-integration — typeable subset. Excluded (stay on generate_handler!):
             // the nd_list_*/nd_create_*/nd_update_* + scrobbler (audioscrobbler/listenbrainz/
             // maloja) + radio-browser + fetch_json_url raw-JSON commands (serde_json::Value /
             // passthrough), and discord_update_presence (>10 args) — noted at their defs.
+            // resolve_apple_cover / resolve_lastfm_cover are the new cover-chain steps
+            // (Option<String> — collected here, not excluded).
             psysonic_integration::bandsintown::fetch_bandsintown_events,
             psysonic_integration::navidrome::covers::upload_playlist_cover,
             psysonic_integration::navidrome::covers::upload_radio_cover,
@@ -338,6 +373,8 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_integration::remote::fetch_icy_metadata,
             psysonic_integration::remote::resolve_stream_url,
             psysonic_integration::discord::discord_clear_presence,
+            psysonic_integration::discord::resolve_apple_cover,
+            psysonic_integration::album_art::resolve_lastfm_cover,
         ])
 }
 
@@ -455,6 +492,9 @@ pub fn run() {
             #[cfg(debug_assertions)]
             startup::theme_watch::setup(app);
 
+            // Follow the desktop's palette file, when this machine publishes one.
+            desktop_palette::setup(app);
+
             startup::services::initialize(app)?;
 
             // ── Custom title bar on Linux ─────────────────────────────────
@@ -511,8 +551,14 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             theme_import::import_theme_zip,
+            desktop_palette::read_desktop_palette,
             backup_export_library_db,
             backup_import_library_db,
+            backup_rollback_imported_databases,
+            backup_commit_imported_databases,
+            backup_inspect_full_import_recovery,
+            backup_recover_full_import_databases,
+            backup_finalize_full_import_recovery,
             backup_export_full,
             backup_import_full,
             migration_inspect,
@@ -603,6 +649,8 @@ pub fn run() {
             audio::commands::audio_chain_preload,
             psysonic_integration::discord::discord_update_presence,
             psysonic_integration::discord::discord_clear_presence,
+            psysonic_integration::discord::resolve_apple_cover,
+            psysonic_integration::album_art::resolve_lastfm_cover,
             psysonic_integration::remote::audioscrobbler_request,
             psysonic_integration::remote::listenbrainz_request,
             psysonic_integration::remote::maloja_request,
@@ -689,6 +737,25 @@ pub fn run() {
             psysonic_library::commands::library_get_offline_path,
             psysonic_library::commands::library_analysis_progress,
             psysonic_library::commands::library_count_live_tracks,
+            canonical_migration::library_migration_begin,
+            canonical_migration::library_migration_analysis_upper_rowid,
+            canonical_migration::library_migration_analysis_batch,
+            canonical_migration::library_migration_analysis_finalize,
+            canonical_migration::library_migration_verify,
+            canonical_migration::library_migration_inventory,
+            canonical_migration::library_migration_write_device_manifest,
+            psysonic_library::commands::library_migration_inspect,
+            psysonic_library::commands::library_migration_update_phase,
+            psysonic_library::commands::library_migration_abort,
+            psysonic_library::commands::library_migration_retry,
+            psysonic_library::commands::library_migration_finish_server,
+            canonical_migration::library_migration_release,
+            psysonic_library::commands::library_migration_native_preflight,
+            psysonic_library::commands::library_migration_native_upper_rowid,
+            psysonic_library::commands::library_migration_native_batch,
+            psysonic_library::commands::library_migration_native_finalize,
+            psysonic_library::commands::library_migration_bind_session,
+            psysonic_library::commands::library_migration_sync_start,
             psysonic_library::commands::library_sync_bind_session,
             psysonic_library::commands::library_sync_clear_session,
             psysonic_library::commands::library_set_playback_hint,
@@ -709,6 +776,7 @@ pub fn run() {
             psysonic_library::commands::library_get_player_stats_heatmap,
             psysonic_library::commands::library_get_player_stats_day_detail,
             psysonic_library::commands::library_get_player_stats_year_bounds,
+            psysonic_library::commands::library_get_player_stats_year_recap,
             psysonic_library::commands::library_get_player_stats_recent_days,
             psysonic_library::commands::library_get_recent_play_sessions,
             psysonic_library::commands::library_purge_server,
@@ -731,6 +799,7 @@ pub fn run() {
             cover_cache::cover_cache_rename_server_bucket,
             cover_cache::cover_cache_stats_server,
             cover_cache::cover_cache_get_pipeline_queue_stats,
+            cover_cache::cover_cache_migrate_navidrome_ids,
             cover_cache::library_cover_backfill_batch,
             cover_cache::library_cover_progress,
             cover_cache::library_cover_catalog_size,
@@ -746,6 +815,7 @@ pub fn run() {
             cover_cache::cover_revalidate_tick,
             cover_cache::cover_revalidate_batch,
             psysonic_syncfs::cache::offline::download_track_offline,
+            psysonic_syncfs::cache::id_migration::migrate_navidrome_filesystem_ids,
             psysonic_syncfs::cache::offline::cancel_offline_downloads,
             psysonic_syncfs::cache::offline::clear_offline_cancel,
             psysonic_syncfs::cache::offline::delete_offline_track,
@@ -768,7 +838,7 @@ pub fn run() {
             psysonic_syncfs::cache::hot::get_hot_cache_size,
             psysonic_syncfs::cache::hot::delete_hot_cache_track,
             psysonic_syncfs::cache::hot::purge_hot_cache,
-            psysonic_syncfs::sync::device::sync_track_to_device,
+            psysonic_syncfs::sync::device::download::sync_track_to_device,
             psysonic_syncfs::sync::batch::sync_batch_to_device,
             psysonic_syncfs::sync::batch::cancel_device_sync,
             psysonic_syncfs::sync::device::compute_sync_paths,
@@ -777,6 +847,10 @@ pub fn run() {
             psysonic_syncfs::sync::batch::delete_device_files,
             psysonic_syncfs::sync::device::get_removable_drives,
             psysonic_syncfs::sync::device::write_device_manifest,
+            psysonic_syncfs::sync::device::finalize_device_sync,
+            psysonic_syncfs::sync::device::has_pending_device_sync_plan,
+            psysonic_syncfs::sync::device::pending_device_sync_plan_device_id,
+            psysonic_syncfs::sync::device::device_sync_device_id,
             psysonic_syncfs::sync::device::read_device_manifest,
             psysonic_syncfs::sync::device::write_playlist_m3u8,
             psysonic_syncfs::sync::device::rename_device_files,
@@ -908,6 +982,7 @@ mod specta_export {
             "calculate_sync_payload",
             "read_device_manifest",
             "write_device_manifest",
+            "library_migration_write_device_manifest",
             "cover_revalidate_batch",
             "fetch_json_url",
             "get_top_radio_stations",

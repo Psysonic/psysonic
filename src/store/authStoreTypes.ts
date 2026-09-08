@@ -7,7 +7,8 @@ import type {
   InstantMixProbeResult,
   SubsonicServerIdentity,
 } from '@/lib/server/subsonicServerIdentity';
-import type { PersistedAccount } from '../music-network';
+import type { PersistedAccount, QueuedScrobble } from '../music-network';
+import type { CoverSourcePref } from '@/cover/coverSources';
 
 /** Album-artist vs track-performer browse (#1209). Duplicated here — not `@/lib/api/library` — to avoid store ↔ library import cycles (dependency-cruiser). */
 export type ArtistBrowseCreditMode = 'album' | 'track';
@@ -102,6 +103,7 @@ export type { DebugLoggingDepth } from '@/lib/perf/debugLoggingMode';
  */
 export type ClockFormat = 'auto' | '24h' | '12h';
 export type NormalizationEngine = 'off' | 'replaygain' | 'loudness';
+/** What Discord Rich Presence may publish as album art (#1299). 'none' shows the app icon only. */
 export type DiscordCoverSource = 'none' | 'server' | 'apple';
 /** Wayland + WebKit text/GPU profile (Settings → System, Linux only when available). */
 export type LinuxWaylandTextRenderProfile = 'balanced' | 'sharp' | 'gpu' | 'minimal';
@@ -131,12 +133,25 @@ export interface AuthState {
   
   // Multi-server
   servers: ServerProfile[];
+  /**
+   * Every server-profile id this install has ever minted, including profiles
+   * that were removed later. A minted id is ephemeral identity and must never
+   * reach durable storage as a server key, while an address-derived key must;
+   * the two cannot be told apart by shape, because a profile id is base36 and
+   * so is a single-label hostname. Membership here is the non-ambiguous test —
+   * the app mints these ids itself, so it knows them by construction.
+   * Append-only: a removed profile keeps its entry, otherwise its id would look
+   * like an address again the moment the profile is gone.
+   */
+  mintedServerProfileIds: string[];
   activeServerId: string | null;
   /** Servers included in Library pages/search. Priority follows `servers` order. */
   libraryBrowseServerIds: string[];
 
   // Music Network — multi-provider scrobble/enrichment framework state.
   musicNetworkAccounts: PersistedAccount[];
+  /** Scrobbles owed to a destination after a transient failure. Survives restart. */
+  musicNetworkScrobbleQueue: QueuedScrobble[];
   enrichmentPrimaryId: string | null;
   scrobblingMasterEnabled: boolean;
   /** Auto-scrobble when playback progress reaches this percent of the track (25–90). */
@@ -221,7 +236,9 @@ export interface AuthState {
    *  touch Orbit can hide it so the header stays uncluttered. */
   showOrbitTrigger: boolean;
   discordRichPresence: boolean;
+  /** Opt-in gate for what Discord may publish as cover art (#1299). Independent of the in-app `coverSources` chain. */
   discordCoverSource: DiscordCoverSource;
+  coverSources: CoverSourcePref[];
   /** Opt-in: fetch upcoming tour dates from Bandsintown for the Now-Playing info panel. */
   enableBandsintown: boolean;
   discordTemplateDetails: string;
@@ -425,6 +442,7 @@ export interface AuthState {
 
   // Music Network actions (backing the runtime's MusicNetworkStore port).
   setMusicNetworkAccounts: (accounts: PersistedAccount[]) => void;
+  setMusicNetworkScrobbleQueue: (queue: QueuedScrobble[]) => void;
   setEnrichmentPrimaryId: (id: string | null) => void;
   setScrobblingMasterEnabled: (v: boolean) => void;
   setScrobbleThresholdPercent: (v: number) => void;
@@ -468,6 +486,7 @@ export interface AuthState {
   setShowOrbitTrigger: (v: boolean) => void;
   setDiscordRichPresence: (v: boolean) => void;
   setDiscordCoverSource: (v: DiscordCoverSource) => void;
+  setCoverSources: (v: CoverSourcePref[]) => void;
   setEnableBandsintown: (v: boolean) => void;
   setDiscordTemplateDetails: (v: string) => void;
   setDiscordTemplateState: (v: string) => void;
