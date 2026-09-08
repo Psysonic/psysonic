@@ -29,6 +29,20 @@ fn subsonic_song_maps_hot_columns_and_keeps_raw_json() {
 }
 
 #[test]
+fn subsonic_song_maps_rfc1123_created_into_server_created_at() {
+    // Some Subsonic servers report `created` in RFC 1123 rather than ISO 8601.
+    // Dropping it leaves `server_created_at` NULL, which empties "recently
+    // added" and the new-releases feed for every track from that server.
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "artist": "World",
+        "created": "30 Apr 2017 08:44:05 GMT"
+    });
+    let song: Song = serde_json::from_value(raw.clone()).unwrap();
+    let row = subsonic_song_to_track_row("s1", &song, &raw, 1_000, None);
+    assert_eq!(row.server_created_at, Some(1_493_541_845_000));
+}
+
+#[test]
 fn sparse_typed_fallback_does_not_invent_explicit_nulls() {
     let song: Song = serde_json::from_value(json!({ "id": "tr_1", "title": "Hello" })).unwrap();
     let raw = sparse_song_raw_fallback(&song);
