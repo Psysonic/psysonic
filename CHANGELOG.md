@@ -116,6 +116,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Since 1.51.0, some Linux systems played every track with continuous crackling, dropouts and a dragging sound while flooding the log with buffer-underrun errors. PipeWire output now keeps the stable buffer used by earlier releases while retaining the corrected ALSA sample-rate handling.
 
+### Release years and dates from servers that report them differently
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1512](https://github.com/Psysonic/psysonic/pull/1512)**
+
+* Albums from servers whose album data carries no year showed no release year at all, even though the tracks had one. The year from the tracks is now kept instead of being overwritten with nothing.
+* The same servers often report dates in a different standard format, which was discarded on import. That left "recently added" and the New Releases page empty for them. Both formats are now understood. Albums already in your library pick their date up on the next full library sync.
+
 ## [1.52.0]
 
 ## Added
