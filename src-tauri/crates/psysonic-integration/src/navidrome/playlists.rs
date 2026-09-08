@@ -238,8 +238,17 @@ pub async fn nd_preview_playlist(
         Some(50),
     )
     .await;
-    let _ = nd_delete_playlist(http_registry, server_url, token, id).await;
-    tracks
+    let cleanup = nd_delete_playlist(http_registry, server_url, token, id.clone()).await;
+    match (tracks, cleanup) {
+        (Ok(tracks), Ok(())) => Ok(tracks),
+        (Err(read_err), Ok(())) => Err(read_err),
+        (Ok(_), Err(cleanup_err)) => Err(format!(
+            "Failed to delete preview playlist {id}: {cleanup_err}"
+        )),
+        (Err(read_err), Err(cleanup_err)) => Err(format!(
+            "{read_err}; also failed to delete preview playlist {id}: {cleanup_err}"
+        )),
+    }
 }
 
 /// DELETE `/api/playlist/{id}` — delete playlist.
@@ -277,4 +286,127 @@ pub async fn nd_delete_playlist(
         return Err(format!("HTTP {}: {}", status, text));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tauri::Manager;
+    use wiremock::matchers::{header, method, path as wm_path, query_param};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    async fn mount_preview_create(server: &MockServer) {
+        Mock::given(method("POST"))
+            .and(wm_path("/api/playlist"))
+            .and(header("X-ND-Authorization", "Bearer test-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "id": "preview-1"
+            })))
+            .expect(1)
+            .mount(server)
+            .await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn preview_surfaces_delete_failure_after_successful_read() {
+        let server = MockServer::start().await;
+        mount_preview_create(&server).await;
+        Mock::given(method("GET"))
+            .and(wm_path("/api/playlist/preview-1/tracks"))
+            .and(query_param("_start", "0"))
+            .and(query_param("_end", "50"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+                "items": []
+            })))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(wm_path("/api/playlist/preview-1"))
+            .respond_with(ResponseTemplate::new(500).set_body_string("delete failed"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let app = tauri::test::mock_app();
+        app.manage(Arc::new(ServerHttpRegistry::new()));
+        let err = nd_preview_playlist(
+            app.state::<Arc<ServerHttpRegistry>>(),
+            server.uri(),
+            "test-token".into(),
+            serde_json::json!({ "name": "preview" }),
+        )
+        .await
+        .expect_err("failed cleanup must fail the preview");
+
+        assert_eq!(
+            err,
+            "Failed to delete preview playlist preview-1: HTTP 500 Internal Server Error: delete failed"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn preview_combines_read_and_delete_failures() {
+        let server = MockServer::start().await;
+        mount_preview_create(&server).await;
+        Mock::given(method("GET"))
+            .and(wm_path("/api/playlist/preview-1/tracks"))
+            .respond_with(ResponseTemplate::new(502).set_body_string("read failed"))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(wm_path("/api/playlist/preview-1"))
+            .respond_with(ResponseTemplate::new(503).set_body_string("delete failed"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let app = tauri::test::mock_app();
+        app.manage(Arc::new(ServerHttpRegistry::new()));
+        let err = nd_preview_playlist(
+            app.state::<Arc<ServerHttpRegistry>>(),
+            server.uri(),
+            "test-token".into(),
+            serde_json::json!({ "name": "preview" }),
+        )
+        .await
+        .expect_err("both failures must be reported");
+
+        assert_eq!(
+            err,
+            "HTTP 502 Bad Gateway: read failed; also failed to delete preview playlist preview-1: HTTP 503 Service Unavailable: delete failed"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn preview_preserves_read_error_when_cleanup_succeeds() {
+        let server = MockServer::start().await;
+        mount_preview_create(&server).await;
+        Mock::given(method("GET"))
+            .and(wm_path("/api/playlist/preview-1/tracks"))
+            .respond_with(ResponseTemplate::new(502).set_body_string("read failed"))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("DELETE"))
+            .and(wm_path("/api/playlist/preview-1"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let app = tauri::test::mock_app();
+        app.manage(Arc::new(ServerHttpRegistry::new()));
+        let err = nd_preview_playlist(
+            app.state::<Arc<ServerHttpRegistry>>(),
+            server.uri(),
+            "test-token".into(),
+            serde_json::json!({ "name": "preview" }),
+        )
+        .await
+        .expect_err("read failure must remain the preview error");
+
+        assert_eq!(err, "HTTP 502 Bad Gateway: read failed");
+    }
 }

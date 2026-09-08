@@ -298,6 +298,8 @@ export interface SmartRuleValidationIssue {
     | 'unsupported_field'
     | 'invalid_value'
     | 'self_reference'
+    | 'playlist_cycle'
+    | 'playlist_reference_unknown'
     | 'invalid_option'
     | 'unsupported_option'
     | 'opaque_path';
@@ -309,6 +311,8 @@ export interface SmartRuleValidationIssue {
 
 export interface ValidateSmartRulesOptions {
   currentPlaylistId?: string;
+  playlistRulesById?: ReadonlyMap<string, unknown>;
+  unresolvedPlaylistRuleIds?: ReadonlySet<string>;
   capabilities?: SmartPlaylistCapabilities;
   customFields?: readonly SmartRuleFieldDefinition[];
 }
@@ -346,6 +350,57 @@ function validScalar(value: unknown, type: SmartRuleFieldType): boolean {
     case 'string':
       return typeof value === 'string';
   }
+}
+
+function playlistReferenceIdsFromExpression(expression: unknown): string[] {
+  const record = asRecord(expression);
+  if (!record) return [];
+  const keys = Object.keys(record);
+  if (keys.length !== 1) return [];
+  const key = keys[0];
+  const value = record[key];
+  if (key === 'inPlaylist' || key === 'notInPlaylist') {
+    const reference = asRecord(value);
+    return typeof reference?.id === 'string' && reference.id.trim() ? [reference.id] : [];
+  }
+  if ((key === 'all' || key === 'any') && Array.isArray(value)) {
+    return value.flatMap(playlistReferenceIdsFromExpression);
+  }
+  return [];
+}
+
+function playlistReferenceIds(rules: unknown): string[] {
+  const record = asRecord(rules);
+  if (!record) return [];
+  return (['all', 'any'] as const).flatMap(key => (
+    Array.isArray(record[key]) ? record[key].flatMap(playlistReferenceIdsFromExpression) : []
+  ));
+}
+
+function smartPlaylistReferenceCycleStatus(
+  currentPlaylistId: string,
+  referencedPlaylistId: string,
+  playlistRulesById: ReadonlyMap<string, unknown>,
+  unresolvedPlaylistRuleIds: ReadonlySet<string>,
+): 'clear' | 'cycle' | 'unknown' {
+  if (referencedPlaylistId === currentPlaylistId) return 'cycle';
+  const visited = new Set<string>();
+  const pending = [referencedPlaylistId];
+  let unresolved = false;
+  while (pending.length > 0) {
+    const playlistId = pending.pop();
+    if (!playlistId || visited.has(playlistId)) continue;
+    visited.add(playlistId);
+    if (unresolvedPlaylistRuleIds.has(playlistId)) {
+      unresolved = true;
+      continue;
+    }
+    for (const nextId of playlistReferenceIds(playlistRulesById.get(playlistId))) {
+      if (nextId === currentPlaylistId) return 'cycle';
+      if (!visited.has(nextId)) pending.push(nextId);
+    }
+  }
+  return unresolved ? 'unknown' : 'clear';
 }
 
 function validateRuleValue(
@@ -408,6 +463,28 @@ function validatePlaylistRule(
       path: childPath(childPath(path, operator), 'id'),
       message: 'A smart playlist cannot reference itself directly.',
     });
+  } else if (options.currentPlaylistId && options.playlistRulesById) {
+    const cycleStatus = smartPlaylistReferenceCycleStatus(
+      options.currentPlaylistId,
+      value.id,
+      options.playlistRulesById,
+      options.unresolvedPlaylistRuleIds ?? new Set(),
+    );
+    if (cycleStatus === 'cycle') {
+      issue(issues, {
+        code: 'playlist_cycle',
+        severity: 'error',
+        path: childPath(childPath(path, operator), 'id'),
+        message: 'A smart playlist cannot create a playlist reference cycle.',
+      });
+    } else if (cycleStatus === 'unknown') {
+      issue(issues, {
+        code: 'playlist_reference_unknown',
+        severity: 'error',
+        path: childPath(childPath(path, operator), 'id'),
+        message: 'Cannot verify playlist reference cycles until the referenced rules are available.',
+      });
+    }
   }
 }
 

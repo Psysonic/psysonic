@@ -1,4 +1,7 @@
+import { smartPlaylists as englishSmartPlaylists } from '../en/smartPlaylists';
+
 export const smartPlaylists = {
+  ...englishSmartPlaylists,
   sectionBasic: '1. Podstawowe',
   sectionGenres: '2. Gatunki',
   sectionYearsAndFilters: '3. Lata i filtry',

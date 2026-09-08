@@ -20,7 +20,23 @@ describe('playlist smart UX policy', () => {
       canRemoveTracks: false,
       canPinNewOfflineCache: false,
     });
-    expect(playlistDetailControls({ name: 'Manual mix' }).canAddTracks).toBe(true);
-    expect(playlistDetailControls({ name: 'Manual mix' }).showRefreshTracks).toBe(false);
+    expect(playlistDetailControls({ name: 'Manual mix', smart: false }).canAddTracks).toBe(true);
+    expect(playlistDetailControls({ name: 'Manual mix', smart: false }).showRefreshTracks).toBe(false);
+  });
+
+  it('fails closed for unknown classification without exposing smart-only actions', () => {
+    expect(playlistDetailControls({
+      name: 'Unclassified mix',
+      smartMetadataUnavailable: true,
+    })).toEqual({
+      tracksReadOnly: true,
+      showEditRules: false,
+      showRefreshTracks: false,
+      canAddTracks: false,
+      canImportCsv: false,
+      canReorderTracks: false,
+      canRemoveTracks: false,
+      canPinNewOfflineCache: false,
+    });
   });
 });

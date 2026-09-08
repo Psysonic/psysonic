@@ -512,7 +512,13 @@ export default function Playlists() {
           serverIdentity={subsonicIdentityByServer[smartEditorServerId]}
           playlistOptions={playlists
             .filter(item => item.serverId === smartEditorServerId)
-            .map(item => ({ id: item.id, name: playlistDisplayName(item) }))}
+            .map(item => ({
+              id: item.id,
+              name: playlistDisplayName(item),
+              rules: item.smartRules,
+              smart: item.smart,
+              smartMetadataUnavailable: item.smartMetadataUnavailable,
+            }))}
           ownerUsername={ownerUsername}
           onCancel={() => {
             smartOperationGenerationRef.current += 1;

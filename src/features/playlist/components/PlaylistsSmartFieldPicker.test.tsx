@@ -19,8 +19,9 @@ describe('PlaylistsSmartFieldPicker', () => {
 
     const input = view.getByRole('combobox', { name: 'Field' });
     await user.click(input);
+    expect(view.getByRole('option', { name: 'Title' })).toHaveAttribute('aria-selected', 'true');
     await user.type(input, 'mood');
-    expect(view.getByRole('option', { name: 'Mood' })).toBeInTheDocument();
+    expect(view.getByRole('option', { name: 'Mood' })).toHaveAttribute('aria-selected', 'false');
     expect(view.queryByRole('option', { name: 'Title' })).not.toBeInTheDocument();
 
     await user.click(view.getByRole('option', { name: /mood/i }));

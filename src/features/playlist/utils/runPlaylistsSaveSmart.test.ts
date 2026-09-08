@@ -2,7 +2,6 @@ import type { TFunction } from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultSmartFilters } from '@/features/playlist/utils/playlistsSmart';
 import { createSmartEditorSession } from '@/features/playlist/utils/smartPlaylistEditor';
-import { parseSmartRulesDocument } from '@/features/playlist/utils/smartPlaylistRules';
 import { runPlaylistsSaveSmart } from '@/features/playlist/utils/runPlaylistsSaveSmart';
 
 const {
@@ -122,10 +121,7 @@ describe('runPlaylistsSaveSmart', () => {
 
   it('rejects empty criteria before calling the API', async () => {
     const deps = makeDeps({
-      smartSession: {
-        ...createSmartEditorSession({ name: 'Empty' }),
-        document: parseSmartRulesDocument({ all: [] }),
-      },
+      smartSession: createSmartEditorSession({ name: 'Empty', rules: { all: [] } }),
     });
 
     await runPlaylistsSaveSmart(deps);
@@ -133,6 +129,40 @@ describe('runPlaylistsSaveSmart', () => {
     expect(ndUpdateSmartPlaylistMock).not.toHaveBeenCalled();
     expect(ndCreateSmartPlaylistMock).not.toHaveBeenCalled();
     expect(showToastMock).toHaveBeenCalledWith('smartPlaylists.emptyCriteria', 3500, 'error');
+  });
+
+  it('saves the current valid JSON draft without requiring Apply', async () => {
+    ndUpdateSmartPlaylistMock.mockResolvedValue({ id: 'smart-1' });
+    const smartSession = createSmartEditorSession({
+      name: 'Owned mix',
+      rules: { all: [{ contains: { title: 'stale' } }] },
+    });
+    smartSession.mode = 'json';
+    smartSession.jsonDraft = JSON.stringify({ all: [{ contains: { title: 'current draft' } }] });
+
+    await runPlaylistsSaveSmart(makeDeps({ smartSession }));
+
+    expect(ndUpdateSmartPlaylistMock).toHaveBeenCalledWith(
+      'smart-1',
+      'Owned mix',
+      { all: [{ contains: { title: 'current draft' } }] },
+      expect.objectContaining({ serverId: 'server-b' }),
+    );
+  });
+
+  it('does not save stale rules when the current JSON draft is invalid', async () => {
+    const smartSession = createSmartEditorSession({
+      name: 'Owned mix',
+      rules: { all: [{ contains: { title: 'stale' } }] },
+    });
+    smartSession.mode = 'json';
+    smartSession.jsonDraft = '{';
+
+    await runPlaylistsSaveSmart(makeDeps({ smartSession }));
+
+    expect(ndUpdateSmartPlaylistMock).not.toHaveBeenCalled();
+    expect(ndCreateSmartPlaylistMock).not.toHaveBeenCalled();
+    expect(showToastMock).toHaveBeenCalledWith('smartPlaylists.updateFailed', 3500, 'error');
   });
 
   it('warns when the persisted rules drop sent clauses', async () => {

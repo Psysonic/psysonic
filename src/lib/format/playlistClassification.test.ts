@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  classifyPlaylistSmartness,
   hasNavidromeSmartRules,
   isSmartPlaylist,
   playlistDisplayName,
@@ -14,6 +15,13 @@ describe('playlist classification', () => {
   it('falls back to the legacy prefix only when native metadata is unknown', () => {
     expect(isSmartPlaylist({ name: 'psy-smart-Legacy mix' })).toBe(true);
     expect(isSmartPlaylist({ name: 'Regular mix' })).toBe(false);
+  });
+
+  it('distinguishes failed Navidrome classification from ordinary manual playlists', () => {
+    expect(classifyPlaylistSmartness({ name: 'Regular mix' })).toBe('manual');
+    expect(classifyPlaylistSmartness({ name: 'Regular mix', smartMetadataUnavailable: true })).toBe('unknown');
+    expect(classifyPlaylistSmartness({ name: 'Regular mix', smart: false })).toBe('manual');
+    expect(classifyPlaylistSmartness({ name: 'psy-smart-Legacy mix' })).toBe('smart');
   });
 
   it('keeps legacy display names unchanged without hiding native names', () => {

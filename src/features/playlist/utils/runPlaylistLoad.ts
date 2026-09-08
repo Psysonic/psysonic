@@ -8,6 +8,8 @@ import { usePlaylistMembershipStore } from '@/store/playlistMembershipStore';
 import { isOfflineBrowseActive } from '@/features/offline';
 import { resolvePlaylist } from '@/features/offline';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
+import { isNavidromeServer } from '@/lib/server/subsonicServerIdentity';
 
 export interface RunPlaylistLoadDeps {
   id: string;
@@ -34,18 +36,33 @@ function applyLoadedPlaylist(
   // (offline path, where the resolved list already is the full membership).
   membershipIds: string[] = songs.map(s => s.id),
   membershipRevision?: number,
+  navidromeMetadataExpected = false,
 ): void {
   if (deps.isCurrent && !deps.isCurrent()) return;
   const { setPlaylist, setSongs, setCustomCoverId, setRatings, setStarredSongs } = deps;
   const cached = usePlaylistStore.getState().playlists.find(candidate =>
     ownedEntityKey(candidate) === ownedEntityKey({ id: playlist.id, serverId: deps.serverId ?? playlist.serverId }),
   );
-  const classifiedPlaylist = playlist.smart === undefined && cached?.smart !== undefined
-    ? { ...playlist, smart: cached.smart }
+  const classifiedPlaylist = cached
+    ? {
+      ...playlist,
+      ...(playlist.smart === undefined && cached.smart !== undefined ? { smart: cached.smart } : {}),
+      ...(playlist.smartMetadataUnavailable === undefined && cached.smartMetadataUnavailable !== undefined
+        ? { smartMetadataUnavailable: cached.smartMetadataUnavailable }
+        : {}),
+      ...(playlist.smartRules === undefined && cached.smartRules !== undefined
+        ? { smartRules: cached.smartRules }
+        : {}),
+    }
     : playlist;
-  const ownedPlaylist = deps.serverId
-    ? { ...classifiedPlaylist, serverId: deps.serverId }
+  const playlistWithClassification = classifiedPlaylist.smart === undefined
+    && classifiedPlaylist.smartMetadataUnavailable === undefined
+    && navidromeMetadataExpected
+    ? { ...classifiedPlaylist, smartMetadataUnavailable: true }
     : classifiedPlaylist;
+  const ownedPlaylist = deps.serverId
+    ? { ...playlistWithClassification, serverId: deps.serverId }
+    : playlistWithClassification;
   const ownedSongs = deps.serverId ? songs.map(song => ({ ...song, serverId: deps.serverId })) : songs;
   setPlaylist(ownedPlaylist);
   setSongs(ownedSongs);
@@ -84,10 +101,22 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
   const membershipRevision = usePlaylistMembershipStore.getState().revision;
   try {
     const serverId = deps.serverId ?? useAuthStore.getState().activeServerId ?? '';
+    const auth = useAuthStore.getState();
+    const server = serverId ? findServerByIdOrIndexKey(serverId) : auth.getActiveServer?.();
+    const navidromeMetadataExpected = Boolean(
+      server && isNavidromeServer(auth.subsonicServerIdentityByServer?.[server.id]),
+    );
     if (isOfflineBrowseActive() && serverId) {
       const loaded = await resolvePlaylist(serverId, id);
       if (loaded) {
-        applyLoadedPlaylist(deps, loaded.playlist, loaded.songs, undefined, membershipRevision);
+        applyLoadedPlaylist(
+          deps,
+          loaded.playlist,
+          loaded.songs,
+          undefined,
+          membershipRevision,
+          navidromeMetadataExpected,
+        );
         return;
       }
     }
@@ -102,6 +131,7 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
       filteredSongs,
       songs.map(s => s.id),
       membershipRevision,
+      navidromeMetadataExpected,
     );
   } catch {
     const key = ownedEntityKey({ id, serverId: deps.serverId });

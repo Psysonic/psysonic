@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 
+### Native Navidrome smart playlists — detect, edit, and refresh
+
+**By [@JayDawgThaGOAT](https://github.com/JayDawgThaGOAT), PR [#1428](https://github.com/Psysonic/psysonic/pull/1428)**
+
+* Smart playlists created in Navidrome or other clients now appear with a sparkle marker and keep their server-evaluated tracks read-only instead of exposing manual membership controls.
+* The Playlists page can create and edit native rules in Basic, Advanced, or lossless JSON mode, preview matching tracks, refresh results, and preserve nested groups and server-specific fields.
+* Feature availability follows the connected Navidrome version, with warnings when the server drops unsupported clauses after saving.
+
 ### Scrobbles are no longer lost when a service is unreachable
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1482](https://github.com/Psysonic/psysonic/pull/1482)**

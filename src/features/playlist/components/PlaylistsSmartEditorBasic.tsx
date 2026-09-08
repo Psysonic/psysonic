@@ -54,13 +54,14 @@ export default function PlaylistsSmartEditorBasic({
         <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 'var(--space-3)' }}>{t('smartPlaylists.sectionBasic')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }}>
-            <input className="input" type="number" min={1} max={LIMIT_MAX} placeholder={t('smartPlaylists.limit')} value={smartFilters.limit} onChange={e => setSmartFilters(v => ({ ...v, limit: e.target.value }))} />
+            <input className="input" type="number" min={1} max={LIMIT_MAX} aria-label={t('smartPlaylists.limit')} placeholder={t('smartPlaylists.limit')} value={smartFilters.limit} onChange={e => setSmartFilters(v => ({ ...v, limit: e.target.value }))} />
             <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('smartPlaylists.limitHint', { max: LIMIT_MAX })}</span>
           </div>
           <CustomSelect
             value={smartFilters.sort}
             options={sortOptions}
             onChange={sort => setSmartFilters(v => ({ ...v, sort }))}
+            ariaLabel={t('smartPlaylists.sortRows')}
           />
         </div>
       </section>
@@ -83,7 +84,7 @@ export default function PlaylistsSmartEditorBasic({
             {t('smartPlaylists.genreModeExclude')}
           </button>
         </div>
-        <input className="input" placeholder={t('smartPlaylists.genreSearchPlaceholder')} value={genreQuery} onChange={e => setGenreQuery(e.target.value)} style={{ marginBottom: 'var(--space-3)' }} />
+        <input className="input" aria-label={t('smartPlaylists.genreSearchPlaceholder')} placeholder={t('smartPlaylists.genreSearchPlaceholder')} value={genreQuery} onChange={e => setGenreQuery(e.target.value)} style={{ marginBottom: 'var(--space-3)' }} />
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-2)', minHeight: 120 }}>
             <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 'var(--space-2)' }}>{t('smartPlaylists.availableGenres')}</div>
@@ -153,13 +154,13 @@ export default function PlaylistsSmartEditorBasic({
         <div className="dual-year-range" style={{ opacity: smartFilters.yearEnabled ? 1 : 0.5 }}>
           <div className="dual-year-range__track" />
           <div className="dual-year-range__selected" style={{ left: `${((smartFilters.yearFrom - YEAR_MIN) / (YEAR_MAX - YEAR_MIN)) * 100}%`, right: `${100 - ((smartFilters.yearTo - YEAR_MIN) / (YEAR_MAX - YEAR_MIN)) * 100}%` }} />
-          <input type="range" min={YEAR_MIN} max={YEAR_MAX} value={smartFilters.yearFrom} disabled={!smartFilters.yearEnabled} onChange={e => setSmartFilters(v => ({ ...v, yearEnabled: true, yearFrom: Math.min(clampYear(Number(e.target.value)), v.yearTo) }))} />
-          <input type="range" min={YEAR_MIN} max={YEAR_MAX} value={smartFilters.yearTo} disabled={!smartFilters.yearEnabled} onChange={e => setSmartFilters(v => ({ ...v, yearEnabled: true, yearTo: Math.max(clampYear(Number(e.target.value)), v.yearFrom) }))} />
+          <input type="range" min={YEAR_MIN} max={YEAR_MAX} aria-label={t('smartPlaylists.fromYear')} value={smartFilters.yearFrom} disabled={!smartFilters.yearEnabled} onChange={e => setSmartFilters(v => ({ ...v, yearEnabled: true, yearFrom: Math.min(clampYear(Number(e.target.value)), v.yearTo) }))} />
+          <input type="range" min={YEAR_MIN} max={YEAR_MAX} aria-label={t('smartPlaylists.toYear')} value={smartFilters.yearTo} disabled={!smartFilters.yearEnabled} onChange={e => setSmartFilters(v => ({ ...v, yearEnabled: true, yearTo: Math.max(clampYear(Number(e.target.value)), v.yearFrom) }))} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginTop: 'var(--space-3)' }}>
-          <input className="input" placeholder={t('smartPlaylists.artistContains')} value={smartFilters.artistContains} onChange={e => setSmartFilters(v => ({ ...v, artistContains: e.target.value }))} />
-          <input className="input" placeholder={t('smartPlaylists.albumContains')} value={smartFilters.albumContains} onChange={e => setSmartFilters(v => ({ ...v, albumContains: e.target.value }))} />
-          <input className="input" placeholder={t('smartPlaylists.titleContains')} value={smartFilters.titleContains} onChange={e => setSmartFilters(v => ({ ...v, titleContains: e.target.value }))} />
+          <input className="input" aria-label={t('smartPlaylists.artistContains')} placeholder={t('smartPlaylists.artistContains')} value={smartFilters.artistContains} onChange={e => setSmartFilters(v => ({ ...v, artistContains: e.target.value }))} />
+          <input className="input" aria-label={t('smartPlaylists.albumContains')} placeholder={t('smartPlaylists.albumContains')} value={smartFilters.albumContains} onChange={e => setSmartFilters(v => ({ ...v, albumContains: e.target.value }))} />
+          <input className="input" aria-label={t('smartPlaylists.titleContains')} placeholder={t('smartPlaylists.titleContains')} value={smartFilters.titleContains} onChange={e => setSmartFilters(v => ({ ...v, titleContains: e.target.value }))} />
           <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('smartPlaylists.minRating')}: {smartFilters.minRating}★</div>
           <StarRating value={smartFilters.minRating} onChange={rating => setSmartFilters(v => ({ ...v, minRating: rating }))} ariaLabel={t('smartPlaylists.minRatingAria')} />
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{t('smartPlaylists.minRatingHint')}</span>

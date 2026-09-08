@@ -141,6 +141,10 @@ export interface SubsonicPlaylist {
   serverId?: string;
   /** Native Navidrome classification; absent when native metadata was unavailable. */
   smart?: boolean;
+  /** Navidrome metadata was expected but unavailable, so membership must fail closed. */
+  smartMetadataUnavailable?: boolean;
+  /** Native smart rules retained for editor validation; absent when metadata was unavailable. */
+  smartRules?: Record<string, unknown>;
   name: string;
   songCount: number;
   duration: number;

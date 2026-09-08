@@ -93,9 +93,9 @@ describe('subsonicPlaylists batching', () => {
       { id: 'native-smart', rules: { all: [] } },
       { id: 'prefixed-regular', rules: undefined },
     ])).toEqual([
-      expect.objectContaining({ id: 'native-smart', smart: true }),
+      expect.objectContaining({ id: 'native-smart', smart: true, smartRules: { all: [] } }),
       expect.objectContaining({ id: 'prefixed-regular', smart: false }),
-      expect.objectContaining({ id: 'missing', smart: false }),
+      expect.objectContaining({ id: 'missing', smartMetadataUnavailable: true }),
     ]);
   });
 
@@ -139,6 +139,7 @@ describe('subsonicPlaylists batching', () => {
     expect(playlists[0]).toEqual(expect.objectContaining({
       id: 'legacy',
       serverId: 'a',
+      smartMetadataUnavailable: true,
     }));
     expect(playlists[0]).not.toHaveProperty('smart');
   });

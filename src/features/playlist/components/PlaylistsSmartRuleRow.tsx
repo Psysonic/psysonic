@@ -172,6 +172,7 @@ export default function PlaylistsSmartRuleRow({
           value: operator.name,
           label: t(`smartPlaylists.operator_${operator.name}`),
         }))}
+        ariaLabel={t('smartPlaylists.operator')}
         onChange={operator => {
           const keepPlaylistValue = isPlaylistOp && isPlaylistOperator(operator);
           replaceLeaf(
@@ -268,7 +269,7 @@ function renderValueInput({
               field={field}
               className={leftClass}
               ariaInvalid={ariaInvalid && !!leftClass}
-              ariaLabel={isYearField(field) ? t('smartPlaylists.year') : undefined}
+              ariaLabel={isYearField(field) ? t('smartPlaylists.year') : t('smartPlaylists.value')}
               onChange={next => onChange([next, range[1]])}
             />
             <NumberValueInput
@@ -276,7 +277,7 @@ function renderValueInput({
               field={field}
               className={rightClass}
               ariaInvalid={ariaInvalid && !!rightClass}
-              ariaLabel={isYearField(field) ? t('smartPlaylists.year') : undefined}
+              ariaLabel={isYearField(field) ? t('smartPlaylists.year') : t('smartPlaylists.value')}
               onChange={next => onChange([range[0], next])}
             />
           </>
@@ -291,6 +292,7 @@ function renderValueInput({
         min={1}
         className={issueClass}
         ariaInvalid={ariaInvalid}
+        ariaLabel={t('smartPlaylists.value')}
         onChange={onChange}
       />
     );
@@ -312,7 +314,7 @@ function renderValueInput({
         field={field}
         className={issueClass}
         ariaInvalid={ariaInvalid}
-        ariaLabel={isYearField(field) ? t('smartPlaylists.year') : undefined}
+        ariaLabel={isYearField(field) ? t('smartPlaylists.year') : t('smartPlaylists.value')}
         onChange={onChange}
       />
     );
@@ -333,6 +335,7 @@ function renderValueInput({
     <input
       className={`input ${issueClass}`}
       aria-invalid={ariaInvalid || undefined}
+      aria-label={t('smartPlaylists.value')}
       value={typeof value === 'string' ? value : String(value ?? '')}
       onChange={event => onChange(event.target.value)}
     />

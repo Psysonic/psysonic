@@ -1,4 +1,7 @@
+import { smartPlaylists as englishSmartPlaylists } from '../en/smartPlaylists';
+
 export const smartPlaylists = {
+  ...englishSmartPlaylists,
   sectionBasic: '1. 基本',
   sectionGenres: '2. ジャンル',
   sectionYearsAndFilters: '3. 年とフィルター',

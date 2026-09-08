@@ -1,6 +1,6 @@
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
+import type { SubsonicPlaylist, SubsonicSong } from '@/lib/api/subsonicTypes';
 import { offlineActionPolicy } from '@/features/offline';
 import PlaylistHero from '@/features/playlist/components/PlaylistHero';
 import { usePlaylistLayoutStore } from '@/features/playlist/store/playlistLayoutStore';
@@ -31,7 +31,7 @@ function renderHero(pl: SubsonicPlaylist, handleRefreshSmart = vi.fn()) {
   return renderWithProviders(
     <PlaylistHero
       playlist={pl}
-      songs={[]}
+      songs={[{ id: 'song-1' } as SubsonicSong]}
       id={pl.id}
       customCoverId={null}
       coverQuadIds={[null, null, null, null]}
@@ -91,8 +91,20 @@ describe('PlaylistHero smart surfaces', () => {
     const view = renderHero(playlist({ name: 'Manual mix', smart: false }));
     expect(view.getByRole('button', { name: 'Search your library to add tracks' })).toBeInTheDocument();
     expect(view.getByRole('button', { name: 'Import from Spotify CSV' })).toBeInTheDocument();
+    expect(view.getByRole('button', { name: 'Cache playlist offline' })).toBeInTheDocument();
     expect(view.queryByRole('button', { name: 'Edit Rules' })).not.toBeInTheDocument();
     expect(view.queryByRole('button', { name: 'Refresh smart playlist' })).not.toBeInTheDocument();
+  });
+
+  it('fails closed for offline caching when Navidrome metadata is unavailable', () => {
+    const view = renderHero(playlist({
+      name: 'Unclassified mix',
+      smart: undefined,
+      smartMetadataUnavailable: true,
+    }));
+
+    expect(view.queryByRole('button', { name: 'Cache playlist offline' })).not.toBeInTheDocument();
+    expect(view.queryByRole('button', { name: 'Edit Rules' })).not.toBeInTheDocument();
   });
 
   it('respects playlist layout visibility for smart actions', () => {

@@ -47,7 +47,6 @@ import { useOfflineBrowseContext } from '@/features/offline';
 import { offlineActionPolicy } from '@/features/offline';
 import { readDetailServerId } from '@/lib/navigation/detailServerScope';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
-import { isSmartPlaylist } from '@/lib/format/playlistClassification';
 import { playlistDetailControls } from '@/features/playlist/utils/playlistSmartUx';
 import { showToast } from '@/lib/dom/toast';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
@@ -132,7 +131,7 @@ export default function PlaylistDetail() {
   // ── Save ──────────────────────────────────────────────────────
   const savePlaylist = useCallback((updatedSongs: SubsonicSong[], prevCount = 0) => {
     if (!id || !serverId) return Promise.resolve();
-    if (playlist && isSmartPlaylist(playlist)) return Promise.resolve();
+    if (playlist && playlistDetailControls(playlist).tracksReadOnly) return Promise.resolve();
     const ownerGeneration = saveOwnerGenerationRef.current;
     const sequence = ++saveSequenceRef.current;
     setSaving(true);

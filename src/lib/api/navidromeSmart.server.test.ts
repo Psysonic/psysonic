@@ -87,17 +87,44 @@ describe('Navidrome smart playlist owner routing', () => {
     }));
   });
 
-  it('sends a metadata-only native update without rules or sync', async () => {
+  it('resends existing rules with a native metadata update', async () => {
+    invokeMock
+      .mockResolvedValueOnce({
+        id: 'smart',
+        name: 'Smart',
+        songCount: 0,
+        rules: { all: [{ contains: { title: 'live' } }] },
+      })
+      .mockResolvedValueOnce({ id: 'smart', name: 'Renamed', songCount: 0 });
+
     await ndUpdatePlaylistMeta('smart', { name: 'Renamed', comment: 'Hi', public: false }, 'b');
-    expect(invokeMock).toHaveBeenCalledWith('nd_update_playlist', {
+    expect(invokeMock).toHaveBeenNthCalledWith(1, 'nd_get_playlist', {
       serverUrl: 'https://b.test',
       token: 'token-b',
       id: 'smart',
-      body: { name: 'Renamed', comment: 'Hi', public: false },
     });
-    const body = invokeMock.mock.calls[0]?.[1]?.body as Record<string, unknown>;
-    expect(body).not.toHaveProperty('rules');
+    expect(invokeMock).toHaveBeenNthCalledWith(2, 'nd_update_playlist', {
+      serverUrl: 'https://b.test',
+      token: 'token-b',
+      id: 'smart',
+      body: {
+        name: 'Renamed',
+        comment: 'Hi',
+        public: false,
+        rules: { all: [{ contains: { title: 'live' } }] },
+      },
+    });
+    const body = invokeMock.mock.calls[1]?.[1]?.body as Record<string, unknown>;
     expect(body).not.toHaveProperty('sync');
+  });
+
+  it('does not issue a destructive metadata PUT when rules are unavailable', async () => {
+    invokeMock.mockResolvedValueOnce({ id: 'smart', name: 'Smart', songCount: 0 });
+
+    await expect(ndUpdatePlaylistMeta('smart', { name: 'Renamed' }, 'b'))
+      .rejects.toThrow('Smart playlist rules unavailable');
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith('nd_get_playlist', expect.objectContaining({ id: 'smart' }));
   });
 
   it('omits sync on REST create unless explicitly requested', async () => {

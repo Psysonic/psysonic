@@ -1,5 +1,5 @@
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
-import { isSmartPlaylist } from '@/lib/format/playlistClassification';
+import { classifyPlaylistSmartness } from '@/lib/format/playlistClassification';
 
 export function manualPlaylistTargetsForServer(
   playlists: readonly SubsonicPlaylist[],
@@ -8,7 +8,7 @@ export function manualPlaylistTargetsForServer(
   if (!serverId) return [];
   return playlists.filter(playlist => (
     playlist.serverId === serverId
-    && !isSmartPlaylist(playlist)
+    && classifyPlaylistSmartness(playlist) === 'manual'
   ));
 }
 

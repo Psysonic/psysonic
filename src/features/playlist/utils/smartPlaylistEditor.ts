@@ -176,21 +176,26 @@ export function applySmartEditorJson(
   }
 }
 
+/** Rule document currently shown in the active editor page, including unsaved JSON. */
+export function smartRulesDocumentFromSession(
+  session: SmartEditorSession,
+  options?: BuildSmartRulesOptions,
+): SmartRulesDocument {
+  if (session.mode === 'json') {
+    return parseSmartRulesDocument(JSON.parse(session.jsonDraft) as unknown);
+  }
+  if (session.mode === 'basic') {
+    return parseSmartRulesDocument(buildSmartRulesPayload(session.filters, options));
+  }
+  return session.document;
+}
+
 /** Rules currently shown in the active editor page, including unsaved JSON. */
 export function previewRulesFromSession(
   session: SmartEditorSession,
   options?: BuildSmartRulesOptions,
 ): Record<string, unknown> {
-  if (session.mode === 'json') {
-    const parsed = JSON.parse(session.jsonDraft) as unknown;
-    return emitSmartRulesDocument(parseSmartRulesDocument(parsed));
-  }
-  if (session.mode === 'basic') {
-    return emitSmartRulesDocument(parseSmartRulesDocument(
-      buildSmartRulesPayload(session.filters, options),
-    ));
-  }
-  return emitSmartRulesDocument(session.document);
+  return emitSmartRulesDocument(smartRulesDocumentFromSession(session, options));
 }
 
 export function hasEmptySmartCriteria(document: SmartRulesDocument): boolean {

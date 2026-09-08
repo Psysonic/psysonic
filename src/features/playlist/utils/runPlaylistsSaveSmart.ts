@@ -12,9 +12,13 @@ import {
   comparePersistedSmartRules,
   createSmartEditorSession,
   hasEmptySmartCriteria,
+  smartRulesDocumentFromSession,
   type SmartEditorSession,
 } from '@/features/playlist/utils/smartPlaylistEditor';
-import { emitSmartRulesDocument } from '@/features/playlist/utils/smartPlaylistRules';
+import {
+  emitSmartRulesDocument,
+  type SmartRulesDocument,
+} from '@/features/playlist/utils/smartPlaylistRules';
 import { showToast } from '@/lib/dom/toast';
 import { resolvePlaylistPersistedName } from '@/features/playlist/utils/playlistOwnedMutation';
 import { usePlaylistMembershipStore } from '@/store/playlistMembershipStore';
@@ -90,7 +94,17 @@ export async function runPlaylistsSaveSmart(deps: RunPlaylistsSaveSmartDeps): Pr
     showToast(t('smartPlaylists.navidromeOnly'), 3500, 'error');
     return;
   }
-  if (hasEmptySmartCriteria(smartSession.document)) {
+  let activeDocument: SmartRulesDocument;
+  try {
+    activeDocument = smartRulesDocumentFromSession(
+      smartSession.mode === 'basic' ? { ...smartSession, filters: smartFilters } : smartSession,
+      { allGenres: deps.allGenres },
+    );
+  } catch {
+    showToast(editingSmartId && !saveAsCopy ? t('smartPlaylists.updateFailed') : t('smartPlaylists.createFailed'), 3500, 'error');
+    return;
+  }
+  if (hasEmptySmartCriteria(activeDocument)) {
     showToast(t('smartPlaylists.emptyCriteria'), 3500, 'error');
     return;
   }
@@ -104,7 +118,7 @@ export async function runPlaylistsSaveSmart(deps: RunPlaylistsSaveSmartDeps): Pr
     const name = updating
       ? (existing ? resolvePlaylistPersistedName(existing, requestedName) : requestedName)
       : uniquePlaylistName(requestedName, playlists, serverId);
-    const rules = emitSmartRulesDocument(smartSession.document);
+    const rules = emitSmartRulesDocument(activeDocument);
     const writeOptions = {
       serverId,
       comment: smartSession.comment,

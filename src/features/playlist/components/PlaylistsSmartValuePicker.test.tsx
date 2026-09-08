@@ -45,4 +45,29 @@ describe('PlaylistsSmartValuePicker', () => {
     await user.type(input, 'Shoegaze{Enter}');
     expect(onChange).toHaveBeenCalledWith('Shoegaze');
   });
+
+  it('keeps selection separate from the keyboard-active option', async () => {
+    const user = userEvent.setup();
+    const view = renderWithProviders(
+      <PlaylistsSmartValuePicker
+        value="Rock"
+        options={[
+          { value: 'Rock', label: 'Rock' },
+          { value: 'Jazz', label: 'Jazz' },
+        ]}
+        onChange={vi.fn()}
+        ariaLabel="Value"
+      />,
+    );
+
+    const input = view.getByRole('combobox', { name: 'Value' });
+    await user.click(input);
+    await user.keyboard('{ArrowDown}');
+
+    const rock = view.getByRole('option', { name: 'Rock' });
+    const jazz = view.getByRole('option', { name: 'Jazz' });
+    expect(rock).toHaveAttribute('aria-selected', 'true');
+    expect(jazz).toHaveAttribute('aria-selected', 'false');
+    expect(input).toHaveAttribute('aria-activedescendant', jazz.id);
+  });
 });

@@ -28,7 +28,7 @@ function SmartEditorHarness({
   onSaveCopy?: () => void;
   serverIdentity?: SubsonicServerIdentity;
   availableGenres?: string[];
-  playlistOptions?: Array<{ id: string; name: string }>;
+  playlistOptions?: Array<{ id: string; name: string; rules?: Record<string, unknown> }>;
   serverOptions?: Array<{ id: string; label: string }>;
 }) {
   const [session, setSession] = useState(initialSession ?? createSmartEditorSession());
@@ -122,9 +122,55 @@ describe('PlaylistsSmartEditor', () => {
 
     await user.click(view.getByRole('tab', { name: 'JSON' }));
     expect(view.getByRole('tab', { name: 'JSON' })).toHaveAttribute('aria-selected', 'true');
-    expect((view.getByLabelText('JSON') as HTMLTextAreaElement).value).toContain('inTheRange');
-    expect((view.getByLabelText('JSON') as HTMLTextAreaElement).value).toContain('"limit": 50');
-    expect((view.getByLabelText('JSON') as HTMLTextAreaElement).value).toContain('+random');
+    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('inTheRange');
+    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('"limit": 50');
+    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('+random');
+  });
+
+  it('links tabs to the active panel and supports roving keyboard navigation', async () => {
+    const user = userEvent.setup();
+    const view = renderWithProviders(<SmartEditorHarness editingSmartId={null} />);
+    const basic = view.getByRole('tab', { name: 'Basic' });
+    const advanced = view.getByRole('tab', { name: 'Advanced' });
+
+    expect(basic).toHaveAttribute('tabindex', '0');
+    expect(advanced).toHaveAttribute('tabindex', '-1');
+    let panel = view.getByRole('tabpanel');
+    expect(basic).toHaveAttribute('aria-controls', panel.id);
+    expect(panel).toHaveAttribute('aria-labelledby', basic.id);
+
+    basic.focus();
+    await user.keyboard('{ArrowRight}');
+    expect(advanced).toHaveFocus();
+    expect(advanced).toHaveAttribute('aria-selected', 'true');
+    expect(advanced).toHaveAttribute('tabindex', '0');
+    panel = view.getByRole('tabpanel');
+    expect(advanced).toHaveAttribute('aria-controls', panel.id);
+    expect(panel).toHaveAttribute('aria-labelledby', advanced.id);
+
+    await user.keyboard('{End}');
+    expect(view.getByRole('tab', { name: 'JSON' })).toHaveFocus();
+    await user.keyboard('{Home}');
+    expect(basic).toHaveFocus();
+    expect(basic).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('gives Basic and Advanced editor fields accessible names', async () => {
+    const user = userEvent.setup();
+    const view = renderWithProviders(<SmartEditorHarness editingSmartId={null} />);
+
+    expect(view.getByRole('spinbutton', { name: 'Limit' })).toBeInTheDocument();
+    expect(view.getByRole('combobox', { name: 'Sort' })).toBeInTheDocument();
+    expect(view.getByRole('textbox', { name: 'Filter genres...' })).toBeInTheDocument();
+    expect(view.getByRole('slider', { name: 'From year' })).toBeInTheDocument();
+    expect(view.getByRole('slider', { name: 'To year' })).toBeInTheDocument();
+    expect(view.getByRole('textbox', { name: 'Artist contains…' })).toBeInTheDocument();
+    expect(view.getByRole('textbox', { name: 'Album contains…' })).toBeInTheDocument();
+    expect(view.getByRole('textbox', { name: 'Title contains…' })).toBeInTheDocument();
+
+    await user.click(view.getByRole('tab', { name: 'Advanced' }));
+    expect(view.getByRole('combobox', { name: 'Operator' })).toBeInTheDocument();
+    expect(view.getAllByRole('spinbutton', { name: 'Year' })).toHaveLength(2);
   });
 
   it('opens JSON from the current Basic filters', async () => {
@@ -133,7 +179,7 @@ describe('PlaylistsSmartEditor', () => {
 
     await user.type(view.getByPlaceholderText('Artist contains…'), 'Radiohead');
     await user.click(view.getByRole('tab', { name: 'JSON' }));
-    expect((view.getByLabelText('JSON') as HTMLTextAreaElement).value).toContain('Radiohead');
+    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('Radiohead');
     expect(view.queryByRole('button', { name: 'Preview JSON' })).not.toBeInTheDocument();
   });
 
@@ -171,7 +217,7 @@ describe('PlaylistsSmartEditor', () => {
     const view = renderWithProviders(<SmartEditorHarness editingSmartId={null} />);
 
     await user.click(view.getByRole('tab', { name: 'JSON' }));
-    const editor = view.getByLabelText('JSON');
+    const editor = view.getByRole('textbox', { name: 'JSON' });
     await user.clear(editor);
     await user.paste('{');
     await user.click(view.getByRole('button', { name: 'Apply to editor' }));
@@ -181,7 +227,27 @@ describe('PlaylistsSmartEditor', () => {
     expect(view.getByRole('button', { name: 'New Smart Playlist' })).toBeDisabled();
   });
 
-  it('highlights the Advanced rule with an error and blocks save actions', () => {
+  it('blocks a playlist membership cycle through another smart playlist', () => {
+    const view = renderWithProviders(
+      <SmartEditorHarness
+        editingSmartId="smart-a"
+        serverIdentity={{ type: 'navidrome', serverVersion: '0.63.2' }}
+        playlistOptions={[
+          { id: 'smart-a', name: 'A' },
+          { id: 'smart-b', name: 'B', rules: { all: [{ inPlaylist: { id: 'smart-a' } }] } },
+        ]}
+        initialSession={createSmartEditorSession({
+          name: 'A',
+          rules: { all: [{ inPlaylist: { id: 'smart-b' } }] },
+        })}
+      />,
+    );
+
+    expect(view.getByText('A smart playlist cannot create a playlist reference cycle.')).toBeInTheDocument();
+    expect(view.getByRole('button', { name: 'Save Smart Playlist' })).toBeDisabled();
+  });
+
+  it('blocks an invalid update while allowing preview and Save a copy with a new id', () => {
     const view = renderWithProviders(
       <SmartEditorHarness
         editingSmartId="smart-1"
@@ -204,8 +270,8 @@ describe('PlaylistsSmartEditor', () => {
     expect(control).toHaveClass('smart-query-control-error');
     expect(control).toHaveAttribute('aria-invalid', 'true');
     expect(control.closest('.smart-query-row')).not.toHaveClass('smart-query-has-error');
-    expect(view.getByRole('button', { name: 'Preview matching tracks' })).toBeDisabled();
-    expect(view.getByRole('button', { name: 'Save a copy' })).toBeDisabled();
+    expect(view.getByRole('button', { name: 'Preview matching tracks' })).toBeEnabled();
+    expect(view.getByRole('button', { name: 'Save a copy' })).toBeEnabled();
     expect(view.getByRole('button', { name: 'Save Smart Playlist' })).toBeDisabled();
   });
 
@@ -532,6 +598,6 @@ describe('PlaylistsSmartEditor', () => {
 
     await user.click(view.getByRole('tab', { name: 'JSON' }));
     expect(view.getByText(/Unsupported or unknown paths/)).toBeInTheDocument();
-    expect((view.getByLabelText('JSON') as HTMLTextAreaElement).value).toContain('clientMetadata');
+    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('clientMetadata');
   });
 });

@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { ndLogin } from '@/lib/api/navidromeAdmin';
 import { getCachedConnectBaseUrl } from '@/lib/server/serverEndpoint';
 import { serverProfileBaseUrl } from '@/lib/server/serverBaseUrl';
+import { hasNavidromeSmartRules } from '@/lib/format/playlistClassification';
 
 export type SmartRuleOperator =
   | 'is'
@@ -178,24 +179,35 @@ export async function ndUpdateSmartPlaylist(
   return parseNdSmartPlaylist(raw, { id, name, rules, ...options });
 }
 
-/** Partial native update — omit `rules`/`sync` so existing smart criteria stay intact. */
+/** Preserve smart criteria explicitly because older Navidrome PUTs replace omitted rules. */
 export async function ndUpdatePlaylistMeta(
   id: string,
   fields: { name?: string; comment?: string; public?: boolean },
   serverId?: string,
 ): Promise<NdSmartPlaylist> {
+  const current = await ndGetSmartPlaylist(id, serverId);
+  if (!hasNavidromeSmartRules(current.rules)) {
+    throw new Error('Smart playlist rules unavailable');
+  }
   const { serverUrl, token } = await getNavidromeAuth(serverId);
   const body: Record<string, unknown> = {};
   if (fields.name !== undefined) body.name = fields.name;
   if (fields.comment !== undefined) body.comment = fields.comment;
   if (fields.public !== undefined) body.public = fields.public;
+  body.rules = current.rules;
   const raw = await invoke<unknown>('nd_update_playlist', {
     serverUrl,
     token,
     id,
     body,
   });
-  return parseNdSmartPlaylist(raw, { id, name: fields.name, comment: fields.comment, public: fields.public });
+  return parseNdSmartPlaylist(raw, {
+    id,
+    name: fields.name,
+    comment: fields.comment,
+    public: fields.public,
+    rules: current.rules,
+  });
 }
 
 export async function ndGetSmartPlaylist(id: string, serverId?: string): Promise<NdSmartPlaylist> {

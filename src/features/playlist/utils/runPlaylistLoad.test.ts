@@ -5,6 +5,11 @@ import { usePlaylistMembershipStore } from '@/store/playlistMembershipStore';
 const getPlaylistForServerMock = vi.fn();
 const filterMock = vi.fn();
 const playlistStoreState = vi.hoisted(() => ({ playlists: [] as Array<Record<string, unknown>> }));
+const authState = vi.hoisted(() => ({
+  activeServerId: 'srv-1',
+  servers: [{ id: 'srv-1' }],
+  subsonicServerIdentityByServer: {} as Record<string, { type: string }>,
+}));
 
 vi.mock('@/lib/api/subsonicPlaylists', () => ({
   getPlaylist: vi.fn(),
@@ -25,7 +30,11 @@ vi.mock('@/features/playlist/store/playlistStore', () => ({
 }));
 
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: { getState: () => ({ activeServerId: 'srv-1' }) },
+  useAuthStore: { getState: () => authState },
+}));
+
+vi.mock('@/lib/server/serverLookup', () => ({
+  findServerByIdOrIndexKey: (serverId: string) => authState.servers.find(server => server.id === serverId),
 }));
 
 function makeDeps(id: string) {
@@ -46,6 +55,7 @@ describe('runPlaylistLoad membership seeding', () => {
     getPlaylistForServerMock.mockReset();
     filterMock.mockReset();
     playlistStoreState.playlists = [];
+    authState.subsonicServerIdentityByServer = {};
     usePlaylistMembershipStore.setState({ songIdsByCacheKey: {}, revision: 0 });
   });
 
@@ -67,7 +77,13 @@ describe('runPlaylistLoad membership seeding', () => {
   });
 
   it('preserves authoritative smart metadata from the playlist list', async () => {
-    playlistStoreState.playlists = [{ id: 'smart', serverId: 'srv-1', name: 'Native smart', smart: true }];
+    playlistStoreState.playlists = [{
+      id: 'smart',
+      serverId: 'srv-1',
+      name: 'Native smart',
+      smart: true,
+      smartRules: { all: [{ contains: { title: 'live' } }] },
+    }];
     getPlaylistForServerMock.mockResolvedValue({
       playlist: { id: 'smart', name: 'Native smart' },
       songs: [],
@@ -81,6 +97,24 @@ describe('runPlaylistLoad membership seeding', () => {
       id: 'smart',
       serverId: 'srv-1',
       smart: true,
+      smartRules: { all: [{ contains: { title: 'live' } }] },
+    }));
+  });
+
+  it('fails closed on a direct Navidrome detail load without smart metadata', async () => {
+    authState.subsonicServerIdentityByServer = { 'srv-1': { type: 'navidrome' } };
+    getPlaylistForServerMock.mockResolvedValue({
+      playlist: { id: 'unclassified', name: 'Native metadata missing' },
+      songs: [],
+    });
+    filterMock.mockResolvedValue([]);
+
+    const deps = makeDeps('unclassified');
+    await runPlaylistLoad(deps);
+
+    expect(deps.setPlaylist).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'unclassified',
+      smartMetadataUnavailable: true,
     }));
   });
 

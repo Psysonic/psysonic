@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -27,10 +27,14 @@ import {
   type SmartPreviewTrack,
 } from '@/features/playlist/utils/formatSmartPreviewTrack';
 import type { SubsonicServerIdentity } from '@/lib/server/subsonicServerIdentity';
+import { classifyPlaylistSmartness } from '@/lib/format/playlistClassification';
 
 interface PlaylistOption {
   id: string;
   name: string;
+  rules?: Record<string, unknown>;
+  smart?: boolean;
+  smartMetadataUnavailable?: boolean;
 }
 
 type PreviewTrack = SmartPreviewTrack;
@@ -69,6 +73,7 @@ export default function PlaylistsSmartEditor({
   onPreview, serverIdentity, playlistOptions = [], ownerUsername,
 }: Props) {
   const { t } = useTranslation();
+  const editorId = `smart-playlist-editor-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const capabilities = useMemo(
     () => resolveSmartPlaylistCapabilities(serverIdentity),
     [serverIdentity],
@@ -98,12 +103,21 @@ export default function PlaylistsSmartEditor({
   const validation = jsonDraftState.document
     ? validateSmartRulesDocument(jsonDraftState.document, {
     currentPlaylistId: editingSmartId ?? undefined,
+    playlistRulesById: new Map(playlistOptions.map(option => [option.id, option.rules])),
+    unresolvedPlaylistRuleIds: new Set(playlistOptions
+      .filter(option => classifyPlaylistSmartness(option) !== 'manual' && !option.rules)
+      .map(option => option.id)),
     capabilities,
     customFields,
     })
     : [];
+  const newPlaylistValidation = editingSmartId && jsonDraftState.document
+    ? validateSmartRulesDocument(jsonDraftState.document, { capabilities, customFields })
+    : validation;
   const blocking = validation.filter(issue => issue.severity === 'error');
+  const newPlaylistBlocking = newPlaylistValidation.filter(issue => issue.severity === 'error');
   const hasBlockingIssues = jsonDraftState.error !== null || blocking.length > 0;
+  const hasNewPlaylistBlockingIssues = jsonDraftState.error !== null || newPlaylistBlocking.length > 0;
 
   const setMode = (mode: SmartEditorMode) => {
     setSession(current => {
@@ -124,6 +138,23 @@ export default function PlaylistsSmartEditor({
     setSmartFilters(defaultSmartFilters);
     setSession(createSmartEditorSession());
     setGenreQuery('');
+  };
+
+  const onModeKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const modes: SmartEditorMode[] = ['basic', 'advanced', 'json'];
+    const focusedMode = (event.target as HTMLElement).dataset.smartPlaylistMode as SmartEditorMode | undefined;
+    const currentIndex = modes.indexOf(focusedMode ?? session.mode);
+    let nextIndex: number;
+    if (event.key === 'ArrowRight') nextIndex = (currentIndex + 1) % modes.length;
+    else if (event.key === 'ArrowLeft') nextIndex = (currentIndex - 1 + modes.length) % modes.length;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = modes.length - 1;
+    else return;
+
+    event.preventDefault();
+    const nextMode = modes[nextIndex];
+    setMode(nextMode);
+    event.currentTarget.querySelector<HTMLButtonElement>(`#${editorId}-tab-${nextMode}`)?.focus();
   };
 
   return (
@@ -166,14 +197,14 @@ export default function PlaylistsSmartEditor({
               : t('smartPlaylists.neverEvaluated')}
           </span>
         </div>
-        <div role="tablist" aria-label="Smart playlist editor modes" className="smart-playlist-mode-toggle" style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-          <button type="button" role="tab" aria-selected={session.mode === 'basic'} className={`btn ${session.mode === 'basic' ? 'btn-primary' : 'btn-surface'}`} onClick={() => setMode('basic')}>
+        <div role="tablist" aria-label={t('smartPlaylists.editorModes')} className="smart-playlist-mode-toggle" style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }} onKeyDown={onModeKeyDown}>
+          <button id={`${editorId}-tab-basic`} data-smart-playlist-mode="basic" type="button" role="tab" aria-selected={session.mode === 'basic'} aria-controls={`${editorId}-panel-basic`} tabIndex={session.mode === 'basic' ? 0 : -1} className={`btn ${session.mode === 'basic' ? 'btn-primary' : 'btn-surface'}`} onClick={() => setMode('basic')}>
             {t('smartPlaylists.modeBasic')}
           </button>
-          <button type="button" role="tab" aria-selected={session.mode === 'advanced'} className={`btn ${session.mode === 'advanced' ? 'btn-primary' : 'btn-surface'}`} onClick={() => setMode('advanced')}>
+          <button id={`${editorId}-tab-advanced`} data-smart-playlist-mode="advanced" type="button" role="tab" aria-selected={session.mode === 'advanced'} aria-controls={`${editorId}-panel-advanced`} tabIndex={session.mode === 'advanced' ? 0 : -1} className={`btn ${session.mode === 'advanced' ? 'btn-primary' : 'btn-surface'}`} onClick={() => setMode('advanced')}>
             {t('smartPlaylists.modeAdvanced')}
           </button>
-          <button type="button" role="tab" aria-selected={session.mode === 'json'} className={`btn ${session.mode === 'json' ? 'btn-primary' : 'btn-surface'}`} onClick={() => setMode('json')}>
+          <button id={`${editorId}-tab-json`} data-smart-playlist-mode="json" type="button" role="tab" aria-selected={session.mode === 'json'} aria-controls={`${editorId}-panel-json`} tabIndex={session.mode === 'json' ? 0 : -1} className={`btn ${session.mode === 'json' ? 'btn-primary' : 'btn-surface'}`} onClick={() => setMode('json')}>
             {t('smartPlaylists.modeJson')}
           </button>
         </div>
@@ -182,40 +213,46 @@ export default function PlaylistsSmartEditor({
             {t('smartPlaylists.modeBasicUnavailable')}
           </div>
         )}
-        {session.mode === 'basic' && (
-          <PlaylistsSmartEditorBasic
-            smartFilters={smartFilters}
-            setSmartFilters={setSmartFilters}
-            availableGenres={availableGenres}
-            genreQuery={genreQuery}
-            setGenreQuery={setGenreQuery}
-          />
-        )}
-        {session.mode === 'advanced' && (
-          <PlaylistsSmartEditorAdvanced
-            document={session.document}
-            onDocumentChange={document => setSession(current => ({
-              ...current,
-              document,
-              jsonDraft: JSON.stringify(document.raw, null, 2),
-              jsonError: null,
-            }))}
-            capabilities={capabilities}
-            customFields={customFields}
-            playlistOptions={playlistOptions.filter(option => option.id !== editingSmartId)}
-            genreSuggestions={availableGenres}
-            issues={validation}
-          />
-        )}
-        {session.mode === 'json' && (
-          <PlaylistsSmartEditorJson
-            session={session}
-            onDraftChange={jsonDraft => setSession(current => ({ ...current, jsonDraft, jsonError: null }))}
-            onApply={() => setSession(current => applySmartEditorJson(current, current.jsonDraft, { allGenres: availableGenres }))}
-            jsonError={jsonDraftState.error ?? session.jsonError}
-            issues={validation}
-          />
-        )}
+        <div
+          id={`${editorId}-panel-${session.mode}`}
+          role="tabpanel"
+          aria-labelledby={`${editorId}-tab-${session.mode}`}
+        >
+          {session.mode === 'basic' && (
+            <PlaylistsSmartEditorBasic
+              smartFilters={smartFilters}
+              setSmartFilters={setSmartFilters}
+              availableGenres={availableGenres}
+              genreQuery={genreQuery}
+              setGenreQuery={setGenreQuery}
+            />
+          )}
+          {session.mode === 'advanced' && (
+            <PlaylistsSmartEditorAdvanced
+              document={session.document}
+              onDocumentChange={document => setSession(current => ({
+                ...current,
+                document,
+                jsonDraft: JSON.stringify(document.raw, null, 2),
+                jsonError: null,
+              }))}
+              capabilities={capabilities}
+              customFields={customFields}
+              playlistOptions={playlistOptions.filter(option => option.id !== editingSmartId)}
+              genreSuggestions={availableGenres}
+              issues={validation}
+            />
+          )}
+          {session.mode === 'json' && (
+            <PlaylistsSmartEditorJson
+              session={session}
+              onDraftChange={jsonDraft => setSession(current => ({ ...current, jsonDraft, jsonError: null }))}
+              onApply={() => setSession(current => applySmartEditorJson(current, current.jsonDraft, { allGenres: availableGenres }))}
+              jsonError={jsonDraftState.error ?? session.jsonError}
+              issues={validation}
+            />
+          )}
+        </div>
         {previewTracks && (
           <div style={{ fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)' }}>
             <div style={{ color: 'var(--text-muted)', marginBottom: 'var(--space-1)' }}>
@@ -262,7 +299,7 @@ export default function PlaylistsSmartEditor({
           <button
             type="button"
             className="btn btn-surface"
-            disabled={previewBusy || hasBlockingIssues}
+            disabled={previewBusy || hasNewPlaylistBlockingIssues}
             onClick={() => {
               setPreviewBusy(true);
               setPreviewError(null);
@@ -275,7 +312,7 @@ export default function PlaylistsSmartEditor({
             {t('smartPlaylists.preview')}
           </button>
           {onSaveCopy && editingSmartId && (
-            <button type="button" className="btn btn-surface" onClick={onSaveCopy} disabled={hasBlockingIssues}>
+            <button type="button" className="btn btn-surface" onClick={onSaveCopy} disabled={hasNewPlaylistBlockingIssues}>
               {t('smartPlaylists.saveCopy')}
             </button>
           )}

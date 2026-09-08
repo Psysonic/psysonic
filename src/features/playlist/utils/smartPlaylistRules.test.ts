@@ -189,6 +189,87 @@ describe('smart-rule semantic validation', () => {
     ]));
   });
 
+  it('rejects direct and transitive playlist reference cycles', () => {
+    const direct = validateSmartRulesDocument(
+      parseSmartRulesDocument({ all: [{ inPlaylist: { id: 'self-id' } }] }),
+      { capabilities, currentPlaylistId: 'self-id' },
+    );
+    const transitive = validateSmartRulesDocument(
+      parseSmartRulesDocument({ all: [{ inPlaylist: { id: 'playlist-b' } }] }),
+      {
+        capabilities,
+        currentPlaylistId: 'playlist-a',
+        playlistRulesById: new Map([
+          ['playlist-b', { any: [{ notInPlaylist: { id: 'playlist-c' } }] }],
+          ['playlist-c', { all: [{ inPlaylist: { id: 'playlist-a' } }] }],
+        ]),
+      },
+    );
+
+    expect(direct).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'self_reference', path: '/all/0/inPlaylist/id' }),
+    ]));
+    expect(transitive).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'playlist_cycle', path: '/all/0/inPlaylist/id' }),
+    ]));
+  });
+
+  it('fails closed when referenced smart-playlist rules are unavailable', () => {
+    const issues = validateSmartRulesDocument(
+      parseSmartRulesDocument({ all: [{ inPlaylist: { id: 'playlist-b' } }] }),
+      {
+        capabilities,
+        currentPlaylistId: 'playlist-a',
+        playlistRulesById: new Map([['playlist-b', undefined]]),
+        unresolvedPlaylistRuleIds: new Set(['playlist-b']),
+      },
+    );
+
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        code: 'playlist_reference_unknown',
+        path: '/all/0/inPlaylist/id',
+      }),
+    ]));
+  });
+
+  it('fails closed when an unresolved playlist is reached transitively', () => {
+    const issues = validateSmartRulesDocument(
+      parseSmartRulesDocument({ all: [{ inPlaylist: { id: 'playlist-b' } }] }),
+      {
+        capabilities,
+        currentPlaylistId: 'playlist-a',
+        playlistRulesById: new Map([
+          ['playlist-b', { all: [{ inPlaylist: { id: 'playlist-c' } }] }],
+          ['playlist-c', undefined],
+        ]),
+        unresolvedPlaylistRuleIds: new Set(['playlist-c']),
+      },
+    );
+
+    expect(issues).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'playlist_reference_unknown' }),
+    ]));
+  });
+
+  it('ignores playlist-shaped values outside rule expressions during cycle checks', () => {
+    const issues = validateSmartRulesDocument(
+      parseSmartRulesDocument({ all: [{ inPlaylist: { id: 'playlist-b' } }] }),
+      {
+        capabilities,
+        currentPlaylistId: 'playlist-a',
+        playlistRulesById: new Map([
+          ['playlist-b', {
+            all: [{ contains: { title: 'live' } }],
+            clientMetadata: { inPlaylist: { id: 'playlist-a' } },
+          }],
+        ]),
+      },
+    );
+
+    expect(issues.filter(issue => issue.code === 'playlist_cycle')).toEqual([]);
+  });
+
   it('validates fixed/percentage limit and offset constraints', () => {
     const document = parseSmartRulesDocument({
       all: [{ is: { loved: true } }],

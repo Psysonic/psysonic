@@ -258,7 +258,7 @@ export default function PlaylistHero({
                 )
               )}
               {actionPolicy.canPinOffline && isLayoutVisible('offlineCache') && songs.length > 0 && id
-                && (!isSmartPlaylist(playlist) || offlineStatus !== 'none') && (
+                && (controls.canPinNewOfflineCache || offlineStatus !== 'none') && (
                 <button
                   className={`btn btn-ghost${offlineStatus === 'cached' ? ' btn-danger' : ''}${offlineStatus === 'queued' ? ' offline-cache-btn--queued' : ''}`}
                   disabled={offlineStatus === 'downloading'}

@@ -67,10 +67,16 @@ export function applyNativePlaylistSmartMetadata(
   nativePlaylists: readonly Pick<NdSmartPlaylist, 'id' | 'rules'>[],
 ): SubsonicPlaylist[] {
   const nativeById = new Map(nativePlaylists.map(playlist => [playlist.id, playlist]));
-  return playlists.map(playlist => ({
-    ...playlist,
-    smart: hasNavidromeSmartRules(nativeById.get(playlist.id)?.rules),
-  }));
+  return playlists.map(playlist => {
+    const native = nativeById.get(playlist.id);
+    if (!native) return { ...playlist, smartMetadataUnavailable: true };
+    return {
+      ...playlist,
+      smart: hasNavidromeSmartRules(native.rules),
+      smartMetadataUnavailable: false,
+      smartRules: native.rules,
+    };
+  });
 }
 
 function shouldFetchNativePlaylistMetadata(serverId: string | undefined): boolean {
@@ -87,8 +93,7 @@ async function addNativePlaylistSmartMetadata(
   try {
     return applyNativePlaylistSmartMetadata(playlists, await ndListPlaylists(serverId));
   } catch {
-    // Classification remains unknown so callers can use the legacy name fallback.
-    return playlists;
+    return playlists.map(playlist => ({ ...playlist, smartMetadataUnavailable: true }));
   }
 }
 
