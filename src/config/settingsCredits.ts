@@ -455,6 +455,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Artist pages — an All Tracks tab listing everything an artist performs on, with pickable sortable columns (PR #1458)',
       'Psysonic Rewind — a year-in-review story and shareable posters in four layouts (PR #1485)',
       'Windows — updates install from inside the app, signed and verified like on macOS (PR #1487)',
+      'Servers that refuse browser-style requests can be added and browsed (PR #1511)',
     ],
   },
   {
