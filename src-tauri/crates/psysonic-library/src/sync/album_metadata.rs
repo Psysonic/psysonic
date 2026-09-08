@@ -8,12 +8,12 @@ use rusqlite::{params, OptionalExtension};
 use serde_json::Value;
 
 use super::error::SyncError;
-use super::mapping::{album_version_from_tags, parse_iso_ms_str};
+use super::mapping::{album_version_from_tags, parse_timestamp_ms_str};
 use crate::store::LibraryStore;
 
 fn album_starred_at_from_raw(raw_album: &Value) -> Option<Option<i64>> {
     let starred = raw_album.get("starred")?;
-    Some(starred.as_str().and_then(parse_iso_ms_str))
+    Some(starred.as_str().and_then(parse_timestamp_ms_str))
 }
 
 fn album_identity_version(raw_album: &Value) -> Option<String> {
