@@ -60,6 +60,9 @@ import { makeTrack, makeServer, seedQueue } from '@/test/helpers/factories';
 import { seedQueueResolver } from '@/features/playback/store/queueTrackResolver';
 import { onInvoke } from '@/test/mocks/tauri';
 import { fireEvent, waitFor } from '@testing-library/react';
+import { useSidebarStore } from '@/features/sidebar';
+import { useBurnSupportStore } from '@/features/burner';
+import { _resetBurnSupportForTest } from '@/features/burner/store/burnSupportStore';
 
 function setUpActiveServer(): ServerProfile {
   const server = makeServer();
@@ -303,5 +306,66 @@ describe('ContextMenu — Escape closes', () => {
 
     fireEvent.keyDown(menu, { key: 'Escape' });
     expect(usePlayerStore.getState().contextMenu.isOpen).toBe(false);
+  });
+});
+
+
+describe('ContextMenu — "Add to CD" gating', () => {
+  /** Turn the burner nav entry on; it ships hidden. */
+  function showBurnerInSidebar(): void {
+    const store = useSidebarStore.getState();
+    store.setItems(
+      store.items.map(item => (item.id === 'burner' ? { ...item, visible: true } : item)),
+    );
+  }
+
+  beforeEach(() => {
+    useSidebarStore.getState().reset();
+    _resetBurnSupportForTest();
+  });
+
+  it('stays hidden while the platform probe is still in flight', () => {
+    onInvoke('burn_is_supported', () => true);
+    showBurnerInSidebar();
+    openMenuFor('song', makeTrack({ id: 'tr-burn' }));
+
+    const { queryByText } = renderWithProviders(<ContextMenu />);
+
+    // First paint, before the probe resolves: claiming support optimistically
+    // would show the item and then take it away on a build without a backend.
+    expect(queryByText('Add to CD')).toBeNull();
+  });
+
+  it('appears once the backend answers and the nav entry is on', async () => {
+    onInvoke('burn_is_supported', () => true);
+    showBurnerInSidebar();
+    openMenuFor('song', makeTrack({ id: 'tr-burn' }));
+
+    const { findByText } = renderWithProviders(<ContextMenu />);
+
+    expect(await findByText('Add to CD')).toBeInTheDocument();
+  });
+
+  it('stays hidden on a build with no burn backend', async () => {
+    onInvoke('burn_is_supported', () => false);
+    showBurnerInSidebar();
+    openMenuFor('song', makeTrack({ id: 'tr-burn' }));
+
+    const { queryByText } = renderWithProviders(<ContextMenu />);
+    await waitFor(() => expect(useBurnSupportStore.getState().supported).toBe('no'));
+
+    expect(queryByText('Add to CD')).toBeNull();
+  });
+
+  it('stays hidden while the burner is hidden from the sidebar, which is the default', async () => {
+    onInvoke('burn_is_supported', () => true);
+    // Deliberately no showBurnerInSidebar(): a fresh install must not offer a
+    // menu item leading to a page with no way to reach it.
+    openMenuFor('song', makeTrack({ id: 'tr-burn' }));
+
+    const { queryByText } = renderWithProviders(<ContextMenu />);
+    await waitFor(() => expect(useBurnSupportStore.getState().supported).toBe('yes'));
+
+    expect(queryByText('Add to CD')).toBeNull();
   });
 });

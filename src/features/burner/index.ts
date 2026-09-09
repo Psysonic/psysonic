@@ -12,6 +12,8 @@ export {
   burnJobIsCommitted,
   useBurnJobStore,
 } from './store/burnJobStore';
+export { primeBurnSupport, useBurnSupportStore } from './store/burnSupportStore';
+export type { BurnSupport } from './store/burnSupportStore';
 export { useBurnJobEvents } from './hooks/useBurnJobEvents';
 export { MAX_TRACKS as BURN_MAX_TRACKS } from './utils/capacity';
 export {
