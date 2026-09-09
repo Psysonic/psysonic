@@ -84,6 +84,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The info tab in the right sidebar offers tour dates as an optional feature, but the prompt could not be turned down. It now has a close button that hides it for good, and a short message points to **Settings → Integrations** in case you want the feature later.
 
+### Artists remember the selected view
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1523](https://github.com/Psysonic/psysonic/pull/1523)**
+
+* Switching Artists between the grid and list now keeps that choice when you leave the page or restart Psysonic, instead of returning to the grid every time.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again
