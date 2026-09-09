@@ -143,6 +143,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Lyrics were kept locally for 90 days once fetched, and nothing refreshed them — editing them on the server, rescanning and even a full library sync all left the old version on screen. The lyrics pane now has a "Refresh lyrics" action below the text that discards the stored copy for that track and fetches it again.
 * Useful for switching a track to word-synced lyrics, fixing a typo, or picking up lyrics added after Psysonic already looked and found none.
 
+### Album pages stop rebuilding themselves while you read them
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1520](https://github.com/Psysonic/psysonic/pull/1520)**
+
+* An album page cleared itself and loaded again at irregular intervals, as if you had just opened it. Every completed library sync did this — including syncs of a different server than the album belongs to. The page now keeps what it shows and updates it quietly in the background.
+
 ## [1.52.0]
 
 ## Added
