@@ -98,10 +98,9 @@ export default function DiscRing({
   const { arcs, capacitySectors, totalSectors, remainingSectors, fits, redBook74Angle } = layout;
 
   const writtenPaths = useMemo(() => {
-    // `sectorsDone` carries a track counter during the preparation phases, so
-    // the fill must not read it until the laser is on. (It happens to be below
-    // the pregap and would light nothing today — but that is a coincidence of
-    // the numbers, not a guarantee.)
+    // Rendering reports real sectors now, so `sectorsDone` would light arcs
+    // for audio that exists only as a PCM file. The fill means "committed to
+    // the disc" and must not read it until the laser is on.
     const onDisc = phase === 'writing' || phase === 'closing';
     if (!busy || !onDisc || sectorsDone <= 0) return [];
     return arcs
@@ -129,6 +128,10 @@ export default function DiscRing({
       // that is exactly when they most want to know they can still stop.
       const onDisc = phase === 'writing' || phase === 'closing';
       const perTrack = phase === 'fetching' || phase === 'analyzing' || phase === 'rendering';
+      // Rendering measures itself in sectors, so it gets a percentage like the
+      // write phase does. Fetching and analysing only know which track they are
+      // on, and a percentage there would be invented.
+      const measured = onDisc || phase === 'rendering';
       const percent = layout.totalSectors > 0
         ? Math.min(100, Math.round((sectorsDone / Math.max(1, layout.totalSectors)) * 100))
         : 0;
@@ -136,10 +139,10 @@ export default function DiscRing({
 
       return {
         kicker: t(`burner.phase.${phase}`).toUpperCase(),
-        big: onDisc
+        big: measured
           ? `${percent}%`
-          // During preparation the meaningful number is which track, not a
-          // percentage of a disc nothing has been written to.
+          // Before anything is measurable the meaningful number is which
+          // track, not a percentage of work whose size is not known yet.
           : perTrack && trackIndex !== null && trackTotal > 0
             ? `${trackIndex + 1}/${trackTotal}`
             : '···',
