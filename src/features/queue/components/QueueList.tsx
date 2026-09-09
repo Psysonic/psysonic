@@ -1,6 +1,6 @@
 import React, { useEffect, useSyncExternalStore } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Play } from 'lucide-react';
+import { Heart, Play } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import OverlayScrollArea from '@/ui/OverlayScrollArea';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
@@ -26,6 +26,8 @@ import { playTimelineHistoryTrack } from '@/features/playback/utils/playTimeline
 import { OptionalQueueTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { useDragPressHandle } from '@/lib/dnd/useDragPress';
+import { queueSongStar } from '@/features/playback';
+import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 
 type StartDrag = (
   payload: { data: string; label: string },
@@ -67,6 +69,7 @@ export function QueueList({
 }: Props) {
   useSyncExternalStore(subscribeQueueResolver, getQueueResolverVersion);
   const showCovers = useTrackListCoverArtEnabled('queue');
+  const starredOverrides = usePlayerStore(s => s.starredOverrides);
   // Rows are virtualised, so one can be recycled out from under a held button.
   const dragPress = useDragPressHandle();
 
@@ -255,6 +258,26 @@ export function QueueList({
         <div className="queue-item-duration">
           {formatTrackTime(track.duration)}
         </div>
+        {(() => {
+          const starred = ownedOverrideValue(starredOverrides, track) ?? !!track.starred;
+          return (
+            <button
+              type="button"
+              className={`btn btn-ghost track-star-btn queue-item-star${starred ? ' is-starred' : ''}`}
+              aria-label={starred ? t('albumDetail.favoriteRemove') : t('albumDetail.favoriteAdd')}
+              data-tooltip={starred ? t('albumDetail.favoriteRemove') : t('albumDetail.favoriteAdd')}
+              // The row itself plays on click and arms a drag on mousedown —
+              // both have to stay out of the way of this button.
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => {
+                e.stopPropagation();
+                queueSongStar(track.id, !starred, track.serverId, { scopedOverride: true });
+              }}
+            >
+              <Heart size={13} fill={starred ? 'currentColor' : 'none'} />
+            </button>
+          );
+        })()}
       </div>
     );
   };

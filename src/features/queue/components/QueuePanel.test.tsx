@@ -26,6 +26,14 @@ vi.mock('@/lib/api/subsonic', () => ({
 }));
 
 
+const starMock = vi.hoisted(() => vi.fn(async () => undefined));
+const unstarMock = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock('@/lib/api/subsonicStarRating', () => ({
+  star: starMock,
+  unstar: unstarMock,
+  setRating: vi.fn(async () => undefined),
+}));
+
 vi.mock('@/features/orbit/utils/orbitBulkGuard', () => ({
   orbitBulkGuard: vi.fn(async () => true),
 }));
@@ -323,6 +331,49 @@ describe('QueuePanel — DnD architecture pin (§4.4 of v2 plan)', () => {
   });
 });
 
+describe('QueuePanel — row favourite toggle', () => {
+  // Same virtualizer layout shim as the blocks above: jsdom has no layout.
+  let offsetSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    offsetSpy = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('queue-list') ? 600 : 52;
+      });
+    useAuthStore.getState().setQueueDisplayMode('playlist');
+    starMock.mockClear();
+    unstarMock.mockClear();
+  });
+  afterEach(() => offsetSpy.mockRestore());
+
+  it('favourites a row without starting it', async () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    const row = container.querySelectorAll<HTMLElement>('[data-queue-idx]')[2];
+    const heart = row.querySelector<HTMLElement>('.queue-item-star')!;
+    act(() => { fireEvent.click(heart); });
+
+    await waitFor(() => expect(starMock).toHaveBeenCalledTimes(1));
+    // The row itself plays on click — the button has to keep that from firing.
+    expect(usePlayerStore.getState().queueIndex).toBe(0);
+  });
+
+  it('takes a favourite back off a row that already has one', async () => {
+    const tracks = makeTracks(2).map(track => ({ ...track, starred: '2026-01-01T00:00:00Z' }));
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    const row = container.querySelectorAll<HTMLElement>('[data-queue-idx]')[1];
+    const heart = row.querySelector<HTMLElement>('.queue-item-star')!;
+    expect(heart.className).toContain('is-starred');
+
+    act(() => { fireEvent.click(heart); });
+
+    await waitFor(() => expect(unstarMock).toHaveBeenCalledTimes(1));
+  });
+});
 afterEach(() => {
   usePlayerStore.getState().closeContextMenu();
 });
