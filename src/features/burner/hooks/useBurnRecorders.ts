@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { burnIsSupported, listRecorders, probeMedia } from '@/lib/api/burn';
+import { listRecorders, probeMedia } from '@/lib/api/burn';
 import type { BurnMediaInfo, BurnRecorder } from '@/lib/api/burn';
+import { primeBurnSupport, useBurnSupportStore } from '@/features/burner/store/burnSupportStore';
 
 export interface BurnRecordersState {
   supported: boolean;
@@ -21,7 +22,9 @@ export interface BurnRecordersState {
  * user queue a disc that cannot fit.
  */
 export function useBurnRecorders(): BurnRecordersState {
-  const [supported, setSupported] = useState(true);
+  // Platform support is shared with the context menu and answered once per
+  // process; this hook only waits for it.
+  const support = useBurnSupportStore(s => s.supported);
   const [recorders, setRecorders] = useState<BurnRecorder[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [media, setMedia] = useState<BurnMediaInfo | null>(null);
@@ -31,21 +34,26 @@ export function useBurnRecorders(): BurnRecordersState {
 
   const refresh = useCallback(() => setNonce(n => n + 1), []);
 
+  useEffect(() => {
+    primeBurnSupport();
+  }, []);
+
   // Drive list.
   useEffect(() => {
+    // Still probing: showing "no drives" now would be a guess.
+    if (support === 'unknown') return;
+    if (support === 'no') {
+      setRecorders([]);
+      setSelectedId('');
+      return;
+    }
+
     let cancelled = false;
 
     void (async () => {
       setLoading(true);
       setError(null);
       try {
-        const isSupported = await burnIsSupported();
-        if (cancelled) return;
-        setSupported(isSupported);
-        if (!isSupported) {
-          setRecorders([]);
-          return;
-        }
         const found = await listRecorders();
         if (cancelled) return;
         setRecorders(found);
@@ -62,7 +70,7 @@ export function useBurnRecorders(): BurnRecordersState {
     })();
 
     return () => { cancelled = true; };
-  }, [nonce]);
+  }, [support, nonce]);
 
   // Media in the selected drive.
   useEffect(() => {
@@ -85,7 +93,9 @@ export function useBurnRecorders(): BurnRecordersState {
   }, [selectedId, nonce]);
 
   return {
-    supported,
+    // "Not asked yet" must not render as unsupported — the page would flash a
+    // notice and take it back.
+    supported: support !== 'no',
     recorders,
     selectedId,
     media,

@@ -18,6 +18,7 @@ import type { ContextMenuItemsProps } from '@/features/contextMenu/components/co
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
 import { playTimelineFromHere } from '@/features/playback';
 import { addSongsToBurnList } from '@/features/burner';
+import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
 
 export default function SongContextItems(props: ContextMenuItemsProps) {
   const {
@@ -39,6 +40,7 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
   const networkIcon = networkPrimary?.icon ?? 'custom';
   const navigateToAlbum = useNavigateToAlbum();
   const navigateToArtist = useNavigateToArtist();
+  const burnAvailable = useBurnMenuAvailable(offlinePolicy);
 
   return (
     <>
@@ -106,7 +108,7 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   )}
                 </div>
               )}
-              {offlinePolicy.canAddToPlaylist && (
+              {burnAvailable && (
                 <div className="context-menu-item" onClick={() => handleAction(() => {
                   const serverId = resolveMediaServerId(song.serverId);
                   if (serverId) addSongsToBurnList([song], serverId);
@@ -274,7 +276,7 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   )}
                 </div>
               )}
-              {offlinePolicy.canAddToPlaylist && (
+              {burnAvailable && (
                 <div className="context-menu-item" onClick={() => handleAction(() => {
                   const serverId = resolveMediaServerId(song.serverId);
                   if (serverId) addSongsToBurnList([song], serverId);
