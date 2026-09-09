@@ -2,8 +2,9 @@
 
 **Status:** shipping on Windows, verified on hardware — audio, gapless
 Disc-At-Once, and **CD-TEXT confirmed by reading it back off a burned disc**.
-Linux and macOS are not implemented; see
-[`macimplementation.md`](./macimplementation.md) for the macOS plan.
+macOS is implemented but has never met a drive; see
+[`macimplementation.md`](./macimplementation.md) for what is verified and what
+is still waiting on hardware. Linux is not implemented.
 
 **Scope:** burn a Red Book audio CD-R from library tracks, with CD-TEXT readable
 by players that support it.
@@ -428,9 +429,15 @@ user to be in the `cdrom` group or have an appropriate udev rule — detect and
 explain rather than failing opaquely. Shelling out to `cdrdao` is a reasonable
 fallback since most distros package it.
 
-**macOS.** `DiscRecording.framework` supports CD-TEXT natively via
-`DRCDTextBlock` — the only platform where it is first-class. There are no Rust
-bindings, so this is hand-written `objc2`. Moderate effort, low risk.
+**macOS.** Implemented in `macos.rs` / `macos_ffi.rs`.
+`DiscRecording.framework` supports CD-TEXT natively via `DRCDTextBlock` — the
+only platform where it is first-class — so none of §7's MMC work applies. The
+bindings are hand-written, but against the framework's CoreFoundation-level
+`DRCore*` C API rather than `objc2`: plain `extern "C"`, no new dependencies,
+no `build.rs`. Tracks are fed by a `DRTrackCallbackProc` producer, which takes
+the sector-aligned PCM `render.rs` already writes, unchanged. Details and the
+open hardware questions are in
+[`macimplementation.md`](./macimplementation.md).
 
 **Do not bundle cdrtools/cdrecord.** It is CDDL; combining it with a GPLv3 tree
 is a real distribution problem and the reason Debian forked cdrkit. cdrdao is

@@ -16,7 +16,7 @@
 mod crc;
 mod encode;
 
-pub use encode::{encode_packs, CdTextError, PACK_BYTES};
+pub use encode::{encode_packs, to_latin1, CdTextError, PACK_BYTES};
 
 /// Does this 18-byte pack carry a correct CRC?
 ///
