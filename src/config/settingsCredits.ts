@@ -457,6 +457,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Windows — updates install from inside the app, signed and verified like on macOS (PR #1487)',
       'Servers that refuse browser-style requests can be added and browsed (PR #1511)',
       'Info tab — the tour dates prompt can be dismissed for good (PR #1513)',
+      'Rate a whole track selection at once, and favourite a track from the queue (PR #1522)',
     ],
   },
   {
