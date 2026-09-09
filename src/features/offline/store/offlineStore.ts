@@ -33,7 +33,7 @@ import {
 import { librarySqlServerId } from '@/lib/api/coverCache';
 import { resolveIndexKey, serverIndexKeyForProfile } from '@/lib/server/serverIndexKey';
 import { navidromeCanonicalBootstrapIsActive } from '@/lib/server/navidromeCanonicalCheckpointStatus';
-import { isSmartPlaylistName } from '@/lib/format/playlistDetailHelpers';
+import { isSmartPlaylist } from '@/lib/format/playlistClassification';
 import {
   enqueueOfflinePin,
   getOfflinePinCancellationEpoch,
@@ -634,7 +634,14 @@ interface OfflineState {
     serverId: string,
     type?: 'album' | 'playlist' | 'artist' | 'track',
   ) => Promise<void>;
-  downloadPlaylist: (playlistId: string, playlistName: string, coverArt: string | undefined, songs: SubsonicSong[], serverId: string) => Promise<void>;
+  downloadPlaylist: (
+    playlistId: string,
+    playlistName: string,
+    coverArt: string | undefined,
+    songs: SubsonicSong[],
+    serverId: string,
+    smart?: boolean,
+  ) => Promise<void>;
   downloadArtist: (artistId: string, artistName: string, serverId: string) => Promise<void>;
   deleteAlbum: (
     albumId: string,
@@ -729,8 +736,8 @@ export const useOfflineStore = create<OfflineState>()(
         });
       },
 
-      downloadPlaylist: async (playlistId, playlistName, coverArt, songs, serverId) => {
-        if (isSmartPlaylistName(playlistName)) return;
+      downloadPlaylist: async (playlistId, playlistName, coverArt, songs, serverId, smart) => {
+        if (isSmartPlaylist({ name: playlistName, smart })) return;
         const seen = new Set<string>();
         const unique = songs.filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
         await get().downloadAlbum(playlistId, playlistName, '', coverArt, undefined, unique, serverId, 'playlist');

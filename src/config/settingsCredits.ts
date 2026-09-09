@@ -554,6 +554,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.52.0',
     contributions: [
       'Configurable scrobble threshold and force-scrobble action (PR #1425)',
+      'Native Navidrome smart-playlist detection and rule editors (PR #1428)',
     ],
   },
   {

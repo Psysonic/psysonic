@@ -450,6 +450,13 @@ export const settings = {
   analyticsFailedTracksRescanSuccess: 'Повторное сканирование запланировано для {{count}} проблемных треков.',
   analyticsFailedTracksRescanError: 'Не удалось запустить повторное сканирование проблемных треков.',
   analyticsFailedTracksLoadError: 'Не удалось загрузить список проблемных треков.',
+  smartPlaylistCustomFieldsTitle: 'Пользовательские поля смарт-плейлистов',
+  smartPlaylistCustomFieldsDesc: 'Добавьте теги и роли конкретного сервера в список полей Расширенного режима. Встроенные поля Navidrome и стандартные теги из mappings.yaml уже включены. Требуется Navidrome 0.55+.',
+  smartPlaylistCustomFieldsList: 'Пользовательские поля',
+  smartPlaylistCustomFieldsEmpty: 'Пользовательские поля пока не добавлены.',
+  smartPlaylistCustomFieldsInvalid: 'Имя должно начинаться с буквы и не содержать пробелов (например, mood_energy). Зарезервированные имена, такие как sort и limit, использовать нельзя.',
+  smartPlaylistCustomFieldsDuplicate: 'Это поле уже есть в списке.',
+  smartPlaylistCustomFieldsRemove: 'Удалить {{name}}',
   randomMixTitle: 'Чёрный список случайного микса',
   luckyMixMenuTitle: 'Показывать «Мне повезёт» в меню',
   luckyMixMenuDesc:

@@ -67,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
       mediaDir: '',
       excludeAudiobooks: false,
       customGenreBlacklist: [],
+      smartPlaylistCustomFields: [],
       replayGainEnabled: false,
       normalizationEngine: 'off',
       loudnessTargetLufs: -12,

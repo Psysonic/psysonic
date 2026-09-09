@@ -16,7 +16,7 @@ import {
   syncPinnedArtistIfNeeded,
   syncPinnedPlaylistIfNeeded,
 } from '@/features/offline/utils/pinnedOfflineSync';
-import { SMART_PREFIX } from '@/lib/format/playlistDetailHelpers';
+import { LEGACY_SMART_PLAYLIST_PREFIX as SMART_PREFIX } from '@/lib/format/playlistClassification';
 import { cancelAllOfflinePins } from '@/features/offline/utils/offlinePinQueue';
 
 const getPlaylistMock = vi.fn();
@@ -118,6 +118,8 @@ describe('isManualOfflinePlaylist', () => {
 
   it('rejects smart playlist names', () => {
     expect(isManualOfflinePlaylist('pl-1', 'srv-a', `${SMART_PREFIX}Jazz`)).toBe(false);
+    expect(isManualOfflinePlaylist('pl-2', 'srv-a', 'Feishin mix', true)).toBe(false);
+    expect(isManualOfflinePlaylist('pl-3', 'srv-a', `${SMART_PREFIX}Regular`, false)).toBe(true);
   });
 
   it('allows regular playlist names', () => {

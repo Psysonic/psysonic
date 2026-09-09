@@ -10,7 +10,7 @@ import {
   type PinSource,
 } from '@/store/localPlaybackStore';
 import { useOfflineStore } from '@/features/offline/store/offlineStore';
-import { isSmartPlaylistName } from '@/lib/format/playlistDetailHelpers';
+import { isSmartPlaylist } from '@/lib/format/playlistClassification';
 import { getMediaDir } from '@/lib/media/mediaDir';
 import {
   isActiveServerReachable,
@@ -79,9 +79,14 @@ function resolvePlaylistName(playlistId: string, serverId: string): string | und
 }
 
 /** Smart playlists refresh from server rules — not eligible for manual offline cache/sync. */
-export function isManualOfflinePlaylist(playlistId: string, serverId: string, name?: string): boolean {
+export function isManualOfflinePlaylist(
+  playlistId: string,
+  serverId: string,
+  name?: string,
+  smart?: boolean,
+): boolean {
   const resolved = name ?? resolvePlaylistName(playlistId, serverId);
-  return !resolved || !isSmartPlaylistName(resolved);
+  return !resolved || !isSmartPlaylist({ name: resolved, smart });
 }
 
 /** True when a source was manually cached offline with the given pin kind. */
@@ -648,7 +653,7 @@ export async function syncAllPinnedPlaylists(
 
   for (const meta of Object.values(useOfflineStore.getState().albums)) {
     if (meta.type !== 'playlist') continue;
-    if (isSmartPlaylistName(meta.name)) continue;
+    if (isSmartPlaylist({ name: meta.name })) continue;
     const sid = resolveServerIdForIndexKey(meta.serverId) || meta.serverId;
     if (!metaMatchesServer(meta.serverId, serverId) && !metaMatchesServer(sid, serverId)) continue;
     const dedupe = `${sid}:${meta.id}`;
@@ -659,7 +664,7 @@ export async function syncAllPinnedPlaylists(
 
   for (const group of useLocalPlaybackStore.getState().listPinnedGroups()) {
     if (group.pinSource.kind !== 'playlist') continue;
-    if (isSmartPlaylistName(group.pinSource.displayName ?? '')) continue;
+    if (isSmartPlaylist({ name: group.pinSource.displayName ?? '' })) continue;
     const sid = resolveServerIdForIndexKey(group.serverIndexKey) || group.serverIndexKey;
     if (!metaMatchesServer(group.serverIndexKey, serverId) && !metaMatchesServer(sid, serverId)) continue;
     const dedupe = `${sid}:${group.pinSource.sourceId}`;

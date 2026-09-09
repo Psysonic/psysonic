@@ -1,5 +1,5 @@
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
-import { displayPlaylistName } from '@/features/playlist/utils/playlistsSmart';
+import { playlistDisplayName } from '@/lib/format/playlistClassification';
 
 /**
  * Ordering for the playlist *list* — the sidebar section and the Playlists page.
@@ -48,12 +48,9 @@ export function sortPlaylistList<T extends SortablePlaylist>(
   playlists: readonly T[],
   key: PlaylistListSortKey,
 ): T[] {
-  // Compare what the user reads, not what is stored. Smart playlists are kept
-  // under a `psy-smart-` prefix that every surface strips before rendering, so
-  // sorting the raw name would file "psy-smart-90s Rock" under P while the row
-  // shows "90s Rock".
+  // Compare what the user reads, not the legacy prefixed storage name.
   const byName = (a: T, b: T) =>
-    displayPlaylistName(a.name ?? '').localeCompare(displayPlaylistName(b.name ?? ''));
+    playlistDisplayName(a).localeCompare(playlistDisplayName(b));
   const sorted = [...playlists];
   switch (key) {
     case 'created':
