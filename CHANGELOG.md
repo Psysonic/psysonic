@@ -157,6 +157,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * An album page cleared itself and loaded again at irregular intervals, as if you had just opened it. Every completed library sync did this — including syncs of a different server than the album belongs to. The page now keeps what it shows and updates it quietly in the background.
 
+### The playlists header fits on one row again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1521](https://github.com/Psysonic/psysonic/pull/1521)**
+
+* Filtering playlists by owner took four buttons on a row of their own, and they looked exactly like the actions above them even though only one can be active. It is now a single dropdown next to the sort control, showing the bucket you are in.
+
 ## [1.52.0]
 
 ## Added
