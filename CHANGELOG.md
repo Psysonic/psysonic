@@ -84,6 +84,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The info tab in the right sidebar offers tour dates as an optional feature, but the prompt could not be turned down. It now has a close button that hides it for good, and a short message points to **Settings → Integrations** in case you want the feature later.
 
+### Rate several tracks at once
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1522](https://github.com/Psysonic/psysonic/pull/1522)**
+
+* Picking more than one track in an album, in Favourites or in a playlist now offers a star rating next to the selection count, and a right-click on the selection opens a menu for all of the picked tracks — play them, queue them, add them to a playlist, favourite them or rate them in one go.
+* The stars show a rating only when every selected track already carries the same one, so a click always means "give all of them this rating".
+
+### Favourite a track straight from the queue
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1522](https://github.com/Psysonic/psysonic/pull/1522)**
+
+* A track in the queue could only be favourited by leaving the queue or going through its context menu. Every row now ends in a heart you can click.
+* An unset heart stays visible as a faint outline, so the control is there when you look for it without cluttering a long queue.
+* **Settings → Personalisation → Queue settings** has a switch for it, on by default.
 ### Artists remember the selected view
 
 **By [@cucadmuh](https://github.com/cucadmuh), reported by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1523](https://github.com/Psysonic/psysonic/pull/1523)**
@@ -168,6 +182,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1521](https://github.com/Psysonic/psysonic/pull/1521)**
 
 * Filtering playlists by owner took four buttons on a row of their own, and they looked exactly like the actions above them even though only one can be active. It is now a single dropdown next to the sort control, showing the bucket you are in.
+
+### A rating set from a context menu no longer falls back
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1522](https://github.com/Psysonic/psysonic/pull/1522)**
+
+* Rating a track through its context menu showed the stars for a moment and then dropped them again, and only re-entering the page brought the rating back. The rating now stays where you set it, the same way a favourite already did.
 
 ## [1.52.0]
 

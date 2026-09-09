@@ -3,6 +3,7 @@ import { setRating } from '@/lib/api/subsonicStarRating';
 import { queueSongRating } from '@/features/playback/store/pendingStarSync';
 import type { SubsonicAlbum, SubsonicArtist } from '@/lib/api/subsonicTypes';
 import type { Track } from '@/lib/media/trackTypes';
+import { multiTrackRatingId, unifiedTrackRating } from '@/lib/media/trackRating';
 import { useAuthStore } from '@/store/authStore';
 import { showToast } from '@/lib/dom/toast';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
@@ -70,6 +71,11 @@ export function useContextMenuRating({
       const song = item as Track;
       if (song.id === id) return userRatingOverrides[ownedEntityKey(song)] ?? userRatingOverrides[id] ?? song.userRating ?? 0;
     }
+    if (kind === 'song' && type === 'multi-song') {
+      const songs = item as Track[];
+      if (id !== multiTrackRatingId(songs)) return userRatingOverrides[id] ?? 0;
+      return unifiedTrackRating(songs, userRatingOverrides);
+    }
     if (kind === 'album' && type === 'album') {
       const album = item as SubsonicAlbum;
       if (album.id === id) return userRatingOverrides[ownedEntityKey(album)] ?? userRatingOverrides[id] ?? album.userRating ?? 0;
@@ -100,6 +106,12 @@ export function useContextMenuRating({
   }, [type, item, userRatingOverrides]);
 
   const commitRatingByKind = useCallback((kind: RatingKind, id: string, rating: number) => {
+    if (kind === 'song' && type === 'multi-song') {
+      const songs = item as Track[];
+      if (id !== multiTrackRatingId(songs)) return;
+      for (const song of songs) applySongRating(song, rating);
+      return;
+    }
     if (kind === 'song') {
       const song = item as Track;
       applySongRating({ id, serverId: song.serverId }, rating);

@@ -173,6 +173,26 @@
   opacity: 0.8;
 }
 
+/* Favourite toggle at the end of a queue row. An unset heart stays visible as
+   an outline so the control is discoverable without hovering; hover, keyboard
+   focus and a set heart bring it to full strength. */
+.queue-item-star {
+  /* `.queue-item > *` drops pointer events for the drag machinery; this is the
+     one child that has to stay clickable. */
+  pointer-events: auto;
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+  padding: 2px;
+  opacity: 0.55;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+}
+
+.queue-item-star.is-starred,
+.queue-item:hover .queue-item-star,
+.queue-item-star:focus-visible {
+  opacity: 1;
+}
+
 .queue-item-attribution,
 .queue-current-attribution {
   font-size: 10px;

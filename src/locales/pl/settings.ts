@@ -745,6 +745,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Nowo dodane elementy "Odtwórz następne" są kolejkowane za wcześniej dodanymi zamiast wskakiwać na sam początek.',
   queueTrackListCovers: 'Okładki w kolejce',
   queueTrackListCoversSub: 'Miniatura albumu obok każdego utworu w panelu kolejki, kolejce mini odtwarzacza i sekcji „Następne” w trybie pełnoekranowym. Zalecane jest agresywne buforowanie.',
+  queueRowFavoriteButton: 'Przycisk ulubionych w kolejce',
+  queueRowFavoriteButtonSub: 'Pokazuje serce na końcu każdego wiersza kolejki, aby dodać utwór do ulubionych bez opuszczania kolejki.',
   trackListCoverArtOnPages: 'Okładki na listach utworów',
   trackListCoverArtOnPagesSub: 'Miniatura albumu obok utworów w Utworach, Szukaj, playlistach, ulubionych, losowym mikście i innych listach przeglądania. Zalecane jest agresywne buforowanie.',
   trackPreviewsTitle: 'Podglądy utworów',

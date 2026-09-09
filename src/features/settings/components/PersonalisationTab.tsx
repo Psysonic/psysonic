@@ -26,6 +26,8 @@ export function PersonalisationTab() {
   const setQueueDisplayMode = useAuthStore(s => s.setQueueDisplayMode);
   const preservePlayNextOrder = useAuthStore(s => s.preservePlayNextOrder);
   const setPreservePlayNextOrder = useAuthStore(s => s.setPreservePlayNextOrder);
+  const queueRowFavoriteButton = useAuthStore(s => s.queueRowFavoriteButton);
+  const setQueueRowFavoriteButton = useAuthStore(s => s.setQueueRowFavoriteButton);
   const advancedSettingsEnabled = useAuthStore(s => s.advancedSettingsEnabled);
 
   const queueModeOptions: SegmentedOption<QueueDisplayMode>[] = [
@@ -131,6 +133,12 @@ export function PersonalisationTab() {
               desc={t('settings.preservePlayNextOrderDesc')}
               checked={preservePlayNextOrder}
               onChange={setPreservePlayNextOrder}
+            />
+            <SettingsToggle
+              label={t('settings.queueRowFavoriteButton')}
+              desc={t('settings.queueRowFavoriteButtonSub')}
+              checked={queueRowFavoriteButton}
+              onChange={setQueueRowFavoriteButton}
             />
           </SettingsGroup>
 

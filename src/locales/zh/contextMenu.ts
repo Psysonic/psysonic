@@ -25,6 +25,7 @@ export const contextMenu = {
   addToPlaylist: '添加到播放列表',
   selectedPlaylists: '已选择 {{count}} 个播放列表',
   selectedAlbums: '已选择 {{count}} 个专辑',
+  selectedSongs: '已选择 {{count}} 首曲目',
   selectedArtists: '已选择 {{count}} 个艺术家',
   songInfo: '歌曲信息',
   shareLink: '复制分享链接',

@@ -26,6 +26,7 @@ export const contextMenu = {
   addToPlaylist: 'Legg til i spilleliste',
   selectedPlaylists: '{{count}} spillelister valgt',
   selectedAlbums: '{{count}} album valgt',
+  selectedSongs: '{{count}} spor valgt',
   selectedArtists: '{{count}} artister valgt',
   songInfo: 'Sanginfo',
   shareLink: 'Kopiér delingslenke',

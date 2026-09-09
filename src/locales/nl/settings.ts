@@ -658,6 +658,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Nieuwe "Volgende afspelen"-items komen achter bestaande te staan in plaats van ervoor.',
   queueTrackListCovers: 'Albumhoezen in de wachtrij',
   queueTrackListCoversSub: 'Klein albumhoesje naast elk nummer in het wachtrijpaneel, de wachtrij van de minispeler en "Hierna" in volledig scherm. Agressieve caching wordt aanbevolen.',
+  queueRowFavoriteButton: 'Favorietenknop in de wachtrij',
+  queueRowFavoriteButtonSub: 'Toon een hartje aan het eind van elke rij in de wachtrij, zodat een nummer als favoriet kan worden gemarkeerd zonder de wachtrij te verlaten.',
   trackListCoverArtOnPages: 'Albumhoezen in nummerlijsten',
   trackListCoverArtOnPagesSub: 'Klein albumhoesje naast nummers in Nummers, Zoeken, Playlists, Favorieten, willekeurige mix en andere bladerlijsten. Agressieve caching wordt aanbevolen.',
   trackPreviewsTitle: 'Track-voorvertoning',

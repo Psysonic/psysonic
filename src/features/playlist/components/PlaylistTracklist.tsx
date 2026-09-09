@@ -20,6 +20,8 @@ import { useOrbitSongRowBehavior } from '@/features/orbit';
 import { songToTrack } from '@/lib/media/songToTrack';
 import type { PlaylistSortKey, PlaylistSortDir } from '@/features/playlist/utils/playlistDisplayedSongs';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
+import { BulkTrackRating } from '@/features/playback';
+import { offlineActionPolicy, useOfflineBrowseContext } from '@/features/offline';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
@@ -120,6 +122,12 @@ export default function PlaylistTracklist({
   const trackListCoversOn = useTrackListCoverArtEnabled('pages');
   const { isDragging } = useDragDrop();
   const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { active: offlineBrowseActive } = useOfflineBrowseContext();
+  const policy = offlineActionPolicy('playlistDetail', offlineBrowseActive);
+  const selectedSongs = useMemo(
+    () => songs.filter(song => selectedIds.has(song.id)),
+    [songs, selectedIds],
+  );
 
   const latestVals = {
     selectedIds, orbitActive, displayedTracks, isFiltered, id, songs, serverId,
@@ -148,6 +156,15 @@ export default function PlaylistTracklist({
     context: (song, rIdx, e) => {
       e.preventDefault();
       const L = latest.current;
+      // A right-click inside a multi-row selection addresses the whole
+      // selection (same as the album/artist grids); one row keeps its own menu.
+      if (L.selectedIds.size > 1) {
+        const selected = L.songs.filter(s => L.selectedIds.has(s.id));
+        if (selected.length > 1) {
+          L.openContextMenu(e.clientX, e.clientY, selected.map(songToTrack), 'multi-song');
+          return;
+        }
+      }
       L.setContextMenuSongId(song.id);
       L.openContextMenu(
         e.clientX,
@@ -292,6 +309,13 @@ export default function PlaylistTracklist({
           <span className="bulk-action-count">
             {t('common.bulkSelected', { count: selectedIds.size })}
           </span>
+          {policy.canRate && (
+            <BulkTrackRating
+              tracks={selectedSongs}
+              ratings={ratings}
+              onRate={(song, rating) => handleRate(song.id, rating)}
+            />
+          )}
           <div className="bulk-pl-picker-wrap">
             <button
               className="btn btn-surface btn-sm"

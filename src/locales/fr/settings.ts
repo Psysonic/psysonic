@@ -658,6 +658,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Les nouveaux éléments « Lire ensuite » s\'ajoutent à la fin de la file existante au lieu de la doubler.',
   queueTrackListCovers: 'Pochettes dans la file d\'attente',
   queueTrackListCoversSub: 'Miniature d\'album à côté de chaque morceau dans le panneau de file d\'attente, la file du mini-lecteur et « À suivre » en plein écran. Le cache agressif est recommandé.',
+  queueRowFavoriteButton: 'Bouton favori dans la file d’attente',
+  queueRowFavoriteButtonSub: 'Affiche un cœur à la fin de chaque ligne de la file d’attente pour ajouter un morceau aux favoris sans la quitter.',
   trackListCoverArtOnPages: 'Pochettes dans les listes de morceaux',
   trackListCoverArtOnPagesSub: 'Miniature d\'album à côté des morceaux dans Titres, Recherche, Playlists, Favoris, Mix aléatoire et autres listes de navigation. Le cache agressif est recommandé.',
   trackPreviewsTitle: 'Aperçus de pistes',

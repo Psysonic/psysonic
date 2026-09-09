@@ -32,6 +32,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setQueueDurationDisplayMode'
   | 'setQueueDisplayMode'
   | 'setQueueTrackListCovers'
+  | 'setQueueRowFavoriteButton'
   | 'setSidebarLyricsStyle'
   | 'setShowFullscreenLyrics'
   | 'setFsLyricsStyle'
@@ -72,6 +73,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
     setQueueDurationDisplayMode: (v) => set({ queueDurationDisplayMode: v }),
     setQueueDisplayMode: (v) => set({ queueDisplayMode: v }),
     setQueueTrackListCovers: (v) => set({ queueTrackListCovers: v }),
+    setQueueRowFavoriteButton: (v) => set({ queueRowFavoriteButton: v }),
     setSidebarLyricsStyle: (v) => set({ sidebarLyricsStyle: v }),
     setShowFullscreenLyrics: (v) => set({ showFullscreenLyrics: v }),
     setFsLyricsStyle: (v) => set({ fsLyricsStyle: v }),
