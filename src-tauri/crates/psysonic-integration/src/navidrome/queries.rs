@@ -24,9 +24,7 @@ pub async fn nd_list_songs_internal(
     start: u32,
     end: u32,
 ) -> Result<serde_json::Value, String> {
-    let mut seed = serde_json::Map::new();
-    seed.insert("missing".to_string(), serde_json::Value::Bool(false));
-    let filters = nd_build_filters(seed, None);
+    let filters = nd_build_filters(nd_song_list_filter_seed(), None);
     let start_s = start.to_string();
     let end_s = end.to_string();
     let url = format!("{}/api/song", server_url);
@@ -93,6 +91,24 @@ pub async fn nd_list_songs(
 /// Build the `_filters` JSON for native-API list calls. Optionally narrows the
 /// query to a single library — `library_id` is the same scope key the Navidrome
 /// web UI sends, and it matches the Subsonic `musicFolderId` we store per server.
+/// Filter seed for `/api/song`: skip tracks whose files Navidrome can no longer
+/// find.
+///
+/// The value is a **string**, not a JSON boolean. Navidrome's react-admin filter
+/// layer parses these values as strings, and `{"missing":false}` makes it answer
+/// HTTP 500 (reproduced against 0.63.2). That 500 reached the initial-sync N1
+/// ingest as a failed first page, which it could not distinguish from the end of
+/// the library — so the sync stopped at offset 0, reported success, and left the
+/// library empty with nothing in the log to say why.
+fn nd_song_list_filter_seed() -> serde_json::Map<String, serde_json::Value> {
+    let mut seed = serde_json::Map::new();
+    seed.insert(
+        "missing".to_string(),
+        serde_json::Value::String("false".to_string()),
+    );
+    seed
+}
+
 fn nd_build_filters(seed: serde_json::Map<String, serde_json::Value>, library_id: Option<&str>) -> String {
     let mut obj = seed;
     if let Some(lib) = library_id {
@@ -359,6 +375,21 @@ mod tests {
     fn parse_json_object(s: &str) -> serde_json::Map<String, serde_json::Value> {
         let v: serde_json::Value = serde_json::from_str(s).expect("valid JSON");
         v.as_object().expect("object").clone()
+    }
+
+    #[test]
+    fn song_list_filter_sends_missing_as_a_string_not_a_boolean() {
+        // Navidrome answers HTTP 500 to `{"missing":false}`. The initial sync
+        // read that failure as an empty first page and stopped, leaving the
+        // library empty — so the JSON type here is load-bearing, not cosmetic.
+        let out = nd_build_filters(nd_song_list_filter_seed(), None);
+        let parsed = parse_json_object(&out);
+        let missing = parsed.get("missing").expect("missing filter present");
+        assert_eq!(missing.as_str(), Some("false"));
+        assert!(
+            missing.as_bool().is_none(),
+            "a JSON boolean here makes Navidrome return HTTP 500, got {missing}"
+        );
     }
 
     #[test]
