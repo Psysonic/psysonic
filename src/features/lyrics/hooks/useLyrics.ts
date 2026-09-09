@@ -1,6 +1,6 @@
 import { getLyricsBySongId } from '@/lib/api/subsonicLyrics';
 import type { Track } from '@/lib/media/trackTypes';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { commands } from '@/generated/bindings';
 import { fetchLyrics } from '@/features/lyrics/api/lrclib';
 import { parseEnhancedLrc, parseLrc } from '@/features/lyrics/utils/lrc';
@@ -8,7 +8,7 @@ import { fetchNeteaselyrics } from '@/features/lyrics/api/netease';
 import { useAuthStore } from '@/store/authStore';
 import { useOfflineStore } from '@/features/offline';
 import { useHotCacheStore } from '@/features/playback/store/hotCacheStore';
-import { getCachedLyrics, putCachedLyrics, lyricsCacheKey } from '@/features/lyrics/utils/lyricsPersistentCache';
+import { deleteCachedLyrics, getCachedLyrics, putCachedLyrics, lyricsCacheKey } from '@/features/lyrics/utils/lyricsPersistentCache';
 import { parseStructuredLyrics, parseStructuredWordLines } from '@/features/lyrics/utils/structuredLyrics';
 import { FEATURE_ENHANCED_LYRICS } from '@/lib/serverCapabilities/catalog';
 import { isFeatureActiveForServer } from '@/lib/serverCapabilities/storeView';
@@ -27,6 +27,12 @@ export interface UseLyricsResult {
   source: LyricsSource | null;
   loading: boolean;
   notFound: boolean;
+  /**
+   * Drops both cache levels for the current track and refetches. Lyrics edited
+   * server-side are otherwise served from L2 for its full TTL — no sync path
+   * invalidates it (issue #1506).
+   */
+  refresh: () => void;
 }
 
 export function useLyrics(currentTrack: Track | null): UseLyricsResult {
@@ -44,6 +50,17 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
   const [plainLyrics, setPlainLyrics] = useState<string | null>(cached?.plainLyrics ?? null);
   const [source, setSource]           = useState<LyricsSource | null>(cached?.source ?? null);
   const [notFound, setNotFound]       = useState(cached?.notFound ?? false);
+  // Bumped by `refresh()` to re-run the fetch effect for an unchanged track.
+  const [reloadNonce, setReloadNonce] = useState(0);
+
+  const refresh = useCallback(() => {
+    if (!cacheKey) return;
+    lyricsCache.delete(cacheKey);
+    setLoading(true);
+    // Bump only once L2 is actually gone, otherwise the effect can re-read the
+    // entry it is meant to replace.
+    void deleteCachedLyrics(cacheKey).finally(() => setReloadNonce(n => n + 1));
+  }, [cacheKey]);
 
   useEffect(() => {
     if (!currentTrack) return;
@@ -216,7 +233,7 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
     })();
 
     return () => { cancelled = true; };
-  }, [cacheKey, currentTrack?.id, lyricsSources, ownerServerId, ownerServerKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cacheKey, currentTrack?.id, lyricsSources, ownerServerId, ownerServerKey, reloadNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { syncedLines, wordLines, plainLyrics, source, loading, notFound };
+  return { syncedLines, wordLines, plainLyrics, source, loading, notFound, refresh };
 }
