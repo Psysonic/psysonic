@@ -136,6 +136,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Albums from servers whose album data carries no year showed no release year at all, even though the tracks had one. The year from the tracks is now kept instead of being overwritten with nothing.
 * The same servers often report dates in a different standard format, which was discarded on import. That left "recently added" and the New Releases page empty for them. Both formats are now understood. Albums already in your library pick their date up on the next full library sync.
 
+### Lyrics edited on the server can be reloaded
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1516](https://github.com/Psysonic/psysonic/pull/1516)**
+
+* Lyrics were kept locally for 90 days once fetched, and nothing refreshed them — editing them on the server, rescanning and even a full library sync all left the old version on screen. The lyrics pane now has a "Refresh lyrics" action below the text that discards the stored copy for that track and fetches it again.
+* Useful for switching a track to word-synced lyrics, fixing a typo, or picking up lyrics added after Psysonic already looked and found none.
+
 ## [1.52.0]
 
 ## Added
