@@ -4,9 +4,11 @@
 //! that arrives on `burn:progress` / `burn:complete`, the same shape the
 //! device-sync job uses.
 
+use std::collections::BTreeSet;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use tauri::{AppHandle, Manager};
 
@@ -14,7 +16,7 @@ use crate::fetch;
 use crate::job;
 use crate::model::{
     BurnMediaInfo, BurnOptions, BurnPhase, BurnPlan, BurnRecorder, BurnResult, BurnTrackInput,
-    CdTextVerification,
+    CdTextVerification, CD_SAMPLE_RATE, FRAMES_PER_SECTOR,
 };
 use crate::plan::plan_disc;
 use crate::platform;
@@ -27,6 +29,26 @@ use psysonic_core::server_http::ServerHttpRegistry;
 /// remaster is not buried, quiet enough that a modern master needs little
 /// gain reduction and keeps its headroom.
 const NORMALIZE_TARGET_LUFS: f64 = -14.0;
+
+/// Upper bound on parallel renders.
+///
+/// Not a CPU limit — decoding is happy on far more cores than this. It bounds
+/// peak disk instead: every worker can hold one fetched source at once, and
+/// `estimated_peak_bytes` has to promise that up front. Eight sources of slack
+/// is a fraction of the PCM the disc needs anyway, and eight-way decode already
+/// outruns any optical drive.
+const RENDER_MAX_WORKERS: usize = 8;
+
+/// How many tracks to render at once.
+fn render_workers(track_count: usize) -> usize {
+    if track_count <= 1 {
+        return 1;
+    }
+    let cores = std::thread::available_parallelism()
+        .map(std::num::NonZeroUsize::get)
+        .unwrap_or(1);
+    cores.clamp(1, RENDER_MAX_WORKERS).min(track_count)
+}
 
 // ── Read-only queries ────────────────────────────────────────────────────────
 
@@ -206,6 +228,80 @@ fn sanitize_job_id(job_id: &str) -> String {
     }
 }
 
+/// Fetch (if needed), measure and render one track.
+///
+/// Runs on a render worker, so everything it touches is either owned or behind
+/// `fetch_gate`. Returns the rendered track; the caller decides what a failure
+/// means for the rest of the disc.
+#[allow(clippy::too_many_arguments)] // A worker's whole world; bundling only moves the arity.
+fn prepare_track(
+    workdir: &std::path::Path,
+    track: &BurnTrackInput,
+    index: usize,
+    options: &BurnOptions,
+    http: Option<&reqwest::Client>,
+    registry: Option<&ServerHttpRegistry>,
+    fetch_gate: &Mutex<()>,
+    cancel: &Arc<AtomicBool>,
+    on_frames: &(dyn Fn(u64) + Sync),
+) -> Result<RenderedTrack, String> {
+    if cancel.load(Ordering::Relaxed) {
+        return Err("cancelled".to_string());
+    }
+
+    // -- Fetch, when the offline cache does not already have it -----------
+    let (source_path, fetched) = if fetch::has_local_source(track) {
+        (
+            PathBuf::from(track.source_path.clone().unwrap_or_default()),
+            false,
+        )
+    } else {
+        // One download at a time, whatever the worker count.
+        let _serialised = fetch_gate.lock().unwrap_or_else(|e| e.into_inner());
+        if cancel.load(Ordering::Relaxed) {
+            return Err("cancelled".to_string());
+        }
+        let client = http.ok_or_else(|| "internal error: fetch client missing".to_string())?;
+        let path = tauri::async_runtime::block_on(fetch::fetch_track(
+            track, index, workdir, client, registry, cancel,
+        ))?;
+        (path, true)
+    };
+
+    // -- Optional loudness measurement ------------------------------------
+    let mut gain = 1.0_f32;
+    if options.normalize {
+        if cancel.load(Ordering::Relaxed) {
+            if fetched {
+                let _ = std::fs::remove_file(&source_path);
+            }
+            return Err("cancelled".to_string());
+        }
+        // A track we cannot measure stays at unity rather than failing the
+        // whole disc.
+        if let Ok(loudness) = render::measure_loudness(&source_path, cancel) {
+            gain = render::normalization_gain(loudness.lufs, loudness.peak, NORMALIZE_TARGET_LUFS);
+        }
+    }
+
+    // -- Render to Red Book PCM -------------------------------------------
+    let dest = workdir.join(format!("{:02}.pcm", index + 1));
+    let result = render::render_track(&source_path, &dest, gain, cancel, on_frames);
+
+    // The source has served its purpose either way; a fetched copy is dead
+    // weight from here on, and holding them all would multiply peak disk.
+    if fetched {
+        let _ = std::fs::remove_file(&source_path);
+    }
+
+    let mut track_out =
+        result.map_err(|e| format!("“{}” could not be prepared: {e}", track.title))?;
+    track_out.isrc = track.isrc.clone();
+    track_out.title = track.title.clone();
+    track_out.artist = track.artist.clone();
+    Ok(track_out)
+}
+
 fn run_job(
     app: &AppHandle,
     job_id: &str,
@@ -214,12 +310,6 @@ fn run_job(
     options: &BurnOptions,
     cancel: &Arc<AtomicBool>,
 ) -> Result<JobOutcome, String> {
-    let total = tracks.len() as u32;
-
-    // ── Pre-flight: will this even fit on disk? ──────────────────────────
-    // Cheaper to refuse now than to fail after downloading 800 MB.
-    fetch::check_free_space(workdir, fetch::estimated_peak_bytes(&tracks))?;
-
     let plan = fetch::plan_fetch(&tracks);
     let http = if plan.is_empty() {
         None
@@ -232,101 +322,173 @@ fn run_job(
         .try_state::<Arc<ServerHttpRegistry>>()
         .map(|state| Arc::clone(&*state));
 
-    let mut rendered: Vec<RenderedTrack> = Vec::with_capacity(tracks.len());
-
-    // One pass per track: fetch → measure → render → drop the source.
+    // ── Prepare every track: fetch → measure → render ────────────────────
     //
-    // Doing it per track rather than in phase-wide sweeps keeps peak disk to a
-    // single source file plus the accumulating PCM. Normalisation gain is
-    // computed against a fixed target, not against the other tracks, so no
-    // track needs to know about any other and nothing forces a global pass.
-    for (index, track) in tracks.iter().enumerate() {
-        if cancel.load(Ordering::Relaxed) {
-            return Err("cancelled".to_string());
+    // Rendering runs on several threads at once. Each track is independent: it
+    // writes its own PCM file, and its normalisation gain is measured against a
+    // fixed target rather than against the other tracks, so nothing forces a
+    // global pass or an ordering. Decoding, resampling and dithering a full
+    // disc is minutes of CPU, and doing it one core at a time was by far the
+    // slowest part of a burn.
+    //
+    // Fetching stays serialised behind `fetch_gate`. It is network-bound, so
+    // parallel downloads would only make one server race itself, and one live
+    // source per worker is exactly what `estimated_peak_bytes` was told to
+    // reserve.
+
+    // Cheaper to refuse now than to fail after downloading 800 MB. The
+    // estimate depends on the worker count, so it waits until that is known.
+    let workers = render_workers(tracks.len());
+    fetch::check_free_space(workdir, fetch::estimated_peak_bytes(&tracks, workers))?;
+
+    // Duration-based estimate, only so the progress bar has a denominator. The
+    // rendered sector counts below are what actually decide the disc.
+    let frames_total: u64 = tracks
+        .iter()
+        .map(|track| {
+            let seconds = track.duration_sec.max(0.0);
+            (seconds * f64::from(CD_SAMPLE_RATE)).ceil() as u64
+        })
+        .sum();
+
+    let next_index = AtomicUsize::new(0);
+    let frames_done = AtomicU64::new(0);
+    let slots: Vec<Mutex<Option<RenderedTrack>>> =
+        (0..tracks.len()).map(|_| Mutex::new(None)).collect();
+    let failure: Mutex<Option<String>> = Mutex::new(None);
+    // Distinct from `cancel`, which means "the user pressed stop". A worker
+    // failure must not raise that flag: the outer job reports any error as a
+    // cancellation when it is set, which would silently swallow the real
+    // reason the disc failed.
+    let abort = AtomicBool::new(false);
+    let in_flight: Mutex<BTreeSet<usize>> = Mutex::new(BTreeSet::new());
+    let last_emit: Mutex<Instant> = Mutex::new(Instant::now());
+    let fetch_gate: Mutex<()> = Mutex::new(());
+
+    // The first failure wins and stops the rest; later ones are noise about a
+    // job that is already over.
+    let record_failure = |message: String| {
+        let mut slot = failure.lock().unwrap_or_else(|e| e.into_inner());
+        if slot.is_none() {
+            *slot = Some(message);
         }
+        // Stops workers claiming further tracks. Renders already in flight run
+        // to the end — they are bounded, and letting them finish costs less
+        // than threading a second cancel token through the decoder.
+        abort.store(true, Ordering::Relaxed);
+    };
 
-        // ── Fetch, when the offline cache does not already have it ───────
-        let (source_path, fetched) = if fetch::has_local_source(track) {
-            (
-                PathBuf::from(track.source_path.clone().unwrap_or_default()),
-                false,
-            )
-        } else {
-            job::emit_progress(
-                app,
-                job_id,
-                BurnPhase::Fetching,
-                Some(index),
-                index as u32,
-                total,
-                None,
-            );
-            let client = http
-                .as_ref()
-                .ok_or_else(|| "internal error: fetch client missing".to_string())?;
-            let path = tauri::async_runtime::block_on(fetch::fetch_track(
-                track,
-                index,
-                workdir,
-                client,
-                registry.as_deref(),
-                cancel,
-            ))?;
-            (path, true)
-        };
-
-        // ── Optional loudness measurement ────────────────────────────────
-        let mut gain = 1.0_f32;
-        if options.normalize {
-            if cancel.load(Ordering::Relaxed) {
-                return Err("cancelled".to_string());
+    // Sectors rendered so far against the estimate, throttled the same way the
+    // write phase is. `track_index` is the lowest track still in flight, so the
+    // hub names something that is genuinely being worked on and never goes
+    // backwards.
+    let emit_render_progress = |force: bool| {
+        {
+            let mut last = last_emit.lock().unwrap_or_else(|e| e.into_inner());
+            if !force && last.elapsed().as_millis() < job::PROGRESS_THROTTLE_MS {
+                return;
             }
-            job::emit_progress(
-                app,
-                job_id,
-                BurnPhase::Analyzing,
-                Some(index),
-                index as u32,
-                total,
-                None,
-            );
-            // A track we cannot measure stays at unity rather than failing the
-            // whole disc.
-            if let Ok(loudness) = render::measure_loudness(&source_path, cancel) {
-                gain = render::normalization_gain(
-                    loudness.lufs,
-                    loudness.peak,
-                    NORMALIZE_TARGET_LUFS,
-                );
-            }
+            *last = Instant::now();
         }
-
-        // ── Render to Red Book PCM ───────────────────────────────────────
+        let done = frames_done.load(Ordering::Relaxed) / FRAMES_PER_SECTOR as u64;
+        let est = frames_total / FRAMES_PER_SECTOR as u64;
+        let current = in_flight
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .iter()
+            .next()
+            .copied();
         job::emit_progress(
             app,
             job_id,
             BurnPhase::Rendering,
-            Some(index),
-            index as u32,
-            total,
+            current,
+            done.min(u32::MAX as u64) as u32,
+            est.min(u32::MAX as u64) as u32,
             None,
         );
+    };
 
-        let dest = workdir.join(format!("{:02}.pcm", index + 1));
-        let result = render::render_track(&source_path, &dest, gain, cancel);
+    std::thread::scope(|scope| {
+        for _ in 0..workers {
+            scope.spawn(|| loop {
+                let index = next_index.fetch_add(1, Ordering::Relaxed);
+                if index >= tracks.len()
+                    || cancel.load(Ordering::Relaxed)
+                    || abort.load(Ordering::Relaxed)
+                {
+                    return;
+                }
+                let track = &tracks[index];
 
-        // The source has served its purpose either way; a fetched copy is dead
-        // weight from here on, and holding them all would double peak disk.
-        if fetched {
-            let _ = std::fs::remove_file(&source_path);
+                in_flight
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .insert(index);
+
+                // Downloads are serialised but renders are not, so once any
+                // track is decoding, a worker queueing for the network must not
+                // flip the whole hub back to "Downloading". The opening fetches,
+                // when nothing is decoding yet, are the ones worth showing.
+                if !fetch::has_local_source(track) && frames_done.load(Ordering::Relaxed) == 0 {
+                    job::emit_progress(app, job_id, BurnPhase::Fetching, Some(index), 0, 0, None);
+                }
+
+                let outcome = prepare_track(
+                    workdir,
+                    track,
+                    index,
+                    options,
+                    http.as_ref(),
+                    registry.as_deref(),
+                    &fetch_gate,
+                    cancel,
+                    &|frames| {
+                        frames_done.fetch_add(frames, Ordering::Relaxed);
+                        emit_render_progress(false);
+                    },
+                );
+
+                in_flight
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(&index);
+
+                match outcome {
+                    Ok(rendered) => {
+                        *slots[index].lock().unwrap_or_else(|e| e.into_inner()) = Some(rendered);
+                        emit_render_progress(true);
+                    }
+                    Err(message) => {
+                        // A user cancel surfaces here as Err("cancelled") too.
+                        // It is recorded like any other stop reason; run_job
+                        // checks the cancel flag first and reports it as a
+                        // cancellation rather than a failure.
+                        record_failure(message);
+                        return;
+                    }
+                }
+            });
         }
+    });
 
-        let mut track_out =
-            result.map_err(|e| format!("“{}” could not be prepared: {e}", track.title))?;
-        track_out.isrc = track.isrc.clone();
-        track_out.title = track.title.clone();
-        track_out.artist = track.artist.clone();
-        rendered.push(track_out);
+    // Failure first: `record_failure` also raises the cancel flag to stop the
+    // other workers, so testing the flag first would report every genuine
+    // error as a user cancellation.
+    if let Some(message) = failure.into_inner().unwrap_or_else(|e| e.into_inner()) {
+        return Err(message);
+    }
+    if cancel.load(Ordering::Relaxed) {
+        return Err("cancelled".to_string());
+    }
+
+    let mut rendered: Vec<RenderedTrack> = Vec::with_capacity(tracks.len());
+    for (index, slot) in slots.into_iter().enumerate() {
+        let track = slot
+            .into_inner()
+            .unwrap_or_else(|e| e.into_inner())
+            .ok_or_else(|| format!("track {} was never rendered", index + 1))?;
+        rendered.push(track);
     }
 
     // ── Re-check capacity against what actually rendered ─────────────────
@@ -364,6 +526,25 @@ fn run_job(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_single_track_never_spins_up_a_pool() {
+        assert_eq!(render_workers(0), 1);
+        assert_eq!(render_workers(1), 1);
+    }
+
+    #[test]
+    fn workers_never_outnumber_the_tracks() {
+        // Two tracks cannot use eight workers, and each idle worker would have
+        // been counted against peak disk for a source it never fetches.
+        assert_eq!(render_workers(2), 2);
+    }
+
+    #[test]
+    fn workers_are_capped_however_many_cores_there_are() {
+        assert!(render_workers(64) <= RENDER_MAX_WORKERS);
+        assert!(render_workers(64) >= 1);
+    }
 
     #[test]
     fn job_ids_are_stripped_to_safe_path_segments() {

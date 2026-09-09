@@ -119,17 +119,26 @@ pub fn estimated_pcm_bytes(tracks: &[BurnTrackInput]) -> u64 {
 
 /// Peak disk a job needs in its workdir.
 ///
-/// Sources are deleted as soon as each track is rendered, so only the largest
-/// single source is ever live alongside the accumulating PCM — not the whole
-/// download set. Without that, a FLAC disc would need ~1.6 GB instead of ~900 MB.
-pub fn estimated_peak_bytes(tracks: &[BurnTrackInput]) -> u64 {
-    let largest_source = tracks
+/// Sources are deleted as soon as each track is rendered, so the whole download
+/// set is never live at once — without that, a FLAC disc would need ~1.6 GB
+/// instead of ~900 MB. `concurrent_sources` is how many renders run in
+/// parallel, and therefore how many sources can be on disk together; the
+/// largest that many are counted, because the scheduler is free to pick any of
+/// them at the same time.
+pub fn estimated_peak_bytes(tracks: &[BurnTrackInput], concurrent_sources: usize) -> u64 {
+    let mut sizes: Vec<u64> = tracks
         .iter()
         .filter(|track| !has_local_source(track))
         .map(estimated_size)
-        .max()
-        .unwrap_or(0);
-    estimated_pcm_bytes(tracks).saturating_add(largest_source)
+        .collect();
+    sizes.sort_unstable_by(|a, b| b.cmp(a));
+
+    let live_sources: u64 = sizes
+        .into_iter()
+        .take(concurrent_sources.max(1))
+        .fold(0, u64::saturating_add);
+
+    estimated_pcm_bytes(tracks).saturating_add(live_sources)
 }
 
 /// Free space check for the workdir's filesystem.
@@ -338,15 +347,33 @@ mod tests {
     }
 
     #[test]
-    fn peak_usage_counts_one_source_not_all_of_them() {
+    fn peak_usage_counts_the_live_sources_not_all_of_them() {
         // Sources are deleted as each track renders, so five 100 MB downloads
-        // still only need one of them live at a time.
+        // only need as many live at once as there are render workers.
         let tracks: Vec<_> = (0..5)
             .map(|i| track(&format!("t{i}"), None, Some(100 * 1024 * 1024)))
             .collect();
-        let peak = estimated_peak_bytes(&tracks);
         let pcm = estimated_pcm_bytes(&tracks);
-        assert_eq!(peak, pcm + 100 * 1024 * 1024);
+
+        assert_eq!(estimated_peak_bytes(&tracks, 1), pcm + 100 * 1024 * 1024);
+        assert_eq!(estimated_peak_bytes(&tracks, 3), pcm + 300 * 1024 * 1024);
+    }
+
+    #[test]
+    fn peak_usage_never_counts_more_sources_than_exist() {
+        let tracks: Vec<_> = (0..2)
+            .map(|i| track(&format!("t{i}"), None, Some(100 * 1024 * 1024)))
+            .collect();
+        let pcm = estimated_pcm_bytes(&tracks);
+        // Sixteen workers, two downloads: the estimate is bounded by reality.
+        assert_eq!(estimated_peak_bytes(&tracks, 16), pcm + 200 * 1024 * 1024);
+    }
+
+    #[test]
+    fn peak_usage_treats_zero_workers_as_one() {
+        let tracks = vec![track("t", None, Some(100 * 1024 * 1024))];
+        let pcm = estimated_pcm_bytes(&tracks);
+        assert_eq!(estimated_peak_bytes(&tracks, 0), pcm + 100 * 1024 * 1024);
     }
 
     #[test]

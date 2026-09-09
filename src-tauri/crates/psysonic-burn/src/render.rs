@@ -316,11 +316,18 @@ impl SectorWriter {
 ///
 /// `gain` is a linear multiplier applied before dithering — `1.0` for the
 /// untouched signal, or the shared disc gain when normalisation is on.
+///
+/// `on_frames` is called with the number of frames written since the previous
+/// call, often enough to drive a progress bar. Rendering a full disc takes
+/// minutes; without this the UI could only move once per track, which reads as
+/// a hang rather than as work. It is called from the rendering thread, so it
+/// must be cheap and must not block.
 pub fn render_track(
     source: &Path,
     dest: &Path,
     gain: f32,
     cancel: &AtomicBool,
+    on_frames: &(dyn Fn(u64) + Sync),
 ) -> Result<RenderedTrack, String> {
     let DecodeSession {
         mut format,
@@ -378,7 +385,12 @@ pub fn render_track(
             pending[1].push(r);
         }
 
+        let before = writer.frames;
         drain_pending(&mut pending, resampler.as_mut(), &mut writer, false)?;
+        let written = writer.frames - before;
+        if written > 0 {
+            on_frames(written);
+        }
 
         yields = yields.wrapping_add(1);
         if yields.is_multiple_of(64) {
@@ -391,7 +403,12 @@ pub fn render_track(
     }
 
     // Flush whatever is left, including the resampler's internal delay line.
+    let before = writer.frames;
     drain_pending(&mut pending, resampler.as_mut(), &mut writer, true)?;
+    let written = writer.frames - before;
+    if written > 0 {
+        on_frames(written);
+    }
 
     let sectors = writer.finish()?;
     if sectors == 0 {
