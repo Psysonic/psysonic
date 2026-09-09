@@ -548,6 +548,8 @@ const handleShuffleAll = () => {
           t={t}
           actionPolicy={albumActionPolicy}
           songs={songs}
+          ratings={ratings}
+          onRate={handleRate}
         />
       )}
 

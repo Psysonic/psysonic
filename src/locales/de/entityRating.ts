@@ -5,5 +5,6 @@ export const entityRating = {
   artistAriaLabel: 'Künstlerbewertung',
   selectedArtistsRatingAriaLabel: 'Sternebewertung für {{count}} ausgewählte Künstler',
   selectedAlbumsRatingAriaLabel: 'Sternebewertung für {{count}} ausgewählte Alben',
+  selectedSongsRatingAriaLabel: 'Sternebewertung für {{count}} ausgewählte Titel',
   saveFailed: 'Bewertung konnte nicht gespeichert werden.',
 };

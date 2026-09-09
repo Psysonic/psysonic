@@ -8,6 +8,7 @@ export { previewInputFromSong, usePreviewStore } from './store/previewStore';
 export { resolveTrackArtistRefs } from './utils/playback/trackArtistRefs';
 export { seedQueueResolver } from './store/queueTrackResolver';
 export { queueSongStar } from './store/pendingStarSync';
+export { BulkTrackRating } from './components/BulkTrackRating';
 export { getPlaybackProgressSnapshot, subscribePlaybackProgress } from './store/playbackProgress';
 export type { PlaybackProgressSnapshot } from './store/playbackProgress';
 export { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from './store/playbackProgressSmooth';

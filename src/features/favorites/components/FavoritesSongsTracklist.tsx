@@ -101,7 +101,18 @@ export default function FavoritesSongsTracklist({
     },
     context: (song, e) => {
       e.preventDefault();
-      latest.current.openContextMenu(e.clientX, e.clientY, songToTrack(song), 'favorite-song');
+      const L = latest.current;
+      // A right-click inside a multi-row selection addresses the whole
+      // selection (same as the album/artist grids); one row keeps its own menu.
+      const { selectedIds: selIds } = useSelectionStore.getState();
+      if (selIds.size > 1) {
+        const selected = L.visibleSongs.filter(s => selIds.has(ownedEntityKey(s)));
+        if (selected.length > 1) {
+          L.openContextMenu(e.clientX, e.clientY, selected.map(songToTrack), 'multi-song');
+          return;
+        }
+      }
+      L.openContextMenu(e.clientX, e.clientY, songToTrack(song), 'favorite-song');
     },
     mouseDownRow: (song, e) => {
       dragPress.arm(e, {

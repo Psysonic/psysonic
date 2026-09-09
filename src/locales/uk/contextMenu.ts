@@ -28,6 +28,7 @@ export const contextMenu = {
   addToPlaylist: 'Додати до плейліста',
   selectedPlaylists: 'Обрано {{count}} плейлістів',
   selectedAlbums: 'Обрано {{count}} альбомів',
+  selectedSongs: '{{count}} треків вибрано',
   selectedArtists: 'Обрано {{count}} виконавців',
   songInfo: 'Інформація про пісню',
   shareLink: 'Копіювати посилання на поширення',

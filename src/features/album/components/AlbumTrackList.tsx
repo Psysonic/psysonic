@@ -1,6 +1,6 @@
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import type { Track } from '@/lib/media/trackTypes';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import { TracklistColumnPicker } from '@/ui/TracklistColumnPicker';
 import { TracklistHeaderRow } from '@/features/album/components/TracklistHeaderRow';
 import { DiscHeaderCover } from '@/features/album/components/DiscHeaderCover';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
+import { songToTrack } from '@/lib/media/songToTrack';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 
 export type { SortKey } from '@/features/album/utils/albumTrackListHelpers';
@@ -71,6 +72,24 @@ export default function AlbumTrackList({
   const isMobile = useIsMobile();
   const [contextMenuSongKey, setContextMenuSongKey] = useState<string | null>(null);
   const contextMenuOpen = usePlayerStore(s => s.contextMenu.isOpen);
+  const openContextMenu = usePlayerStore(s => s.openContextMenu);
+
+  /**
+   * A right-click inside a multi-row selection addresses the whole selection,
+   * the same way the album and artist grids do. A single picked row keeps the
+   * regular per-track menu, which carries far more actions.
+   */
+  const handleRowContextMenu = useCallback<AlbumTrackListProps['onContextMenu']>((x, y, track, type) => {
+    const { selectedIds } = useSelectionStore.getState();
+    if (selectedIds.size > 1) {
+      const selected = songs.filter(song => selectedIds.has(ownedEntityKey(song)));
+      if (selected.length > 1) {
+        openContextMenu(x, y, selected.map(songToTrack), 'multi-song');
+        return;
+      }
+    }
+    onContextMenu(x, y, track, type);
+  }, [songs, onContextMenu, openContextMenu]);
 
   const {
     colVisible, visibleCols, gridStyle,
@@ -195,7 +214,7 @@ export default function AlbumTrackList({
                 onDoubleClickSong={onDoubleClickSong}
                 onRate={onRate}
                 onToggleSongStar={onToggleSongStar}
-                onContextMenu={onContextMenu}
+                onContextMenu={handleRowContextMenu}
                 onToggleSelect={onToggleSelect}
                 onDragStart={onDragStart}
                 setContextMenuSongKey={setContextMenuSongKey}
