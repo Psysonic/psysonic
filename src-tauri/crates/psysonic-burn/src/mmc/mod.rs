@@ -1,0 +1,165 @@
+//! MMC pieces the CD-TEXT write needs, kept pure and testable.
+//!
+//! IMAPI2 has no CD-TEXT support (see the feature README), so that path drives
+//! the recorder directly through `IDiscRecorder2Ex::SendCommand*`.
+//! Everything that can be decided without a drive — the cue sheet, the Write
+//! Parameters mode page, the command blocks — lives here so it can be checked
+//! against the specification rather than against a stack of coasters.
+//!
+//! References are to ANSI X3.304-1997 (SCSI-3 Multimedia Commands).
+
+pub mod cue;
+pub mod mode;
+
+/// Operation code for `WRITE(10)`.
+pub const OP_WRITE_10: u8 = 0x2A;
+
+/// Operation code for `SEND CUE SHEET`.
+pub const OP_SEND_CUE_SHEET: u8 = 0x5D;
+
+/// Build a `WRITE(10)` command block.
+///
+/// `lba` is signed because the lead-in lives at negative addresses: CD-TEXT is
+/// written from `-150 - lead_in_sectors` upwards, ahead of the pregap.
+pub fn write_10_cdb(lba: i32, blocks: u16) -> [u8; 10] {
+    let addr = lba as u32;
+    [
+        OP_WRITE_10,
+        0,
+        (addr >> 24) as u8,
+        (addr >> 16) as u8,
+        (addr >> 8) as u8,
+        addr as u8,
+        0,
+        (blocks >> 8) as u8,
+        blocks as u8,
+        0,
+    ]
+}
+
+/// Build a `SEND CUE SHEET` command block for a sheet of `len` bytes.
+pub fn send_cue_sheet_cdb(len: u32) -> [u8; 10] {
+    [
+        OP_SEND_CUE_SHEET,
+        0,
+        0,
+        0,
+        0,
+        0,
+        (len >> 16) as u8,
+        (len >> 8) as u8,
+        len as u8,
+        0,
+    ]
+}
+
+/// Operation code for `READ DISC INFORMATION`.
+pub const OP_READ_DISC_INFORMATION: u8 = 0x51;
+
+/// Build a `READ DISC INFORMATION` command block for `len` bytes.
+pub fn read_disc_information_cdb(len: u16) -> [u8; 10] {
+    [
+        OP_READ_DISC_INFORMATION,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        (len >> 8) as u8,
+        len as u8,
+        0,
+    ]
+}
+
+/// First LBA of the lead-in, given its length in sectors.
+///
+/// The pregap starts at −150 and the lead-in runs immediately before it, so a
+/// lead-in of `lead_in_sectors` begins there and ends at −150.
+pub fn lead_in_start_lba(lead_in_sectors: u32) -> i32 {
+    -150 - (lead_in_sectors as i32)
+}
+
+/// How long this disc's lead-in is, in sectors.
+///
+/// A blank CD-R reports its lead-in start from ATIP, normally around 97
+/// minutes; the lead-in then runs to 100:00:00, which is sector 450 000 — the
+/// point the address wraps to zero. A disc reporting something implausibly
+/// early gets the conventional one-minute fallback.
+pub fn lead_in_sectors(lead_in_start: u32) -> u32 {
+    /// 100:00:00 in sectors, where the lead-in ends.
+    const LEAD_IN_END: u32 = 100 * 60 * 75;
+    /// Below this the reported start is not credible.
+    const PLAUSIBLE_FROM: u32 = 80 * 60 * 75;
+    /// One minute, the conventional fallback.
+    const FALLBACK: u32 = 60 * 75;
+
+    if (PLAUSIBLE_FROM..LEAD_IN_END).contains(&lead_in_start) {
+        LEAD_IN_END - lead_in_start
+    } else {
+        FALLBACK
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn write_10_encodes_a_positive_address_big_endian() {
+        let cdb = write_10_cdb(0x0001_2345, 27);
+        assert_eq!(cdb[0], OP_WRITE_10);
+        assert_eq!(&cdb[2..6], &[0x00, 0x01, 0x23, 0x45]);
+        assert_eq!(&cdb[7..9], &[0x00, 27]);
+    }
+
+    #[test]
+    fn write_10_encodes_negative_lead_in_addresses_as_twos_complement() {
+        // −150 is FFFFFF6A; the drive reads the field as a signed LBA.
+        let cdb = write_10_cdb(-150, 1);
+        assert_eq!(&cdb[2..6], &[0xFF, 0xFF, 0xFF, 0x6A]);
+    }
+
+    #[test]
+    fn the_lead_in_runs_up_to_the_pregap() {
+        assert_eq!(lead_in_start_lba(0), -150);
+        assert_eq!(lead_in_start_lba(4500), -4650);
+        // Whatever its length, it ends exactly where the pregap begins.
+        for sectors in [1, 4500, 13_500] {
+            assert_eq!(lead_in_start_lba(sectors) + sectors as i32, -150);
+        }
+    }
+
+    #[test]
+    fn lead_in_length_runs_from_the_discs_atip_start_to_the_wrap_point() {
+        // A typical blank reports ~97:00:00; the lead-in runs to 100:00:00.
+        let start = 97 * 60 * 75;
+        assert_eq!(lead_in_sectors(start), 100 * 60 * 75 - start);
+        assert_eq!(lead_in_sectors(start), 13_500);
+    }
+
+    #[test]
+    fn an_implausible_lead_in_start_falls_back_to_one_minute() {
+        assert_eq!(lead_in_sectors(0), 4500);
+        assert_eq!(lead_in_sectors(1000), 4500);
+        // At or past the wrap point is nonsense too.
+        assert_eq!(lead_in_sectors(100 * 60 * 75), 4500);
+    }
+
+    #[test]
+    fn read_disc_information_asks_for_the_length_it_was_given() {
+        let cdb = read_disc_information_cdb(34);
+        assert_eq!(cdb[0], OP_READ_DISC_INFORMATION);
+        assert_eq!(&cdb[7..9], &[0x00, 34]);
+    }
+
+    #[test]
+    fn send_cue_sheet_encodes_a_24_bit_length() {
+        let cdb = send_cue_sheet_cdb(8 * 15);
+        assert_eq!(cdb[0], OP_SEND_CUE_SHEET);
+        assert_eq!(&cdb[6..9], &[0x00, 0x00, 120]);
+
+        let big = send_cue_sheet_cdb(0x01_02_03);
+        assert_eq!(&big[6..9], &[0x01, 0x02, 0x03]);
+    }
+}
