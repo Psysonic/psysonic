@@ -1,14 +1,17 @@
 //! `psysonic-burn` — audio CD authoring.
 //!
-//! Phase 1 of the burner: decode library tracks to Red Book PCM and write them
-//! to a CD-R in Disc-At-Once via Windows IMAPI2. Gapless, with ISRC and MCN.
+//! Decode library tracks to Red Book PCM and write them to a CD-R in
+//! Disc-At-Once. Gapless, with ISRC and MCN. Windows goes through IMAPI2;
+//! macOS through `DiscRecording.framework`.
 //!
 //! **CD-TEXT is written** when the user asks for it and the drive reports it
-//! can. IMAPI2 itself has no member for CD-TEXT, so that path drives the
-//! recorder directly through `IDiscRecorder2Ex::SendCommand*` in a
+//! can. IMAPI2 itself has no member for CD-TEXT, so on Windows that path
+//! drives the recorder directly through `IDiscRecorder2Ex::SendCommand*` in a
 //! Session-At-Once write, and reads the result back off the finished disc to
-//! confirm. Everything else burns through IMAPI2. The design and the reasoning
-//! live in `src/features/burner/README.md`.
+//! confirm. Everything else burns through IMAPI2. macOS needs none of that —
+//! `DiscRecording` writes the lead-in itself — but it reads the disc back the
+//! same way. The design and the reasoning live in
+//! `src/features/burner/README.md`.
 //!
 //! Layout:
 //! - `model`    — Red Book constants and the IPC DTOs
@@ -21,6 +24,7 @@
 //! - `job`      — cancel registry and the two Tauri events
 //! - `platform` — dispatch to the per-OS backend
 //! - `win`      — IMAPI2
+//! - `macos`    — DiscRecording.framework
 //! - `commands` — the Tauri surface
 //!
 //! `plan` and `render` hold the logic worth testing and carry no platform or
@@ -42,6 +46,11 @@ pub mod render;
 mod win;
 #[cfg(windows)]
 mod win_sao;
+
+#[cfg(target_os = "macos")]
+mod macos;
+#[cfg(target_os = "macos")]
+mod macos_ffi;
 
 pub use commands::{
     burn_cancel, burn_erase, burn_is_supported, burn_list_recorders, burn_plan, burn_probe_media,

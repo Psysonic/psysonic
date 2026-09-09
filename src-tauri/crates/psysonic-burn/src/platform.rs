@@ -2,8 +2,9 @@
 //!
 //! The commands compile everywhere so the frontend keeps one typed surface and
 //! the specta bindings stay platform-independent. Only the implementation is
-//! gated: Windows gets IMAPI2, everything else gets an honest refusal until
-//! the Linux (SG_IO) and macOS (DiscRecording) backends land.
+//! gated: Windows gets IMAPI2, macOS gets `DiscRecording.framework`, and
+//! everything else gets an honest refusal until the Linux (SG_IO) backend
+//! lands.
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -13,15 +14,15 @@ use tauri::AppHandle;
 use crate::model::{BurnMediaInfo, BurnOptions, BurnOutcome, BurnRecorder, CdTextVerification};
 use crate::render::RenderedTrack;
 
-/// Shown wherever a non-Windows user reaches the burner.
-#[cfg(not(windows))]
+/// Shown wherever a user without a backend reaches the burner.
+#[cfg(not(any(windows, target_os = "macos")))]
 pub const UNSUPPORTED: &str =
-    "CD burning is only available on Windows in this release. Linux and macOS support is planned.";
+    "CD burning is available on Windows and macOS in this release. Linux support is planned.";
 
 /// Is there a burn backend on this platform at all? The UI uses this to show
 /// an explanation instead of an empty drive list.
 pub fn is_supported() -> bool {
-    cfg!(windows)
+    cfg!(any(windows, target_os = "macos"))
 }
 
 pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
@@ -29,7 +30,11 @@ pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
     {
         crate::win::list_recorders()
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos::list_recorders()
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         // Not an error: an empty list plus `is_supported() == false` lets the
         // UI say why, rather than showing a failed-to-load toast.
@@ -42,7 +47,11 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
     {
         crate::win::probe_media(recorder_id)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos::probe_media(recorder_id)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = recorder_id;
         Err(UNSUPPORTED.to_string())
@@ -60,7 +69,11 @@ pub fn burn(
     {
         crate::win::burn(app, job_id, tracks, options, cancel)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos::burn(app, job_id, tracks, options, cancel)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (app, job_id, tracks, options, cancel);
         Err(UNSUPPORTED.to_string())
@@ -73,7 +86,11 @@ pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
     {
         crate::win::verify_cd_text(recorder_id)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos::verify_cd_text(recorder_id)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = recorder_id;
         Err(UNSUPPORTED.to_string())
@@ -85,7 +102,11 @@ pub fn erase(recorder_id: &str, quick: bool) -> Result<(), String> {
     {
         crate::win::erase(recorder_id, quick)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos::erase(recorder_id, quick)
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         let _ = (recorder_id, quick);
         Err(UNSUPPORTED.to_string())
