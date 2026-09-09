@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { onInvoke } from '@/test/mocks/tauri';
+import * as burnApi from '@/lib/api/burn';
 import {
   _resetBurnSupportForTest,
   primeBurnSupport,
@@ -43,6 +44,17 @@ describe('burnSupportStore', () => {
 
     expect(probe).toHaveBeenCalledTimes(1);
     expect(useBurnSupportStore.getState().supported).toBe('yes');
+  });
+
+  it('settles on "no" when the binding hands back nothing at all', async () => {
+    // A bare `vi.fn()` invoke — the shape a test gets when it renders a
+    // burner-aware component without installing the Tauri harness. Calling
+    // `.then` on the undefined it returns used to throw out of the effect.
+    const bare = vi.spyOn(burnApi, 'burnIsSupported').mockReturnValue(undefined as never);
+    primeBurnSupport();
+    await settle();
+    expect(useBurnSupportStore.getState().supported).toBe('no');
+    bare.mockRestore();
   });
 
   it('settles on "no" when there is no IPC host to answer', async () => {
