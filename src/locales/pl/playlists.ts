@@ -1,4 +1,7 @@
 export const playlists = {
+  sortDefaultServerOrder: 'ID',
+  editRules: 'Edytuj reguły',
+  smartReadOnlyEmpty: 'Ta inteligentna playlista nie zawiera pasujących utworów.',
   title: 'Playlisty',
   newPlaylist: 'Nowa playlista',
   unnamed: 'Nienazwana playlista',
@@ -28,6 +31,9 @@ export const playlists = {
   noSuggestions: 'Brak dostępnych propozycji.',
   titleBadge: 'Playlista',
   refreshSuggestions: 'Nowe propozycje',
+  refreshSmart: 'Odśwież inteligentną playlistę',
+  refreshSmartSuccess: 'Inteligentna playlista została odświeżona',
+  refreshSmartError: 'Nie udało się odświeżyć inteligentnej playlisty',
   addSong: 'Dodaj do playlisty',
   preview: 'Podejrzyj utwór (30s)',
   previewStop: 'Zatrzymaj podglądanie',
