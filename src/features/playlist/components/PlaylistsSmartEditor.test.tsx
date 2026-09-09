@@ -183,6 +183,24 @@ describe('PlaylistsSmartEditor', () => {
     expect(view.queryByRole('button', { name: 'Preview JSON' })).not.toBeInTheDocument();
   });
 
+  it('keeps the mode controls visible when Preview JSON collapses the editor', async () => {
+    const user = userEvent.setup();
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined);
+
+    try {
+      const view = renderWithProviders(<SmartEditorHarness editingSmartId={null} />);
+      const modeControls = view.getByRole('tablist', { name: 'Smart playlist editor modes' });
+
+      await user.click(view.getByRole('button', { name: 'Preview JSON' }));
+
+      expect(view.getByRole('tab', { name: 'JSON' })).toHaveAttribute('aria-selected', 'true');
+      expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start' });
+      expect(scrollIntoView.mock.instances[0]).toBe(modeControls);
+    } finally {
+      scrollIntoView.mockRestore();
+    }
+  });
+
   it('does not switch nested rules into Basic', async () => {
     const user = userEvent.setup();
     const view = renderWithProviders(

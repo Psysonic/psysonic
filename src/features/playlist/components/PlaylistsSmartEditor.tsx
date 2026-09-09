@@ -1,4 +1,4 @@
-import React, { useId, useMemo, useState } from 'react';
+import React, { useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -86,6 +86,8 @@ export default function PlaylistsSmartEditor({
   const [previewTracks, setPreviewTracks] = useState<PreviewTrack[] | null>(null);
   const [previewBusy, setPreviewBusy] = useState(false);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const modeToggleRef = useRef<HTMLDivElement>(null);
+  const repositionModeToggleRef = useRef(false);
   const jsonDraftState = useMemo(() => {
     if (session.mode !== 'json') return { document: session.document, error: null };
     try {
@@ -130,6 +132,12 @@ export default function PlaylistsSmartEditor({
       return next;
     });
   };
+
+  useLayoutEffect(() => {
+    if (!repositionModeToggleRef.current) return;
+    repositionModeToggleRef.current = false;
+    modeToggleRef.current?.scrollIntoView({ block: 'start' });
+  }, [session.mode]);
 
   const closeEditor = () => {
     onCancel();
@@ -197,7 +205,7 @@ export default function PlaylistsSmartEditor({
               : t('smartPlaylists.neverEvaluated')}
           </span>
         </div>
-        <div role="tablist" aria-label={t('smartPlaylists.editorModes')} className="smart-playlist-mode-toggle" style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }} onKeyDown={onModeKeyDown}>
+        <div ref={modeToggleRef} role="tablist" aria-label={t('smartPlaylists.editorModes')} className="smart-playlist-mode-toggle" style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }} onKeyDown={onModeKeyDown}>
           <button id={`${editorId}-tab-basic`} data-smart-playlist-mode="basic" type="button" role="tab" aria-selected={session.mode === 'basic'} aria-controls={`${editorId}-panel-basic`} tabIndex={session.mode === 'basic' ? 0 : -1} className={`btn ${session.mode === 'basic' ? 'btn-primary' : 'btn-surface'}`} onClick={() => setMode('basic')}>
             {t('smartPlaylists.modeBasic')}
           </button>
@@ -292,7 +300,14 @@ export default function PlaylistsSmartEditor({
             {t('smartPlaylists.clear')}
           </button>
           {session.mode !== 'json' && (
-            <button type="button" className="btn btn-surface" onClick={() => setMode('json')}>
+            <button
+              type="button"
+              className="btn btn-surface"
+              onClick={() => {
+                repositionModeToggleRef.current = true;
+                setMode('json');
+              }}
+            >
               {t('smartPlaylists.previewJson')}
             </button>
           )}
