@@ -360,6 +360,17 @@ describe('QueuePanel — row favourite toggle', () => {
     expect(usePlayerStore.getState().queueIndex).toBe(0);
   });
 
+  it('shows the hearts by default and hides them when the setting is off', () => {
+    const tracks = makeTracks(2);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const first = renderWithProviders(<QueuePanel />);
+    expect(first.container.querySelectorAll('.queue-item-star').length).toBe(2);
+    first.unmount();
+
+    act(() => { useAuthStore.setState({ queueRowFavoriteButton: false }); });
+    const second = renderWithProviders(<QueuePanel />);
+    expect(second.container.querySelectorAll('.queue-item-star').length).toBe(0);
+  });
   it('takes a favourite back off a row that already has one', async () => {
     const tracks = makeTracks(2).map(track => ({ ...track, starred: '2026-01-01T00:00:00Z' }));
     seedQueue(tracks, { index: 0, currentTrack: tracks[0] });

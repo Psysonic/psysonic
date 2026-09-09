@@ -657,6 +657,8 @@ export const settings = {
   preservePlayNextOrderDesc: '新添加的"下一首播放"项目排在现有项目之后，而不是插到前面。',
   queueTrackListCovers: '队列中显示专辑封面',
   queueTrackListCoversSub: '在队列面板、迷你播放器队列和全屏“即将播放”中，于每首曲目旁显示小号专辑封面。建议启用积极缓存。',
+  queueRowFavoriteButton: '队列中显示收藏按钮',
+  queueRowFavoriteButtonSub: '在队列每行末尾显示一个心形按钮，无需离开队列即可收藏曲目。',
   trackListCoverArtOnPages: '曲目列表中显示专辑封面',
   trackListCoverArtOnPagesSub: '在曲目、搜索、播放列表、收藏夹、随机混音及其他浏览列表中，于曲目旁显示小号专辑封面。建议启用积极缓存。',
   trackPreviewsTitle: '曲目预览',

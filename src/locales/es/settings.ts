@@ -677,6 +677,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Los elementos añadidos a "Reproducir Siguiente" se encolan detrás de los anteriores en vez de saltar al principio.',
   queueTrackListCovers: 'Carátulas en la cola',
   queueTrackListCoversSub: 'Miniatura del álbum junto a cada canción en el panel de la cola, la cola del minirreproductor y «A continuación» en pantalla completa. Se recomienda la caché agresiva.',
+  queueRowFavoriteButton: 'Botón de favoritos en la cola',
+  queueRowFavoriteButtonSub: 'Muestra un corazón al final de cada fila de la cola para marcar una canción como favorita sin salir de ella.',
   trackListCoverArtOnPages: 'Carátulas en las listas de canciones',
   trackListCoverArtOnPagesSub: 'Miniatura del álbum junto a las canciones en Canciones, Buscar, listas de reproducción, favoritos, Mezcla Aleatoria y otras listas de exploración. Se recomienda la caché agresiva.',
   trackPreviewsTitle: 'Previsualizaciones de pistas',

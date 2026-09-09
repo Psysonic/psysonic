@@ -745,6 +745,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Newly added Play Next items queue up behind earlier ones instead of jumping in front.',
   queueTrackListCovers: 'Album art in queue',
   queueTrackListCoversSub: 'Show a small album cover beside each track in the queue panel, mini player queue, and fullscreen Up next. Aggressive caching is recommended.',
+  queueRowFavoriteButton: 'Favorite button in queue',
+  queueRowFavoriteButtonSub: 'Show a heart at the end of each queue row, so a track can be favorited without leaving the queue.',
   trackListCoverArtOnPages: 'Album art in track lists',
   trackListCoverArtOnPagesSub: 'Show a small album cover beside tracks on Tracks, Search, Playlists, Favorites, Random Mix, and other browse lists. Aggressive caching is recommended.',
   trackPreviewsTitle: 'Track Previews',

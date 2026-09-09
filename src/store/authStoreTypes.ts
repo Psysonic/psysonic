@@ -310,6 +310,8 @@ export interface AuthState {
   queueDisplayMode: QueueDisplayMode;
   /** Mini album thumbs beside each row in the queue panel, mini queue, and fs Up next. */
   queueTrackListCovers: boolean;
+  /** Favourite toggle at the end of each queue row. */
+  queueRowFavoriteButton: boolean;
 
   /** Alpha: native hi-res sample rate output (disabled = safe 44.1 kHz mode) */
   enableHiRes: boolean;
@@ -528,6 +530,7 @@ export interface AuthState {
   setQueueDurationDisplayMode: (v: DurationMode) => void;
   setQueueDisplayMode: (v: QueueDisplayMode) => void;
   setQueueTrackListCovers: (v: boolean) => void;
+  setQueueRowFavoriteButton: (v: boolean) => void;
   setEnableHiRes: (v: boolean) => void;
   setHiResCrossfadeResampleHz: (v: HiResCrossfadeResampleHz) => void;
   setAudioOutputDevice: (v: string | null) => void;

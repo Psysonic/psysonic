@@ -657,6 +657,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Nye "Spill neste"-elementer havner bak de eksisterende i stedet for å snike seg foran.',
   queueTrackListCovers: 'Albumomslag i køen',
   queueTrackListCoversSub: 'Lite albumomslag ved siden av hvert spor i køpanelet, minispiller-køen og «Neste» i fullskjerm. Aggressiv hurtigbufring anbefales.',
+  queueRowFavoriteButton: 'Favorittknapp i køen',
+  queueRowFavoriteButtonSub: 'Vis et hjerte på slutten av hver rad i køen, så et spor kan favoriseres uten å forlate køen.',
   trackListCoverArtOnPages: 'Albumomslag i sporlister',
   trackListCoverArtOnPagesSub: 'Litet albumomslag ved siden av spor i Spor, Søk, spillelister, favoritter, tilfeldig miks og andre blafringslister. Aggressiv hurtigbufring anbefales.',
   trackPreviewsTitle: 'Sporforhåndsvisning',

@@ -680,6 +680,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Elementele Redă Următoarea noi adăugate sunt puse după cele adăugate mai devreme în loc să sară în față.',
   queueTrackListCovers: 'Coperți în coadă',
   queueTrackListCoversSub: 'Miniatură album lângă fiecare piesă în panoul cozii, coada mini-playerului și „Urmează” pe ecran complet. Se recomandă cache-ul agresiv.',
+  queueRowFavoriteButton: 'Buton de favorite în coadă',
+  queueRowFavoriteButtonSub: 'Afișează o inimă la sfârșitul fiecărui rând din coadă, pentru a marca o piesă ca favorită fără a părăsi coada.',
   trackListCoverArtOnPages: 'Coperți în listele de piese',
   trackListCoverArtOnPagesSub: 'Miniatură album lângă piese în Piese, Caută, playlisturi, favorite, Mix Aleatoriu și alte liste de navigare. Se recomandă cache-ul agresiv.',
   trackPreviewsTitle: 'Previzualizări Piese',

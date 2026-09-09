@@ -8,6 +8,7 @@ import { useLuckyMixStore } from '@/features/randomMix';
 import type { QueueItemRef } from '@/lib/media/trackTypes';
 import type { PlayerState } from '@/features/playback/store/playerStoreTypes';
 import type { QueueDisplayMode } from '@/store/authStoreTypes';
+import { useAuthStore } from '@/store/authStore';
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
 import {
@@ -69,6 +70,7 @@ export function QueueList({
 }: Props) {
   useSyncExternalStore(subscribeQueueResolver, getQueueResolverVersion);
   const showCovers = useTrackListCoverArtEnabled('queue');
+  const showFavoriteButton = useAuthStore(s => s.queueRowFavoriteButton);
   const starredOverrides = usePlayerStore(s => s.starredOverrides);
   // Rows are virtualised, so one can be recycled out from under a held button.
   const dragPress = useDragPressHandle();
@@ -258,7 +260,7 @@ export function QueueList({
         <div className="queue-item-duration">
           {formatTrackTime(track.duration)}
         </div>
-        {(() => {
+        {showFavoriteButton && (() => {
           const starred = ownedOverrideValue(starredOverrides, track) ?? !!track.starred;
           return (
             <button

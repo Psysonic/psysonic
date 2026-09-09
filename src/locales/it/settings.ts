@@ -745,6 +745,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'I nuovi elementi aggiunti con Riproduci dopo si accodano dietro quelli precedenti invece di passare avanti.',
   queueTrackListCovers: 'Copertine nella coda',
   queueTrackListCoversSub: 'Miniatura dell\'album accanto a ogni brano nel pannello della coda, nella coda del mini player e in "A seguire" a schermo intero. Si consiglia la cache aggressiva.',
+  queueRowFavoriteButton: 'Pulsante preferiti nella coda',
+  queueRowFavoriteButtonSub: 'Mostra un cuore alla fine di ogni riga della coda per aggiungere un brano ai preferiti senza uscire dalla coda.',
   trackListCoverArtOnPages: 'Copertine nelle liste dei brani',
   trackListCoverArtOnPagesSub: 'Miniatura dell\'album accanto ai brani in Brani, Cerca, playlist, preferiti, Mix casuale e altre liste di navigazione. Si consiglia la cache aggressiva.',
   trackPreviewsTitle: 'Anteprime brani',

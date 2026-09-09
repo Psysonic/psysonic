@@ -678,6 +678,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Neu hinzugefügte „Als Nächstes"-Titel reihen sich hinten an statt sich vorn einzuschieben.',
   queueTrackListCovers: 'Albumcover in der Warteschlange',
   queueTrackListCoversSub: 'Kleines Albumcover neben jedem Titel im Warteschlangen-Panel, in der Mini-Player-Warteschlange und in „Als Nächstes“ im Vollbild. Aggressives Caching wird empfohlen.',
+  queueRowFavoriteButton: 'Favoriten-Knopf in der Warteschlange',
+  queueRowFavoriteButtonSub: 'Zeigt am Ende jeder Zeile ein Herz, mit dem sich ein Titel direkt in der Warteschlange zu den Favoriten hinzufügen lässt.',
   trackListCoverArtOnPages: 'Albumcover in Tracklisten',
   trackListCoverArtOnPagesSub: 'Kleines Albumcover neben jedem Titel auf der Titel-Seite, in der Suche, in Playlists, Favoriten, im Zufallsmix und anderen Übersichtslisten. Aggressives Caching wird empfohlen.',
   trackPreviewsTitle: 'Track-Vorschau',

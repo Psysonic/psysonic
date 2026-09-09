@@ -739,6 +739,8 @@ export const settings = {
   preservePlayNextOrderDesc: '新しく追加された "次に再生" 項目を、先に追加されたものの前へ割り込ませず後ろに並べます。',
   queueTrackListCovers: 'キューにアルバムアートを表示',
   queueTrackListCoversSub: 'キューパネル、ミニプレイヤーのキュー、フルスクリーンの「次に再生」で各トラックの横に小さなアルバムカバーを表示します。アグレッシブキャッシュを有効にすることをおすすめします。',
+  queueRowFavoriteButton: 'キューにお気に入りボタンを表示',
+  queueRowFavoriteButtonSub: 'キューの各行の末尾にハートを表示し、キューを離れずにトラックをお気に入りに追加できるようにします。',
   trackListCoverArtOnPages: 'トラックリストにアルバムアートを表示',
   trackListCoverArtOnPagesSub: 'トラック、検索、プレイリスト、お気に入り、ランダムミックスなどの閲覧リストで、各トラックの横に小さなアルバムカバーを表示します。アグレッシブキャッシュを有効にすることをおすすめします。',
   trackPreviewsTitle: 'トラックプレビュー',

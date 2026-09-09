@@ -745,6 +745,8 @@ export const settings = {
   preservePlayNextOrderDesc: 'Az újonnan hozzáadott „Játszás következőként" elemek a korábbiak mögé sorakoznak fel, ahelyett, hogy eléjük ugranának.',
   queueTrackListCovers: 'Albumborítók a lejátszási sorban',
   queueTrackListCoversSub: 'Kis albumborító minden szám mellett a lejátszási sor paneljén, a minilejátszó sorában és a teljes képernyős „Következik” listában. Az agresszív gyorsítótárazás ajánlott.',
+  queueRowFavoriteButton: 'Kedvenc gomb a lejátszási sorban',
+  queueRowFavoriteButtonSub: 'Szív ikon minden sor végén a lejátszási sorban, hogy a szám a sor elhagyása nélkül kedvencnek jelölhető legyen.',
   trackListCoverArtOnPages: 'Albumborítók a számlistákban',
   trackListCoverArtOnPagesSub: 'Kis albumborító a számok mellett a Számok, Keresés, lejátszási listák, kedvencek, véletlen mix és egyéb böngészési listákban. Az agresszív gyorsítótárazás ajánlott.',
   trackPreviewsTitle: 'Számelőnézetek',
