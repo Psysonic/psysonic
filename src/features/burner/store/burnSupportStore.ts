@@ -36,12 +36,16 @@ let asked = false;
 export function primeBurnSupport(): void {
   if (asked) return;
   asked = true;
-  void burnIsSupported()
+  // Started from `Promise.resolve` because the binding does not always hand
+  // back a promise: with no IPC host — a browser dev server, or a test that
+  // never installed the Tauri mock — it can return nothing, and `.then` on
+  // that throws synchronously, straight out of the effect that called this.
+  // Routing every outcome through one chain puts a missing host, a sync throw
+  // and a rejection on the same path.
+  void Promise.resolve()
+    .then(() => burnIsSupported())
     .then(ok => useBurnSupportStore.getState().setSupported(ok ? 'yes' : 'no'))
     .catch(() => {
-      // No IPC host: a browser dev server, or a test that never mocked the
-      // command. Settle on "no backend" rather than leaving every caller
-      // waiting on an answer that is not coming.
       useBurnSupportStore.getState().setSupported('no');
     });
 }
