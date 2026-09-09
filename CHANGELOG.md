@@ -98,6 +98,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A track in the queue could only be favourited by leaving the queue or going through its context menu. Every row now ends in a heart you can click.
 * An unset heart stays visible as a faint outline, so the control is there when you look for it without cluttering a long queue.
 * **Settings → Personalisation → Queue settings** has a switch for it, on by default.
+### Artists remember the selected view
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1523](https://github.com/Psysonic/psysonic/pull/1523)**
+
+* Switching Artists between the grid and list now keeps that choice when you leave the page or restart Psysonic, instead of returning to the grid every time.
 
 ## Fixed
 
