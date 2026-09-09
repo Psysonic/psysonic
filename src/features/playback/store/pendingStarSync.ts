@@ -15,9 +15,11 @@ import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
  * 2. Retry the Subsonic API (`star` / `unstar` / `setRating`) with exponential
  *    backoff; flush immediately when the active server becomes reachable again
  *    (`onActiveServerBecameReachable`) or on window focus.
- * 3. On **star** success: KEEP the override — list views read it — and patch
- *    the in-memory `Track`. F3 index patch-on-use runs in the API layer.
- *    (Ratings clear on success; see `onRatingSuccess`.)
+ * 3. On success: KEEP the override — list views read it — and patch the
+ *    in-memory `Track`. F3 index patch-on-use runs in the API layer. Stars and
+ *    ratings behave the same here; a rating used to be dropped on success,
+ *    which made a rating set from the context menu fall back to the value the
+ *    page was loaded with.
  * 4. On app restart before success: the pending change is lost — acceptable,
  *    overrides are not persisted.
  *
@@ -34,7 +36,24 @@ const pending = new Map<string, Task>(); // key `${kind}:${id}` — latest wins
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const attempts = new Map<string, number>();
 const MAX_BACKOFF_MS = 30_000;
+/**
+ * Smallest gap between two first attempts. Rating a whole selection queues one
+ * task per track, and firing them together would put the entire selection on
+ * the wire at once — the shape of load a small self-hosted server handles
+ * worst. A single click still goes out immediately; only a burst is spread.
+ * Retries keep their own backoff.
+ */
+const MIN_DISPATCH_SPACING_MS = 80;
+let nextDispatchAt = 0;
 let listenersArmed = false;
+
+/** Delay for the next first attempt, spacing bursts without delaying a lone click. */
+function nextDispatchDelay(): number {
+  const now = Date.now();
+  const at = Math.max(now, nextDispatchAt);
+  nextDispatchAt = at + MIN_DISPATCH_SPACING_MS;
+  return at - now;
+}
 
 const keyOf = (t: Task) =>
   `${t.kind}:${t.serverId ?? ''}:${t.id}`;
@@ -43,7 +62,7 @@ function armListeners(): void {
   if (listenersArmed || typeof window === 'undefined') return;
   listenersArmed = true;
   const flushAll = () => {
-    for (const k of pending.keys()) schedule(k, 0);
+    for (const k of pending.keys()) schedule(k, nextDispatchDelay());
   };
   window.addEventListener('focus', flushAll);
   onActiveServerBecameReachable(flushAll);
@@ -106,12 +125,11 @@ function onStarSuccess(task: Extract<Task, { kind: 'star' }>): void {
 
 function onRatingSuccess(task: Extract<Task, { kind: 'rating' }>): void {
   const rating = usePlayerStore.getState().userRatingOverrides[task.overrideKey];
-  usePlayerStore.setState(s => {
-    if (!(task.overrideKey in s.userRatingOverrides)) return {};
-    const next = { ...s.userRatingOverrides };
-    delete next[task.overrideKey];
-    return { userRatingOverrides: next };
-  });
+  // KEEP the override, exactly like a star (step 3 atop this file). The rows a
+  // list renders still carry the rating the server sent when the page loaded,
+  // and the per-page "freshly rated" maps are only filled by a click on the row
+  // itself — a rating from the context menu reaches neither. Dropping it here
+  // made such a rating appear and then fall back until the page was re-entered.
   // Patch the cached queue track in place (see onStarSuccess) so the row keeps
   // its title and shows the synced rating without flashing a placeholder.
   if (rating !== undefined) {
@@ -134,7 +152,7 @@ export function queueSongStar(
   pending.set(k, t);
   attempts.delete(k);
   armListeners();
-  schedule(k, 0);
+  schedule(k, nextDispatchDelay());
 }
 
 /** Optimistically rate a song and sync it to the server with retry. */
@@ -152,7 +170,7 @@ export function queueSongRating(
   pending.set(k, t);
   attempts.delete(k);
   armListeners();
-  schedule(k, 0);
+  schedule(k, nextDispatchDelay());
 }
 
 /** Test-only: clear all pending state + timers. */
@@ -161,4 +179,5 @@ export function _resetPendingStarSyncForTest(): void {
   attempts.clear();
   for (const t of timers.values()) clearTimeout(t);
   timers.clear();
+  nextDispatchAt = 0;
 }
