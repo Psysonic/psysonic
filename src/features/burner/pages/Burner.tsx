@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Disc3, Download, Flame, Square, Trash2 } from 'lucide-react';
+import { Disc3, Download, Flame, ListMusic, Square, Trash2 } from 'lucide-react';
 import { showToast } from '@/lib/dom/toast';
 import OverlayScrollArea from '@/ui/OverlayScrollArea';
 import { BURNER_INPAGE_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
@@ -29,6 +29,7 @@ import DiscRing from '@/features/burner/components/DiscRing';
 import BurnTrackList from '@/features/burner/components/BurnTrackList';
 import RecorderPicker from '@/features/burner/components/RecorderPicker';
 import BurnOptionsPanel, { type BurnSettings } from '@/features/burner/components/BurnOptionsPanel';
+import TrackListingModal from '@/features/burner/components/TrackListingModal';
 
 const DEFAULT_SETTINGS: BurnSettings = {
   writeSpeed: null,
@@ -58,6 +59,7 @@ export default function Burner() {
 
   const drives = useBurnRecorders();
   const [settings, setSettings] = useState<BurnSettings>(DEFAULT_SETTINGS);
+  const [listingOpen, setListingOpen] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [checkingCdText, setCheckingCdText] = useState(false);
 
@@ -345,6 +347,16 @@ export default function Burner() {
             <button
               type="button"
               className="burner-btn"
+              onClick={() => setListingOpen(true)}
+              disabled={tracks.length === 0}
+            >
+              <ListMusic size={14} aria-hidden="true" />
+              {t('burner.trackListing')}
+            </button>
+
+            <button
+              type="button"
+              className="burner-btn"
               onClick={clearList}
               disabled={busy || tracks.length === 0}
             >
@@ -446,6 +458,13 @@ export default function Burner() {
           </dd>
         </div>
       </dl>
+
+      <TrackListingModal
+        open={listingOpen}
+        onClose={() => setListingOpen(false)}
+        arcs={layout.arcs}
+        discTitle={discTitle}
+      />
     </div>
   );
 }

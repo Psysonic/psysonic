@@ -722,6 +722,136 @@
 .burner-readout dd.is-accent { color: var(--accent); }
 .burner-readout dd.is-good { color: var(--positive); }
 
+/* -- Track listing, on screen and on paper ---------------------------------
+   One subtree serves as both the preview and the printed sheet, so what the
+   user approves is what comes out of the printer. */
+.burner-print-sheet {
+  /* `.ui-modal-body` carries no padding of its own — each modal's content
+     supplies it — so match the 18px the header and footer use and the listing
+     lines up with them instead of running to the modal edge. */
+  padding: 8px 18px 18px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* The modal header already carries the title and the summary on screen. The
+   printed sheet has no chrome of its own, so this heading only earns its space
+   on paper — showing both was the same line twice. */
+.burner-print-head { display: none; }
+
+.burner-print-head h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 650;
+  color: var(--text-primary);
+}
+
+.burner-print-head p {
+  margin: 2px 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.burner-print-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.burner-print-list li {
+  display: grid;
+  grid-template-columns: 2.2em 1fr auto;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.burner-print-no {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.burner-print-credit {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.burner-print-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* Printing goes through the webview, not through a file: the shell permission
+   is scoped to https, so the app cannot hand a local path to the system opener.
+ *
+ * Everything but the modal is taken out of layout rather than merely hidden.
+ * `visibility: hidden` leaves every box on the page exactly where it was, and
+ * the sheet then positioned itself against the *centred* modal — which printed
+ * the listing halfway down the paper under a band of white.
+ *
+ * The chrome around it is flattened instead, so the sheet is an ordinary block
+ * starting at the top of the page. That also lets a long disc break across
+ * pages, which absolute positioning could not.
+ *
+ * Scoped with `:has()` so this only applies while the listing is actually open;
+ * these rules are global, and unscoped they would blank every other print in
+ * the app. On a renderer without `:has()` the block is dropped and printing
+ * falls back to the whole window — ugly, not broken. */
+@media print {
+  body:has(.burner-print-sheet) > *:not(.ui-modal-backdrop) { display: none !important; }
+
+  body:has(.burner-print-sheet) .ui-modal-backdrop {
+    position: static;
+    display: block;
+    padding: 0;
+    background: none;
+    animation: none;
+  }
+
+  body:has(.burner-print-sheet) .ui-modal {
+    position: static;
+    display: block;
+    width: auto;
+    max-height: none;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    animation: none;
+  }
+
+  body:has(.burner-print-sheet) .ui-modal-header,
+  body:has(.burner-print-sheet) .ui-modal-footer { display: none !important; }
+
+  body:has(.burner-print-sheet) .ui-modal-body { overflow: visible; }
+
+  .burner-print-sheet {
+    padding: 0;
+    /* A jewel case booklet is 120mm square; the listing is printed to that
+       width so it can be trimmed and folded straight in. */
+    width: 120mm;
+    color: #000;
+    font-size: 9pt;
+    line-height: 1.35;
+  }
+
+  .burner-print-head { display: block; }
+  .burner-print-head h2 { font-size: 13pt; color: #000; }
+  .burner-print-head p { color: #333; }
+  .burner-print-no,
+  .burner-print-time { color: #444; }
+  .burner-print-list li {
+    padding: 2px 0;
+    border-bottom: 1px solid #ccc;
+    break-inside: avoid;
+  }
+}
+
+@page {
+  size: auto;
+  margin: 10mm;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .burner-leadin.is-active,
   .burner-icon-btn .is-spinning { animation: none; }

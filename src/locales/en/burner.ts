@@ -137,6 +137,19 @@ export const burner = {
   checkCdTextAbsent:
     'No CD-TEXT found on this disc. If it was just burned, try ejecting and reinserting it first.',
 
+  // Track listing
+  trackListing: 'Track listing',
+  listingUntitled: 'Mix CD',
+  listingSummary_one: '{{count}} track · {{duration}}',
+  listingSummary_other: '{{count}} tracks · {{duration}}',
+  listingCopy: 'Copy',
+  listingCopied: 'Track listing copied.',
+  listingCopyFailed: 'Could not copy the track listing.',
+  listingSave: 'Save .txt',
+  listingSaveTitle: 'Save the track listing',
+  listingSaved: 'Track listing saved.',
+  listingPrint: 'Print',
+
   // Context menu
   addToCd: 'Add to CD',
 };
