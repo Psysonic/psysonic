@@ -2393,7 +2393,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.61.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3724,7 +3724,7 @@ dependencies = [
  "bytes",
  "oxifft",
  "oximedia-core",
- "rubato",
+ "rubato 2.0.0",
  "thiserror 2.0.18",
 ]
 
@@ -4154,6 +4154,7 @@ dependencies = [
  "md5",
  "psysonic-analysis",
  "psysonic-audio",
+ "psysonic-burn",
  "psysonic-core",
  "psysonic-integration",
  "psysonic-library",
@@ -4244,6 +4245,27 @@ dependencies = [
  "windows 0.62.2",
  "wiremock",
  "zbus 5.16.0",
+]
+
+[[package]]
+name = "psysonic-burn"
+version = "1.53.0-dev"
+dependencies = [
+ "ebur128",
+ "fs4",
+ "psysonic-core",
+ "psysonic-syncfs",
+ "reqwest",
+ "rubato 0.16.2",
+ "serde",
+ "serde_json",
+ "specta",
+ "symphonia",
+ "tauri",
+ "tempfile",
+ "tokio",
+ "windows 0.62.2",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -4710,6 +4732,18 @@ checksum = "a8a1f2315036ef6b1fbacd1972e8ee7688030b0a2121edfc2a6550febd41574d"
 dependencies = [
  "hashbrown 0.16.1",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "rubato"
+version = "0.16.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5258099699851cfd0082aeb645feb9c084d9a5e1f1b8d5372086b989fc5e56a1"
+dependencies = [
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "realfft",
 ]
 
 [[package]]

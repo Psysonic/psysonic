@@ -36,6 +36,7 @@ const Statistics = lazy(() => import('@/features/stats/pages/Statistics'));
 const Help = lazy(() => import('@/features/help/pages/Help'));
 const WhatsNew = lazy(() => import('@/features/whatsNew/pages/WhatsNew'));
 const DeviceSync = lazy(() => import('@/features/deviceSync/pages/DeviceSync'));
+const Burner = lazy(() => import('@/features/burner/pages/Burner'));
 const OfflineLibrary = lazy(() => import('@/features/offline/pages/OfflineLibrary'));
 const LabelAlbums = lazy(() => import('@/features/album/pages/LabelAlbums'));
 const SearchBrowsePage = lazy(() => import('@/features/search/pages/SearchBrowsePage'));
@@ -122,6 +123,7 @@ export default function AppRoutes() {
       <Route path="/radio" element={<InternetRadio />} />
       <Route path="/folders" element={<FolderBrowser />} />
       <Route path="/device-sync" element={<DeviceSync />} />
+      <Route path="/burn" element={<Burner />} />
       <Route path="/__benchmark-transition" element={null} />
     </Routes>
     </Profiler>

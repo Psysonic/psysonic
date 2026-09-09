@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Play, ListPlus, ListStart, Radio, Heart, ChevronRight, ChevronsRight, User, Disc3, ListMusic, Info, Sparkles, Star, Trash2, HeartCrack, Share2, Orbit as OrbitIcon } from 'lucide-react';
+import { Play, ListPlus, ListStart, Radio, Heart, ChevronRight, ChevronsRight, User, Disc3, ListMusic, Info, Sparkles, Star, Trash2, HeartCrack, Share2, Flame, Orbit as OrbitIcon } from 'lucide-react';
 import { useNavigateToAlbum } from '@/features/album';
 import { useNavigateToArtist } from '@/features/artist';
 import { resolveAlbum, resolveMediaServerId } from '@/features/offline';
@@ -17,6 +17,7 @@ import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/AddToPla
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
 import { playTimelineFromHere } from '@/features/playback';
+import { addSongsToBurnList } from '@/features/burner';
 
 export default function SongContextItems(props: ContextMenuItemsProps) {
   const {
@@ -103,6 +104,14 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   {playlistSubmenuOpen && playlistSongIds[0] === song.id && (
                     <AddToPlaylistSubmenu songIds={[song.id]} serverId={song.serverId} triggerId={song.id} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
                   )}
+                </div>
+              )}
+              {offlinePolicy.canAddToPlaylist && (
+                <div className="context-menu-item" onClick={() => handleAction(() => {
+                  const serverId = resolveMediaServerId(song.serverId);
+                  if (serverId) addSongsToBurnList([song], serverId);
+                })}>
+                  <Flame size={14} /> {t('burner.addToCd')}
                 </div>
               )}
              {type === 'album-song' && (
@@ -263,6 +272,14 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   {playlistSubmenuOpen && playlistSongIds[0] === song.id && (
                     <AddToPlaylistSubmenu songIds={[song.id]} serverId={song.serverId} triggerId={song.id} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
                   )}
+                </div>
+              )}
+              {offlinePolicy.canAddToPlaylist && (
+                <div className="context-menu-item" onClick={() => handleAction(() => {
+                  const serverId = resolveMediaServerId(song.serverId);
+                  if (serverId) addSongsToBurnList([song], serverId);
+                })}>
+                  <Flame size={14} /> {t('burner.addToCd')}
                 </div>
               )}
               <div className="context-menu-divider" />
