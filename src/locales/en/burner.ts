@@ -8,6 +8,11 @@ export const burner = {
   noRecorders: 'No CD writer found',
   refreshDrives: 'Refresh drives',
   eraseDisc: 'Erase disc',
+  reloadDisc: 'Reload disc',
+  reloading: 'Ejecting the disc…',
+  reloadDone: 'Disc ejected. Push it back in, then press Refresh.',
+  reloadHint:
+    'The drive may still be describing this disc the way it did when the last rehearsal ended. Ejecting and reloading makes it look again.',
   erasing: 'Erasing the disc…',
   eraseDone: 'Disc erased.',
   mediaLabel: 'Media',

@@ -6,7 +6,7 @@ import OverlayScrollArea from '@/ui/OverlayScrollArea';
 import { BURNER_INPAGE_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
 import { libraryGetOfflinePath } from '@/lib/api/library/reads';
 import { buildDownloadUrlForServer } from '@/lib/api/subsonicStreamUrl';
-import { cancelBurn, eraseDisc, startBurn, verifyCdText } from '@/lib/api/burn';
+import { cancelBurn, eraseDisc, reloadMedia, startBurn, verifyCdText } from '@/lib/api/burn';
 import type { BurnTrackInput } from '@/lib/api/burn';
 import {
   DEFAULT_80_MIN_SECTORS,
@@ -192,6 +192,29 @@ export default function Burner() {
     }
   }, [drives.selectedId, t]);
 
+  // A finished job changes what the drive says about the disc — a real burn
+  // fills it, and a rehearsal can leave the drive describing it differently
+  // even though nothing was written. Re-probe once on the transition so the
+  // media facts are not stale until the user happens to press Refresh.
+  const settled = job.status === 'done' || job.status === 'failed' || job.status === 'cancelled';
+  const refreshDrives = drives.refresh;
+  useEffect(() => {
+    if (!settled) return;
+    refreshDrives();
+  }, [settled, refreshDrives]);
+
+  const handleReload = useCallback(async () => {
+    if (!drives.selectedId) return;
+    try {
+      showToast(t('burner.reloading'), 4000, 'info');
+      await reloadMedia({ recorderId: drives.selectedId });
+      showToast(t('burner.reloadDone'), 6000, 'info');
+      drives.refresh();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err), 8000, 'error');
+    }
+  }, [drives, t]);
+
   const handleErase = useCallback(async () => {
     if (!drives.selectedId) return;
     try {
@@ -249,6 +272,7 @@ export default function Burner() {
           loading={drives.loading}
           onRefresh={drives.refresh}
           onErase={() => void handleErase()}
+          onReload={() => void handleReload()}
           disabled={busy}
         />
       )}
@@ -290,6 +314,8 @@ export default function Burner() {
             trackIndex={job.trackIndex}
             trackTotal={tracks.length}
             busy={busy}
+            testWrite={job.testWrite}
+            finished={job.status === 'done'}
           />
 
           <div className="burner-transport">

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   formatDuration,
@@ -20,6 +20,16 @@ const R_HUB = 76;
 
 /** Visual gap between neighbouring arcs, in degrees. */
 const ARC_GAP = 0.34;
+
+/**
+ * The laser's wake: how far behind the write head it reaches, and in how many
+ * steps. Segments rather than a gradient because SVG has no conic fill — and
+ * discrete wedges let the two hottest carry a different colour from the rest,
+ * which is what makes the boundary read as dye changing state rather than as a
+ * progress bar filling.
+ */
+const TRAIL_DEGREES = 16;
+const TRAIL_SEGMENTS = 12;
 
 function polar(radius: number, degrees: number): [number, number] {
   const radians = ((degrees - 90) * Math.PI) / 180;
@@ -76,6 +86,10 @@ export interface DiscRingProps {
   trackTotal: number;
   /** Whether a burn is in flight — disables hover so the ring reads as progress. */
   busy: boolean;
+  /** A rehearsal: the laser is cool and the fill is spectral, not molten. */
+  testWrite: boolean;
+  /** The job just landed — fires the completion pulse once. */
+  finished: boolean;
 }
 
 /**
@@ -93,6 +107,8 @@ export default function DiscRing({
   trackIndex,
   trackTotal,
   busy,
+  testWrite,
+  finished,
 }: DiscRingProps) {
   const { t } = useTranslation();
   const { arcs, capacitySectors, totalSectors, remainingSectors, fits, redBook74Angle } = layout;
@@ -119,6 +135,41 @@ export default function DiscRing({
         };
       });
   }, [arcs, busy, phase, sectorsDone, capacitySectors]);
+
+  /**
+   * The write head, and the molten wake behind it.
+   *
+   * Only during the laser phases — the same rule the fill follows. The wedges
+   * are built once at twelve o'clock and the whole group is rotated by CSS, so
+   * a progress tick moves one custom property instead of re-describing a dozen
+   * paths.
+   */
+  const laser = useMemo(() => {
+    const onDisc = phase === 'writing' || phase === 'closing';
+    if (!busy || !onDisc || sectorsDone <= 0 || capacitySectors <= 0) return null;
+
+    // Which track is under the head, so the wake cools into that track's colour
+    // rather than a colour belonging to nothing.
+    const active = arcs.findIndex(
+      arc => sectorsDone >= arc.startSector && sectorsDone < arc.startSector + arc.sectors,
+    );
+    const cool = active >= 0 ? arcColor(active) : 'var(--accent)';
+
+    const step = TRAIL_DEGREES / TRAIL_SEGMENTS;
+    const trail = Array.from({ length: TRAIL_SEGMENTS }, (_, i) => {
+      const fade = 1 - i / TRAIL_SEGMENTS;
+      return {
+        key: `trail-${i}`,
+        d: annularSector(R_TRACK_IN, R_TRACK_OUT, -(i + 1) * step, -i * step),
+        // The first two wedges are the molten edge: white-hot, then accent.
+        // Everything behind them has already cooled to the track's own colour.
+        fill: i === 0 ? 'var(--burner-molten, #fff)' : i === 1 ? 'var(--accent)' : cool,
+        opacity: (i < 2 ? 0.95 : 0.75) * fade,
+      };
+    });
+
+    return { angle: (sectorsDone / capacitySectors) * 360, trail };
+  }, [busy, phase, sectorsDone, capacitySectors, arcs]);
 
   const hub: HubContent = useMemo(() => {
     if (busy && phase) {
@@ -266,9 +317,56 @@ export default function DiscRing({
         {/* Committed sectors, lit as the laser passes */}
         <g>
           {writtenPaths.map(written => (
-            <path key={written.key} d={written.d} fill={arcColor(written.index)} fillOpacity="0.95" />
+            // A rehearsal commits nothing, so its trail is drawn as an outline
+            // rather than filled in. The disc should never look written when
+            // nothing was written to it.
+            <path
+              key={written.key}
+              d={written.d}
+              fill={arcColor(written.index)}
+              fillOpacity={testWrite ? 0.2 : 0.95}
+              stroke={testWrite ? arcColor(written.index) : 'none'}
+              strokeWidth={testWrite ? 1.5 : 0}
+            />
           ))}
         </g>
+
+        {/* The laser: molten wake, write head, hot point */}
+        {laser && (
+          <g
+            className={`burner-laser${testWrite ? ' is-simulated' : ''}`}
+            style={{ '--burn-angle': `${laser.angle}deg` } as CSSProperties}
+          >
+            {laser.trail.map(segment => (
+              <path
+                key={segment.key}
+                d={segment.d}
+                fill={segment.fill}
+                fillOpacity={segment.opacity}
+              />
+            ))}
+            <line
+              className="burner-laser-line"
+              x1={CX}
+              y1={CY - R_TRACK_IN}
+              x2={CX}
+              y2={CY - R_TRACK_OUT}
+            />
+            <circle
+              className="burner-laser-point"
+              cx={CX}
+              cy={CY - (R_TRACK_IN + R_TRACK_OUT) / 2}
+              r="5"
+            />
+          </g>
+        )}
+
+        {/* One expanding ring when the disc lands */}
+        {finished && (
+          <g className="burner-complete-pulse" aria-hidden="true">
+            <circle cx={CX} cy={CY} r={R_HUB} fill="none" stroke="var(--accent)" strokeWidth="3" />
+          </g>
+        )}
 
         {/* 74:00 boundary */}
         {redBook74Angle < 360 && (

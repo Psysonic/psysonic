@@ -385,6 +385,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_burn::commands::burn_start,
             psysonic_burn::commands::burn_cancel,
             psysonic_burn::commands::burn_erase,
+            psysonic_burn::commands::burn_reload_media,
             psysonic_burn::commands::burn_verify_cd_text,
         ])
 }
@@ -912,6 +913,7 @@ pub fn run() {
             psysonic_burn::commands::burn_start,
             psysonic_burn::commands::burn_cancel,
             psysonic_burn::commands::burn_erase,
+            psysonic_burn::commands::burn_reload_media,
             psysonic_burn::commands::burn_verify_cd_text,
             #[cfg(target_os = "windows")]
             taskbar_win::update_taskbar_icon,

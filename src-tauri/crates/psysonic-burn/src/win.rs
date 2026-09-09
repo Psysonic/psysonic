@@ -18,7 +18,7 @@
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering};
 use std::sync::Arc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use tauri::AppHandle;
 use windows::Win32::Foundation::{VARIANT_BOOL, VARIANT_FALSE, VARIANT_TRUE};
@@ -48,6 +48,7 @@ use windows::Win32::UI::Shell::SHCreateStreamOnFileEx;
 use windows_core::{Interface, Ref, BSTR, GUID, HSTRING, PCWSTR};
 
 use crate::job::{emit_progress, PROGRESS_THROTTLE_MS};
+use crate::mmc::read_disc_information_cdb;
 use crate::cdtext::{CdTextBlock, CdTextInput, CdTextTrack};
 use crate::model::{
     BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder, BurnWriteCapabilities,
@@ -327,6 +328,66 @@ pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
 
 // ── Media probe ──────────────────────────────────────────────────────────────
 
+/// What `READ DISC INFORMATION` says about the disc, byte 2 bits 1..0.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DiscStatus {
+    Empty,
+    Incomplete,
+    Complete,
+    Other,
+}
+
+/// Ask the drive directly whether the disc is empty.
+///
+/// `IDiscFormat2RawCD::MediaHeuristicallyBlank` is, as its name says, a guess —
+/// and it guesses wrong after a rehearsal. A test write leaves drive-side state
+/// behind (an opened session on the SAO path, power calibration on the IMAPI2
+/// one) without committing a single sector to the program area, and the
+/// heuristic then reports a perfectly burnable CD-R as used. With no erase
+/// available for a CD-R, that verdict is unrecoverable in the UI.
+///
+/// `READ DISC INFORMATION` is the drive's own answer rather than a guess about
+/// it. `None` means the drive would not say, and the caller keeps the
+/// heuristic.
+fn read_disc_status(recorder: &IDiscRecorder2) -> Option<DiscStatus> {
+    let ex = recorder.cast::<IDiscRecorder2Ex>().ok()?;
+
+    // SendCommand* needs the drive held. A probe runs while the user is just
+    // looking at the page, so a drive busy elsewhere is an ordinary outcome:
+    // give up and let the heuristic answer rather than failing the probe.
+    let _lock = unsafe { ExclusiveAccess::acquire(recorder) }.ok()?;
+
+    let mut buffer = [0_u8; 34];
+    let cdb = read_disc_information_cdb(buffer.len() as u16);
+    let mut sense = [0_u8; 18];
+    let mut fetched: u32 = 0;
+
+    // SAFETY: a read of at most `buffer.len()` bytes into our own buffer.
+    unsafe {
+        ex.SendCommandGetDataFromDevice(
+            &cdb,
+            &mut sense,
+            DISC_INFO_TIMEOUT,
+            &mut buffer,
+            &raw mut fetched,
+        )
+    }
+    .ok()?;
+
+    if (fetched as usize) < 3 {
+        return None;
+    }
+    Some(match buffer[2] & 0x03 {
+        0 => DiscStatus::Empty,
+        1 => DiscStatus::Incomplete,
+        2 => DiscStatus::Complete,
+        _ => DiscStatus::Other,
+    })
+}
+
+/// Seconds allowed for the disc-information query during a probe.
+const DISC_INFO_TIMEOUT: u32 = 10;
+
 pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
     let recorder_id = recorder_id.to_string();
     with_com(move || unsafe {
@@ -360,7 +421,22 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
         );
         let erasable = media == IMAPI_MEDIA_TYPE_CDRW;
 
-        let blank = is_true(format.MediaHeuristicallyBlank().unwrap_or(VARIANT_FALSE));
+        // The heuristic is the fallback, not the authority: after a test write
+        // it reports an untouched CD-R as used, and a CD-R cannot be erased
+        // back out of that verdict.
+        let heuristic_blank = is_true(format.MediaHeuristicallyBlank().unwrap_or(VARIANT_FALSE));
+        let status = read_disc_status(&recorder);
+        let blank = match status {
+            Some(status) => status == DiscStatus::Empty,
+            None => heuristic_blank,
+        };
+        if let Some(status) = status {
+            if (status == DiscStatus::Empty) != heuristic_blank {
+                crate::app_eprintln!(
+                    "[burn] the drive reports the disc {status:?}; IMAPI2 guessed                      blank={heuristic_blank}. Trusting the drive."
+                );
+            }
+        }
         let supported = is_true(
             format
                 .IsCurrentMediaSupported(&recorder)
@@ -840,6 +916,14 @@ pub fn burn(
             // rehearsal stops here -- but everything up to this point (prepare,
             // sector-type negotiation, capacity, image assembly) has already run
             // against the real disc, which is the point of the test.
+            //
+            // Nothing is written, so there is no device progress to report and
+            // the ring would jump from empty to done. Sweep it instead, over a
+            // fixed few seconds rather than the minutes a real burn takes: the
+            // rehearsal is over, and making the user watch a fake clock run at
+            // 24x would waste their time to no purpose. The UI labels the mode
+            // TEST throughout and says nothing was written when it ends.
+            sweep_simulated_write(&app, &job_id, sectors_total, &cancel);
             Ok(())
         } else {
             emit_progress(
@@ -893,6 +977,62 @@ pub fn burn(
             cd_text_verification: None,
         })
     })
+}
+
+/// How long a rehearsal's simulated sweep takes, start to finish.
+///
+/// Deliberately unrelated to how long the real write would take. This exists so
+/// the ring has something to show during a test write, not to impersonate a
+/// burn, and eight seconds is long enough to read as motion without holding the
+/// user up.
+const SIMULATED_SWEEP: Duration = Duration::from_secs(8);
+
+/// Report a test write's progress across the disc.
+///
+/// The IMAPI2 path cannot rehearse a write — there is no simulate flag on
+/// `IDiscFormat2RawCD` — so no sectors are ever committed and the drive has
+/// nothing to report. Without this the ring sits empty and then snaps to
+/// finished, which looks like a failure rather than a successful rehearsal.
+fn sweep_simulated_write(
+    app: &AppHandle,
+    job_id: &str,
+    sectors_total: u32,
+    cancel: &Arc<AtomicBool>,
+) {
+    if sectors_total == 0 {
+        return;
+    }
+    let started = Instant::now();
+    loop {
+        if cancel.load(Ordering::Relaxed) {
+            return;
+        }
+        let elapsed = started.elapsed();
+        if elapsed >= SIMULATED_SWEEP {
+            break;
+        }
+        let fraction = elapsed.as_secs_f64() / SIMULATED_SWEEP.as_secs_f64();
+        let done = (f64::from(sectors_total) * fraction) as u32;
+        emit_progress(
+            app,
+            job_id,
+            BurnPhase::Writing,
+            None,
+            done.min(sectors_total),
+            sectors_total,
+            None,
+        );
+        std::thread::sleep(Duration::from_millis(PROGRESS_THROTTLE_MS as u64));
+    }
+    emit_progress(
+        app,
+        job_id,
+        BurnPhase::Writing,
+        None,
+        sectors_total,
+        sectors_total,
+        None,
+    );
 }
 
 /// Assemble the CD-TEXT block for this disc, or `None` when there is nothing
@@ -1130,6 +1270,26 @@ pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
 }
 
 // ── Erase (CD-RW) ────────────────────────────────────────────────────────────
+
+/// Eject the disc and pull it back in, so the drive re-reads it.
+///
+/// Drive-side media state survives a rehearsal: the disc is untouched but the
+/// drive keeps describing it as it did when the test finished. A reload is the
+/// one thing that reliably clears that, and without it a CD-R that reports
+/// non-blank has no way back — erase is CD-RW only.
+pub fn reload_media(recorder_id: &str) -> Result<(), String> {
+    let recorder_id = recorder_id.to_string();
+    with_com(move || unsafe {
+        let recorder = open_recorder(&recorder_id)?;
+        recorder
+            .EjectMedia()
+            .map_err(|e| format!("the drive would not eject the disc: {e}"))?;
+        // Slot and slim drives often have no motorised tray; the disc is out,
+        // which is enough for the user to push it back in themselves.
+        let _ = recorder.CloseTray();
+        Ok(())
+    })
+}
 
 pub fn erase(recorder_id: &str, quick: bool) -> Result<(), String> {
     let recorder_id = recorder_id.to_string();
