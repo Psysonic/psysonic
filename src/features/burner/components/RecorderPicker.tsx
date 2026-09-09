@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Disc3, Eraser } from 'lucide-react';
+import { RefreshCw, Disc3, Eraser, ArrowUpFromLine } from 'lucide-react';
 import type { BurnMediaInfo, BurnRecorder } from '@/lib/api/burn';
 import { formatDuration } from '@/features/burner/utils/capacity';
 import { sectorsToSeconds } from '@/features/burner/utils/capacity';
@@ -12,6 +12,7 @@ export interface RecorderPickerProps {
   loading: boolean;
   onRefresh: () => void;
   onErase: () => void;
+  onReload: () => void;
   disabled: boolean;
 }
 
@@ -28,6 +29,7 @@ export default function RecorderPicker({
   loading,
   onRefresh,
   onErase,
+  onReload,
   disabled,
 }: RecorderPickerProps) {
   const { t } = useTranslation();
@@ -72,6 +74,22 @@ export default function RecorderPicker({
           aria-label={t('burner.eraseDisc')}
         >
           <Eraser size={14} aria-hidden="true" />
+        </button>
+      )}
+
+      {/* The way out of a stale verdict. Offered exactly when the disc is
+          refused and erasing cannot help, which is the case that strands a
+          CD-R with nothing to click. */}
+      {media?.present && media.blocker !== null && !media.erasable && (
+        <button
+          type="button"
+          className="burner-icon-btn"
+          onClick={onReload}
+          disabled={disabled}
+          title={t('burner.reloadHint')}
+          aria-label={t('burner.reloadDisc')}
+        >
+          <ArrowUpFromLine size={14} aria-hidden="true" />
         </button>
       )}
 

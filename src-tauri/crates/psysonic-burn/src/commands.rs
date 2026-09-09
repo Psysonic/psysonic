@@ -111,6 +111,19 @@ pub async fn burn_verify_cd_text(recorder_id: String) -> Result<CdTextVerificati
         .map_err(|e| format!("verification task failed: {e}"))?
 }
 
+/// Eject the disc and pull it back in, so the drive re-reads it.
+///
+/// The recovery for a disc the drive is still describing the way it did when a
+/// rehearsal ended. A CD-R cannot be erased, so without this a stale
+/// "not blank" verdict has no way out.
+#[tauri::command]
+#[specta::specta]
+pub async fn burn_reload_media(recorder_id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || platform::reload_media(&recorder_id))
+        .await
+        .map_err(|e| format!("reload task failed: {e}"))?
+}
+
 /// Erase a CD-RW. `quick` clears the TOC; a full erase rewrites the surface
 /// and takes much longer.
 #[tauri::command]

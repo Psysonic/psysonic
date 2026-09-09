@@ -896,6 +896,14 @@ export const commands = {
 	 */
 	burnErase: (recorderId: string, quick: boolean) => typedError<null, string>(__TAURI_INVOKE("burn_erase", { recorderId, quick })),
 	/**
+	 *  Eject the disc and pull it back in, so the drive re-reads it.
+	 *
+	 *  The recovery for a disc the drive is still describing the way it did when a
+	 *  rehearsal ended. A CD-R cannot be erased, so without this a stale
+	 *  "not blank" verdict has no way out.
+	 */
+	burnReloadMedia: (recorderId: string) => typedError<null, string>(__TAURI_INVOKE("burn_reload_media", { recorderId })),
+	/**
 	 *  Read CD-TEXT back off the disc that is loaded right now.
 	 *
 	 *  Separate from the burn because a drive often caches the table of contents it

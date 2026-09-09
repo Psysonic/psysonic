@@ -97,6 +97,24 @@ pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
     }
 }
 
+/// Eject and reload the disc so the drive re-reads it.
+///
+/// Windows only, and deliberately so: this exists because IMAPI2's blankness
+/// heuristic keeps describing a disc the way it did when a rehearsal ended.
+/// macOS asks DiscRecording directly and has no equivalent stale state, so
+/// there is nothing there for a reload to fix.
+pub fn reload_media(recorder_id: &str) -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        crate::win::reload_media(recorder_id)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = recorder_id;
+        Err("Reloading the disc is only needed, and only available, on Windows.".to_string())
+    }
+}
+
 pub fn erase(recorder_id: &str, quick: bool) -> Result<(), String> {
     #[cfg(windows)]
     {

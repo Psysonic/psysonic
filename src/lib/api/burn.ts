@@ -102,6 +102,19 @@ export async function verifyCdText(args: { recorderId: string }): Promise<CdText
   return res.data;
 }
 
+/**
+ * Eject the disc and pull it back in.
+ *
+ * The way out of a stale drive verdict: after a rehearsal the drive can keep
+ * describing an untouched CD-R as used, and a CD-R cannot be erased back out
+ * of that. Windows only — macOS reads the disc directly and never gets stuck
+ * this way.
+ */
+export async function reloadMedia(args: { recorderId: string }): Promise<void> {
+  const res = await commands.burnReloadMedia(args.recorderId);
+  if (res.status === 'error') throw new Error(res.error);
+}
+
 export async function eraseDisc(args: { recorderId: string; quick: boolean }): Promise<void> {
   const res = await commands.burnErase(args.recorderId, args.quick);
   if (res.status === 'error') throw new Error(res.error);

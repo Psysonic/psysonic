@@ -12,6 +12,10 @@
 .burner-page {
   --burner-void: color-mix(in srgb, var(--bg-deep) 82%, var(--bg-app));
   --burner-groove: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  /* The temperature of the write head. A real burn runs white-hot into the
+     accent; a rehearsal runs cold, so the two are never mistaken. */
+  --burner-molten: color-mix(in srgb, #fff 88%, var(--accent));
+  --burner-molten-cool: color-mix(in srgb, #fff 62%, var(--info, #38bdf8));
 
   display: flex;
   flex-direction: column;
@@ -277,6 +281,58 @@
 @keyframes burnerLeadinPulse {
   0%, 100% { opacity: 0.35; }
   50%      { opacity: 1; }
+}
+
+/* ── The laser ──────────────────────────────────────────────────────────────
+   Built at twelve o'clock and rotated into place, so a progress tick changes
+   one custom property rather than a dozen path descriptions. Progress arrives
+   every 250ms (PROGRESS_THROTTLE_MS); the transition is matched to it so the
+   head glides between ticks instead of stepping. */
+.burner-laser {
+  transform: rotate(var(--burn-angle, 0deg));
+  transform-origin: 220px 220px;
+  transition: transform 250ms linear;
+  pointer-events: none;
+}
+
+.burner-laser-line {
+  stroke: var(--burner-molten);
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 6px var(--accent));
+}
+
+.burner-laser-point {
+  fill: var(--burner-molten);
+  filter: drop-shadow(0 0 10px var(--accent));
+  animation: burnerLaserBreathe 1.4s ease-in-out infinite;
+}
+
+/* A rehearsal writes nothing, so it should not look like fire. */
+.burner-laser.is-simulated .burner-laser-line,
+.burner-laser.is-simulated .burner-laser-point {
+  stroke: var(--burner-molten-cool);
+  fill: var(--burner-molten-cool);
+  filter: drop-shadow(0 0 7px var(--info, #38bdf8));
+}
+
+@keyframes burnerLaserBreathe {
+  0%, 100% { opacity: 0.75; r: 4; }
+  50%      { opacity: 1;    r: 6; }
+}
+
+/* ── The landing ────────────────────────────────────────────────────────────
+   One ring out from the hub past the disc edge when the burn completes. Runs
+   once: the element only mounts on a finished job. */
+.burner-complete-pulse {
+  transform-origin: 220px 220px;
+  animation: burnerCompletePulse 900ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+  pointer-events: none;
+}
+
+@keyframes burnerCompletePulse {
+  from { transform: scale(1);    opacity: 0.9; }
+  to   { transform: scale(2.75); opacity: 0; }
 }
 
 .burner-tick-label {
@@ -670,4 +726,9 @@
   .burner-leadin.is-active,
   .burner-icon-btn .is-spinning { animation: none; }
   .burner-arc { transition: none; }
+  /* The head still marks its position — that is information. It just stops
+     gliding, breathing and pulsing. */
+  .burner-laser { transition: none; }
+  .burner-laser-point { animation: none; }
+  .burner-complete-pulse { animation: none; opacity: 0; }
 }
