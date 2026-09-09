@@ -105,6 +105,9 @@ export default function PlaylistsHeader({
               tooltip={t('playlists.listSort.label')}
             />
           )}
+          {!(selectionMode && selectedIds.size > 0) && (
+            <PlaylistsOwnershipFilter counts={ownershipCounts} />
+          )}
           {foldersEnabled && !(selectionMode && selectedIds.size > 0) && <PlaylistsFolderViewToggle />}
           {foldersEnabled && !(selectionMode && selectedIds.size > 0) && <PlaylistsNewFolderButton />}
           {selectionMode && selectedIds.size > 0 && (() => {
@@ -138,9 +141,6 @@ export default function PlaylistsHeader({
           </button>
         </div>
       </div>
-      {!(selectionMode && selectedIds.size > 0) && (
-        <PlaylistsOwnershipFilter counts={ownershipCounts} />
-      )}
       {creating && (
         <form
           className="playlist-create-panel"
