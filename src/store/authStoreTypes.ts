@@ -241,6 +241,12 @@ export interface AuthState {
   coverSources: CoverSourcePref[];
   /** Opt-in: fetch upcoming tour dates from Bandsintown for the Now-Playing info panel. */
   enableBandsintown: boolean;
+  /**
+   * The info tab's opt-in prompt for {@link enableBandsintown} was dismissed.
+   * Declining an optional feature has to stick, so the prompt stays hidden; the
+   * feature itself remains reachable through Settings → Integrations.
+   */
+  bandsintownPromptDismissed: boolean;
   discordTemplateDetails: string;
   discordTemplateState: string;
   discordTemplateLargeText: string;
@@ -488,6 +494,7 @@ export interface AuthState {
   setDiscordCoverSource: (v: DiscordCoverSource) => void;
   setCoverSources: (v: CoverSourcePref[]) => void;
   setEnableBandsintown: (v: boolean) => void;
+  setBandsintownPromptDismissed: (v: boolean) => void;
   setDiscordTemplateDetails: (v: string) => void;
   setDiscordTemplateState: (v: string) => void;
   setDiscordTemplateLargeText: (v: string) => void;

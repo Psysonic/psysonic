@@ -219,10 +219,10 @@ pub fn subsonic_song_to_track_row(
         bit_rate: song.bit_rate,
         size_bytes: song.size,
         cover_art_id: song.cover_art.clone(),
-        starred_at: parse_iso_ms(song.starred.as_deref()),
+        starred_at: parse_timestamp_ms(song.starred.as_deref()),
         user_rating: song.user_rating,
         play_count: song.play_count,
-        played_at: parse_iso_ms(song.played.as_deref()),
+        played_at: parse_timestamp_ms(song.played.as_deref()),
         server_path: song.path.clone(),
         library_id: song
             .library_id
@@ -244,8 +244,8 @@ pub fn subsonic_song_to_track_row(
             .and_then(|rg| rg.get("trackPeak"))
             .and_then(|v| v.as_f64()),
         content_hash: None,
-        server_updated_at: parse_raw_iso_ms(raw_value, &["updatedAt"]),
-        server_created_at: parse_raw_iso_ms(raw_value, &["created", "createdAt"]),
+        server_updated_at: parse_raw_timestamp_ms(raw_value, &["updatedAt"]),
+        server_created_at: parse_raw_timestamp_ms(raw_value, &["created", "createdAt"]),
         deleted: false,
         synced_at,
         raw_json: track_raw_json(raw_value),
@@ -325,7 +325,7 @@ pub fn navidrome_song_to_track_row(
         .and_then(|v| v.as_str())
         .unwrap_or_default()
         .to_string();
-    let server_updated_at = parse_raw_iso_ms(raw, &["updatedAt"]);
+    let server_updated_at = parse_raw_timestamp_ms(raw, &["updatedAt"]);
     let library_id = json_string_field(raw, "libraryId")
         .or_else(|| json_string_field(raw, "library_id"))
         .or_else(|| json_string_field(raw, "musicFolderId"))
@@ -351,7 +351,7 @@ pub fn navidrome_song_to_track_row(
         bit_rate: raw.get("bitRate").and_then(|v| v.as_i64()),
         size_bytes: raw.get("size").and_then(|v| v.as_i64()),
         cover_art_id: string_field(raw, "coverArtId").or_else(|| string_field(raw, "coverArt")),
-        starred_at: parse_raw_iso_ms(raw, &["starredAt"]),
+        starred_at: parse_raw_timestamp_ms(raw, &["starredAt"]),
         user_rating: raw.get("rating").and_then(|v| v.as_i64()),
         play_count: raw.get("playCount").and_then(|v| v.as_i64()),
         // Navidrome's own API calls this `playDate`; `playedAt` was never one of
@@ -368,7 +368,7 @@ pub fn navidrome_song_to_track_row(
         // key that merely holds a string would settle on an empty `playDate` —
         // which Navidrome has been seen to send for never-played rows — and
         // never look at a usable `played` beside it.
-        played_at: parse_raw_iso_ms(raw, &["playDate", "played", "playedAt"]),
+        played_at: parse_raw_timestamp_ms(raw, &["playDate", "played", "playedAt"]),
         server_path: string_field(raw, "path"),
         library_id,
         isrc: navidrome_isrc_from_raw(raw),
@@ -379,7 +379,7 @@ pub fn navidrome_song_to_track_row(
         replay_gain_peak: raw.get("rgTrackPeak").and_then(|v| v.as_f64()),
         content_hash: None,
         server_updated_at,
-        server_created_at: parse_raw_iso_ms(raw, &["createdAt"]),
+        server_created_at: parse_raw_timestamp_ms(raw, &["createdAt"]),
         deleted: false,
         synced_at,
         raw_json: track_raw_json(raw),
@@ -452,16 +452,26 @@ fn duration_seconds(raw: &Value) -> i64 {
     }
 }
 
-fn parse_iso_ms(s: Option<&str>) -> Option<i64> {
-    s.and_then(parse_iso_ms_str)
+fn parse_timestamp_ms(s: Option<&str>) -> Option<i64> {
+    s.and_then(parse_timestamp_ms_str)
 }
 
-fn parse_raw_iso_ms(raw: &Value, keys: &[&str]) -> Option<i64> {
+fn parse_raw_timestamp_ms(raw: &Value, keys: &[&str]) -> Option<i64> {
     keys.iter().find_map(|key| {
         raw.get(*key)
             .and_then(Value::as_str)
-            .and_then(parse_iso_ms_str)
+            .and_then(parse_timestamp_ms_str)
     })
+}
+
+/// Parse a server-supplied timestamp in either form we have seen in the wild:
+/// ISO 8601 (Navidrome / OpenSubsonic) or RFC 1123 (`30 Apr 2017 08:44:05 GMT`).
+///
+/// Ingest must not drop a timestamp just because the server spells it the other
+/// way: an unparsed `created` leaves `server_created_at` NULL, which empties
+/// "recently added" and the new-releases feed for that server.
+pub(crate) fn parse_timestamp_ms_str(s: &str) -> Option<i64> {
+    parse_iso_ms_str(s).or_else(|| parse_rfc1123_ms_str(s))
 }
 
 /// Lightweight ISO-8601 → epoch-ms parser. Supports the Navidrome /
@@ -508,15 +518,108 @@ pub(crate) fn parse_iso_ms_str(s: &str) -> Option<i64> {
     {
         return None;
     }
-    // Days since 1970-01-01 — Howard Hinnant's civil_from_days inverse.
+    let seconds = days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second
+        - timezone_offset_seconds;
+    Some(seconds.saturating_mul(1000))
+}
+
+/// Days since 1970-01-01 — Howard Hinnant's `civil_from_days` inverse. Shared by
+/// the ISO and RFC 1123 parsers so both agree on the calendar by construction.
+fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
     let y = if month <= 2 { year - 1 } else { year };
     let era = y.div_euclid(400);
     let yoe = y - era * 400; // [0, 399]
     let m = if month > 2 { month - 3 } else { month + 9 };
     let doy = (153 * m + 2) / 5 + day - 1;
     let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-    let days = era * 146_097 + doe - 719_468;
-    let seconds = days * 86_400 + hour * 3600 + minute * 60 + second - timezone_offset_seconds;
+    era * 146_097 + doe - 719_468
+}
+
+/// Month number for an English three-letter abbreviation (`Jan` … `Dec`).
+fn month_from_abbreviation(abbreviation: &str) -> Option<i64> {
+    const MONTHS: [&str; 12] = [
+        "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec",
+    ];
+    if abbreviation.len() != 3 {
+        return None;
+    }
+    let lower = abbreviation.to_ascii_lowercase();
+    MONTHS
+        .iter()
+        .position(|month| *month == lower)
+        .map(|index| index as i64 + 1)
+}
+
+/// `GMT` / `UT` / `UTC` or a numeric `+HHMM` offset (RFC 1123 / RFC 2822).
+///
+/// Alphabetic zone names beyond UTC (`EST`, `PDT`, …) are deliberately rejected
+/// rather than guessed: RFC 2822 itself calls them unreliable, and a wrong date
+/// is worse than a missing one — a missing timestamp only leaves a column NULL.
+fn parse_rfc1123_zone_seconds(zone: &str) -> Option<i64> {
+    match zone {
+        "GMT" | "UT" | "UTC" | "Z" => return Some(0),
+        _ => {}
+    }
+    let (sign, digits) = match zone.as_bytes().first()? {
+        b'+' => (1, &zone[1..]),
+        b'-' => (-1, &zone[1..]),
+        _ => return None,
+    };
+    if digits.len() != 4 || !digits.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let hours: i64 = digits[..2].parse().ok()?;
+    let minutes: i64 = digits[2..].parse().ok()?;
+    if hours > 23 || minutes > 59 {
+        return None;
+    }
+    Some(sign * (hours * 3_600 + minutes * 60))
+}
+
+/// RFC 1123 date-time — `30 Apr 2017 08:44:05 GMT`, with the weekday prefix
+/// (`Sun, `) optional because servers differ on emitting it.
+///
+/// Measured on a live Subsonic server that reports every `created` this way;
+/// the ISO parser returns `None` for it, so without this the timestamp is lost.
+fn parse_rfc1123_ms_str(s: &str) -> Option<i64> {
+    let trimmed = s.trim();
+    let without_weekday = match trimmed.split_once(',') {
+        Some((_weekday, rest)) => rest.trim_start(),
+        None => trimmed,
+    };
+    let mut fields = without_weekday.split_whitespace();
+    let day: i64 = fields.next()?.parse().ok()?;
+    let month = month_from_abbreviation(fields.next()?)?;
+    let year: i64 = fields.next()?.parse().ok()?;
+    let mut time = fields.next()?.split(':');
+    let hour: i64 = time.next()?.parse().ok()?;
+    let minute: i64 = time.next()?.parse().ok()?;
+    let second: i64 = match time.next() {
+        Some(value) => value.parse().ok()?,
+        None => 0,
+    };
+    if time.next().is_some() {
+        return None;
+    }
+    // A missing zone is read as UTC, matching the ISO parser's behaviour for a
+    // bare `2024-01-01T00:00:00`.
+    let timezone_offset_seconds = match fields.next() {
+        Some(zone) => parse_rfc1123_zone_seconds(zone)?,
+        None => 0,
+    };
+    if fields.next().is_some() {
+        return None;
+    }
+    if !(1970..=2100).contains(&year)
+        || !(1..=31).contains(&day)
+        || !(0..=23).contains(&hour)
+        || !(0..=59).contains(&minute)
+        || !(0..=60).contains(&second)
+    {
+        return None;
+    }
+    let seconds = days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second
+        - timezone_offset_seconds;
     Some(seconds.saturating_mul(1000))
 }
 

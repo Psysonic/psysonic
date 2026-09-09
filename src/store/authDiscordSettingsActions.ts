@@ -11,6 +11,7 @@ export function createDiscordSettingsActions(set: SetState): Pick<
   | 'setDiscordCoverSource'
   | 'setCoverSources'
   | 'setEnableBandsintown'
+  | 'setBandsintownPromptDismissed'
   | 'setDiscordTemplateDetails'
   | 'setDiscordTemplateState'
   | 'setDiscordTemplateLargeText'
@@ -21,6 +22,7 @@ export function createDiscordSettingsActions(set: SetState): Pick<
     setDiscordCoverSource: (v) => set({ discordCoverSource: v }),
     setCoverSources: (v: CoverSourcePref[]) => set({ coverSources: v }),
     setEnableBandsintown: (v) => set({ enableBandsintown: v }),
+    setBandsintownPromptDismissed: (v) => set({ bandsintownPromptDismissed: v }),
     setDiscordTemplateDetails: (v) => set({ discordTemplateDetails: v }),
     setDiscordTemplateState: (v) => set({ discordTemplateState: v }),
     setDiscordTemplateLargeText: (v) => set({ discordTemplateLargeText: v }),

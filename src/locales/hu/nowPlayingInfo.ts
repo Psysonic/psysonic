@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Opcionális. Az aktuális előadó koncertjeit tölti be a nyilvános Bandsintown API-n keresztül.',
   enableBandsintownPrivacy: 'Bekapcsolva az éppen szóló előadó neve elküldésre kerül a Bandsintown API-nak a turnédátumok lekéréséhez. Fiók vagy személyes adat nem hagyja el az eszközödet.',
   enableBandsintownAction: 'Bekapcsolás',
+  dismissBandsintownPrompt: 'Ne jelenjen meg többé',
+  bandsintownPromptDismissed: 'A turnédátumok rejtve maradnak. A Beállítások → Integrációk menüben kapcsolhatod be őket.',
   role: {
     artist: 'Előadó',
     albumArtist: 'Album előadója',

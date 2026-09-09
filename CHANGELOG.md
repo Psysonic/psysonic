@@ -71,6 +71,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The generated theme appears in Settings → Themes as `Desktop — <your theme's name>`, next to a **Follow desktop theme** switch. Existing installs keep the theme they already had and start with the switch off; picking any other theme by hand also turns following off, so your choice sticks.
 * Any other desktop works too: point `PSYSONIC_PALETTE_FILE` at a file of `name = "#rrggbb"` lines. Naming only a background, a foreground and an accent is enough — the rest of the theme is derived from those three.
 
+### Servers that refuse browser-style requests can be added
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1511](https://github.com/Psysonic/psysonic/pull/1511)**
+
+* Some Subsonic servers — Bandcamp's among them — answer requests normally but do not permit them from an app window. Adding one failed with "Could not connect: Network Error" even though the server was reachable the whole time. Psysonic now recognises this and sends those servers' requests the same way it already sends streams and cover art.
+* Servers that work today are unaffected: they keep the exact request path they had.
+
+### Dismiss the tour dates prompt in the info tab
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@Trip7274](https://github.com/Trip7274), PR [#1513](https://github.com/Psysonic/psysonic/pull/1513)**
+
+* The info tab in the right sidebar offers tour dates as an optional feature, but the prompt could not be turned down. It now has a close button that hides it for good, and a short message points to **Settings → Integrations** in case you want the feature later.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again
@@ -123,6 +136,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), reported by [@thiagonl](https://github.com/thiagonl), PR [#1509](https://github.com/Psysonic/psysonic/pull/1509)**
 
 * Since 1.51.0, some Linux systems played every track with continuous crackling, dropouts and a dragging sound while flooding the log with buffer-underrun errors. PipeWire output now keeps the stable buffer used by earlier releases while retaining the corrected ALSA sample-rate handling.
+
+### Release years and dates from servers that report them differently
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1512](https://github.com/Psysonic/psysonic/pull/1512)**
+
+* Albums from servers whose album data carries no year showed no release year at all, even though the tracks had one. The year from the tracks is now kept instead of being overwritten with nothing.
+* The same servers often report dates in a different standard format, which was discarded on import. That left "recently added" and the New Releases page empty for them. Both formats are now understood. Albums already in your library pick their date up on the next full library sync.
 
 ## [1.52.0]
 
