@@ -19,7 +19,10 @@ async fn n1_ingest_paginates_navidrome_native_endpoint() {
         Mock::given(wm_method("GET"))
             .and(wm_path("/api/song"))
             .and(query_param("_start", start.to_string()))
-            .and(query_param("_filters", r#"{"missing":false}"#))
+            // A string, not a JSON boolean: Navidrome answers HTTP 500 to
+            // `{"missing":false}`. Pinning it here keeps the wire format under
+            // test rather than only the pagination around it.
+            .and(query_param("_filters", r#"{"missing":"false"}"#))
             .and(header("X-ND-Authorization", "Bearer nd-tok"))
             .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::Value::Array(songs)))
             .mount(&server)

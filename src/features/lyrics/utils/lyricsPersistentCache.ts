@@ -100,6 +100,26 @@ export async function putCachedLyrics(key: string, payload: CachedLyrics): Promi
   }
 }
 
+/**
+ * Drops the entry for a single track. Used by the per-track refresh action:
+ * lyrics edited server-side are otherwise served from here for the full
+ * 90-day TTL, since no sync path touches this store (issue #1506).
+ */
+export async function deleteCachedLyrics(key: string): Promise<void> {
+  try {
+    const database = await openDB();
+    if (!database) return;
+    await new Promise<void>(resolve => {
+      const tx = database.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch {
+    // Ignore — the RAM cache is cleared regardless, so the refetch still runs.
+  }
+}
+
 /** Wipes all entries — exposed for a future "clear cache" Settings action. */
 export async function clearLyricsCache(): Promise<void> {
   try {

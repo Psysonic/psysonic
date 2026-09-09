@@ -257,6 +257,54 @@
 
 /* ── Lyrics Pane (sidebar) ────────────────────────────────────────────────── */
 
+/* Wrapper so the refresh action can sit above the scrolling text instead of
+   scrolling away with it. Takes over the flex role the pane itself used to
+   hold inside the queue panel. */
+.lyrics-pane-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Set off from the scrolling text with the same top edge the tab bar below it
+   uses, so the pane reads as text / actions / tabs instead of running together. */
+.lyrics-pane-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-hover);
+  flex-shrink: 0;
+}
+
+/* Matches `.lyrics-source` so the two footer items read as one row; only the
+   hover state marks this one as the interactive half. */
+.lyrics-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.lyrics-refresh-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.lyrics-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .lyrics-pane {
   flex: 1;
   min-height: 0;
@@ -369,12 +417,17 @@
   margin: 0;
 }
 
+/* Sits in the footer next to the refresh action, separated by a rule that only
+   exists while both halves are on screen. Same weight and colour as the button
+   so the row reads as one unit. */
 .lyrics-source {
   font-size: 11px;
   color: var(--text-muted);
   text-align: center;
-  margin: 8px 0 4px;
-  opacity: 0.6;
+  margin: 0;
+  line-height: 1.2;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-subtle);
 }
 
 

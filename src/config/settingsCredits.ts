@@ -571,6 +571,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Ukrainian translation, with Ukrainian Cyrillic folding in library identity keys (PR #1465)',
     ],
   },
+  {
+    github: 'starrlord',
+    since: '1.53.0',
+    contributions: [
+      'Navidrome song-list filter fix that unblocked native library sync (PR #1514)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the
