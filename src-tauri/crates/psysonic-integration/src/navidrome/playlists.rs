@@ -55,7 +55,15 @@ pub async fn nd_create_playlist(
     token: String,
     body: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let reg = http_registry.as_ref();
+    create_playlist(http_registry.as_ref(), &server_url, &token, body).await
+}
+
+async fn create_playlist(
+    reg: &ServerHttpRegistry,
+    server_url: &str,
+    token: &str,
+    body: serde_json::Value,
+) -> Result<serde_json::Value, String> {
     let url = format!("{}/api/playlist", server_url);
     let auth = format!("Bearer {}", token);
     let resp = nd_retry(|| {
@@ -173,7 +181,25 @@ pub async fn nd_get_playlist_tracks(
     start: Option<u32>,
     end: Option<u32>,
 ) -> Result<serde_json::Value, String> {
-    let reg = http_registry.as_ref();
+    get_playlist_tracks(
+        http_registry.as_ref(),
+        &server_url,
+        &token,
+        &id,
+        start,
+        end,
+    )
+    .await
+}
+
+async fn get_playlist_tracks(
+    reg: &ServerHttpRegistry,
+    server_url: &str,
+    token: &str,
+    id: &str,
+    start: Option<u32>,
+    end: Option<u32>,
+) -> Result<serde_json::Value, String> {
     let url = format!("{}/api/playlist/{}/tracks", server_url, id);
     let auth = format!("Bearer {}", token);
     let start = start.unwrap_or(0);
@@ -214,13 +240,16 @@ pub async fn nd_preview_playlist(
     token: String,
     body: serde_json::Value,
 ) -> Result<serde_json::Value, String> {
-    let created = nd_create_playlist(
-        http_registry.clone(),
-        server_url.clone(),
-        token.clone(),
-        body,
-    )
-    .await?;
+    preview_playlist(http_registry.as_ref(), &server_url, &token, body).await
+}
+
+async fn preview_playlist(
+    reg: &ServerHttpRegistry,
+    server_url: &str,
+    token: &str,
+    body: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    let created = create_playlist(reg, server_url, token, body).await?;
     let id = created
         .get("id")
         .and_then(|value| value.as_str())
@@ -229,16 +258,8 @@ pub async fn nd_preview_playlist(
     if id.is_empty() {
         return Err("Preview playlist was created without an id".into());
     }
-    let tracks = nd_get_playlist_tracks(
-        http_registry.clone(),
-        server_url.clone(),
-        token.clone(),
-        id.clone(),
-        Some(0),
-        Some(50),
-    )
-    .await;
-    let cleanup = nd_delete_playlist(http_registry, server_url, token, id.clone()).await;
+    let tracks = get_playlist_tracks(reg, server_url, token, &id, Some(0), Some(50)).await;
+    let cleanup = delete_playlist(reg, server_url, token, &id).await;
     match (tracks, cleanup) {
         (Ok(tracks), Ok(())) => Ok(tracks),
         (Err(read_err), Ok(())) => Err(read_err),
@@ -260,7 +281,15 @@ pub async fn nd_delete_playlist(
     token: String,
     id: String,
 ) -> Result<(), String> {
-    let reg = http_registry.as_ref();
+    delete_playlist(http_registry.as_ref(), &server_url, &token, &id).await
+}
+
+async fn delete_playlist(
+    reg: &ServerHttpRegistry,
+    server_url: &str,
+    token: &str,
+    id: &str,
+) -> Result<(), String> {
     let url = format!("{}/api/playlist/{}", server_url, id);
     let auth = format!("Bearer {}", token);
     let resp = nd_retry(|| {
@@ -291,7 +320,6 @@ pub async fn nd_delete_playlist(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tauri::Manager;
     use wiremock::matchers::{header, method, path as wm_path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -328,12 +356,11 @@ mod tests {
             .mount(&server)
             .await;
 
-        let app = tauri::test::mock_app();
-        app.manage(Arc::new(ServerHttpRegistry::new()));
-        let err = nd_preview_playlist(
-            app.state::<Arc<ServerHttpRegistry>>(),
-            server.uri(),
-            "test-token".into(),
+        let registry = ServerHttpRegistry::new();
+        let err = preview_playlist(
+            &registry,
+            &server.uri(),
+            "test-token",
             serde_json::json!({ "name": "preview" }),
         )
         .await
@@ -362,12 +389,11 @@ mod tests {
             .mount(&server)
             .await;
 
-        let app = tauri::test::mock_app();
-        app.manage(Arc::new(ServerHttpRegistry::new()));
-        let err = nd_preview_playlist(
-            app.state::<Arc<ServerHttpRegistry>>(),
-            server.uri(),
-            "test-token".into(),
+        let registry = ServerHttpRegistry::new();
+        let err = preview_playlist(
+            &registry,
+            &server.uri(),
+            "test-token",
             serde_json::json!({ "name": "preview" }),
         )
         .await
@@ -396,12 +422,11 @@ mod tests {
             .mount(&server)
             .await;
 
-        let app = tauri::test::mock_app();
-        app.manage(Arc::new(ServerHttpRegistry::new()));
-        let err = nd_preview_playlist(
-            app.state::<Arc<ServerHttpRegistry>>(),
-            server.uri(),
-            "test-token".into(),
+        let registry = ServerHttpRegistry::new();
+        let err = preview_playlist(
+            &registry,
+            &server.uri(),
+            "test-token",
             serde_json::json!({ "name": "preview" }),
         )
         .await
