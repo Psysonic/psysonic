@@ -31,6 +31,16 @@ export type OverlayScrollAreaProps = {
   viewportOnTouchMove?: React.TouchEventHandler<HTMLDivElement>;
 };
 
+export type OverlayTextareaProps = Omit<
+  React.TextareaHTMLAttributes<HTMLTextAreaElement>,
+  'children' | 'ref'
+> & {
+  /** Classes on the outer wrapper around the textarea and overlay rail. */
+  wrapClassName?: string;
+  /** Vertical inset of the hit rail. */
+  railInset?: OverlayScrollRailInset;
+};
+
 const RAIL_INSET_CLASS: Record<OverlayScrollRailInset, string> = {
   none: 'overlay-scroll--rail-inset-none',
   mini: 'overlay-scroll--rail-inset-mini',
@@ -43,34 +53,33 @@ function assignRef<T>(ref: React.Ref<T> | undefined, value: T) {
   else (ref as { current: T | null }).current = value;
 }
 
-export default function OverlayScrollArea({
-  children,
-  onMouseMove,
-  className = '',
-  viewportClassName = '',
-  measureDeps = [],
-  railInset = 'none',
+function overlayRootClass(
+  railInset: OverlayScrollRailInset,
+  className: string,
   viewportScrollBehaviorAuto = false,
-  viewportRef: viewportRefProp,
-  wrapRef: wrapRefProp,
-  viewportId,
-  viewportOnWheel,
-  viewportOnTouchMove,
-}: OverlayScrollAreaProps) {
+) {
+  return [
+    'overlay-scroll',
+    RAIL_INSET_CLASS[railInset],
+    viewportScrollBehaviorAuto ? 'overlay-scroll--viewport-scroll-auto' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
+}
+
+function useOverlayScrollbar<T extends HTMLElement>(measureDeps: ReadonlyArray<unknown>) {
   const perfFlags = usePerfProbeFlags();
   const wrapRef = useRef<HTMLDivElement | null>(null);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
-  /** Coalesce burst scroll events to one thumb update per animation frame. */
+  const viewportRef = useRef<T | null>(null);
   const scrollRecomputeRafRef = useRef(0);
   const [meta, setMeta] = useState({ thumbH: 0, thumbT: 0, visible: false });
 
   const recompute = useCallback(() => {
-    const vp = viewportRef.current;
-    const wrap = wrapRef.current;
-    const rail = wrap?.querySelector<HTMLElement>('.overlay-scroll__rail');
-    const trackH =
-      rail && rail.clientHeight > 0 ? rail.clientHeight : undefined;
-    setMeta(computeOverlayScrollbarThumbMeta(vp, trackH));
+    const viewport = viewportRef.current;
+    const rail = wrapRef.current?.querySelector<HTMLElement>('.overlay-scroll__rail');
+    const trackHeight = rail && rail.clientHeight > 0 ? rail.clientHeight : undefined;
+    setMeta(computeOverlayScrollbarThumbMeta(viewport, trackHeight));
   }, []);
 
   const scheduleScrollRecompute = useCallback(() => {
@@ -88,24 +97,22 @@ export default function OverlayScrollArea({
     }
   }, []);
 
-  const measureKey = JSON.stringify(measureDeps ?? []);
+  const measureKey = JSON.stringify(measureDeps);
 
   useLayoutEffect(() => {
-    if (perfFlags.disableOverlayScrollbars) return;
-    if (!meta.visible) return;
-    const vp = viewportRef.current;
-    const wrap = wrapRef.current;
-    const rail = wrap?.querySelector<HTMLElement>('.overlay-scroll__rail');
-    const th = rail?.clientHeight;
-    if (!vp || !th || th <= 0) return;
-    setMeta((prev) => {
-      const next = computeOverlayScrollbarThumbMeta(vp, th);
+    if (perfFlags.disableOverlayScrollbars || !meta.visible) return;
+    const viewport = viewportRef.current;
+    const rail = wrapRef.current?.querySelector<HTMLElement>('.overlay-scroll__rail');
+    const trackHeight = rail?.clientHeight;
+    if (!viewport || !trackHeight || trackHeight <= 0) return;
+    setMeta((previous) => {
+      const next = computeOverlayScrollbarThumbMeta(viewport, trackHeight);
       if (
-        prev.thumbH === next.thumbH &&
-        prev.thumbT === next.thumbT &&
-        prev.visible === next.visible
+        previous.thumbH === next.thumbH
+        && previous.thumbT === next.thumbT
+        && previous.visible === next.visible
       ) {
-        return prev;
+        return previous;
       }
       return next;
     });
@@ -115,64 +122,164 @@ export default function OverlayScrollArea({
     if (perfFlags.disableOverlayScrollbars) return;
     recompute();
     const wrap = wrapRef.current;
-    const onWinResize = () => recompute();
-    window.addEventListener('resize', onWinResize);
-    const ro =
-      typeof ResizeObserver !== 'undefined' && wrap
-        ? new ResizeObserver(() => recompute())
-        : null;
-    if (ro && wrap) ro.observe(wrap);
+    const onWindowResize = () => recompute();
+    window.addEventListener('resize', onWindowResize);
+    const resizeObserver = typeof ResizeObserver !== 'undefined' && wrap
+      ? new ResizeObserver(() => recompute())
+      : null;
+    if (resizeObserver && wrap) resizeObserver.observe(wrap);
     return () => {
-      window.removeEventListener('resize', onWinResize);
-      ro?.disconnect();
+      window.removeEventListener('resize', onWindowResize);
+      resizeObserver?.disconnect();
     };
   }, [recompute, measureKey, perfFlags.disableOverlayScrollbars]);
 
-  const setViewportNode = (el: HTMLDivElement | null) => {
-    viewportRef.current = el;
-    assignRef(viewportRefProp, el);
+  const setViewportNode = useCallback((element: T | null) => {
+    viewportRef.current = element;
+  }, []);
+
+  const setWrapNode = useCallback((element: HTMLDivElement | null) => {
+    wrapRef.current = element;
+  }, []);
+
+  const getViewportNode = useCallback(() => viewportRef.current, []);
+
+  return {
+    disabled: perfFlags.disableOverlayScrollbars,
+    getViewportNode,
+    meta,
+    scheduleScrollRecompute,
+    setViewportNode,
+    setWrapNode,
   };
+}
 
-  const setWrapNode = (el: HTMLDivElement | null) => {
-    wrapRef.current = el;
-    assignRef(wrapRefProp, el);
-  };
-
-  const rootClass = [
-    'overlay-scroll',
-    RAIL_INSET_CLASS[railInset],
-    viewportScrollBehaviorAuto ? 'overlay-scroll--viewport-scroll-auto' : '',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const viewportClass = ['overlay-scroll__viewport', viewportClassName].filter(Boolean).join(' ');
+function OverlayScrollbarRail({
+  disabled,
+  getViewportNode,
+  meta,
+}: {
+  disabled: boolean;
+  getViewportNode: () => HTMLElement | null;
+  meta: { thumbH: number; thumbT: number; visible: boolean };
+}) {
+  if (disabled || !meta.visible) return null;
 
   return (
-    <div ref={setWrapNode} className={rootClass} onMouseMove={onMouseMove}>
+    <div className="overlay-scroll__rail" aria-hidden>
       <div
-        id={viewportId}
+        className="overlay-scroll__thumb"
+        style={{
+          height: `${meta.thumbH}px`,
+          transform: `translateY(${meta.thumbT}px)`,
+        }}
+        onPointerDown={event => bindOverlayScrollbarThumbDrag(event, getViewportNode())}
+      />
+    </div>
+  );
+}
+
+export function OverlayTextarea({
+  className = '',
+  wrapClassName = '',
+  railInset = 'panel',
+  onScroll,
+  value,
+  defaultValue,
+  rows,
+  ...props
+}: OverlayTextareaProps) {
+  const {
+    disabled,
+    getViewportNode,
+    meta,
+    scheduleScrollRecompute,
+    setViewportNode,
+    setWrapNode,
+  } = useOverlayScrollbar<HTMLTextAreaElement>([value, defaultValue, rows]);
+  const viewportClass = ['overlay-scroll__viewport', className].filter(Boolean).join(' ');
+
+  return (
+    <div
+      ref={setWrapNode}
+      className={overlayRootClass(railInset, `overlay-textarea ${wrapClassName}`)}
+    >
+      <textarea
+        {...props}
         ref={setViewportNode}
         className={viewportClass}
-        onScroll={perfFlags.disableOverlayScrollbars ? undefined : scheduleScrollRecompute}
+        value={value}
+        defaultValue={defaultValue}
+        rows={rows}
+        onScroll={(event) => {
+          if (!disabled) scheduleScrollRecompute();
+          onScroll?.(event);
+        }}
+      />
+      <OverlayScrollbarRail
+        disabled={disabled}
+        getViewportNode={getViewportNode}
+        meta={meta}
+      />
+    </div>
+  );
+}
+
+export default function OverlayScrollArea({
+  children,
+  onMouseMove,
+  className = '',
+  viewportClassName = '',
+  measureDeps = [],
+  railInset = 'none',
+  viewportScrollBehaviorAuto = false,
+  viewportRef: viewportRefProp,
+  wrapRef: wrapRefProp,
+  viewportId,
+  viewportOnWheel,
+  viewportOnTouchMove,
+}: OverlayScrollAreaProps) {
+  const {
+    disabled,
+    getViewportNode,
+    meta,
+    scheduleScrollRecompute,
+    setViewportNode,
+    setWrapNode,
+  } = useOverlayScrollbar<HTMLDivElement>(measureDeps);
+  const viewportClass = ['overlay-scroll__viewport', viewportClassName].filter(Boolean).join(' ');
+
+  const bindViewportNode = (element: HTMLDivElement | null) => {
+    setViewportNode(element);
+    assignRef(viewportRefProp, element);
+  };
+
+  const bindWrapNode = (element: HTMLDivElement | null) => {
+    setWrapNode(element);
+    assignRef(wrapRefProp, element);
+  };
+
+  return (
+    <div
+      ref={bindWrapNode}
+      className={overlayRootClass(railInset, className, viewportScrollBehaviorAuto)}
+      onMouseMove={onMouseMove}
+    >
+      <div
+        id={viewportId}
+        ref={bindViewportNode}
+        className={viewportClass}
+        onScroll={disabled ? undefined : scheduleScrollRecompute}
         onWheel={viewportOnWheel}
         onTouchMove={viewportOnTouchMove}
       >
         {children}
       </div>
-      {!perfFlags.disableOverlayScrollbars && meta.visible && (
-        <div className="overlay-scroll__rail" aria-hidden>
-          <div
-            className="overlay-scroll__thumb"
-            style={{
-              height: `${meta.thumbH}px`,
-              transform: `translateY(${meta.thumbT}px)`,
-            }}
-            onPointerDown={(ev) => bindOverlayScrollbarThumbDrag(ev, viewportRef.current)}
-          />
-        </div>
-      )}
+      <OverlayScrollbarRail
+        disabled={disabled}
+        getViewportNode={getViewportNode}
+        meta={meta}
+      />
     </div>
   );
 }

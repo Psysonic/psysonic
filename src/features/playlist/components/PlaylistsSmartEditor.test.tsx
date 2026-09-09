@@ -122,9 +122,12 @@ describe('PlaylistsSmartEditor', () => {
 
     await user.click(view.getByRole('tab', { name: 'JSON' }));
     expect(view.getByRole('tab', { name: 'JSON' })).toHaveAttribute('aria-selected', 'true');
-    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('inTheRange');
-    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('"limit": 50');
-    expect((view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement).value).toContain('+random');
+    const jsonEditor = view.getByRole('textbox', { name: 'JSON' }) as HTMLTextAreaElement;
+    expect(jsonEditor).toHaveClass('overlay-scroll__viewport');
+    expect(jsonEditor.closest('.overlay-textarea')).not.toBeNull();
+    expect(jsonEditor.value).toContain('inTheRange');
+    expect(jsonEditor.value).toContain('"limit": 50');
+    expect(jsonEditor.value).toContain('+random');
   });
 
   it('links tabs to the active panel and supports roving keyboard navigation', async () => {

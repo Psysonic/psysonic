@@ -41,6 +41,15 @@
   display: none;
 }
 
+.overlay-textarea {
+  display: block;
+}
+
+.overlay-textarea > .overlay-scroll__viewport {
+  display: block;
+  width: 100%;
+}
+
 .overlay-scroll__rail {
   position: absolute;
   top: var(--overlay-rail-top);
@@ -188,4 +197,3 @@
    MOBILE LAYOUT  (< 800px)
    Controller: data-mobile attribute set by useIsMobile hook
    ═══════════════════════════════════════════════════════════════════════════ */
-

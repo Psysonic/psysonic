@@ -7,7 +7,7 @@ import { computeOverlayScrollbarThumbMeta } from '@/lib/dom/overlayScrollbarMetr
  */
 export function bindOverlayScrollbarThumbDrag(
   e: ReactPointerEvent<HTMLElement>,
-  scrollEl: HTMLDivElement | null,
+  scrollEl: HTMLElement | null,
 ): void {
   if (e.button !== 0 || !scrollEl) return;
   e.preventDefault();

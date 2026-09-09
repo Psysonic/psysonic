@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next';
+import { OverlayTextarea } from '@/ui/OverlayScrollArea';
 import type { SmartEditorSession } from '@/features/playlist/utils/smartPlaylistEditor';
 import {
   type SmartRuleValidationIssue,
@@ -23,7 +24,7 @@ export default function PlaylistsSmartEditorJson({
 
   return (
     <section style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 'var(--space-3)' }}>
-      <textarea
+      <OverlayTextarea
         className="input"
         aria-label={t('smartPlaylists.modeJson')}
         value={session.jsonDraft}
