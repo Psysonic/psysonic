@@ -1,4 +1,5 @@
 import { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from '@/features/playback';
+import { RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
@@ -23,7 +24,7 @@ interface Props {
 export default function LyricsPane({ currentTrack }: Props) {
   const { t } = useTranslation();
 
-  const { syncedLines, wordLines, plainLyrics, source, loading, notFound } = useLyrics(currentTrack);
+  const { syncedLines, wordLines, plainLyrics, source, loading, notFound, refresh } = useLyrics(currentTrack);
   const { staticOnly, sidebarLyricsStyle, lyricsSources } = useAuthStore(useShallow(s => ({
     staticOnly: s.lyricsStaticOnly,
     sidebarLyricsStyle: s.sidebarLyricsStyle,
@@ -172,96 +173,113 @@ export default function LyricsPane({ currentTrack }: Props) {
   );
 
   return (
-    <OverlayScrollArea
-      className="lyrics-pane"
-      viewportClassName="lyrics-pane__viewport"
-      viewportRef={setContainerRef}
-      measureDeps={[
-        currentTrack?.id,
-        loading,
-        notFound,
-        source,
-        useWords,
-        hasSynced,
-        staticOnly,
-        sidebarLyricsStyle,
-        plainLyrics?.length ?? 0,
-        syncedLines?.length ?? 0,
-        wordLines?.length ?? 0,
-      ]}
-      railInset="panel"
-      viewportOnWheel={handleUserScroll}
-      viewportOnTouchMove={handleUserScroll}
-    >
-      {loading && <p className="lyrics-status">{t('player.lyricsLoading')}</p>}
-      {notFound && !loading && <p className="lyrics-status">{t('player.lyricsNotFound')}</p>}
+    <div className="lyrics-pane-wrap">
+      <OverlayScrollArea
+        className="lyrics-pane"
+        viewportClassName="lyrics-pane__viewport"
+        viewportRef={setContainerRef}
+        measureDeps={[
+          currentTrack?.id,
+          loading,
+          notFound,
+          source,
+          useWords,
+          hasSynced,
+          staticOnly,
+          sidebarLyricsStyle,
+          plainLyrics?.length ?? 0,
+          syncedLines?.length ?? 0,
+          wordLines?.length ?? 0,
+        ]}
+        railInset="panel"
+        viewportOnWheel={handleUserScroll}
+        viewportOnTouchMove={handleUserScroll}
+      >
+        {loading && <p className="lyrics-status">{t('player.lyricsLoading')}</p>}
+        {notFound && !loading && <p className="lyrics-status">{t('player.lyricsNotFound')}</p>}
 
-      {useWords && (
-        <div className="lyrics-synced lyrics-word-synced">
-          {(wordLines as WordLyricsLine[]).map((line, i) => (
-            <div
-              key={i}
-              ref={el => { lineRefs.current[i] = el; }}
-              className="lyrics-line"
-              onClick={() => { if (duration > 0) seek(line.time / duration); }}
-              style={{ cursor: 'pointer' }}
-            >
-              {line.words.length > 0 ? line.words.map((w, j) => (
-                <span
-                  key={j}
-                  className="lyrics-word"
-                  ref={el => {
-                    if (!wordRefs.current[i]) wordRefs.current[i] = [];
-                    if (el) wordRefs.current[i][j] = el;
-                  }}
-                >
-                  {w.text}
-                </span>
-              )) : (line.text || '\u00A0')}
-            </div>
-          ))}
-        </div>
-      )}
+        {useWords && (
+          <div className="lyrics-synced lyrics-word-synced">
+            {(wordLines as WordLyricsLine[]).map((line, i) => (
+              <div
+                key={i}
+                ref={el => { lineRefs.current[i] = el; }}
+                className="lyrics-line"
+                onClick={() => { if (duration > 0) seek(line.time / duration); }}
+                style={{ cursor: 'pointer' }}
+              >
+                {line.words.length > 0 ? line.words.map((w, j) => (
+                  <span
+                    key={j}
+                    className="lyrics-word"
+                    ref={el => {
+                      if (!wordRefs.current[i]) wordRefs.current[i] = [];
+                      if (el) wordRefs.current[i][j] = el;
+                    }}
+                  >
+                    {w.text}
+                  </span>
+                )) : (line.text || '\u00A0')}
+              </div>
+            ))}
+          </div>
+        )}
 
-      {hasSynced && !useWords && (
-        <div className="lyrics-synced">
-          {(syncedLines as LrcLine[]).map((line, i) => (
-            <div
-              key={i}
-              ref={el => { lineRefs.current[i] = el; }}
-              className="lyrics-line"
-              onClick={() => { if (duration > 0) seek(line.time / duration); }}
-              style={{ cursor: 'pointer' }}
-            >
-              {line.text || '\u00A0'}
-            </div>
-          ))}
-        </div>
-      )}
+        {hasSynced && !useWords && (
+          <div className="lyrics-synced">
+            {(syncedLines as LrcLine[]).map((line, i) => (
+              <div
+                key={i}
+                ref={el => { lineRefs.current[i] = el; }}
+                className="lyrics-line"
+                onClick={() => { if (duration > 0) seek(line.time / duration); }}
+                style={{ cursor: 'pointer' }}
+              >
+                {line.text || '\u00A0'}
+              </div>
+            ))}
+          </div>
+        )}
 
-      {renderAsStatic && (
-        <div className="lyrics-plain">
-          {((syncedLines ?? []).length > 0
-            ? (syncedLines as LrcLine[]).map(l => l.text)
-            : (wordLines as WordLyricsLine[]).map(l => l.text)
-          ).map((text, i) => (
-            <p key={i} className="lyrics-plain-line">{text || '\u00A0'}</p>
-          ))}
-        </div>
-      )}
+        {renderAsStatic && (
+          <div className="lyrics-plain">
+            {((syncedLines ?? []).length > 0
+              ? (syncedLines as LrcLine[]).map(l => l.text)
+              : (wordLines as WordLyricsLine[]).map(l => l.text)
+            ).map((text, i) => (
+              <p key={i} className="lyrics-plain-line">{text || '\u00A0'}</p>
+            ))}
+          </div>
+        )}
 
-      {!renderAsStatic && !useWords && !hasSynced && plainLyrics && (
-        <div className="lyrics-plain">
-          {plainLyrics.split('\n').map((line, i) => (
-            <p key={i} className="lyrics-plain-line">{line || '\u00A0'}</p>
-          ))}
-        </div>
-      )}
+        {!renderAsStatic && !useWords && !hasSynced && plainLyrics && (
+          <div className="lyrics-plain">
+            {plainLyrics.split('\n').map((line, i) => (
+              <p key={i} className="lyrics-plain-line">{line || '\u00A0'}</p>
+            ))}
+          </div>
+        )}
 
-      {sourceLabel && !loading && !notFound && (
-        <p className="lyrics-source">{sourceLabel}</p>
-      )}
-    </OverlayScrollArea>
+      </OverlayScrollArea>
+
+      {/* Pinned below the scrolling text: the refresh action stays reachable
+          without scrolling to the end of a long song, and the source label
+          keeps its place directly under it. */}
+      <div className="lyrics-pane-footer">
+        <button
+          type="button"
+          className="lyrics-refresh-btn"
+          onClick={refresh}
+          disabled={loading}
+        >
+          <RotateCcw size={14} className={loading ? 'spin' : ''} aria-hidden="true" />
+          <span>{t('player.lyricsRefresh')}</span>
+        </button>
+        {sourceLabel && !loading && !notFound && (
+          <p className="lyrics-source">{sourceLabel}</p>
+        )}
+      </div>
+    </div>
   );
 }
 
