@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Psysonic
+Comment=Play music from self-hosted Subsonic-compatible servers
+Exec=psysonic
+Icon=io.github.psysonic.psysonic
+Terminal=false
+Categories=AudioVideo;Audio;Player;
+Keywords=music;audio;player;Navidrome;Subsonic;
+StartupNotify=true

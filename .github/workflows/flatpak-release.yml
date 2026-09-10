@@ -1,0 +1,400 @@
+name: Flatpak Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Published GitHub Release tag: app-vX.Y.Z or app-vX.Y.Z-rc.N"
+        required: false
+        type: string
+      test_source_sha:
+        description: "Exact 40-character app commit SHA to publish only to the test channel"
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flatpak-publish
+  cancel-in-progress: false
+
+env:
+  FLATPAK_ID: io.github.psysonic.psysonic
+  PUBLIC_BASE_URL: https://flatpak.psysonic.de
+  RUNTIME_REPO: https://dl.flathub.org/repo/flathub.flatpakrepo
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: check out release source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.test_source_sha || inputs.release_tag || github.sha }}
+          path: app
+          persist-credentials: false
+
+      - name: check out Flatpak packaging
+        uses: actions/checkout@v5
+        with:
+          repository: Psysonic/flatpak-psysonic
+          ref: main
+          path: flatpak
+          submodules: recursive
+          persist-credentials: false
+
+      - name: verify published release, channel and packaging pin
+        id: release
+        working-directory: flatpak
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          TEST_SOURCE_SHA: ${{ inputs.test_source_sha }}
+        run: |
+          set -euo pipefail
+          if [ -n "$TEST_SOURCE_SHA" ]; then
+            if [ -n "$RELEASE_TAG" ]; then
+              echo "::error::Set either release_tag or test_source_sha, not both"
+              exit 1
+            fi
+            if [[ ! "$TEST_SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "::error::test_source_sha must be an exact 40-character commit SHA"
+              exit 1
+            fi
+            CURRENT_MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+            if [ "$TEST_SOURCE_SHA" != "$CURRENT_MAIN_SHA" ]; then
+              echo "::error::test_source_sha $TEST_SOURCE_SHA is not current main $CURRENT_MAIN_SHA"
+              exit 1
+            fi
+            CHANNEL="test"
+            IS_TEST=true
+          else
+            IS_TEST=false
+            if [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+              CHANNEL=rc
+              EXPECTED_PRERELEASE=true
+            elif [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              CHANNEL=stable
+              EXPECTED_PRERELEASE=false
+            else
+              echo "::error::release_tag must be app-vX.Y.Z or app-vX.Y.Z-rc.N"
+              exit 1
+            fi
+
+            RELEASE_JSON="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,publishedAt)"
+            if ! jq -e '(.isDraft == false) and (.publishedAt != null) and (.publishedAt != "")' <<< "$RELEASE_JSON" >/dev/null; then
+              echo "::error::GitHub Release $RELEASE_TAG must be publicly published before its Flatpak channel can update"
+              exit 1
+            fi
+            RELEASE_PRERELEASE="$(jq -r '.isPrerelease' <<< "$RELEASE_JSON")"
+            if [ "$RELEASE_PRERELEASE" != "$EXPECTED_PRERELEASE" ]; then
+              echo "::error::Release prerelease flag does not match the $CHANNEL channel"
+              exit 1
+            fi
+          fi
+
+          EXPECTED_SHA="$(git -C ../app rev-parse HEAD)"
+          MANIFEST_SHA="$(awk '$1 == "url:" && $2 == "https://github.com/Psysonic/psysonic.git" { source = 1; next } source && $1 == "commit:" { print $2; exit }' io.github.psysonic.psysonic.yaml)"
+          MAKEFILE_SHA="$(awk '$1 == "COMMIT_HASH" { print $3; exit }' Makefile)"
+          PACKAGE_VERSION="$(node -p 'require("../app/package.json").version')"
+
+          if [ "$IS_TEST" = true ] && [ "$TEST_SOURCE_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Checked-out source $EXPECTED_SHA does not match test_source_sha $TEST_SOURCE_SHA"
+            exit 1
+          fi
+          if [ "$IS_TEST" = false ] && [ "$RELEASE_TAG" != "app-v$PACKAGE_VERSION" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not match package version $PACKAGE_VERSION"
+            exit 1
+          fi
+          if [ "$MANIFEST_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Flatpak manifest pins $MANIFEST_SHA, release $RELEASE_TAG points to $EXPECTED_SHA"
+            exit 1
+          fi
+          if [ "$MAKEFILE_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Flatpak Makefile pins $MAKEFILE_SHA, release $RELEASE_TAG points to $EXPECTED_SHA"
+            exit 1
+          fi
+          cmp io.github.psysonic.psysonic.desktop ../app/src-tauri/flatpak/io.github.psysonic.psysonic.desktop
+          cmp io.github.psysonic.psysonic.metainfo.xml ../app/src-tauri/flatpak/io.github.psysonic.psysonic.metainfo.xml
+          if [ "$IS_TEST" = false ] && ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" io.github.psysonic.psysonic.metainfo.xml; then
+            echo "::error::Flatpak metainfo has no release entry for $PACKAGE_VERSION"
+            exit 1
+          fi
+
+          {
+            echo "channel=$CHANNEL"
+            echo "is_test=$IS_TEST"
+            echo "package_version=$PACKAGE_VERSION"
+            echo "repo_url=$PUBLIC_BASE_URL/$CHANNEL/repo/"
+            echo "source_sha=$EXPECTED_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: plan channel deployment
+        id: deployment
+        env:
+          CANDIDATE_VERSION: ${{ steps.release.outputs.package_version }}
+          PRIMARY_CHANNEL: ${{ steps.release.outputs.channel }}
+        run: |
+          set -euo pipefail
+
+          if [ "$PRIMARY_CHANNEL" = test ]; then
+            echo "channels=test" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          version_key() {
+            local version="$1"
+            local rc_rank
+            if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-rc\.([0-9]+))?$ ]]; then
+              echo "::error::Unsupported channel version: $version" >&2
+              return 1
+            fi
+            if [ -n "${BASH_REMATCH[5]}" ]; then
+              rc_rank="${BASH_REMATCH[5]}"
+            else
+              rc_rank=99999999
+            fi
+            printf '%08d%08d%08d%08d' \
+              "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" \
+              "${BASH_REMATCH[3]}" "$rc_rank"
+          }
+
+          read_published_version() {
+            local channel="$1"
+            local response_file="$RUNNER_TEMP/flatpak-$channel-version.txt"
+            local status
+            status="$(curl --silent --show-error --output "$response_file" \
+              --write-out '%{http_code}' "$PUBLIC_BASE_URL/$channel/version.txt")"
+            case "$status" in
+              200) tr -d '\r\n' < "$response_file" ;;
+              404) ;;
+              *)
+                echo "::error::Could not read $channel channel version: HTTP $status" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          CANDIDATE_KEY="$(version_key "$CANDIDATE_VERSION")"
+          CURRENT_PRIMARY="$(read_published_version "$PRIMARY_CHANNEL")"
+          if [ -n "$CURRENT_PRIMARY" ] && [[ "$CANDIDATE_KEY" < "$(version_key "$CURRENT_PRIMARY")" ]]; then
+            echo "::error::$CANDIDATE_VERSION would downgrade $PRIMARY_CHANNEL from $CURRENT_PRIMARY"
+            exit 1
+          fi
+
+          DEPLOY_CHANNELS="$PRIMARY_CHANNEL"
+          if [ "$PRIMARY_CHANNEL" = stable ]; then
+            CURRENT_RC="$(read_published_version rc)"
+            if [ -z "$CURRENT_RC" ] || [[ "$CANDIDATE_KEY" > "$(version_key "$CURRENT_RC")" ]] \
+              || [ "$CANDIDATE_KEY" = "$(version_key "$CURRENT_RC")" ]; then
+              DEPLOY_CHANNELS="stable rc"
+            else
+              echo "::notice::Keeping newer RC channel $CURRENT_RC; stable $CANDIDATE_VERSION will update only stable"
+            fi
+          fi
+
+          echo "channels=$DEPLOY_CHANNELS" >> "$GITHUB_OUTPUT"
+
+      - name: install Flatpak publishing dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub \
+            org.gnome.Sdk//50 \
+            org.freedesktop.Sdk.Extension.node26//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+      - name: validate desktop metadata
+        working-directory: flatpak
+        run: |
+          set -euo pipefail
+          desktop-file-validate io.github.psysonic.psysonic.desktop
+          appstreamcli validate --pedantic io.github.psysonic.psysonic.metainfo.xml
+
+      - name: import repository signing key
+        id: signing
+        env:
+          EXPECTED_FINGERPRINT: ${{ vars.OSTREE_GPG_FINGERPRINT }}
+          PRIVATE_KEY_B64: ${{ secrets.OSTREE_GPG_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PRIVATE_KEY_B64" ]; then
+            echo "::error::OSTREE_GPG_PRIVATE_KEY_B64 is not configured"
+            exit 1
+          fi
+          if [ -z "$EXPECTED_FINGERPRINT" ]; then
+            echo "::error::OSTREE_GPG_FINGERPRINT repository variable is not configured"
+            exit 1
+          fi
+
+          EXPECTED_FINGERPRINT="$(printf '%s' "$EXPECTED_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          if [[ ! "$EXPECTED_FINGERPRINT" =~ ^([0-9A-F]{40}|[0-9A-F]{64})$ ]]; then
+            echo "::error::OSTREE_GPG_FINGERPRINT must be a full 40- or 64-character hexadecimal fingerprint"
+            exit 1
+          fi
+
+          GNUPG_HOME="$RUNNER_TEMP/flatpak-gnupg"
+          PUBLIC_KEY="$RUNNER_TEMP/flatpak-public.gpg"
+          mkdir -p "$GNUPG_HOME"
+          chmod 700 "$GNUPG_HOME"
+          printf '%s' "$PRIVATE_KEY_B64" | base64 --decode | gpg --batch --homedir "$GNUPG_HOME" --import
+          ACTUAL_FINGERPRINT="$(gpg --batch --homedir "$GNUPG_HOME" --with-colons --fingerprint --list-secret-keys | awk -F: '$1 == "fpr" { print toupper($10); exit }')"
+          if [ -z "$ACTUAL_FINGERPRINT" ]; then
+            echo "::error::The configured GPG material contains no private key"
+            exit 1
+          fi
+          if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "::error::Configured GPG key fingerprint $ACTUAL_FINGERPRINT does not match OSTREE_GPG_FINGERPRINT"
+            exit 1
+          fi
+          KEY_ID="$ACTUAL_FINGERPRINT"
+          gpg --batch --homedir "$GNUPG_HOME" --export "$KEY_ID" > "$PUBLIC_KEY"
+
+          {
+            echo "key_id=$KEY_ID"
+            echo "gnupg_home=$GNUPG_HOME"
+            echo "public_key=$PUBLIC_KEY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: build signed channel repositories and bundle
+        working-directory: flatpak
+        env:
+          DEPLOY_CHANNELS: ${{ steps.deployment.outputs.channels }}
+          GH_TOKEN: ${{ github.token }}
+          GPG_KEY_ID: ${{ steps.signing.outputs.key_id }}
+          GPG_HOME: ${{ steps.signing.outputs.gnupg_home }}
+          GPG_PUBLIC_KEY: ${{ steps.signing.outputs.public_key }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          PRIMARY_CHANNEL: ${{ steps.release.outputs.channel }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ steps.release.outputs.source_sha }}
+          IS_TEST: ${{ steps.release.outputs.is_test }}
+        run: |
+          set -euo pipefail
+          make build
+          GPG_KEY="$(base64 --wrap=0 < "$GPG_PUBLIC_KEY")"
+          rm -rf publish
+
+          for CHANNEL in $DEPLOY_CHANNELS; do
+            REPO_URL="$PUBLIC_BASE_URL/$CHANNEL/repo/"
+            make export-repository \
+              FLATPAK_BRANCH="$CHANNEL" \
+              GPG_SIGN="$GPG_KEY_ID" \
+              GPG_HOMEDIR="$GPG_HOME"
+
+            if [ "$CHANNEL" = "$PRIMARY_CHANNEL" ]; then
+              make bundle-from-repository \
+                FLATPAK_BRANCH="$CHANNEL" \
+                REPO_URL="$REPO_URL" \
+                GPG_HOMEDIR="$GPG_HOME" \
+                GPG_KEYS="$GPG_PUBLIC_KEY"
+            fi
+
+            case "$CHANNEL" in
+              rc)
+                TITLE="Psysonic Release Candidate"
+                REMOTE_NAME=psysonic-rc
+                ;;
+              test)
+                TITLE="Psysonic Test Channel"
+                REMOTE_NAME=psysonic-test
+                ;;
+              *)
+                TITLE=Psysonic
+                REMOTE_NAME=psysonic
+                ;;
+            esac
+            mkdir -p "publish/$CHANNEL"
+            mv export "publish/$CHANNEL/repo"
+            printf '%s\n' "$PACKAGE_VERSION" > "publish/$CHANNEL/version.txt"
+            if [ "$IS_TEST" = true ]; then
+              jq -n --arg channel "$CHANNEL" --arg version "$PACKAGE_VERSION" \
+                --arg sourceSha "$SOURCE_SHA" --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                '{ channel: $channel, version: $version, sourceSha: $sourceSha, body: "GitHub Actions test publication", publishedAt: $publishedAt }' \
+                > "publish/$CHANNEL/release.json"
+            else
+              gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+                --json tagName,body,publishedAt \
+                | jq --arg channel "$CHANNEL" --arg version "$PACKAGE_VERSION" \
+                  '{ channel: $channel, version: $version, tag: .tagName, body: (.body // ""), publishedAt: .publishedAt }' \
+                  > "publish/$CHANNEL/release.json"
+            fi
+            cat > "publish/$CHANNEL/psysonic.flatpakref" <<EOF
+          [Flatpak Ref]
+          Title=$TITLE
+          Name=$FLATPAK_ID
+          Branch=$CHANNEL
+          Url=$REPO_URL
+          SuggestRemoteName=$REMOTE_NAME
+          Homepage=https://www.psysonic.de
+          RuntimeRepo=$RUNTIME_REPO
+          IsRuntime=false
+          GPGKey=$GPG_KEY
+          EOF
+          done
+
+      - name: install and smoke-test bundle
+        id: smoke
+        working-directory: flatpak
+        env:
+          CHANNEL: ${{ steps.release.outputs.channel }}
+          EXPECTED_VERSION: ${{ steps.release.outputs.package_version }}
+          EXPECTED_REPO_URL: ${{ steps.release.outputs.repo_url }}
+        run: |
+          set -euo pipefail
+          flatpak install --user --reinstall -y ./Psysonic.flatpak
+          ACTUAL_VERSION="$(flatpak run "$FLATPAK_ID//$CHANNEL" --version)"
+          if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "::error::Flatpak reports $ACTUAL_VERSION, expected $EXPECTED_VERSION"
+            exit 1
+          fi
+          sha256sum -c Psysonic.flatpak.sha256
+
+          ORIGIN="$(flatpak info --user --show-origin "$FLATPAK_ID//$CHANNEL")"
+          ORIGIN_URL="$(flatpak remotes --user --columns=name,url | awk -v origin="$ORIGIN" '$1 == origin { print $2; exit }')"
+          if [ "${ORIGIN_URL%/}" != "${EXPECTED_REPO_URL%/}" ]; then
+            echo "::error::Bundle origin is $ORIGIN_URL, expected $EXPECTED_REPO_URL"
+            exit 1
+          fi
+          echo "origin=$ORIGIN" >> "$GITHUB_OUTPUT"
+
+      - name: deploy and verify repositories through SSH
+        working-directory: flatpak
+        env:
+          DEPLOY_CHANNELS: ${{ steps.deployment.outputs.channels }}
+          GPG_PUBLIC_KEY: ${{ steps.signing.outputs.public_key }}
+          OSTREE_SSH_HOST: ${{ secrets.OSTREE_SSH_HOST }}
+          OSTREE_SSH_KNOWN_HOSTS: ${{ secrets.OSTREE_SSH_KNOWN_HOSTS }}
+          OSTREE_SSH_PATH: ${{ secrets.OSTREE_SSH_PATH }}
+          OSTREE_SSH_PORT: ${{ secrets.OSTREE_SSH_PORT }}
+          OSTREE_SSH_PRIVATE_KEY: ${{ secrets.OSTREE_SSH_PRIVATE_KEY }}
+          OSTREE_SSH_USER: ${{ secrets.OSTREE_SSH_USER }}
+        run: ../app/scripts/deploy-flatpak-ssh.sh deploy
+
+      - name: upload bundle to existing release
+        if: steps.release.outputs.is_test != 'true'
+        working-directory: flatpak
+        env:
+          CHANNEL: ${{ steps.release.outputs.channel }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            Psysonic.flatpak \
+            Psysonic.flatpak.sha256 \
+            "publish/$CHANNEL/psysonic.flatpakref" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
+
+      - name: upload test bundle artifact
+        if: steps.release.outputs.is_test == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: psysonic-flatpak-test-${{ github.run_id }}
+          path: |
+            flatpak/Psysonic.flatpak
+            flatpak/Psysonic.flatpak.sha256
+            flatpak/publish/test/psysonic.flatpakref
