@@ -9,7 +9,7 @@ import { formatTrackTime } from '@/lib/format/formatDuration';
 import i18n from '@/lib/i18n';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
-import { resolveTrackArtistRefs } from '@/features/playback';
+import { resolveTrackArtistRefs, useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 
 export interface ArtistAllTracksRowCallbacks {
@@ -49,6 +49,7 @@ function ArtistAllTracksRow({
   const { t } = useTranslation();
   // `song.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
+  const playStats = useTrackPlayStats(song);
 
   return (
     <div
@@ -143,11 +144,11 @@ function ArtistAllTracksRow({
             <div key="year" className="track-duration">{song.year && song.year > 0 ? song.year : '—'}</div>
           );
           case 'playCount': return (
-            <div key="playCount" className="track-duration">{song.playCount ?? '—'}</div>
+            <div key="playCount" className="track-duration">{playStats.playCount ?? '—'}</div>
           );
           case 'lastPlayed': return (
             <div key="lastPlayed" className="track-genre">
-              {song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}
+              {playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}
             </div>
           );
           case 'bpm': return (

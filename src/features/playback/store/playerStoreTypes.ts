@@ -74,6 +74,15 @@ export interface PlayerState {
   /** Optimistic track ratings (e.g. skip→1★ while UI lists still have stale `song.userRating`). */
   userRatingOverrides: Record<string, number>;
   setUserRatingOverride: (id: string, rating: number) => void;
+  /**
+   * Play statistics of tracks played this session, merged over the values a list
+   * was loaded with. Unlike a star or a rating these are not the listener's
+   * intent but the server's own tally, so they are written when a scrobble
+   * settles rather than when it is queued — the play timestamp right away, the
+   * count once the server has been asked what it now is.
+   */
+  playStatsOverrides: Record<string, { playCount?: number; played?: string }>;
+  setPlayStatsOverride: (id: string, stats: { playCount?: number; played?: string }) => void;
 
   playRadio: (station: InternetRadioStation) => void;
   /** `_orbitConfirmed` is an internal bypass flag — callers outside the
