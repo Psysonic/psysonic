@@ -283,6 +283,41 @@ where
             taken.push(rowid);
             rows.push(row);
         }
+
+        // Repeated draws eat the budget, so a page can still be short while
+        // enough untaken rows exist — likeliest when the eligible set is close
+        // to the page size, or when rowid gaps map many pivots onto the same
+        // successor. The previous shape always returned `min(limit, matching)`,
+        // and a rail that quietly shows nine cards instead of thirteen is worse
+        // than a top-up that is only as mixed as a small set allows.
+        if rows.len() < limit as usize {
+            let missing = limit as usize - rows.len();
+            let placeholders = std::iter::repeat_n("?", taken.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let exclude = if taken.is_empty() {
+                String::new()
+            } else {
+                format!("AND t.rowid NOT IN ({placeholders}) ")
+            };
+            let fill_sql = format!(
+                "SELECT {select_cols}, t.rowid AS {PIVOT_ROWID_ALIAS} FROM track t \
+                 WHERE {where_sql} {exclude}ORDER BY t.rowid LIMIT ?"
+            );
+            let mut params: Vec<SqlValue> = w.params.clone();
+            params.extend(taken.iter().map(|rowid| SqlValue::Integer(*rowid)));
+            params.push(SqlValue::Integer(missing as i64));
+            let mut fill_stmt = conn.prepare(&fill_sql)?;
+            let filled = fill_stmt
+                .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                    Ok((row.get::<_, i64>(PIVOT_ROWID_ALIAS)?, map(row)?))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            for (rowid, row) in filled {
+                taken.push(rowid);
+                rows.push(row);
+            }
+        }
         Ok((rows, 0))
     })
 }

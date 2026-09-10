@@ -229,8 +229,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1532](https://github.com/Psysonic/psysonic/pull/1532)**
 
-* The rail often showed a run of consecutive tracks from one album instead of a spread across your collection. It now picks each track independently: on a library of roughly 154,000 tracks, thirteen cards came from thirteen different albums in every test run, against fewer than two albums before.
-* Still a quick query rather than a full shuffle of the catalog, so the home screen is no slower for it.
+* The rail often showed a run of consecutive tracks from one album instead of a spread across your collection. It now picks each track independently, whether one music folder is selected or several: on a library of roughly 154,000 tracks, thirteen cards came from thirteen different albums in every test run, against fewer than two albums before.
+* Measured on the same library, the rail takes as long to fill as it did before.
 
 ## [1.52.0]
 

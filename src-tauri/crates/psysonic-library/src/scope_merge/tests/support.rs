@@ -11,13 +11,6 @@ use crate::store::LibraryStore;
 use rusqlite::params_from_iter;
 use rusqlite::types::Value as SqlValue;
 
-#[test]
-fn random_window_offset_stays_within_a_full_page_range() {
-    assert_eq!(random_window_offset(0, 6), 0);
-    assert_eq!(random_window_offset(6, 6), 0);
-    assert!(random_window_offset(100, 6) <= 94);
-}
-
 fn scope_pair(server: &str, lib: &str) -> LibraryScopePair {
     LibraryScopePair {
         server_id: server.into(),
