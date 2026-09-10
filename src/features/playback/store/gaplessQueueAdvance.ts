@@ -51,6 +51,16 @@ import {
   sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
 
+/**
+ * How far a track must have run before a fall back to zero can be read as the
+ * next one starting. Expressed as a share of its length rather than a number of
+ * seconds so it holds for a two-minute track and a twenty-minute one alike, and
+ * set low on purpose: missing a real transition is worse than the reconciler
+ * waiting for `track_switched`, so this only has to exclude positions no ending
+ * track could report.
+ */
+const TRACK_END_MIN_ELAPSED_SHARE = 0.5;
+
 export type GaplessQueueAdvanceResult = {
   advanced: boolean;
   nextTrack: Track | null;
@@ -230,6 +240,20 @@ export function maybeReconcileGaplessFromProgress(
   const nearStart = currentTime < 8;
   const regressed = nearStart && currentTime + 1.5 < prevSec && prevSec > 8;
   if (!regressed) {
+    noteEngineProgressForGapless(currentTime);
+    return false;
+  }
+  // A decoder boundary can only follow a track that actually ran out, so a fall
+  // back to zero from the first half of a track did not come from the next one
+  // starting — it came from the engine rebuilding the source. Resuming after the
+  // output stream was released does exactly that: it re-opens the stream, seeks
+  // back to where playback stopped, and the stream flipping to its finished
+  // cached copy can report near zero once more right afterwards (#1486, still
+  // reproduced on 1.51.0 after #1369 closed the resume path itself). Advancing
+  // there is what leaves the display ahead of the audio. A track whose length is
+  // unknown keeps the old behaviour rather than losing a real transition.
+  const trackDuration = store.currentTrack.duration;
+  if (trackDuration > 0 && prevSec < trackDuration * TRACK_END_MIN_ELAPSED_SHARE) {
     noteEngineProgressForGapless(currentTime);
     return false;
   }

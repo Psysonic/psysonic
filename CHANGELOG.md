@@ -218,6 +218,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Playing a track left the play count and the last-played date of its row untouched until you left the page and came back. Both now update while you are still looking at the list — the date as soon as the play is recorded, the count once your server confirms its new total.
 * Applies to album pages, favourites, an artist's full track list, playlists and playlist suggestions.
 
+### Resuming after a long pause no longer skips the display ahead
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@moldavia](https://github.com/moldavia), PR [#1529](https://github.com/Psysonic/psysonic/pull/1529)**
+
+* Pausing for more than a minute and then resuming could occasionally move Now Playing to a later track while the audio kept playing the current one.
+* Root cause: a pause that long releases the audio output stream, and rebuilding it on resume briefly reports a position near the start. That looked like the next track beginning, so the queue moved on. A track that has not even reached its halfway mark is no longer treated that way.
+
 ## [1.52.0]
 
 ## Added
