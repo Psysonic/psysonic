@@ -23,6 +23,22 @@ pub use encode::{encode_packs, to_latin1, CdTextError, PACK_BYTES};
 /// Used when reading CD-TEXT back off a burned disc: a drive that claims the
 /// capability and writes zeros scores nothing here instead of looking like a
 /// success.
+/// How many well-formed CD-TEXT packs are in `raw`.
+///
+/// Counts only packs whose CRC checks out, so a drive returning a buffer of
+/// zeros scores nothing rather than looking like a success. Both the Windows
+/// and Linux read-backs judge a burned disc with this.
+pub fn count_valid_packs(raw: &[u8]) -> usize {
+    raw.as_chunks::<PACK_BYTES>()
+        .0
+        .iter()
+        .filter(|pack| {
+            // A pack type outside 80h..8Fh is padding, not CD-TEXT.
+            (0x80..=0x8F).contains(&pack[0]) && pack_crc_matches(pack.as_slice())
+        })
+        .count()
+}
+
 pub fn pack_crc_matches(pack: &[u8]) -> bool {
     pack.len() >= PACK_BYTES && crc::pack_crc(&pack[..16]) == [pack[16], pack[17]]
 }

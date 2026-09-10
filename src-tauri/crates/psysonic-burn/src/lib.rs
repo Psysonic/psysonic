@@ -32,6 +32,7 @@
 
 pub use psysonic_core::{app_deprintln, app_eprintln, logging};
 
+pub mod cdrom_info;
 pub mod cdtext;
 pub mod commands;
 pub mod fetch;
@@ -51,6 +52,9 @@ mod win_sao;
 mod macos;
 #[cfg(target_os = "macos")]
 mod macos_ffi;
+
+#[cfg(target_os = "linux")]
+mod linux;
 
 pub use commands::{
     burn_cancel, burn_erase, burn_is_supported, burn_list_recorders, burn_plan, burn_probe_media,

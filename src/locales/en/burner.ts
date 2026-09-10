@@ -21,8 +21,7 @@ export const burner = {
   capacityLabel: 'Capacity',
   capacityValue: '{{minutes}} · {{sectors}} sectors',
   speedsLabel: 'Speeds',
-  platformUnsupported:
-    'CD burning is available on Windows and macOS in this release. Linux support is planned.',
+  platformUnsupported: 'CD burning is not available on this platform.',
 
   // Ring
   ringLabel: 'Disc capacity: {{count}} tracks, {{used}} used of {{capacity}}',

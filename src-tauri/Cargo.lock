@@ -4253,6 +4253,7 @@ version = "1.53.0-dev"
 dependencies = [
  "ebur128",
  "fs4",
+ "libc",
  "psysonic-core",
  "psysonic-syncfs",
  "reqwest",

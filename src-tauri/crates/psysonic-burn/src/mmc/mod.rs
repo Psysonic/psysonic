@@ -10,6 +10,7 @@
 
 pub mod cue;
 pub mod mode;
+pub mod scsi;
 
 /// Operation code for `WRITE(10)`.
 pub const OP_WRITE_10: u8 = 0x2A;
