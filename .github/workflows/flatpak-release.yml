@@ -47,9 +47,13 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: verify published release, channel and packaging pin
+      - name: set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+
+      - name: verify published release and channel
         id: release
-        working-directory: flatpak
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
@@ -97,10 +101,8 @@ jobs:
             fi
           fi
 
-          EXPECTED_SHA="$(git -C ../app rev-parse HEAD)"
-          MANIFEST_SHA="$(awk '$1 == "url:" && $2 == "https://github.com/Psysonic/psysonic.git" { source = 1; next } source && $1 == "commit:" { print $2; exit }' io.github.psysonic.psysonic.yaml)"
-          MAKEFILE_SHA="$(awk '$1 == "COMMIT_HASH" { print $3; exit }' Makefile)"
-          PACKAGE_VERSION="$(node -p 'require("../app/package.json").version')"
+          EXPECTED_SHA="$(git -C app rev-parse HEAD)"
+          PACKAGE_VERSION="$(node -p 'require("./app/package.json").version')"
 
           if [ "$IS_TEST" = true ] && [ "$TEST_SOURCE_SHA" != "$EXPECTED_SHA" ]; then
             echo "::error::Checked-out source $EXPECTED_SHA does not match test_source_sha $TEST_SOURCE_SHA"
@@ -110,28 +112,6 @@ jobs:
             echo "::error::Release tag $RELEASE_TAG does not match package version $PACKAGE_VERSION"
             exit 1
           fi
-          if [ "$MANIFEST_SHA" != "$EXPECTED_SHA" ]; then
-            echo "::error::Flatpak manifest pins $MANIFEST_SHA, release $RELEASE_TAG points to $EXPECTED_SHA"
-            exit 1
-          fi
-          if [ "$MAKEFILE_SHA" != "$EXPECTED_SHA" ]; then
-            echo "::error::Flatpak Makefile pins $MAKEFILE_SHA, release $RELEASE_TAG points to $EXPECTED_SHA"
-            exit 1
-          fi
-          cmp io.github.psysonic.psysonic.desktop ../app/src-tauri/flatpak/io.github.psysonic.psysonic.desktop
-          cmp io.github.psysonic.psysonic.metainfo.xml ../app/src-tauri/flatpak/io.github.psysonic.psysonic.metainfo.xml
-          if [ "$IS_TEST" = true ]; then
-            PSYSONIC_FLATPAK_METAINFO_PATH="$PWD/io.github.psysonic.psysonic.metainfo.xml" \
-              PSYSONIC_FLATPAK_VERSION="$PACKAGE_VERSION" \
-              PSYSONIC_FLATPAK_ALLOW_DEVELOPMENT=true \
-              PSYSONIC_FLATPAK_DETAILS_URL="https://github.com/$GITHUB_REPOSITORY/commit/$EXPECTED_SHA" \
-              node ../app/scripts/sync-flatpak-metainfo-release.mjs
-          fi
-          if ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" io.github.psysonic.psysonic.metainfo.xml; then
-            echo "::error::Flatpak metainfo has no release entry for $PACKAGE_VERSION"
-            exit 1
-          fi
-
           {
             echo "channel=$CHANNEL"
             echo "is_test=$IS_TEST"
@@ -210,13 +190,47 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq
+          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq python3-venv
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub \
             org.gnome.Platform//50 \
             org.gnome.Sdk//50 \
             org.freedesktop.Sdk.Extension.node26//25.08 \
             org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+      - name: prepare Flatpak packaging for selected source
+        env:
+          IS_TEST: ${{ steps.release.outputs.is_test }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          SOURCE_SHA: ${{ steps.release.outputs.source_sha }}
+        run: |
+          set -euo pipefail
+          node app/scripts/prepare-flatpak-packaging.mjs \
+            --packaging-dir flatpak \
+            --source-dir app \
+            --source-sha "$SOURCE_SHA"
+
+          if [ "$IS_TEST" = true ]; then
+            PSYSONIC_FLATPAK_METAINFO_PATH="$PWD/flatpak/io.github.psysonic.psysonic.metainfo.xml" \
+              PSYSONIC_FLATPAK_VERSION="$PACKAGE_VERSION" \
+              PSYSONIC_FLATPAK_ALLOW_DEVELOPMENT=true \
+              PSYSONIC_FLATPAK_DETAILS_URL="https://github.com/$GITHUB_REPOSITORY/commit/$SOURCE_SHA" \
+              node app/scripts/sync-flatpak-metainfo-release.mjs
+          fi
+          if ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" flatpak/io.github.psysonic.psysonic.metainfo.xml; then
+            echo "::error::Flatpak metainfo has no release entry for $PACKAGE_VERSION"
+            exit 1
+          fi
+
+          GENERATOR_VENV="$RUNNER_TEMP/flatpak-generators"
+          python3 -m venv "$GENERATOR_VENV"
+          "$GENERATOR_VENV/bin/pip" install --disable-pip-version-check \
+            flatpak-node-generator==0.1.1 \
+            flatpak-cargo-generator==0.1.4
+          "$GENERATOR_VENV/bin/flatpak-node-generator" npm app/package-lock.json \
+            -o flatpak/generated-sources.json
+          "$GENERATOR_VENV/bin/flatpak-cargo-generator" -t \
+            -o flatpak/cargo-sources.json app/src-tauri/Cargo.lock
 
       - name: validate desktop metadata
         working-directory: flatpak
