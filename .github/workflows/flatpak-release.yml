@@ -177,11 +177,22 @@ jobs:
       - name: import repository signing key
         id: signing
         env:
+          EXPECTED_FINGERPRINT: ${{ vars.OSTREE_GPG_FINGERPRINT }}
           PRIVATE_KEY_B64: ${{ secrets.OSTREE_GPG_PRIVATE_KEY_B64 }}
         run: |
           set -euo pipefail
           if [ -z "$PRIVATE_KEY_B64" ]; then
             echo "::error::OSTREE_GPG_PRIVATE_KEY_B64 is not configured"
+            exit 1
+          fi
+          if [ -z "$EXPECTED_FINGERPRINT" ]; then
+            echo "::error::OSTREE_GPG_FINGERPRINT repository variable is not configured"
+            exit 1
+          fi
+
+          EXPECTED_FINGERPRINT="$(printf '%s' "$EXPECTED_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+          if [[ ! "$EXPECTED_FINGERPRINT" =~ ^([0-9A-F]{40}|[0-9A-F]{64})$ ]]; then
+            echo "::error::OSTREE_GPG_FINGERPRINT must be a full 40- or 64-character hexadecimal fingerprint"
             exit 1
           fi
 
@@ -190,11 +201,16 @@ jobs:
           mkdir -p "$GNUPG_HOME"
           chmod 700 "$GNUPG_HOME"
           printf '%s' "$PRIVATE_KEY_B64" | base64 --decode | gpg --batch --homedir "$GNUPG_HOME" --import
-          KEY_ID="$(gpg --batch --homedir "$GNUPG_HOME" --with-colons --list-secret-keys | awk -F: '$1 == "sec" { print $5; exit }')"
-          if [ -z "$KEY_ID" ]; then
+          ACTUAL_FINGERPRINT="$(gpg --batch --homedir "$GNUPG_HOME" --with-colons --fingerprint --list-secret-keys | awk -F: '$1 == "fpr" { print toupper($10); exit }')"
+          if [ -z "$ACTUAL_FINGERPRINT" ]; then
             echo "::error::The configured GPG material contains no private key"
             exit 1
           fi
+          if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "::error::Configured GPG key fingerprint $ACTUAL_FINGERPRINT does not match OSTREE_GPG_FINGERPRINT"
+            exit 1
+          fi
+          KEY_ID="$ACTUAL_FINGERPRINT"
           gpg --batch --homedir "$GNUPG_HOME" --export "$KEY_ID" > "$PUBLIC_KEY"
 
           {

@@ -1,0 +1,61 @@
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { syncFlatpakMetainfoRelease } from './sync-flatpak-metainfo-release.mjs';
+
+const base = `  <releases>
+    <release version="1.52.0" date="2026-08-31">
+      <url type="details">https://github.com/Psysonic/psysonic/releases/tag/app-v1.52.0</url>
+    </release>
+  </releases>
+`;
+
+describe('syncFlatpakMetainfoRelease', () => {
+  it('inserts the promoted release before prior entries', () => {
+    const result = syncFlatpakMetainfoRelease(base, '1.53.0-rc.1', '2026-09-10');
+
+    assert.equal(result.changed, true);
+    assert.match(result.xml, /<release version="1\.53\.0-rc\.1" date="2026-09-10">/);
+    assert.ok(result.xml.indexOf('1.53.0-rc.1') < result.xml.indexOf('1.52.0'));
+    assert.match(result.xml, /releases\/tag\/app-v1\.53\.0-rc\.1/);
+  });
+
+  it('is idempotent when the version already exists', () => {
+    const first = syncFlatpakMetainfoRelease(base, '1.53.0', '2026-09-10');
+    const second = syncFlatpakMetainfoRelease(first.xml, '1.53.0', '2026-09-11');
+
+    assert.equal(second.changed, false);
+    assert.equal(second.xml, first.xml);
+  });
+
+  it('rejects development versions that cannot be published', () => {
+    assert.throws(
+      () => syncFlatpakMetainfoRelease(base, '1.54.0-dev', '2026-09-10'),
+      /requires X\.Y\.Z or X\.Y\.Z-rc\.N/,
+    );
+  });
+});
+
+describe('Flatpak release promotion wiring', () => {
+  for (const workflow of ['promote-main-to-next.yml', 'promote-next-to-release.yml']) {
+    it(`${workflow} commits the generated AppStream entry`, () => {
+      const source = readFileSync(new URL(`../.github/workflows/${workflow}`, import.meta.url), 'utf8');
+      const syncCall = source.indexOf('node scripts/sync-flatpak-metainfo-release.mjs');
+      const commitStep = source.indexOf('git commit -m');
+
+      assert.ok(syncCall >= 0, `${workflow} must run the Flatpak metainfo sync`);
+      assert.ok(syncCall < commitStep, `${workflow} must sync metainfo before committing`);
+      assert.match(source, /git add[\s\S]*src-tauri\/flatpak\/io\.github\.psysonic\.psysonic\.metainfo\.xml/);
+    });
+  }
+});
+
+describe('Flatpak signing continuity wiring', () => {
+  it('requires and compares the configured full fingerprint', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+
+    assert.match(source, /vars\.OSTREE_GPG_FINGERPRINT/);
+    assert.match(source, /ACTUAL_FINGERPRINT/);
+    assert.match(source, /ACTUAL_FINGERPRINT" != "\$EXPECTED_FINGERPRINT/);
+  });
+});
