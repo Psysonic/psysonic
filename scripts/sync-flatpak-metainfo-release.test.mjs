@@ -100,6 +100,25 @@ describe('Flatpak GitHub Release publication gate', () => {
     assert.match(source, /workflow_dispatch:/);
   });
 
+  it('prepares pins, metadata and offline sources from the selected application checkout', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+    const preparation = source.indexOf('prepare Flatpak packaging for selected source');
+    const nodeSources = source.indexOf('flatpak-node-generator" npm app/package-lock.json');
+    const cargoSources = source.indexOf('flatpak-cargo-generator" -t');
+    const build = source.indexOf('make build');
+
+    assert.match(source, /check out publication tooling/);
+    assert.match(source, /path: tooling/);
+    assert.match(source, /node tooling\/scripts\/prepare-flatpak-packaging\.mjs/);
+    assert.match(source, /flatpak-node-generator==0\.1\.1/);
+    assert.match(source, /flatpak-cargo-generator==0\.1\.4/);
+    assert.doesNotMatch(source, /Flatpak manifest pins/);
+    assert.ok(preparation >= 0, 'workflow must prepare the packaging checkout');
+    assert.ok(preparation < nodeSources, 'workflow must pin the selected source before npm generation');
+    assert.ok(nodeSources < build, 'npm sources must be generated before the Flatpak build');
+    assert.ok(cargoSources < build, 'Cargo sources must be generated before the Flatpak build');
+  });
+
   it('rejects draft or unpublished releases before deployment planning', () => {
     const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
     const releaseGate = source.indexOf('must be publicly published before its Flatpak channel can update');
@@ -124,15 +143,17 @@ describe('Flatpak GitHub Release publication gate', () => {
 
   it('generates test AppStream metadata from the checked-out package version', () => {
     const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+    const preparation = source.indexOf('tooling/scripts/prepare-flatpak-packaging.mjs');
     const generation = source.indexOf('PSYSONIC_FLATPAK_ALLOW_DEVELOPMENT=true');
     const validation = source.indexOf('appstreamcli validate --pedantic');
     const build = source.indexOf('make build');
 
-    assert.ok(generation >= 0, 'test publication must generate development AppStream metadata');
+    assert.ok(preparation >= 0, 'test publication must copy canonical AppStream metadata');
+    assert.ok(preparation < generation, 'test metadata generation must run after canonical metadata is copied');
     assert.ok(generation < validation, 'AppStream metadata must be generated before validation');
     assert.ok(generation < build, 'AppStream metadata must be generated before the Flatpak build');
     assert.match(source, /PSYSONIC_FLATPAK_VERSION="\$PACKAGE_VERSION"/);
-    assert.match(source, /commit\/\$EXPECTED_SHA/);
+    assert.match(source, /commit\/\$SOURCE_SHA/);
     assert.doesNotMatch(source, /\[ "\$IS_TEST" = false \] && ! grep/);
   });
 });

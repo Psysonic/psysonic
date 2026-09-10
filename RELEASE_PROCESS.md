@@ -92,33 +92,25 @@ CI builds the Windows installer as an unsigned compile check. The installer that
 
 Step 2 is required for every stable release. The in-app updater reads `releases/latest`, which never resolves to a pre-release, so for an RC it is only needed when testing the updater against that RC directly.
 
-### Flatpak repository publication (automatic after packaging preparation)
+### Flatpak repository publication (automatic)
 
-**Next Channel** and **Release Channel** create draft GitHub Releases. Prepare
-the Flatpak packaging while the Release is still a draft, after all channel
-artifacts are attached. Publishing the prepared Release triggers **Flatpak
-Publish** automatically. The workflow rejects draft or otherwise unpublished
-Releases before it reads or changes a Flatpak channel. The promotion commit
-already contains the matching AppStream release entry; do not add it after the
-tag or rewrite the tag.
+**Next Channel** and **Release Channel** create draft GitHub Releases. Publishing
+the Release triggers **Flatpak Publish** automatically. The workflow checks out
+the exact tag, prepares a temporary packaging checkout, copies canonical desktop
+metadata, and regenerates npm/Cargo offline sources before building. No separate
+packaging commit or manual source pin is required. The workflow rejects draft or
+otherwise unpublished Releases before it reads or changes a Flatpak channel.
+The promotion commit already contains the matching AppStream release entry; do
+not add it after the tag or rewrite the tag.
 
-1. Record the draft tag commit: `git rev-list -n 1 app-vX.Y.Z[-rc.N]`.
-2. In `Psysonic/flatpak-psysonic`, update both the manifest source commit and
-   `COMMIT_HASH` to that exact SHA.
-3. Copy the canonical desktop and AppStream metadata from the tagged app tree
-   into the packaging repository. The files must remain byte-identical.
-4. Regenerate `generated-sources.json` and `cargo-sources.json` for the pinned
-   commit, then run the packaging validation commands documented in that repo.
-5. Merge the packaging update to its `main` branch. `Flatpak Publish` always
-   checks out packaging from `main` and rejects stale pins or metadata.
-6. Confirm the application repository has all six `OSTREE_SSH_*` deployment
+1. Confirm the application repository has all six `OSTREE_SSH_*` deployment
    secrets and the GPG signing secret, plus the public
    `OSTREE_GPG_FINGERPRINT` repository variable. Run **Flatpak SSH Diagnostics**
    after changing the host, key, known-host entry, account, port, or path.
-7. Publish the draft GitHub Release. Its `release.published` event starts
+2. Publish the draft GitHub Release. Its `release.published` event starts
    **Flatpak Publish** with the exact tag. Use `workflow_dispatch` with
    `release_tag` only to retry or recover a failed automatic run.
-8. Verify the bundle assets on the GitHub release and the signed channel under
+3. Verify the bundle assets on the GitHub release and the signed channel under
    `https://flatpak.psysonic.de/<stable|rc>/` before announcing availability.
 
 The supported installation path is per-user. Release instructions and the
@@ -132,12 +124,11 @@ verification path before the first RC/stable publication. Leave `release_tag`
 empty. The input must be an exact 40-character application commit SHA.
 For safety, it must also equal the current `main` head when the workflow starts.
 
-The packaging repository `main` branch must pin that same SHA and contain
-byte-identical desktop/AppStream metadata plus regenerated npm/Cargo offline
-sources. The workflow publishes only `https://flatpak.psysonic.de/test/`, does
-not read or update `stable` or `rc`, and uploads its bundle as a workflow
-artifact instead of modifying a GitHub Release. Remove the test channel from the
-server after validation if it is no longer needed.
+The workflow prepares the packaging checkout and offline sources from that SHA
+automatically. It publishes only `https://flatpak.psysonic.de/test/`, does not
+read or update `stable` or `rc`, and uploads its bundle as a workflow artifact
+instead of modifying a GitHub Release. Remove the test channel from the server
+after validation if it is no longer needed.
 
 ### Step E: Move `main` forward
 
