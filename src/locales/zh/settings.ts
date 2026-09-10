@@ -273,6 +273,8 @@ export const settings = {
   clockFormatTwelve: '12 小时制（AM/PM）',
   preloadMiniPlayer: '预加载迷你播放器',
   preloadMiniPlayerDesc: '在应用启动时于后台构建迷你播放器窗口，使其首次打开即可立即显示内容。会占用少量额外内存。',
+  miniPlayerCustomTitlebar: '隐藏窗口标题栏',
+  miniPlayerCustomTitlebarDesc: '迷你播放器使用自带的细窄标题栏，而非系统标题栏。最小化和还原按钮随之消失——窗口本身已提供这两项操作。',
   linuxWebkitSmoothScroll: '滚轮平滑（Linux）',
   linuxWebkitSmoothScrollDesc: '开：惯性滚动。关：逐行，类似 GTK。',
   linuxWebkitInputForceRepaint: '获得焦点时重绘输入框（Linux）',

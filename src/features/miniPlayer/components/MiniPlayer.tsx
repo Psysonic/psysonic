@@ -5,6 +5,8 @@ import { emit } from '@tauri-apps/api/event';
 import { closeMiniPlayer, resizeMiniPlayer, setMiniPlayerAlwaysOnTop, showMainWindow } from '@/lib/api/miniPlayer';
 import { useTranslation } from 'react-i18next';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import { useAuthStore } from '@/store/authStore';
+import { IS_LINUX, IS_WINDOWS } from '@/lib/util/platform';
 import { registerQueueDragHitTest } from '@/lib/dnd/DragDropContext';
 import MiniContextMenu from '@/features/miniPlayer/components/MiniContextMenu';
 import type { MiniSyncPayload, MiniControlAction, MiniTrackInfo } from '@/features/miniPlayer/utils/miniPlayerBridge';
@@ -38,6 +40,10 @@ export default function MiniPlayer() {
   const [volume, setVolumeState] = useState(() => initialSnapshot().volume);
   const queueScrollRef = useRef<HTMLDivElement>(null);
   const miniQueueWrapRef = useRef<HTMLDivElement>(null);
+  // Linux never has a system frame here; Windows drops it on request. Either
+  // way this bar then has to carry the drag region, the title and close.
+  const windowsCustomTitlebar = useAuthStore(s => s.miniPlayerCustomTitlebar);
+  const customChrome = IS_LINUX || (IS_WINDOWS && windowsCustomTitlebar);
 
   useEffect(() => {
     if (!queueOpen) return;
@@ -161,6 +167,7 @@ export default function MiniPlayer() {
         toggleOnTop={toggleOnTop}
         showMain={showMain}
         closeMini={closeMini}
+        customChrome={customChrome}
         t={t}
       />
 

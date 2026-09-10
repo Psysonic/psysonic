@@ -677,6 +677,21 @@ export const commands = {
 	 */
 	setMiniPlayerAlwaysOnTop: (onTop: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mini_player_always_on_top", { onTop })),
 	/**
+	 *  Show or hide the mini player's native window frame.
+	 *
+	 *  Windows and macOS keep the system caption bar by default; Linux has always
+	 *  used the in-page titlebar instead. This lets the Windows build switch to
+	 *  that same in-page bar, so a picture-in-picture window is not framed by
+	 *  buttons that duplicate what its own toolbar already does.
+	 *
+	 *  Applied from the mini webview after it mounts rather than at build time.
+	 *  The window is built once — on Windows before the first open — and rebuilding
+	 *  the second WebView2 at runtime is exactly the path that used to stall the
+	 *  event loop (see `build_mini_player_window`), so the frame is changed on the
+	 *  live window instead.
+	 */
+	setMiniPlayerDecorations: (decorations: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mini_player_decorations", { decorations })),
+	/**
 	 *  Resize the mini player window (logical pixels). Used when toggling the
 	 *  queue panel to expand/collapse without a capability dance. Optional
 	 *  `minWidth` / `minHeight` adjust the window's resize floor so the user

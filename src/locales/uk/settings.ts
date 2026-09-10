@@ -277,6 +277,8 @@ export const settings = {
   clockFormatTwelve: '12-годинний (AM/PM)',
   preloadMiniPlayer: 'Попереднє завантаження мініплеєра',
   preloadMiniPlayerDesc: 'Створювати вікно мініплеєра у фоновому режимі при запуску для миттєвого відкриття. Використовує трохи більше пам’яті.',
+  miniPlayerCustomTitlebar: 'Приховати рядок заголовка вікна',
+  miniPlayerCustomTitlebarDesc: 'Мініплеєр використовує власну тонку смугу замість системної. Згортання та відновлення зникають — вікно пропонує те саме.',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: 'Відображати поточний трек у вашому профілі Discord. Потребує запущеного Discord.',
   discordRichPresenceNotice: 'Зверніть увагу: це вбудований Discord Rich Presence у Psysonic. Якщо ви використовуєте офіційний плагін Navidrome Discord Rich Presence, залиште це вимкненим та увімкніть «Показувати в Хто слухає».',

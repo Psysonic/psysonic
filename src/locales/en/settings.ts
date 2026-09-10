@@ -277,6 +277,8 @@ export const settings = {
   clockFormatTwelve: '12-hour (AM/PM)',
   preloadMiniPlayer: 'Preload mini player',
   preloadMiniPlayerDesc: 'Build the mini player window in the background at app start so it shows content instantly on first open. Uses a little extra memory.',
+  miniPlayerCustomTitlebar: 'Hide the window title bar',
+  miniPlayerCustomTitlebarDesc: 'The mini player uses its own slim bar instead of the system one. Minimise and restore fall away — the window offers both itself.',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: 'Show the currently playing track on your Discord profile. Requires Discord to be running.',
   discordRichPresenceNotice: 'Heads up: this is Psysonic\'s built-in Discord Rich Presence. If you\'d rather use the official Navidrome Discord Rich Presence plugin, leave this switched off and enable "Show in Now Playing" further down this page instead.',
