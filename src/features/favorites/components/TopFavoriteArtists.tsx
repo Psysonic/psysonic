@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { ArtistCoverArtImage } from '@/cover/ArtistCoverArtImage';
@@ -6,6 +6,7 @@ import { COVER_DENSE_GRID_MIN_CELL_CSS_PX } from '@/cover/layoutSizes';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { useThemeStore } from '@/store/themeStore';
 import { useOverflowTooltip } from '@/lib/hooks/useOverflowTooltip';
+import { useRailScroll } from '@/lib/hooks/useRailScroll';
 
 export interface TopFavoriteArtist {
   id: string;
@@ -28,44 +29,28 @@ interface TopFavoriteArtistsRowProps {
 export function TopFavoriteArtistsRow({ title, artists, selectedKey, onToggle }: TopFavoriteArtistsRowProps) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(true);
-
-  const handleScroll = () => {
-    if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    setShowLeft(scrollLeft > 0);
-    setShowRight(scrollLeft < scrollWidth - clientWidth - 5);
-  };
-
-  useEffect(() => {
-    handleScroll();
-    window.addEventListener('resize', handleScroll);
-    return () => window.removeEventListener('resize', handleScroll);
-  }, [artists]);
-
-  const scroll = (dir: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const amount = scrollRef.current.clientWidth * 0.75;
-    scrollRef.current.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
-  };
+  const { showLeft, showRight, measure, scrollByPage } = useRailScroll({
+    scrollRef,
+    itemCount: artists.length,
+    resetKey: artists[0]?.id ?? '',
+  });
 
   return (
     <section className="album-row-section">
       <div className="album-row-header">
         <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
         <div className="album-row-nav">
-          <button className={`nav-btn ${!showLeft ? 'disabled' : ''}`} onClick={() => scroll('left')} disabled={!showLeft}>
+          <button className={`nav-btn ${!showLeft ? 'disabled' : ''}`} onClick={() => scrollByPage('left')} disabled={!showLeft}>
             <ChevronLeft size={20} />
           </button>
-          <button className={`nav-btn ${!showRight ? 'disabled' : ''}`} onClick={() => scroll('right')} disabled={!showRight}>
+          <button className={`nav-btn ${!showRight ? 'disabled' : ''}`} onClick={() => scrollByPage('right')} disabled={!showRight}>
             <ChevronRight size={20} />
           </button>
         </div>
       </div>
 
       <div className="album-grid-wrapper">
-        <div className="album-grid" ref={scrollRef} onScroll={handleScroll}>
+        <div className="album-grid" ref={scrollRef} onScroll={measure}>
           {artists.map(a => (
             <TopFavoriteArtistCard
               key={a.id}
