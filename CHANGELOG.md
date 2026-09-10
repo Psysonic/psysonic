@@ -104,6 +104,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Switching Artists between the grid and list now keeps that choice when you leave the page or restart Psysonic, instead of returning to the grid every time.
 
+### Signed Flatpak updates with stable and RC channels
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1525](https://github.com/Psysonic/psysonic/pull/1525)**
+
+* Flatpak installs now follow a signed Psysonic update repository, with separate stable and release-candidate channels so testing builds cannot replace stable releases.
+* The update dialog follows the installed branch, shows its matching release notes, and gives the exact `flatpak update` command to run.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again
