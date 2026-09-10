@@ -673,14 +673,23 @@ fn multi_folder_random_sample_shapes_on_a_real_library() {
         return;
     }
 
-    const LIMIT: u32 = 13;
+    // The Home rail asks for `HOME_DISCOVER_SONGS_SIZE` rows from one server and
+    // `homeFeedLoader` abandons the local read after `HOME_LOCAL_READ_TIMEOUT_MS`,
+    // so those are the numbers to measure against — not a smaller page.
+    const LIMIT: u32 = 18;
     const RUNS: usize = 6;
+    const HOME_LOCAL_READ_BUDGET_MS: u128 = 1000;
     let (cte, scope_binds) = crate::scope_merge::scope_cte_sql(&multi);
     let base = "FROM scoped_track s CROSS JOIN track t ON t.rowid = s.rowid WHERE t.deleted = 0";
+    // The request carries the whole track row through to `LibraryTrackDto`, and a
+    // full-set random sort has to move that projection, so a probe on one narrow
+    // column would understate it.
+    let cols = crate::search::aliased_track_columns("t");
 
     let summarise = |label: &str, spans: &[usize], times: &[u128]| {
         let mean = spans.iter().sum::<usize>() as f64 / spans.len() as f64;
-        eprintln!("{label}: distinct_albums={spans:?} mean={mean:.2} elapsed_ms={times:?}");
+        let worst = times.iter().copied().max().unwrap_or(0);
+        eprintln!("{label}: distinct_albums={spans:?} mean={mean:.2} elapsed_ms={times:?} worst={worst}ms");
     };
 
     store
@@ -718,31 +727,40 @@ fn multi_folder_random_sample_shapes_on_a_real_library() {
                 ids.dedup();
                 spans.push(ids.len());
             }
-            summarise("(a) per-row pivots", &spans, &times);
+            summarise(
+                "(a) per-row pivots, album id only (a lower bound — the real projection is wider)",
+                &spans,
+                &times,
+            );
 
-            // (b) one CTE, fully shuffled.
-            let shuffle_sql = format!("{cte} SELECT t.album_id {base} ORDER BY RANDOM() LIMIT ?");
+            // (b) one CTE, fully shuffled, carrying the projection the request
+            // returns. This is what the multi-folder path now runs.
+            let shuffle_sql = format!("{cte} SELECT {cols} {base} ORDER BY RANDOM() LIMIT ?");
             let (mut spans, mut times) = (Vec::new(), Vec::new());
             for _ in 0..RUNS {
                 let started = Instant::now();
                 let mut binds = scope_binds.clone();
                 binds.push(rusqlite::types::Value::Integer(i64::from(LIMIT)));
                 let mut stmt = conn.prepare(&shuffle_sql)?;
-                let mut ids = stmt
+                let rows = stmt
                     .query_map(rusqlite::params_from_iter(binds.iter()), |row| {
-                        row.get::<_, Option<String>>(0)
+                        crate::repos::row_to_track_row(row)
+                            .map(|tr| crate::dto::LibraryTrackDto::from_row(&tr))
                     })?
                     .collect::<rusqlite::Result<Vec<_>>>()?;
                 times.push(started.elapsed().as_millis());
+                let mut ids: Vec<_> = rows.iter().filter_map(|t| t.album_id.clone()).collect();
                 ids.sort();
                 ids.dedup();
                 spans.push(ids.len());
             }
-            summarise("(b) order by random()", &spans, &times);
+            summarise("(b) order by random(), full projection", &spans, &times);
 
-            // (c) what multi-folder does today: count, then one unordered page.
+            // (c) the shape this replaced: count the matching set, pick one
+            // offset into it, return an unordered page. Same projection as (b),
+            // so the two are comparable.
             let count_sql = format!("{cte} SELECT COUNT(*) {base}");
-            let page_sql = format!("{cte} SELECT t.album_id {base} LIMIT ? OFFSET ?");
+            let page_sql = format!("{cte} SELECT {cols} {base} LIMIT ? OFFSET ?");
             let (mut spans, mut times) = (Vec::new(), Vec::new());
             for run in 0..RUNS {
                 let started = Instant::now();
@@ -757,18 +775,71 @@ fn multi_folder_random_sample_shapes_on_a_real_library() {
                 binds.push(rusqlite::types::Value::Integer(i64::from(LIMIT)));
                 binds.push(rusqlite::types::Value::Integer(offset));
                 let mut stmt = conn.prepare(&page_sql)?;
-                let mut ids = stmt
+                let rows = stmt
                     .query_map(rusqlite::params_from_iter(binds.iter()), |row| {
-                        row.get::<_, Option<String>>(0)
+                        crate::repos::row_to_track_row(row)
+                            .map(|tr| crate::dto::LibraryTrackDto::from_row(&tr))
                     })?
                     .collect::<rusqlite::Result<Vec<_>>>()?;
                 times.push(started.elapsed().as_millis());
+                let mut ids: Vec<_> = rows.iter().filter_map(|t| t.album_id.clone()).collect();
                 ids.sort();
                 ids.dedup();
                 spans.push(ids.len());
             }
-            summarise("(c) current window page", &spans, &times);
+            summarise("(c) replaced window page, full projection", &spans, &times);
             Ok(())
         })
         .expect("shape comparison");
+    // (d) the production request itself: same scopes, same limit, same sort,
+    // through the planner that Discover Songs actually calls.
+    //
+    // It runs last on purpose. On a freshly copied database the first block pays
+    // the cold page cache, and that cost belongs to no strategy: measured first,
+    // this request reported a 1314 ms outlier followed by ~600 ms; measured last,
+    // the same code reports 375-457 ms while the first block carries the warm-up.
+    let request = LibraryAdvancedSearchRequest {
+        server_id: server.clone(),
+        library_scope: None,
+        library_scopes: Some(multi.clone()),
+        query: None,
+        entity_types: vec![EntityKind::Track],
+        filters: Vec::new(),
+        starred_only: None,
+        restrict_album_ids: None,
+        query_album_title_only: None,
+        sort: vec![LibrarySortClause {
+            field: "random".into(),
+            dir: SortDir::Asc,
+        }],
+        limit: LIMIT,
+        offset: 0,
+        skip_totals: true,
+        artist_credit_mode: None,
+        artist_letter_bucket: None,
+    };
+    let (mut spans, mut times) = (Vec::new(), Vec::new());
+    for _ in 0..RUNS {
+        let started = Instant::now();
+        let resp = crate::advanced_search::run_advanced_search(&store, &request)
+            .expect("production request");
+        times.push(started.elapsed().as_millis());
+        let mut ids: Vec<_> = resp
+            .tracks
+            .iter()
+            .filter_map(|t| t.album_id.clone())
+            .collect();
+        let rows = resp.tracks.len();
+        ids.sort();
+        ids.dedup();
+        spans.push(ids.len());
+        assert_eq!(rows, LIMIT as usize, "production request returned a short page");
+    }
+    let worst = times.iter().copied().max().unwrap_or(0);
+    summarise("(d) production request through run_advanced_search", &spans, &times);
+    eprintln!(
+        "    local-read budget={HOME_LOCAL_READ_BUDGET_MS}ms headroom_at_worst={}ms",
+        HOME_LOCAL_READ_BUDGET_MS as i128 - worst as i128,
+    );
+
 }

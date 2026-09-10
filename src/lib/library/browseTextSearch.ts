@@ -439,7 +439,9 @@ import { runLocalAlbumBrowse, type AlbumBrowseQuery } from './albumBrowseLoad';
 import { GENRE_ALBUM_FETCH_LIMIT } from './albumBrowseTypes';
 
 /**
- * Random track sample from the local `track` table using the backend's bounded window path.
+ * Random track sample from the local `track` table. The backend samples one
+ * folder by drawing a rowid pivot per row and more than one by shuffling the
+ * scoped set, so every selected folder is passed along.
  * Returns null when the index is unavailable (caller falls back to the network).
  */
 export async function runLocalRandomSongs(
