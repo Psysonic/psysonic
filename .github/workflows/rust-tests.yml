@@ -120,7 +120,7 @@ jobs:
           cargo llvm-cov --workspace --json --output-path target/llvm-cov/cov.json
       - name: hot-path file coverage gate
         run: bash scripts/check-hot-path-coverage.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rust-coverage-lcov
           path: src-tauri/lcov.info

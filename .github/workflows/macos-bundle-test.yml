@@ -113,7 +113,7 @@ jobs:
           set -euo pipefail
           tar czf "${GITHUB_WORKSPACE}/Psysonic-${TARGET}.app.tar.gz" \
             -C "src-tauri/target/${TARGET}/release/bundle/macos" Psysonic.app
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: psysonic-macos-${{ inputs.target }}
           path: Psysonic-${{ inputs.target }}.app.tar.gz

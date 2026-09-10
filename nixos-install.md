@@ -176,7 +176,7 @@ home.packages = [
 
 From a **flake-enabled** clone of the repo:
 
-- **`nix develop`** — enters the upstream `devShell` (Rust, Node 22, WebKitGTK, GStreamer plugins for the webview, env hooks aligned with `package.json` / Tauri dev).
+- **`nix develop`** — enters the upstream `devShell` (Rust, Node 24, WebKitGTK, GStreamer plugins for the webview, env hooks aligned with `package.json` / Tauri dev).
 - **`nix shell .#devShells.default`** — same packages and hooks without `nix develop`’s subshell semantics.
 
 The flake **`devShell`** uses the same **`nixpkgs`** input as **`packages.psysonic`** (see **`flake.nix`**).

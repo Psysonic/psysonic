@@ -92,33 +92,33 @@ CI builds the Windows installer as an unsigned compile check. The installer that
 
 Step 2 is required for every stable release. The in-app updater reads `releases/latest`, which never resolves to a pre-release, so for an RC it is only needed when testing the updater against that RC directly.
 
-### Flatpak repository publication (manual for RC and stable)
+### Flatpak repository publication (automatic after packaging preparation)
 
-Run this only after **Next Channel** or **Release Channel** has attached all
-artifacts and the exact `app-vX.Y.Z-rc.N` or `app-vX.Y.Z` GitHub Release has
-been published publicly. `Flatpak Publish` rejects draft or otherwise
-unpublished Releases before it reads or changes any Flatpak channel. The
-promotion commit already contains the matching AppStream release entry; do not
-add it after the tag or rewrite the tag.
+**Next Channel** and **Release Channel** create draft GitHub Releases. Prepare
+the Flatpak packaging while the Release is still a draft, after all channel
+artifacts are attached. Publishing the prepared Release triggers **Flatpak
+Publish** automatically. The workflow rejects draft or otherwise unpublished
+Releases before it reads or changes a Flatpak channel. The promotion commit
+already contains the matching AppStream release entry; do not add it after the
+tag or rewrite the tag.
 
-1. Confirm the Release is public:
-   `gh release view app-vX.Y.Z[-rc.N] --json isDraft,publishedAt` must show
-   `isDraft: false` and a non-empty `publishedAt`.
-2. Record the tag commit: `git rev-list -n 1 app-vX.Y.Z[-rc.N]`.
-3. In `Psysonic/flatpak-psysonic`, update both the manifest source commit and
+1. Record the draft tag commit: `git rev-list -n 1 app-vX.Y.Z[-rc.N]`.
+2. In `Psysonic/flatpak-psysonic`, update both the manifest source commit and
    `COMMIT_HASH` to that exact SHA.
-4. Copy the canonical desktop and AppStream metadata from the tagged app tree
+3. Copy the canonical desktop and AppStream metadata from the tagged app tree
    into the packaging repository. The files must remain byte-identical.
-5. Regenerate `generated-sources.json` and `cargo-sources.json` for the pinned
+4. Regenerate `generated-sources.json` and `cargo-sources.json` for the pinned
    commit, then run the packaging validation commands documented in that repo.
-6. Merge the packaging update to its `main` branch. `Flatpak Publish` always
+5. Merge the packaging update to its `main` branch. `Flatpak Publish` always
    checks out packaging from `main` and rejects stale pins or metadata.
-7. Confirm the application repository has all six `OSTREE_SSH_*` deployment
+6. Confirm the application repository has all six `OSTREE_SSH_*` deployment
    secrets and the GPG signing secret, plus the public
    `OSTREE_GPG_FINGERPRINT` repository variable. Run **Flatpak SSH Diagnostics**
    after changing the host, key, known-host entry, account, port, or path.
-8. Run **Flatpak Publish** with the exact published app Release tag.
-9. Verify the bundle assets on the GitHub release and the signed channel under
+7. Publish the draft GitHub Release. Its `release.published` event starts
+   **Flatpak Publish** with the exact tag. Use `workflow_dispatch` with
+   `release_tag` only to retry or recover a failed automatic run.
+8. Verify the bundle assets on the GitHub release and the signed channel under
    `https://flatpak.psysonic.de/<stable|rc>/` before announcing availability.
 
 The supported installation path is per-user. Release instructions and the
