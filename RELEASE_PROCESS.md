@@ -124,6 +124,21 @@ add it after the tag or rewrite the tag.
 The supported installation path is per-user. Release instructions and the
 in-app updater use `flatpak install --user` and `flatpak update --user`.
 
+### Flatpak test-channel publication
+
+Use the same **Flatpak Publish** workflow with `test_source_sha` when validating
+the complete GitHub Actions build, signing, SSH cutover, rollback and public
+verification path before the first RC/stable publication. Leave `release_tag`
+empty. The input must be an exact 40-character application commit SHA.
+For safety, it must also equal the current `main` head when the workflow starts.
+
+The packaging repository `main` branch must pin that same SHA and contain
+byte-identical desktop/AppStream metadata plus regenerated npm/Cargo offline
+sources. The workflow publishes only `https://flatpak.psysonic.de/test/`, does
+not read or update `stable` or `rc`, and uploads its bundle as a workflow
+artifact instead of modifying a GitHub Release. Remove the test channel from the
+server after validation if it is no longer needed.
+
 ### Step E: Move `main` forward
 
 1. Merge the auto-generated PR that bumps `main` to next minor dev version.

@@ -146,7 +146,7 @@ if (( ${#CHANNELS[@]} == 0 )); then
   exit 1
 fi
 for channel in "${CHANNELS[@]}"; do
-  if [[ "$channel" != "stable" && "$channel" != "rc" ]]; then
+  if [[ "$channel" != "stable" && "$channel" != "rc" && "$channel" != "test" ]]; then
     echo "::error::Unsupported deployment channel: $channel"
     remove_ssh_material
     exit 1

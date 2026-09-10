@@ -5,7 +5,11 @@ on:
     inputs:
       release_tag:
         description: "Published GitHub Release tag: app-vX.Y.Z or app-vX.Y.Z-rc.N"
-        required: true
+        required: false
+        type: string
+      test_source_sha:
+        description: "Exact 40-character app commit SHA to publish only to the test channel"
+        required: false
         type: string
 
 permissions:
@@ -27,7 +31,7 @@ jobs:
       - name: check out release source
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.release_tag }}
+          ref: ${{ inputs.test_source_sha || inputs.release_tag || github.sha }}
           path: app
           persist-credentials: false
 
@@ -46,28 +50,48 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          TEST_SOURCE_SHA: ${{ inputs.test_source_sha }}
         run: |
           set -euo pipefail
-          if [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
-            CHANNEL=rc
-            EXPECTED_PRERELEASE=true
-          elif [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            CHANNEL=stable
-            EXPECTED_PRERELEASE=false
+          if [ -n "$TEST_SOURCE_SHA" ]; then
+            if [ -n "$RELEASE_TAG" ]; then
+              echo "::error::Set either release_tag or test_source_sha, not both"
+              exit 1
+            fi
+            if [[ ! "$TEST_SOURCE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "::error::test_source_sha must be an exact 40-character commit SHA"
+              exit 1
+            fi
+            CURRENT_MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)"
+            if [ "$TEST_SOURCE_SHA" != "$CURRENT_MAIN_SHA" ]; then
+              echo "::error::test_source_sha $TEST_SOURCE_SHA is not current main $CURRENT_MAIN_SHA"
+              exit 1
+            fi
+            CHANNEL="test"
+            IS_TEST=true
           else
-            echo "::error::release_tag must be app-vX.Y.Z or app-vX.Y.Z-rc.N"
-            exit 1
-          fi
+            IS_TEST=false
+            if [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+              CHANNEL=rc
+              EXPECTED_PRERELEASE=true
+            elif [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              CHANNEL=stable
+              EXPECTED_PRERELEASE=false
+            else
+              echo "::error::release_tag must be app-vX.Y.Z or app-vX.Y.Z-rc.N"
+              exit 1
+            fi
 
-          RELEASE_JSON="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,publishedAt)"
-          if ! jq -e '(.isDraft == false) and (.publishedAt != null) and (.publishedAt != "")' <<< "$RELEASE_JSON" >/dev/null; then
-            echo "::error::GitHub Release $RELEASE_TAG must be publicly published before its Flatpak channel can update"
-            exit 1
-          fi
-          RELEASE_PRERELEASE="$(jq -r '.isPrerelease' <<< "$RELEASE_JSON")"
-          if [ "$RELEASE_PRERELEASE" != "$EXPECTED_PRERELEASE" ]; then
-            echo "::error::Release prerelease flag does not match the $CHANNEL channel"
-            exit 1
+            RELEASE_JSON="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,publishedAt)"
+            if ! jq -e '(.isDraft == false) and (.publishedAt != null) and (.publishedAt != "")' <<< "$RELEASE_JSON" >/dev/null; then
+              echo "::error::GitHub Release $RELEASE_TAG must be publicly published before its Flatpak channel can update"
+              exit 1
+            fi
+            RELEASE_PRERELEASE="$(jq -r '.isPrerelease' <<< "$RELEASE_JSON")"
+            if [ "$RELEASE_PRERELEASE" != "$EXPECTED_PRERELEASE" ]; then
+              echo "::error::Release prerelease flag does not match the $CHANNEL channel"
+              exit 1
+            fi
           fi
 
           EXPECTED_SHA="$(git -C ../app rev-parse HEAD)"
@@ -75,7 +99,11 @@ jobs:
           MAKEFILE_SHA="$(awk '$1 == "COMMIT_HASH" { print $3; exit }' Makefile)"
           PACKAGE_VERSION="$(node -p 'require("../app/package.json").version')"
 
-          if [ "$RELEASE_TAG" != "app-v$PACKAGE_VERSION" ]; then
+          if [ "$IS_TEST" = true ] && [ "$TEST_SOURCE_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Checked-out source $EXPECTED_SHA does not match test_source_sha $TEST_SOURCE_SHA"
+            exit 1
+          fi
+          if [ "$IS_TEST" = false ] && [ "$RELEASE_TAG" != "app-v$PACKAGE_VERSION" ]; then
             echo "::error::Release tag $RELEASE_TAG does not match package version $PACKAGE_VERSION"
             exit 1
           fi
@@ -89,15 +117,17 @@ jobs:
           fi
           cmp io.github.psysonic.psysonic.desktop ../app/src-tauri/flatpak/io.github.psysonic.psysonic.desktop
           cmp io.github.psysonic.psysonic.metainfo.xml ../app/src-tauri/flatpak/io.github.psysonic.psysonic.metainfo.xml
-          if ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" io.github.psysonic.psysonic.metainfo.xml; then
+          if [ "$IS_TEST" = false ] && ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" io.github.psysonic.psysonic.metainfo.xml; then
             echo "::error::Flatpak metainfo has no release entry for $PACKAGE_VERSION"
             exit 1
           fi
 
           {
             echo "channel=$CHANNEL"
+            echo "is_test=$IS_TEST"
             echo "package_version=$PACKAGE_VERSION"
             echo "repo_url=$PUBLIC_BASE_URL/$CHANNEL/repo/"
+            echo "source_sha=$EXPECTED_SHA"
           } >> "$GITHUB_OUTPUT"
 
       - name: plan channel deployment
@@ -107,6 +137,11 @@ jobs:
           PRIMARY_CHANNEL: ${{ steps.release.outputs.channel }}
         run: |
           set -euo pipefail
+
+          if [ "$PRIMARY_CHANNEL" = test ]; then
+            echo "channels=test" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           version_key() {
             local version="$1"
@@ -235,6 +270,8 @@ jobs:
           PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
           PRIMARY_CHANNEL: ${{ steps.release.outputs.channel }}
           RELEASE_TAG: ${{ inputs.release_tag }}
+          SOURCE_SHA: ${{ steps.release.outputs.source_sha }}
+          IS_TEST: ${{ steps.release.outputs.is_test }}
         run: |
           set -euo pipefail
           make build
@@ -256,21 +293,35 @@ jobs:
                 GPG_KEYS="$GPG_PUBLIC_KEY"
             fi
 
-            if [ "$CHANNEL" = rc ]; then
-              TITLE="Psysonic Release Candidate"
-              REMOTE_NAME=psysonic-rc
-            else
-              TITLE=Psysonic
-              REMOTE_NAME=psysonic
-            fi
+            case "$CHANNEL" in
+              rc)
+                TITLE="Psysonic Release Candidate"
+                REMOTE_NAME=psysonic-rc
+                ;;
+              test)
+                TITLE="Psysonic Test Channel"
+                REMOTE_NAME=psysonic-test
+                ;;
+              *)
+                TITLE=Psysonic
+                REMOTE_NAME=psysonic
+                ;;
+            esac
             mkdir -p "publish/$CHANNEL"
             mv export "publish/$CHANNEL/repo"
             printf '%s\n' "$PACKAGE_VERSION" > "publish/$CHANNEL/version.txt"
-            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-              --json tagName,body,publishedAt \
-              | jq --arg channel "$CHANNEL" --arg version "$PACKAGE_VERSION" \
-                '{ channel: $channel, version: $version, tag: .tagName, body: (.body // ""), publishedAt: .publishedAt }' \
+            if [ "$IS_TEST" = true ]; then
+              jq -n --arg channel "$CHANNEL" --arg version "$PACKAGE_VERSION" \
+                --arg sourceSha "$SOURCE_SHA" --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+                '{ channel: $channel, version: $version, sourceSha: $sourceSha, body: "GitHub Actions test publication", publishedAt: $publishedAt }' \
                 > "publish/$CHANNEL/release.json"
+            else
+              gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+                --json tagName,body,publishedAt \
+                | jq --arg channel "$CHANNEL" --arg version "$PACKAGE_VERSION" \
+                  '{ channel: $channel, version: $version, tag: .tagName, body: (.body // ""), publishedAt: .publishedAt }' \
+                  > "publish/$CHANNEL/release.json"
+            fi
             cat > "publish/$CHANNEL/psysonic.flatpakref" <<EOF
           [Flatpak Ref]
           Title=$TITLE
@@ -324,6 +375,7 @@ jobs:
         run: ../app/scripts/deploy-flatpak-ssh.sh deploy
 
       - name: upload bundle to existing release
+        if: steps.release.outputs.is_test != 'true'
         working-directory: flatpak
         env:
           CHANNEL: ${{ steps.release.outputs.channel }}
@@ -336,3 +388,13 @@ jobs:
             "publish/$CHANNEL/psysonic.flatpakref" \
             --clobber \
             --repo "$GITHUB_REPOSITORY"
+
+      - name: upload test bundle artifact
+        if: steps.release.outputs.is_test == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: psysonic-flatpak-test-${{ github.run_id }}
+          path: |
+            flatpak/Psysonic.flatpak
+            flatpak/Psysonic.flatpak.sha256
+            flatpak/publish/test/psysonic.flatpakref

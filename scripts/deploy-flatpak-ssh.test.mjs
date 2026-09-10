@@ -19,7 +19,7 @@ function writeExecutable(path, body) {
   writeFileSync(path, body, { mode: 0o755 });
 }
 
-function createDeploymentHarness(testContext, curlSucceeds) {
+function createDeploymentHarness(testContext, curlSucceeds, channels = ['stable', 'rc']) {
   const root = mkdtempSync(join(tmpdir(), 'psysonic-flatpak-deploy-'));
   const fakeBin = join(root, 'bin');
   const publish = join(root, 'publish');
@@ -32,7 +32,7 @@ function createDeploymentHarness(testContext, curlSucceeds) {
   mkdirSync(remote);
   writeFileSync(publicKey, 'test public key');
 
-  for (const channel of ['stable', 'rc']) {
+  for (const channel of new Set(['stable', 'rc', ...channels])) {
     mkdirSync(join(publish, channel, 'repo'), { recursive: true });
     writeFileSync(join(publish, channel, 'repo', 'summary'), 'summary');
     writeFileSync(join(publish, channel, 'repo', 'summary.sig'), 'signature');
@@ -120,7 +120,7 @@ exit 0
       encoding: 'utf8',
       env: {
         ...process.env,
-        DEPLOY_CHANNELS: 'stable rc',
+        DEPLOY_CHANNELS: channels.join(' '),
         FAKE_CURL_SUCCEEDS: String(curlSucceeds),
         FAKE_FLATPAK_LOG: flatpakLog,
         FLATPAK_ID: 'io.github.psysonic.psysonic',
@@ -196,6 +196,21 @@ describe('Flatpak SSH deployment', () => {
     const verificationCalls = readFileSync(flatpakLog, 'utf8');
     assert.match(verificationCalls, /remote-info .*io\.github\.psysonic\.psysonic\/\/stable/);
     assert.match(verificationCalls, /remote-info .*io\.github\.psysonic\.psysonic\/\/rc/);
+  });
+
+  it('publishes the test channel without replacing stable or rc', (testContext) => {
+    const { flatpakLog, remote, result } = createDeploymentHarness(testContext, true, ['test']);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(readFileSync(join(remote, 'test', 'new.txt'), 'utf8'), 'new test');
+    for (const channel of ['stable', 'rc']) {
+      assert.equal(readFileSync(join(remote, channel, 'old.txt'), 'utf8'), `old ${channel}`);
+      assert.equal(existsSync(join(remote, channel, 'new.txt')), false);
+    }
+    assert.match(
+      readFileSync(flatpakLog, 'utf8'),
+      /remote-info .*io\.github\.psysonic\.psysonic\/\/test/,
+    );
   });
 
   it('restores every channel when public verification fails after cutover', (testContext) => {

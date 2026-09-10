@@ -72,4 +72,14 @@ describe('Flatpak GitHub Release publication gate', () => {
     assert.ok(releaseGate >= 0, 'workflow must reject an unpublished GitHub Release');
     assert.ok(releaseGate < deploymentPlan, 'release publication must be checked before deployment planning');
   });
+
+  it('keeps test publication separate from release assets and production channels', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+
+    assert.match(source, /test_source_sha must be an exact 40-character commit SHA/);
+    assert.match(source, /test_source_sha \$TEST_SOURCE_SHA is not current main \$CURRENT_MAIN_SHA/);
+    assert.match(source, /if \[ "\$PRIMARY_CHANNEL" = test \]/);
+    assert.match(source, /if: steps\.release\.outputs\.is_test != 'true'/);
+    assert.match(source, /publish\/test\/psysonic\.flatpakref/);
+  });
 });
