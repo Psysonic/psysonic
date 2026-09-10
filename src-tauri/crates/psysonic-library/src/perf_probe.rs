@@ -478,3 +478,116 @@ fn artist_browse_phase_breakdown_on_a_real_library() {
         })
         .expect("plan");
 }
+
+/// What the Discover Songs rail asks for: an unfiltered random track sample of
+/// one page, single scope, no totals. Reports how many distinct albums the
+/// sample spans, which is the whole point of the rail (#1446), alongside the
+/// two alternatives it sits between.
+#[test]
+#[ignore = "needs PSYSONIC_PERF_DB pointing at a copy of a real library"]
+fn discover_songs_sample_spread_on_a_real_library() {
+    let Some(db) = probe_db_path() else {
+        eprintln!("PSYSONIC_PERF_DB unset or missing — skipping");
+        return;
+    };
+    let store = LibraryStore::open_path_for_test(&db).expect("open probe db");
+    let scopes = scopes_from_db(&store);
+    let largest = largest_scope_index(&store, &scopes);
+    let scope = scopes[largest].clone();
+    let (tracks, albums, _artists) = row_counts(&store);
+    eprintln!("catalog: tracks={tracks} albums={albums} scope_index={largest}");
+
+    const LIMIT: u32 = 13;
+    const RUNS: usize = 12;
+
+    let request = LibraryAdvancedSearchRequest {
+        server_id: scope.server_id.clone(),
+        library_scope: None,
+        library_scopes: Some(vec![scope.clone()]),
+        query: None,
+        entity_types: vec![EntityKind::Track],
+        filters: Vec::new(),
+        starred_only: None,
+        restrict_album_ids: None,
+        query_album_title_only: None,
+        sort: vec![LibrarySortClause {
+            field: "random".to_string(),
+            dir: SortDir::Asc,
+        }],
+        limit: LIMIT,
+        offset: 0,
+        skip_totals: true,
+        artist_credit_mode: None,
+        artist_letter_bucket: None,
+    };
+
+    let mut distinct_counts = Vec::with_capacity(RUNS);
+    let mut elapsed_ms = Vec::with_capacity(RUNS);
+    for _ in 0..RUNS {
+        let started = Instant::now();
+        let result = crate::advanced_search::run_advanced_search(&store, &request).expect("search");
+        elapsed_ms.push(started.elapsed().as_millis());
+        let mut album_ids: Vec<String> = result
+            .tracks
+            .iter()
+            .map(|t| t.album_id.clone().unwrap_or_else(|| t.album.clone()))
+            .collect();
+        album_ids.sort();
+        album_ids.dedup();
+        distinct_counts.push((result.tracks.len(), album_ids.len()));
+    }
+
+    let spans: Vec<usize> = distinct_counts.iter().map(|(_, d)| *d).collect();
+    let mean = spans.iter().sum::<usize>() as f64 / spans.len() as f64;
+    eprintln!(
+        "sampler: rows={:?} distinct_albums={spans:?} mean={mean:.2} elapsed_ms={elapsed_ms:?}",
+        distinct_counts.iter().map(|(r, _)| *r).collect::<Vec<_>>(),
+    );
+
+    // Reference points measured on the same copy: the shape this replaced, and
+    // the fully shuffled query it was introduced to avoid.
+    store
+        .with_read_conn(|conn| {
+            let scope_sql = "t.server_id = ? AND t.deleted = 0";
+            let bounds: (i64, i64) = conn.query_row(
+                &format!("SELECT MIN(t.rowid), MAX(t.rowid) FROM track t WHERE {scope_sql}"),
+                rusqlite::params![scope.server_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            let mut old_spans = Vec::new();
+            for step in 0..RUNS {
+                let span = (bounds.1 - bounds.0 + 1) as u128;
+                let pivot = bounds.0 + ((step as u128 * span / RUNS as u128) as i64);
+                let mut stmt = conn.prepare(&format!(
+                    "SELECT t.album_id FROM track t WHERE {scope_sql} AND t.rowid >= ? \
+                     ORDER BY t.rowid LIMIT ?"
+                ))?;
+                let mut ids = stmt
+                    .query_map(rusqlite::params![scope.server_id, pivot, LIMIT], |row| {
+                        row.get::<_, Option<String>>(0)
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                ids.sort();
+                ids.dedup();
+                old_spans.push(ids.len());
+            }
+            let old_mean = old_spans.iter().sum::<usize>() as f64 / old_spans.len() as f64;
+            eprintln!("previous shape: distinct_albums={old_spans:?} mean={old_mean:.2}");
+
+            let started = Instant::now();
+            let mut stmt = conn.prepare(&format!(
+                "SELECT t.album_id FROM track t WHERE {scope_sql} ORDER BY RANDOM() LIMIT ?"
+            ))?;
+            let mut ids = stmt
+                .query_map(rusqlite::params![scope.server_id, LIMIT], |row| {
+                    row.get::<_, Option<String>>(0)
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            let full_shuffle_ms = started.elapsed().as_millis();
+            ids.sort();
+            ids.dedup();
+            eprintln!("order by random(): distinct_albums={} elapsed_ms={full_shuffle_ms}", ids.len());
+            Ok(())
+        })
+        .expect("reference queries");
+}
