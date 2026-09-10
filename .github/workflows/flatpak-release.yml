@@ -117,7 +117,14 @@ jobs:
           fi
           cmp io.github.psysonic.psysonic.desktop ../app/src-tauri/flatpak/io.github.psysonic.psysonic.desktop
           cmp io.github.psysonic.psysonic.metainfo.xml ../app/src-tauri/flatpak/io.github.psysonic.psysonic.metainfo.xml
-          if [ "$IS_TEST" = false ] && ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" io.github.psysonic.psysonic.metainfo.xml; then
+          if [ "$IS_TEST" = true ]; then
+            PSYSONIC_FLATPAK_METAINFO_PATH="$PWD/io.github.psysonic.psysonic.metainfo.xml" \
+              PSYSONIC_FLATPAK_VERSION="$PACKAGE_VERSION" \
+              PSYSONIC_FLATPAK_ALLOW_DEVELOPMENT=true \
+              PSYSONIC_FLATPAK_DETAILS_URL="https://github.com/$GITHUB_REPOSITORY/commit/$EXPECTED_SHA" \
+              node ../app/scripts/sync-flatpak-metainfo-release.mjs
+          fi
+          if ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" io.github.psysonic.psysonic.metainfo.xml; then
             echo "::error::Flatpak metainfo has no release entry for $PACKAGE_VERSION"
             exit 1
           fi
