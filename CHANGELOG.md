@@ -189,6 +189,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Rating a track through its context menu showed the stars for a moment and then dropped them again, and only re-entering the page brought the rating back. The rating now stays where you set it, the same way a favourite already did.
 
+### Recommendation cards no longer collapse at certain window widths
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1524](https://github.com/Psysonic/psysonic/pull/1524)**
+
+* In a narrow range of window widths — one a default-sized window happened to land in — the "Because you listened to …" cards squeezed three across instead of two. The cover took almost the whole card, and title, artist and details ran over the artwork.
+* The cards now step down to two in good time, so there is no width left where they overlap, and the placeholders shown while the row loads follow the same rule.
+
 ## [1.52.0]
 
 ## Added
