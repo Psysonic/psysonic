@@ -18,6 +18,7 @@ export {
   playbackProfileIdForTrack,
 } from './utils/playback/playbackServer';
 export { useVolumeToggle } from './hooks/useVolumeToggle';
+export { useTrackPlayStats } from './hooks/useTrackPlayStats';
 export { usePlaybackLibraryNavigate } from './hooks/usePlaybackLibraryNavigate';
 export { TrackArtistLinks } from './components/TrackArtistLinks';
 export { ScrobbleActionButton } from './components/playerBar/ScrobbleStatus';

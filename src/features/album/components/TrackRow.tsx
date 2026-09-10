@@ -20,7 +20,7 @@ import { resolveTrackArtistRefs } from '@/features/playback/utils/playback/track
 import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
-import { sameQueueTrack } from '@/features/playback';
+import { sameQueueTrack, useTrackPlayStats } from '@/features/playback';
 import { useDragPress } from '@/lib/dnd/useDragPress';
 
 type ContextMenuFn = (
@@ -116,6 +116,7 @@ export const TrackRow = React.memo(function TrackRow({
   const isActive = sameQueueTrack(currentTrack, song);
   const isPreviewing = usePreviewStore(s => sameQueueTrack(s.previewingTrack, song));
   const isPreviewAudioStarted = usePreviewStore(s => sameQueueTrack(s.previewingTrack, song) && s.audioStarted);
+  const playStats = useTrackPlayStats(song);
 
   const onRowMouseDown = useDragPress({
     onStart: (me) => onDragStart(song, me),
@@ -223,13 +224,13 @@ export const TrackRow = React.memo(function TrackRow({
       case 'playCount':
         return (
           <div key="playCount" className="track-duration">
-            {song.playCount ?? '—'}
+            {playStats.playCount ?? '—'}
           </div>
         );
       case 'lastPlayed':
         return (
           <div key="lastPlayed" className="track-genre">
-            {song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}
+            {playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}
           </div>
         );
       case 'bpm':
