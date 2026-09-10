@@ -203,6 +203,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * In a narrow range of window widths — one a default-sized window happened to land in — the "Because you listened to …" cards squeezed three across instead of two. The cover took almost the whole card, and title, artist and details ran over the artwork.
 * The cards now step down to two in good time, so there is no width left where they overlap, and the placeholders shown while the row loads follow the same rule.
 
+### A play now shows up on the list you started it from
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1527](https://github.com/Psysonic/psysonic/pull/1527)**
+
+* Playing a track left the play count and the last-played date of its row untouched until you left the page and came back. Both now update while you are still looking at the list — the date as soon as the play is recorded, the count once your server confirms its new total.
+* Applies to album pages, favourites, an artist's full track list, playlists and playlist suggestions.
+
 ## [1.52.0]
 
 ## Added

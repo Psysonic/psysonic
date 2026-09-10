@@ -9,6 +9,7 @@ import i18n from '@/lib/i18n';
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import StarRating from '@/ui/StarRating';
 import { PlaylistArtistCell } from '@/features/playlist/components/PlaylistArtistCell';
+import { useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 
 export interface PlaylistRowCallbacks {
@@ -52,6 +53,7 @@ function PlaylistRow({
   isStarred, ratingValue, isPreviewing, previewStarted, orbitActive, cb,
 }: Props) {
   const { t } = useTranslation();
+  const playStats = useTrackPlayStats(song);
 
   return (
     <div
@@ -130,10 +132,10 @@ function PlaylistRow({
             <div key="genre" className="track-genre">{song.genre ?? '—'}</div>
           );
           case 'playCount': return (
-            <div key="playCount" className="track-duration">{song.playCount ?? '—'}</div>
+            <div key="playCount" className="track-duration">{playStats.playCount ?? '—'}</div>
           );
           case 'lastPlayed': return (
-            <div key="lastPlayed" className="track-genre">{song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}</div>
+            <div key="lastPlayed" className="track-genre">{playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}</div>
           );
           case 'bpm': return (
             <div key="bpm" className="track-duration">{song.bpm && song.bpm > 0 ? song.bpm : '—'}</div>

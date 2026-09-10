@@ -21,6 +21,7 @@ import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
+import { trackPlayStats } from '@/lib/media/trackPlayStats';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 import { navigateToAlbumDetail } from '@/lib/navigation/albumDetailNavigation';
 
@@ -62,6 +63,7 @@ export default function PlaylistSuggestions({
   const openContextMenu = usePlayerStore(s => s.openContextMenu);
   const starredOverrides = usePlayerStore(s => s.starredOverrides);
   const userRatingOverrides = usePlayerStore(s => s.userRatingOverrides);
+  const playStatsOverrides = usePlayerStore(s => s.playStatsOverrides);
   const previewingId = usePreviewStore(s => s.previewingId);
   const previewAudioStarted = usePreviewStore(s => s.audioStarted);
   const showBitrate = useThemeStore(s => s.showBitrate);
@@ -129,6 +131,7 @@ export default function PlaylistSuggestions({
               ?? ownedOverrideValue(userRatingOverrides, song)
               ?? song.userRating
               ?? 0;
+            const playStats = trackPlayStats(song, playStatsOverrides);
             return (
             <div
               key={song.id}
@@ -225,10 +228,10 @@ export default function PlaylistSuggestions({
                     <div key="genre" className="track-genre">{song.genre ?? '—'}</div>
                   );
                   case 'playCount': return (
-                    <div key="playCount" className="track-duration">{song.playCount ?? '—'}</div>
+                    <div key="playCount" className="track-duration">{playStats.playCount ?? '—'}</div>
                   );
                   case 'lastPlayed': return (
-                    <div key="lastPlayed" className="track-genre">{song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}</div>
+                    <div key="lastPlayed" className="track-genre">{playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}</div>
                   );
                   case 'bpm': return (
                     <div key="bpm" className="track-duration">{song.bpm && song.bpm > 0 ? song.bpm : '—'}</div>
