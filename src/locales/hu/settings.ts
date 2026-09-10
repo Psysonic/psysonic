@@ -277,6 +277,8 @@ export const settings = {
   clockFormatTwelve: '12 órás (de./du.)',
   preloadMiniPlayer: 'Mini lejátszó előtöltése',
   preloadMiniPlayerDesc: 'A mini lejátszó ablakának felépítése a háttérben az alkalmazás indításakor, hogy első megnyitáskor azonnal tartalmat mutasson. Kicsivel több memóriát használ.',
+  miniPlayerCustomTitlebar: 'Az ablak címsorának elrejtése',
+  miniPlayerCustomTitlebarDesc: 'A minilejátszó a rendszer sávja helyett saját keskeny sávot használ. A kis méret és a visszaállítás elmarad — az ablak maga kínálja mindkettőt.',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: 'Az éppen lejátszott szám megjelenítése a Discord-profilodon. A Discordnak futnia kell.',
   discordRichPresenceNotice: 'Figyelem: ez a Psysonic beépített Discord Rich Presence funkciója. Ha inkább a hivatalos Navidrome Discord Rich Presence bővítményt használnád, hagyd ezt kikapcsolva, és ehelyett a lejjebb található „Megjelenítés a Most szólban" lehetőséget engedélyezd.',

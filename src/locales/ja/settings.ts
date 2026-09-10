@@ -277,6 +277,8 @@ export const settings = {
   clockFormatTwelve: '12 時間 (AM/PM)',
   preloadMiniPlayer: 'ミニプレイヤーをプリロード',
   preloadMiniPlayerDesc: 'アプリ起動時にバックグラウンドでミニプレイヤーウィンドウを構築し、初回表示時に即座に内容を表示します。少しメモリを追加で使います。',
+  miniPlayerCustomTitlebar: 'ウィンドウのタイトルバーを隠す',
+  miniPlayerCustomTitlebarDesc: 'ミニプレーヤーはシステムのバーではなく独自の細いバーを使います。最小化と元に戻すはなくなります。ウィンドウ自体が同じ操作を備えています。',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: '現在再生中のトラックを Discord プロフィールに表示します。Discord が起動している必要があります。',
   discordRichPresenceNotice: '注意: これは Psysonic 内蔵の Discord Rich Presence です。公式 Navidrome Discord Rich Presence プラグインを使いたい場合は、これをオフのままにして、このページ下部の "Now Playing に表示" を有効にしてください。',

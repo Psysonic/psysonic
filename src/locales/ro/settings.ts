@@ -276,6 +276,8 @@ export const settings = {
   clockFormatTwelve: '12 ore (AM/PM)',
   preloadMiniPlayer: 'Preîncarcă mini player',
   preloadMiniPlayerDesc: 'Crează fereastra mini player în fundal la deschiderea aplicației pentru a arăta conținut instantaneu la prima deschidere. Folosește puțină extra memorie.',
+  miniPlayerCustomTitlebar: 'Ascunde bara de titlu a ferestrei',
+  miniPlayerCustomTitlebarDesc: 'Mini playerul folosește propria bară îngustă în locul celei de sistem. Minimizarea și restaurarea dispar — fereastra le oferă ea însăși.',
   discordRichPresence: 'Prezență Discord Rich',
   discordRichPresenceDesc: 'Arată piesa redată curent pe profilul tău de Discord. Necesită Discord să ruleze.',
   discordRichPresenceNotice: 'Atenție: aceasta este Discord Rich Presence integrată în Psysonic. Dacă preferi să folosești pluginul oficial Discord Rich Presence de la Navidrome, lasă această funcție dezactivată și activează în schimb „Se afișează în Now Playing" mai jos pe această pagină.',

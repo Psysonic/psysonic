@@ -3,7 +3,8 @@ pub(crate) mod mini;
 pub(crate) use mini::{
     close_mini_player, hide_main_window, open_mini_player, pause_rendering, persist_mini_pos_throttled,
     preload_mini_player, resize_mini_player, resume_rendering, set_mini_player_always_on_top,
-    restore_main_window, show_main_window, PAUSE_RENDERING_JS, RESUME_RENDERING_JS,
+    set_mini_player_decorations, restore_main_window, show_main_window, PAUSE_RENDERING_JS,
+    RESUME_RENDERING_JS,
 };
 // Pre-create-on-startup is a Windows-only path (see `lib.rs:setup`); other
 // platforms create the mini-player webview lazily on first invoke. The

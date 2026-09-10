@@ -262,6 +262,10 @@ export interface AuthState {
   /** Pre-build the mini-player webview at app start on Linux/macOS so content is available instantly
    *  on first open. Ignored on Windows — that platform always pre-creates as a hang workaround. */
   preloadMiniPlayer: boolean;
+  /** Windows: drop the native caption bar on the mini player and use the in-page titlebar the Linux
+   *  build already has. Off by default — the native frame stays the standard look. Linux never has a
+   *  native frame here, macOS keeps its traffic lights. */
+  miniPlayerCustomTitlebar: boolean;
   /** Linux WebKitGTK: smooth wheel on when true; off only after explicit opt-out in Settings. */
   linuxWebkitKineticScroll: boolean;
   /** Linux Wayland + GPU compositing: WebKit text rasterisation profile (live, no restart). */
@@ -505,6 +509,7 @@ export interface AuthState {
   setWindowButtonStyle: (v: WindowButtonStyle) => void;
   setShowMinimizeButton: (v: boolean) => void;
   setPreloadMiniPlayer: (v: boolean) => void;
+  setMiniPlayerCustomTitlebar: (v: boolean) => void;
   setLinuxWebkitKineticScroll: (v: boolean) => void;
   setLinuxWaylandTextRenderProfile: (v: LinuxWaylandTextRenderProfile) => void;
   setLinuxWebkitInputForceRepaint: (v: boolean) => void;

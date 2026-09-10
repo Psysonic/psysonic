@@ -273,6 +273,8 @@ export const settings = {
   clockFormatTwelve: '12 heures (AM/PM)',
   preloadMiniPlayer: 'Précharger le mini-lecteur',
   preloadMiniPlayerDesc: 'Construit la fenêtre du mini-lecteur en arrière-plan au démarrage de l\'application afin qu\'elle affiche son contenu instantanément à la première ouverture. Utilise un peu plus de mémoire.',
+  miniPlayerCustomTitlebar: 'Masquer la barre de titre de la fenêtre',
+  miniPlayerCustomTitlebarDesc: 'Le mini lecteur utilise sa propre barre fine au lieu de celle du système. Réduire et restaurer disparaissent : la fenêtre propose déjà les deux.',
   linuxWebkitSmoothScroll: 'Molette fluide (Linux)',
   linuxWebkitSmoothScrollDesc: 'Activé : inertie. Désactivé : pas à la ligne, style GTK.',
   linuxWebkitInputForceRepaint: 'Repeindre les champs au focus (Linux)',

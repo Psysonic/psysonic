@@ -277,6 +277,8 @@ export const settings = {
   clockFormatTwelve: '12 godzinny',
   preloadMiniPlayer: 'Wstępnie załaduj mini odtwarzacz',
   preloadMiniPlayerDesc: 'Wstępnie załaduj okno mini odtwarzacza w tle podczas uruchamiania aplikacji, aby zawartość została wyświetlona natychmiastowo po pierwszym otwarciu. Używa małej ilości dodatkowej pamięci.',
+  miniPlayerCustomTitlebar: 'Ukryj pasek tytułu okna',
+  miniPlayerCustomTitlebarDesc: 'Miniodtwarzacz używa własnego wąskiego paska zamiast systemowego. Minimalizowanie i przywracanie znikają — okno oferuje jedno i drugie samo.',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: 'Pokaż aktualnie odtwarzany utwór na Twoim profilu Discord. Wymaga uruchomienia Discorda.',
   discordRichPresenceNotice: 'Uwaga: to wbudowana wtyczka Discord Rich Presence od Psysonic. Jeśli wolisz korzystać z oficjalnej wtyczki Discord Rich Presence od Navidrome, zostaw tę opcję wyłączoną i włącz opcję "Pokaż w Teraz odtwarzane" poniżej.',
