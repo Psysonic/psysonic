@@ -52,7 +52,7 @@ use crate::mmc::read_disc_information_cdb;
 use crate::cdtext::{CdTextBlock, CdTextInput, CdTextTrack};
 use crate::model::{
     BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder, BurnWriteCapabilities,
-    CdTextVerification, DEFAULT_80_MIN_SECTORS,
+    DEFAULT_80_MIN_SECTORS,
 };
 use crate::win_sao::{self, SaoError};
 use crate::render::RenderedTrack;
@@ -783,8 +783,15 @@ pub fn burn(
                             .media_catalog_number
                             .as_deref()
                             .filter(|c| !c.trim().is_empty()),
+                        options.gapless,
                         options.test_write,
                         capabilities.buffer_underrun_free,
+                        // The IMAPI2 fallback below applies this through
+                        // SetWriteSpeed; this path has to ask the drive itself,
+                        // and for a while it simply did not — so choosing a
+                        // speed with CD-TEXT on, which is the default, changed
+                        // nothing about how the disc was burned.
+                        options.write_speed,
                         &cancel,
                     );
                     match attempt {
@@ -1295,19 +1302,6 @@ unsafe fn open_file_stream(path: &Path) -> Result<IStream, String> {
         )
         .map_err(|e| format!("could not read the rendered track {}: {e}", path.display()))
     }
-}
-
-/// Read the CD-TEXT off whatever disc is loaded.
-///
-/// Exposed on its own because verifying straight after a burn can read a table
-/// of contents the drive cached before the lead-in was written. Re-checking
-/// with the disc reloaded is what actually settles whether CD-TEXT is there.
-pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
-    let recorder_id = recorder_id.to_string();
-    with_com(move || unsafe {
-        let recorder = open_recorder(&recorder_id)?;
-        Ok(win_sao::verify_cd_text(&recorder))
-    })
 }
 
 // ── Erase (CD-RW) ────────────────────────────────────────────────────────────

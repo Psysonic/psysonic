@@ -15,7 +15,8 @@
 /// Bytes in one cue sheet entry.
 pub const ENTRY_BYTES: usize = 8;
 
-/// Sectors in the mandatory pregap before track 1 (two seconds).
+/// Sectors in a two-second pause: the mandatory pregap before track 1, and the
+/// pause before each later track on a disc that is not gapless.
 pub const PREGAP_SECTORS: u32 = 150;
 
 /// Lead-out is always announced as this track number.
@@ -165,15 +166,31 @@ fn code_entries(code: &str, expected: usize) -> Option<Vec<u8>> {
 /// raw P-W per sector from us; without it, the drive generates the lead-in
 /// entirely.
 ///
+/// `gapless` decides only what happens *between* tracks. Track 1's 150-sector
+/// pregap is mandatory and is written either way; when `gapless` is false every
+/// later track gets a 150-sector pause of its own, as its index 0 — the two
+/// seconds a player counts down into the track. That is the rule macOS applies
+/// through `kDRPreGapLengthKey`, so the toggle makes one disc rather than a
+/// different one per platform.
+///
+/// Those pauses are drive-generated (`DATA_FORM_GENERATED`), exactly as track
+/// 1's already is, because nothing here has audio to put in them: no bytes are
+/// transferred for a pause, so the caller's `WRITE(10)` stream is the same
+/// length gapped or gapless and only its addresses step over each pause. The
+/// disc, however, does grow — every address from a pause onwards, the lead-out
+/// included, moves by 150 sectors per gap.
+///
 /// Layout, in absolute time from the start of the lead-in:
-/// lead-in, the 150-sector pregap as track 1 index 0, each track at index 1,
-/// then the lead-out at track `AAh`.
+/// lead-in, the 150-sector pregap as track 1 index 0, each track at index 1 —
+/// preceded by its own index 0 when the disc is gapped — then the lead-out at
+/// track `AAh`.
 pub fn build_cue_sheet(
     tracks: &[CueTrack],
     cd_text: Option<Msf>,
     catalog: Option<&str>,
+    gapless: bool,
 ) -> Vec<u8> {
-    let mut raw: Vec<[u8; ENTRY_BYTES]> = Vec::with_capacity(tracks.len() * 3 + 5);
+    let mut raw: Vec<[u8; ENTRY_BYTES]> = Vec::with_capacity(tracks.len() * 4 + 5);
 
     // The catalog number comes first: the specification requires it "at the
     // beginning of the Cue sheet". Seven characters in the first entry, six in
@@ -189,7 +206,7 @@ pub fn build_cue_sheet(
         raw.push(second);
     }
 
-    let mut entries: Vec<CueEntry> = Vec::with_capacity(tracks.len() + 3);
+    let mut entries: Vec<CueEntry> = Vec::with_capacity(tracks.len() * 2 + 3);
 
     // Lead-in. Its control mode is that of the first track.
     //
@@ -223,6 +240,23 @@ pub fn build_cue_sheet(
 
     let mut cursor = PREGAP_SECTORS;
     for (position, track) in tracks.iter().enumerate() {
+        // The pause before a track on a gapped disc. Track 1 is skipped
+        // because the entry above already gave it the mandatory pregap, which
+        // gapless never removes either. The drive generates the silence, as it
+        // does for that first pregap, so the pause costs disc addresses and no
+        // transfer.
+        if position > 0 && !gapless {
+            entries.push(CueEntry {
+                ctl_adr: CTL_ADR_AUDIO,
+                track: (position + 1) as u8,
+                index: 0x00,
+                data_form: DATA_FORM_GENERATED,
+                scms: 0x00,
+                address: Msf::from_sector(cursor),
+            });
+            cursor += PREGAP_SECTORS;
+        }
+
         entries.push(CueEntry {
             ctl_adr: CTL_ADR_AUDIO,
             track: (position + 1) as u8,
@@ -246,7 +280,9 @@ pub fn build_cue_sheet(
 
     // Flatten, dropping each track's ISRC in immediately before it — the
     // specification requires ISRC "immediately preceding each Track's
-    // information in the Cue Sheet".
+    // information in the Cue Sheet". Index 1 is what it goes in front of, so on
+    // a gapped disc the pair sits between a track's pause and its audio, which
+    // is exactly where track 1's has always sat behind the mandatory pregap.
     for entry in &entries {
         if entry.index == 0x01 && entry.track != LEAD_OUT_TRACK {
             if let Some(track) = tracks.get((entry.track as usize).saturating_sub(1)) {
@@ -323,14 +359,14 @@ mod tests {
     #[test]
     fn the_lead_in_entry_matches_the_specifications_sample() {
         // Table 155 row "00 (lead-in)": 01 00 00 01 00 00 00 00.
-        let sheet = build_cue_sheet(&[CueTrack::new(75 * 60)], None, None);
+        let sheet = build_cue_sheet(&[CueTrack::new(75 * 60)], None, None, true);
         assert_eq!(&sheet[..ENTRY_BYTES], &[0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
     }
 
     #[test]
     fn the_first_pause_entry_matches_the_specifications_sample() {
         // Table 155 row "08 (TNO:01)": 01 01 00 01 00 00 00 00.
-        let sheet = build_cue_sheet(&[CueTrack::new(75 * 60)], None, None);
+        let sheet = build_cue_sheet(&[CueTrack::new(75 * 60)], None, None, true);
         assert_eq!(
             &sheet[ENTRY_BYTES..ENTRY_BYTES * 2],
             &[0x01, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00],
@@ -340,7 +376,7 @@ mod tests {
     #[test]
     fn track_one_starts_two_seconds_in_like_the_sample() {
         // Table 155 row "10 (TNO:01)": 01 01 01 00 00 00 02 00.
-        let sheet = build_cue_sheet(&[CueTrack::new(75 * 60)], None, None);
+        let sheet = build_cue_sheet(&[CueTrack::new(75 * 60)], None, None, true);
         assert_eq!(
             &sheet[ENTRY_BYTES * 2..ENTRY_BYTES * 3],
             &[0x01, 0x01, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00],
@@ -349,8 +385,8 @@ mod tests {
 
     #[test]
     fn cd_text_only_changes_the_lead_in_entry() {
-        let plain = build_cue_sheet(&[CueTrack::new(300)], None, None);
-        let texted = build_cue_sheet(&[CueTrack::new(300)], Some(Msf::from_sector(0)), None);
+        let plain = build_cue_sheet(&[CueTrack::new(300)], None, None, true);
+        let texted = build_cue_sheet(&[CueTrack::new(300)], Some(Msf::from_sector(0)), None, true);
         assert_eq!(plain.len(), texted.len());
         assert_eq!(plain[3], DATA_FORM_GENERATED);
         assert_eq!(texted[3], DATA_FORM_LEADIN_CD_TEXT);
@@ -365,6 +401,7 @@ mod tests {
             &[CueTrack::new(300), CueTrack::new(450), CueTrack::new(600)],
             None,
             None,
+            true,
         );
         let entries = parse(&sheet);
         // lead-in, pause, three tracks, lead-out
@@ -380,7 +417,7 @@ mod tests {
         // A blank CD-R reports its lead-in start from ATIP, typically around
         // 97 minutes. The drive needs that address, not zero.
         let start = Msf { minute: 97, second: 27, frame: 8 };
-        let sheet = build_cue_sheet(&[CueTrack::new(300)], Some(start), None);
+        let sheet = build_cue_sheet(&[CueTrack::new(300)], Some(start), None, true);
         let lead_in = parse(&sheet)[0];
         assert_eq!(lead_in.data_form, DATA_FORM_LEADIN_CD_TEXT);
         assert_eq!(lead_in.address, start);
@@ -388,7 +425,7 @@ mod tests {
 
     #[test]
     fn the_lead_out_is_track_aa_at_index_one() {
-        let sheet = build_cue_sheet(&[CueTrack::new(300)], None, None);
+        let sheet = build_cue_sheet(&[CueTrack::new(300)], None, None, true);
         let last = *parse(&sheet).last().expect("a lead-out entry");
         assert_eq!(last.track, LEAD_OUT_TRACK);
         assert_eq!(last.index, 0x01, "note 3: always 01h for lead-out");
@@ -398,7 +435,7 @@ mod tests {
     #[test]
     fn track_numbers_run_from_one_upwards() {
         let tracks: Vec<CueTrack> = (0..12).map(|_| CueTrack::new(300)).collect();
-        let entries = parse(&build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None));
+        let entries = parse(&build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None, true));
         let numbered: Vec<u8> = entries
             .iter()
             .filter(|e| e.index == 0x01 && e.track != LEAD_OUT_TRACK)
@@ -411,7 +448,7 @@ mod tests {
     fn the_sheet_is_a_whole_number_of_entries() {
         for count in [1, 2, 12, 99] {
             let tracks: Vec<CueTrack> = (0..count).map(|_| CueTrack::new(300)).collect();
-            let sheet = build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None);
+            let sheet = build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None, true);
             assert_eq!(sheet.len() % ENTRY_BYTES, 0);
             // lead-in + pause + tracks + lead-out
             assert_eq!(sheet.len() / ENTRY_BYTES, count + 3);
@@ -422,11 +459,12 @@ mod tests {
     fn without_isrc_or_a_catalog_the_sheet_is_unchanged() {
         // The shape that burns correctly today must not move when the feature
         // is present but unused.
-        let plain = build_cue_sheet(&[CueTrack::new(300)], Some(Msf::from_sector(0)), None);
+        let plain = build_cue_sheet(&[CueTrack::new(300)], Some(Msf::from_sector(0)), None, true);
         let with_empty = build_cue_sheet(
             &[CueTrack { sectors: 300, isrc: Some(String::new()) }],
             Some(Msf::from_sector(0)),
             Some(""),
+            true,
         );
         assert_eq!(plain, with_empty);
     }
@@ -437,6 +475,7 @@ mod tests {
             &[CueTrack::new(300)],
             Some(Msf::from_sector(0)),
             Some("1234567890123"),
+            true,
         );
         let entries = parse(&sheet);
         assert_eq!(entries[0].ctl_adr & 0x0F, ADR_CATALOG);
@@ -458,6 +497,7 @@ mod tests {
             ],
             Some(Msf::from_sector(0)),
             None,
+            true,
         );
         let entries = parse(&sheet);
         // lead-in, pause, [isrc, isrc], track 1, track 2, lead-out
@@ -479,6 +519,7 @@ mod tests {
             &[CueTrack { sectors: 300, isrc: Some("GBAYE0000351".into()) }],
             Some(Msf::from_sector(0)),
             None,
+            true,
         );
         let start = sheet
             .as_chunks::<ENTRY_BYTES>()
@@ -499,6 +540,7 @@ mod tests {
                 &[CueTrack { sectors: 300, isrc: Some(bad.into()) }],
                 Some(Msf::from_sector(0)),
                 Some(bad),
+                true,
             );
             assert!(
                 !parse(&sheet).iter().any(|e| matches!(e.ctl_adr & 0x0F, ADR_ISRC | ADR_CATALOG)),
@@ -512,6 +554,144 @@ mod tests {
         // Drives report a maximum cue sheet length; 99 tracks must fit the
         // smallest figure seen in the wild with room to spare.
         let tracks: Vec<CueTrack> = (0..99).map(|_| CueTrack::new(300)).collect();
-        assert!(build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None).len() < 1024);
+        assert!(build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None, true).len() < 1024);
+    }
+
+    // ── Gapped discs ────────────────────────────────────────────────────
+
+    /// Three tracks with distinct lengths, so a misplaced address cannot pass
+    /// for a correct one.
+    fn three_tracks() -> Vec<CueTrack> {
+        vec![CueTrack::new(300), CueTrack::new(450), CueTrack::new(600)]
+    }
+
+    #[test]
+    fn a_gapped_disc_pauses_before_every_track_but_the_first() {
+        let entries = parse(&build_cue_sheet(&three_tracks(), None, None, false));
+        // lead-in, track 1's pregap and audio, then a pause and audio for each
+        // of tracks 2 and 3, then the lead-out.
+        assert_eq!(entries.len(), 8);
+
+        let shape: Vec<(u8, u8, u32)> = entries[1..entries.len() - 1]
+            .iter()
+            .map(|e| (e.track, e.index, e.address.to_sector()))
+            .collect();
+        assert_eq!(
+            shape,
+            vec![
+                (1, 0x00, 0),
+                (1, 0x01, 150),
+                (2, 0x00, 150 + 300),
+                (2, 0x01, 150 + 300 + 150),
+                (3, 0x00, 150 + 300 + 150 + 450),
+                (3, 0x01, 150 + 300 + 150 + 450 + 150),
+            ],
+        );
+    }
+
+    #[test]
+    fn a_gapless_disc_is_the_sheet_that_burns_today() {
+        // The shape hardware has already been burned against, byte for byte:
+        // no index 0 but track 1's, and tracks end to end from 00:02:00.
+        let entries = parse(&build_cue_sheet(&three_tracks(), None, None, true));
+        assert_eq!(entries.len(), 6);
+        assert!(entries[2..5].iter().all(|e| e.index == 0x01));
+        assert_eq!(entries[2].address.to_sector(), 150);
+        assert_eq!(entries[3].address.to_sector(), 150 + 300);
+        assert_eq!(entries[4].address.to_sector(), 150 + 300 + 450);
+        assert_eq!(entries[5].address.to_sector(), 150 + 300 + 450 + 600);
+    }
+
+    #[test]
+    fn track_one_keeps_its_mandatory_pregap_either_way() {
+        // Gapless removes the gaps *between* tracks and nothing else: the
+        // two-second pause before track 1 is required by Red Book.
+        for gapless in [true, false] {
+            let entries = parse(&build_cue_sheet(&three_tracks(), None, None, gapless));
+            assert_eq!((entries[1].track, entries[1].index), (1, 0x00));
+            assert_eq!(entries[1].address.to_sector(), 0);
+            assert_eq!(entries[1].data_form, DATA_FORM_GENERATED);
+            assert_eq!((entries[2].track, entries[2].index), (1, 0x01));
+            assert_eq!(entries[2].address.to_sector(), 150);
+        }
+    }
+
+    #[test]
+    fn a_pause_is_generated_by_the_drive_so_no_audio_is_transferred_for_it() {
+        // DATA FORM `00h` is the only form the host sends bytes for, so the
+        // number of those entries is the length of the WRITE(10) stream in
+        // tracks. Gapping a disc must not add one.
+        for gapless in [true, false] {
+            let entries = parse(&build_cue_sheet(&three_tracks(), None, None, gapless));
+            let from_host = entries.iter().filter(|e| e.data_form == DATA_FORM_AUDIO).count();
+            assert_eq!(from_host, 3, "one host-supplied region per track");
+            assert!(
+                entries.iter().all(|e| e.index != 0x00 || e.data_form == DATA_FORM_GENERATED),
+                "every pause is the drive's to write"
+            );
+        }
+    }
+
+    #[test]
+    fn the_lead_out_moves_by_one_pause_per_gap() {
+        // The audio is the same either way; the disc is 150 sectors longer for
+        // every gap, and the lead-out is where that shows up.
+        for count in [1_u32, 2, 12, 99] {
+            let tracks: Vec<CueTrack> = (0..count).map(|_| CueTrack::new(300)).collect();
+            let audio = PREGAP_SECTORS + count * 300;
+            let gapless = parse(&build_cue_sheet(&tracks, None, None, true));
+            let gapped = parse(&build_cue_sheet(&tracks, None, None, false));
+            assert_eq!(gapless.last().expect("lead-out").address.to_sector(), audio);
+            assert_eq!(
+                gapped.last().expect("lead-out").address.to_sector(),
+                audio + PREGAP_SECTORS * (count - 1),
+            );
+        }
+    }
+
+    #[test]
+    fn a_single_track_disc_is_the_same_sheet_either_way() {
+        // With nothing to sit between, there is no gap to add.
+        let one = [CueTrack::new(300)];
+        assert_eq!(
+            build_cue_sheet(&one, Some(Msf::from_sector(0)), None, true),
+            build_cue_sheet(&one, Some(Msf::from_sector(0)), None, false),
+        );
+    }
+
+    #[test]
+    fn a_gap_costs_exactly_one_entry() {
+        for count in [1, 2, 12, 99] {
+            let tracks: Vec<CueTrack> = (0..count).map(|_| CueTrack::new(300)).collect();
+            let sheet = build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None, false);
+            assert_eq!(sheet.len() % ENTRY_BYTES, 0);
+            // lead-in + pause + tracks + lead-out, plus a pause per gap.
+            assert_eq!(sheet.len() / ENTRY_BYTES, count + 3 + (count - 1));
+        }
+    }
+
+    #[test]
+    fn an_isrc_still_sits_directly_before_its_tracks_audio_when_gapped() {
+        let sheet = build_cue_sheet(
+            &[
+                CueTrack::new(300),
+                CueTrack { sectors: 300, isrc: Some("GBAYE0000351".into()) },
+            ],
+            Some(Msf::from_sector(0)),
+            None,
+            false,
+        );
+        let entries = parse(&sheet);
+        let isrc = entries
+            .iter()
+            .position(|e| e.ctl_adr & 0x0F == ADR_ISRC)
+            .expect("isrc");
+        let audio = entries
+            .iter()
+            .position(|e| e.index == 0x01 && e.track == 2)
+            .expect("track 2");
+        assert_eq!(isrc + 2, audio, "the pair sits between the pause and the audio");
+        assert_eq!(entries[isrc - 1].index, 0x00, "track 2's pause comes first");
+        assert_eq!(entries[isrc - 1].track, 2);
     }
 }

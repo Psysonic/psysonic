@@ -52,8 +52,6 @@ export interface DiscArc extends BurnQueueTrack {
   startSector: number;
   sectors: number;
   /** Degrees clockwise from 12 o'clock. */
-  startAngle: number;
-  endAngle: number;
 }
 
 export interface DiscLayout {
@@ -62,9 +60,11 @@ export interface DiscLayout {
   capacitySectors: number;
   remainingSectors: number;
   fits: boolean;
+  /**
+   * Past the 74 minutes Red Book specifies. Advisory only — 80-minute discs
+   * are overburns of a 74-minute standard, and some older players baulk.
+   */
   pastRedBook74: boolean;
-  /** Degrees at which the 74:00 mark sits on this disc. */
-  redBook74Angle: number;
 }
 
 export function secondsToSectors(seconds: number): number {
@@ -94,18 +94,34 @@ export function formatDuration(seconds: number): string {
 /**
  * Lay the running order out on a disc.
  *
- * The full circle is the disc's capacity, so the arcs and the 74:00 mark share
- * one scale and the ring reads as a real capacity gauge.
+ * Sector positions here are disc-absolute: the walk starts at the 150-sector
+ * pregap, because that is where track one physically lands. The ring works in
+ * the drive's space instead — program-area sectors counted from zero, which is
+ * what every backend reports — so `discGeometry` does its own walk rather than
+ * reading these positions. The two spaces are one pregap apart and must never
+ * be compared without saying which is which.
+ *
+ * `gapless` has to be here because it costs disc. A gapped disc pauses two
+ * seconds before every track after the first, and those 150-sector pauses take
+ * as much room as audio would. This is the mirror of `plan_disc` in the Rust
+ * crate and has to agree with it: if this arithmetic left the pauses out, the
+ * ring would promise a fit that the drive then refused at SEND CUE SHEET —
+ * after every track had already been fetched and rendered.
  */
 export function layoutDisc(
   tracks: BurnQueueTrack[],
   capacitySectors: number = DEFAULT_80_MIN_SECTORS,
+  gapless: boolean = true,
 ): DiscLayout {
   const capacity = capacitySectors > 0 ? capacitySectors : DEFAULT_80_MIN_SECTORS;
   const arcs: DiscArc[] = [];
   let cursor = PREGAP_SECTORS;
 
   tracks.forEach((track, index) => {
+    // Track 1 is skipped: the cursor already starts after its mandatory
+    // pregap, which gapless never removes either.
+    if (index > 0 && !gapless) cursor += PREGAP_SECTORS;
+
     const sectors = Math.max(MIN_TRACK_SECTORS, secondsToSectors(track.durationSec));
     const startSector = cursor;
     cursor += sectors;
@@ -114,8 +130,6 @@ export function layoutDisc(
       number: index + 1,
       startSector,
       sectors,
-      startAngle: (startSector / capacity) * 360,
-      endAngle: (Math.min(cursor, capacity) / capacity) * 360,
     });
   });
 
@@ -127,7 +141,6 @@ export function layoutDisc(
     remainingSectors: Math.max(0, capacity - totalSectors),
     fits: totalSectors <= capacity && tracks.length > 0 && tracks.length <= MAX_TRACKS,
     pastRedBook74: totalSectors > RED_BOOK_74_MIN_SECTORS,
-    redBook74Angle: (RED_BOOK_74_MIN_SECTORS / capacity) * 360,
   };
 }
 

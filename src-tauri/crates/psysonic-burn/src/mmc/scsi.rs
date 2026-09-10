@@ -164,9 +164,10 @@ pub fn msf_to_capacity_sectors(minute: u8, second: u8, frame: u8) -> Option<u32>
 /// The last possible lead-out start, from an ATIP response.
 ///
 /// A blank CD-R has no table of contents, so its capacity can only come from
-/// ATIP — bytes 12..15 of the descriptor. This is the number a burn is planned
-/// against, so getting it from the first thing that parsed is not good enough:
-/// bytes 9..12 are the *lead-in* start and look equally plausible.
+/// ATIP — bytes 12..15 of the response, header included. This is the number a
+/// burn is planned against, so getting it from the first thing that parsed is
+/// not good enough: bytes 8..11 are the *lead-in* start and look equally
+/// plausible.
 pub fn parse_atip_capacity(data: &[u8]) -> Option<u32> {
     if data.len() < 15 {
         return None;
@@ -481,12 +482,12 @@ mod tests {
 
     #[test]
     fn atip_capacity_is_not_the_lead_in_address() {
-        // Bytes 9..12 are the lead-in start and parse just as happily; reading
+        // Bytes 8..11 are the lead-in start and parse just as happily; reading
         // those instead yields a disc that looks 97 minutes long.
         let mut atip = vec![0_u8; 16];
-        atip[9] = 97;
-        atip[10] = 27;
-        atip[11] = 0;
+        atip[8] = 97;
+        atip[9] = 27;
+        atip[10] = 0;
         atip[12] = 79;
         atip[13] = 59;
         atip[14] = 74;

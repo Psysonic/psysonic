@@ -31,6 +31,10 @@ fn probing_a_drive_that_is_not_there_fails_with_a_readable_message() {
 fn verifying_cd_text_without_a_drive_says_so_rather_than_claiming_an_empty_disc() {
     // The distinction the Windows path got wrong once: "could not check" must
     // never be reported as "the drive wrote nothing".
+    // Reached through `platform` because `mod macos` is private and this is an
+    // integration test. That dispatcher is macOS-only now: the button that used
+    // to need all three backends is gone, and only this implementation is still
+    // live, because the burn reads its own CD-TEXT back through it.
     match platform::verify_cd_text("IOService:/nope") {
         Ok(result) => assert!(!result.checked, "must not claim a completed check"),
         Err(error) => assert!(!error.is_empty()),

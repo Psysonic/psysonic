@@ -39,11 +39,11 @@ use windows_core::Interface;
 
 use crate::cdtext::{CdTextBlock, SUBCHANNEL_BYTES_PER_SECTOR};
 use crate::job::{emit_progress, PROGRESS_THROTTLE_MS};
-use crate::mmc::cue::{build_cue_sheet, CueTrack, Msf};
+use crate::mmc::cue::{build_cue_sheet, CueTrack, Msf, PREGAP_SECTORS};
 use crate::mmc::mode::{self, WriteParameters};
 use crate::mmc::{
-    lead_in_sectors, lead_in_start_lba, read_disc_information_cdb, send_cue_sheet_cdb,
-    write_10_cdb,
+    lead_in_sectors, lead_in_start_lba, read_disc_information_cdb, sectors_per_second_to_kbps,
+    send_cue_sheet_cdb, set_cd_speed_cdb, write_10_cdb,
 };
 use crate::model::{BurnPhase, CdTextVerification, BYTES_PER_AUDIO_SECTOR};
 use crate::render::RenderedTrack;
@@ -96,14 +96,31 @@ fn sense_text(sense: &[u8; 18]) -> String {
     format!("{meaning} (sense {key:X}/{asc:02X}/{ascq:02X})")
 }
 
+/// One `WRITE(10)`'s worth of the program area.
+struct Chunk {
+    /// Sectors to step the write address over before this chunk: the pause the
+    /// drive generates between two tracks. Nothing is transferred for it, but
+    /// it takes up the addresses in between.
+    skip: u32,
+    /// Audio bytes waiting in the buffer. Whole sectors, unless a rendered
+    /// file was truncated — which `write_program_area` tests for before it
+    /// writes.
+    bytes: usize,
+}
+
 /// Feeds the program area 2352-byte sectors, track after track.
 struct SectorSource {
     files: Vec<File>,
     current: usize,
+    /// The pause before each track after the first — zero when the user asked
+    /// for a gapless disc, which is what makes the tracks run together.
+    gap_sectors: u32,
+    /// A pause the next chunk must start after.
+    pending_gap: u32,
 }
 
 impl SectorSource {
-    fn open(tracks: &[RenderedTrack]) -> Result<Self, String> {
+    fn open(tracks: &[RenderedTrack], gap_sectors: u32) -> Result<Self, String> {
         let files = tracks
             .iter()
             .map(|track| {
@@ -111,26 +128,51 @@ impl SectorSource {
                     .map_err(|e| format!("cannot read {}: {e}", track.path.display()))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self { files, current: 0 })
+        Ok(Self { files, current: 0, gap_sectors, pending_gap: 0 })
     }
 
-    /// Fill `buffer` with whole sectors, returning how many bytes were read.
+    /// Fill `buffer` with whole sectors and say where they belong.
     ///
-    /// Rendering already padded every track to a sector boundary, so a short
-    /// read means one file ended and the next track continues the disc.
-    fn read(&mut self, buffer: &mut [u8]) -> Result<usize, String> {
+    /// A file that reads back nothing is the end of that track, not of the
+    /// chunk: the next track carries straight on filling the same buffer, and
+    /// it still lands on a sector boundary because rendering padded every
+    /// track out to a whole one.
+    ///
+    /// A chunk never straddles a gap. A pause leaves 150 sectors between the
+    /// tail of one track and the head of the next, and a `WRITE(10)` addresses
+    /// one unbroken run, so the tail is written on its own and the pause is
+    /// handed to the caller as `skip`. With no gap the tracks are contiguous
+    /// and a chunk is filled from as many files as it takes, which is what
+    /// keeps the drive fed.
+    fn read(&mut self, buffer: &mut [u8]) -> Result<Chunk, String> {
+        let mut skip = std::mem::take(&mut self.pending_gap);
         let mut filled = 0;
         while filled < buffer.len() && self.current < self.files.len() {
             let read = self.files[self.current]
                 .read(&mut buffer[filled..])
                 .map_err(|e| format!("reading rendered audio failed: {e}"))?;
-            if read == 0 {
-                self.current += 1;
-            } else {
+            if read > 0 {
                 filled += read;
+                continue;
             }
+            // This track's file is spent; the next one continues the disc.
+            self.current += 1;
+            if self.current < self.files.len() {
+                self.pending_gap += self.gap_sectors;
+            }
+            if self.pending_gap == 0 {
+                continue;
+            }
+            if filled == 0 {
+                // Nothing is buffered yet, so this chunk can start after the
+                // pause instead of leaving an empty one behind — a chunk of no
+                // bytes is how the caller knows the disc is finished.
+                skip += std::mem::take(&mut self.pending_gap);
+                continue;
+            }
+            break;
         }
-        Ok(filled)
+        Ok(Chunk { skip, bytes: filled })
     }
 }
 
@@ -145,8 +187,11 @@ pub fn write_session(
     tracks: &[RenderedTrack],
     cd_text: Option<&CdTextBlock>,
     catalog: Option<&str>,
+    gapless: bool,
     test_write: bool,
     buffer_underrun_free: bool,
+    // Sectors per second, or `None` to leave the choice to the drive.
+    write_speed: Option<u32>,
     cancel: &Arc<AtomicBool>,
 ) -> Result<u32, SaoError> {
     let ex = recorder
@@ -155,6 +200,7 @@ pub fn write_session(
 
     // ── Negotiation. Nothing below writes to the disc. ───────────────────
     configure_write_parameters(&ex, cd_text.is_some(), test_write, buffer_underrun_free)?;
+    set_write_speed(&ex, write_speed);
 
     // ISRC rides in the cue sheet on this path — the IMAPI2 path sets it via
     // IRawCDImageTrackInfo, and for a while this one silently dropped it.
@@ -168,7 +214,16 @@ pub fn write_session(
         Some(_) => Some(read_lead_in(&ex)?),
         None => None,
     };
-    let sheet = build_cue_sheet(&cue_tracks, lead_in.as_ref().map(|l| l.start), catalog);
+    // Gapless rides in the cue sheet too. IMAPI2 has its own switch for it, so
+    // until this argument existed, turning CD-TEXT on moved the burn to this
+    // path and quietly dropped the two-second pause before every track after
+    // the first — the same queue, the same settings, a different disc.
+    let sheet = build_cue_sheet(
+        &cue_tracks,
+        lead_in.as_ref().map(|l| l.start),
+        catalog,
+        gapless,
+    );
     send_cue_sheet(&ex, &sheet)?;
 
     if cancel.load(Ordering::Relaxed) {
@@ -176,6 +231,11 @@ pub fn write_session(
     }
 
     // ── Past this line the laser is on. ──────────────────────────────────
+    //
+    // The audio, and only the audio: the drive generates the pauses, so this
+    // is the length of the WRITE(10) stream whether or not the disc is gapped.
+    // The disc itself is longer than this by 150 sectors per gap, which is the
+    // cue sheet's business and not the transfer's.
     let sectors_total: u32 = tracks.iter().map(|track| track.sectors).sum();
     let chunk_sectors = max_chunk_sectors(&ex);
 
@@ -190,6 +250,7 @@ pub fn write_session(
         tracks,
         sectors_total,
         chunk_sectors,
+        gapless,
         cancel,
     )?;
 
@@ -248,6 +309,43 @@ fn configure_write_parameters(
             ))
         },
     )
+}
+
+/// Ask the drive to burn at the speed the user picked.
+///
+/// Best-effort, and deliberately so — the same bargain the IMAPI2 path makes
+/// with `let _ = format.SetWriteSpeed(..)`. A drive that will not take the
+/// command still burns the disc, at whatever speed it likes; refusing to burn
+/// over it would be a worse answer than a fast disc.
+///
+/// `None` is the default, and it must stay silent: a user who has not chosen a
+/// speed gets the command stream this path has always sent, byte for byte.
+/// That is also why this sits up here in the negotiation, before `SEND CUE
+/// SHEET` — a rejection here cannot cost a disc, and MMC-3 6.35 applies the
+/// speed to the write that follows.
+fn set_write_speed(ex: &IDiscRecorder2Ex, write_speed: Option<u32>) {
+    let Some(sectors) = write_speed.filter(|sectors| *sectors > 0) else {
+        return;
+    };
+    let Some(kbps) = sectors_per_second_to_kbps(sectors) else {
+        crate::app_eprintln!(
+            "[burn] {sectors} sectors/s is not a write speed a drive could take; letting it choose"
+        );
+        return;
+    };
+
+    let cdb = set_cd_speed_cdb(kbps);
+    let mut sense = [0_u8; 18];
+    // SAFETY: a no-data command; the drive writes only into `sense`.
+    match unsafe { ex.SendCommandNoData(&cdb, &mut sense, TIMEOUT_SETUP) } {
+        Ok(()) => crate::app_deprintln!(
+            "[burn] write speed set to {kbps} kB/s ({sectors} sectors/s)"
+        ),
+        Err(error) => crate::app_eprintln!(
+            "[burn] the drive would not take a write speed of {kbps} kB/s, letting it choose: {} ({error})",
+            sense_text(&sense)
+        ),
+    }
 }
 
 fn send_cue_sheet(ex: &IDiscRecorder2Ex, sheet: &[u8]) -> Result<(), SaoError> {
@@ -336,9 +434,8 @@ fn read_lead_in(ex: &IDiscRecorder2Ex) -> Result<LeadIn, SaoError> {
 /// to fill the whole of it. That repetition is the point: a player picks the
 /// text up wherever in the lead-in it happens to start reading.
 ///
-/// Writing only enough sectors for one pass — which the first two attempts at
-/// this did — leaves a lead-in the drive has to make up the rest of, and the
-/// text is not there to be read back.
+/// Writing only enough sectors for one pass leaves a lead-in the drive has to
+/// make up the rest of, and the text is not there to be read back.
 fn write_cd_text_lead_in(
     ex: &IDiscRecorder2Ex,
     block: &CdTextBlock,
@@ -400,7 +497,8 @@ fn write_with_backoff(
 ) -> Result<(), String> {
     /// Long enough to matter, short enough not to starve the drive.
     const BACKOFF: Duration = Duration::from_millis(40);
-    /// ~40 seconds of continuous back-pressure before giving up.
+    /// 1000 attempts, sleeping `BACKOFF` after each refusal: 40 seconds of
+    /// waiting out a full buffer before the burn is given up on.
     const MAX_RETRIES: u32 = 1000;
 
     for _ in 0..MAX_RETRIES {
@@ -422,6 +520,7 @@ fn write_with_backoff(
     Err("the drive stayed busy for too long".to_string())
 }
 
+#[allow(clippy::too_many_arguments)] // One write; bundling would only move the arity.
 fn write_program_area(
     app: &AppHandle,
     job_id: &str,
@@ -429,9 +528,13 @@ fn write_program_area(
     tracks: &[RenderedTrack],
     sectors_total: u32,
     chunk_sectors: usize,
+    gapless: bool,
     cancel: &Arc<AtomicBool>,
 ) -> Result<u32, SaoError> {
-    let mut source = SectorSource::open(tracks).map_err(SaoError::Write)?;
+    // The pause between two tracks is the drive's to write, exactly like the
+    // pregap before track 1: it never reaches this buffer, only the address.
+    let gap_sectors = if gapless { 0 } else { PREGAP_SECTORS };
+    let mut source = SectorSource::open(tracks, gap_sectors).map_err(SaoError::Write)?;
     let mut buffer = vec![0_u8; chunk_sectors * MAIN_BYTES];
     let mut lba: i32 = 0;
     let mut written: u32 = 0;
@@ -444,21 +547,33 @@ fn write_program_area(
             return Err(SaoError::Write("cancelled".to_string()));
         }
 
-        let filled = source.read(&mut buffer).map_err(SaoError::Write)?;
-        if filled == 0 {
+        let chunk = source.read(&mut buffer).map_err(SaoError::Write)?;
+        if chunk.bytes == 0 {
             break;
         }
-        // Rendering guarantees sector alignment, so a partial sector here
-        // means a truncated file rather than a normal end.
-        if !filled.is_multiple_of(MAIN_BYTES) {
+        // Rendering pads every track to a sector boundary, so a partial
+        // sector here means a truncated file. On a gapped disc it can arrive
+        // in the middle of the queue as well as at the end, because a chunk
+        // stops at a pause instead of running on into the next file. Writing
+        // the whole sectors and dropping the tail would start every later
+        // track a sector early and finish the session short of the lead-out
+        // the cue sheet has already announced, with the drive still waiting
+        // for audio, so stop instead.
+        if !chunk.bytes.is_multiple_of(MAIN_BYTES) {
             return Err(SaoError::Write(
                 "the rendered audio ended mid-sector; the burn cannot continue".to_string(),
             ));
         }
 
-        let sectors = (filled / MAIN_BYTES) as u16;
+        // Step over the pause before this track. The drive writes those
+        // sectors from its own silence, so they are addresses to us and
+        // nothing else — the same jump the lead-in write makes when it stops
+        // at −151 and leaves the pregap to the drive.
+        lba += chunk.skip as i32;
+
+        let sectors = (chunk.bytes / MAIN_BYTES) as u16;
         let cdb = write_10_cdb(lba, sectors);
-        write_with_backoff(ex, &cdb, &buffer[..filled])
+        write_with_backoff(ex, &cdb, &buffer[..chunk.bytes])
             .map_err(|reason| SaoError::Write(format!("writing audio failed: {reason}")))?;
 
         lba += i32::from(sectors);
@@ -577,5 +692,171 @@ pub fn verify_cd_text(recorder: &IDiscRecorder2) -> CdTextVerification {
     let packs = crate::cdtext::count_valid_packs(&buffer[4..fetched]) as u32;
     crate::app_deprintln!("[burn] CD-TEXT read-back: {fetched} bytes, {packs} valid packs");
     CdTextVerification::found(packs)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::SECTORS_PER_SECOND;
+    use std::io::Write;
+    use std::path::Path;
+
+    /// A rendered track whose every sector holds the same byte, so the audio
+    /// can be told apart track by track once it has been chunked.
+    fn rendered(dir: &Path, index: usize, sectors: u32) -> RenderedTrack {
+        let path = dir.join(format!("track{index}.pcm"));
+        File::create(&path)
+            .and_then(|mut file| file.write_all(&vec![index as u8 + 1; sectors as usize * MAIN_BYTES]))
+            .expect("write a rendered track");
+        RenderedTrack {
+            path,
+            sectors,
+            isrc: None,
+            title: String::new(),
+            artist: String::new(),
+        }
+    }
+
+    /// Every `WRITE(10)` the program area would issue, as (LBA, sectors), plus
+    /// the track byte of each sector in the order it was handed over.
+    ///
+    /// This is `write_program_area`'s loop with the drive taken out of it.
+    fn writes(lengths: &[u32], gapless: bool) -> (Vec<(i32, u32)>, Vec<u8>) {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let tracks: Vec<RenderedTrack> = lengths
+            .iter()
+            .enumerate()
+            .map(|(index, sectors)| rendered(dir.path(), index, *sectors))
+            .collect();
+
+        let gap_sectors = if gapless { 0 } else { PREGAP_SECTORS };
+        let mut source = SectorSource::open(&tracks, gap_sectors).expect("open the tracks");
+        let mut buffer = vec![0_u8; DEFAULT_CHUNK_SECTORS * MAIN_BYTES];
+        let mut lba = 0_i32;
+        let mut issued = Vec::new();
+        let mut audio = Vec::new();
+
+        loop {
+            let chunk = source.read(&mut buffer).expect("read");
+            if chunk.bytes == 0 {
+                break;
+            }
+            assert!(chunk.bytes.is_multiple_of(MAIN_BYTES), "whole sectors only");
+            lba += chunk.skip as i32;
+            let sectors = (chunk.bytes / MAIN_BYTES) as u32;
+            issued.push((lba, sectors));
+            audio.extend(buffer[..chunk.bytes].iter().step_by(MAIN_BYTES));
+            lba += sectors as i32;
+        }
+        (issued, audio)
+    }
+
+    /// The LBA each track's first sector landed on.
+    fn track_starts(issued: &[(i32, u32)], lengths: &[u32]) -> Vec<i32> {
+        let mut sectors: Vec<i32> = Vec::new();
+        for (lba, count) in issued {
+            sectors.extend((0..*count).map(|i| lba + i as i32));
+        }
+        let mut at = 0_usize;
+        lengths
+            .iter()
+            .map(|length| {
+                let start = sectors[at];
+                at += *length as usize;
+                start
+            })
+            .collect()
+    }
+
+    #[test]
+    fn gapless_writes_full_chunks_straight_through() {
+        // The stream that has already been burned against hardware: 27 sectors
+        // at a time from LBA 0, filled across track boundaries, nothing
+        // skipped. 1350 sectors is exactly fifty of them.
+        let (issued, audio) = writes(&[300, 450, 600], true);
+        let expected: Vec<(i32, u32)> = (0..50).map(|i| (i * 27, 27)).collect();
+        assert_eq!(issued, expected);
+        assert_eq!(audio.len(), 1350);
+        assert_eq!(audio.iter().filter(|b| **b == 1).count(), 300);
+        assert_eq!(&audio[..300], vec![1_u8; 300], "track 1 comes first, whole");
+        assert_eq!(&audio[300..750], vec![2_u8; 450]);
+        assert_eq!(&audio[750..], vec![3_u8; 600]);
+    }
+
+    #[test]
+    fn a_gap_costs_150_addresses_and_not_one_byte() {
+        let lengths = [300_u32, 450, 600];
+        let (gapless, gapless_audio) = writes(&lengths, true);
+        let (gapped, gapped_audio) = writes(&lengths, false);
+
+        let transferred = |issued: &[(i32, u32)]| issued.iter().map(|(_, s)| *s).sum::<u32>();
+        assert_eq!(transferred(&gapless), 1350);
+        assert_eq!(transferred(&gapped), 1350, "the drive writes the pauses");
+        assert_eq!(gapless_audio, gapped_audio, "the same audio, in the same order");
+
+        // Each pause pushes the tracks after it 150 sectors further out, which
+        // is where the cue sheet puts them: index 1 at 00:02:00 + 150 per gap.
+        assert_eq!(track_starts(&gapless, &lengths), vec![0, 300, 750]);
+        assert_eq!(track_starts(&gapped, &lengths), vec![0, 450, 1050]);
+    }
+
+    #[test]
+    fn a_chunk_ending_exactly_on_a_track_boundary_still_takes_its_pause() {
+        // 27 sectors fill the buffer at the very moment the file runs out, so
+        // the pause has to survive into the next chunk rather than be lost.
+        assert_eq!(writes(&[27, 27], false).0, vec![(0, 27), (177, 27)]);
+        assert_eq!(writes(&[27, 27], true).0, vec![(0, 27), (27, 27)]);
+    }
+
+    #[test]
+    fn a_single_track_is_written_the_same_way_either_way() {
+        // There is nothing to sit between, so there is no pause to step over.
+        assert_eq!(writes(&[300], false).0, writes(&[300], true).0);
+    }
+
+    // ── Write speed ──────────────────────────────────────────────────────
+
+    #[test]
+    fn one_times_speed_is_176_kilobytes_a_second() {
+        // 75 sectors of 2352 bytes a second is 176.4 kB/s, and the field is a
+        // whole number of them.
+        assert_eq!(sectors_per_second_to_kbps(SECTORS_PER_SECOND), Some(176));
+        // And it scales: 4x, 8x, 48x, the speeds a drive actually offers.
+        assert_eq!(sectors_per_second_to_kbps(4 * SECTORS_PER_SECOND), Some(706));
+        assert_eq!(sectors_per_second_to_kbps(8 * SECTORS_PER_SECOND), Some(1411));
+        assert_eq!(sectors_per_second_to_kbps(48 * SECTORS_PER_SECOND), Some(8467));
+    }
+
+    #[test]
+    fn a_speed_that_is_not_a_speed_is_refused_rather_than_wrapped() {
+        // Zero would ask the drive to stop, so it is not a speed to send.
+        assert_eq!(sectors_per_second_to_kbps(0), None);
+
+        // 27 940 sectors/s is around 372x — nonsense for a CD, and exactly the
+        // kind of nonsense that must not survive the 16-bit field: it comes to
+        // 65 715 kB/s, which truncated would read back as 179 kB/s and burn the
+        // disc at 1x. Refusing it leaves the drive to choose instead.
+        assert_eq!(sectors_per_second_to_kbps(27_940), None);
+        assert_eq!(sectors_per_second_to_kbps(u32::MAX), None);
+
+        // FFFFh is the spec's "your maximum", not a speed, so the conversion
+        // stops just short of it.
+        assert_eq!(sectors_per_second_to_kbps(27_863), Some(65_534));
+        assert_eq!(sectors_per_second_to_kbps(27_864), None);
+    }
+
+    #[test]
+    fn set_cd_speed_puts_the_write_speed_in_the_write_field() {
+        // 4x: 300 sectors/s, 706 kB/s, 02C2h.
+        let kbps = sectors_per_second_to_kbps(4 * SECTORS_PER_SECOND).expect("a real speed");
+        let cdb = set_cd_speed_cdb(kbps);
+
+        assert_eq!(cdb.len(), 12, "SET CD SPEED is a 12-byte command");
+        assert_eq!(cdb[0], 0xBB, "SET CD SPEED");
+        assert_eq!(cdb[1] & 0x03, 0x00, "CLV/zone-CAV, not pure CAV");
+        assert_eq!(&cdb[2..4], &[0xFF, 0xFF], "read speed: leave it at maximum");
+        assert_eq!(&cdb[4..6], &[0x02, 0xC2], "write speed, big-endian");
+        assert_eq!(&cdb[6..], &[0; 6], "the rest is reserved");
+    }
 }
 

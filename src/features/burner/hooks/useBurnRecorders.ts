@@ -12,6 +12,15 @@ export interface BurnRecordersState {
   selectedId: string;
   media: BurnMediaInfo | null;
   loading: boolean;
+  /**
+   * Why the drive list is empty, when it is empty because enumeration failed
+   * rather than because the machine has no burner.
+   *
+   * The page has to render this. An empty picker on its own reads as "there is
+   * no drive here", which is the wrong thing to tell someone whose drive was
+   * merely busy or whose backend errored — and it leaves them with nothing to
+   * act on but the refresh button they have no reason to press.
+   */
   error: string | null;
   select: (id: string) => void;
   refresh: () => void;
@@ -46,6 +55,10 @@ export function useBurnRecorders(paused = false): BurnRecordersState {
     // Still probing: showing "no drives" now would be a guess.
     if (support === 'unknown') return;
     if (support === 'no') {
+      // React Compiler set-state-in-effect rule: local state cleared to match
+      // an external fact (this build has no burn backend), not derived from
+      // props, so there is nothing to compute during render instead.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRecorders([]);
       setSelectedId('');
       return;

@@ -79,27 +79,55 @@ describe('layoutDisc', () => {
     expect(layout.totalSectors).toBe(PREGAP_SECTORS + 180 * 75);
   });
 
-  it('maps the whole disc onto 360 degrees', () => {
+  it('fills the disc exactly when the queue is exactly disc-sized', () => {
     const layout = layoutDisc([track('full', sectorsToSeconds(DEFAULT_80_MIN_SECTORS - PREGAP_SECTORS))]);
-    expect(layout.arcs[0].startAngle).toBeCloseTo((PREGAP_SECTORS / DEFAULT_80_MIN_SECTORS) * 360, 5);
-    expect(layout.arcs[0].endAngle).toBeCloseTo(360, 5);
+    expect(layout.totalSectors).toBe(DEFAULT_80_MIN_SECTORS);
+    expect(layout.remainingSectors).toBe(0);
+    expect(layout.fits).toBe(true);
   });
 
-  it('clamps an overflowing arc to the rim instead of winding past it', () => {
+  it('refuses a queue that runs past the rim rather than clamping it quietly', () => {
     const layout = layoutDisc([track('too-long', 6000)]);
-    expect(layout.arcs[0].endAngle).toBeLessThanOrEqual(360);
+    expect(layout.totalSectors).toBeGreaterThan(layout.capacitySectors);
     expect(layout.fits).toBe(false);
   });
 
-  it('puts the 74-minute mark where the disc capacity says it belongs', () => {
-    const layout = layoutDisc([track('a', 60)]);
-    expect(layout.redBook74Angle).toBeCloseTo((RED_BOOK_74_MIN_SECTORS / DEFAULT_80_MIN_SECTORS) * 360, 5);
+  it('leaves a queue inside 74 minutes unflagged', () => {
+    expect(layoutDisc([track('a', 60)]).pastRedBook74).toBe(false);
   });
 
   it('flags crossing 74 minutes while still fitting an 80-minute blank', () => {
     const layout = layoutDisc([track('long', 4500)]);
     expect(layout.fits).toBe(true);
     expect(layout.pastRedBook74).toBe(true);
+  });
+
+  it('charges a gapped disc two seconds before every track after the first', () => {
+    // The mirror of plan_disc in the Rust crate. If this arithmetic left the
+    // pauses out, the ring would promise a fit the drive refuses at SEND CUE
+    // SHEET — after every track had already been fetched and rendered.
+    const queue = [track('a', 60), track('b', 60), track('c', 60)];
+    const gapless = layoutDisc(queue, DEFAULT_80_MIN_SECTORS, true);
+    const gapped = layoutDisc(queue, DEFAULT_80_MIN_SECTORS, false);
+    expect(gapped.totalSectors - gapless.totalSectors).toBe(2 * PREGAP_SECTORS);
+    expect(gapped.arcs[0].startSector).toBe(gapless.arcs[0].startSector);
+    expect(gapped.arcs[1].startSector - gapless.arcs[1].startSector).toBe(PREGAP_SECTORS);
+    expect(gapped.arcs[2].startSector - gapless.arcs[2].startSector).toBe(2 * PREGAP_SECTORS);
+  });
+
+  it('lays one track out identically either way', () => {
+    const one = [track('only', 60)];
+    expect(layoutDisc(one, DEFAULT_80_MIN_SECTORS, false).totalSectors)
+      .toBe(layoutDisc(one, DEFAULT_80_MIN_SECTORS, true).totalSectors);
+  });
+
+  it('refuses a queue that only fits without the gaps', () => {
+    // 4795 seconds of audio is 359,625 sectors: inside an 80-minute blank's
+    // 359,699-sector program area, but not once the one pause between the two
+    // tracks takes another 150. This is the case the arithmetic exists for.
+    const queue = [track('a', 2397), track('b', 2398)];
+    expect(layoutDisc(queue, DEFAULT_80_MIN_SECTORS, true).fits).toBe(true);
+    expect(layoutDisc(queue, DEFAULT_80_MIN_SECTORS, false).fits).toBe(false);
   });
 
   it('pads a very short track to the four-second floor', () => {
@@ -118,7 +146,6 @@ describe('layoutDisc', () => {
   it('uses the probed capacity when the disc reports one', () => {
     const layout = layoutDisc([track('a', 60)], RED_BOOK_74_MIN_SECTORS);
     expect(layout.capacitySectors).toBe(RED_BOOK_74_MIN_SECTORS);
-    expect(layout.redBook74Angle).toBeCloseTo(360, 5);
   });
 
   it('falls back to an 80-minute blank when capacity is unknown', () => {
@@ -130,6 +157,20 @@ describe('layoutDisc', () => {
     expect(layout.fits).toBe(false);
     expect(layout.totalSectors).toBe(PREGAP_SECTORS);
   });
+
+  it('does not consider a hundred tracks burnable however short they are', () => {
+    // Red Book allows 99 per session. A hundred four-second tracks are seven
+    // minutes of an eighty-minute blank, so the sector arithmetic has nothing
+    // to object to — the ceiling is the only thing between this queue and a
+    // drive that refuses the cue sheet after every track has been rendered.
+    const queue = Array.from({ length: MAX_TRACKS + 1 }, (_, i) => track(`t${i}`, 4));
+    const layout = layoutDisc(queue);
+    expect(layout.totalSectors).toBeLessThan(layout.capacitySectors);
+    expect(layout.fits).toBe(false);
+    // Ninety-nine of the very same tracks do fit, so this is the Red Book
+    // ceiling rather than a refusal of long queues.
+    expect(layoutDisc(queue.slice(0, MAX_TRACKS)).fits).toBe(true);
+  });
 });
 
 describe('describeBlocker', () => {
@@ -138,10 +179,15 @@ describe('describeBlocker', () => {
   });
 
   it('reports going over capacity with the overage', () => {
+    // 6000 seconds is 450,000 sectors, and the pregap makes the queue 450,150
+    // against an 80-minute blank's 359,849 — 90,301 sectors, 20:04 of audio
+    // that has to go. Spelled out, because merely asking for a non-empty
+    // string is satisfied by '0:00' and by a negative overage alike, and both
+    // of those are the arithmetic having got the subtraction backwards.
     const tracks = [track('a', 6000)];
     const blocker = describeBlocker(layoutDisc(tracks), tracks.length);
     expect(blocker?.key).toBe('burner.blockerOverCapacity');
-    expect(blocker?.values?.over).toBeTruthy();
+    expect(blocker?.values?.over).toBe('20:04');
   });
 
   it('reports the 99-track ceiling', () => {

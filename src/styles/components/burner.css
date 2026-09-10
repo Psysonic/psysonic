@@ -1,51 +1,178 @@
 /* ─── CD Burner ───────────────────────────────────────────────────────────
    Built entirely from the shared tokens so every community theme restyles
-   the burner for free. The two --burner-* values below are the only new
-   ones: the disc body reads as a physical object, not a card.
+   the burner for free.
+
+   RULE, and it must stay in this comment: every TRANSITIONED value on this
+   page is a plain <number> or a plain px <length>. Never put clamp()/min()/
+   vh into a transitioned property — math-function interpolation is engine-
+   dependent and WebKitGTK is a Tauri target. Responsive sizing lives in
+   untransitioned properties (100cqmin) or in media-query overrides of the
+   endpoints.
    ───────────────────────────────────────────────────────────────────────── */
 
 /* The burner is a workbench, not a document: the frame is fixed to the
    viewport and only the running order scrolls, so the ring, the options and
    the readout stay where the eye left them. `/burn` is registered in
    MAIN_ROUTE_INPAGE_SCROLL_VIEWPORT_ID_BY_PATH, which stops the route
-   scroller so this height chain resolves. */
+   scroller so this height chain resolves.
+
+   There is a specificity fight over the right padding, and this rule loses it:
+   `.content-body.mainstage-inpage-split` sets `padding-right: 0` at (0,2,0) and
+   beats the padding shorthand below at (0,1,0). Left alone that gives the page
+   20px of air on the left and none on the right, and the readout and the
+   running order both end dead on the queue panel's border.
+
+   The rule after this block takes it back at (0,3,0) — no `!important`, and it
+   matches this page and nothing else. That is safe because the column regime is
+   not a media query: `colsFor`/`maxSideWidth` (`burnStage.ts:81-104`) are handed
+   the width a ResizeObserver reads off `.burner-split` (`useBurnerSplit.ts:88-113`),
+   so CSS and JS are reading the same measurement and cannot disagree about which
+   regime the page is in. The split does lose 20px, which moves the WINDOW width
+   at which each regime begins; it flips no regime at any size the visual check
+   renders. */
 .burner-page {
-  --burner-void: color-mix(in srgb, var(--bg-deep) 82%, var(--bg-app));
+  --burner-void: color-mix(in srgb, var(--bg-deep, var(--bg-player)) 82%, var(--bg-app));
   --burner-groove: color-mix(in srgb, var(--text-primary) 7%, transparent);
-  /* The temperature of the write head. A real burn runs white-hot into the
-     accent; a rehearsal runs cold, so the two are never mistaken. */
-  --burner-molten: color-mix(in srgb, #fff 88%, var(--accent));
-  --burner-molten-cool: color-mix(in srgb, #fff 62%, var(--info, #38bdf8));
+
+  /* Light and shade are physics, not pigment: a hue-tinted specular reads as
+     paint. Neutral, in functional rgb(), behind an overridable indirection so
+     any theme — community included — can substitute its own quality of light
+     with three declarations. */
+  /* Fallbacks are not decoration on this page. Five of the six shipped themes
+     define only a subset of the app's tokens, and a `var()` that resolves to
+     nothing is invalid at computed-value time — which discards the WHOLE
+     declaration, silently. `--bg-deep` alone took the disc's entire surface
+     gradient with it on every theme but Mocha, because `--burner-void` is
+     derived from it. Anything reached through `--bg-deep`, `--text-on-accent`
+     or `--bg-elevated` needs a fallback that every theme defines.
+
+     The same applies to `--danger`, `--positive` and `--warning`, which the
+     Stark HUD theme omits — without a fallback its abort button is an unfilled
+     ghost, which is the worst possible control to lose. Every theme ships the
+     full `--ctp-*` palette, so that is what they fall back to. */
+  --burner-hot: var(--theme-hot, rgb(255 255 255));
+  --burner-sheen: var(--theme-sheen, rgb(255 255 255));
+  --burner-shade: var(--theme-shade, rgb(0 0 0));
+
+  /* There is deliberately no `--burner-molten` here any more. It read
+     `color-mix(in srgb, var(--burner-hot) 88%, var(--accent))`, and
+     `--burner-hot` is white — so the write head's middle stroke was 88% white
+     and the laser rendered white on every track, with the only coloured layer
+     under it at 0.22 and invisible. The reference is unmistakably the active
+     track's colour.
+
+     The mix that replaces it CANNOT live here. A custom property's `var()`s
+     are substituted on the element the declaration applies to, which is this
+     one — and `--burn-lead` is set on `.burn-disc`, several levels down. A
+     token here naming it would silently freeze at the `--accent` fallback and
+     the head would be one colour for the whole burn. It is written on
+     `.burn-ring-head-glow` instead, where the line actually inherits it. */
+  --burner-overrun: color-mix(in srgb, var(--danger, var(--ctp-red)) 14%, transparent);
+
+  /* One easing for everything with mass. Six things easing identically read as
+     one machine; six things easing differently read as six animations. */
+  --burner-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --burner-ease-press: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* The single number that decides where the readout and the running order
+     end. Both are stretch-sized children of this padding box, so there is no
+     tuning one without the other — which is the whole point of naming it once
+     rather than writing 20px in two places that can drift apart.
+
+     The literal fallback is not belt-and-braces. An invalid `var()` is invalid
+     at computed-value time, and this one is inside the `padding` shorthand
+     below: a theme that failed to define `--space-5` would not lose the right
+     gutter, it would take the whole shorthand down and leave the page with no
+     gutter on EITHER side. */
+  --burner-gutter: var(--space-5, 20px);
+
+  --burner-rail-w: 216px;
+  --burner-seam-w: 14px;
+  --burner-side-w: 420px; /* overwritten inline from React, px only */
+  --burn-disc-max: 760px; /* static ceiling — never transitioned */
+  /* The one transitioned value on the page, and it must stay a plain number.
+     It was 0.62, which threw away 38% of an object already sized to fit the
+     space — and because it is a constant multiplier on a responsive size, the
+     bigger the window the more it discarded. The commit still reads as the
+     room opening: 0.85 to 1 is a visible +18% over MORPH_MS. */
+  --burn-disc-scale: 0.85;
+  --burn-row-h: 30px;
+
+  /* The pair that makes the page feel milled rather than drawn: a hairline of
+     light along every top edge, a hairline of shade along every bottom one. */
+  --burner-lit-edges:
+    inset 0 1px 0 color-mix(in srgb, var(--burner-sheen) 6%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--burner-shade) 22%, transparent);
 
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
   height: 100%;
   min-height: 0;
-  padding: var(--space-4) var(--space-5);
+  padding: var(--space-4) var(--burner-gutter);
   box-sizing: border-box;
   overflow: hidden;
 }
 
+/* (0,3,0), which beats the shell's `.content-body.mainstage-inpage-split
+   { padding-right: 0 }` at (0,2,0) without an `!important` and without
+   touching any other page that class serves. Same token as the shorthand
+   above, so the two gutters cannot drift. */
+.content-body.mainstage-inpage-split.burner-page {
+  padding-right: var(--burner-gutter);
+}
+
+/* The commitment is acknowledged by the room opening, once, while both
+   canvases are idle. */
+.burner-page[data-expanded="1"] {
+  --burn-disc-scale: 1;
+}
+
+/* Hidden only while a job holds the drive. Every control in that row is
+   already disabled then, so this removes a dead surface rather than a live
+   one, and `display: none` takes it out of the tab order and the accessibility
+   tree outright — no `inert` dependency, nothing to keep in sync.
+
+   Keyed on the stage rather than on `data-expanded`, which is also true at
+   `settled`. The disc stays open there, but the drive controls come back: the
+   job has stopped, they are enabled again, and hiding them left someone whose
+   burn had just FAILED with no route to Refresh, Erase or the reload-disc
+   escape hatch until they dismissed the outcome they were still reading. */
+.burner-page[data-stage="preparing"] .burner-chassis-drive,
+.burner-page[data-stage="committing"] .burner-chassis-drive {
+  display: none;
+}
+
 /* Everything except the split is fixed furniture. */
-.burner-page > .burner-header,
-.burner-page > .burner-drivebar,
-.burner-page > .burner-banner,
+.burner-page > .burner-chassis,
+.burner-page > .burner-alert,
 .burner-page > .burner-readout {
   flex: none;
 }
 
-/* ── Header ─────────────────────────────────────────────────────────────── */
+/* ── Chassis ────────────────────────────────────────────────────────────────
+   What you are making, and what you are making it on. They are the same thing,
+   and two bordered strips 12px apart was the stack-of-cards tell. */
 
-.burner-header {
+.burner-chassis {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--burner-lit-edges);
+}
+
+.burner-chassis-title {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
-.burner-header h1 {
+.burner-chassis-title h1 {
   margin: 0;
   font-family: var(--font-display);
   font-size: 20px;
@@ -69,47 +196,63 @@
   border-color: var(--accent);
 }
 
-/* ── Banners ────────────────────────────────────────────────────────────── */
-
-.burner-banner {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-  padding: 7px var(--space-3);
-  border-radius: var(--radius-sm);
-  font-size: 12.5px;
-  line-height: 1.4;
+/* Once the laser is committed the name is a fact about a disc being written,
+   not a field anybody can edit. */
+.burner-chassis-title-static {
+  min-width: 0;
+  font-size: 14px;
   color: var(--text-secondary);
-  border: 1px solid var(--border);
-  background: var(--bg-card);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.burner-banner svg { flex: none; margin-top: 1px; }
-
-.burner-banner.is-warn {
-  background: color-mix(in srgb, var(--warning) 12%, transparent);
-  border-color: color-mix(in srgb, var(--warning) 38%, transparent);
+.burner-mode-pill {
+  margin-left: auto;
+  flex: none;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  border: 1px solid var(--border-subtle);
 }
 
-.burner-banner.is-error {
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-  border-color: color-mix(in srgb, var(--danger) 38%, transparent);
+/* A rehearsal is a caution, not a fault — it is the safe one of the two. */
+.burner-mode-pill.is-rehearsal {
+  color: var(--warning, var(--ctp-yellow));
+  background: color-mix(in srgb, var(--warning, var(--ctp-yellow)) 14%, transparent);
+  border-color: color-mix(in srgb, var(--warning, var(--ctp-yellow)) 40%, transparent);
 }
 
-/* ── Drive bar ──────────────────────────────────────────────────────────── */
+/* A disc is being consumed. */
+.burner-mode-pill.is-writing {
+  color: var(--danger, var(--ctp-red));
+  background: color-mix(in srgb, var(--danger, var(--ctp-red)) 14%, transparent);
+  border-color: color-mix(in srgb, var(--danger, var(--ctp-red)) 40%, transparent);
+}
 
-.burner-drivebar {
+.burner-chassis-drive {
+  display: flex;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* The drive controls are a region of the chassis now, not a card sitting on
+   it, so they carry no surface of their own. */
+.burner-chassis-drive-inner {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-  padding: 7px var(--space-3);
-  background: var(--bg-sidebar);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
+  width: 100%;
+  min-width: 0;
 }
 
-.burner-drivebar > label {
+.burner-chassis-drive-inner > label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -117,7 +260,7 @@
   color: var(--text-muted);
 }
 
-.burner-drivebar select,
+.burner-chassis-drive-inner select,
 .burner-options select {
   font-family: var(--font-sans);
   font-size: 13px;
@@ -139,6 +282,20 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
+}
+
+/* The reload button grows a text label in exactly one case: a disc is present,
+   refused, and not erasable — the stranded CD-R this button exists for. The
+   base rule is a hard 30px square, and a flex item will not shrink below its
+   min-content, so without this the words overflowed the box and painted across
+   the media facts beside it. */
+.burner-icon-btn.is-labelled {
+  width: auto;
+  gap: 6px;
+  padding: 0 11px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .burner-icon-btn:hover:not(:disabled) { background: var(--bg-hover); }
@@ -174,208 +331,1004 @@
   color: var(--text-secondary);
 }
 
-/* ── Layout ─────────────────────────────────────────────────────────────── */
+/* ── Alert line ─────────────────────────────────────────────────────────────
+   One always-present row instead of a stack of conditional blocks. The stack
+   shortened the stage every time a message arrived, so inserting a disc — or
+   the drive re-probe that follows a finished burn — visibly shrank the
+   showpiece. Fixed height, severity-ranked, and the overflow lives in an
+   absolutely-positioned popover that costs no layout at all. */
+
+.burner-alert {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 28px;
+  padding: 3px var(--space-3);
+  font-size: 12.5px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--burner-lit-edges);
+}
+
+.burner-alert svg { flex: none; }
+
+/* One line, ellipsised, with the whole string in `title` — a message that
+   wrapped would move the disc, which is the thing this row exists to stop. */
+.burner-alert-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The resting line is furniture and reads as furniture. Only a real problem
+   takes colour, so colour still means something when it arrives. */
+.burner-alert.is-idle {
+  background: var(--bg-sidebar);
+  color: var(--text-muted);
+}
+
+.burner-alert.is-info { color: var(--text-secondary); }
+
+.burner-alert.is-warn {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--warning, var(--ctp-yellow)) 12%, transparent);
+  border-color: color-mix(in srgb, var(--warning, var(--ctp-yellow)) 38%, transparent);
+}
+
+.burner-alert.is-error {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--danger, var(--ctp-red)) 12%, transparent);
+  border-color: color-mix(in srgb, var(--danger, var(--ctp-red)) 38%, transparent);
+}
+
+.burner-alert-more {
+  /* Trails the text it annotates. Pinned right, it sat the width of the page
+     away from the sentence it belongs to and read as unrelated furniture. */
+  margin-right: auto;
+  flex: none;
+  padding: 1px 7px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+}
+
+.burner-alert-more:hover { background: var(--bg-hover); }
+.burner-alert-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Absolutely positioned, so the messages behind the chip cost the page no
+   height at all and the disc below cannot be moved by one arriving. */
+.burner-alert-popover {
+  position: absolute;
+  top: calc(100% + 5px);
+  right: 0;
+  z-index: 5;
+  max-width: min(420px, 100%);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--burner-shade) 38%, transparent);
+}
+
+.burner-alert-popover-item {
+  margin: 0;
+  padding: 3px 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+}
+
+.burner-alert-popover-item.is-warn { color: var(--warning, var(--ctp-yellow)); }
+.burner-alert-popover-item.is-error { color: var(--danger, var(--ctp-red)); }
+
+/* ── The split ──────────────────────────────────────────────────────────────
+   Four tracks, and the seam IS the stage-to-side gutter rather than a strip
+   laid over one. The side track is minmax(0, …) so it shrinks rather than
+   overflowing a page that is `overflow: hidden`. */
 
 .burner-split {
   display: grid;
-  grid-template-columns: 340px minmax(0, 1fr);
-  gap: var(--space-4);
+  grid-template-columns:
+    var(--burner-rail-w)
+    minmax(300px, 1fr)
+    var(--burner-seam-w)
+    minmax(0, var(--burner-side-w));
+  grid-template-rows: minmax(0, 1fr);
+  column-gap: 0;
   align-items: stretch;
   flex: 1;
   min-height: 0;
 }
 
-@media (max-width: 1100px) {
-  .burner-split {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
-}
-
-/* Narrow windows: stack, and let the page scroll again rather than crushing
-   the ring and the list into two unusable halves. */
-@media (max-width: 900px) {
-  .burner-page { overflow-y: auto; height: auto; }
-  .burner-split { grid-template-columns: 1fr; min-height: 0; }
-  .burner-page .burner-rows { max-height: 420px; }
-}
-
-.burner-stage {
+/* The only gap the seam does not make. */
+.burner-rail {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
+  margin-right: var(--space-4);
+  min-width: 0;
   min-height: 0;
+  overflow-y: auto;
 }
 
+/* The query container for the running order lives here rather than on the
+   panel itself, because an element is never its own query container: named
+   `@container` rules that target `.burner-panel--list` would silently never
+   match, and the row template would stay eight columns wide while the two
+   narrow rules hid the cells it was still reserving space for. The side column
+   and the panel are the same width, so the question asked is the same one. */
 .burner-side {
+  container: burnlist / inline-size;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
 }
 
-/* ── The disc ring ──────────────────────────────────────────────────────── */
-
-.burner-ring-wrap {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  flex: none;
+/* Two columns: the rail becomes a full-width instrument strip on row 2 by grid
+   placement alone. Nothing moves in the DOM, nothing remounts, and focus is
+   never dropped across the boundary. */
+.burner-page[data-cols="2"] .burner-split {
+  grid-template-columns: minmax(300px, 1fr) var(--burner-seam-w) minmax(0, var(--burner-side-w));
+  grid-template-rows: minmax(0, 1fr) auto;
+  row-gap: var(--space-3);
 }
 
-.burner-ring {
-  display: block;
-  width: 100%;
-  max-width: 300px;
-  height: auto;
+.burner-page[data-cols="2"] .burner-stage { grid-area: 1 / 1 / 2 / 2; }
+.burner-page[data-cols="2"] .burner-seam { grid-area: 1 / 2 / 2 / 3; }
+.burner-page[data-cols="2"] .burner-side { grid-area: 1 / 3 / 2 / 4; }
+
+.burner-page[data-cols="2"] .burner-rail {
+  grid-area: 2 / 1 / 3 / 4;
+  flex-direction: row;
+  gap: var(--space-3);
+  margin-right: 0;
   overflow: visible;
 }
 
-/* Caption under the disc. Reserved height for both lines so hovering an arc
-   never nudges the buttons below it. */
-.burner-ring-caption {
+/* One column: stack and scroll. The well loses its size container here, so the
+   disc has to fall back off cqmin or 100cqmin resolves against the viewport
+   and the disc comes out the wrong size. `--burn-well-h` is declared on the
+   well and inherited by the disc, so the two can never disagree about how tall
+   the space is. */
+.burner-page[data-cols="1"] {
+  overflow-y: auto;
+  height: auto;
+}
+
+.burner-page[data-cols="1"] .burner-split {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
-  min-height: 34px;
-  text-align: center;
+  gap: var(--space-3);
 }
 
-.burner-caption-note {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+/* A focusable control that does nothing is a defect, and there is nothing to
+   resize once the columns are stacked. */
+.burner-page[data-cols="1"] .burner-seam { display: none; }
+
+.burner-page[data-cols="1"] .burner-rail {
+  margin-right: 0;
+  flex-direction: row;
+  overflow: visible;
 }
 
-.burner-caption-mono {
-  font-family: var(--font-mono, monospace);
-  font-size: 11.5px;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.burner-page[data-cols="2"] .burner-rail > *,
+.burner-page[data-cols="1"] .burner-rail > * {
+  flex: 1 1 0;
+  min-width: 0;
 }
+/* The rail is a horizontal strip at two columns and a stacked block at one, so
+   the metrics box has to stop being a tall column there.
 
-.burner-arc {
-  cursor: grab;
-  transform-origin: 220px 220px;
-  transition: opacity 140ms ease, transform 140ms ease;
-}
-
-.burner-ring.has-hover .burner-arc { opacity: 0.34; }
-.burner-ring.has-hover .burner-arc.is-hot { opacity: 1; transform: scale(1.018); }
-.burner-ring.is-busy .burner-arc { cursor: default; }
-.burner-arc:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-
-.burner-leadin { transition: opacity 200ms ease; }
-.burner-leadin.is-active { animation: burnerLeadinPulse 1.1s ease-in-out infinite; }
-
-@keyframes burnerLeadinPulse {
-  0%, 100% { opacity: 0.35; }
-  50%      { opacity: 1; }
-}
-
-/* ── The laser ──────────────────────────────────────────────────────────────
-   Built at twelve o'clock and rotated into place, so a progress tick changes
-   one custom property rather than a dozen path descriptions. Progress arrives
-   every 250ms (PROGRESS_THROTTLE_MS); the transition is matched to it so the
-   head glides between ticks instead of stepping. */
-.burner-laser {
-  transform: rotate(var(--burn-angle, 0deg));
-  transform-origin: 220px 220px;
-  transition: transform 250ms linear;
-  pointer-events: none;
-}
-
-.burner-laser-line {
-  stroke: var(--burner-molten);
-  stroke-width: 2;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 6px var(--accent));
-}
-
-.burner-laser-point {
-  fill: var(--burner-molten);
-  filter: drop-shadow(0 0 10px var(--accent));
-  animation: burnerLaserBreathe 1.4s ease-in-out infinite;
-}
-
-/* A rehearsal writes nothing, so it should not look like fire. */
-.burner-laser.is-simulated .burner-laser-line,
-.burner-laser.is-simulated .burner-laser-point {
-  stroke: var(--burner-molten-cool);
-  fill: var(--burner-molten-cool);
-  filter: drop-shadow(0 0 7px var(--info, #38bdf8));
-}
-
-@keyframes burnerLaserBreathe {
-  0%, 100% { opacity: 0.75; r: 4; }
-  50%      { opacity: 1;    r: 6; }
-}
-
-/* ── The landing ────────────────────────────────────────────────────────────
-   One ring out from the hub past the disc edge when the burn completes. Runs
-   once: the element only mounts on a finished job. */
-.burner-complete-pulse {
-  transform-origin: 220px 220px;
-  animation: burnerCompletePulse 900ms cubic-bezier(0.16, 1, 0.3, 1) 1 both;
-  pointer-events: none;
-}
-
-@keyframes burnerCompletePulse {
-  from { transform: scale(1);    opacity: 0.9; }
-  to   { transform: scale(2.75); opacity: 0; }
-}
-
-.burner-tick-label {
-  font-family: var(--font-mono, monospace);
-  font-size: 10px;
-  font-weight: 500;
-  fill: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-
-.burner-hub { pointer-events: none; }
-
-.burner-hub-kicker {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  fill: var(--text-muted);
-}
-
-.burner-hub-big {
-  font-family: var(--font-display);
-  font-size: 48px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  fill: var(--text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.burner-hub-big.is-warn { fill: var(--warning); }
-
-/* ── Transport ──────────────────────────────────────────────────────────── */
-
-/* Centred on the same axis as the ring and its caption: the left column is one
-   vertical composition (disc, what it is, what to do with it), not a form, and
-   the buttons were the only thing breaking that line. */
-.burner-transport {
+   `min-height: 178px` is a floor written for the vertical case, and applied to
+   a strip it took roughly 255px of a 181px-tall stage — leaving the disc a
+   48px smudge, below the size `STAGE_MIN_PX`'s own comment says stops it being
+   a showpiece. The figures lie in a row here instead. */
+.burner-page[data-cols="2"] .burn-metrics,
+.burner-page[data-cols="1"] .burn-metrics {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
+  gap: var(--space-5);
+  justify-content: space-around;
+  align-items: flex-start;
+  padding: 8px var(--space-4);
+  min-height: 0;
 }
 
+.burner-page[data-cols="2"] .burn-metric,
+.burner-page[data-cols="1"] .burn-metric {
+  border-bottom: 0;
+  padding: 6px 0;
+}
+
+.burner-page[data-cols="2"] .burn-metric strong,
+.burner-page[data-cols="1"] .burn-metric strong { font-size: 26px; }
+
+/* The note keeps its reserved height at two columns, deliberately.
+
+   Letting it grow was tried and reverted: the page is still fixed-height and
+   `overflow: hidden` here — only one column and the short-window hatch scroll —
+   so a taller outcome would have shrunk the disc the instant a burn ended,
+   which is the exact regression the reserved slot exists to prevent. The
+   outcome scrolls inside the slot instead. */
+
+
+.burner-page[data-cols="1"] .burner-stage-disc {
+  --burn-well-h: min(52vh, 380px);
+  container-type: normal;
+  height: var(--burn-well-h);
+}
+
+.burner-page[data-cols="1"] .burn-disc,
+/* The recess is sized the same way as the disc it holds, so it has to be
+   overridden in the same places. Left on `100cqmin` with the size container
+   gone, it resolved against the viewport and painted a ring half again the
+   width of the well over the transport and up into the alert line. */
+.burner-page[data-cols="1"] .burner-stage-disc::before {
+  width: min(100%, var(--burn-well-h), var(--burn-disc-max));
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.burner-page[data-cols="1"] .burner-panel--list { min-height: 420px; }
+
+/* ── The stage ──────────────────────────────────────────────────────────────
+   The three auto rows claim their intrinsic height first and the well absorbs
+   only the remainder, so the disc is physically incapable of pushing the
+   transport under the page's overflow clip. That is a structural guarantee,
+   not a max-height anybody has to keep honest. */
+
+.burner-stage {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto auto;
+  row-gap: var(--space-3);
+  min-height: 0;
+  min-width: 0;
+}
+
+/* No `contain: paint` here, deliberately: the bloom has to be allowed to
+   bleed past the well's edge. */
+.burner-stage-disc {
+  position: relative;
+  container-type: size;
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  min-width: 0;
+}
+
+.burner-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+}
+
+/* The mode selector is replaced in place while a job runs, at the same height,
+   so the row it lives in never changes size. */
+
+.burner-stage-note {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  /* Fixed, not a floor. `min-height` alone let the settled outcome — headline,
+     disc verdict, failure hint and the drive's own words — grow the row to
+     nearly 100px, and the disc sits in the `1fr` row above it, so it shrank by
+     about 60px the instant a burn ended. The height is reserved in every stage
+     instead, so nothing moves. */
+  height: 84px;
+  overflow-y: auto;
+  margin: 0 auto;
+  /* Wider than the one-line notes need, because the widest thing this slot
+     ever holds is an error message from a drive. */
+  max-width: min(46ch, 100%);
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.burner-stage-note p { margin: 0; }
+
+/* Advice rather than an obstacle: the burn is allowed, so this is muted where
+   a blocker is not. Both live in the note slot, so neither can twitch the disc
+   by appearing. */
+.burner-advisory { color: var(--text-muted); }
+.burner-blocker { color: var(--warning, var(--ctp-yellow)); }
+
+/* ── The seam ───────────────────────────────────────────────────────────────
+   A real 14px grid track, so it costs nothing; the ::before widens the pointer
+   target to 24px while the painted rule stays a hairline. */
+
+.burner-seam {
+  position: relative;
+  z-index: 3;
+  align-self: stretch;
+  cursor: col-resize;
+}
+
+.burner-seam::before {
+  content: "";
+  position: absolute;
+  inset: 0 -5px;
+  background: linear-gradient(
+    90deg,
+    transparent calc(50% - 0.5px),
+    var(--border-subtle) calc(50% - 0.5px) calc(50% + 0.5px),
+    transparent calc(50% + 0.5px)
+  );
+}
+
+.burner-seam::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 3px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-full);
+  background: var(--border);
+  opacity: 0;
+  transition: opacity 140ms ease, background 140ms ease;
+}
+
+.burner-seam:hover::after,
+.burner-seam:focus-visible::after,
+.burner-seam.is-dragging::after {
+  opacity: 1;
+  background: var(--accent);
+}
+
+/* The page clips, so an outset ring would be lost. */
+.burner-seam:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+/* A row drag must not be able to start a resize on the way past the gutter.
+ *
+ * `psy-dragging` is the class `DragDropContext` puts on the body for the whole
+ * of a row drag. Two wrong classes were tried before it: `is-row-dragging`,
+ * which nothing anywhere sets, and then `is-dragging`, which is set by the
+ * RESIZERS — so it fired while the seam itself was being dragged and never
+ * once during a row drag, exactly backwards from what it is for. */
+body.psy-dragging .burner-seam { pointer-events: none; }
+
+/* ── The disc ────────────────────────────────────────────────────────────
+   SVG, not layered conic gradients. The gradients could neither stroke a wedge
+   nor hold a gap open between two of them, so every boundary came out aliased
+   and every hairline was a hole punched through to the black underneath. The
+   wedges are annular sector paths now; this file only says how they are lit.
+   Only the two canvases on top need a frame loop, and they run only while the
+   laser is on.
+
+   The disc is always laid out at its maximum and only ever scaled down. One
+   unitless number, GPU-composited, no layout work at all — so the 99-path SVG
+   never re-rasters and the transport is untouchable by construction. Container
+   query units resolve against the layout box while the transform is visual, so
+   the hub scales like a photograph through every frame with no JS at all. */
+
+.burn-disc {
+  --burn-disc-side: min(100cqmin, var(--burn-disc-max));
+  /* How far the particle canvas reaches past this box, at every angle. Mirrored
+     in `BurnDisc.tsx` as `SPARK_SPILL`; see `.burn-disc-sparks` below. */
+  --burn-spill: 16%;
+  position: relative;
+  width: var(--burn-disc-side);
+  height: var(--burn-disc-side);
+  container-type: size;
+  margin: 0;
+  transform: scale(var(--burn-disc-scale));
+  transform-origin: 50% 50%;
+  transition: transform 520ms var(--burner-ease);
+}
+
+/* The milled recess the disc sits in, tracking the same scale so the object
+   and its shadow stay one thing. */
+.burner-stage-disc::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(100cqmin, var(--burn-disc-max));
+  aspect-ratio: 1;
+  border-radius: 50%;
+  /* Centred by an explicit translate rather than by the well's `place-items`,
+     which does not reach an absolutely-positioned child. The translate is
+     identical in both states, so the only thing that actually interpolates is
+     still the one plain scale number. */
+  transform: translate(-50%, -50%) scale(calc(var(--burn-disc-scale) * 1.06));
+  transition: transform 520ms var(--burner-ease);
+  background: radial-gradient(
+    circle,
+    transparent 0 88%,
+    color-mix(in srgb, var(--burner-shade) 38%, transparent) 94%,
+    transparent 100%
+  );
+  box-shadow:
+    inset 0 3px 5px -2px color-mix(in srgb, var(--burner-shade) 44%, transparent),
+    inset 0 -2px 0 color-mix(in srgb, var(--burner-sheen) 5%, transparent);
+  pointer-events: none;
+}
+
+/* Two shadows — contact and ambient — and they live on the surface rather than
+   on `.burn-disc`, because there the filter would wrap a subtree containing two
+   canvases that repaint every animation frame and force the blur to re-run
+   sixty times a second for the whole burn. Here it re-runs never. */
+.burn-disc-surface {
+  position: absolute;
+  inset: 4.5%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--bg-card) 92%, var(--burner-hot)) 0,
+    var(--burner-void) 62%,
+    var(--bg-deep, var(--bg-player)) 100%
+  );
+  border: 2px solid var(--border-subtle);
+  filter:
+    drop-shadow(0 2px 3px color-mix(in srgb, var(--burner-shade) 34%, transparent))
+    drop-shadow(0 18px 34px color-mix(in srgb, var(--burner-shade) 26%, transparent));
+  box-shadow: inset 0 0 58px color-mix(in srgb, var(--burner-shade) 62%, transparent);
+}
+
+/* The light the disc spills onto the page. It inherits `--burn-lead` from the
+   root, which BurnDisc sets to the colour of the track under the head, so the
+   room changes colour as the burn crosses a track boundary. The swell is
+   gradual; the colour changes at once, which is right — a boundary is an
+   event, not a transition. `pointer-events: none` matters: this reaches past
+   the well and over the transport during an irreversible burn. */
+.burn-disc-bloom {
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(
+    closest-side,
+    color-mix(in srgb, var(--burn-lead, var(--accent)) 26%, transparent),
+    transparent 78%
+  );
+  transition: opacity 900ms var(--burner-ease);
+}
+
+.burn-disc.is-writing .burn-disc-bloom,
+.burn-disc.is-finished .burn-disc-bloom { opacity: 1; }
+
+/* The diffraction rainbow. Six colours straight from the palette `arcColor()`
+   cycles, so the iris is chromatically the same family as the ring and every
+   shipped theme gets its own. Each stop falls back to the accent on its own,
+   so a community theme that omits one colour cannot invalidate the whole
+   declaration. The mask uses alpha only, so `currentColor` as the opaque stop
+   keeps a literal out of it. */
+.burn-disc-iris {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 212deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--ctp-sky, var(--accent)) 52%, transparent) 24deg,
+    color-mix(in srgb, var(--ctp-green, var(--accent)) 44%, transparent) 44deg,
+    color-mix(in srgb, var(--ctp-yellow, var(--accent)) 40%, transparent) 60deg,
+    color-mix(in srgb, var(--ctp-peach, var(--accent)) 40%, transparent) 76deg,
+    color-mix(in srgb, var(--ctp-pink, var(--accent)) 46%, transparent) 96deg,
+    transparent 132deg,
+    transparent 228deg,
+    color-mix(in srgb, var(--ctp-mauve, var(--accent)) 40%, transparent) 268deg,
+    color-mix(in srgb, var(--ctp-sky, var(--accent)) 34%, transparent) 302deg,
+    transparent 338deg
+  );
+  mask: radial-gradient(circle, transparent 0 30%, currentColor 42% 92%, transparent 99%);
+  mix-blend-mode: screen;
+  opacity: 0.2;
+  transition: opacity 900ms var(--burner-ease);
+}
+
+/* It turns only while the job is live. A perpetual blended rotation over
+   ninety-nine SVG paths would cost a frame's work on a page that is otherwise
+   free to leave open. */
+.burn-disc.is-preparing .burn-disc-iris,
+.burn-disc.is-writing .burn-disc-iris,
+.burn-disc.is-finished .burn-disc-iris {
+  animation: burnIris 64s linear infinite;
+  will-change: transform;
+}
+
+.burn-disc.is-preparing .burn-disc-iris { opacity: 0.26; }
+.burn-disc.is-writing .burn-disc-iris { opacity: 0.32; }
+
+@keyframes burnIris { to { transform: rotate(360deg); } }
+
+/* One specular, off-centre and high, so the disc reads as lit from above like
+   everything else on the page. */
+.burn-disc-sheen {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse 62% 48% at 34% 20%,
+    color-mix(in srgb, var(--burner-sheen) 13%, transparent) 0,
+    transparent 68%
+  );
+  mix-blend-mode: screen;
+}
+
+/* The ring fills the surface; strokes on the outermost wedges need to sit
+   proud of the viewBox, so it must not clip them. */
+.burn-disc-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* The unwritten program area. Colour rather than nothing, so the hairlines
+   between wedges read as divisions instead of as holes in the disc. The
+   gradient darkens it toward the rim the way a real disc falls away; the flat
+   fallback after it carries its own alpha, so the ring is still there on a
+   renderer that cannot resolve the reference. */
+.burn-ring-rest {
+  stroke: url(#burnRest) color-mix(in srgb, var(--border) 28%, transparent);
+}
+
+/* The lead-in. Lit only while it is actually being written — the CD-TEXT
+   packs go here, and this is the only part of a burn that happens before
+   track one. */
+.burn-ring-leadin {
+  stroke: var(--accent);
+  stroke-width: 1.2;
+  stroke-opacity: 0.16;
+  transition: stroke-opacity 200ms ease;
+}
+
+.burn-disc.is-writing .burn-ring-leadin { stroke-opacity: 0.45; }
+
+/* The stacking ring: a real disc's most recognisable feature after the hole,
+   and the gap between the hub and the program area was dead black without it.
+   The bezel finishes the hub, the clamp ring marks where the drive grips, and
+   the mirror band fills the space between. Every radius here is verified clear
+   of the hub's painted edge at 17.03 viewBox units and of the lead-in. */
+.burn-disc-bezel {
+  fill: none;
+  stroke: var(--bg-sidebar);
+  stroke-width: 1;
+}
+
+.burn-disc-clamp {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 9%, transparent);
+  stroke-width: 0.5;
+}
+
+.burn-disc-mirror {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 15%, transparent);
+  stroke-width: 1.5;
+}
+
+/* A polished edge, so the disc stops rather than the fill simply running out. */
+.burn-disc-rim-in {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 7%, transparent);
+  stroke-width: 0.3;
+}
+
+.burn-disc-rim {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text-primary) 20%, transparent);
+  stroke-width: 0.55;
+}
+
+/* The queue at rest, and it has to read as UNWRITTEN.
+
+   0.42 was tuned against a darker palette. Ours is Catppuccin, whose `--ctp-*`
+   colours are pastels — `#cba6f7` is already close to white — so at 0.42 an
+   unwritten wedge came out nearly as bright as a written one, and the ring
+   stopped saying anything: a disc at 14% looked like a disc at 90%. The
+   0.85 stroke made it worse by outlining every wedge, which turned the disc
+   into a stained-glass pie chart.
+
+   The number is measured, not guessed. Sampled at mid-band radius the
+   reference holds its unwritten wedges at RGB 23-45 and its written ones at
+   50-115; composited over this page's ground that is about 0.08 and about
+   0.32. The stroke stays, because a filled wedge alone is a flat blob and it
+   was the missing rim that made eight tracks read as one smear — it is just no
+   longer a hairline drawn at nearly full strength. `paint-order` keeps it
+   outside the fill so neighbouring wedges cannot bleed into each other. */
+.burn-ring-arc {
+  fill-opacity: 0.08;
+  stroke-opacity: 0.18;
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+  transition: fill-opacity 140ms ease, stroke-opacity 140ms ease;
+}
+
+/* Hovering the running order dims the rest rather than brightening the one.
+   Brightening stacked opacity on top of an already-lit wedge blew it out to
+   near-white; taking light away from its neighbours cannot.
+
+   These two move with the base above or they invert its meaning: at 0.2 over
+   a 0.08 base, "dimming the others" would have LIT them. */
+.burn-ring-arcs.has-hover .burn-ring-arc {
+  fill-opacity: 0.035;
+  stroke-opacity: 0.09;
+}
+
+/* The one being pointed at, and the one number here that is not trying to
+   match the reference — the reference has no pointer. It only has to be
+   unmistakable against the 0.035 its neighbours drop to, which it is by an
+   order of magnitude. */
+.burn-ring-arcs .burn-ring-arc.is-hot {
+  fill-opacity: 0.34;
+  stroke-opacity: 0.75;
+}
+
+/* What the drive has actually written. Progress is this step — 0.08 to 0.32
+   on one colour — rather than a shade laid over what is left: shading the
+   remainder dimmed the whole ring and made a burn look like the disc going out
+   instead of filling in.
+
+   Not "near solid" any more. At 0.95 a written wedge was flat pastel, roughly
+   three times brighter than the reference, and the disc stopped looking like a
+   disc. This wedge is painted OVER its unwritten one, so the two compose to
+   about 0.37 — the ~2.5-3x step over unwritten that the sampled frames show.
+   The stroke stays strong because the reference does keep visible hairlines
+   between written wedges; it is only the unwritten outline that had to go. */
+.burn-ring-written path {
+  fill-opacity: 0.32;
+  stroke-opacity: 0.6;
+  stroke-width: 0.4;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+
+/* Where the disc's edge actually falls. The ring shows the place; the running
+   order names what is past it, in the same colour, at the same moment —
+   "over capacity by 4:12" has never told anyone which tracks to take off. */
+.burn-ring-overrun {
+  fill: var(--burner-overrun);
+  stroke: none;
+  pointer-events: none;
+}
+
+.burn-ring-overrun-mark {
+  stroke: var(--danger, var(--ctp-red));
+  stroke-width: 0.5;
+  stroke-opacity: 0.8;
+  stroke-dasharray: 2 1.6;
+  stroke-linecap: butt;
+}
+
+.burn-ring-head line { stroke-linecap: round; }
+/* White core, coloured halo — the same language the notes use, and what the
+   reference shows: its laser centre samples as pure white with the bloom
+   around it cycling through the track colours. So the core stays exactly as it
+   was and the two layers under it carry the colour. The haze was at 0.22,
+   which is not a bloom, it is a rumour. */
+.burn-ring-head-haze { stroke: var(--burn-lead, var(--accent)); stroke-opacity: 0.5; }
+.burn-ring-head-glow {
+  stroke: color-mix(in srgb, var(--burn-lead, var(--accent)) 78%, var(--burner-hot));
+  stroke-opacity: 0.88;
+}
+.burn-ring-head-core { stroke: var(--burner-hot); stroke-opacity: 0.95; }
+
+/* CD texture. In fractions of the disc rather than page pixels, so the groove
+   pitch stays physically coherent as the object scales — the percentages
+   resolve against the farthest-corner ray, which is where these figures come
+   from. Kept faint: at half opacity the repeating rings striped every wedge
+   and the ring looked printed rather than pressed. */
+.burn-disc-grooves {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: repeating-radial-gradient(
+    circle,
+    transparent 0 0.66%,
+    var(--burner-groove) 0.66% 0.99%,
+    transparent 0.99% 1.65%
+  );
+  mix-blend-mode: screen;
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+/* Getting ready. Nothing is written during the fetch, analyse and render
+   phases, so the ring stays unlit and the program area breathes instead. */
+.burn-disc.is-preparing .burn-ring-rest {
+  animation: burnReady 2.1s ease-in-out infinite alternate;
+}
+
+@keyframes burnReady {
+  from { stroke-opacity: 0.6; }
+  to { stroke-opacity: 1; }
+}
+
+/* The finished disc, lit to the rim, announced once. */
+.burn-disc.is-finished .burn-disc-ring {
+  animation: burnDone 1.5s ease-out 1;
+}
+
+@keyframes burnDone {
+  0% { filter: brightness(1); }
+  35% { filter: brightness(1.45); }
+  100% { filter: brightness(1); }
+}
+
+/* A rehearsal is drawn exactly like a real burn, deliberately. Its whole
+   purpose is to show what the real one will do, so rendering it differently
+   would preview something that never happens. The distinction is carried in
+   words instead — the hub reads REHEARSING, the readout says DAO / TEST, and
+   the disc ejects at the end with a toast saying nothing was written. */
+
+.burn-disc-wave,
+.burn-disc-sparks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.burn-disc-wave { mix-blend-mode: screen; opacity: 0.7; }
+
+/* The particles are allowed out of the well.
+
+   Inscribed in the disc's own box like everything else, a spark leaving at
+   twelve or three o'clock hit the edge of its own canvas almost at once while
+   one leaving at four had the corner's extra room — the same effect looked
+   different depending on where in the burn it happened. The box grows by a
+   fixed margin at every angle instead, and `BurnDisc` pushes the drawing
+   origin in by exactly the same amount, so this is a bigger sheet of paper and
+   not a re-layout: the disc, the waveform and the head do not move.
+
+   The size is stated rather than left to the insets, because a canvas is a
+   REPLACED element: `width: auto` on an absolutely positioned replaced box
+   resolves to its intrinsic size — a canvas's default 300x150 — and the
+   opposite inset is then dropped. Written that way this rule moved the canvas
+   up and left by the margin and shrank it to 300x150, which is a plausible
+   effect drawn in the wrong place rather than an obvious failure. The visual
+   check now measures both edges against the disc.
+
+   Nothing above clips it: the disc and the well both set `container-type:
+   size`, which is layout, style and size containment — not paint.
+
+   The margin itself is `--burn-spill`, declared on `.burn-disc` at the top of
+   this section and read by `BurnDisc.tsx` as `SPARK_SPILL`. The two must
+   agree, or the particles are drawn at an offset from the head that threw
+   them. */
+.burn-disc-sparks {
+  top: calc(-1 * var(--burn-spill, 16%));
+  left: calc(-1 * var(--burn-spill, 16%));
+  right: auto;
+  bottom: auto;
+  width: calc(100% + 2 * var(--burn-spill, 16%));
+  height: calc(100% + 2 * var(--burn-spill, 16%));
+}
+
+/* The hub is part of the object, so its type is measured in the disc's own
+   container units. A badge sized from the window wore its full size on a
+   shrunken disc and read as a coaster. */
+.burn-disc-hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 31%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 4%;
+  background: radial-gradient(circle at 50% 35%, var(--bg-card), var(--bg-deep, var(--bg-player)) 70%);
+  box-shadow: 0 0 0 1px var(--border), var(--burner-lit-edges);
+  pointer-events: none;
+}
+
+/* The hub's pulse, while the laser is on.
+
+   Three layers, and `BurnDisc.tsx` drives all three from the Web Animations
+   API — a fixed 2.3s cycle that owes nothing to the drive, so it belongs to
+   the compositor rather than to the frame loop the canvases already run. What
+   is here is the resting state, which is also the whole of what a machine
+   asking for reduced motion gets: the glow stays, the movement does not.
+
+   The colour is CONSTANT and is not `--burn-lead`. The hub is the page
+   speaking, not the disc — it reads lavender while a green track is being
+   written, deliberately, because the track's colour already owns the ring, the
+   bloom and the write head.
+
+   Both layers sit behind the text and neither can take a pointer: this is a
+   circle drawn over the middle of an object whose surrounding page carries an
+   abort button during an irreversible burn. */
+.burn-disc-hub-content {
+  position: relative;
+  z-index: 1;
+}
+
+.burn-disc-hub-pulse-ring,
+.burn-disc-hub-shock {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Inside the hub's own edge, so it reads as the hub lighting up rather than as
+   a ring orbiting it. It is the layer that carries the resting glow.
+
+   And the resting glow is the point. Sampled just outside the hub, the
+   reference holds a lavender halo in EVERY frame — rgb(67,60,119) at rest
+   rising to about rgb(139,117,186) at peak, a doubling in brightness with the
+   hue dead steady. Ours was a 12px shadow at 26% behind an 0.45 opacity, which
+   is spent before it reaches the hub's edge: there was effectively no halo at
+   rest at all, only a flash at the top of each cycle. The blur now carries
+   past the edge, which is where the reference's halo is measured. */
+.burn-disc-hub-pulse-ring {
+  inset: 4%;
+  border: 1px solid color-mix(in srgb, var(--accent, var(--ctp-mauve)) 52%, transparent);
+  box-shadow:
+    0 0 20px color-mix(in srgb, var(--accent, var(--ctp-mauve)) 70%, transparent),
+    0 0 9px color-mix(in srgb, var(--accent, var(--ctp-mauve)) 38%, transparent),
+    inset 0 0 16px color-mix(in srgb, var(--accent, var(--ctp-mauve)) 18%, transparent);
+  opacity: 0.85;
+}
+
+/* The one that leaves. At rest it is inside the hub and invisible; the cycle
+   throws it out to 1.35 and fades it to nothing on the way.
+
+   It shares the hub's box rather than starting outside it, which is what keeps
+   its widest moment — 1.35 of a hub that is 31% of the disc — inside the
+   stacking ring and off the program area. A ripple over the written wedges
+   would be reading the burn's own colour back at it. */
+.burn-disc-hub-shock {
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--accent, var(--ctp-mauve)) 40%, transparent);
+  opacity: 0;
+}
+
+.burn-disc-hub small {
+  display: block;
+  font-size: 2.4cqmin;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.5em;
+}
+
+.burn-disc-hub strong {
+  display: block;
+  font-size: 9.2cqmin;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.burn-disc-hub span {
+  display: block;
+  margin-top: 0.45em;
+  font-size: 2.9cqmin;
+  color: var(--text-muted);
+}
+
+.burn-disc.is-empty .burn-disc-hub strong { color: var(--text-muted); }
+.burn-disc.is-over .burn-disc-hub strong { color: var(--danger, var(--ctp-red)); }
+
+/* ── Metrics rail ────────────────────────────────────────────────────────── */
+
+.burn-metrics {
+  border: 1px solid var(--border-subtle);
+  /* Matched to the options panel below it. They were different surfaces at
+     different radii, stacked in one 216px column, which read as two unrelated
+     slabs rather than one instrument. */
+  border-radius: var(--radius-md);
+  background: var(--bg-sidebar);
+  box-shadow: var(--burner-lit-edges);
+  padding: 4px 16px 10px;
+  /* Fixed, because what it shows changes with the stage and it sits in the
+     same column as the burn options. A box that grew as a burn started would
+     move the page at exactly the moment nothing should move. */
+  min-height: 178px;
+  box-sizing: border-box;
+}
+
+/* Over capacity is the one figure here that is a problem rather than a fact. */
+.burn-metric.is-warn strong { color: var(--warning, var(--ctp-yellow)); }
+
+.burn-metric {
+  padding: 13px 0 14px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.burn-metric:last-of-type { border-bottom: 0; }
+
+/* Labels read as labels, so the numbers do not have to compete with them. */
+.burn-metric span {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+/* The numbers are the point of this panel, so they get the size. Tabular
+   figures keep the clock from jittering as the digits change. */
+.burn-metric strong {
+  display: block;
+  /* Fixed, because the column is fixed. This was `clamp(30px, 4.4vh, 42px)` —
+     type sized from the VIEWPORT HEIGHT inside a 216px-wide column, so on a
+     tall window it resolved to 42px and "422.5 MB" wrapped onto two lines.
+     Nothing about the height of the screen says how wide this box is. */
+  font-size: 34px;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  /* And if a figure ever does outgrow the column, clip it rather than reflow
+     the box that everything below it is positioned against. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Transport ──────────────────────────────────────────────────────────────
+   Three cells, so the primary sits on the disc's own axis. A centred flex row
+   put it off that line by half the width of whatever else was in the row,
+   which is not the single vertical composition the stage is arranged as. The
+   secondary cells are rendered empty rather than dropped when a stage has no
+   secondary action; the :only-child rule below is the safety net if one is. */
+
+.burner-transport {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 34px;
+}
+
+.burner-transport > :first-child:not(:only-child) { justify-self: end; }
+.burner-transport > :last-child:not(:only-child) { justify-self: start; }
+
+/* The buttons carry their own light and shade.
+ *
+ * `--burner-hot`, `--burner-sheen`, `--burner-shade` and the two derived from
+ * them are declared on `.burner-page`, and the track-listing modal portals to
+ * `document.body` — outside it. A `color-mix()` naming an undefined custom
+ * property is invalid at computed-value time, which takes the WHOLE
+ * declaration with it: the primary button's gradient simply vanished, leaving
+ * `color: var(--text-on-accent, var(--bg-app))` — a dark colour meant to sit on an accent
+ * fill — as black text on nothing. Declaring them here means a burner button
+ * works wherever it is rendered, without putting page tokens on :root. */
 .burner-btn {
+  --burner-hot: var(--theme-hot, rgb(255 255 255));
+  --burner-sheen: var(--theme-sheen, rgb(255 255 255));
+  --burner-shade: var(--theme-shade, rgb(0 0 0));
+  --burner-ease-press: cubic-bezier(0.4, 0, 0.2, 1);
+  --burner-lit-edges:
+    inset 0 1px 0 color-mix(in srgb, var(--burner-sheen) 6%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--burner-shade) 22%, transparent);
+
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -388,43 +1341,48 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
+  box-shadow: var(--burner-lit-edges);
   transition: background 140ms ease, opacity 140ms ease;
 }
 
 .burner-btn:hover:not(:disabled) { background: var(--bg-hover); }
 .burner-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
+/* Real press mass: a lit top edge, a shaded bottom one, and a fast fall with a
+   slow return, which is what a key under a finger actually feels like. */
 .burner-btn.is-primary {
-  background: var(--accent);
+  color: var(--text-on-accent, var(--bg-app));
   border-color: var(--accent);
-  color: var(--text-on-accent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--accent) 90%, var(--burner-sheen)),
+    var(--accent) 44%,
+    color-mix(in srgb, var(--accent) 88%, var(--burner-shade))
+  );
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--burner-sheen) 26%, transparent);
+  transition: filter 160ms var(--burner-ease-press), transform 160ms var(--burner-ease-press);
 }
 
 .burner-btn.is-primary:hover:not(:disabled) { filter: brightness(1.08); }
 
-/* A secondary action inside a panel, not part of the transport row. */
-.burner-btn--inline {
-  align-self: flex-start;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 500;
+.burner-btn.is-primary:active:not(:disabled) {
+  transform: translateY(1px);
+  transition-duration: 60ms;
 }
 
 .burner-btn.is-danger {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--text-on-accent);
+  background: var(--danger, var(--ctp-red));
+  border-color: var(--danger, var(--ctp-red));
+  color: var(--text-on-accent, var(--bg-app));
 }
 
-.burner-blocker {
-  /* Stays on the column's centre line, but capped so a long reason wraps into
-     a readable block instead of one ragged centred line. */
-  margin: 0 auto;
-  max-width: 34ch;
-  text-align: center;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--warning);
+/* The generic hover rule is `.burner-btn:hover:not(:disabled)` — three
+   classes to this rule's two — so without this the abort button turned plain
+   grey under the pointer while keeping its light-on-accent text. The one
+   control that ruins a disc stopped looking like it at the exact moment the
+   cursor was over it. */
+.burner-btn.is-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger, var(--ctp-red)) 88%, var(--burner-hot));
 }
 
 /* ── Panels ─────────────────────────────────────────────────────────────── */
@@ -434,22 +1392,21 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow: var(--burner-lit-edges);
 }
 
-/* The running order owns whatever height is left. */
+/* The running order owns whatever height is left, and it is a container so the
+   rows below can respond to the width the user chose rather than to the
+   window — the two diverge by up to 720px with the sidebar and queue open. */
 .burner-panel--list {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  --burn-row-cols: 13px 20px minmax(0, 1.5fr) minmax(0, 1fr) 76px 58px 15px 22px;
 }
 
-/* Sinks to the bottom of the left column: the ring is a fixed size, so the
-   slack belongs between them rather than under the options. */
-.burner-panel--options {
-  flex: none;
-  margin-top: auto;
-}
+.burner-panel--options { flex: none; }
 
 .burner-list-scroll {
   flex: 1;
@@ -483,37 +1440,157 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Track rows ─────────────────────────────────────────────────────────── */
+/* ── Track rows ─────────────────────────────────────────────────────────────
+   The head sits above the scroll viewport rather than inside it, so it is not
+   sticky and must not be: it lines up with the rows purely because it shares
+   `--burn-row-cols` and the same inline padding. Keep those two together or
+   the header drifts from the columns it labels. */
+
+@container burnlist (max-width: 520px) {
+  .burner-panel--list {
+    --burn-row-cols: 13px 20px minmax(0, 1.5fr) minmax(0, 1fr) 76px 15px 22px;
+  }
+  .burner-row-msf,
+  .burner-rows-head .col-start { display: none; }
+}
+
+@container burnlist (max-width: 400px) {
+  .burner-panel--list {
+    --burn-row-cols: 13px 20px minmax(0, 1fr) 76px 15px 22px;
+  }
+  .burner-row-artist,
+  .burner-rows-head .col-artist { display: none; }
+}
 
 /* No cap: the panel is the cap, and it grows with the window. */
 .burner-rows { display: flex; flex-direction: column; }
 
+.burner-rows-head,
 .burner-row {
   display: grid;
-  grid-template-columns: 13px 22px 8px minmax(90px, auto) minmax(0, 1fr) 16px 68px 44px 24px;
+  grid-template-columns: var(--burn-row-cols);
   align-items: center;
-  gap: var(--space-2);
-  padding: 4px var(--space-3);
+  gap: 6px;
+  padding: 0 var(--space-3);
+}
+
+.burner-rows-head {
+  flex: none;
+  min-height: 24px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
   border-bottom: 1px solid var(--border-subtle);
-  transition: background 120ms ease, opacity 120ms ease;
-  min-height: 30px;
+}
+
+.burner-rows-head .col-time,
+.burner-rows-head .col-start { text-align: right; }
+
+.burner-row {
+  position: relative;
+  min-height: var(--burn-row-h);
+  padding-block: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background 120ms ease;
   /* The row itself is not draggable — only the grip is, matching every other
      reorderable list in the app — so it must not advertise a grab cursor. */
   cursor: default;
 }
 
-.burner-row:last-child { border-bottom: 0; }
-.burner-row:hover,
-.burner-row.is-hot { background: var(--bg-card); }
-.burner-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.burner-row.is-written { opacity: 0.55; }
+/* The colour spine. A bar echoes a wedge far better than a dot did, and it
+   costs the row no grid column at all. */
+.burner-row::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: color-mix(in srgb, var(--row-color, var(--accent)) 55%, transparent);
+}
 
-/* Drop indicator: a 2px accent rule on the edge the row would land against.
-   Inset box-shadow rather than a border so the row height never shifts as the
-   indicator moves down the list. */
-.burner-row.is-drop-before { box-shadow: inset 0 2px 0 0 var(--accent); }
-.burner-row.is-drop-after { box-shadow: inset 0 -2px 0 0 var(--accent); }
-.burner-row.is-active { background: var(--accent-dim); }
+.burner-row.is-active::before {
+  width: 3px;
+  background: var(--row-color, var(--accent));
+}
+
+/* The drop indicator gets its own pseudo-element because `box-shadow` is
+   last-wins on the whole property: the spine, the active glow and the
+   indicator cannot share one. */
+.burner-row::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0;
+}
+
+.burner-row.is-drop-before::after { top: 0; opacity: 1; }
+.burner-row.is-drop-after::after { bottom: 0; opacity: 1; }
+
+.burner-row:last-child { border-bottom: 0; }
+/* Hover owns `background-color`; every row state below owns `background-image`.
+   They used to share the `background` shorthand at equal specificity, so the
+   three state rules that come later simply won — hovering a written, overrun
+   or active row did nothing at all. That silently broke the reciprocal
+   disc-to-list highlight on exactly the rows you are most likely hunting for:
+   the ones past the capacity mark, which you are hovering in order to remove.
+   Split across the two channels, the state tint paints over the hover base and
+   both are visible at once. */
+.burner-row:hover,
+.burner-row.is-hot { background-color: var(--bg-card); }
+.burner-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* A ruler tick every five rows, so a forty-track disc is countable at a
+   glance without zebra striping the whole list. */
+.burner-row:nth-child(5n) {
+  border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+/* A written track is confirmed, not spent. Dimming them made a burn look like
+   the list being eaten, and those are precisely the rows you want to read. */
+.burner-row.is-written {
+  opacity: 1;
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--positive, var(--ctp-green)) 6%, transparent) 0 100%
+  );
+}
+
+/* Past the edge of the disc. The same wash the ring uses beyond the capacity
+   angle, so the two say the same thing in the same colour at the same moment. */
+.burner-row.burner-row-overrun {
+  background-image: linear-gradient(var(--burner-overrun) 0 100%);
+}
+.burner-row.burner-row-overrun .burner-row-dur { color: var(--danger, var(--ctp-red)); }
+
+/* The row under the write head. The colour comes from the track's own place in
+   the palette via `--row-color`, so the list and the disc always agree about
+   which track this is — the disc is the same colour at the same moment. */
+.burner-row.is-active {
+  background-image: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--row-color, var(--accent)) 22%, transparent),
+    transparent 70%
+  );
+  box-shadow: inset 0 0 18px color-mix(in srgb, var(--row-color, var(--accent)) 14%, transparent);
+}
+
+.burner-row.is-active .burner-row-title { color: var(--text-primary); font-weight: 640; }
+
+/* Replaces the duration while a track is being written. */
+.burner-row-state {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--row-color, var(--accent));
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.burner-row.is-written .burner-row-state { color: var(--positive, var(--ctp-green)); }
 
 .burner-row-grip {
   display: flex;
@@ -536,8 +1613,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.burner-row-chip { width: 8px; height: 8px; border-radius: 2px; }
-
 /* Title takes what it needs up to its share; the artist gives way first, so a
    long title never gets clipped in favour of a repeated album artist. */
 .burner-row-title {
@@ -559,7 +1634,8 @@
 }
 
 /* Fixed cell whether or not the icon is there, so nothing shifts when a
-   track resolves from "will fetch" to cached. */
+   track resolves from "will fetch" to cached, and so it can never be crowded
+   into the position column beside it. */
 .burner-row-fetch {
   display: inline-flex;
   align-items: center;
@@ -594,12 +1670,12 @@
   cursor: pointer;
 }
 
-.burner-row-remove:hover:not(:disabled) { color: var(--danger); background: var(--bg-hover); }
+.burner-row-remove:hover:not(:disabled) { color: var(--danger, var(--ctp-red)); background: var(--bg-hover); }
 .burner-row-remove:disabled { opacity: 0.3; cursor: not-allowed; }
 
 .burner-empty {
   padding: var(--space-8) var(--space-4);
-  max-width: 46ch;
+  max-width: min(46ch, 100%);
   margin: 0 auto;
   text-align: center;
   color: var(--text-secondary);
@@ -685,11 +1761,14 @@
 
 .burner-note svg { flex: none; margin-top: 2px; }
 
-/* ── MMC readout ────────────────────────────────────────────────────────── */
+/* ── MMC readout ────────────────────────────────────────────────────────────
+   Recessed into the page rather than sitting on it: shade along the top edge,
+   a hairline of light along the bottom. The same law as everywhere else,
+   inverted because this is a well and not a surface. */
 
 .burner-readout {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 1px;
   margin: 0;
   flex: none;
@@ -697,9 +1776,12 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow: hidden;
+  box-shadow:
+    inset 0 1px 3px color-mix(in srgb, var(--burner-shade) 40%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--burner-sheen) 5%, transparent);
 }
 
-.burner-readout > div { background: var(--bg-player); padding: 6px var(--space-3); }
+.burner-readout > div { background: var(--bg-player); padding: 9px var(--space-4); }
 
 .burner-readout dt {
   margin-bottom: 3px;
@@ -710,8 +1792,13 @@
   color: var(--text-muted);
 }
 
+/* A long value has to give way rather than blow the equal-column grid open. */
 .burner-readout dd {
   margin: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-mono, monospace);
   font-size: 13px;
   font-weight: 500;
@@ -720,7 +1807,7 @@
 }
 
 .burner-readout dd.is-accent { color: var(--accent); }
-.burner-readout dd.is-good { color: var(--positive); }
+.burner-readout dd.is-good { color: var(--positive, var(--ctp-green)); }
 
 /* -- Track listing, on screen and on paper ---------------------------------
    One subtree serves as both the preview and the printed sheet, so what the
@@ -779,6 +1866,51 @@
 .burner-print-time {
   font-variant-numeric: tabular-nums;
   color: var(--text-muted);
+}
+
+/* ── Short windows ──────────────────────────────────────────────────────────
+   The second block is the floor that stops the showpiece being squeezed toward
+   zero by the three fixed rows under it. At 620px of window height the stage
+   is about 356px tall, which leaves the well 222px — below that the page
+   scrolls instead, and the well takes an explicit height. */
+
+@media (max-height: 760px) {
+  .burner-page { --burn-disc-max: 520px; }
+  .burner-chassis-title h1 { font-size: 16px; }
+}
+
+@media (max-height: 620px) {
+  .burner-page {
+    overflow-y: auto;
+    height: auto;
+    --burn-disc-max: 440px;
+  }
+
+  /* The page is no longer a fixed-height chain here, so the well cannot be a
+     size container: `100cqmin` would silently resolve against the viewport. */
+  .burner-stage-disc {
+    --burn-well-h: min(46vh, 320px);
+    container-type: normal;
+    height: var(--burn-well-h);
+  }
+
+  /* The recess is sized like the disc, so it is overridden with it. Left on
+     `100cqmin` once the size container is gone it resolves against the
+     viewport, and a ring wider than the well paints over the transport. */
+  .burn-disc,
+  .burner-stage-disc::before {
+    width: min(100%, var(--burn-well-h), var(--burn-disc-max));
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  /* The note gives up its reserved height where vertical room is the scarce
+     thing; the page scrolls here, so a growing outcome costs nothing. */
+  .burner-stage-note {
+    height: auto;
+    min-height: 36px;
+    overflow: visible;
+  }
 }
 
 /* Printing goes through the webview, not through a file: the shell permission
@@ -847,18 +1979,204 @@
   }
 }
 
+/* The printed page itself.
+ *
+ * `@page` cannot be scoped — not by a selector, not by `:has()` — so this
+ * applies to every print the application makes, not only the track listing.
+ * It stays here because the burner is the only feature that prints, and this
+ * is the file that owns that; the alternative was putting a rule about paper
+ * into the app-wide stylesheet, which is worse. Anything else that learns to
+ * print should take this with it rather than fight it. */
 @page {
   size: auto;
   margin: 10mm;
 }
 
+/* Once the drive is committed the grip and the remove control give way to
+   empty cells that keep the row's columns. They must not keep the cursors and
+   hovers of the controls they replaced, or every row mid-burn advertises a
+   grab handle and a red delete chip that do nothing. */
+.burner-row-grip.is-locked,
+.burner-row-remove.is-locked {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ── Instruments ─────────────────────────────────────────────────────────
+   The rate, the trace, the mode and the outcome. Everything here is measured
+   from what the drive reported; nothing is predicted. */
+
+.burn-metric-rate {
+  margin: 8px 0 0;
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* A drive dropping from 16x to 8x mid-disc is worth seeing, and by the time a
+   single figure reads 8x the interesting part has already happened. */
+.burn-speed-trace {
+  display: block;
+  width: 100%;
+  height: 28px;
+  margin-top: 6px;
+  overflow: visible;
+}
+
+.burn-speed-trace-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The sag under a dip, which is the shape people are actually looking for. */
+.burn-speed-trace-dip {
+  fill: color-mix(in srgb, var(--warning, var(--ctp-yellow)) 16%, transparent);
+  stroke: none;
+}
+
+/* ── The mode, beside the button it changes ──────────────────────────── */
+
+.burner-mode-switch {
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  height: 28px;
+  padding: 2px;
+  border-radius: var(--radius-full);
+  background: var(--bg-deep, var(--bg-player));
+  box-shadow:
+    inset 0 1px 3px color-mix(in srgb, var(--burner-shade) 40%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--burner-sheen) 5%, transparent);
+}
+
+/* Under the labels, never over them. */
+.burner-mode-slider {
+  position: absolute;
+  z-index: 0;
+  top: 2px;
+  bottom: 2px;
+  left: 2px;
+  width: calc(50% - 2px);
+  border-radius: var(--radius-full);
+  /* Fallback deliberately: `--bg-elevated` is defined by only one of the six
+     shipped themes, and an unresolvable value here computes to transparent —
+     which would leave the pill that says BURN or REHEARSE with no fill at all
+     on the light theme and three others. Two other stylesheets in this repo
+     already guard the same token. */
+  background: var(--bg-elevated, var(--bg-hover));
+  box-shadow: var(--burner-lit-edges);
+  transition: transform 180ms var(--burner-ease);
+}
+
+.burner-mode-switch.is-rehearse .burner-mode-slider { transform: translateX(100%); }
+
+.burner-mode-option {
+  position: relative;
+  z-index: 1;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 140ms ease;
+}
+
+.burner-mode-option[aria-checked="true"] { color: var(--text-primary); }
+.burner-mode-option:disabled { cursor: not-allowed; }
+
+/* While a job runs the switch is replaced in place, at the same height, so
+   nothing below it moves. */
+.burner-mode-static {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── The outcome ─────────────────────────────────────────────────────── */
+
+.burner-outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  text-align: center;
+}
+
+.burner-outcome-line {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.burner-outcome.is-good .burner-outcome-line { color: var(--positive, var(--ctp-green)); }
+.burner-outcome.is-bad .burner-outcome-line { color: var(--danger, var(--ctp-red)); }
+
+.burner-outcome-disc {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Scrolled, never ellipsised: a drive's own words are the most useful thing on
+   the page when a burn fails, and they are often long. */
+.burner-outcome-detail {
+  margin: 2px 0 0;
+  max-height: 3.2em;
+  overflow-y: auto;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: left;
+  white-space: pre-wrap;
+  color: var(--text-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .burner-leadin.is-active,
   .burner-icon-btn .is-spinning { animation: none; }
-  .burner-arc { transition: none; }
-  /* The head still marks its position — that is information. It just stops
-     gliding, breathing and pulsing. */
-  .burner-laser { transition: none; }
-  .burner-laser-point { animation: none; }
-  .burner-complete-pulse { animation: none; opacity: 0; }
+
+  /* The room still opens and the disc still ends up large — that is
+     information, and reduced motion removes the animation, not the fact. What
+     goes is the gliding. */
+  .burn-disc,
+  .burner-stage-disc::before,
+  .burn-disc-bloom,
+  .burn-disc-iris,
+  .burner-btn.is-primary,
+  .burner-seam::after { transition: none; }
+
+  .burner-btn.is-primary:active:not(:disabled) { transform: none; }
+
+  /* The head keeps its position — that is information, and where the burn has
+     reached is the point of the ring. It just stops gliding and pulsing. The
+     component skips the sparks itself; the waveform is hidden here because it
+     animates in place. */
+  .burn-ring-leadin,
+  .burn-ring-arc,
+  /* The mode slider is the only object on this page that genuinely travels,
+     so it is the one that most needs to stop when asked. It was added here
+     once and lost again when a mutation test's snapshot was restored over it;
+     the check now fails if it goes missing a third time. */
+  .burner-mode-slider,
+  .burner-mode-option,
+  .burner-toggle-track,
+  .burner-toggle-track::after,
+  .burner-btn,
+  .burner-row { transition: none; }
+  .burn-disc.is-finished .burn-disc-ring,
+  .burn-disc.is-preparing .burn-ring-rest,
+  .burn-disc.is-preparing .burn-disc-iris,
+  .burn-disc.is-writing .burn-disc-iris,
+  .burn-disc.is-finished .burn-disc-iris { animation: none; }
+  .burn-disc-wave { display: none; }
 }

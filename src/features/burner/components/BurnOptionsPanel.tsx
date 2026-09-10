@@ -20,8 +20,6 @@ export interface BurnOptionsPanelProps {
   /** Why it is unsupported, when it is — shown so the user blames the right thing. */
   cdTextReason: string | null;
   /** Read CD-TEXT back off the disc currently loaded. */
-  onCheckCdText: () => void;
-  checkingCdText: boolean;
   disabled: boolean;
 }
 
@@ -72,8 +70,6 @@ export default function BurnOptionsPanel({
   media,
   cdTextSupported,
   cdTextReason,
-  onCheckCdText,
-  checkingCdText,
   disabled,
 }: BurnOptionsPanelProps) {
   const { t } = useTranslation();
@@ -117,15 +113,6 @@ export default function BurnOptionsPanel({
       />
 
       <Toggle
-        id="burner-test"
-        checked={settings.testWrite}
-        onChange={testWrite => onChange({ testWrite })}
-        label={t('burner.testWrite')}
-        hint={t('burner.testWriteHint')}
-        disabled={disabled}
-      />
-
-      <Toggle
         id="burner-eject"
         checked={settings.ejectWhenDone}
         onChange={ejectWhenDone => onChange({ ejectWhenDone })}
@@ -146,18 +133,6 @@ export default function BurnOptionsPanel({
         hint={cdTextSupported ? t('burner.cdTextHint') : (cdTextReason ?? undefined)}
         disabled={disabled || !cdTextSupported}
       />
-
-      {cdTextSupported && (
-        <button
-          type="button"
-          className="burner-btn burner-btn--inline"
-          onClick={onCheckCdText}
-          disabled={disabled || checkingCdText}
-        >
-          <Info size={13} aria-hidden="true" />
-          {checkingCdText ? t('burner.checkingCdText') : t('burner.checkCdText')}
-        </button>
-      )}
 
       {!cdTextSupported && cdTextReason && (
         <div className="burner-note">

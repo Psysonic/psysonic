@@ -10,7 +10,13 @@ use std::sync::Arc;
 
 use tauri::AppHandle;
 
-use crate::model::{BurnMediaInfo, BurnOptions, BurnOutcome, BurnRecorder, CdTextVerification};
+use crate::model::{BurnMediaInfo, BurnOptions, BurnOutcome, BurnRecorder};
+// Gated with its only user, `verify_cd_text`, which is macOS-only. An
+// unconditional import warns as unused on every other platform, and
+// deleting it outright to silence that is what broke the macOS build:
+// no CI job compiles for macOS, so the error was invisible here.
+#[cfg(target_os = "macos")]
+use crate::model::CdTextVerification;
 use crate::render::RenderedTrack;
 
 /// Shown wherever a user without a backend reaches the burner.
@@ -91,25 +97,23 @@ pub fn burn(
     }
 }
 
-/// Read CD-TEXT back off the disc currently loaded.
+/// Read CD-TEXT back off the disc currently loaded, on macOS.
+///
+/// macOS only, and deliberately narrow. This used to dispatch to all three
+/// backends for a "check the disc" button that no longer exists. The two other
+/// arms went with it: Windows reads its own CD-TEXT back through
+/// `win_sao::verify_cd_text` at the end of a burn, and Linux through
+/// `read_cd_text`, so neither needed a by-recorder-id entry point once the
+/// button was gone.
+///
+/// It survives here because `macos::verify_cd_text` IS still live — the burn
+/// reads its own CD-TEXT back through it — and `mod macos` is private, so the
+/// runtime smoke test in `tests/macos_smoke.rs` has no other way to reach it.
+/// That test pins a distinction worth keeping: "could not check" must never be
+/// reported as "the drive wrote nothing".
+#[cfg(target_os = "macos")]
 pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
-    #[cfg(windows)]
-    {
-        crate::win::verify_cd_text(recorder_id)
-    }
-    #[cfg(target_os = "linux")]
-    {
-        crate::linux::verify_cd_text(recorder_id)
-    }
-    #[cfg(target_os = "macos")]
-    {
-        crate::macos::verify_cd_text(recorder_id)
-    }
-    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
-    {
-        let _ = recorder_id;
-        Err(UNSUPPORTED.to_string())
-    }
+    crate::macos::verify_cd_text(recorder_id)
 }
 
 /// Eject and reload the disc so the drive re-reads it.

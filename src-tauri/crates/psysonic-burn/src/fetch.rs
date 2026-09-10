@@ -255,9 +255,22 @@ pub async fn fetch_track(
         }
     }
 
-    finalize_streamed_download(response, &dest, &part, None)
+    // The cancel flag belongs here. `stream_to_fresh_file` selects on it per
+    // chunk, so passing `None` meant Stop went unseen until the whole file had
+    // downloaded — up to the full fetch timeout on a slow link, with every other
+    // worker stalled behind this one's slot on the fetch gate. The shared helper
+    // signals it with the repo-wide "CANCELLED" sentinel; this crate keys
+    // cancellation off its own lowercase spelling (`commands.rs:194`), so the
+    // two have to be joined up or a cancel reads as a download failure.
+    finalize_streamed_download(response, &dest, &part, Some(cancel))
         .await
-        .map_err(|e| format!("“{}” could not be saved: {e}", track.title))?;
+        .map_err(|e| {
+            if e == "CANCELLED" {
+                "cancelled".to_string()
+            } else {
+                format!("“{}” could not be saved: {e}", track.title)
+            }
+        })?;
 
     if cancel.load(Ordering::Relaxed) {
         let _ = tokio::fs::remove_file(&dest).await;

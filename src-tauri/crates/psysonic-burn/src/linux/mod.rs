@@ -15,6 +15,7 @@ mod sg;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::time::Duration;
 
 use tauri::AppHandle;
 
@@ -34,6 +35,17 @@ const CDROM_INFO: &str = "/proc/sys/dev/cdrom/info";
 const TIMEOUT_QUERY: u32 = 15;
 /// A full blank rewrites the surface and genuinely takes this long.
 const TIMEOUT_BLANK: u32 = 60 * 60;
+
+/// Sends of the tray-open command, counting the first.
+const EJECT_ATTEMPTS: u32 = 3;
+/// Pause between those sends: three sends leave two pauses, so 400 ms of
+/// waiting at most.
+///
+/// Short on purpose: the burn has already finished and nothing about its result
+/// depends on the tray, so this waits out a drive that is a moment behind and
+/// then gives up. The write path in `sao.rs` is the opposite case — its budget
+/// runs to tens of seconds, because giving up early there spoils the disc.
+const EJECT_SETTLE: Duration = Duration::from_millis(200);
 
 /// Read the kernel's drive table.
 ///
@@ -303,6 +315,7 @@ pub fn burn(
             .media_catalog_number
             .as_deref()
             .filter(|c| !c.trim().is_empty()),
+        options.gapless,
         options.test_write,
         caps.buffer_underrun_free,
         &cancel,
@@ -331,8 +344,14 @@ pub fn burn(
     // confirmed on this drive, where a clean test write was immediately followed
     // by "This CD-R is not blank". Clearing that is not a convenience eject, it
     // is what keeps the disc usable, so it happens whatever the option says.
-    if options.test_write || options.eject_when_done {
+    // A real burn leaves the disc alone unless "eject when done" was ticked, and
+    // then it only ejects: this used to call `reload` for both, which puts the
+    // disc out and immediately asks for the tray back, handing it to the drive
+    // again rather than to the person waiting for it.
+    if options.test_write {
         let _ = device.reload();
+    } else if options.eject_when_done {
+        eject(&device);
     }
 
     Ok(BurnOutcome {
@@ -342,9 +361,70 @@ pub fn burn(
     })
 }
 
+/// Put the disc out and leave it out.
+///
+/// Not `ScsiDevice::reload`: that pairs the eject with a close-tray, which is
+/// how a rehearsal gets its medium reloaded and the exact opposite of what
+/// someone who ticked "eject when done" asked for. `ScsiDevice` has no
+/// eject on its own — `open`, `execute`, `send`, `receive` and `reload` are the
+/// whole of it, and it keeps its descriptor private — so the tray is moved with
+/// SCSI here rather than with the kernel's `CDROMEJECT`, which is what an
+/// eject-only sibling of `reload` in `sg.rs` would use.
+///
+/// The door is unlocked first because a drive that has been told to prevent
+/// medium removal refuses to move its tray, and nothing here can know whether
+/// something else already asked it to.
+///
+/// These are the only two command blocks anything under `linux/` writes as
+/// literals. Everything else comes from `mmc`, which names each opcode and
+/// builds each block whether or not there is a field to compute —
+/// `scsi::test_unit_ready_cdb` is six fixed bytes and lives there all the same
+/// — so the bytes are spelled out here only because `mmc/scsi.rs` has no
+/// builder for either command yet, and beside it is where both belong.
+///
+/// A refusal is logged rather than returned: the burn has already succeeded, so
+/// this can never be its error, but a drive that will not open its tray should
+/// not fail in silence either.
+fn eject(device: &ScsiDevice) {
+    // `PREVENT ALLOW MEDIUM REMOVAL` with Prevent clear: unlock the door.
+    //
+    // Being the first command sent after the burn, this is also the one that
+    // collects whatever unit attention the drive has been holding since the
+    // session closed, so the tray move below usually meets a drive with
+    // nothing left to report. Its own answer is discarded: an unlock the drive
+    // refused shows up only as the tray move failing on a door that is still
+    // locked, and that is not a refusal the loop below sends again.
+    let _ = device.execute(&[0x1E, 0, 0, 0, 0, 0], TIMEOUT_QUERY);
+
+    // `START STOP UNIT` with LoEj set and Start clear: open the tray, do not
+    // spin the disc back up.
+    let cdb = [0x1B, 0, 0, 0, 0x02, 0];
+    for attempt in 1..=EJECT_ATTEMPTS {
+        let Err(error) = device.execute(&cdb, TIMEOUT_QUERY) else {
+            return;
+        };
+        // Two answers are worth sending the command again for: a unit
+        // attention is cleared by the very command it is reported on, and a
+        // drive that says it is not ready yet may be ready a moment later.
+        // Every other refusal is one the drive means, and resending it would
+        // only collect the same sense.
+        let settling = matches!(error.sense, Some((0x06, _, _)) | Some((0x02, 0x04, 0x01)));
+        if settling && attempt < EJECT_ATTEMPTS {
+            std::thread::sleep(EJECT_SETTLE);
+            continue;
+        }
+        crate::app_eprintln!("[burn] the drive would not eject the disc: {error}");
+        return;
+    }
+}
+
 /// Read the disc's CD-TEXT back and count the packs that pass their CRC.
 fn read_cd_text(device: &ScsiDevice) -> CdTextVerification {
-    let mut buffer = vec![0_u8; 4 + 2048];
+    // Room for a full block and then some. This was 2048 bytes, which is 113
+    // whole packs: a disc whose titles filled more of the block than that came
+    // back truncated and was reported to the user as fewer packs than were
+    // written. The Windows read-back sizes itself the same way.
+    let mut buffer = vec![0_u8; 4 + 512 * crate::cdtext::PACK_BYTES];
     // Format 0101b is the CD-TEXT the lead-in carries.
     let cdb = scsi::read_toc_cdb(0x05, 0, buffer.len().min(u16::MAX as usize) as u16);
     let Ok(read) = device.receive(&cdb, &mut buffer, TIMEOUT_QUERY) else {
@@ -357,12 +437,6 @@ fn read_cd_text(device: &ScsiDevice) -> CdTextVerification {
         return CdTextVerification::found(0);
     }
     CdTextVerification::found(crate::cdtext::count_valid_packs(&buffer[4..read]) as u32)
-}
-
-pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
-    let drive = resolve(recorder_id)?;
-    let device = ScsiDevice::open(std::path::Path::new(&drive.device_path()), false)?;
-    Ok(read_cd_text(&device))
 }
 
 pub fn erase(recorder_id: &str, quick: bool) -> Result<(), String> {

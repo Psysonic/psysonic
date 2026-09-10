@@ -1,6 +1,7 @@
 import i18n from '@/lib/i18n';
 import { showToast } from '@/lib/dom/toast';
 import { useBurnListStore } from '@/features/burner/store/burnListStore';
+import { burnJobIsActive, useBurnJobStore } from '@/features/burner/store/burnJobStore';
 import { MAX_TRACKS, type BurnQueueTrack } from '@/features/burner/utils/capacity';
 
 /**
@@ -44,6 +45,31 @@ export function songToBurnTrack(song: BurnableTrack, serverId: string): BurnQueu
 }
 
 /**
+ * Decide whether the queue may be changed at all, and clear the way if it may.
+ *
+ * A job snapshots its track list when it starts, so appending to the queue
+ * mid-burn leaves the running order on screen describing a disc that is not
+ * the one in the drive. That is refused outright.
+ *
+ * A settled job (done / failed / cancelled) is the opposite case: the queue on
+ * screen is a finished disc, and adding to it means "I am making a different
+ * one now". That is what the page's "Burn another" button already does with
+ * `reset()`, so take the same path — the queue itself is deliberately kept,
+ * since Clear is right there for the user who wanted an empty one.
+ *
+ * Returns false when nothing may be queued; the toast has already been shown.
+ */
+function unlockQueueForAdd(): boolean {
+  const { status, reset } = useBurnJobStore.getState();
+  if (burnJobIsActive(status)) {
+    showToast(i18n.t('burner.toastBurnInProgress'), 4000, 'info');
+    return false;
+  }
+  if (status !== 'idle') reset();
+  return true;
+}
+
+/**
  * Queue tracks for the next disc and tell the user what actually happened.
  *
  * Duplicates and the 99-track ceiling both silently drop tracks, so the toast
@@ -51,6 +77,7 @@ export function songToBurnTrack(song: BurnableTrack, serverId: string): BurnQueu
  */
 export function addSongsToBurnList(songs: BurnableTrack[], serverId: string): void {
   if (songs.length === 0) return;
+  if (!unlockQueueForAdd()) return;
 
   const before = useBurnListStore.getState().tracks.length;
   const added = useBurnListStore.getState().add(songs.map(song => songToBurnTrack(song, serverId)));
@@ -95,6 +122,7 @@ export function addTracksToBurnList(
     .filter((track): track is BurnQueueTrack => track !== null);
 
   if (queued.length === 0) return;
+  if (!unlockQueueForAdd()) return;
 
   const before = useBurnListStore.getState().tracks.length;
   const added = useBurnListStore.getState().add(queued);

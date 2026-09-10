@@ -5,7 +5,7 @@
 //! device-sync job uses.
 
 use std::collections::BTreeSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
@@ -56,10 +56,17 @@ fn render_workers(track_count: usize) -> usize {
 ///
 /// Returns an empty list (not an error) on platforms without a backend, so
 /// the UI can explain itself with `burn_is_supported`.
+///
+/// Off-thread for the same reason as `burn_media_state` below: a sync
+/// `#[tauri::command]` resolves on the IPC thread, and enumerating drives is
+/// blocking COM/ioctl work that can sit for seconds on a drive still spinning
+/// up. Run inline it froze the whole app, transport controls included.
 #[tauri::command]
 #[specta::specta]
-pub fn burn_list_recorders() -> Result<Vec<BurnRecorder>, String> {
-    platform::list_recorders()
+pub async fn burn_list_recorders() -> Result<Vec<BurnRecorder>, String> {
+    tauri::async_runtime::spawn_blocking(platform::list_recorders)
+        .await
+        .map_err(|e| format!("recorder enumeration task failed: {e}"))?
 }
 
 /// Whether this platform has a burn backend at all.
@@ -70,10 +77,15 @@ pub fn burn_is_supported() -> bool {
 }
 
 /// What is in the drive right now: media type, blankness, capacity, speeds.
+///
+/// Off-thread: this is the slowest read on the page — it waits for the drive
+/// to spin up and read the disc — and it runs when the burner page opens.
 #[tauri::command]
 #[specta::specta]
-pub fn burn_probe_media(recorder_id: String) -> Result<BurnMediaInfo, String> {
-    platform::probe_media(&recorder_id)
+pub async fn burn_probe_media(recorder_id: String) -> Result<BurnMediaInfo, String> {
+    tauri::async_runtime::spawn_blocking(move || platform::probe_media(&recorder_id))
+        .await
+        .map_err(|e| format!("media probe task failed: {e}"))?
 }
 
 /// Lay the running order out on a disc of `capacity_sectors`.
@@ -83,8 +95,12 @@ pub fn burn_probe_media(recorder_id: String) -> Result<BurnMediaInfo, String> {
 /// rendering, and `burn_start` re-checks against the real disc before writing.
 #[tauri::command]
 #[specta::specta]
-pub fn burn_plan(tracks: Vec<BurnTrackInput>, capacity_sectors: u32) -> Result<BurnPlan, String> {
-    Ok(plan_disc(&tracks, capacity_sectors, None))
+pub fn burn_plan(
+    tracks: Vec<BurnTrackInput>,
+    capacity_sectors: u32,
+    gapless: bool,
+) -> Result<BurnPlan, String> {
+    Ok(plan_disc(&tracks, capacity_sectors, None, gapless))
 }
 
 /// Stop a running job at its next checkpoint.
@@ -95,20 +111,6 @@ pub fn burn_plan(tracks: Vec<BurnTrackInput>, capacity_sectors: u32) -> Result<B
 #[specta::specta]
 pub fn burn_cancel(job_id: String) -> bool {
     job::request_cancel(&job_id)
-}
-
-/// Read CD-TEXT back off the disc that is loaded right now.
-///
-/// Separate from the burn because a drive often caches the table of contents it
-/// read when the disc was inserted; checking straight after a burn can miss a
-/// lead-in that is genuinely there. Reloading the disc and running this is what
-/// settles it.
-#[tauri::command]
-#[specta::specta]
-pub async fn burn_verify_cd_text(recorder_id: String) -> Result<CdTextVerification, String> {
-    tauri::async_runtime::spawn_blocking(move || platform::verify_cd_text(&recorder_id))
-        .await
-        .map_err(|e| format!("verification task failed: {e}"))?
 }
 
 /// A cheap fingerprint of what is in the drive.
@@ -149,6 +151,40 @@ pub async fn burn_erase(recorder_id: String, quick: bool) -> Result<(), String> 
 
 // ── The burn job ─────────────────────────────────────────────────────────────
 
+/// One burn at a time, enforced here and not only in the UI.
+///
+/// The page disables its own button while a job runs, but that is UI state: a
+/// second window, a reload mid-burn, or a bare `invoke` reaches `burn_start`
+/// with nothing in the way. Two jobs would then render a full disc each —
+/// `check_free_space` sizes them independently, so together they can overrun
+/// the volume — for minutes, before the hardware layer refuses the second with
+/// a raw device error (`O_EXCL` on Linux, a bare HRESULT out of
+/// `ExclusiveAccess` on Windows). Refusing up front costs nothing and can say
+/// why.
+static BURN_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Holds the single-burn latch and releases it however the job ends.
+///
+/// A guard rather than a bare `store(false)`: `burn_start` has two fallible
+/// steps after taking it and the job thread can unwind, so Drop covers every
+/// exit without the release being repeated on each path.
+struct BurnLatch;
+
+impl BurnLatch {
+    fn acquire() -> Option<Self> {
+        BURN_ACTIVE
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .ok()
+            .map(|_| BurnLatch)
+    }
+}
+
+impl Drop for BurnLatch {
+    fn drop(&mut self) {
+        BURN_ACTIVE.store(false, Ordering::Release);
+    }
+}
+
 /// Render `tracks` to Red Book PCM and write them to the disc.
 ///
 /// Returns once the job is registered. Watch `burn:progress` and
@@ -177,15 +213,30 @@ pub fn burn_start(
         ));
     }
 
-    let cancel = job::register_job(&job_id);
-    let workdir = burn_workdir(&app, &job_id)?;
+    // Taken before anything is registered or created, so a refused second
+    // attempt leaves nothing behind it.
+    let latch =
+        BurnLatch::acquire().ok_or_else(|| "A burn is already running.".to_string())?;
 
-    std::thread::Builder::new()
+    // Workdir first, because it can fail: a registration made before it would
+    // outlive the job that never started, and `burn_cancel` would then answer
+    // `true` for a dead id for the rest of the session.
+    let (workdir, workdir_lock) = burn_workdir(&app, &job_id)?;
+    let cancel = job::register_job(&job_id);
+
+    let spawn_id = job_id.clone();
+    let spawned = std::thread::Builder::new()
         .name("psysonic-burn-job".into())
         .spawn(move || {
+            // Held for the life of the job, released however it ends —
+            // including an unwind out of `run_job`.
+            let _held = latch;
             let outcome = run_job(&app, &job_id, &workdir, tracks, &options, &cancel);
             // Rendered PCM is large (up to ~846 MB for a full disc) and useless
-            // once the burn is over, so clear it whatever happened.
+            // once the burn is over, so clear it whatever happened. The lock is
+            // released first: on Windows an open handle inside the folder
+            // blocks the delete.
+            drop(workdir_lock);
             let _ = std::fs::remove_dir_all(&workdir);
             job::unregister_job(&job_id);
 
@@ -215,8 +266,14 @@ pub fn burn_start(
                 }
             };
             job::emit_complete(&app, &result);
-        })
-        .map_err(|e| format!("could not start the burn job: {e}"))?;
+        });
+
+    if let Err(error) = spawned {
+        // The closure goes down with the failed spawn and takes the latch with
+        // it; the registration is ours to undo.
+        job::unregister_job(&spawn_id);
+        return Err(format!("could not start the burn job: {error}"));
+    }
 
     Ok(())
 }
@@ -229,15 +286,87 @@ struct JobOutcome {
 }
 
 /// Where rendered PCM lives for the duration of one job.
-fn burn_workdir(app: &AppHandle, job_id: &str) -> Result<PathBuf, String> {
+fn burn_workdir(app: &AppHandle, job_id: &str) -> Result<(PathBuf, WorkdirLock), String> {
     let base = app
         .path()
         .app_cache_dir()
         .map_err(|e| format!("no cache directory available: {e}"))?;
-    let dir = base.join("burn").join(sanitize_job_id(job_id));
+    let root = base.join("burn");
+    let dir = root.join(sanitize_job_id(job_id));
     std::fs::create_dir_all(&dir)
         .map_err(|e| format!("could not create the render folder {}: {e}", dir.display()))?;
-    Ok(dir)
+    let lock = claim_workdir(&dir)
+        .ok_or_else(|| format!("the render folder {} is already in use", dir.display()))?;
+    sweep_stale_workdirs(&root, &dir);
+    Ok((dir, lock))
+}
+
+/// Marks a render folder as belonging to a job that is still running.
+///
+/// Held open for the life of the burn. The OS releases it when the process
+/// does — including a crash, which is the whole point: the sweep has to tell
+/// "abandoned" from "in progress" without being able to ask a process that may
+/// no longer exist.
+///
+/// `BURN_ACTIVE` only latches one *process*, and the workdir root is shared
+/// between instances: the dev and release builds carry the same bundle
+/// identifier, so they resolve the same `app_cache_dir`, and on Linux the
+/// single-instance D-Bus id includes the debug flag, so the two can run
+/// together. Without this the newer one's sweep would delete the older one's
+/// PCM out from under a running render.
+struct WorkdirLock(std::fs::File);
+
+impl Drop for WorkdirLock {
+    fn drop(&mut self) {
+        // Closing the handle would release the lock on its own; doing it here
+        // says so out loud, and keeps the field from reading as dead weight to
+        // anyone — the compiler included — who cannot see that its whole job is
+        // to exist until this moment.
+        let _ = fs4::FileExt::unlock(&self.0);
+    }
+}
+
+fn claim_workdir(dir: &Path) -> Option<WorkdirLock> {
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(false)
+        .open(dir.join(".lock"))
+        .ok()?;
+    // Named through the trait: std grew its own inherent `try_lock` on newer
+    // toolchains, and an inherent method would silently win the lookup.
+    fs4::FileExt::try_lock(&file).ok()?;
+    Some(WorkdirLock(file))
+}
+
+/// Clear render folders a previous run left behind.
+///
+/// The job thread removes its own workdir when it finishes, but a crash or a
+/// quit mid-burn never reaches that line, and a full disc of PCM is up to
+/// ~846 MB. Nothing else has ever swept `burn/`, and every job id is unique,
+/// so the orphans accumulated one per interrupted burn and stayed forever.
+///
+/// A folder is only removed once we hold its lock, which proves no live job in
+/// any instance owns it — see `WorkdirLock`. Best-effort throughout: a folder
+/// we cannot take or cannot delete is not worth failing a burn over, and the
+/// next run will try again.
+fn sweep_stale_workdirs(root: &Path, keep: &Path) {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        if path == keep || !path.is_dir() {
+            continue;
+        }
+        let claimed = claim_workdir(&path);
+        if claimed.is_some() {
+            // Close the handle first: on Windows an open file inside a
+            // directory blocks the delete.
+            drop(claimed);
+            let _ = std::fs::remove_dir_all(&path);
+        }
+    }
 }
 
 /// Job ids come from the frontend, so they never reach the filesystem raw.
@@ -520,7 +649,7 @@ fn run_job(
     // ── Re-check capacity against what actually rendered ─────────────────
     let hints: Vec<u32> = rendered.iter().map(|t| t.sectors).collect();
     let media = platform::probe_media(&options.recorder_id)?;
-    let plan = plan_disc(&tracks, media.capacity_sectors, Some(&hints));
+    let plan = plan_disc(&tracks, media.capacity_sectors, Some(&hints), options.gapless);
     if !plan.fits {
         return Err(plan
             .warnings
@@ -590,5 +719,83 @@ mod tests {
     fn job_ids_cannot_grow_unbounded() {
         let long = "x".repeat(500);
         assert_eq!(sanitize_job_id(&long).len(), 64);
+    }
+
+    /// One test, not three, because `BURN_ACTIVE` is process-global and the
+    /// test harness runs this binary's tests in parallel — separate tests would
+    /// race each other for the latch and flake.
+    #[test]
+    fn the_latch_admits_one_burn_and_survives_a_job_that_unwinds() {
+        let held = BurnLatch::acquire().expect("the latch starts free");
+        assert!(
+            BurnLatch::acquire().is_none(),
+            "a second burn must be refused while the first holds the latch"
+        );
+
+        drop(held);
+        let reacquired = BurnLatch::acquire().expect("dropping the guard frees the latch");
+        drop(reacquired);
+
+        // The guard exists so that a panic inside the job thread cannot strand
+        // the latch and lock the user out of burning for the rest of the
+        // session. Replacing it with a `store(false)` at the end of the closure
+        // would pass every assertion above and fail this one.
+        let hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let blew_up = std::panic::catch_unwind(|| {
+            let _held = BurnLatch::acquire().expect("free again");
+            panic!("the job thread died");
+        });
+        std::panic::set_hook(hook);
+        assert!(blew_up.is_err(), "the test's own panic should have been caught");
+
+        let after = BurnLatch::acquire();
+        assert!(after.is_some(), "an unwinding job must still release the latch");
+    }
+
+    #[test]
+    fn sweeping_clears_abandoned_render_folders_but_never_the_live_one() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let live = root.path().join("burn-live");
+        let stale_a = root.path().join("burn-crashed-yesterday");
+        let stale_b = root.path().join("burn-quit-mid-render");
+        for dir in [&live, &stale_a, &stale_b] {
+            std::fs::create_dir_all(dir).expect("mkdir");
+        }
+        // Orphans hold real weight — a full disc is up to ~846 MB of PCM.
+        std::fs::write(stale_a.join("01.pcm"), b"leftover").expect("write");
+
+        sweep_stale_workdirs(root.path(), &live);
+
+        assert!(live.is_dir(), "the folder this burn is about to use must survive");
+        assert!(!stale_a.exists(), "a crashed run's folder and its PCM must go");
+        assert!(!stale_b.exists());
+    }
+
+    #[test]
+    fn sweeping_spares_a_folder_another_instance_is_still_using() {
+        let root = tempfile::tempdir().expect("tempdir");
+        let mine = root.path().join("burn-mine");
+        let theirs = root.path().join("burn-other-instance");
+        for dir in [&mine, &theirs] {
+            std::fs::create_dir_all(dir).expect("mkdir");
+        }
+
+        // Stands in for a second app instance part-way through a render. It is
+        // reachable: the dev and release builds share a bundle identifier and
+        // therefore a cache directory, and `BURN_ACTIVE` is process-local, so
+        // the lock is the only thing that can see it at all.
+        let theirs_lock = claim_workdir(&theirs).expect("a fresh folder can be claimed");
+
+        sweep_stale_workdirs(root.path(), &mine);
+        assert!(
+            theirs.is_dir(),
+            "a folder another instance holds must survive the sweep — deleting it              would pull the PCM out from under a running render"
+        );
+
+        // Once that instance lets go, the folder is fair game again.
+        drop(theirs_lock);
+        sweep_stale_workdirs(root.path(), &mine);
+        assert!(!theirs.exists(), "an unheld folder should be reclaimed");
     }
 }

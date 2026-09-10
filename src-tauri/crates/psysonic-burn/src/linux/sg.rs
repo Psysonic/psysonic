@@ -201,19 +201,18 @@ impl ScsiDevice {
             ));
         }
 
-        // A command can fail three ways: the ioctl itself (above), the transport
-        // (host/driver), or the drive (status plus sense). All three have to be
-        // checked, or a refused write reads as a successful one.
-        if header.host_status != 0 || header.driver_status != 0 {
-            return Err(ScsiError {
-                message: format!(
-                    "the drive's connection failed (host {:#06x}, driver {:#06x})",
-                    header.host_status, header.driver_status
-                ),
-                sense: None,
-            });
-        }
-
+        // A command can fail three ways: the ioctl itself (above), the drive
+        // (status plus sense), or the transport (host/driver). All three have to
+        // be checked, or a refused write reads as a successful one.
+        //
+        // The drive is asked first because the kernel raises DRIVER_SENSE in
+        // `driver_status` on every CHECK CONDITION, purely to say the sense
+        // buffer is worth reading. Testing the transport ahead of the status
+        // turned every refusal the drive had explained into "the drive's
+        // connection failed" and discarded the sense along with it, costing the
+        // caller both the real message and the 2/04/08 backoff that carries
+        // every write on this path — the lead-in and the program area alike —
+        // past a drive that is briefly not ready.
         if header.status != 0 {
             let decoded = sense_triplet(&sense, header.sb_len_wr as usize);
             return Err(ScsiError {
@@ -222,6 +221,16 @@ impl ScsiDevice {
                     None => format!("the drive reported status {:#04x}", header.status),
                 },
                 sense: decoded,
+            });
+        }
+
+        if header.host_status != 0 || header.driver_status != 0 {
+            return Err(ScsiError {
+                message: format!(
+                    "the drive's connection failed (host {:#06x}, driver {:#06x})",
+                    header.host_status, header.driver_status
+                ),
+                sense: None,
             });
         }
 
@@ -253,14 +262,22 @@ impl ScsiDevice {
 /// different bytes from the fixed format every older drive uses. Reading the
 /// fixed offsets out of a descriptor buffer yields a plausible-looking and
 /// entirely wrong diagnosis.
+///
+/// The two formats also need different amounts of the buffer filled in, so the
+/// length is checked per format rather than once up front. A descriptor buffer
+/// carries all three bytes by offset 3, so four is all it needs, where the
+/// fixed format cannot answer until byte 13. Holding both to fourteen threw
+/// away sense that was short but complete: a drive answering a write with a
+/// descriptor 2/04/08 then looked undiagnosable and was never retried.
 fn sense_triplet(sense: &[u8], written: usize) -> Option<(u8, u8, u8)> {
     let len = written.min(sense.len());
-    if len < 14 {
+    if len < 4 {
         return None;
     }
     match sense[0] & 0x7F {
         0x72 | 0x73 => Some((sense[1] & 0x0F, sense[2], sense[3])),
-        _ => Some((sense[2] & 0x0F, sense[12], sense[13])),
+        _ if len >= 14 => Some((sense[2] & 0x0F, sense[12], sense[13])),
+        _ => None,
     }
 }
 
@@ -291,8 +308,31 @@ mod tests {
     }
 
     #[test]
+    fn a_descriptor_header_on_its_own_is_enough_to_diagnose() {
+        // Eight bytes is a whole descriptor header, and the key, ASC and ASCQ
+        // all live inside it. The retryable lead-in sense arrives this way.
+        let mut sense = [0_u8; 32];
+        sense[0] = 0x72;
+        sense[1] = 0x02;
+        sense[2] = 0x04;
+        sense[3] = 0x08;
+        assert_eq!(sense_triplet(&sense, 8), Some((0x02, 0x04, 0x08)));
+    }
+
+    #[test]
     fn a_truncated_sense_buffer_is_not_guessed_at() {
         let sense = [0_u8; 32];
         assert_eq!(sense_triplet(&sense, 4), None);
+    }
+
+    #[test]
+    fn a_short_fixed_format_buffer_is_not_guessed_at_either() {
+        // Fixed format keeps ASC and ASCQ at bytes 12 and 13, so eight bytes
+        // says nothing about them and the zeros sitting there must not be read
+        // as a diagnosis.
+        let mut sense = [0_u8; 32];
+        sense[0] = 0x70;
+        sense[2] = 0x05;
+        assert_eq!(sense_triplet(&sense, 8), None);
     }
 }

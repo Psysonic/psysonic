@@ -152,18 +152,49 @@ pub fn measure_loudness(path: &Path, cancel: &AtomicBool) -> Result<TrackLoudnes
     let mut stereo: Vec<f32> = Vec::new();
     let mut yields: u32 = 0;
 
-    while let Ok(Some(packet)) = format.next_packet() {
+    // Symphonia distinguishes three outcomes here and so must this loop:
+    // `Ok(None)` is the end of the media, `Err(ResetRequired)` means the
+    // container changed shape and every decoder built from it is now invalid,
+    // and the docs say plainly that "all other errors are unrecoverable". The
+    // `while let Ok(Some(..))` this replaces collapsed all three into "stop
+    // here", with no error set — so a file that failed to read halfway through
+    // was written to the disc as a short track and reported as a successful
+    // burn, on media that cannot be rewritten.
+    let mut needs_reset = false;
+    loop {
+        let packet = match format.next_packet() {
+            Ok(Some(packet)) => packet,
+            Ok(None) => break,
+            Err(SymphoniaError::ResetRequired) => {
+                return Err("the file changes format partway through; cannot burn".to_string())
+            }
+            Err(e) => return Err(format!("could not read the audio stream: {e}")),
+        };
         if cancel.load(Ordering::Relaxed) {
             return Err("cancelled".to_string());
         }
         if packet.track_id != track_id {
             continue;
         }
+        if needs_reset {
+            // A discontinuity, not a failure: symphonia asks for a reset and
+            // the next packet decodes normally. Breaking here truncated a
+            // chained stream at its first join.
+            decoder.reset();
+            needs_reset = false;
+        }
         let decoded = match decoder.decode(&packet) {
             Ok(buf) => buf,
+            // The one error symphonia documents as recoverable: a malformed
+            // packet, skipped so the rest of the track still burns.
             Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(SymphoniaError::ResetRequired) => break,
-            Err(_) => break,
+            // Cannot reset in this arm — `decoded` borrows the decoder for the
+            // whole match, so the reset happens at the top of the next pass.
+            Err(SymphoniaError::ResetRequired) => {
+                needs_reset = true;
+                continue;
+            }
+            Err(e) => return Err(format!("could not decode the audio: {e}")),
         };
         let channels = decoded.spec().channels().count();
         let rate = decoded.spec().rate();
@@ -344,18 +375,49 @@ pub fn render_track(
     let mut interleaved: Vec<f32> = Vec::new();
     let mut yields: u32 = 0;
 
-    while let Ok(Some(packet)) = format.next_packet() {
+    // Symphonia distinguishes three outcomes here and so must this loop:
+    // `Ok(None)` is the end of the media, `Err(ResetRequired)` means the
+    // container changed shape and every decoder built from it is now invalid,
+    // and the docs say plainly that "all other errors are unrecoverable". The
+    // `while let Ok(Some(..))` this replaces collapsed all three into "stop
+    // here", with no error set — so a file that failed to read halfway through
+    // was written to the disc as a short track and reported as a successful
+    // burn, on media that cannot be rewritten.
+    let mut needs_reset = false;
+    loop {
+        let packet = match format.next_packet() {
+            Ok(Some(packet)) => packet,
+            Ok(None) => break,
+            Err(SymphoniaError::ResetRequired) => {
+                return Err("the file changes format partway through; cannot burn".to_string())
+            }
+            Err(e) => return Err(format!("could not read the audio stream: {e}")),
+        };
         if cancel.load(Ordering::Relaxed) {
             return Err("cancelled".to_string());
         }
         if packet.track_id != track_id {
             continue;
         }
+        if needs_reset {
+            // A discontinuity, not a failure: symphonia asks for a reset and
+            // the next packet decodes normally. Breaking here truncated a
+            // chained stream at its first join.
+            decoder.reset();
+            needs_reset = false;
+        }
         let decoded = match decoder.decode(&packet) {
             Ok(buf) => buf,
+            // The one error symphonia documents as recoverable: a malformed
+            // packet, skipped so the rest of the track still burns.
             Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(SymphoniaError::ResetRequired) => break,
-            Err(_) => break,
+            // Cannot reset in this arm — `decoded` borrows the decoder for the
+            // whole match, so the reset happens at the top of the next pass.
+            Err(SymphoniaError::ResetRequired) => {
+                needs_reset = true;
+                continue;
+            }
+            Err(e) => return Err(format!("could not decode the audio: {e}")),
         };
         let channels = decoded.spec().channels().count();
         let rate = decoded.spec().rate();
@@ -503,6 +565,71 @@ pub fn sectors_to_bytes(sectors: u32) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A minimal 44.1 kHz 16-bit stereo WAV, `frames` long.
+    ///
+    /// Built here rather than checked in as a fixture so the expected sector
+    /// count is arithmetic the test states out loud, not a property of a
+    /// binary nobody can read in a diff.
+    fn wav_bytes(frames: u32) -> Vec<u8> {
+        let data_len = frames * 4;
+        let mut out = Vec::with_capacity(44 + data_len as usize);
+        out.extend_from_slice(b"RIFF");
+        out.extend_from_slice(&(36 + data_len).to_le_bytes());
+        out.extend_from_slice(b"WAVEfmt ");
+        out.extend_from_slice(&16u32.to_le_bytes());
+        out.extend_from_slice(&1u16.to_le_bytes());
+        out.extend_from_slice(&2u16.to_le_bytes());
+        out.extend_from_slice(&44_100u32.to_le_bytes());
+        out.extend_from_slice(&(44_100u32 * 4).to_le_bytes());
+        out.extend_from_slice(&4u16.to_le_bytes());
+        out.extend_from_slice(&16u16.to_le_bytes());
+        out.extend_from_slice(b"data");
+        out.extend_from_slice(&data_len.to_le_bytes());
+        for i in 0..frames {
+            let v = ((i % 1000) as i16).wrapping_mul(8);
+            out.extend_from_slice(&v.to_le_bytes());
+            out.extend_from_slice(&v.to_le_bytes());
+        }
+        out
+    }
+
+    #[test]
+    fn a_whole_wav_renders_to_the_sector_count_its_length_implies() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let src = dir.path().join("a.wav");
+        let dest = dir.path().join("a.pcm");
+        // Exactly one second: 44 100 frames x 4 bytes = 176 400 = 75 sectors.
+        std::fs::write(&src, wav_bytes(44_100)).expect("write wav");
+
+        let cancel = AtomicBool::new(false);
+        let track = render_track(&src, &dest, 1.0, &cancel, &|_: u64| {}).expect("render");
+        assert_eq!(track.sectors, 75);
+    }
+
+    #[test]
+    fn a_source_that_stops_early_fails_instead_of_burning_short() {
+        // The bug this pins reached a disc. The decode loop was
+        // `while let Ok(Some(..))`, so a read failure partway through ended it
+        // with no error set; the short result then passed the `sectors > 0`
+        // guard and was reported as a successful burn, on media that cannot be
+        // rewritten. Symphonia's contract is that `Ok(None)` is the end of the
+        // media and every error but `ResetRequired` is unrecoverable.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let src = dir.path().join("cut.wav");
+        let dest = dir.path().join("cut.pcm");
+        let mut bytes = wav_bytes(44_100);
+        // The header still promises a full second; half the samples are gone.
+        bytes.truncate(44 + 44_100 * 2);
+        std::fs::write(&src, bytes).expect("write wav");
+
+        let cancel = AtomicBool::new(false);
+        let result = render_track(&src, &dest, 1.0, &cancel, &|_: u64| {});
+        assert!(
+            result.is_err(),
+            "a source that ends early must not render as a whole track: {result:?}"
+        );
+    }
 
     #[test]
     fn mono_is_duplicated_across_both_channels() {
