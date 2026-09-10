@@ -49,7 +49,7 @@ export interface BurnCompleteEvent {
   cdTextVerification: CdTextVerification | null;
 }
 
-/** Whether this platform has a burn backend at all (Windows today). */
+/** Whether this platform has a burn backend at all (Windows, macOS, Linux). */
 export function burnIsSupported(): Promise<boolean> {
   return commands.burnIsSupported();
 }
@@ -118,10 +118,14 @@ export async function mediaState(args: { recorderId: string }): Promise<string> 
 /**
  * Eject the disc and pull it back in.
  *
- * The way out of a stale drive verdict: after a rehearsal the drive can keep
- * describing an untouched CD-R as used, and a CD-R cannot be erased back out
- * of that. Windows only — macOS reads the disc directly and never gets stuck
- * this way.
+ * The way out of a stale drive verdict: a rehearsal leaves the drive holding a
+ * session it opened and never closed, so it goes on describing an untouched
+ * CD-R as used — and a CD-R cannot be erased back out of that.
+ *
+ * Not a quirk of any one platform, whatever it first looked like: Linux asks
+ * the drive directly and gets the same wrong-looking answer as Windows does
+ * through IMAPI2. A burn now reloads after a rehearsal on its own, so this is
+ * the manual escape hatch rather than the usual route.
  */
 export async function reloadMedia(args: { recorderId: string }): Promise<void> {
   const res = await commands.burnReloadMedia(args.recorderId);

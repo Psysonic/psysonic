@@ -1,12 +1,18 @@
 //! MMC pieces the CD-TEXT write needs, kept pure and testable.
 //!
-//! IMAPI2 has no CD-TEXT support (see the feature README), so that path drives
-//! the recorder directly through `IDiscRecorder2Ex::SendCommand*`.
-//! Everything that can be decided without a drive — the cue sheet, the Write
-//! Parameters mode page, the command blocks — lives here so it can be checked
-//! against the specification rather than against a stack of coasters.
+//! Shared by every backend that drives a recorder itself: Windows, because
+//! IMAPI2 has no CD-TEXT support and that path falls back to
+//! `IDiscRecorder2Ex::SendCommand*`, and Linux, where `SG_IO` is the only way
+//! in. Everything that can be decided without a drive — the cue sheet, the
+//! Write Parameters mode page, the command blocks — lives here so it can be
+//! checked against the specification rather than against a stack of coasters.
 //!
-//! References are to ANSI X3.304-1997 (SCSI-3 Multimedia Commands).
+//! **Mind the specification.** ANSI X3.304-1997 is MMC-1, and it predates
+//! CD-TEXT entirely — it does not mention it once. Building the lead-in write
+//! from that document is what produced the first round of discs whose CD-TEXT
+//! no player could read. Anything CD-TEXT-shaped here follows MMC-3 (INCITS
+//! 360-2002) and cdrdao's `GenericMMC`, which is where the working behaviour
+//! was finally pinned down.
 
 pub mod cue;
 pub mod mode;
