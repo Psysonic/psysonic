@@ -574,22 +574,8 @@ pub fn verify_cd_text(recorder: &IDiscRecorder2) -> CdTextVerification {
         return CdTextVerification::found(0);
     }
 
-    let packs = count_valid_packs(&buffer[4..fetched]) as u32;
+    let packs = crate::cdtext::count_valid_packs(&buffer[4..fetched]) as u32;
     crate::app_deprintln!("[burn] CD-TEXT read-back: {fetched} bytes, {packs} valid packs");
     CdTextVerification::found(packs)
 }
 
-/// How many well-formed CD-TEXT packs are in `raw`.
-///
-/// Counts only packs whose CRC checks out, so a drive returning a buffer of
-/// zeros scores nothing rather than looking like a success.
-pub fn count_valid_packs(raw: &[u8]) -> usize {
-    raw.as_chunks::<{ crate::cdtext::PACK_BYTES }>()
-        .0
-        .iter()
-        .filter(|pack| {
-            // A pack type outside 80h..8Fh is padding, not CD-TEXT.
-            (0x80..=0x8F).contains(&pack[0]) && crate::cdtext::pack_crc_matches(pack.as_slice())
-        })
-        .count()
-}

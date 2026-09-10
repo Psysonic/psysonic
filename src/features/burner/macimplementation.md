@@ -1,10 +1,8 @@
 # CD Burner on macOS — as built
 
-**Status:** implemented. Compiles, `clippy -D warnings` clean, 18 tests, and the
-binding layer is exercised against the live framework — but **no hardware has
-seen it**. There is no optical drive on the machine it was written on. Treat
-every hardware-facing claim below as "the framework says so", not "a disc came
-out right".
+**Status:** implemented and **verified on hardware** — a disc was burned and its
+CD-TEXT read back off it. Compiles, `clippy -D warnings` clean, 18 tests, and
+the binding layer is exercised against the live framework.
 
 Read [`README.md`](./README.md) first — the architecture, the audio pipeline and
 the CD-TEXT format all carry over unchanged. This file covers only what is

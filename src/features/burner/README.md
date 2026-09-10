@@ -1,10 +1,9 @@
 # CD Burner — design document
 
-**Status:** shipping on Windows, verified on hardware — audio, gapless
-Disc-At-Once, and **CD-TEXT confirmed by reading it back off a burned disc**.
-macOS is implemented but has never met a drive; see
-[`macimplementation.md`](./macimplementation.md) for what is verified and what
-is still waiting on hardware. Linux is not implemented.
+**Status:** shipping on **Windows, macOS and Linux**, all three verified on
+hardware — audio, gapless Disc-At-Once, and **CD-TEXT confirmed by reading it
+back off a burned disc**. See [`macimplementation.md`](./macimplementation.md)
+for the macOS specifics.
 
 **Scope:** burn a Red Book audio CD-R from library tracks, with CD-TEXT readable
 by players that support it.
@@ -424,10 +423,44 @@ GPL-2.0-*only* code cannot be merged into this GPL-3.0-or-later tree.
 
 ## 9. Linux and macOS
 
-**Linux.** `SG_IO` ioctl passthrough, same MMC sequence as `win_sao.rs`. Requires the
-user to be in the `cdrom` group or have an appropriate udev rule — detect and
-explain rather than failing opaquely. Shelling out to `cdrdao` is a reasonable
-fallback since most distros package it.
+**Linux.** Implemented in `linux/`. `SG_IO` ioctl passthrough, running the same
+MMC sequence as `win_sao.rs` — the cue sheet, mode page `05h` and the CD-TEXT
+lead-in are literally the same `mmc/` and `cdtext/` code the Windows burn uses,
+so only the transport differs.
+
+There is no second path to fall back to, so Session-At-Once is the only write
+mode, with or without CD-TEXT. Two things Windows got from IMAPI2 had to be
+built by hand and now live in `mmc/scsi.rs`: `GET CONFIGURATION` for the CD
+Mastering feature (`002Eh`), and `MODE SENSE`/`MODE SELECT(10)` around the
+Write Parameters page. Drive discovery reads `/proc/sys/dev/cdrom/info` rather
+than probing, so listing drives does not spin up every optical device in the
+machine.
+
+Permissions are the usual first failure: the user must be in the `cdrom` group,
+and `sg.rs` says so by name rather than reporting a bare `EACCES`.
+
+Verified on hardware against an HL-DT-ST DVDRAM GP65NB60 over USB: discovery,
+the capability probe (which reports bit-for-bit what the Windows path reports
+for the same drive), blank detection, ATIP capacity, the Write Parameters
+negotiation, the cue sheet, test writes both with and without CD-TEXT, and a
+real burn read back afterwards.
+
+Three bugs came out of that session, none of which a unit test would have
+caught, and all three are worth knowing about because the wrong version looked
+entirely plausible:
+
+- `read_to_string` on `/proc/sys/dev/cdrom/info` returns **one short chunk**.
+  Files under `/proc/sys` come from the sysctl interface, which reports a size
+  of zero and serves the whole table in a single read; the size hint made Rust
+  take 32 bytes and stop. The parser then worked perfectly on a truncated first
+  line and every drive silently vanished. `read_kernel_table` does one big read.
+- Capacity came back as 150 sectors — the pregap — because `READ TOC` format
+  `0001b` gives the *first track's* start, not the lead-out. A blank CD-R has no
+  TOC at all, so its capacity can only come from ATIP; bytes 9..12 there are the
+  lead-*in* start and parse just as happily into a 97-minute disc.
+- The CD-TEXT block was built from the first track's performer rather than the
+  disc performer the user typed, which would have produced different discs from
+  the same queue depending on the platform.
 
 **macOS.** Implemented in `macos.rs` / `macos_ffi.rs`.
 `DiscRecording.framework` supports CD-TEXT natively via `DRCDTextBlock` — the

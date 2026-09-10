@@ -15,14 +15,14 @@ use crate::model::{BurnMediaInfo, BurnOptions, BurnOutcome, BurnRecorder, CdText
 use crate::render::RenderedTrack;
 
 /// Shown wherever a user without a backend reaches the burner.
-#[cfg(not(any(windows, target_os = "macos")))]
+#[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
 pub const UNSUPPORTED: &str =
-    "CD burning is available on Windows and macOS in this release. Linux support is planned.";
+    "CD burning is not available on this platform.";
 
 /// Is there a burn backend on this platform at all? The UI uses this to show
 /// an explanation instead of an empty drive list.
 pub fn is_supported() -> bool {
-    cfg!(any(windows, target_os = "macos"))
+    cfg!(any(windows, target_os = "macos", target_os = "linux"))
 }
 
 pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
@@ -30,11 +30,15 @@ pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
     {
         crate::win::list_recorders()
     }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux::list_recorders()
+    }
     #[cfg(target_os = "macos")]
     {
         crate::macos::list_recorders()
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     {
         // Not an error: an empty list plus `is_supported() == false` lets the
         // UI say why, rather than showing a failed-to-load toast.
@@ -47,11 +51,15 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
     {
         crate::win::probe_media(recorder_id)
     }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux::probe_media(recorder_id)
+    }
     #[cfg(target_os = "macos")]
     {
         crate::macos::probe_media(recorder_id)
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     {
         let _ = recorder_id;
         Err(UNSUPPORTED.to_string())
@@ -69,11 +77,15 @@ pub fn burn(
     {
         crate::win::burn(app, job_id, tracks, options, cancel)
     }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux::burn(app, job_id, tracks, options, cancel)
+    }
     #[cfg(target_os = "macos")]
     {
         crate::macos::burn(app, job_id, tracks, options, cancel)
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     {
         let _ = (app, job_id, tracks, options, cancel);
         Err(UNSUPPORTED.to_string())
@@ -86,11 +98,15 @@ pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
     {
         crate::win::verify_cd_text(recorder_id)
     }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux::verify_cd_text(recorder_id)
+    }
     #[cfg(target_os = "macos")]
     {
         crate::macos::verify_cd_text(recorder_id)
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     {
         let _ = recorder_id;
         Err(UNSUPPORTED.to_string())
@@ -108,10 +124,14 @@ pub fn reload_media(recorder_id: &str) -> Result<(), String> {
     {
         crate::win::reload_media(recorder_id)
     }
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux::reload_media(recorder_id)
+    }
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         let _ = recorder_id;
-        Err("Reloading the disc is only needed, and only available, on Windows.".to_string())
+        Err("Reloading the disc is not available on this platform.".to_string())
     }
 }
 
@@ -120,11 +140,15 @@ pub fn erase(recorder_id: &str, quick: bool) -> Result<(), String> {
     {
         crate::win::erase(recorder_id, quick)
     }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux::erase(recorder_id, quick)
+    }
     #[cfg(target_os = "macos")]
     {
         crate::macos::erase(recorder_id, quick)
     }
-    #[cfg(not(any(windows, target_os = "macos")))]
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
     {
         let _ = (recorder_id, quick);
         Err(UNSUPPORTED.to_string())
