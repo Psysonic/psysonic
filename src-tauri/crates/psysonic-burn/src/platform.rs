@@ -2,9 +2,8 @@
 //!
 //! The commands compile everywhere so the frontend keeps one typed surface and
 //! the specta bindings stay platform-independent. Only the implementation is
-//! gated: Windows gets IMAPI2, macOS gets `DiscRecording.framework`, and
-//! everything else gets an honest refusal until the Linux (SG_IO) backend
-//! lands.
+//! gated: Windows gets IMAPI2, macOS gets `DiscRecording.framework`, Linux
+//! gets `SG_IO` passthrough, and anything else gets an honest refusal.
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -115,10 +114,15 @@ pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
 
 /// Eject and reload the disc so the drive re-reads it.
 ///
-/// Windows only, and deliberately so: this exists because IMAPI2's blankness
-/// heuristic keeps describing a disc the way it did when a rehearsal ended.
-/// macOS asks DiscRecording directly and has no equivalent stale state, so
-/// there is nothing there for a reload to fix.
+/// Not a library quirk, whatever it first looked like: a rehearsal leaves the
+/// drive holding a session it opened and never closed, and until the medium is
+/// reloaded it stops calling the disc blank. Windows made that look like a bug
+/// in IMAPI2's blankness heuristic, but the Linux path has no heuristic - it
+/// asks the drive with READ DISC INFORMATION - and gets the same answer, so the
+/// cause is the drive, not the library above it.
+///
+/// Implemented on Windows and Linux. macOS ejects through its burn completion
+/// action instead, so it has no separate call to make here.
 pub fn reload_media(recorder_id: &str) -> Result<(), String> {
     #[cfg(windows)]
     {

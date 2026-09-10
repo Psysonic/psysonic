@@ -1,8 +1,8 @@
 //! Red Book constants and the DTOs shared across the IPC boundary.
 //!
-//! Everything here is platform-independent and serialisable; the Windows
-//! IMAPI2 layer (`crate::win`) converts to and from these types so the
-//! frontend never sees a COM concept.
+//! Everything here is platform-independent and serialisable; each backend
+//! converts to and from these types, so the frontend never sees a COM object,
+//! a CoreFoundation dictionary or a file descriptor.
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -41,11 +41,15 @@ pub const CD_CHANNELS: usize = 2;
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
 pub struct BurnRecorder {
-    /// Opaque IMAPI2 recorder id. Round-trips back on every later call.
+    /// Opaque per-platform recorder id — an IMAPI2 id on Windows, a device
+    /// path on Linux. Round-trips back on every later call, and each backend
+    /// resolves it against the drives it actually found rather than trusting
+    /// it as a path.
     pub id: String,
     /// Human label, e.g. `HL-DT-ST BD-RE WH16NS40`.
     pub name: String,
-    /// Mount points the recorder currently owns, e.g. `["E:\\"]`.
+    /// Where the drive shows up in the filesystem: mount points on Windows
+    /// (`["E:\\"]`), the device node on Linux (`["/dev/sr0"]`).
     pub volume_paths: Vec<String>,
     /// Whether the drive can write CD-R/CD-RW at all. A DVD-only reader is
     /// listed but not selectable.
