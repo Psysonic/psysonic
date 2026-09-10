@@ -59,3 +59,17 @@ describe('Flatpak signing continuity wiring', () => {
     assert.match(source, /ACTUAL_FINGERPRINT" != "\$EXPECTED_FINGERPRINT/);
   });
 });
+
+describe('Flatpak GitHub Release publication gate', () => {
+  it('rejects draft or unpublished releases before deployment planning', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+    const releaseGate = source.indexOf('must be publicly published before its Flatpak channel can update');
+    const deploymentPlan = source.indexOf('- name: plan channel deployment');
+
+    assert.match(source, /--json isDraft,isPrerelease,publishedAt/);
+    assert.match(source, /\.isDraft == false/);
+    assert.match(source, /\.publishedAt != null/);
+    assert.ok(releaseGate >= 0, 'workflow must reject an unpublished GitHub Release');
+    assert.ok(releaseGate < deploymentPlan, 'release publication must be checked before deployment planning');
+  });
+});

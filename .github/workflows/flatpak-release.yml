@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Existing tag: app-vX.Y.Z or app-vX.Y.Z-rc.N"
+        description: "Published GitHub Release tag: app-vX.Y.Z or app-vX.Y.Z-rc.N"
         required: true
         type: string
 
@@ -40,7 +40,7 @@ jobs:
           submodules: recursive
           persist-credentials: false
 
-      - name: select channel and verify packaging pin
+      - name: verify published release, channel and packaging pin
         id: release
         working-directory: flatpak
         env:
@@ -59,7 +59,12 @@ jobs:
             exit 1
           fi
 
-          RELEASE_PRERELEASE="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)"
+          RELEASE_JSON="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,publishedAt)"
+          if ! jq -e '(.isDraft == false) and (.publishedAt != null) and (.publishedAt != "")' <<< "$RELEASE_JSON" >/dev/null; then
+            echo "::error::GitHub Release $RELEASE_TAG must be publicly published before its Flatpak channel can update"
+            exit 1
+          fi
+          RELEASE_PRERELEASE="$(jq -r '.isPrerelease' <<< "$RELEASE_JSON")"
           if [ "$RELEASE_PRERELEASE" != "$EXPECTED_PRERELEASE" ]; then
             echo "::error::Release prerelease flag does not match the $CHANNEL channel"
             exit 1
