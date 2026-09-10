@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { listRecorders, probeMedia } from '@/lib/api/burn';
+import { listRecorders, mediaState, probeMedia } from '@/lib/api/burn';
 import type { BurnMediaInfo, BurnRecorder } from '@/lib/api/burn';
 import { primeBurnSupport, useBurnSupportStore } from '@/features/burner/store/burnSupportStore';
+
+/** How often to ask the drive what is in it, while the page is open. */
+const MEDIA_POLL_MS = 3000;
 
 export interface BurnRecordersState {
   supported: boolean;
@@ -21,7 +24,7 @@ export interface BurnRecordersState {
  * discs get swapped while the page is open, and a stale capacity would let the
  * user queue a disc that cannot fit.
  */
-export function useBurnRecorders(): BurnRecordersState {
+export function useBurnRecorders(paused = false): BurnRecordersState {
   // Platform support is shared with the context menu and answered once per
   // process; this hook only waits for it.
   const support = useBurnSupportStore(s => s.supported);
@@ -71,6 +74,40 @@ export function useBurnRecorders(): BurnRecordersState {
 
     return () => { cancelled = true; };
   }, [support, nonce]);
+
+  // Watch for a disc being put in or taken out.
+  //
+  // Polling a cheap fingerprint rather than re-probing: a full probe reads ATIP
+  // and the TOC and can make the drive seek, which is not something to do every
+  // few seconds. Paused while a burn runs — the drive is held exclusively then,
+  // and the job's own events already drive the UI — and while the window is
+  // hidden, so a backgrounded app is not keeping an optical drive awake.
+  useEffect(() => {
+    if (!selectedId || paused) return;
+    let cancelled = false;
+    let last: string | null = null;
+
+    const tick = async () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      try {
+        const token = await mediaState({ recorderId: selectedId });
+        if (cancelled) return;
+        // The first token establishes the baseline; only a change re-probes.
+        if (last !== null && token !== last) setNonce(n => n + 1);
+        last = token;
+      } catch {
+        // A drive that will not answer is not an error worth surfacing from a
+        // background poll; the next tick tries again.
+      }
+    };
+
+    void tick();
+    const timer = setInterval(() => void tick(), MEDIA_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [selectedId, paused]);
 
   // Media in the selected drive.
   useEffect(() => {

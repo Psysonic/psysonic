@@ -103,6 +103,19 @@ export async function verifyCdText(args: { recorderId: string }): Promise<CdText
 }
 
 /**
+ * A cheap fingerprint of what is in the drive.
+ *
+ * Opaque by design: compare it with the last one seen and re-probe when it
+ * differs. Each platform answers with whatever it can ask most cheaply, and
+ * none of that leaks up here.
+ */
+export async function mediaState(args: { recorderId: string }): Promise<string> {
+  const res = await commands.burnMediaState(args.recorderId);
+  if (res.status === 'error') throw new Error(res.error);
+  return res.data;
+}
+
+/**
  * Eject the disc and pull it back in.
  *
  * The way out of a stale drive verdict: after a rehearsal the drive can keep

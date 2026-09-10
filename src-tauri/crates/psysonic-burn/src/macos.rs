@@ -253,6 +253,35 @@ pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
 
 // ── Media probe ──────────────────────────────────────────────────────────────
 
+/// A cheap fingerprint of what is in the drive.
+///
+/// Polled while the burner page is open so an inserted disc is noticed without
+/// the user hunting for Refresh. `DRDeviceCopyStatus` is one dictionary read,
+/// so unlike the other two backends nothing had to be made cheaper for this.
+pub fn media_state(recorder_id: &str) -> Result<String, String> {
+    let Ok(device) = open_device(recorder_id) else {
+        // The poll runs constantly and must never raise a toast.
+        return Ok("unavailable".to_string());
+    };
+
+    // SAFETY: `device` is valid; the status dictionary comes back +1.
+    unsafe {
+        let Some(status) = CfOwned::from_create(DRDeviceCopyStatus(device.get())) else {
+            return Ok("unavailable".to_string());
+        };
+        let status = status.get();
+        let state = dict_get(status, kDRDeviceMediaStateKey);
+        if !cf_string_eq(state, kDRDeviceMediaStateMediaPresent) {
+            return Ok("empty".to_string());
+        }
+        let media = dict_get(status, kDRDeviceMediaInfoKey);
+        let kind = cf_to_string(dict_get(media, kDRDeviceMediaTypeKey))
+            .unwrap_or_else(|| "unknown".to_string());
+        let blank = dict_bool(media, kDRDeviceMediaIsBlankKey).unwrap_or(false);
+        Ok(format!("{kind}:{blank}"))
+    }
+}
+
 pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
     let device = open_device(recorder_id)?;
 
