@@ -92,6 +92,14 @@ describe('Flatpak build dependencies', () => {
 });
 
 describe('Flatpak GitHub Release publication gate', () => {
+  it('starts automatically when a prepared GitHub Release is published', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+
+    assert.match(source, /release:\s*\n\s*types: \[published\]/);
+    assert.match(source, /inputs\.release_tag \|\| github\.event\.release\.tag_name/);
+    assert.match(source, /workflow_dispatch:/);
+  });
+
   it('rejects draft or unpublished releases before deployment planning', () => {
     const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
     const releaseGate = source.indexOf('must be publicly published before its Flatpak channel can update');
@@ -127,4 +135,21 @@ describe('Flatpak GitHub Release publication gate', () => {
     assert.match(source, /commit\/\$EXPECTED_SHA/);
     assert.doesNotMatch(source, /\[ "\$IS_TEST" = false \] && ! grep/);
   });
+});
+
+describe('GitHub artifact action runtime', () => {
+  for (const workflow of [
+    'flatpak-release.yml',
+    'frontend-tests.yml',
+    'linux-bundle-test.yml',
+    'macos-bundle-test.yml',
+    'rust-tests.yml',
+  ]) {
+    it(`${workflow} uses the Node 24 artifact action`, () => {
+      const source = readFileSync(new URL(`../.github/workflows/${workflow}`, import.meta.url), 'utf8');
+
+      assert.match(source, /actions\/upload-artifact@v7/);
+      assert.doesNotMatch(source, /actions\/upload-artifact@v4/);
+    });
+  }
 });

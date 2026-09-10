@@ -3,7 +3,10 @@
   "version": "1.53.0-dev",
   "private": true,
   "engines": {
-    "node": ">=22.22.0"
+    "node": ">=24.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   },
   "scripts": {
     "check:css-imports": "node scripts/check-css-import-graph.mjs",
@@ -74,7 +77,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "dependency-cruiser": "^18.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
@@ -85,7 +88,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.0",
     "vite": "^8.0.14",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "undici": "^7.29.0"

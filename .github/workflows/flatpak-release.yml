@@ -1,6 +1,8 @@
 name: Flatpak Publish
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       release_tag:
@@ -26,12 +28,13 @@ env:
 
 jobs:
   build-and-publish:
+    if: ${{ github.event_name != 'release' || startsWith(github.event.release.tag_name, 'app-v') }}
     runs-on: ubuntu-24.04
     steps:
       - name: check out release source
         uses: actions/checkout@v5
         with:
-          ref: ${{ inputs.test_source_sha || inputs.release_tag || github.sha }}
+          ref: ${{ inputs.test_source_sha || inputs.release_tag || github.event.release.tag_name || github.sha }}
           path: app
           persist-credentials: false
 
@@ -49,7 +52,7 @@ jobs:
         working-directory: flatpak
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
           TEST_SOURCE_SHA: ${{ inputs.test_source_sha }}
         run: |
           set -euo pipefail
@@ -277,7 +280,7 @@ jobs:
           GPG_PUBLIC_KEY: ${{ steps.signing.outputs.public_key }}
           PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
           PRIMARY_CHANNEL: ${{ steps.release.outputs.channel }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
           SOURCE_SHA: ${{ steps.release.outputs.source_sha }}
           IS_TEST: ${{ steps.release.outputs.is_test }}
         run: |
@@ -388,7 +391,7 @@ jobs:
         env:
           CHANNEL: ${{ steps.release.outputs.channel }}
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.release_tag }}
+          RELEASE_TAG: ${{ inputs.release_tag || github.event.release.tag_name }}
         run: |
           gh release upload "$RELEASE_TAG" \
             Psysonic.flatpak \
@@ -399,7 +402,7 @@ jobs:
 
       - name: upload test bundle artifact
         if: steps.release.outputs.is_test == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: psysonic-flatpak-test-${{ github.run_id }}
           path: |
