@@ -119,6 +119,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Without the system bar the mini player uses its own slim one: drag it by the track title, with pin, main window and close beside it.
 * Off by default, and it takes effect straight away — no restart. Windows only; Linux has always looked this way and macOS keeps its traffic lights.
 
+### Flatpak updates retain rollback history
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1537](https://github.com/Psysonic/psysonic/pull/1537)**
+
+* The signed stable repository now keeps the current release and four previous releases, so a recent version can be selected again with Flatpak's commit rollback command instead of disappearing when the next update is published.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again
