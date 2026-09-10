@@ -37,8 +37,13 @@ const DEFAULT_SETTINGS: BurnSettings = {
   gapless: true,
   normalize: false,
   ejectWhenDone: true,
-  // Off until a burn on real hardware has been read back and verified.
-  cdText: false,
+  // On by default. It was off until a burn had been read back off real
+  // hardware; that has now happened on all three platforms, and a disc whose
+  // track names a player can show is simply the better disc. A drive that
+  // cannot write it turns this off on its own - the value sent to the backend
+  // is `settings.cdText && cdTextSupported` - so defaulting to on costs a
+  // user with an incapable drive nothing.
+  cdText: true,
 };
 
 export default function Burner() {
