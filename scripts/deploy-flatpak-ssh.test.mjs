@@ -176,6 +176,18 @@ describe('Flatpak SSH deployment', () => {
     assert.doesNotMatch(publishWorkflow, /OSTREE_FTP|lftp/);
   });
 
+  it('retains bounded release history while keeping the test channel ephemeral', () => {
+    assert.match(publishWorkflow, /apt-get install -y[^\n]*\bostree\b/);
+    assert.match(publishWorkflow, /stable\) REPO_HISTORY_DEPTH=4/);
+    assert.match(publishWorkflow, /rc\) REPO_HISTORY_DEPTH=2/);
+    assert.match(publishWorkflow, /test\) REPO_HISTORY_DEPTH=0/);
+    assert.match(publishWorkflow, /if \[ "\$CHANNEL" != test \]/);
+    assert.match(publishWorkflow, /200\) REPO_SEED_URL="\$REPO_URL"/);
+    assert.match(publishWorkflow, /GPG_KEYS="\$GPG_PUBLIC_KEY"/);
+    assert.match(publishWorkflow, /REPO_HISTORY_DEPTH="\$REPO_HISTORY_DEPTH"/);
+    assert.match(publishWorkflow, /REPO_SEED_URL="\$REPO_SEED_URL"/);
+  });
+
   it('keeps the diagnostic workflow non-release and cleanup-oriented', () => {
     assert.match(diagnosticWorkflow, /workflow_dispatch/);
     assert.match(diagnosticWorkflow, /deploy-flatpak-ssh\.sh diagnose/);

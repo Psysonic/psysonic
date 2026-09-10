@@ -197,7 +197,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq python3-venv
+          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq ostree python3-venv
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub \
             org.gnome.Platform//50 \
@@ -312,10 +312,33 @@ jobs:
 
           for CHANNEL in $DEPLOY_CHANNELS; do
             REPO_URL="$PUBLIC_BASE_URL/$CHANNEL/repo/"
+            REPO_SEED_URL=
+            case "$CHANNEL" in
+              stable) REPO_HISTORY_DEPTH=4 ;;
+              rc) REPO_HISTORY_DEPTH=2 ;;
+              test) REPO_HISTORY_DEPTH=0 ;;
+            esac
+
+            if [ "$CHANNEL" != test ]; then
+              SEED_STATUS="$(curl --silent --show-error --output /dev/null \
+                --write-out '%{http_code}' "${REPO_URL}summary")"
+              case "$SEED_STATUS" in
+                200) REPO_SEED_URL="$REPO_URL" ;;
+                404) ;;
+                *)
+                  echo "::error::Could not read existing $CHANNEL repository history: HTTP $SEED_STATUS"
+                  exit 1
+                  ;;
+              esac
+            fi
+
             make export-repository \
               FLATPAK_BRANCH="$CHANNEL" \
               GPG_SIGN="$GPG_KEY_ID" \
-              GPG_HOMEDIR="$GPG_HOME"
+              GPG_HOMEDIR="$GPG_HOME" \
+              GPG_KEYS="$GPG_PUBLIC_KEY" \
+              REPO_HISTORY_DEPTH="$REPO_HISTORY_DEPTH" \
+              REPO_SEED_URL="$REPO_SEED_URL"
 
             if [ "$CHANNEL" = "$PRIMARY_CHANNEL" ]; then
               make bundle-from-repository \
