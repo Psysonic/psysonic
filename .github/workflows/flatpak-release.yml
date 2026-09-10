@@ -21,23 +21,7 @@ env:
   RUNTIME_REPO: https://dl.flathub.org/repo/flathub.flatpakrepo
 
 jobs:
-  ssh-diagnostics:
-    if: ${{ inputs.release_tag == 'ssh-diagnostics' }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - name: verify SSH authentication and public upload path
-        env:
-          OSTREE_SSH_HOST: ${{ secrets.OSTREE_SSH_HOST }}
-          OSTREE_SSH_KNOWN_HOSTS: ${{ secrets.OSTREE_SSH_KNOWN_HOSTS }}
-          OSTREE_SSH_PATH: ${{ secrets.OSTREE_SSH_PATH }}
-          OSTREE_SSH_PORT: ${{ secrets.OSTREE_SSH_PORT }}
-          OSTREE_SSH_PRIVATE_KEY: ${{ secrets.OSTREE_SSH_PRIVATE_KEY }}
-          OSTREE_SSH_USER: ${{ secrets.OSTREE_SSH_USER }}
-        run: scripts/deploy-flatpak-ssh.sh diagnose
-
   build-and-publish:
-    if: ${{ inputs.release_tag != 'ssh-diagnostics' }}
     runs-on: ubuntu-24.04
     steps:
       - name: check out release source
