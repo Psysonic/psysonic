@@ -60,6 +60,15 @@ describe('Flatpak signing continuity wiring', () => {
   });
 });
 
+describe('Flatpak build dependencies', () => {
+  it('installs both the application runtime and build SDK', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+
+    assert.match(source, /org\.gnome\.Platform\/\/50/);
+    assert.match(source, /org\.gnome\.Sdk\/\/50/);
+  });
+});
+
 describe('Flatpak GitHub Release publication gate', () => {
   it('rejects draft or unpublished releases before deployment planning', () => {
     const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
