@@ -113,8 +113,10 @@ add it after the tag or rewrite the tag.
    commit, then run the packaging validation commands documented in that repo.
 6. Merge the packaging update to its `main` branch. `Flatpak Publish` always
    checks out packaging from `main` and rejects stale pins or metadata.
-7. Confirm the application repository has the required FTP credentials and GPG
-   signing secret, plus the public `OSTREE_GPG_FINGERPRINT` repository variable.
+7. Confirm the application repository has all six `OSTREE_SSH_*` deployment
+   secrets and the GPG signing secret, plus the public
+   `OSTREE_GPG_FINGERPRINT` repository variable. Run **Flatpak SSH Diagnostics**
+   after changing the host, key, known-host entry, account, port, or path.
 8. Run **Flatpak Publish** with the exact published app Release tag.
 9. Verify the bundle assets on the GitHub release and the signed channel under
    `https://flatpak.psysonic.de/<stable|rc>/` before announcing availability.

@@ -165,7 +165,7 @@ jobs:
         run: |
           set -euo pipefail
           sudo apt-get update
-          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq lftp
+          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub \
             org.gnome.Sdk//50 \
@@ -310,65 +310,18 @@ jobs:
           fi
           echo "origin=$ORIGIN" >> "$GITHUB_OUTPUT"
 
-      - name: deploy repository through FTP
+      - name: deploy and verify repositories through SSH
         working-directory: flatpak
         env:
           DEPLOY_CHANNELS: ${{ steps.deployment.outputs.channels }}
-          LFTP_PASSWORD: ${{ secrets.OSTREE_FTP_PASSWORD }}
-          OSTREE_FTP_SERVER: ${{ secrets.OSTREE_FTP_SERVER }}
-          OSTREE_FTP_USER: ${{ secrets.OSTREE_FTP_USER }}
-        run: |
-          set -euo pipefail
-          if [ -z "$OSTREE_FTP_SERVER" ] || [ -z "$OSTREE_FTP_USER" ] || [ -z "$LFTP_PASSWORD" ]; then
-            echo "::error::OSTREE_FTP_SERVER, OSTREE_FTP_USER and OSTREE_FTP_PASSWORD must be configured"
-            exit 1
-          fi
-
-          for DEPLOY_CHANNEL in $DEPLOY_CHANNELS; do
-            STAGING_DIR=".$DEPLOY_CHANNEL-next-$GITHUB_RUN_ID"
-            BACKUP_DIR=".$DEPLOY_CHANNEL-previous-$GITHUB_RUN_ID"
-            lftp <<EOF
-          set cmd:fail-exit yes
-          set ssl:verify-certificate yes
-          set ftp:ssl-force yes
-          set ftp:ssl-protect-data yes
-          open --user "$OSTREE_FTP_USER" --env-password "$OSTREE_FTP_SERVER"
-          rm -rf "$STAGING_DIR" || echo "No stale staging directory"
-          rm -rf "$BACKUP_DIR" || echo "No stale backup directory"
-          mkdir -p "$STAGING_DIR"
-          mirror --reverse --delete --parallel=4 --no-perms --no-symlinks "publish/$DEPLOY_CHANNEL/" "$STAGING_DIR/"
-          mv "$DEPLOY_CHANNEL" "$BACKUP_DIR" || echo "No previous $DEPLOY_CHANNEL channel"
-          mv "$STAGING_DIR" "$DEPLOY_CHANNEL" || (mv "$BACKUP_DIR" "$DEPLOY_CHANNEL" && exit 1)
-          rm -rf "$BACKUP_DIR" || echo "No previous channel to remove"
-          bye
-          EOF
-          done
-
-      - name: verify published repository
-        env:
-          CHANNEL: ${{ steps.release.outputs.channel }}
-          DEPLOY_CHANNELS: ${{ steps.deployment.outputs.channels }}
-          ORIGIN: ${{ steps.smoke.outputs.origin }}
-        run: |
-          set -euo pipefail
-          for DEPLOY_CHANNEL in $DEPLOY_CHANNELS; do
-            REPO_URL="$PUBLIC_BASE_URL/$DEPLOY_CHANNEL/repo/"
-            FLATPAKREF_URL="$PUBLIC_BASE_URL/$DEPLOY_CHANNEL/psysonic.flatpakref"
-            for attempt in $(seq 1 12); do
-              if curl --fail --silent --show-error "${REPO_URL}summary" >/dev/null \
-                && curl --fail --silent --show-error "${REPO_URL}summary.sig" >/dev/null \
-                && curl --fail --silent --show-error "$PUBLIC_BASE_URL/$DEPLOY_CHANNEL/release.json" >/dev/null \
-                && curl --fail --silent --show-error "$FLATPAKREF_URL" >/dev/null; then
-                break
-              fi
-              if [ "$attempt" -eq 12 ]; then
-                echo "::error::Published $DEPLOY_CHANNEL Flatpak repository did not become available"
-                exit 1
-              fi
-              sleep 5
-            done
-          done
-          flatpak remote-info --user "$ORIGIN" "$FLATPAK_ID//$CHANNEL" >/dev/null
+          GPG_PUBLIC_KEY: ${{ steps.signing.outputs.public_key }}
+          OSTREE_SSH_HOST: ${{ secrets.OSTREE_SSH_HOST }}
+          OSTREE_SSH_KNOWN_HOSTS: ${{ secrets.OSTREE_SSH_KNOWN_HOSTS }}
+          OSTREE_SSH_PATH: ${{ secrets.OSTREE_SSH_PATH }}
+          OSTREE_SSH_PORT: ${{ secrets.OSTREE_SSH_PORT }}
+          OSTREE_SSH_PRIVATE_KEY: ${{ secrets.OSTREE_SSH_PRIVATE_KEY }}
+          OSTREE_SSH_USER: ${{ secrets.OSTREE_SSH_USER }}
+        run: ../app/scripts/deploy-flatpak-ssh.sh deploy
 
       - name: upload bundle to existing release
         working-directory: flatpak
