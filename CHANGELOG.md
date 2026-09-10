@@ -104,6 +104,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Switching Artists between the grid and list now keeps that choice when you leave the page or restart Psysonic, instead of returning to the grid every time.
 
+### Windows: hide the title bar on the mini player
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Doctor Hoen on Discord, PR [#1528](https://github.com/Psysonic/psysonic/pull/1528)**
+
+* **Settings → Appearance** has a new switch that takes the system title bar off the mini player, so a small always-on-top window is not framed by buttons it does not need. Minimise makes little sense there, and both of the others lead back to the main window, which the player's own toolbar already does.
+* Without the system bar the mini player uses its own slim one: drag it by the track title, with pin, main window and close beside it.
+* Off by default, and it takes effect straight away — no restart. Windows only; Linux has always looked this way and macOS keeps its traffic lights.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again
