@@ -1,0 +1,364 @@
+name: Flatpak Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing tag: app-vX.Y.Z or app-vX.Y.Z-rc.N"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: flatpak-publish
+  cancel-in-progress: false
+
+env:
+  FLATPAK_ID: io.github.psysonic.psysonic
+  PUBLIC_BASE_URL: https://flatpak.psysonic.de
+  RUNTIME_REPO: https://dl.flathub.org/repo/flathub.flatpakrepo
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: check out release source
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.release_tag }}
+          path: app
+          persist-credentials: false
+
+      - name: check out Flatpak packaging
+        uses: actions/checkout@v5
+        with:
+          repository: Psysonic/flatpak-psysonic
+          ref: main
+          path: flatpak
+          submodules: recursive
+          persist-credentials: false
+
+      - name: select channel and verify packaging pin
+        id: release
+        working-directory: flatpak
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+-rc\.[0-9]+$ ]]; then
+            CHANNEL=rc
+            EXPECTED_PRERELEASE=true
+          elif [[ "$RELEASE_TAG" =~ ^app-v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            CHANNEL=stable
+            EXPECTED_PRERELEASE=false
+          else
+            echo "::error::release_tag must be app-vX.Y.Z or app-vX.Y.Z-rc.N"
+            exit 1
+          fi
+
+          RELEASE_PRERELEASE="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isPrerelease --jq .isPrerelease)"
+          if [ "$RELEASE_PRERELEASE" != "$EXPECTED_PRERELEASE" ]; then
+            echo "::error::Release prerelease flag does not match the $CHANNEL channel"
+            exit 1
+          fi
+
+          EXPECTED_SHA="$(git -C ../app rev-parse HEAD)"
+          MANIFEST_SHA="$(awk '$1 == "url:" && $2 == "https://github.com/Psysonic/psysonic.git" { source = 1; next } source && $1 == "commit:" { print $2; exit }' io.github.psysonic.psysonic.yaml)"
+          MAKEFILE_SHA="$(awk '$1 == "COMMIT_HASH" { print $3; exit }' Makefile)"
+          PACKAGE_VERSION="$(node -p 'require("../app/package.json").version')"
+
+          if [ "$RELEASE_TAG" != "app-v$PACKAGE_VERSION" ]; then
+            echo "::error::Release tag $RELEASE_TAG does not match package version $PACKAGE_VERSION"
+            exit 1
+          fi
+          if [ "$MANIFEST_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Flatpak manifest pins $MANIFEST_SHA, release $RELEASE_TAG points to $EXPECTED_SHA"
+            exit 1
+          fi
+          if [ "$MAKEFILE_SHA" != "$EXPECTED_SHA" ]; then
+            echo "::error::Flatpak Makefile pins $MAKEFILE_SHA, release $RELEASE_TAG points to $EXPECTED_SHA"
+            exit 1
+          fi
+          cmp io.github.psysonic.psysonic.desktop ../app/src-tauri/flatpak/io.github.psysonic.psysonic.desktop
+          cmp io.github.psysonic.psysonic.metainfo.xml ../app/src-tauri/flatpak/io.github.psysonic.psysonic.metainfo.xml
+          if ! grep -Fq "<release version=\"$PACKAGE_VERSION\"" io.github.psysonic.psysonic.metainfo.xml; then
+            echo "::error::Flatpak metainfo has no release entry for $PACKAGE_VERSION"
+            exit 1
+          fi
+
+          {
+            echo "channel=$CHANNEL"
+            echo "package_version=$PACKAGE_VERSION"
+            echo "repo_url=$PUBLIC_BASE_URL/$CHANNEL/repo/"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: plan channel deployment
+        id: deployment
+        env:
+          CANDIDATE_VERSION: ${{ steps.release.outputs.package_version }}
+          PRIMARY_CHANNEL: ${{ steps.release.outputs.channel }}
+        run: |
+          set -euo pipefail
+
+          version_key() {
+            local version="$1"
+            local rc_rank
+            if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-rc\.([0-9]+))?$ ]]; then
+              echo "::error::Unsupported channel version: $version" >&2
+              return 1
+            fi
+            if [ -n "${BASH_REMATCH[5]}" ]; then
+              rc_rank="${BASH_REMATCH[5]}"
+            else
+              rc_rank=99999999
+            fi
+            printf '%08d%08d%08d%08d' \
+              "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" \
+              "${BASH_REMATCH[3]}" "$rc_rank"
+          }
+
+          read_published_version() {
+            local channel="$1"
+            local response_file="$RUNNER_TEMP/flatpak-$channel-version.txt"
+            local status
+            status="$(curl --silent --show-error --output "$response_file" \
+              --write-out '%{http_code}' "$PUBLIC_BASE_URL/$channel/version.txt")"
+            case "$status" in
+              200) tr -d '\r\n' < "$response_file" ;;
+              404) ;;
+              *)
+                echo "::error::Could not read $channel channel version: HTTP $status" >&2
+                return 1
+                ;;
+            esac
+          }
+
+          CANDIDATE_KEY="$(version_key "$CANDIDATE_VERSION")"
+          CURRENT_PRIMARY="$(read_published_version "$PRIMARY_CHANNEL")"
+          if [ -n "$CURRENT_PRIMARY" ] && [[ "$CANDIDATE_KEY" < "$(version_key "$CURRENT_PRIMARY")" ]]; then
+            echo "::error::$CANDIDATE_VERSION would downgrade $PRIMARY_CHANNEL from $CURRENT_PRIMARY"
+            exit 1
+          fi
+
+          DEPLOY_CHANNELS="$PRIMARY_CHANNEL"
+          if [ "$PRIMARY_CHANNEL" = stable ]; then
+            CURRENT_RC="$(read_published_version rc)"
+            if [ -z "$CURRENT_RC" ] || [[ "$CANDIDATE_KEY" > "$(version_key "$CURRENT_RC")" ]] \
+              || [ "$CANDIDATE_KEY" = "$(version_key "$CURRENT_RC")" ]; then
+              DEPLOY_CHANNELS="stable rc"
+            else
+              echo "::notice::Keeping newer RC channel $CURRENT_RC; stable $CANDIDATE_VERSION will update only stable"
+            fi
+          fi
+
+          echo "channels=$DEPLOY_CHANNELS" >> "$GITHUB_OUTPUT"
+
+      - name: install Flatpak publishing dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y appstream desktop-file-utils flatpak flatpak-builder gnupg jq lftp
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub \
+            org.gnome.Sdk//50 \
+            org.freedesktop.Sdk.Extension.node26//25.08 \
+            org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+      - name: validate desktop metadata
+        working-directory: flatpak
+        run: |
+          set -euo pipefail
+          desktop-file-validate io.github.psysonic.psysonic.desktop
+          appstreamcli validate --pedantic io.github.psysonic.psysonic.metainfo.xml
+
+      - name: import repository signing key
+        id: signing
+        env:
+          PRIVATE_KEY_B64: ${{ secrets.OSTREE_GPG_PRIVATE_KEY_B64 }}
+        run: |
+          set -euo pipefail
+          if [ -z "$PRIVATE_KEY_B64" ]; then
+            echo "::error::OSTREE_GPG_PRIVATE_KEY_B64 is not configured"
+            exit 1
+          fi
+
+          GNUPG_HOME="$RUNNER_TEMP/flatpak-gnupg"
+          PUBLIC_KEY="$RUNNER_TEMP/flatpak-public.gpg"
+          mkdir -p "$GNUPG_HOME"
+          chmod 700 "$GNUPG_HOME"
+          printf '%s' "$PRIVATE_KEY_B64" | base64 --decode | gpg --batch --homedir "$GNUPG_HOME" --import
+          KEY_ID="$(gpg --batch --homedir "$GNUPG_HOME" --with-colons --list-secret-keys | awk -F: '$1 == "sec" { print $5; exit }')"
+          if [ -z "$KEY_ID" ]; then
+            echo "::error::The configured GPG material contains no private key"
+            exit 1
+          fi
+          gpg --batch --homedir "$GNUPG_HOME" --export "$KEY_ID" > "$PUBLIC_KEY"
+
+          {
+            echo "key_id=$KEY_ID"
+            echo "gnupg_home=$GNUPG_HOME"
+            echo "public_key=$PUBLIC_KEY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: build signed channel repositories and bundle
+        working-directory: flatpak
+        env:
+          DEPLOY_CHANNELS: ${{ steps.deployment.outputs.channels }}
+          GH_TOKEN: ${{ github.token }}
+          GPG_KEY_ID: ${{ steps.signing.outputs.key_id }}
+          GPG_HOME: ${{ steps.signing.outputs.gnupg_home }}
+          GPG_PUBLIC_KEY: ${{ steps.signing.outputs.public_key }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.package_version }}
+          PRIMARY_CHANNEL: ${{ steps.release.outputs.channel }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          make build
+          GPG_KEY="$(base64 --wrap=0 < "$GPG_PUBLIC_KEY")"
+          rm -rf publish
+
+          for CHANNEL in $DEPLOY_CHANNELS; do
+            REPO_URL="$PUBLIC_BASE_URL/$CHANNEL/repo/"
+            make export-repository \
+              FLATPAK_BRANCH="$CHANNEL" \
+              GPG_SIGN="$GPG_KEY_ID" \
+              GPG_HOMEDIR="$GPG_HOME"
+
+            if [ "$CHANNEL" = "$PRIMARY_CHANNEL" ]; then
+              make bundle-from-repository \
+                FLATPAK_BRANCH="$CHANNEL" \
+                REPO_URL="$REPO_URL" \
+                GPG_HOMEDIR="$GPG_HOME" \
+                GPG_KEYS="$GPG_PUBLIC_KEY"
+            fi
+
+            if [ "$CHANNEL" = rc ]; then
+              TITLE="Psysonic Release Candidate"
+              REMOTE_NAME=psysonic-rc
+            else
+              TITLE=Psysonic
+              REMOTE_NAME=psysonic
+            fi
+            mkdir -p "publish/$CHANNEL"
+            mv export "publish/$CHANNEL/repo"
+            printf '%s\n' "$PACKAGE_VERSION" > "publish/$CHANNEL/version.txt"
+            gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+              --json tagName,body,publishedAt \
+              | jq --arg channel "$CHANNEL" --arg version "$PACKAGE_VERSION" \
+                '{ channel: $channel, version: $version, tag: .tagName, body: (.body // ""), publishedAt: .publishedAt }' \
+                > "publish/$CHANNEL/release.json"
+            cat > "publish/$CHANNEL/psysonic.flatpakref" <<EOF
+          [Flatpak Ref]
+          Title=$TITLE
+          Name=$FLATPAK_ID
+          Branch=$CHANNEL
+          Url=$REPO_URL
+          SuggestRemoteName=$REMOTE_NAME
+          Homepage=https://www.psysonic.de
+          RuntimeRepo=$RUNTIME_REPO
+          IsRuntime=false
+          GPGKey=$GPG_KEY
+          EOF
+          done
+
+      - name: install and smoke-test bundle
+        id: smoke
+        working-directory: flatpak
+        env:
+          CHANNEL: ${{ steps.release.outputs.channel }}
+          EXPECTED_VERSION: ${{ steps.release.outputs.package_version }}
+          EXPECTED_REPO_URL: ${{ steps.release.outputs.repo_url }}
+        run: |
+          set -euo pipefail
+          flatpak install --user --reinstall -y ./Psysonic.flatpak
+          ACTUAL_VERSION="$(flatpak run "$FLATPAK_ID//$CHANNEL" --version)"
+          if [ "$ACTUAL_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "::error::Flatpak reports $ACTUAL_VERSION, expected $EXPECTED_VERSION"
+            exit 1
+          fi
+          sha256sum -c Psysonic.flatpak.sha256
+
+          ORIGIN="$(flatpak info --user --show-origin "$FLATPAK_ID//$CHANNEL")"
+          ORIGIN_URL="$(flatpak remotes --user --columns=name,url | awk -v origin="$ORIGIN" '$1 == origin { print $2; exit }')"
+          if [ "${ORIGIN_URL%/}" != "${EXPECTED_REPO_URL%/}" ]; then
+            echo "::error::Bundle origin is $ORIGIN_URL, expected $EXPECTED_REPO_URL"
+            exit 1
+          fi
+          echo "origin=$ORIGIN" >> "$GITHUB_OUTPUT"
+
+      - name: deploy repository through FTP
+        working-directory: flatpak
+        env:
+          DEPLOY_CHANNELS: ${{ steps.deployment.outputs.channels }}
+          LFTP_PASSWORD: ${{ secrets.OSTREE_FTP_PASSWORD }}
+          OSTREE_FTP_SERVER: ${{ secrets.OSTREE_FTP_SERVER }}
+          OSTREE_FTP_USER: ${{ secrets.OSTREE_FTP_USER }}
+        run: |
+          set -euo pipefail
+          if [ -z "$OSTREE_FTP_SERVER" ] || [ -z "$OSTREE_FTP_USER" ] || [ -z "$LFTP_PASSWORD" ]; then
+            echo "::error::OSTREE_FTP_SERVER, OSTREE_FTP_USER and OSTREE_FTP_PASSWORD must be configured"
+            exit 1
+          fi
+
+          for DEPLOY_CHANNEL in $DEPLOY_CHANNELS; do
+            STAGING_DIR=".$DEPLOY_CHANNEL-next-$GITHUB_RUN_ID"
+            BACKUP_DIR=".$DEPLOY_CHANNEL-previous-$GITHUB_RUN_ID"
+            lftp <<EOF
+          set cmd:fail-exit yes
+          set ssl:verify-certificate yes
+          set ftp:ssl-force yes
+          set ftp:ssl-protect-data yes
+          open --user "$OSTREE_FTP_USER" --env-password "$OSTREE_FTP_SERVER"
+          rm -rf "$STAGING_DIR" || echo "No stale staging directory"
+          rm -rf "$BACKUP_DIR" || echo "No stale backup directory"
+          mkdir -p "$STAGING_DIR"
+          mirror --reverse --delete --parallel=4 --no-perms --no-symlinks "publish/$DEPLOY_CHANNEL/" "$STAGING_DIR/"
+          mv "$DEPLOY_CHANNEL" "$BACKUP_DIR" || echo "No previous $DEPLOY_CHANNEL channel"
+          mv "$STAGING_DIR" "$DEPLOY_CHANNEL" || (mv "$BACKUP_DIR" "$DEPLOY_CHANNEL" && exit 1)
+          rm -rf "$BACKUP_DIR" || echo "No previous channel to remove"
+          bye
+          EOF
+          done
+
+      - name: verify published repository
+        env:
+          CHANNEL: ${{ steps.release.outputs.channel }}
+          DEPLOY_CHANNELS: ${{ steps.deployment.outputs.channels }}
+          ORIGIN: ${{ steps.smoke.outputs.origin }}
+        run: |
+          set -euo pipefail
+          for DEPLOY_CHANNEL in $DEPLOY_CHANNELS; do
+            REPO_URL="$PUBLIC_BASE_URL/$DEPLOY_CHANNEL/repo/"
+            FLATPAKREF_URL="$PUBLIC_BASE_URL/$DEPLOY_CHANNEL/psysonic.flatpakref"
+            for attempt in $(seq 1 12); do
+              if curl --fail --silent --show-error "${REPO_URL}summary" >/dev/null \
+                && curl --fail --silent --show-error "${REPO_URL}summary.sig" >/dev/null \
+                && curl --fail --silent --show-error "$PUBLIC_BASE_URL/$DEPLOY_CHANNEL/release.json" >/dev/null \
+                && curl --fail --silent --show-error "$FLATPAKREF_URL" >/dev/null; then
+                break
+              fi
+              if [ "$attempt" -eq 12 ]; then
+                echo "::error::Published $DEPLOY_CHANNEL Flatpak repository did not become available"
+                exit 1
+              fi
+              sleep 5
+            done
+          done
+          flatpak remote-info --user "$ORIGIN" "$FLATPAK_ID//$CHANNEL" >/dev/null
+
+      - name: upload bundle to existing release
+        working-directory: flatpak
+        env:
+          CHANNEL: ${{ steps.release.outputs.channel }}
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            Psysonic.flatpak \
+            Psysonic.flatpak.sha256 \
+            "publish/$CHANNEL/psysonic.flatpakref" \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"

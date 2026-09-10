@@ -561,6 +561,13 @@ export const commands = {
 	 *  Always false off Linux.
 	 */
 	themeAnimationRisk: () => __TAURI_INVOKE<boolean>("theme_animation_risk"),
+	/**  Return update metadata from the repository backing the current Flatpak branch. */
+	flatpakUpdateInfo: () => __TAURI_INVOKE<{
+	branch: string,
+	version: string,
+	tag: string,
+	body: string,
+} | null>("flatpak_update_info"),
 	migrationInspect: (mappings: ServerIndexMapping[]) => typedError<MigrationInspectReport, string>(__TAURI_INVOKE("migration_inspect", { mappings })),
 	migrationRun: (mappings: ServerIndexMapping[]) => typedError<MigrationRunResult, string>(__TAURI_INVOKE("migration_run", { mappings })),
 	/**
@@ -1198,6 +1205,13 @@ export type FactInputDto = {
 	confidence?: number | null,
 	contentHash?: string | null,
 	expiresAt?: number | null,
+};
+
+export type FlatpakUpdateInfo = {
+	branch: string,
+	version: string,
+	tag: string,
+	body: string,
 };
 
 export type FullImportRecoveryPhase = "prepared" | "databases-restored" | "committed";
