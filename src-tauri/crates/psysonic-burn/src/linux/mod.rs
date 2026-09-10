@@ -290,7 +290,12 @@ pub fn burn(
     // there is nothing to confirm and asking would only report a false absence.
     let verification = (block.is_some() && !options.test_write).then(|| read_cd_text(&device));
 
-    if options.eject_when_done && !options.test_write {
+    // A rehearsal leaves the drive holding a session it opened and never closed,
+    // so it stops reporting the disc as blank until the medium is reloaded -
+    // confirmed on this drive, where a clean test write was immediately followed
+    // by "This CD-R is not blank". Clearing that is not a convenience eject, it
+    // is what keeps the disc usable, so it happens whatever the option says.
+    if options.test_write || options.eject_when_done {
         let _ = device.reload();
     }
 

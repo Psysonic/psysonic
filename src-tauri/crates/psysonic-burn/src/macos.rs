@@ -957,7 +957,10 @@ fn build_burn_properties(
         CFDictionarySetValue(
             raw,
             kDRBurnCompletionActionKey,
-            if options.eject_when_done && !options.test_write {
+            // A rehearsal is ejected whatever the option says: the drive
+            // holds the session it opened until the medium is reloaded, and
+            // until then it will not call the disc blank again.
+            if options.test_write || options.eject_when_done {
                 kDRBurnCompletionActionEject
             } else {
                 kDRBurnCompletionActionMount

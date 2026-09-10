@@ -767,8 +767,14 @@ pub fn burn(
                             let verified =
                                 (!options.test_write).then(|| win_sao::verify_cd_text(&recorder));
                             drop(lock);
-                            if options.eject_when_done && !options.test_write {
+                            if options.test_write || options.eject_when_done {
+                                // See `reload_media`: a rehearsal leaves the drive
+                                // holding an unfinished session, and only a reload
+                                // makes it call the disc blank again.
                                 let _ = recorder.EjectMedia();
+                                if options.test_write {
+                                    let _ = recorder.CloseTray();
+                                }
                             }
                             return Ok(BurnOutcome {
                                 sectors,
@@ -960,8 +966,15 @@ pub fn burn(
             None,
         );
 
-        if options.eject_when_done && !options.test_write {
+        if options.test_write || options.eject_when_done {
+            // A rehearsal leaves the drive holding a session it opened and never
+            // closed, so it stops reporting the disc as blank until the medium is
+            // reloaded. That is not a convenience eject - it is what keeps the
+            // disc usable - so it happens whatever `eject_when_done` says.
             let _ = recorder.EjectMedia();
+            if options.test_write {
+                let _ = recorder.CloseTray();
+            }
         }
 
         crate::app_deprintln!(
