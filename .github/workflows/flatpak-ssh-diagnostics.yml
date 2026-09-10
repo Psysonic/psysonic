@@ -3,9 +3,6 @@ name: Flatpak SSH Diagnostics
 # Safe manual verification for the dedicated deployment key. It uploads one
 # short-lived text file, fetches it over HTTPS, and removes it on every exit.
 on:
-  push:
-    branches:
-      - flatpak/self-hosted-repo
   workflow_dispatch:
 
 permissions:
