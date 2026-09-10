@@ -3,7 +3,10 @@
   "version": "1.53.0-dev",
   "private": true,
   "engines": {
-    "node": ">=22.22.0"
+    "node": ">=24.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true
   },
   "scripts": {
     "check:css-imports": "node scripts/check-css-import-graph.mjs",
@@ -21,7 +24,7 @@
     "dep:check:barrels": "node scripts/check-feature-barrel-ui.mjs",
     "check:boot-chunks": "node scripts/check-boot-chunk-lucide.mjs",
     "build:verify": "npm run build && npm run check:boot-chunks",
-    "test": "npm run prebuild:release-notes && vitest run && node --test scripts/extract-release-section.test.mjs scripts/wix-bundle-version.test.mjs scripts/sync-version-pipeline.test.mjs scripts/sync-flatpak-metainfo-release.test.mjs scripts/deploy-flatpak-ssh.test.mjs scripts/sign-windows-updater.test.mjs && npm run check:css-imports && npm run dep:check:barrels",
+    "test": "npm run prebuild:release-notes && vitest run && node --test scripts/extract-release-section.test.mjs scripts/wix-bundle-version.test.mjs scripts/sync-version-pipeline.test.mjs scripts/sync-flatpak-metainfo-release.test.mjs scripts/prepare-flatpak-packaging.test.mjs scripts/deploy-flatpak-ssh.test.mjs scripts/sign-windows-updater.test.mjs && npm run check:css-imports && npm run dep:check:barrels",
     "test:watch": "vitest",
     "test:coverage": "npm run prebuild:release-notes && vitest run --coverage && npm run check:css-imports"
   },
@@ -74,7 +77,7 @@
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^4.1.11",
     "dependency-cruiser": "^18.0.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.5.0",
@@ -85,7 +88,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.0",
     "vite": "^8.0.14",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.11"
   },
   "overrides": {
     "undici": "^7.29.0"

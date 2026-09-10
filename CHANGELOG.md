@@ -232,6 +232,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The rail often showed a run of consecutive tracks from one album instead of a spread across your collection. It now picks each track independently, whether one music folder is selected or several: on a library of roughly 154,000 tracks, thirteen cards came from thirteen different albums in every test run, against fewer than two albums before.
 * Measured on the same library, the rail takes as long to fill as it did before.
 
+### Mainstage rows no longer stop halfway across a wide window
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1536](https://github.com/Psysonic/psysonic/pull/1536)**
+
+* On a 4K or dual-screen window the album rows stopped after twelve entries, left the rest of the row empty, and both arrows stayed greyed out — with no way to reach the rest of the section.
+* Root cause: a row only loaded more entries while it was being scrolled, and a row wide enough to show a full page has nothing to scroll. Rows now keep pulling until they are actually full, and the arrows are re-checked when the row itself changes width, such as when the queue panel opens beside it.
+
 ## [1.52.0]
 
 ## Added
