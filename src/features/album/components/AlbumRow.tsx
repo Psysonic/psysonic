@@ -6,6 +6,7 @@ import { NavLink, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { usePerfProbeFlags } from '@/lib/perf/perfFlags';
 import { dedupeById } from '@/lib/util/dedupeById';
+import { useRailScroll } from '@/lib/hooks/useRailScroll';
 
 interface Props {
   title: string;
@@ -58,10 +59,7 @@ export default function AlbumRow({
   const artworkDisabled = perfFlags.disableMainstageRailArtwork || disableArtwork;
   const interactivityDisabled = perfFlags.disableMainstageRailInteractivity || disableInteractivity;
   const { t } = useTranslation();
-  const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [artworkBudget, setArtworkBudget] = useState(initialArtworkBudget);
 
@@ -69,6 +67,14 @@ export default function AlbumRow({
   const scrollRestoreTargetRef = useRef(restoreScrollLeft);
   const scrollRestoreDoneRef = useRef(false);
   const uniqueAlbums = useMemo(() => dedupeById(albums), [albums]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Reset when the row’s identity changes (new data / server), not when the list grows via
+  // “load more” — reusing albums.length would shrink the budget mid-scroll and flash placeholders.
+  const firstAlbum = uniqueAlbums[0];
+  const rowArtworkResetKey = firstAlbum
+    ? (firstAlbum.serverId ? `${firstAlbum.serverId}:${firstAlbum.id}` : firstAlbum.id)
+    : '';
 
   const recomputeArtworkBudget = () => {
     if (!windowArtworkByViewport) return;
@@ -86,25 +92,6 @@ export default function AlbumRow({
     setArtworkBudget(prev => (nextBudget > prev ? nextBudget : prev));
   };
 
-  const handleScroll = () => {
-    if (windowArtworkByViewport) recomputeArtworkBudget();
-
-    if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-
-    if (!interactivityDisabled) {
-      setShowLeft(scrollLeft > 0);
-      setShowRight(scrollLeft < scrollWidth - clientWidth - 5);
-    }
-
-    onScrollLeftSnapshot?.(scrollLeft);
-
-    // Auto-load trigger (native horizontal scroll still works when rail buttons are perf-disabled)
-    if (onLoadMore && !loadingRef.current && scrollLeft > 0 && scrollLeft + clientWidth >= scrollWidth - 300) {
-      triggerLoadMore();
-    }
-  };
-
   const triggerLoadMore = async () => {
     if (!onLoadMore || loadingRef.current) return;
     loadingRef.current = true;
@@ -114,33 +101,29 @@ export default function AlbumRow({
     loadingRef.current = false;
   };
 
-  useEffect(() => {
-    handleScroll();
-    const raf = window.requestAnimationFrame(() => {
-      if (windowArtworkByViewport) recomputeArtworkBudget();
-    });
-    window.addEventListener('resize', handleScroll);
-    const ro = new ResizeObserver(() => {
-      if (windowArtworkByViewport) recomputeArtworkBudget();
-    });
-    if (scrollRef.current) ro.observe(scrollRef.current);
-    return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener('resize', handleScroll);
-      ro.disconnect();
-    };
-    // handleScroll/recomputeArtworkBudget are recreated each render but read live
-    // refs/props; the listeners are intentionally (re)bound only when the row data
-    // or artwork config changes, not on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uniqueAlbums, interactivityDisabled, windowArtworkByViewport, initialArtworkBudget]);
+  const { showLeft, showRight, measure, scrollByPage } = useRailScroll({
+    scrollRef,
+    itemCount: uniqueAlbums.length,
+    resetKey: rowArtworkResetKey,
+    enabled: !interactivityDisabled,
+    onFillWidth: onLoadMore ? triggerLoadMore : undefined,
+    onLayoutChange: recomputeArtworkBudget,
+  });
 
-  // Reset when the row’s identity changes (new data / server), not when the list grows via
-  // “load more” — reusing albums.length would shrink the budget mid-scroll and flash placeholders.
-  const firstAlbum = uniqueAlbums[0];
-  const rowArtworkResetKey = firstAlbum
-    ? (firstAlbum.serverId ? `${firstAlbum.serverId}:${firstAlbum.id}` : firstAlbum.id)
-    : '';
+  const handleScroll = () => {
+    measure();
+
+    if (!scrollRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+
+    onScrollLeftSnapshot?.(scrollLeft);
+
+    // Auto-load trigger (native horizontal scroll still works when rail buttons are perf-disabled)
+    if (onLoadMore && !loadingRef.current && scrollLeft > 0 && scrollLeft + clientWidth >= scrollWidth - 300) {
+      triggerLoadMore();
+    }
+  };
+
   useEffect(() => {
     // React Compiler set-state-in-effect rule: local state synced with store/prop inputs when the effect’s dependencies change.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -219,12 +202,6 @@ export default function AlbumRow({
     onScrollRestoreComplete?.();
   }, [artworkBudget, restoreCompleteTick, onScrollRestoreComplete]);
 
-  const scroll = (dir: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const amount = scrollRef.current.clientWidth * 0.75;
-    scrollRef.current.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
-  };
-
   if (uniqueAlbums.length === 0) return null;
 
   return (
@@ -243,14 +220,14 @@ export default function AlbumRow({
             <>
               <button
                 className={`nav-btn ${!showLeft ? 'disabled' : ''}`}
-                onClick={() => scroll('left')}
+                onClick={() => scrollByPage('left')}
                 disabled={!showLeft}
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 className={`nav-btn ${!showRight ? 'disabled' : ''}`}
-                onClick={() => scroll('right')}
+                onClick={() => scrollByPage('right')}
                 disabled={!showRight}
               >
                 <ChevronRight size={20} />
