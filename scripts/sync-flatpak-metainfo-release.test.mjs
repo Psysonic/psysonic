@@ -107,7 +107,9 @@ describe('Flatpak GitHub Release publication gate', () => {
     const cargoSources = source.indexOf('flatpak-cargo-generator" -t');
     const build = source.indexOf('make build');
 
-    assert.match(source, /prepare-flatpak-packaging\.mjs/);
+    assert.match(source, /check out publication tooling/);
+    assert.match(source, /path: tooling/);
+    assert.match(source, /node tooling\/scripts\/prepare-flatpak-packaging\.mjs/);
     assert.match(source, /flatpak-node-generator==0\.1\.1/);
     assert.match(source, /flatpak-cargo-generator==0\.1\.4/);
     assert.doesNotMatch(source, /Flatpak manifest pins/);
@@ -141,7 +143,7 @@ describe('Flatpak GitHub Release publication gate', () => {
 
   it('generates test AppStream metadata from the checked-out package version', () => {
     const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
-    const preparation = source.indexOf('prepare-flatpak-packaging.mjs');
+    const preparation = source.indexOf('tooling/scripts/prepare-flatpak-packaging.mjs');
     const generation = source.indexOf('PSYSONIC_FLATPAK_ALLOW_DEVELOPMENT=true');
     const validation = source.indexOf('appstreamcli validate --pedantic');
     const build = source.indexOf('make build');
