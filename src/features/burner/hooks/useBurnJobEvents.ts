@@ -45,6 +45,14 @@ export function useBurnJobEvents(): void {
 
       showToast(i18n.t('burner.toastBurnDone', { count: payload.tracksWritten }), 6000, 'info');
 
+      // Asked for, not delivered. Either the drive refused the setup, or the
+      // write never reached the disc and the burn was redone without it. The
+      // disc plays either way — but nobody should find out from a player that
+      // shows no track names.
+      if (store.cdTextRequested && !payload.cdTextWritten) {
+        showToast(i18n.t('burner.toastCdTextSkipped'), 9000, 'info');
+      }
+
       // CD-TEXT is read back rather than trusted — but "the drive would not
       // answer" and "the disc has none" are different answers and must not be
       // reported as the same failure.

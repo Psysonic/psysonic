@@ -918,8 +918,8 @@ pub fn burn(
     //
     // Not attempted when the disc is on its way out of the drive: the burn's
     // completion action has already ejected it, so a read-back could only ever
-    // report "no disc". `burn_verify_cd_text` re-checks once it is reloaded,
-    // which is what actually settles the question anyway.
+    // report "no disc" — which would be read as a CD-TEXT failure on a disc
+    // that is perfectly good.
     let can_read_back = cd_text_attached && !options.test_write && !options.eject_when_done;
     let verification = can_read_back
         .then(|| verify_cd_text(&options.recorder_id).unwrap_or_else(CdTextVerification::unreadable));

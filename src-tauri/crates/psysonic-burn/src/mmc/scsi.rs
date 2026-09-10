@@ -10,6 +10,8 @@
 //! References are to MMC-3 (INCITS 360-2002), which unlike MMC-1 actually
 //! describes CD-TEXT and `GET CONFIGURATION`.
 
+use std::time::Duration;
+
 use crate::model::BurnWriteCapabilities;
 
 /// `GET CONFIGURATION`.
@@ -164,9 +166,10 @@ pub fn msf_to_capacity_sectors(minute: u8, second: u8, frame: u8) -> Option<u32>
 /// The last possible lead-out start, from an ATIP response.
 ///
 /// A blank CD-R has no table of contents, so its capacity can only come from
-/// ATIP — bytes 12..15 of the descriptor. This is the number a burn is planned
-/// against, so getting it from the first thing that parsed is not good enough:
-/// bytes 9..12 are the *lead-in* start and look equally plausible.
+/// ATIP — bytes 12..15 of the response, header included. This is the number a
+/// burn is planned against, so getting it from the first thing that parsed is
+/// not good enough: bytes 8..11 are the *lead-in* start and look equally
+/// plausible.
 pub fn parse_atip_capacity(data: &[u8]) -> Option<u32> {
     if data.len() < 15 {
         return None;
@@ -215,6 +218,136 @@ impl DiscStatus {
         }
     }
 }
+
+/// What a finished write actually left on the disc, judged from the disc
+/// rather than from the drive's replies while writing.
+///
+/// Every command in a write can come back OK without a single sector reaching
+/// the medium. A USB-attached drive has been seen accepting an entire
+/// Session-At-Once burn — cue sheet, lead-in, the whole program area, the
+/// closing `SYNCHRONIZE CACHE` — at a rate no CD writer can reach, and leaving
+/// a blank disc behind it. Nothing in the replies tells that apart from a real
+/// burn, so the only honest check is to ask the disc afterwards.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum WriteVerdict {
+    /// The disc holds what was written.
+    Written,
+    /// The disc is still blank: nothing the write sent reached it. The disc is
+    /// untouched, which is what makes writing it again another way safe.
+    NothingWritten,
+    /// Something reached the disc but its session was left open. Not safe to
+    /// write again, and it may not play.
+    Unfinished,
+    /// The drive would not say. Treated as neither success nor failure.
+    Unknown,
+}
+
+/// Judge a finished, non-rehearsal write from what the disc now reports.
+///
+/// `toc_tracks` is the track count from `READ TOC`, and it outranks the disc
+/// status. A drive can go on describing a disc as it was when it went in, and a
+/// table of contents with tracks in it is the disc itself proving it holds
+/// audio. Without that second opinion a stale "empty" would send a written disc
+/// round for a second burn — or, where there is no second write path, report
+/// a good disc as a failure.
+///
+/// A burn here always closes the disc (`mode::apply` writes single-session), so
+/// a successful one reads Complete, and Incomplete with no readable TOC is the
+/// abnormal case it looks like.
+pub fn verdict_after_write(status: Option<DiscStatus>, toc_tracks: Option<u8>) -> WriteVerdict {
+    if toc_tracks.is_some_and(|tracks| tracks > 0) {
+        return WriteVerdict::Written;
+    }
+    match status {
+        Some(DiscStatus::Complete) => WriteVerdict::Written,
+        Some(DiscStatus::Empty) => WriteVerdict::NothingWritten,
+        Some(DiscStatus::Incomplete) => WriteVerdict::Unfinished,
+        Some(DiscStatus::Other) | None => WriteVerdict::Unknown,
+    }
+}
+
+/// `READ TOC` format `0000b` allocation: the four-byte header plus eight bytes
+/// for each of 99 tracks and the lead-out.
+pub const TOC_FULL_BYTES: u16 = 4 + 8 * 100;
+
+/// Tracks in a `READ TOC` format `0000b` response.
+///
+/// Header bytes 2 and 3 are the first and last track numbers. A blank disc has
+/// no table of contents and most drives refuse the command outright; anything
+/// that does not describe at least one real track is `None`, not a guess.
+pub fn parse_toc_track_count(data: &[u8]) -> Option<u8> {
+    if data.len() < 4 {
+        return None;
+    }
+    let (first, last) = (data[2], data[3]);
+    if first == 0 || last < first || last > 99 {
+        return None;
+    }
+    Some(last - first + 1)
+}
+
+/// How many times to ask for the disc's status after a write before giving up.
+pub const POST_WRITE_STATUS_ATTEMPTS: u32 = 5;
+
+/// The pause between those asks. A drive can still be settling after
+/// `SYNCHRONIZE CACHE` returns, and answers NOT READY until it has.
+pub const POST_WRITE_STATUS_PAUSE: Duration = Duration::from_secs(1);
+
+/// Ask until the drive gives an answer, up to `attempts` times.
+///
+/// Only a non-answer is retried. An answer — even an unwelcome one — is what
+/// the disc says, and asking again would just be waiting for a different one.
+pub fn settle<T>(attempts: u32, pause: Duration, mut ask: impl FnMut() -> Option<T>) -> Option<T> {
+    for attempt in 0..attempts {
+        if let Some(answer) = ask() {
+            return Some(answer);
+        }
+        if attempt + 1 < attempts && !pause.is_zero() {
+            std::thread::sleep(pause);
+        }
+    }
+    None
+}
+
+/// Pull the key/ASC/ASCQ out of a sense buffer, fixed or descriptor format.
+///
+/// Response code `72h`/`73h` is the descriptor format, where the three live in
+/// different bytes from the fixed format every older drive uses. Reading the
+/// fixed offsets out of a descriptor buffer yields a plausible-looking and
+/// entirely wrong diagnosis.
+///
+/// The two formats also need different amounts of the buffer filled in, so the
+/// length is checked per format rather than once up front. A descriptor buffer
+/// carries all three bytes by offset 3, so four is all it needs, where the
+/// fixed format cannot answer until byte 13. Holding both to fourteen threw
+/// away sense that was short but complete: a drive answering a write with a
+/// descriptor 2/04/08 then looked undiagnosable and was never retried.
+pub fn sense_triplet(sense: &[u8], written: usize) -> Option<(u8, u8, u8)> {
+    let len = written.min(sense.len());
+    if len < 4 {
+        return None;
+    }
+    match sense[0] & 0x7F {
+        0x72 | 0x73 => Some((sense[1] & 0x0F, sense[2], sense[3])),
+        _ if len >= 14 => Some((sense[2] & 0x0F, sense[12], sense[13])),
+        _ => None,
+    }
+}
+
+/// The key/ASC/ASCQ of a command the drive refused, if the sense says it did.
+///
+/// NO SENSE (`0h`) and RECOVERED ERROR (`1h`) both mean the command completed,
+/// so neither is a refusal. A zeroed buffer decodes as NO SENSE, which is what
+/// lets a caller zero the buffer, send, and ask this whatever the transport
+/// claimed about the outcome.
+pub fn refusal(sense: &[u8], written: usize) -> Option<(u8, u8, u8)> {
+    sense_triplet(sense, written).filter(|(key, _, _)| *key > 0x01)
+}
+
+/// Shown when a write left the disc with an open session and no readable table
+/// of contents.
+pub const UNFINISHED_WRITE_MESSAGE: &str =
+    "The drive left the disc with an unfinished session, so this burn cannot be trusted and the disc may not play.";
 
 /// Decode the CD Mastering feature descriptor (`002Eh`).
 ///
@@ -344,6 +477,8 @@ pub fn describe_sense(key: u8, asc: u8, ascq: u8) -> String {
         (0x05, 0x26, _) => "the drive rejected a parameter value",
         (0x05, 0x20, _) => "the drive does not support that command",
         (0x05, 0x64, _) => "the drive rejected the track mode for this disc",
+        (0x05, 0x2C, _) => "the drive refused a command out of sequence",
+        (0x05, 0x21, _) => "the drive refused the write address",
         (0x02, 0x3A, _) => "there is no disc in the drive",
         (0x02, 0x04, 0x08) => "the drive is still preparing the disc",
         (0x02, 0x04, _) => "the drive is not ready yet",
@@ -361,6 +496,149 @@ pub fn describe_sense(key: u8, asc: u8, ascq: u8) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fixed_format_sense_reads_from_the_classic_offsets() {
+        let mut sense = [0_u8; 32];
+        sense[0] = 0x70;
+        sense[2] = 0x05;
+        sense[12] = 0x24;
+        sense[13] = 0x00;
+        assert_eq!(sense_triplet(&sense, 18), Some((0x05, 0x24, 0x00)));
+    }
+
+    #[test]
+    fn descriptor_format_sense_reads_from_its_own_offsets() {
+        // The same failure in the newer layout. Reading bytes 2/12/13 here
+        // would report a completely different fault.
+        let mut sense = [0_u8; 32];
+        sense[0] = 0x72;
+        sense[1] = 0x05;
+        sense[2] = 0x24;
+        sense[3] = 0x00;
+        assert_eq!(sense_triplet(&sense, 18), Some((0x05, 0x24, 0x00)));
+    }
+
+    #[test]
+    fn a_descriptor_header_on_its_own_is_enough_to_diagnose() {
+        // Eight bytes is a whole descriptor header, and the key, ASC and ASCQ
+        // all live inside it. The retryable lead-in sense arrives this way.
+        let mut sense = [0_u8; 32];
+        sense[0] = 0x72;
+        sense[1] = 0x02;
+        sense[2] = 0x04;
+        sense[3] = 0x08;
+        assert_eq!(sense_triplet(&sense, 8), Some((0x02, 0x04, 0x08)));
+    }
+
+    #[test]
+    fn a_truncated_sense_buffer_is_not_guessed_at() {
+        let sense = [0_u8; 32];
+        assert_eq!(sense_triplet(&sense, 4), None);
+    }
+
+    #[test]
+    fn a_short_fixed_format_buffer_is_not_guessed_at_either() {
+        // Fixed format keeps ASC and ASCQ at bytes 12 and 13, so eight bytes
+        // says nothing about them and the zeros sitting there must not be read
+        // as a diagnosis.
+        let mut sense = [0_u8; 32];
+        sense[0] = 0x70;
+        sense[2] = 0x05;
+        assert_eq!(sense_triplet(&sense, 8), None);
+    }
+
+    #[test]
+    fn a_drive_saying_no_is_a_refusal() {
+        // Byte for byte what an LG WH10LS30 on USB put in the sense buffer for
+        // TEST UNIT READY with the tray empty — while IMAPI2 called it success.
+        let sense = [0x70, 0, 0x02, 0, 0, 0, 0, 0x0A, 0, 0, 0, 0, 0x3A, 0x01, 0, 0, 0, 0];
+        assert_eq!(refusal(&sense, sense.len()), Some((0x02, 0x3A, 0x01)));
+    }
+
+    #[test]
+    fn a_zeroed_buffer_or_a_recovered_error_is_not_a_refusal() {
+        assert_eq!(refusal(&[0_u8; 18], 18), None);
+
+        // RECOVERED ERROR: the drive had trouble, and the command completed.
+        let mut sense = [0_u8; 18];
+        sense[0] = 0x70;
+        sense[2] = 0x01;
+        sense[12] = 0x17;
+        assert_eq!(refusal(&sense, 18), None);
+    }
+
+    #[test]
+    fn a_disc_still_blank_after_a_write_received_nothing() {
+        assert_eq!(verdict_after_write(Some(DiscStatus::Empty), None), WriteVerdict::NothingWritten);
+    }
+
+    #[test]
+    fn a_closed_disc_is_written() {
+        assert_eq!(verdict_after_write(Some(DiscStatus::Complete), None), WriteVerdict::Written);
+    }
+
+    #[test]
+    fn a_table_of_contents_outranks_a_stale_status() {
+        // A drive can keep describing the disc it was handed; the TOC is the disc.
+        assert_eq!(verdict_after_write(Some(DiscStatus::Empty), Some(12)), WriteVerdict::Written);
+        assert_eq!(verdict_after_write(Some(DiscStatus::Incomplete), Some(3)), WriteVerdict::Written);
+        assert_eq!(verdict_after_write(None, Some(1)), WriteVerdict::Written);
+    }
+
+    #[test]
+    fn an_open_session_with_no_table_of_contents_is_unfinished() {
+        assert_eq!(verdict_after_write(Some(DiscStatus::Incomplete), None), WriteVerdict::Unfinished);
+    }
+
+    #[test]
+    fn no_answer_is_neither_success_nor_failure() {
+        assert_eq!(verdict_after_write(None, None), WriteVerdict::Unknown);
+        assert_eq!(verdict_after_write(Some(DiscStatus::Other), None), WriteVerdict::Unknown);
+        // A TOC that lists no tracks is no evidence of a write.
+        assert_eq!(verdict_after_write(Some(DiscStatus::Empty), Some(0)), WriteVerdict::NothingWritten);
+    }
+
+    #[test]
+    fn toc_track_count_reads_the_header() {
+        assert_eq!(parse_toc_track_count(&[0, 10, 1, 12]), Some(12));
+        assert_eq!(parse_toc_track_count(&[0, 10, 3, 5, 0, 0]), Some(3));
+    }
+
+    #[test]
+    fn toc_track_count_refuses_anything_that_is_not_a_track_list() {
+        assert_eq!(parse_toc_track_count(&[0, 2, 1]), None);
+        assert_eq!(parse_toc_track_count(&[0, 2, 0, 0]), None);
+        assert_eq!(parse_toc_track_count(&[0, 2, 5, 2]), None);
+        assert_eq!(parse_toc_track_count(&[0, 2, 1, 170]), None);
+    }
+
+    #[test]
+    fn settle_retries_only_a_non_answer() {
+        let zero = Duration::ZERO;
+
+        let mut calls = 0;
+        let answer = settle(5, zero, || {
+            calls += 1;
+            (calls == 3).then_some(DiscStatus::Empty)
+        });
+        assert_eq!((answer, calls), (Some(DiscStatus::Empty), 3));
+
+        let mut calls = 0;
+        let answer = settle::<DiscStatus>(4, zero, || {
+            calls += 1;
+            None
+        });
+        assert_eq!((answer, calls), (None, 4));
+
+        // An unwelcome answer is still an answer: asked once, never again.
+        let mut calls = 0;
+        let answer = settle(5, zero, || {
+            calls += 1;
+            Some(DiscStatus::Empty)
+        });
+        assert_eq!((answer, calls), (Some(DiscStatus::Empty), 1));
+    }
 
     #[test]
     fn get_configuration_asks_for_one_feature() {
@@ -481,12 +759,12 @@ mod tests {
 
     #[test]
     fn atip_capacity_is_not_the_lead_in_address() {
-        // Bytes 9..12 are the lead-in start and parse just as happily; reading
+        // Bytes 8..11 are the lead-in start and parse just as happily; reading
         // those instead yields a disc that looks 97 minutes long.
         let mut atip = vec![0_u8; 16];
-        atip[9] = 97;
-        atip[10] = 27;
-        atip[11] = 0;
+        atip[8] = 97;
+        atip[9] = 27;
+        atip[10] = 0;
         atip[12] = 79;
         atip[13] = 59;
         atip[14] = 74;

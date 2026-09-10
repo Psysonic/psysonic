@@ -133,6 +133,26 @@ pub fn apply(page: &[u8], params: WriteParameters) -> Result<Vec<u8>, ModePageEr
     Ok(out)
 }
 
+/// Whether the drive now holds the settings a burn depends on.
+///
+/// Compared against the page read back after `MODE SELECT`, not trusted from
+/// the command's reply: IMAPI2's `SetModePage` has no sense buffer and is
+/// documented as able to succeed with codes other than `S_OK` — the family its
+/// pass-through calls use for "the drive refused". The drive's own page is the
+/// one answer that cannot be misread.
+///
+/// Write type, Test Write and Data Block Type are what change the burn. BUFE
+/// is left out: it is only a request, and a drive declining it still burns.
+pub fn took(requested: &[u8], current: &[u8]) -> bool {
+    const WRITE_TYPE_AND_TEST: u8 = 0x0F | TEST_WRITE_BIT;
+    if requested.len() < MIN_PAGE_LEN || current.len() < MIN_PAGE_LEN {
+        return false;
+    }
+    requested[offset::WRITE_TYPE] & WRITE_TYPE_AND_TEST
+        == current[offset::WRITE_TYPE] & WRITE_TYPE_AND_TEST
+        && requested[offset::DATA_BLOCK_TYPE] & 0x0F == current[offset::DATA_BLOCK_TYPE] & 0x0F
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -155,6 +175,42 @@ mod tests {
 
     fn params() -> WriteParameters {
         WriteParameters { test_write: false, buffer_underrun_free: false, raw_subchannel: true }
+    }
+
+    #[test]
+    fn a_drive_that_kept_the_settings_took_them() {
+        let edited = apply(&drive_page(), params()).expect("edits");
+        assert!(took(&edited, &edited));
+    }
+
+    #[test]
+    fn a_drive_that_dropped_any_setting_the_burn_needs_did_not_take_them() {
+        let edited = apply(&drive_page(), params()).expect("edits");
+
+        let mut write_type = edited.clone();
+        write_type[2] = (write_type[2] & !0x0F) | 0x01; // Track-At-Once
+        assert!(!took(&edited, &write_type), "write type");
+
+        let mut test_write = edited.clone();
+        test_write[2] ^= 0x10;
+        assert!(!took(&edited, &test_write), "test write");
+
+        let mut block_type = edited.clone();
+        block_type[4] &= !0x0F;
+        assert!(!took(&edited, &block_type), "data block type");
+
+        assert!(!took(&edited, &[]), "no page at all");
+    }
+
+    #[test]
+    fn fields_the_burn_does_not_depend_on_may_differ() {
+        let edited = apply(&drive_page(), params()).expect("edits");
+        let mut current = edited.clone();
+        current[0] |= 0x80; // Parameters Savable, as drives report it
+        current[2] ^= 0x40; // BUFE declined
+        current[5] = 0; // link size
+        current[0x30] = 0; // vendor tail
+        assert!(took(&edited, &current));
     }
 
     #[test]

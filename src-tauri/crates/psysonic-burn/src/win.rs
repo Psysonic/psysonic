@@ -49,10 +49,11 @@ use windows_core::{Interface, Ref, BSTR, GUID, HSTRING, PCWSTR};
 
 use crate::job::{emit_progress, PROGRESS_THROTTLE_MS};
 use crate::mmc::read_disc_information_cdb;
+use crate::mmc::scsi::{self, DiscStatus, WriteVerdict};
 use crate::cdtext::{CdTextBlock, CdTextInput, CdTextTrack};
 use crate::model::{
     BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder, BurnWriteCapabilities,
-    CdTextVerification, DEFAULT_80_MIN_SECTORS,
+    DEFAULT_80_MIN_SECTORS,
 };
 use crate::win_sao::{self, SaoError};
 use crate::render::RenderedTrack;
@@ -328,15 +329,6 @@ pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
 
 // ── Media probe ──────────────────────────────────────────────────────────────
 
-/// What `READ DISC INFORMATION` says about the disc, byte 2 bits 1..0.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DiscStatus {
-    Empty,
-    Incomplete,
-    Complete,
-    Other,
-}
-
 /// Ask the drive directly whether the disc is empty.
 ///
 /// `IDiscFormat2RawCD::MediaHeuristicallyBlank` is, as its name says, a guess —
@@ -356,14 +348,22 @@ fn read_disc_status(recorder: &IDiscRecorder2) -> Option<DiscStatus> {
     // looking at the page, so a drive busy elsewhere is an ordinary outcome:
     // give up and let the heuristic answer rather than failing the probe.
     let _lock = unsafe { ExclusiveAccess::acquire(recorder) }.ok()?;
+    disc_status_held(&ex)
+}
 
+/// `READ DISC INFORMATION` for a caller that already holds the drive.
+///
+/// Split out of `read_disc_status` because the burn asks from inside its own
+/// exclusive hold, and taking that hold a second time is not something to
+/// depend on a drive tolerating.
+fn disc_status_held(ex: &IDiscRecorder2Ex) -> Option<DiscStatus> {
     let mut buffer = [0_u8; 34];
     let cdb = read_disc_information_cdb(buffer.len() as u16);
     let mut sense = [0_u8; 18];
     let mut fetched: u32 = 0;
 
     // SAFETY: a read of at most `buffer.len()` bytes into our own buffer.
-    unsafe {
+    let result = unsafe {
         ex.SendCommandGetDataFromDevice(
             &cdb,
             &mut sense,
@@ -371,18 +371,52 @@ fn read_disc_status(recorder: &IDiscRecorder2) -> Option<DiscStatus> {
             &mut buffer,
             &raw mut fetched,
         )
-    }
-    .ok()?;
+    };
+    win_sao::checked(result, &sense).ok()?;
 
     if (fetched as usize) < 3 {
         return None;
     }
-    Some(match buffer[2] & 0x03 {
-        0 => DiscStatus::Empty,
-        1 => DiscStatus::Incomplete,
-        2 => DiscStatus::Complete,
-        _ => DiscStatus::Other,
-    })
+    Some(DiscStatus::from_disc_information(buffer[2]))
+}
+
+/// Tracks in the disc's table of contents, for a caller that holds the drive.
+///
+/// The second opinion `scsi::verdict_after_write` needs: a written disc has a
+/// TOC even while the drive is still describing it as it was on insertion.
+fn toc_track_count_held(ex: &IDiscRecorder2Ex) -> Option<u8> {
+    let mut buffer = vec![0_u8; usize::from(scsi::TOC_FULL_BYTES)];
+    let cdb = scsi::read_toc_cdb(scsi::TOC_FORMAT_TOC, 0, scsi::TOC_FULL_BYTES);
+    let mut sense = [0_u8; 18];
+    let mut fetched: u32 = 0;
+
+    // SAFETY: a read of at most `buffer.len()` bytes into our own buffer.
+    let result = unsafe {
+        ex.SendCommandGetDataFromDevice(
+            &cdb,
+            &mut sense,
+            DISC_INFO_TIMEOUT,
+            &mut buffer,
+            &raw mut fetched,
+        )
+    };
+    win_sao::checked(result, &sense).ok()?;
+
+    scsi::parse_toc_track_count(&buffer[..(fetched as usize).min(buffer.len())])
+}
+
+/// What the disc says a Session-At-Once write left on it. Call with the drive
+/// still held.
+fn verdict_while_held(recorder: &IDiscRecorder2) -> WriteVerdict {
+    let Ok(ex) = recorder.cast::<IDiscRecorder2Ex>() else {
+        return WriteVerdict::Unknown;
+    };
+    let status = scsi::settle(
+        scsi::POST_WRITE_STATUS_ATTEMPTS,
+        scsi::POST_WRITE_STATUS_PAUSE,
+        || disc_status_held(&ex),
+    );
+    scsi::verdict_after_write(status, toc_track_count_held(&ex))
 }
 
 /// Seconds allowed for the disc-information query during a probe.
@@ -783,32 +817,70 @@ pub fn burn(
                             .media_catalog_number
                             .as_deref()
                             .filter(|c| !c.trim().is_empty()),
+                        options.gapless,
                         options.test_write,
                         capabilities.buffer_underrun_free,
+                        // The IMAPI2 fallback below applies this through
+                        // SetWriteSpeed; this path has to ask the drive itself,
+                        // and for a while it simply did not — so choosing a
+                        // speed with CD-TEXT on, which is the default, changed
+                        // nothing about how the disc was burned.
+                        options.write_speed,
                         &cancel,
                     );
                     match attempt {
                         Ok(sectors) => {
-                            // Verify against the disc rather than trusting the
-                            // drive's own claim that it can do this. A failed
-                            // query is reported as such, not as an empty disc.
-                            let verified =
-                                (!options.test_write).then(|| win_sao::verify_cd_text(&recorder));
-                            drop(lock);
-                            if options.test_write || options.eject_when_done {
-                                // See `reload_media`: a rehearsal leaves the drive
-                                // holding an unfinished session, and only a reload
-                                // makes it call the disc blank again.
-                                let _ = recorder.EjectMedia();
-                                if options.test_write {
-                                    let _ = recorder.CloseTray();
+                            // Every command in that write was accepted, and even
+                            // that is not proof: a drive can take a whole session
+                            // without committing it. So ask the disc, while the
+                            // drive is still held. A rehearsal writes nothing by
+                            // design, so there is nothing to judge.
+                            let verdict = if options.test_write {
+                                WriteVerdict::Unknown
+                            } else {
+                                verdict_while_held(&recorder)
+                            };
+
+                            match verdict {
+                                WriteVerdict::NothingWritten => {
+                                    // The drive accepted and flushed the whole session,
+                                    // and the disc still reads as blank with no table of
+                                    // contents. If it burned nothing, the IMAPI2 path
+                                    // below gets to burn it. If it burned a lead-in and
+                                    // says otherwise, that disc was already lost, and
+                                    // IMAPI2 will fail on it with an error of its own.
+                                    drop(lock);
+                                    crate::app_eprintln!(
+                                        "[burn] the drive accepted the Session-At-Once write but the disc is still blank; burning again without CD-TEXT"
+                                    );
+                                }
+                                WriteVerdict::Unfinished => {
+                                    drop(lock);
+                                    return Err(scsi::UNFINISHED_WRITE_MESSAGE.to_string());
+                                }
+                                WriteVerdict::Written | WriteVerdict::Unknown => {
+                                    // Verify against the disc rather than trusting the
+                                    // drive's own claim that it can do this. A failed
+                                    // query is reported as such, not as an empty disc.
+                                    let verified = (!options.test_write)
+                                        .then(|| win_sao::verify_cd_text(&recorder));
+                                    drop(lock);
+                                    if options.test_write || options.eject_when_done {
+                                        // See `reload_media`: a rehearsal leaves the drive
+                                        // holding an unfinished session, and only a reload
+                                        // makes it call the disc blank again.
+                                        let _ = recorder.EjectMedia();
+                                        if options.test_write {
+                                            let _ = recorder.CloseTray();
+                                        }
+                                    }
+                                    return Ok(BurnOutcome {
+                                        sectors,
+                                        cd_text_written: true,
+                                        cd_text_verification: verified,
+                                    });
                                 }
                             }
-                            return Ok(BurnOutcome {
-                                sectors,
-                                cd_text_written: true,
-                                cd_text_verification: verified,
-                            });
                         }
                         Err(SaoError::Setup(reason)) => {
                             drop(lock);
@@ -817,6 +889,12 @@ pub fn burn(
                             );
                         }
                         Err(SaoError::Write(reason)) => {
+                            // Once the drive has taken any part of the write, the
+                            // disc cannot be called untouched: the lead-in may be
+                            // burned while the disc still reads as blank. Tried on
+                            // an LG WH10LS30, burning again after a refused write
+                            // failed too. So this is the burn's failure, reported
+                            // with the drive's reason.
                             drop(lock);
                             return Err(reason);
                         }
@@ -1295,19 +1373,6 @@ unsafe fn open_file_stream(path: &Path) -> Result<IStream, String> {
         )
         .map_err(|e| format!("could not read the rendered track {}: {e}", path.display()))
     }
-}
-
-/// Read the CD-TEXT off whatever disc is loaded.
-///
-/// Exposed on its own because verifying straight after a burn can read a table
-/// of contents the drive cached before the lead-in was written. Re-checking
-/// with the disc reloaded is what actually settles whether CD-TEXT is there.
-pub fn verify_cd_text(recorder_id: &str) -> Result<CdTextVerification, String> {
-    let recorder_id = recorder_id.to_string();
-    with_com(move || unsafe {
-        let recorder = open_recorder(&recorder_id)?;
-        Ok(win_sao::verify_cd_text(&recorder))
-    })
 }
 
 // ── Erase (CD-RW) ────────────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
     handleAction, isStarred, offlinePolicy,
   } = props;
   const { t } = useTranslation();
-  const burnAvailable = useBurnMenuAvailable(offlinePolicy);
+  const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
   const songs = item as Track[];
   const ratingId = multiTrackRatingId(songs);
   const playlistTriggerId = `multi-song:${songs.map(song => song.id).join(',')}`;
@@ -69,12 +69,21 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
           )}
         </div>
       )}
+      {/* Disabled, not hidden, while a job owns the queue: the running job
+          already took its track list, so a queue that grew behind it would
+          describe a disc nobody is burning — and an item that vanishes from a
+          menu the user just used reads as a bug. */}
       {burnAvailable && (
-        <div className="context-menu-item" onClick={() => handleAction(() => {
-          // Each track keeps its own owner; the active server is only a
-          // fallback for rows that never carried one.
-          addTracksToBurnList(songs, resolveMediaServerId(songs[0]?.serverId) ?? '');
-        })}>
+        <div
+          className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+          aria-disabled={burnBusy || undefined}
+          {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+          onClick={burnBusy ? undefined : () => handleAction(() => {
+            // Each track keeps its own owner; the active server is only a
+            // fallback for rows that never carried one.
+            addTracksToBurnList(songs, resolveMediaServerId(songs[0]?.serverId) ?? '');
+          })}
+        >
           <Flame size={14} /> {t('burner.addToCd')}
         </div>
       )}

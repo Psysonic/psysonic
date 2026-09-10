@@ -126,3 +126,22 @@ describe('burnJobIsCommitted', () => {
     expect(burnJobIsCommitted('idle', 'writing')).toBe(false);
   });
 });
+
+describe('burnJobStore — CD-TEXT request', () => {
+  it('remembers whether the burn asked for CD-TEXT, and forgets it on reset', () => {
+    useBurnJobStore.getState().start('job-cd', 100_000, false, true);
+    expect(useBurnJobStore.getState().cdTextRequested).toBe(true);
+
+    // Finishing a burn does not change what it asked for.
+    useBurnJobStore.getState().finish({ tracksWritten: 3, sectorsWritten: 100_000 });
+    expect(useBurnJobStore.getState().cdTextRequested).toBe(true);
+
+    useBurnJobStore.getState().reset();
+    expect(useBurnJobStore.getState().cdTextRequested).toBe(false);
+  });
+
+  it('defaults to not asked, so existing callers are unchanged', () => {
+    useBurnJobStore.getState().start('job-plain', 100_000, false);
+    expect(useBurnJobStore.getState().cdTextRequested).toBe(false);
+  });
+});

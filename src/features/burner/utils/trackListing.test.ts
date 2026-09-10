@@ -19,8 +19,6 @@ function arc(number: number, artist: string, title: string, durationSec: number)
     number,
     startSector: 150 + (number - 1) * 100,
     sectors: Math.ceil(durationSec * 75),
-    startAngle: 0,
-    endAngle: 1,
   };
 }
 

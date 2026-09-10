@@ -37,8 +37,15 @@ export interface BurnJobState {
   error: string | null;
   testWrite: boolean;
   tracksWritten: number;
+  /**
+   * Whether this burn asked the drive for CD-TEXT. The completion event only
+   * says whether it was written, so without this a disc that came back without
+   * it — because the drive refused, or because the write never reached the
+   * disc and was redone without it — looks the same as one that never asked.
+   */
+  cdTextRequested: boolean;
 
-  start: (jobId: string, sectorsTotal: number, testWrite: boolean) => void;
+  start: (jobId: string, sectorsTotal: number, testWrite: boolean, cdTextRequested?: boolean) => void;
   applyProgress: (event: BurnProgressEvent) => void;
   requestCancel: () => void;
   cancelRequestFailed: () => void;
@@ -60,13 +67,14 @@ const IDLE = {
   error: null,
   testWrite: false,
   tracksWritten: 0,
+  cdTextRequested: false,
 };
 
 export const useBurnJobStore = create<BurnJobState>()((set) => ({
   ...IDLE,
 
-  start: (jobId, sectorsTotal, testWrite) =>
-    set({ ...IDLE, jobId, sectorsTotal, testWrite, status: 'running', phase: 'fetching' }),
+  start: (jobId, sectorsTotal, testWrite, cdTextRequested = false) =>
+    set({ ...IDLE, jobId, sectorsTotal, testWrite, cdTextRequested, status: 'running', phase: 'fetching' }),
 
   applyProgress: (event) =>
     set(state => {

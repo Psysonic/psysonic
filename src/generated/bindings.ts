@@ -862,11 +862,21 @@ export const commands = {
 	 *
 	 *  Returns an empty list (not an error) on platforms without a backend, so
 	 *  the UI can explain itself with `burn_is_supported`.
+	 *
+	 *  Off-thread for the same reason as `burn_media_state` below: a sync
+	 *  `#[tauri::command]` resolves on the IPC thread, and enumerating drives is
+	 *  blocking COM/ioctl work that can sit for seconds on a drive still spinning
+	 *  up. Run inline it froze the whole app, transport controls included.
 	 */
 	burnListRecorders: () => typedError<BurnRecorder[], string>(__TAURI_INVOKE("burn_list_recorders")),
 	/**  Whether this platform has a burn backend at all. */
 	burnIsSupported: () => __TAURI_INVOKE<boolean>("burn_is_supported"),
-	/**  What is in the drive right now: media type, blankness, capacity, speeds. */
+	/**
+	 *  What is in the drive right now: media type, blankness, capacity, speeds.
+	 *
+	 *  Off-thread: this is the slowest read on the page — it waits for the drive
+	 *  to spin up and read the disc — and it runs when the burner page opens.
+	 */
 	burnProbeMedia: (recorderId: string) => typedError<BurnMediaInfo, string>(__TAURI_INVOKE("burn_probe_media", { recorderId })),
 	/**
 	 *  Lay the running order out on a disc of `capacity_sectors`.
@@ -875,7 +885,7 @@ export const commands = {
 	 *  it on every reorder. The authoritative sector counts only exist after
 	 *  rendering, and `burn_start` re-checks against the real disc before writing.
 	 */
-	burnPlan: (tracks: BurnTrackInput[], capacitySectors: number) => typedError<BurnPlan, string>(__TAURI_INVOKE("burn_plan", { tracks, capacitySectors })),
+	burnPlan: (tracks: BurnTrackInput[], capacitySectors: number, gapless: boolean) => typedError<BurnPlan, string>(__TAURI_INVOKE("burn_plan", { tracks, capacitySectors, gapless })),
 	/**
 	 *  Render `tracks` to Red Book PCM and write them to the disc.
 	 *
@@ -911,15 +921,6 @@ export const commands = {
 	 *  drive - a poll that raises errors would be a toast every few seconds.
 	 */
 	burnMediaState: (recorderId: string) => typedError<string, string>(__TAURI_INVOKE("burn_media_state", { recorderId })),
-	/**
-	 *  Read CD-TEXT back off the disc that is loaded right now.
-	 *
-	 *  Separate from the burn because a drive often caches the table of contents it
-	 *  read when the disc was inserted; checking straight after a burn can miss a
-	 *  lead-in that is genuinely there. Reloading the disc and running this is what
-	 *  settles it.
-	 */
-	burnVerifyCdText: (recorderId: string) => typedError<CdTextVerification, string>(__TAURI_INVOKE("burn_verify_cd_text", { recorderId })),
 };
 
 /* Types */
@@ -1121,11 +1122,19 @@ export type BurnPlanTrack = {
 
 /**  One optical recorder attached to the machine. */
 export type BurnRecorder = {
-	/**  Opaque IMAPI2 recorder id. Round-trips back on every later call. */
+	/**
+	 *  Opaque per-platform recorder id — an IMAPI2 id on Windows, a device
+	 *  path on Linux. Round-trips back on every later call, and each backend
+	 *  resolves it against the drives it actually found rather than trusting
+	 *  it as a path.
+	 */
 	id: string,
 	/**  Human label, e.g. `HL-DT-ST BD-RE WH16NS40`. */
 	name: string,
-	/**  Mount points the recorder currently owns, e.g. `["E:\\"]`. */
+	/**
+	 *  Where the drive shows up in the filesystem: mount points on Windows
+	 *  (`["E:\\"]`), the device node on Linux (`["/dev/sr0"]`).
+	 */
 	volumePaths: string[],
 	/**
 	 *  Whether the drive can write CD-R/CD-RW at all. A DVD-only reader is
@@ -1220,23 +1229,6 @@ export type BurnWriteCapabilities = {
 export type CatalogYearBoundsDto = {
 	minYear: number | null,
 	maxYear: number | null,
-};
-
-/**
- *  What reading CD-TEXT back off a disc found.
- *
- *  The three outcomes are deliberately distinct. An earlier version collapsed
- *  "the drive refused the query" into "the disc has no CD-TEXT", which blamed
- *  the drive for writing nothing when the truth may only have been that it
- *  would not answer the question.
- */
-export type CdTextVerification = {
-	/**  The read-back actually ran. When `false`, `packs` means nothing. */
-	checked: boolean,
-	/**  Packs with a valid CRC found in the lead-in. */
-	packs: number,
-	/**  Why the check could not run, when it could not. */
-	error: string | null,
 };
 
 export type CoverBackfillItem = {

@@ -7,19 +7,14 @@
 import { commands } from '@/generated/bindings';
 import type {
   BurnMediaInfo,
-  CdTextVerification,
   BurnOptions,
-  BurnPlan,
   BurnRecorder,
   BurnTrackInput,
 } from '@/generated/bindings';
 
 export type {
   BurnMediaInfo,
-  CdTextVerification,
   BurnOptions,
-  BurnPlan,
-  BurnPlanTrack,
   BurnRecorder,
   BurnTrackInput,
 } from '@/generated/bindings';
@@ -33,6 +28,29 @@ export interface BurnProgressEvent {
   sectorsTotal: number;
   msf: string;
   bufferPercent: number | null;
+}
+
+/**
+ * What reading CD-TEXT back off a disc found.
+ *
+ * Hand-written rather than generated, because it only ever arrives inside the
+ * burn-complete EVENT payload, and specta types commands rather than events —
+ * it stopped being emitted the moment the last command mentioning it went away.
+ * Mirrors `CdTextVerification` in `crates/psysonic-burn/src/model.rs`; keep the
+ * two in step.
+ *
+ * The three outcomes are deliberately distinct. An earlier version collapsed
+ * "the drive refused the query" into "the disc has no CD-TEXT", which blamed
+ * the drive for writing nothing when the truth may only have been that it would
+ * not answer the question.
+ */
+export interface CdTextVerification {
+  /** The read-back actually ran. When `false`, `packs` means nothing. */
+  checked: boolean;
+  /** Packs with a valid CRC found in the lead-in. */
+  packs: number;
+  /** Why the check could not run, when it could not. */
+  error: string | null;
 }
 
 /** Payload of the `burn:complete` event. */
@@ -66,15 +84,6 @@ export async function probeMedia(args: { recorderId: string }): Promise<BurnMedi
   return res.data;
 }
 
-export async function planDisc(args: {
-  tracks: BurnTrackInput[];
-  capacitySectors: number;
-}): Promise<BurnPlan> {
-  const res = await commands.burnPlan(args.tracks, args.capacitySectors);
-  if (res.status === 'error') throw new Error(res.error);
-  return res.data;
-}
-
 export async function startBurn(args: {
   jobId: string;
   tracks: BurnTrackInput[];
@@ -87,19 +96,6 @@ export async function startBurn(args: {
 /** Resolves false when the job had already finished. */
 export function cancelBurn(args: { jobId: string }): Promise<boolean> {
   return commands.burnCancel(args.jobId);
-}
-
-/**
- * Read CD-TEXT back off the disc that is loaded right now.
- *
- * Worth running with the disc reloaded: drives cache the table of contents
- * they read on insert, so a check immediately after a burn can miss a lead-in
- * that is genuinely there.
- */
-export async function verifyCdText(args: { recorderId: string }): Promise<CdTextVerification> {
-  const res = await commands.burnVerifyCdText(args.recorderId);
-  if (res.status === 'error') throw new Error(res.error);
-  return res.data;
 }
 
 /**

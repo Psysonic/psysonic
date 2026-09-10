@@ -62,7 +62,7 @@ mod linux;
 
 pub use commands::{
     burn_cancel, burn_erase, burn_is_supported, burn_list_recorders, burn_plan, burn_probe_media,
-    burn_start, burn_verify_cd_text,
+    burn_start,
 };
 pub use model::{
     BurnMediaInfo, BurnOptions, BurnPhase, BurnPlan, BurnPlanTrack, BurnRecorder, BurnResult,

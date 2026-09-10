@@ -16,7 +16,7 @@ use std::os::fd::AsRawFd;
 use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
-use crate::mmc::scsi::describe_sense;
+use crate::mmc::scsi::{describe_sense, sense_triplet};
 
 /// The ioctl itself.
 const SG_IO: libc::c_ulong = 0x2285;
@@ -132,13 +132,29 @@ impl ScsiDevice {
     }
 
     /// Send a command that carries data to the drive.
+    ///
+    /// GOOD status is not the whole answer. usb-storage reports data that never
+    /// reached the drive as a residue *alongside* GOOD — a USB controller has
+    /// been seen stopping a `WRITE(10)` after 9 216 of 32 768 bytes with exactly
+    /// that result — so a send the drive was handed less of is a failure. Some
+    /// bridges report a residue that is not real; the kernel's quirk list
+    /// (`US_FL_IGNORE_RESIDUE`) makes usb-storage ignore it for those.
     pub fn send(&self, cdb: &[u8], data: &[u8], timeout_s: u32) -> Result<(), ScsiError> {
         // The kernel does not write to the buffer on a to-device transfer, but
         // the header field is not const, so the copy buys a sound `&mut`
         // rather than casting one out of a shared reference.
         let mut owned = data.to_vec();
-        self.transfer(cdb, SG_DXFER_TO_DEV, &mut owned, timeout_s)
-            .map(|_| ())
+        let moved = self.transfer(cdb, SG_DXFER_TO_DEV, &mut owned, timeout_s)?;
+        if moved < data.len() {
+            return Err(ScsiError {
+                message: format!(
+                    "the drive's connection delivered {moved} of {} bytes",
+                    data.len()
+                ),
+                sense: None,
+            });
+        }
+        Ok(())
     }
 
     /// Send a command that reads data back, returning how many bytes arrived.
@@ -201,19 +217,18 @@ impl ScsiDevice {
             ));
         }
 
-        // A command can fail three ways: the ioctl itself (above), the transport
-        // (host/driver), or the drive (status plus sense). All three have to be
-        // checked, or a refused write reads as a successful one.
-        if header.host_status != 0 || header.driver_status != 0 {
-            return Err(ScsiError {
-                message: format!(
-                    "the drive's connection failed (host {:#06x}, driver {:#06x})",
-                    header.host_status, header.driver_status
-                ),
-                sense: None,
-            });
-        }
-
+        // A command can fail three ways: the ioctl itself (above), the drive
+        // (status plus sense), or the transport (host/driver). All three have to
+        // be checked, or a refused write reads as a successful one.
+        //
+        // The drive is asked first because the kernel raises DRIVER_SENSE in
+        // `driver_status` on every CHECK CONDITION, purely to say the sense
+        // buffer is worth reading. Testing the transport ahead of the status
+        // turned every refusal the drive had explained into "the drive's
+        // connection failed" and discarded the sense along with it, costing the
+        // caller both the real message and the 2/04/08 backoff that carries
+        // every write on this path — the lead-in and the program area alike —
+        // past a drive that is briefly not ready.
         if header.status != 0 {
             let decoded = sense_triplet(&sense, header.sb_len_wr as usize);
             return Err(ScsiError {
@@ -222,6 +237,16 @@ impl ScsiDevice {
                     None => format!("the drive reported status {:#04x}", header.status),
                 },
                 sense: decoded,
+            });
+        }
+
+        if header.host_status != 0 || header.driver_status != 0 {
+            return Err(ScsiError {
+                message: format!(
+                    "the drive's connection failed (host {:#06x}, driver {:#06x})",
+                    header.host_status, header.driver_status
+                ),
+                sense: None,
             });
         }
 
@@ -244,55 +269,5 @@ impl ScsiDevice {
         // SAFETY: as above.
         unsafe { libc::ioctl(self.file.as_raw_fd(), CDROMCLOSETRAY) };
         Ok(())
-    }
-}
-
-/// Pull the key/ASC/ASCQ out of a sense buffer, fixed or descriptor format.
-///
-/// Response code `72h`/`73h` is the descriptor format, where the three live in
-/// different bytes from the fixed format every older drive uses. Reading the
-/// fixed offsets out of a descriptor buffer yields a plausible-looking and
-/// entirely wrong diagnosis.
-fn sense_triplet(sense: &[u8], written: usize) -> Option<(u8, u8, u8)> {
-    let len = written.min(sense.len());
-    if len < 14 {
-        return None;
-    }
-    match sense[0] & 0x7F {
-        0x72 | 0x73 => Some((sense[1] & 0x0F, sense[2], sense[3])),
-        _ => Some((sense[2] & 0x0F, sense[12], sense[13])),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn fixed_format_sense_reads_from_the_classic_offsets() {
-        let mut sense = [0_u8; 32];
-        sense[0] = 0x70;
-        sense[2] = 0x05;
-        sense[12] = 0x24;
-        sense[13] = 0x00;
-        assert_eq!(sense_triplet(&sense, 18), Some((0x05, 0x24, 0x00)));
-    }
-
-    #[test]
-    fn descriptor_format_sense_reads_from_its_own_offsets() {
-        // The same failure in the newer layout. Reading bytes 2/12/13 here
-        // would report a completely different fault.
-        let mut sense = [0_u8; 32];
-        sense[0] = 0x72;
-        sense[1] = 0x05;
-        sense[2] = 0x24;
-        sense[3] = 0x00;
-        assert_eq!(sense_triplet(&sense, 18), Some((0x05, 0x24, 0x00)));
-    }
-
-    #[test]
-    fn a_truncated_sense_buffer_is_not_guessed_at() {
-        let sense = [0_u8; 32];
-        assert_eq!(sense_triplet(&sense, 4), None);
     }
 }

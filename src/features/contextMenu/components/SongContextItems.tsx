@@ -40,7 +40,7 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
   const networkIcon = networkPrimary?.icon ?? 'custom';
   const navigateToAlbum = useNavigateToAlbum();
   const navigateToArtist = useNavigateToArtist();
-  const burnAvailable = useBurnMenuAvailable(offlinePolicy);
+  const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
 
   return (
     <>
@@ -108,11 +108,20 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   )}
                 </div>
               )}
+              {/* Disabled, not hidden, while a job owns the queue: the running job
+                  already took its track list, so a queue that grew behind it
+                  would describe a disc nobody is burning — and an item that
+                  vanishes from a menu the user just used reads as a bug. */}
               {burnAvailable && (
-                <div className="context-menu-item" onClick={() => handleAction(() => {
-                  const serverId = resolveMediaServerId(song.serverId);
-                  if (serverId) addSongsToBurnList([song], serverId);
-                })}>
+                <div
+                  className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+                  aria-disabled={burnBusy || undefined}
+                  {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+                  onClick={burnBusy ? undefined : () => handleAction(() => {
+                    const serverId = resolveMediaServerId(song.serverId);
+                    if (serverId) addSongsToBurnList([song], serverId);
+                  })}
+                >
                   <Flame size={14} /> {t('burner.addToCd')}
                 </div>
               )}
@@ -276,11 +285,20 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   )}
                 </div>
               )}
+              {/* Disabled, not hidden, while a job owns the queue: the running job
+                  already took its track list, so a queue that grew behind it
+                  would describe a disc nobody is burning — and an item that
+                  vanishes from a menu the user just used reads as a bug. */}
               {burnAvailable && (
-                <div className="context-menu-item" onClick={() => handleAction(() => {
-                  const serverId = resolveMediaServerId(song.serverId);
-                  if (serverId) addSongsToBurnList([song], serverId);
-                })}>
+                <div
+                  className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+                  aria-disabled={burnBusy || undefined}
+                  {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+                  onClick={burnBusy ? undefined : () => handleAction(() => {
+                    const serverId = resolveMediaServerId(song.serverId);
+                    if (serverId) addSongsToBurnList([song], serverId);
+                  })}
+                >
                   <Flame size={14} /> {t('burner.addToCd')}
                 </div>
               )}

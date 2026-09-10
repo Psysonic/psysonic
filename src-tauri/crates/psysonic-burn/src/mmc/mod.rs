@@ -18,6 +18,8 @@ pub mod cue;
 pub mod mode;
 pub mod scsi;
 
+use crate::model::BYTES_PER_AUDIO_SECTOR;
+
 /// Operation code for `WRITE(10)`.
 pub const OP_WRITE_10: u8 = 0x2A;
 
@@ -77,6 +79,69 @@ pub fn read_disc_information_cdb(len: u16) -> [u8; 10] {
         len as u8,
         0,
     ]
+}
+
+/// Operation code for `SET CD SPEED`.
+pub const OP_SET_CD_SPEED: u8 = 0xBB;
+
+/// FFFFh in a `SET CD SPEED` field: "whatever your maximum is".
+const SPEED_MAXIMUM: u16 = 0xFFFF;
+
+/// Build a `SET CD SPEED` command block asking to burn at `write_kbps`.
+///
+/// MMC-3 (INCITS 360-2002) 6.35: twelve bytes, with the read speed big-endian
+/// in bytes 2-3 and the **write** speed big-endian in bytes 4-5. Putting the
+/// write speed in the read field is the easy mistake here, and it is a quiet
+/// one: the drive accepts the command and burns at its own speed anyway.
+///
+/// Both fields are kilobytes per second — not sectors per second, and not an
+/// "x" multiplier — so callers convert with `sectors_per_second_to_kbps`
+/// first. Handing this a bare `4` for 4x asks for 4 kB/s, which is not a speed
+/// any CD drive has.
+///
+/// The read speed stays at FFFFh because a burn reads nothing: pinning it would
+/// only leave the drive crawling for whoever plays the disc next. Byte 1's
+/// rotational-control field stays 00b — CLV/zone-CAV, the same choice the
+/// IMAPI2 path makes with `SetWriteSpeed(.., false)`, and the safe one for
+/// audio.
+pub fn set_cd_speed_cdb(write_kbps: u16) -> [u8; 12] {
+    [
+        OP_SET_CD_SPEED,
+        0,
+        (SPEED_MAXIMUM >> 8) as u8,
+        SPEED_MAXIMUM as u8,
+        (write_kbps >> 8) as u8,
+        write_kbps as u8,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+    ]
+}
+
+/// A write speed in sectors per second, as `SET CD SPEED` wants it.
+///
+/// The rest of the burner counts speed in sectors per second, because that is
+/// what a disc's length is measured in. The command counts kilobytes per
+/// second, of 1000 bytes: 1x is 75 sectors of 2352 bytes, so 176.4 kB/s, which
+/// rounds to 176.
+///
+/// A number that cannot be a write speed comes back as `None` rather than as a
+/// field value, and the caller then sends nothing at all. Zero would ask a
+/// drive to stop; anything past the 16-bit field would wrap into a
+/// plausible-looking *slow* speed and burn an hour-long disc at 1x; and FFFFh
+/// is the spec's "maximum" rather than a speed, so it is kept out of band too.
+pub fn sectors_per_second_to_kbps(sectors_per_second: u32) -> Option<u16> {
+    if sectors_per_second == 0 {
+        return None;
+    }
+    // Integer arithmetic in 64 bits, rounded half up. This is a field in a
+    // command block, and it is worth being able to say the number is exact.
+    let bytes_per_second = u64::from(sectors_per_second) * BYTES_PER_AUDIO_SECTOR as u64;
+    let kbps = (bytes_per_second + 500) / 1000;
+    (kbps < u64::from(SPEED_MAXIMUM)).then_some(kbps as u16)
 }
 
 /// First LBA of the lead-in, given its length in sectors.

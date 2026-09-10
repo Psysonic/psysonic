@@ -14,11 +14,12 @@ export interface RecorderPickerProps {
   onErase: () => void;
   onReload: () => void;
   disabled: boolean;
-}
-
-/** Sectors/second → the "×" speed people recognise. 75 sectors/s is 1×. */
-function speedLabel(sectorsPerSecond: number): string {
-  return `${Math.round(sectorsPerSecond / 75)}×`;
+  /**
+   * True when the disc's refusal is the message the alert line is showing. The
+   * button that answers it then says what it does, so the sentence and the way
+   * out of it are not three elements apart.
+   */
+  showReloadLabel?: boolean;
 }
 
 export default function RecorderPicker({
@@ -31,12 +32,13 @@ export default function RecorderPicker({
   onErase,
   onReload,
   disabled,
+  showReloadLabel = false,
 }: RecorderPickerProps) {
   const { t } = useTranslation();
   const writable = recorders.filter(r => r.canWriteCd);
 
   return (
-    <div className="burner-drivebar">
+    <div className="burner-chassis-drive-inner">
       <label htmlFor="burner-drive">{t('burner.recorder')}</label>
       <select
         id="burner-drive"
@@ -83,13 +85,14 @@ export default function RecorderPicker({
       {media?.present && media.blocker !== null && !media.erasable && (
         <button
           type="button"
-          className="burner-icon-btn"
+          className={`burner-icon-btn${showReloadLabel ? ' is-labelled' : ''}`}
           onClick={onReload}
           disabled={disabled}
           title={t('burner.reloadHint')}
           aria-label={t('burner.reloadDisc')}
         >
           <ArrowUpFromLine size={14} aria-hidden="true" />
+          {showReloadLabel && <span>{t('burner.reloadDisc')}</span>}
         </button>
       )}
 
@@ -111,14 +114,6 @@ export default function RecorderPicker({
                   minutes: formatDuration(sectorsToSeconds(media.capacitySectors)),
                   sectors: media.capacitySectors.toLocaleString(),
                 })
-              : '—'}
-          </dd>
-        </div>
-        <div>
-          <dt>{t('burner.speedsLabel')}</dt>
-          <dd>
-            {media && media.writeSpeeds.length > 0
-              ? media.writeSpeeds.slice(0, 5).map(speedLabel).join(' · ')
               : '—'}
           </dd>
         </div>
