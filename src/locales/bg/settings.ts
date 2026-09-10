@@ -277,6 +277,8 @@ export const settings = {
   clockFormatTwelve: '12-часов (AM/PM)',
   preloadMiniPlayer: 'Предварително зареждай мини плейъра',
   preloadMiniPlayerDesc: 'Изгражда прозореца на мини плейъра във фонов режим при стартиране на приложението, за да покаже съдържание веднага при първо отваряне. Използва малко допълнителна памет.',
+  miniPlayerCustomTitlebar: 'Скриване на заглавната лента на прозореца',
+  miniPlayerCustomTitlebarDesc: 'Мини плейърът използва собствена тънка лента вместо системната. Бутоните за минимизиране и възстановяване отпадат — самият прозорец предлага същото.',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: 'Показва текущо изпълняваната песен в профила ти в Discord. Изисква Discord да работи.',
   discordRichPresenceNotice: 'Забележка: това е вграденият Discord Rich Presence на Psysonic. Ако предпочиташ да използваш официалния плъгин Discord Rich Presence за Navidrome, остави това изключено и включи „Показвай в „В момента се изпълнява““ по-надолу на страницата.',

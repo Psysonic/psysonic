@@ -274,6 +274,8 @@ export const settings = {
   clockFormatTwelve: '12-Stunden (AM/PM)',
   preloadMiniPlayer: 'Mini-Player vorladen',
   preloadMiniPlayerDesc: 'Baut das Mini-Player-Fenster beim App-Start im Hintergrund auf, damit es beim ersten Öffnen sofort Inhalt zeigt. Kostet etwas mehr RAM.',
+  miniPlayerCustomTitlebar: 'Titelleiste des Fensters ausblenden',
+  miniPlayerCustomTitlebarDesc: 'Der Mini-Player nutzt eine eigene schmale Leiste statt der des Systems. Minimieren und Wiederherstellen entfallen — das Fenster bietet beides selbst.',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: 'Zeigt den aktuell gespielten Titel im Discord-Profil an. Discord muss dafür geöffnet sein.',
   discordRichPresenceNotice: 'Achtung: Dies ist die in Psysonic integrierte Discord Rich Presence. Wenn du stattdessen das offizielle Navidrome-Discord-Rich-Presence-Plugin nutzen möchtest, lass diese Funktion deaktiviert und aktiviere stattdessen weiter unten auf dieser Seite „Im Livefenster anzeigen".',

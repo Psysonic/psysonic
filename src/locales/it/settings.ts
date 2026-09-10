@@ -277,6 +277,8 @@ export const settings = {
   clockFormatTwelve: '12 ore (AM/PM)',
   preloadMiniPlayer: 'Precarica mini player',
   preloadMiniPlayerDesc: 'Crea la finestra del mini player in background all\'avvio dell\'app, così mostra i contenuti istantaneamente alla prima apertura. Usa un po\' di memoria in più.',
+  miniPlayerCustomTitlebar: 'Nascondi la barra del titolo della finestra',
+  miniPlayerCustomTitlebarDesc: 'Il mini player usa una propria barra sottile al posto di quella di sistema. Riduci a icona e ripristina spariscono: la finestra li offre già.',
   discordRichPresence: 'Discord Rich Presence',
   discordRichPresenceDesc: 'Mostra il brano attualmente in riproduzione sul tuo profilo Discord. Richiede che Discord sia in esecuzione.',
   discordRichPresenceNotice: 'Attenzione: questo è il Discord Rich Presence integrato di Psysonic. Se preferisci usare il plugin ufficiale Discord Rich Presence di Navidrome, lascia questa opzione disattivata e attiva invece "Mostra in In riproduzione" più in basso in questa pagina.',

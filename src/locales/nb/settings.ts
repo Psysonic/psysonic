@@ -272,6 +272,8 @@ export const settings = {
   clockFormatTwelve: '12-timers (AM/PM)',
   preloadMiniPlayer: 'Forhåndslast miniavspiller',
   preloadMiniPlayerDesc: 'Bygger miniavspiller-vinduet i bakgrunnen ved appstart slik at det viser innhold umiddelbart ved første åpning. Bruker litt mer minne.',
+  miniPlayerCustomTitlebar: 'Skjul tittellinjen i vinduet',
+  miniPlayerCustomTitlebarDesc: 'Minispilleren bruker sin egen smale linje i stedet for systemets. Minimer og gjenopprett faller bort — vinduet tilbyr begge selv.',
   linuxWebkitSmoothScroll: 'Mykt musehjul (Linux)',
   linuxWebkitSmoothScrollDesc: 'På: treg rull med etterslep. Av: trinnvis som i GTK.',
   linuxWebkitInputForceRepaint: 'Tegne om tekstfelt ved fokus (Linux)',
