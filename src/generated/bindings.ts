@@ -904,6 +904,14 @@ export const commands = {
 	 */
 	burnReloadMedia: (recorderId: string) => typedError<null, string>(__TAURI_INVOKE("burn_reload_media", { recorderId })),
 	/**
+	 *  A cheap fingerprint of what is in the drive.
+	 *
+	 *  Polled while the burner page is open. The token is opaque: compare it with
+	 *  the last one and re-probe when it differs. Never fails for an absent or busy
+	 *  drive - a poll that raises errors would be a toast every few seconds.
+	 */
+	burnMediaState: (recorderId: string) => typedError<string, string>(__TAURI_INVOKE("burn_media_state", { recorderId })),
+	/**
 	 *  Read CD-TEXT back off the disc that is loaded right now.
 	 *
 	 *  Separate from the burn because a drive often caches the table of contents it

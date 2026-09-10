@@ -111,6 +111,19 @@ pub async fn burn_verify_cd_text(recorder_id: String) -> Result<CdTextVerificati
         .map_err(|e| format!("verification task failed: {e}"))?
 }
 
+/// A cheap fingerprint of what is in the drive.
+///
+/// Polled while the burner page is open. The token is opaque: compare it with
+/// the last one and re-probe when it differs. Never fails for an absent or busy
+/// drive - a poll that raises errors would be a toast every few seconds.
+#[tauri::command]
+#[specta::specta]
+pub async fn burn_media_state(recorder_id: String) -> Result<String, String> {
+    tauri::async_runtime::spawn_blocking(move || platform::media_state(&recorder_id))
+        .await
+        .map_err(|e| format!("media state task failed: {e}"))?
+}
+
 /// Eject the disc and pull it back in, so the drive re-reads it.
 ///
 /// The recovery for a disc the drive is still describing the way it did when a

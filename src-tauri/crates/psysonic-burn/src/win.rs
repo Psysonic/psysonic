@@ -388,6 +388,34 @@ fn read_disc_status(recorder: &IDiscRecorder2) -> Option<DiscStatus> {
 /// Seconds allowed for the disc-information query during a probe.
 const DISC_INFO_TIMEOUT: u32 = 10;
 
+/// A cheap fingerprint of what is in the drive.
+///
+/// Polled while the burner page is open so an inserted disc is noticed without
+/// the user hunting for Refresh. IMAPI2 answers both questions without a raw
+/// command, which matters here: `SendCommand*` needs exclusive access, and
+/// taking that every few seconds would fight every other program on the drive.
+pub fn media_state(recorder_id: &str) -> Result<String, String> {
+    let recorder_id = recorder_id.to_string();
+    with_com(move || unsafe {
+        let Ok(recorder) = open_recorder(&recorder_id) else {
+            // The poll runs constantly and must never raise a toast.
+            return Ok("unavailable".to_string());
+        };
+        let Ok(format) = CoCreateInstance::<_, IDiscFormat2RawCD>(&MsftDiscFormat2RawCD, None, CLSCTX_ALL)
+        else {
+            return Ok("unavailable".to_string());
+        };
+        if format.SetRecorder(&recorder).is_err() {
+            return Ok("empty".to_string());
+        }
+        let media = format
+            .CurrentPhysicalMediaType()
+            .unwrap_or(IMAPI_MEDIA_PHYSICAL_TYPE(0));
+        let blank = is_true(format.MediaHeuristicallyBlank().unwrap_or(VARIANT_FALSE));
+        Ok(format!("{}:{}", media.0, blank))
+    })
+}
+
 pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
     let recorder_id = recorder_id.to_string();
     with_com(move || unsafe {

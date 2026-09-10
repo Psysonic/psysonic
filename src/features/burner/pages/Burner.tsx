@@ -57,7 +57,8 @@ export default function Burner() {
   const busy = burnJobIsActive(job.status);
   const committed = burnJobIsCommitted(job.status, job.phase);
 
-  const drives = useBurnRecorders();
+  // The media poll stands down while a burn holds the drive exclusively.
+  const drives = useBurnRecorders(busy);
   const [settings, setSettings] = useState<BurnSettings>(DEFAULT_SETTINGS);
   const [listingOpen, setListingOpen] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);

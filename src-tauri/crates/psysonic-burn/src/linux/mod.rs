@@ -232,6 +232,42 @@ fn disc_capacity_sectors(device: &ScsiDevice) -> Option<u32> {
     scsi::parse_toc_lead_out(&toc[..read])
 }
 
+/// A cheap fingerprint of what is in the drive.
+///
+/// Polled while the burner page is open so an inserted disc is noticed without
+/// the user hunting for Refresh. Deliberately not a full `probe_media`: that
+/// reads ATIP and the TOC, which can make the drive seek, and doing it every
+/// few seconds would keep the drive awake for nothing.
+///
+/// Two small commands, neither of which moves the head: the current profile
+/// says whether there is a disc and what kind, and the disc status says whether
+/// it is still blank - which is what changes after a rehearsal.
+pub fn media_state(recorder_id: &str) -> Result<String, String> {
+    let drive = resolve(recorder_id)?;
+    let Ok(device) = ScsiDevice::open(std::path::Path::new(&drive.device_path()), false) else {
+        // A drive that will not open is reported as empty rather than as an
+        // error: the poll runs constantly and must never raise a toast.
+        return Ok("unavailable".to_string());
+    };
+
+    let mut config = [0_u8; 32];
+    let profile = device
+        .receive(
+            &scsi::get_configuration_header_cdb(config.len() as u16),
+            &mut config,
+            TIMEOUT_QUERY,
+        )
+        .ok()
+        .and_then(|read| scsi::parse_current_profile(&config[..read]));
+
+    let Some(profile) = profile else {
+        return Ok("empty".to_string());
+    };
+
+    let status = disc_status(&device);
+    Ok(format!("{profile:04x}:{status:?}"))
+}
+
 pub fn burn(
     app: AppHandle,
     job_id: String,

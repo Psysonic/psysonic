@@ -135,6 +135,32 @@ pub fn reload_media(recorder_id: &str) -> Result<(), String> {
     }
 }
 
+/// A cheap fingerprint of what is in the drive, for change detection.
+///
+/// Returns an opaque token: the caller compares it with the last one it saw and
+/// runs a full `probe_media` when it differs. Keeping it opaque is the point -
+/// each backend answers with whatever it can ask most cheaply, and none of that
+/// leaks into the UI.
+pub fn media_state(recorder_id: &str) -> Result<String, String> {
+    #[cfg(windows)]
+    {
+        crate::win::media_state(recorder_id)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        crate::linux::media_state(recorder_id)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        crate::macos::media_state(recorder_id)
+    }
+    #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
+    {
+        let _ = recorder_id;
+        Ok("unsupported".to_string())
+    }
+}
+
 pub fn erase(recorder_id: &str, quick: bool) -> Result<(), String> {
     #[cfg(windows)]
     {
