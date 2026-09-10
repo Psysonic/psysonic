@@ -34,6 +34,28 @@ describe('syncFlatpakMetainfoRelease', () => {
       /requires X\.Y\.Z or X\.Y\.Z-rc\.N/,
     );
   });
+
+  it('generates development metadata only with an explicit commit URL', () => {
+    const detailsUrl = 'https://github.com/Psysonic/psysonic/commit/0123456789abcdef';
+    const result = syncFlatpakMetainfoRelease(base, '1.54.0-dev', '2026-09-10', {
+      allowDevelopment: true,
+      detailsUrl,
+    });
+
+    assert.equal(result.changed, true);
+    assert.match(result.xml, /<release version="1\.54\.0-dev" date="2026-09-10">/);
+    assert.ok(result.xml.includes(`<url type="details">${detailsUrl}</url>`));
+    assert.ok(result.xml.indexOf('1.54.0-dev') < result.xml.indexOf('1.52.0'));
+  });
+
+  it('rejects development metadata without a details URL', () => {
+    assert.throws(
+      () => syncFlatpakMetainfoRelease(base, '1.54.0-dev', '2026-09-10', {
+        allowDevelopment: true,
+      }),
+      /requires an explicit details URL/,
+    );
+  });
 });
 
 describe('Flatpak release promotion wiring', () => {
@@ -90,5 +112,19 @@ describe('Flatpak GitHub Release publication gate', () => {
     assert.match(source, /if \[ "\$PRIMARY_CHANNEL" = test \]/);
     assert.match(source, /if: steps\.release\.outputs\.is_test != 'true'/);
     assert.match(source, /publish\/test\/psysonic\.flatpakref/);
+  });
+
+  it('generates test AppStream metadata from the checked-out package version', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+    const generation = source.indexOf('PSYSONIC_FLATPAK_ALLOW_DEVELOPMENT=true');
+    const validation = source.indexOf('appstreamcli validate --pedantic');
+    const build = source.indexOf('make build');
+
+    assert.ok(generation >= 0, 'test publication must generate development AppStream metadata');
+    assert.ok(generation < validation, 'AppStream metadata must be generated before validation');
+    assert.ok(generation < build, 'AppStream metadata must be generated before the Flatpak build');
+    assert.match(source, /PSYSONIC_FLATPAK_VERSION="\$PACKAGE_VERSION"/);
+    assert.match(source, /commit\/\$EXPECTED_SHA/);
+    assert.doesNotMatch(source, /\[ "\$IS_TEST" = false \] && ! grep/);
   });
 });
