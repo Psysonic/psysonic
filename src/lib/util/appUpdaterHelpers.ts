@@ -2,13 +2,40 @@ import { IS_LINUX, IS_MACOS, IS_WINDOWS } from '@/lib/util/platform';
 
 export const SKIP_KEY = 'psysonic_skipped_update_version';
 
-// Semver comparison: returns true if `a` is newer than `b`
+function parseVersion(version: string): [number, number, number, number, number] {
+  const match = version.replace(/^[^0-9]*/, '').match(/^(\d+)\.(\d+)(?:\.(\d+))?(?:-([0-9A-Za-z.-]+))?$/);
+  if (!match) return [0, 0, 0, 0, 0];
+  const prerelease = match[4];
+  if (!prerelease) return [Number(match[1]), Number(match[2]), Number(match[3] ?? 0), 2, 0];
+  const rc = prerelease.match(/^rc\.(\d+)$/);
+  return [
+    Number(match[1]),
+    Number(match[2]),
+    Number(match[3] ?? 0),
+    rc ? 1 : 0,
+    rc ? Number(rc[1]) : 0,
+  ];
+}
+
+// Numeric app-version comparison. Pre-release suffixes are intentionally
+// ignored because theme floors and legacy contributor versions use this helper.
 export function isNewer(a: string, b: string): boolean {
-  const pa = a.replace(/^[^0-9]*/, '').split('.').map(Number);
-  const pb = b.replace(/^[^0-9]*/, '').split('.').map(Number);
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
   for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return true;
-    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false;
+    if (pa[i] > pb[i]) return true;
+    if (pa[i] < pb[i]) return false;
+  }
+  return false;
+}
+
+// Release-channel comparison: dev < rc.N < stable within one release line.
+export function isNewerRelease(a: string, b: string): boolean {
+  const pa = parseVersion(a);
+  const pb = parseVersion(b);
+  for (let i = 0; i < pa.length; i++) {
+    if (pa[i] > pb[i]) return true;
+    if (pa[i] < pb[i]) return false;
   }
   return false;
 }

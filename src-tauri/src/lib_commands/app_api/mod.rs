@@ -3,6 +3,7 @@ mod cli_bridge;
 // `pub(crate)` so tauri-specta's `collect_commands!` can reach the `#[specta::specta]`
 // helper macro by full path (a `pub use` of the fn does not carry the macro).
 pub(crate) mod core;
+pub(crate) mod flatpak;
 pub(crate) mod integration;
 pub(crate) mod migration;
 pub(crate) mod network;
@@ -29,6 +30,7 @@ pub(crate) use core::{
     LifecycleRequest, MainWindowLifecycleState, PendingLifecycleAction,
     run_native_lifecycle_fallback,
 };
+pub(crate) use flatpak::flatpak_update_info;
 pub(crate) use perf::performance_cpu_snapshot;
 pub(crate) use platform::{
     linux_wayland_gpu_font_tuning_active, linux_wayland_text_render_settings_available,

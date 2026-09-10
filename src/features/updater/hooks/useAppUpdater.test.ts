@@ -9,11 +9,13 @@ const plugin = vi.hoisted(() => ({
   check: vi.fn(),
   relaunch: vi.fn(async () => {}),
 }));
+const flatpakUpdateInfo = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: plugin.check }));
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: plugin.relaunch }));
 vi.mock('@/generated/bindings', () => ({
   commands: {
     checkArchLinux: vi.fn(async () => false),
+    flatpakUpdateInfo,
     downloadUpdate: vi.fn(),
     openFolder: vi.fn(),
   },
@@ -47,13 +49,17 @@ describe('useAppUpdater in-app install', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
     plugin.check.mockReset();
     plugin.relaunch.mockClear();
+    flatpakUpdateInfo.mockReset();
+    flatpakUpdateInfo.mockResolvedValue(null);
     platform.IS_LINUX = false;
     platform.IS_MACOS = false;
     platform.IS_WINDOWS = false;
+    vi.stubEnv('VITE_PSYSONIC_FLATPAK', '');
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.useRealTimers();
   });
 
@@ -117,5 +123,54 @@ describe('useAppUpdater in-app install', () => {
     const { result } = renderHook(() => useAppUpdater());
     expect(result.current.updaterPlatform).toBeNull();
     expect(result.current.useTauriUpdater).toBe(false);
+  });
+
+  it('Flatpak keeps the release notice without offering another Linux package', async () => {
+    platform.IS_LINUX = true;
+    vi.stubEnv('VITE_PSYSONIC_FLATPAK', '1');
+    flatpakUpdateInfo.mockResolvedValue({
+      branch: 'stable',
+      version: '1.54.0',
+      tag: 'app-v1.54.0',
+      body: 'Release notes',
+    });
+    const { result } = renderHook(() => useAppUpdater());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+
+    expect(flatpakUpdateInfo).toHaveBeenCalledTimes(1);
+    expect(result.current.release?.version).toBe('1.54.0');
+    expect(result.current.release?.body).toBe('Release notes');
+    expect(result.current.flatpakBranch).toBe('stable');
+    expect(result.current.flatpakUpdateCommand).toBe(
+      'flatpak update --user io.github.psysonic.psysonic//stable',
+    );
+    expect(result.current.showAurHint).toBe(false);
+    expect(result.current.asset).toBeUndefined();
+    expect(result.current.showInstallBtn).toBe(false);
+  });
+
+  it('Flatpak RC follows the metadata published for the RC branch', async () => {
+    platform.IS_LINUX = true;
+    vi.stubEnv('VITE_PSYSONIC_FLATPAK', '1');
+    flatpakUpdateInfo.mockResolvedValue({
+      branch: 'rc',
+      version: '1.54.0-rc.2',
+      tag: 'app-v1.54.0-rc.2',
+      body: 'RC notes',
+    });
+    const { result } = renderHook(() => useAppUpdater());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+
+    expect(result.current.release?.version).toBe('1.54.0-rc.2');
+    expect(result.current.flatpakBranch).toBe('rc');
+    expect(result.current.flatpakUpdateCommand).toBe(
+      'flatpak update --user io.github.psysonic.psysonic//rc',
+    );
   });
 });

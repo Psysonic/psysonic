@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.psysonic.psysonic</id>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Psysonic</name>
+  <summary>Desktop music player for self-hosted Subsonic-compatible servers</summary>
+
+  <developer id="io.github.psysonic">
+    <name>Psysonic</name>
+  </developer>
+
+  <description>
+    <p>
+      Psysonic is a desktop music player for self-hosted libraries. It is built
+      primarily for Navidrome and also works with Gonic, Airsonic, LMS, and
+      other Subsonic-compatible servers when they provide the required APIs.
+    </p>
+    <p>
+      Browse and search large libraries, manage playlists and the play queue,
+      download music for offline playback, view synced lyrics, and control
+      playback through desktop media controls.
+    </p>
+    <ul>
+      <li>Combine music from multiple servers into one local library</li>
+      <li>Analyse loudness, waveform, and tempo on your device</li>
+      <li>Use gapless playback, crossfade, and content-aware AutoDJ transitions</li>
+      <li>Customise the interface with built-in and community themes</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.github.psysonic.psysonic.desktop</launchable>
+  <provides>
+    <binary>psysonic</binary>
+  </provides>
+
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Player</category>
+  </categories>
+  <keywords>
+    <keyword>music</keyword>
+    <keyword>audio</keyword>
+    <keyword>player</keyword>
+    <keyword>Navidrome</keyword>
+    <keyword>Subsonic</keyword>
+  </keywords>
+
+  <content_rating type="oars-1.1" />
+
+  <url type="homepage">https://www.psysonic.de</url>
+  <url type="bugtracker">https://github.com/Psysonic/psysonic/issues</url>
+  <url type="vcs-browser">https://github.com/Psysonic/psysonic</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/Psysonic/psysonic/main/public/screenshot1.png</image>
+      <caption>Browse recently played music and recommendations</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/Psysonic/psysonic/main/public/screenshot3.png</image>
+      <caption>View track details and manage the play queue</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/Psysonic/psysonic/main/public/screenshot2.png</image>
+      <caption>Control playback in the fullscreen Now Playing view</caption>
+    </screenshot>
+  </screenshots>
+
+  <releases>
+    <release version="1.52.0" date="2026-08-31">
+      <url type="details">https://github.com/Psysonic/psysonic/releases/tag/app-v1.52.0</url>
+    </release>
+  </releases>
+</component>

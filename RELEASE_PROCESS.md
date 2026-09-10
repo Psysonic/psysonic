@@ -57,6 +57,7 @@ Rules:
    - validates required `main` checks before promotion (default: `ci-ok`, or UI-style `ci-main / ci-ok`; either satisfies the gate)
    - resets `next` to `main` snapshot
    - auto-bump package version in `next` to next `-rc.N`
+   - adds the exact RC version to the canonical Flatpak AppStream metadata
    - commit and push version bump
 3. Push on `next` triggers **Next Channel** workflow:
    - build/publish RC artifacts for all platforms
@@ -74,6 +75,7 @@ Rules:
 2. Workflow behavior:
    - resets `release` to `next` snapshot
    - finalize version from `-rc.N` to `X.Y.Z`
+   - adds the exact stable version to the canonical Flatpak AppStream metadata
    - commit and push finalized version
 3. Push on `release` triggers **Release Channel** workflow:
    - stable artifact publish
@@ -89,6 +91,53 @@ CI builds the Windows installer as an unsigned compile check. The installer that
 3. Re-run it whenever the installer asset is replaced — the updater signature covers the exact bytes on the release.
 
 Step 2 is required for every stable release. The in-app updater reads `releases/latest`, which never resolves to a pre-release, so for an RC it is only needed when testing the updater against that RC directly.
+
+### Flatpak repository publication (manual for RC and stable)
+
+Run this only after **Next Channel** or **Release Channel** has attached all
+artifacts and the exact `app-vX.Y.Z-rc.N` or `app-vX.Y.Z` GitHub Release has
+been published publicly. `Flatpak Publish` rejects draft or otherwise
+unpublished Releases before it reads or changes any Flatpak channel. The
+promotion commit already contains the matching AppStream release entry; do not
+add it after the tag or rewrite the tag.
+
+1. Confirm the Release is public:
+   `gh release view app-vX.Y.Z[-rc.N] --json isDraft,publishedAt` must show
+   `isDraft: false` and a non-empty `publishedAt`.
+2. Record the tag commit: `git rev-list -n 1 app-vX.Y.Z[-rc.N]`.
+3. In `Psysonic/flatpak-psysonic`, update both the manifest source commit and
+   `COMMIT_HASH` to that exact SHA.
+4. Copy the canonical desktop and AppStream metadata from the tagged app tree
+   into the packaging repository. The files must remain byte-identical.
+5. Regenerate `generated-sources.json` and `cargo-sources.json` for the pinned
+   commit, then run the packaging validation commands documented in that repo.
+6. Merge the packaging update to its `main` branch. `Flatpak Publish` always
+   checks out packaging from `main` and rejects stale pins or metadata.
+7. Confirm the application repository has all six `OSTREE_SSH_*` deployment
+   secrets and the GPG signing secret, plus the public
+   `OSTREE_GPG_FINGERPRINT` repository variable. Run **Flatpak SSH Diagnostics**
+   after changing the host, key, known-host entry, account, port, or path.
+8. Run **Flatpak Publish** with the exact published app Release tag.
+9. Verify the bundle assets on the GitHub release and the signed channel under
+   `https://flatpak.psysonic.de/<stable|rc>/` before announcing availability.
+
+The supported installation path is per-user. Release instructions and the
+in-app updater use `flatpak install --user` and `flatpak update --user`.
+
+### Flatpak test-channel publication
+
+Use the same **Flatpak Publish** workflow with `test_source_sha` when validating
+the complete GitHub Actions build, signing, SSH cutover, rollback and public
+verification path before the first RC/stable publication. Leave `release_tag`
+empty. The input must be an exact 40-character application commit SHA.
+For safety, it must also equal the current `main` head when the workflow starts.
+
+The packaging repository `main` branch must pin that same SHA and contain
+byte-identical desktop/AppStream metadata plus regenerated npm/Cargo offline
+sources. The workflow publishes only `https://flatpak.psysonic.de/test/`, does
+not read or update `stable` or `rc`, and uploads its bundle as a workflow
+artifact instead of modifying a GitHub Release. Remove the test channel from the
+server after validation if it is no longer needed.
 
 ### Step E: Move `main` forward
 
@@ -231,6 +280,13 @@ Before `next -> release`:
 - [ ] all RC fixes merged to `next`
 - [ ] corresponding backports to `main` completed or queued with owners
 - [ ] branch rules allow workflow `--force-with-lease` on `release`
+
+After each RC or stable channel publish:
+
+- [ ] matching AppStream release entry exists in the immutable app tag
+- [ ] Flatpak packaging pins and offline source lists match the app tag SHA
+- [ ] `OSTREE_GPG_FINGERPRINT` matches the imported signing key
+- [ ] Flatpak Publish completed and the signed channel was verified
 
 After stable release:
 
