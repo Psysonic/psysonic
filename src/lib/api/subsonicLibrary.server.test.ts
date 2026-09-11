@@ -43,6 +43,7 @@ import {
   getAlbumListForServer,
   getRandomSongsForServer,
   getSongForServer,
+  filterSongsToServerLibrary,
   similarSongsRequestCount,
 } from '@/lib/api/subsonicLibrary';
 
@@ -138,6 +139,35 @@ describe('explicit-server library wrappers', () => {
       expect.objectContaining({ size: 8, musicFolderId: 'browse-b' }),
       2468,
     );
+  });
+
+  it('filters server-global recommendations to an explicit multi-library browse scope', async () => {
+    apiForServerMock.mockImplementation(async (_serverId: string, endpoint: string, params: Record<string, unknown>) => {
+      if (endpoint !== 'getAlbumList2.view') return {};
+      if (params.musicFolderId === 'browse-a') {
+        return { albumList2: { album: [album] } };
+      }
+      if (params.musicFolderId === 'browse-b') {
+        return { albumList2: { album: [{ ...album, id: 'album-3' }] } };
+      }
+      return { albumList2: { album: [] } };
+    });
+
+    await expect(filterSongsToServerLibrary([
+      song,
+      { ...song, id: 'song-2', albumId: 'album-2' },
+      { ...song, id: 'song-3', albumId: 'album-3' },
+    ], 'srv-random', ['browse-a', 'browse-b'])).resolves.toEqual([
+      song,
+      { ...song, id: 'song-3', albumId: 'album-3' },
+    ]);
+  });
+
+  it('does not fail open when an explicitly selected library has no albums', async () => {
+    apiForServerMock.mockResolvedValue({ albumList2: { album: [] } });
+
+    await expect(filterSongsToServerLibrary([song], 'srv-random', ['empty-library']))
+      .resolves.toEqual([]);
   });
 
   it('skips random-song network calls when the server guard fails', async () => {

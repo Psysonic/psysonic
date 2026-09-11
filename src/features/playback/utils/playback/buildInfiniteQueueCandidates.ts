@@ -12,6 +12,10 @@ import {
 import { shuffleArray } from '@/lib/util/shuffleArray';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { queueTrackIdentityKey } from '@/features/playback/utils/playback/queueIdentity';
+import {
+  browseScopeLibraryIdsForServer,
+  getLibraryBrowseScope,
+} from '@/lib/library/libraryBrowseScope';
 /**
  * Infinite queue source strategy (Instant Mix-like):
  * 1) Prefer artist-driven candidates (Top + Similar) around the current track.
@@ -28,10 +32,24 @@ export async function buildInfiniteQueueCandidates(
   const RANDOM_TOPUP_MAX_BATCHES = 8;
   const artistId = seedTrack?.artistId?.trim() || null;
   const artistName = seedTrack?.artist?.trim() || null;
+  const browseScope = getLibraryBrowseScope();
+  const libraryIds = browseScope.serverIds.includes(serverId)
+    ? browseScopeLibraryIdsForServer(browseScope.pairs, serverId)
+    : undefined;
 
   const [similar, top] = await Promise.all([
-    artistId ? getSimilarSongs2ForServer(serverId, artistId).catch(() => []) : Promise.resolve([]),
-    artistName ? getTopSongsForServer(serverId, artistName).catch(() => []) : Promise.resolve([]),
+    artistId
+      ? (libraryIds === undefined
+          ? getSimilarSongs2ForServer(serverId, artistId)
+          : getSimilarSongs2ForServer(serverId, artistId, 50, libraryIds))
+        .catch(() => [])
+      : Promise.resolve([]),
+    artistName
+      ? (libraryIds === undefined
+          ? getTopSongsForServer(serverId, artistName)
+          : getTopSongsForServer(serverId, artistName, { libraryIds }))
+        .catch(() => [])
+      : Promise.resolve([]),
   ]);
 
   const seedId = seedTrack?.id ?? null;
@@ -56,10 +74,9 @@ export async function buildInfiniteQueueCandidates(
     ...out.map(t => queueTrackIdentityKey(t.id, serverId)),
   ]);
   for (let b = 0; out.length < count && b < RANDOM_TOPUP_MAX_BATCHES; b++) {
-    const random = await getRandomSongsForServer(
-      serverId,
-      RANDOM_TOPUP_BATCH_SIZE,
-      seedTrack?.genre,
+    const random = await (libraryIds === undefined
+      ? getRandomSongsForServer(serverId, RANDOM_TOPUP_BATCH_SIZE, seedTrack?.genre)
+      : getRandomSongsForServer(serverId, RANDOM_TOPUP_BATCH_SIZE, seedTrack?.genre, 15000, libraryIds)
     ).catch(() => []);
     if (!random.length) break;
     const filteredRandomSongs = mixCfg.enabled

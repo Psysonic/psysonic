@@ -107,60 +107,83 @@ export async function getAlbumList(
 
 /**
  * Navidrome (and some servers) ignore `musicFolderId` on getSimilarSongs / getSimilarSongs2 / getTopSongs,
- * so similar tracks can leak from other libraries. When the user scoped to one folder, we keep a set of
- * album ids in that scope (paginated getAlbumList2) and drop songs whose albumId is not in the set.
+ * so similar tracks can leak from other libraries. For a scoped request, keep the album ids from each
+ * selected folder (paginated getAlbumList2) and drop songs whose albumId is not in that set.
  */
 let scopedLibraryAlbumIdCache: {
   serverId: string;
-  folderId: string;
+  scopeKey: string;
   filterVersion: number;
   ids: Set<string>;
 } | null = null;
 
-async function albumIdsInLibraryScope(serverId: string): Promise<Set<string> | null> {
-  const { musicLibraryFilterByServer, musicLibraryFilterVersion } = useAuthStore.getState();
+async function albumIdsInLibraryScope(
+  serverId: string,
+  explicitLibraryIds?: readonly string[],
+): Promise<Set<string> | null> {
+  const {
+    libraryBrowseScopeVersion,
+    musicLibraryFilterByServer,
+    musicLibraryFilterVersion,
+  } = useAuthStore.getState();
   if (!serverId) return null;
 
   const override = getLuckyMixLibraryScopeOverride();
-  let folder: string | null = null;
+  let libraryIds: string[] = [];
   if (override) {
-    folder = override;
+    libraryIds = [override];
+  } else if (explicitLibraryIds !== undefined) {
+    libraryIds = [...new Set(explicitLibraryIds)];
   } else {
     const selection = librarySelectionForServer(serverId);
     if (selection.length === 1) {
-      folder = selection[0];
+      libraryIds = selection;
     } else {
       const legacy = musicLibraryFilterByServer[serverId];
-      if (legacy !== undefined && legacy !== 'all') folder = legacy;
+      if (legacy !== undefined && legacy !== 'all') libraryIds = [legacy];
     }
   }
-  if (!folder) {
+  if (libraryIds.length === 0) {
     scopedLibraryAlbumIdCache = null;
     return null;
   }
+  const scopeKey = libraryIds.join('\u0000');
+  const filterVersion = explicitLibraryIds === undefined
+    ? musicLibraryFilterVersion
+    : libraryBrowseScopeVersion;
   const hit = scopedLibraryAlbumIdCache;
   if (
     hit &&
     hit.serverId === serverId &&
-    hit.folderId === folder &&
-    hit.filterVersion === musicLibraryFilterVersion
+    hit.scopeKey === scopeKey &&
+    hit.filterVersion === filterVersion
   ) {
     return hit.ids;
   }
   const ids = new Set<string>();
   const pageSize = 500;
-  let offset = 0;
-  for (;;) {
-    const albums = await getAlbumListForServer(serverId, 'alphabeticalByName', pageSize, offset);
-    for (const a of albums) ids.add(a.id);
-    if (albums.length < pageSize) break;
-    offset += pageSize;
-    if (offset > 500_000) break;
+  for (const libraryId of libraryIds) {
+    let offset = 0;
+    for (;;) {
+      const albums = await getAlbumListForServer(
+        serverId,
+        'alphabeticalByName',
+        pageSize,
+        offset,
+        {},
+        15000,
+        [libraryId],
+      );
+      for (const album of albums) ids.add(album.id);
+      if (albums.length < pageSize) break;
+      offset += pageSize;
+      if (offset > 500_000) break;
+    }
   }
   scopedLibraryAlbumIdCache = {
     serverId,
-    folderId: folder,
-    filterVersion: musicLibraryFilterVersion,
+    scopeKey,
+    filterVersion,
     ids,
   };
   return ids;
@@ -169,9 +192,10 @@ async function albumIdsInLibraryScope(serverId: string): Promise<Set<string> | n
 export async function filterSongsToServerLibrary(
   songs: SubsonicSong[],
   serverId: string,
+  explicitLibraryIds?: readonly string[],
 ): Promise<SubsonicSong[]> {
-  const allowed = await albumIdsInLibraryScope(serverId);
-  if (!allowed || allowed.size === 0) return songs;
+  const allowed = await albumIdsInLibraryScope(serverId, explicitLibraryIds);
+  if (!allowed || (allowed.size === 0 && explicitLibraryIds === undefined)) return songs;
   return songs.filter(s => s.albumId && allowed.has(s.albumId));
 }
 
@@ -204,15 +228,24 @@ export async function filterAlbumsToActiveLibrary(albums: SubsonicAlbum[]): Prom
   return filterAlbumsToServerLibrary(albums, activeServerId);
 }
 
-/** When scoped to one library, ask the server for more similar tracks — many will be filtered out client-side. */
-export function similarSongsRequestCount(desired: number, serverId?: string): number {
+/** When scoped to selected libraries, ask for more similar tracks because many may be filtered out client-side. */
+export function similarSongsRequestCount(
+  desired: number,
+  serverId?: string,
+  explicitLibraryIds?: readonly string[],
+): number {
   if (getLuckyMixLibraryScopeOverride()) {
     return Math.min(300, Math.max(desired, desired * 4));
   }
+  if (explicitLibraryIds !== undefined) {
+    return explicitLibraryIds.length === 0
+      ? desired
+      : Math.min(300, Math.max(desired, desired * 4));
+  }
   const { activeServerId, musicLibraryFilterByServer } = useAuthStore.getState();
   const ownerServerId = serverId ?? activeServerId;
-  const f = ownerServerId ? musicLibraryFilterByServer[ownerServerId] : undefined;
-  if (f === undefined || f === 'all') return desired;
+  const filter = ownerServerId ? musicLibraryFilterByServer[ownerServerId] : undefined;
+  if (filter === undefined || filter === 'all') return desired;
   return Math.min(300, Math.max(desired, desired * 4));
 }
 
