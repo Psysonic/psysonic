@@ -125,6 +125,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The signed stable repository now keeps the current release and four previous releases, so a recent version can be selected again with Flatpak's commit rollback command instead of disappearing when the next update is published.
 
+### Global shortcuts can favourite the current track and use Command
+
+**By [@cucadmuh](https://github.com/cucadmuh), suggested by Rain on Discord, PR [#1540](https://github.com/Psysonic/psysonic/pull/1540)**
+
+* **Settings → Input → Global shortcuts** now offers an unbound action for adding the current track to favourites, even while Psysonic is out of focus.
+* On macOS, shortcut capture and labels now call the ⌘ modifier **Command** instead of Super. Existing shortcuts continue to work without being rebound.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again

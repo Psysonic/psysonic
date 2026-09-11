@@ -693,7 +693,7 @@ export const settings = {
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Глобальные сочетания',
   globalShortcutsNote:
-    'Работают, когда окно не в фокусе. Нужен модификатор: Ctrl, Alt или Super.',
+    'Работают, когда окно не в фокусе. Нужен модификатор: Ctrl, Alt или {{metaModifier}}.',
   shortcutClear: 'Сбросить',
   shortcutPlayPause: 'Пауза / воспроизведение',
   shortcutNext: 'Следующий трек',

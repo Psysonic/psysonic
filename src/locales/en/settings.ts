@@ -671,7 +671,7 @@ export const settings = {
   shortcutListening: 'Press a key…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Global Shortcuts',
-  globalShortcutsNote: 'Work system-wide even when Psysonic is in the background. Requires Ctrl, Alt, or Super as a modifier.',
+  globalShortcutsNote: 'Work system-wide even when Psysonic is in the background. Requires Ctrl, Alt, or {{metaModifier}} as a modifier.',
   shortcutClear: 'Clear',
   shortcutPlayPause: 'Play / Pause',
   shortcutNext: 'Next track',

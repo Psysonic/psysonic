@@ -671,7 +671,7 @@ export const settings = {
   shortcutListening: 'Натисни клавиш…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Глобални клавишни комбинации',
-  globalShortcutsNote: 'Работят в цялата система, дори когато Psysonic е във фонов режим. Изискват Ctrl, Alt или Super като модификатор.',
+  globalShortcutsNote: 'Работят в цялата система, дори когато Psysonic е във фонов режим. Изискват Ctrl, Alt или {{metaModifier}} като модификатор.',
   shortcutClear: 'Изчисти',
   shortcutPlayPause: 'Възпроизвеждане / Пауза',
   shortcutNext: 'Следваща песен',

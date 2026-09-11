@@ -583,7 +583,7 @@ export const settings = {
   shortcutListening: '请按下按键…',
   shortcutUnbound: '—',
   globalShortcutsTitle: '全局快捷键',
-  globalShortcutsNote: '即使 Psysonic 在后台也能在系统范围内工作。需要 Ctrl、Alt 或 Super 作为修饰键。',
+  globalShortcutsNote: '即使 Psysonic 在后台也能在系统范围内工作。需要 Ctrl、Alt 或 {{metaModifier}} 作为修饰键。',
   shortcutClear: '清除',
   shortcutPlayPause: '播放 / 暂停',
   shortcutNext: '下一首',

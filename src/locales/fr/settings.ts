@@ -553,7 +553,7 @@ export const settings = {
   shortcutUnbound: '—',
   shortcutClear: 'Effacer',
   globalShortcutsTitle: 'Raccourcis globaux',
-  globalShortcutsNote: 'Fonctionnent à l\'échelle du système, même quand Psysonic est en arrière-plan. Nécessite Ctrl, Alt ou Super comme modificateur.',
+  globalShortcutsNote: 'Fonctionnent à l\'échelle du système, même quand Psysonic est en arrière-plan. Nécessite Ctrl, Alt ou {{metaModifier}} comme modificateur.',
   shortcutPlayPause: 'Lecture / Pause',
   shortcutNext: 'Piste suivante',
   shortcutPrev: 'Piste précédente',

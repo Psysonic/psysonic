@@ -671,7 +671,7 @@ export const settings = {
   shortcutListening: 'Naciśnij klawisz…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Globalne skróty',
-  globalShortcutsNote: 'Działaj w czałym systemie nawet jak PsySonic jest w tle. Wymaga Ctrl, Alt, lub Super jako klawisza modyfikującego.',
+  globalShortcutsNote: 'Działaj w czałym systemie nawet jak PsySonic jest w tle. Wymaga Ctrl, Alt, lub {{metaModifier}} jako klawisza modyfikującego.',
   shortcutClear: 'Wyczyść',
   shortcutPlayPause: 'Odtwórz / Pauza',
   shortcutNext: 'Następny utwór',

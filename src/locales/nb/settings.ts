@@ -583,7 +583,7 @@ export const settings = {
   shortcutListening: 'Trykk på en tast…',
   shortcutUnbound: '-',
   globalShortcutsTitle: 'Globale snarveier',
-  globalShortcutsNote: 'Arbeid systemomfattende selv når Psysonic er i bakgrunnen. Krever Ctrl, Alt eller Super som modifikator.',
+  globalShortcutsNote: 'Arbeid systemomfattende selv når Psysonic er i bakgrunnen. Krever Ctrl, Alt eller {{metaModifier}} som modifikator.',
   shortcutClear: 'Fjern',
   shortcutPlayPause: 'Spill av / Pause',
   shortcutNext: 'Neste spor',

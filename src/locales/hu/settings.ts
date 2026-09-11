@@ -671,7 +671,7 @@ export const settings = {
   shortcutListening: 'Nyomj le egy billentyűt…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Globális gyorsbillentyűk',
-  globalShortcutsNote: 'Rendszerszinten működnek, még akkor is, ha a Psysonic a háttérben van. Ctrl, Alt vagy Super módosítót igényel.',
+  globalShortcutsNote: 'Rendszerszinten működnek, még akkor is, ha a Psysonic a háttérben van. Ctrl, Alt vagy {{metaModifier}} módosítót igényel.',
   shortcutClear: 'Törlés',
   shortcutPlayPause: 'Lejátszás / Szünet',
   shortcutNext: 'Következő szám',

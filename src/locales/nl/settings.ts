@@ -553,7 +553,7 @@ export const settings = {
   shortcutUnbound: '—',
   shortcutClear: 'Wissen',
   globalShortcutsTitle: 'Globale sneltoetsen',
-  globalShortcutsNote: 'Werken systeembreed, ook als Psysonic op de achtergrond draait. Vereist Ctrl, Alt of Super als modifier.',
+  globalShortcutsNote: 'Werken systeembreed, ook als Psysonic op de achtergrond draait. Vereist Ctrl, Alt of {{metaModifier}} als modifier.',
   shortcutPlayPause: 'Afspelen / Pauzeren',
   shortcutNext: 'Volgend nummer',
   shortcutPrev: 'Vorig nummer',
