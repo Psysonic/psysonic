@@ -113,6 +113,16 @@ not add it after the tag or rewrite the tag.
 3. Verify the bundle assets on the GitHub release and the signed channel under
    `https://flatpak.psysonic.de/<stable|rc>/` before announcing availability.
 
+Release repositories preserve bounded rollback history: the current commit plus
+four previous stable commits, and the current commit plus two previous RC
+commits. The test repository contains only its current commit. Inspect and select
+a retained stable commit with:
+
+```bash
+flatpak remote-info --log psysonic io.github.psysonic.psysonic
+flatpak update --user --commit=<commit> io.github.psysonic.psysonic
+```
+
 The supported installation path is per-user. Release instructions and the
 in-app updater use `flatpak install --user` and `flatpak update --user`.
 
