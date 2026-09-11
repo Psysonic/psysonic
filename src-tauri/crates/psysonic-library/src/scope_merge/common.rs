@@ -1,24 +1,12 @@
 use rusqlite::types::Value as SqlValue;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::album_compilation_filter::pick_album_group_artist;
 use crate::browse_support::{overlay_album_artist_links, overlay_album_starred_at_rows};
 use crate::dto::{LibraryAlbumDto, LibraryScopePair};
 use crate::search::PAGE_LIMIT_MAX;
 use crate::store::LibraryStore;
-
-pub(crate) fn random_window_offset(total: u32, limit: u32) -> u32 {
-    let window_count = total.saturating_sub(limit).saturating_add(1);
-    if window_count <= 1 {
-        return 0;
-    }
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |duration| duration.as_nanos());
-    (nanos % u128::from(window_count)) as u32
-}
 
 /// NULL `album_key` rows never merge — fall back to a per-server album id.
 pub(crate) const ALBUM_DEDUP_KEY: &str = "CASE WHEN ck.album_key IS NOT NULL THEN ck.album_key \

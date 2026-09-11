@@ -231,6 +231,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Pausing for more than a minute and then resuming could occasionally move Now Playing to a later track while the audio kept playing the current one.
 * Root cause: a pause that long releases the audio output stream, and rebuilding it on resume briefly reports a position near the start. That looked like the next track beginning, so the queue moved on. A track that has not even reached its halfway mark is no longer treated that way.
 
+### Discover Songs draws from the whole library again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1532](https://github.com/Psysonic/psysonic/pull/1532)**
+
+* The rail often showed a run of consecutive tracks from one album instead of a spread across your collection. It now picks each track independently, whether one music folder is selected or several: on a library of roughly 154,000 tracks, thirteen cards came from thirteen different albums in every test run, against fewer than two albums before.
+* Measured on the same library, the rail takes as long to fill as it did before.
+
 ### Mainstage rows no longer stop halfway across a wide window
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1536](https://github.com/Psysonic/psysonic/pull/1536)**
