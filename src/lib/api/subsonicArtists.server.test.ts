@@ -5,12 +5,14 @@ const {
   librarySelectionMock,
   uploadArtistImageMock,
   findServerMock,
+  filterSongsToServerLibraryMock,
   similarSongsRequestCountMock,
 } = vi.hoisted(() => ({
   apiForServerMock: vi.fn(),
   librarySelectionMock: vi.fn<() => string[]>(() => []),
   uploadArtistImageMock: vi.fn(),
   findServerMock: vi.fn(),
+  filterSongsToServerLibraryMock: vi.fn(async (songs: unknown[]) => songs),
   similarSongsRequestCountMock: vi.fn((count: number) => count),
 }));
 
@@ -36,7 +38,7 @@ vi.mock('@/lib/api/subsonicClient', () => ({
 
 vi.mock('@/lib/api/subsonicLibrary', () => ({
   filterSongsToActiveLibrary: async (songs: unknown[]) => songs,
-  filterSongsToServerLibrary: async (songs: unknown[]) => songs,
+  filterSongsToServerLibrary: filterSongsToServerLibraryMock,
   similarSongsRequestCount: similarSongsRequestCountMock,
 }));
 
@@ -60,6 +62,7 @@ describe('explicit-server artist wrappers', () => {
     librarySelectionMock.mockReturnValue([]);
     uploadArtistImageMock.mockReset();
     findServerMock.mockReset();
+    filterSongsToServerLibraryMock.mockClear();
     similarSongsRequestCountMock.mockClear();
   });
 
@@ -192,6 +195,25 @@ describe('explicit-server artist wrappers', () => {
       expect.objectContaining({ id: 'seed', count: 12 }),
     );
     expect(similarSongsRequestCountMock).toHaveBeenCalledWith(12, 'srv-similar');
+  });
+
+  it('forwards an explicit browse scope through similar-song request and validation', async () => {
+    const similarSong = { id: 'similar-1', title: 'Similar' };
+    apiForServerMock.mockResolvedValue({ similarSongs2: { song: [similarSong] } });
+
+    await getSimilarSongs2ForServer('srv-similar', 'seed', 12, ['browse-folder']);
+
+    expect(similarSongsRequestCountMock).toHaveBeenCalledWith(12, 'srv-similar', ['browse-folder']);
+    expect(apiForServerMock).toHaveBeenCalledWith(
+      'srv-similar',
+      'getSimilarSongs2.view',
+      { id: 'seed', count: 12, musicFolderId: 'browse-folder' },
+    );
+    expect(filterSongsToServerLibraryMock).toHaveBeenCalledWith(
+      [similarSong],
+      'srv-similar',
+      ['browse-folder'],
+    );
   });
 
   it('routes legacy similar songs through the explicit owner scope', async () => {
