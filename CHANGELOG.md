@@ -245,6 +245,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * On a 4K or dual-screen window the album rows stopped after twelve entries, left the rest of the row empty, and both arrows stayed greyed out — with no way to reach the rest of the section.
 * Root cause: a row only loaded more entries while it was being scrolled, and a row wide enough to show a full page has nothing to scroll. Rows now keep pulling until they are actually full, and the arrows are re-checked when the row itself changes width, such as when the queue panel opens beside it.
 
+### Infinite Queue stays inside the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1539](https://github.com/Psysonic/psysonic/pull/1539)**
+
+* Infinite Queue could add tracks from unselected music folders, especially when Navidrome AudioMuse returned recommendations from the whole server. Similar songs, artist top tracks and the random fallback are now validated against the libraries selected in the sidebar.
+
 ## [1.52.0]
 
 ## Added
