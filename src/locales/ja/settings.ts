@@ -665,7 +665,7 @@ export const settings = {
   shortcutListening: 'キーを押してください…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'グローバルショートカット',
-  globalShortcutsNote: 'Psysonic がバックグラウンドや最小化中でもシステム全体で動作します。修飾キーとして Ctrl、Alt、Super のいずれかが必要です。',
+  globalShortcutsNote: 'Psysonic がバックグラウンドや最小化中でもシステム全体で動作します。修飾キーとして Ctrl、Alt、{{metaModifier}} のいずれかが必要です。',
   shortcutClear: 'クリア',
   shortcutPlayPause: '再生 / 一時停止',
   shortcutNext: '次のトラック',

@@ -603,7 +603,7 @@ export const settings = {
   shortcutListening: 'Presiona una tecla…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Atajos Globales',
-  globalShortcutsNote: 'Funcionan en todo el sistema incluso cuando Psysonic está en segundo plano. Requieren Ctrl, Alt o Super como modificador.',
+  globalShortcutsNote: 'Funcionan en todo el sistema incluso cuando Psysonic está en segundo plano. Requieren Ctrl, Alt o {{metaModifier}} como modificador.',
   shortcutClear: 'Limpiar',
   shortcutPlayPause: 'Reproducir / Pausa',
   shortcutNext: 'Siguiente pista',

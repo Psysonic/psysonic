@@ -264,6 +264,7 @@ export const SHORTCUT_ACTION_REGISTRY = {
   'favorite-current-track': {
     getLabel: t => t('settings.shortcutFavoriteCurrentTrack', { defaultValue: 'Add current track to favorites' }),
     inApp: { defaultBinding: null },
+    global: { defaultBinding: null },
     runInMiniWindow: false,
     run: () => {
       const track = usePlayerStore.getState().currentTrack;

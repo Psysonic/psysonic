@@ -674,7 +674,7 @@ export const settings = {
   shortcutListening: 'Натисніть клавішу…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Глобальні гарячі клавіші',
-  globalShortcutsNote: 'Працюють у системі, навіть коли Psysonic у фоні. Потребують Ctrl, Alt або Super як модифікатор.',
+  globalShortcutsNote: 'Працюють у системі, навіть коли Psysonic у фоні. Потребують Ctrl, Alt або {{metaModifier}} як модифікатор.',
   shortcutClear: 'Очистити',
   shortcutPlayPause: 'Відтворити / Пауза',
   shortcutNext: 'Наступний трек',

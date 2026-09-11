@@ -606,7 +606,7 @@ export const settings = {
   shortcutListening: 'Apasă o tastă…',
   shortcutUnbound: '—',
   globalShortcutsTitle: 'Scurtături globale',
-  globalShortcutsNote: 'Funcționează la nivel de sistem și când Psysonic este în fundal. Necesită Ctrl, Alt, sau Super ca un modificator.',
+  globalShortcutsNote: 'Funcționează la nivel de sistem și când Psysonic este în fundal. Necesită Ctrl, Alt sau {{metaModifier}} ca modificator.',
   shortcutClear: 'Golește',
   shortcutPlayPause: 'Redă / Pauză',
   shortcutNext: 'Următoarea piesă',

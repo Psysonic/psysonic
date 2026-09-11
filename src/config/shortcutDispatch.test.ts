@@ -34,6 +34,7 @@ beforeEach(() => {
   hoisted.player.currentTrack = null;
   hoisted.player.setVolume.mockClear();
   hoisted.queueSongRating.mockClear();
+  hoisted.queueSongStar.mockClear();
   navigate.mockClear();
 });
 
@@ -101,5 +102,23 @@ describe('current track rating shortcut actions', () => {
     for (const [id] of CURRENT_TRACK_RATING_ACTIONS) {
       expect(DEFAULT_GLOBAL_SHORTCUTS).not.toHaveProperty(id);
     }
+  });
+});
+
+describe('current track favorite shortcut action', () => {
+  it('routes the favorite to the current track owner', () => {
+    hoisted.player.currentTrack = { id: 'shared', serverId: 'srv-b' };
+
+    executeRuntimeAction('favorite-current-track', { navigate, previewPolicy: 'ignore' });
+
+    expect(hoisted.queueSongStar).toHaveBeenCalledWith('shared', true, 'srv-b');
+  });
+
+  it('exposes the favorite action as an unbound global shortcut', () => {
+    expect(GLOBAL_SHORTCUT_ACTIONS).toContainEqual(expect.objectContaining({
+      id: 'favorite-current-track',
+      defaultBinding: null,
+    }));
+    expect(DEFAULT_GLOBAL_SHORTCUTS).not.toHaveProperty('favorite-current-track');
   });
 });

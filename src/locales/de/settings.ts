@@ -573,7 +573,7 @@ export const settings = {
   shortcutUnbound: '—',
   shortcutClear: 'Löschen',
   globalShortcutsTitle: 'Globale Shortcuts',
-  globalShortcutsNote: 'Funktionieren systemweit, auch wenn Psysonic im Hintergrund läuft. Mindestens Ctrl, Alt oder Super als Modifier erforderlich.',
+  globalShortcutsNote: 'Funktionieren systemweit, auch wenn Psysonic im Hintergrund läuft. Mindestens Ctrl, Alt oder {{metaModifier}} als Modifier erforderlich.',
   shortcutPlayPause: 'Wiedergabe / Pause',
   shortcutNext: 'Nächster Titel',
   shortcutPrev: 'Vorheriger Titel',
