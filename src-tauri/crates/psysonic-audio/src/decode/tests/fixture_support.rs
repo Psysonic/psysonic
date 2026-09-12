@@ -42,6 +42,35 @@ const NO_XING_RAW_FRAMES: u64 = 24_192;
 /// 22.05 kHz (MPEG-2 Layer III, 576 samples per frame) — its first packet is
 /// shorter than the encoder delay and is trimmed away entirely.
 const MPEG2_SINE_MP3: &[u8] = include_bytes!("../../../fixtures/mpeg2_sine_22050.mp3");
+/// Synthetic AAC in an ordinary M4A with `moov` after `mdat`.
+const ISOMP4_SEEK_NORMAL_M4A: &[u8] = include_bytes!("../../../fixtures/isomp4_seek_normal.m4a");
+/// Synthetic AAC in a fragmented M4A, used for segment-boundary replay coverage.
+const ISOMP4_SEEK_FRAGMENTED_M4A: &[u8] =
+    include_bytes!("../../../fixtures/isomp4_seek_fragmented.m4a");
+
+/// Add an unreferenced eight-byte `moof` marker inside the final `mdat`.
+///
+/// The file remains valid because the bytes are inside media data and no sample
+/// references them. A seek-after-EOF fix that loses the `mdat` boundary will
+/// incorrectly parse this marker as a top-level atom after replay.
+fn fragmented_m4a_with_padded_mdat() -> Vec<u8> {
+    let mut data = ISOMP4_SEEK_FRAGMENTED_M4A.to_vec();
+    let atom_type = data
+        .windows(4)
+        .rposition(|window| window == b"mdat")
+        .expect("fragmented fixture must contain mdat");
+    let atom_start = atom_type
+        .checked_sub(4)
+        .expect("mdat must have a size field");
+    let old_size = u32::from_be_bytes(data[atom_start..atom_type].try_into().unwrap()) as usize;
+    assert!(old_size >= 8, "fixture mdat must use a regular 32-bit size");
+    let atom_end = atom_start + old_size;
+    assert!(atom_end <= data.len(), "fixture mdat must be in bounds");
+
+    data.splice(atom_end..atom_end, [0, 0, 0, 8, b'm', b'o', b'o', b'f']);
+    data[atom_start..atom_type].copy_from_slice(&((old_size + 8) as u32).to_be_bytes());
+    data
+}
 
 /// Decode `data` through the production `build_source` path and return the
 /// frame count, cross-checked against the production sample counter.

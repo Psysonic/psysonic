@@ -17,7 +17,9 @@ use super::builders::{build_source, build_streaming_source, BuiltSource};
 use super::decoder::{should_use_builtin_gapless, SizedDecoder};
 use super::gapless::parse_gapless_info;
 use super::source_probe::SizedCursorSource;
-use super::test_support::{build_pcm16_wav, synth_itunsmpb_blob, synthetic_wav_bytes};
+use super::test_support::{
+    build_pcm16_wav, seekable_source, synth_itunsmpb_blob, synthetic_wav_bytes,
+};
 use crate::playback_rate::PlaybackRateAtomics;
 
 #[path = "decode/tests/fixture_support.rs"]

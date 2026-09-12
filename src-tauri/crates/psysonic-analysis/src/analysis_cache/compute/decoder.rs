@@ -51,7 +51,7 @@ pub(super) fn format_hint_from_bytes(bytes: &[u8]) -> Option<String> {
 pub(super) fn open_decode_session(
     bytes: &[u8],
     format_hint: Option<&str>,
-) -> Option<DecodeSession> {
+) -> Result<DecodeSession, String> {
     let source = Box::new(Cursor::new(bytes.to_vec()));
     let mss = MediaSourceStream::new(source, Default::default());
     let sniffed = format_hint_from_bytes(bytes);
@@ -66,7 +66,7 @@ pub(super) fn open_decode_session(
             FormatOptions::default(),
             MetadataOptions::default(),
         )
-        .ok()?;
+        .map_err(|e| format!("format probe failed: {e}"))?;
     // Prefer an audio track that reports both sample rate and channels; fall back to
     // the first audio track with a known codec (skips e.g. MJPEG cover-art tracks).
     let track = format
@@ -78,21 +78,22 @@ pub(super) fn open_decode_session(
                 .and_then(|c| c.audio())
                 .is_some_and(|a| a.sample_rate.is_some() && a.channels.is_some())
         })
-        .or_else(|| format.first_track_known_codec(TrackType::Audio))?;
+        .or_else(|| format.first_track_known_codec(TrackType::Audio))
+        .ok_or_else(|| "no usable audio track found".to_string())?;
     let track_id = track.id;
     let timeline_hint = track.num_frames.filter(|&n| n > 0);
-    let audio_params = track.codec_params.as_ref()?.audio()?.clone();
-    let decoder = match make_decoder(
+    let audio_params = track
+        .codec_params
+        .as_ref()
+        .and_then(|params| params.audio())
+        .ok_or_else(|| "selected track has no audio codec parameters".to_string())?
+        .clone();
+    let decoder = make_decoder(
         &audio_params,
         &AudioDecoderOptions::default().gapless(false),
-    ) {
-        Ok(v) => v,
-        Err(e) => {
-            crate::app_deprintln!("[analysis] decoder make failed: {}", e);
-            return None;
-        }
-    };
-    Some(DecodeSession {
+    )
+    .map_err(|e| format!("decoder initialization failed: {e}"))?;
+    Ok(DecodeSession {
         format,
         decoder,
         track_id,
@@ -113,7 +114,7 @@ pub(super) fn count_mono_frames_from_audio_bytes(
         mut decoder,
         track_id,
         timeline_hint,
-    } = open_decode_session(bytes, format_hint)?;
+    } = open_decode_session(bytes, format_hint).ok()?;
 
     let mut total: u64 = 0;
     let mut loop_i: u32 = 0;
@@ -176,7 +177,7 @@ pub fn analysis_pcm_window(total_duration_sec: f64, window_sec: f64) -> PcmAnaly
 
 /// Best-effort container duration from codec metadata (seconds).
 pub fn audio_duration_from_bytes(bytes: &[u8]) -> Option<f64> {
-    let session = open_decode_session(bytes, None)?;
+    let session = open_decode_session(bytes, None).ok()?;
     let sample_rate = session
         .format
         .default_track(TrackType::Audio)
@@ -203,8 +204,7 @@ pub fn decode_mono_pcm_window(
         mut decoder,
         track_id,
         ..
-    } = open_decode_session(bytes, None)
-        .ok_or_else(|| "failed to open audio decode session".to_string())?;
+    } = open_decode_session(bytes, None)?;
 
     if start_sec.is_finite() && start_sec > 0.0 {
         let time = Time::try_from_secs_f64(start_sec.max(0.0))
@@ -236,8 +236,7 @@ pub fn decode_mono_pcm_limited(
         mut decoder,
         track_id,
         ..
-    } = open_decode_session(bytes, None)
-        .ok_or_else(|| "failed to open audio decode session".to_string())?;
+    } = open_decode_session(bytes, None)?;
     decode_mono_pcm_from_session(&mut format, &mut decoder, track_id, max_seconds)
 }
 
@@ -252,16 +251,30 @@ fn decode_mono_pcm_from_session(
     let mut max_frames: Option<u64> = None;
     let mut loop_i: u32 = 0;
     let mut samples_buf: Vec<f32> = Vec::new();
+    let mut last_error: Option<String> = None;
 
-    while let Ok(Some(packet)) = format.next_packet() {
+    loop {
+        let packet = match format.next_packet() {
+            Ok(Some(packet)) => packet,
+            Ok(None) => break,
+            Err(e) => {
+                last_error = Some(format!("packet read failed: {e}"));
+                break;
+            }
+        };
         if packet.track_id != track_id {
             continue;
         }
         let decoded = match decoder.decode(&packet) {
             Ok(buf) => buf,
-            Err(SymphoniaError::DecodeError(_)) => continue,
-            Err(SymphoniaError::ResetRequired) => break,
-            Err(_) => break,
+            Err(SymphoniaError::DecodeError(message)) => {
+                last_error = Some(format!("audio decode failed: {message}"));
+                continue;
+            }
+            Err(e) => {
+                last_error = Some(format!("audio decode failed: {e}"));
+                break;
+            }
         };
 
         let n_ch = decoded.spec().channels().count();
@@ -312,7 +325,12 @@ fn decode_mono_pcm_from_session(
     }
 
     if mono.is_empty() {
-        return Err("no PCM frames decoded".to_string());
+        return Err(match last_error {
+            Some(error) => format!("no PCM frames decoded: {error}"),
+            None => "no PCM frames decoded".to_string(),
+        });
     }
+    // Enrichment is best-effort: preserve a usable decoded prefix when a later
+    // packet fails, matching the behavior before decode errors became diagnostic.
     Ok((mono, sample_rate))
 }

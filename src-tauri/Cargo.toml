@@ -56,7 +56,7 @@ tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rodio = { version = "0.22", default-features = false, features = ["playback"] }
-symphonia = { version = "0.6", default-features = false, features = ["flac", "mp3", "pcm", "aac", "alac", "isomp4", "vorbis", "ogg", "wav", "aiff", "adpcm", "all-meta"] }
+symphonia = { version = "=0.6.1", default-features = false, features = ["flac", "mp3", "pcm", "aac", "alac", "isomp4", "vorbis", "ogg", "wav", "aiff", "adpcm", "all-meta"] }
 reqwest = { version = "0.13", default-features = false, features = ["stream", "json", "multipart", "query", "form", "rustls", "blocking", "gzip", "brotli"] }
 futures-util = "0.3"
 md5 = "0.8"
@@ -106,10 +106,11 @@ windows = { version = "0.62", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
-# NOTE: The local `symphonia-format-isomp4` path patch (0.5-based) was removed for
-# the Symphonia 0.6 migration. Symphonia 0.6 upstream already covers the esds
-# missing-descriptor and SL predefined=null fixes. The malformed-trak skip and
-# moov-at-end tail scan are validated against the fixture corpus on stock 0.6; if a
-# case regresses, re-create the patch from the 0.6 isomp4 source and re-add the
-# [patch.crates-io] entry here. See workdocs task 2026-05-symphonia-0.6-migration.
-
+# Preserve the current `mdat` boundary when a seekable ISO/MP4 reader reaches EOF.
+# Stock Symphonia loses its pending atom there, so a later seek fails with
+# `isomp4: no atom pending read`. This patch deliberately keeps the raw-read guard
+# intact; the looser upstream PR #536 condition can parse padded `mdat` payload as
+# top-level atoms after replay. Fixture tests cover ordinary, fragmented, padded,
+# repeated-EOF, and seekable-stream paths. Revalidate them before updating 0.6.1.
+[patch.crates-io]
+symphonia-format-isomp4 = { path = "patches/symphonia-format-isomp4" }

@@ -99,10 +99,13 @@ import { armCrossfadeDynamicOverlap, getCrossfadeTransition } from '@/features/p
 import { armAutodjMixing } from '@/features/playback/store/autodjTransitionUi';
 import {
   queueItemIdentityKey,
-  sameQueueItemRef,
   sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
-import { reportPlaybackSourceFailure } from '@/features/playback/store/playbackAlternativeStore';
+import {
+  clearUnavailablePlaybackFailures,
+  reportPlaybackSourceFailure,
+  shouldAutoAdvanceAfterUnavailableFailure,
+} from '@/features/playback/store/playbackAlternativeStore';
 import type { StreamProvenance } from '@/lib/media/streamFormat';
 
 // Silence-aware crossfade (A-tail): guards the early advance to once per play
@@ -132,6 +135,7 @@ export type NormalizationStatePayload = {
 };
 
 export function handleAudioPlaying(duration: number): void {
+  clearUnavailablePlaybackFailures();
   clearQueueNaturallyEnded();
   setDeferHotCachePrefetch(false);
   resetProgressEmitThrottles();
@@ -670,14 +674,12 @@ export function handleAudioError(message: string): void {
     setTimeout(() => {
       if (getPlayGeneration() !== gen) return;
       const live = usePlayerStore.getState();
-      const liveRef = live.queueItems[live.queueIndex];
-      const failedRef = store.queueItems[store.queueIndex];
-      if (
-        live.queueIndex !== store.queueIndex ||
-        !liveRef ||
-        !failedRef ||
-        !sameQueueItemRef(liveRef, failedRef)
-      ) return;
+      if (!shouldAutoAdvanceAfterUnavailableFailure({
+        failedQueueItems: store.queueItems,
+        failedQueueIndex: store.queueIndex,
+        liveQueueItems: live.queueItems,
+        liveQueueIndex: live.queueIndex,
+      })) return;
       live.next(false);
     }, 1500);
   });
