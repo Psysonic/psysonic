@@ -655,6 +655,10 @@
   user-select: none;
 }
 
+.fsr-lyric-line .lyrics-line-content {
+  width: 100%;
+}
+
 .fsr-lyric-line:hover { color: rgba(255, 255, 255, 0.5); }
 
 .fsr-lyric-line.fsrl-past { color: rgba(255, 255, 255, 0.1); }
@@ -744,4 +748,3 @@ html.no-compositing .fs-mesh-blob {
 html.no-compositing .fs-seekbar-played {
   box-shadow: none;
 }
-

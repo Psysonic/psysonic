@@ -70,6 +70,7 @@ describe('trivial pass-through setters', () => {
     ['setLinuxWaylandTextRenderProfile', 'linuxWaylandTextRenderProfile', 'gpu'],
     ['setNowPlayingEnabled', 'nowPlayingEnabled', true],
     ['setLyricsStaticOnly', 'lyricsStaticOnly', true],
+    ['setLyricsRomanizationEnabled', 'lyricsRomanizationEnabled', true],
     ['setShowChangelogOnUpdate', 'showChangelogOnUpdate', false],
     ['setQueueNowPlayingCollapsed', 'queueNowPlayingCollapsed', true],
     ['setQueueDurationDisplayMode', 'queueDurationDisplayMode', 'eta'],

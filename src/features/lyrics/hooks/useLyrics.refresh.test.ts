@@ -11,11 +11,13 @@ import { lyricsCacheKey } from '@/features/lyrics/utils/lyricsPersistentCache';
 // mock that always reports a miss on the second read would pass even if the
 // delete never happened (issue #1506).
 const mocks = vi.hoisted(() => ({
-  getLyricsBySongId: vi.fn(),
+  getLyricsSelectionBySongId: vi.fn(),
   store: new Map<string, unknown>(),
 }));
 
-vi.mock('@/lib/api/subsonicLyrics', () => ({ getLyricsBySongId: mocks.getLyricsBySongId }));
+vi.mock('@/lib/api/subsonicLyrics', () => ({
+  getLyricsSelectionBySongId: mocks.getLyricsSelectionBySongId,
+}));
 vi.mock('@/features/lyrics/utils/lyricsPersistentCache', async importOriginal => {
   const actual = await importOriginal<typeof import('@/features/lyrics/utils/lyricsPersistentCache')>();
   return {
@@ -49,7 +51,7 @@ const staleEntry: CachedLyrics = {
 beforeEach(() => {
   lyricsCache.clear();
   mocks.store.clear();
-  mocks.getLyricsBySongId.mockReset();
+  mocks.getLyricsSelectionBySongId.mockReset();
   useAuthStore.setState({
     activeServerId: 'srv-1',
     servers: [],
@@ -70,18 +72,21 @@ describe('useLyrics refresh', () => {
     // The persisted copy is served without asking the server at all — this is
     // the state a user is stuck in for the full TTL after editing the lyrics.
     await waitFor(() => expect(result.current.plainLyrics).toBe('Stale cached lyrics'));
-    expect(mocks.getLyricsBySongId).not.toHaveBeenCalled();
+    expect(mocks.getLyricsSelectionBySongId).not.toHaveBeenCalled();
     expect(lyricsCache.has(CACHE_KEY)).toBe(true);
 
-    mocks.getLyricsBySongId.mockResolvedValue({
-      line: [{ start: 0, value: 'Fresh server lyrics' }],
-      synced: false,
+    mocks.getLyricsSelectionBySongId.mockResolvedValue({
+      main: {
+        line: [{ start: 0, value: 'Fresh server lyrics' }],
+        synced: false,
+      },
+      pronunciation: null,
     });
 
     act(() => result.current.refresh());
 
     await waitFor(() => expect(result.current.plainLyrics).toBe('Fresh server lyrics'));
-    expect(mocks.getLyricsBySongId).toHaveBeenCalledWith('song-1', { enhanced: false, serverId: 'srv-1' });
+    expect(mocks.getLyricsSelectionBySongId).toHaveBeenCalledWith('song-1', { enhanced: false, serverId: 'srv-1' });
     // Refetched content replaces the persisted copy rather than leaving a hole.
     expect(mocks.store.get(CACHE_KEY)).toMatchObject({ plainLyrics: 'Fresh server lyrics' });
   });
@@ -98,9 +103,12 @@ describe('useLyrics refresh', () => {
     const { result } = renderHook(() => useLyrics(track));
     await waitFor(() => expect(result.current.notFound).toBe(true));
 
-    mocks.getLyricsBySongId.mockResolvedValue({
-      line: [{ start: 0, value: 'Added later' }],
-      synced: false,
+    mocks.getLyricsSelectionBySongId.mockResolvedValue({
+      main: {
+        line: [{ start: 0, value: 'Added later' }],
+        synced: false,
+      },
+      pronunciation: null,
     });
 
     act(() => result.current.refresh());

@@ -405,6 +405,48 @@
   text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
 }
 
+.lyrics-line-content {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: top;
+}
+
+.lyrics-line-primary,
+.lyrics-romanization {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.lyrics-romanization {
+  display: block;
+  position: relative;
+  margin-top: 0.08em;
+  font-size: 0.62em;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+  text-shadow: none;
+}
+
+.lyrics-romanization-base {
+  opacity: 0.62;
+}
+
+.lyrics-romanization-progress {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--lyrics-romanization-progress, 0%)) 0 0);
+  color: currentColor;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.lyrics-word-synced .lyrics-romanization.active .lyrics-romanization-progress {
+  color: var(--text-primary);
+}
+
 .lyrics-plain {
   padding: 4px 0 16px;
 }
@@ -502,4 +544,3 @@
 .settings-toggle-row:hover {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
-

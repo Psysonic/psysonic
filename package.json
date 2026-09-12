@@ -56,6 +56,8 @@
     "@tauri-apps/plugin-window-state": "^2.4.1",
     "axios": "^1.18.1",
     "i18next": "^26.0.8",
+    "kuromoji": "^0.1.2",
+    "kuroshiro": "^1.2.0",
     "lucide-react": "^1.17.0",
     "md5": "^2.3.0",
     "papaparse": "^5.5.3",
