@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router';
 import { useZipDownloadBridge } from '@/features/offline';
 import { useDeviceSyncJobEvents } from '@/features/deviceSync';
+import { useBurnJobEvents } from '@/features/burner';
 import { usePreviewBridge } from '@/app/tauriBridge/usePreviewBridge';
 import { useAudioDeviceBridge } from '@/app/tauriBridge/useAudioDeviceBridge';
 import { useCliBridge } from '@/app/tauriBridge/useCliBridge';
@@ -33,6 +34,7 @@ export function TauriEventBridge() {
 
   useZipDownloadBridge();
   useDeviceSyncJobEvents();
+  useBurnJobEvents();
   usePreviewBridge();
   useAudioDeviceBridge();
   useCliBridge(navigate);

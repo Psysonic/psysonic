@@ -857,6 +857,70 @@ export const commands = {
 	resolveAppleCover: (artist: string, album: string, title: string) => typedError<string | null, string>(__TAURI_INVOKE("resolve_apple_cover", { artist, album, title })),
 	/**  Resolve a Last.fm album-cover URL directly (Discord chain step). */
 	resolveLastfmCover: (artist: string, album: string) => __TAURI_INVOKE<string | null>("resolve_lastfm_cover", { artist, album }),
+	/**
+	 *  Optical recorders attached to this machine.
+	 *
+	 *  Returns an empty list (not an error) on platforms without a backend, so
+	 *  the UI can explain itself with `burn_is_supported`.
+	 *
+	 *  Off-thread for the same reason as `burn_media_state` below: a sync
+	 *  `#[tauri::command]` resolves on the IPC thread, and enumerating drives is
+	 *  blocking COM/ioctl work that can sit for seconds on a drive still spinning
+	 *  up. Run inline it froze the whole app, transport controls included.
+	 */
+	burnListRecorders: () => typedError<BurnRecorder[], string>(__TAURI_INVOKE("burn_list_recorders")),
+	/**  Whether this platform has a burn backend at all. */
+	burnIsSupported: () => __TAURI_INVOKE<boolean>("burn_is_supported"),
+	/**
+	 *  What is in the drive right now: media type, blankness, capacity, speeds.
+	 *
+	 *  Off-thread: this is the slowest read on the page — it waits for the drive
+	 *  to spin up and read the disc — and it runs when the burner page opens.
+	 */
+	burnProbeMedia: (recorderId: string) => typedError<BurnMediaInfo, string>(__TAURI_INVOKE("burn_probe_media", { recorderId })),
+	/**
+	 *  Lay the running order out on a disc of `capacity_sectors`.
+	 *
+	 *  Pure arithmetic from the library's durations — instant, so the UI can call
+	 *  it on every reorder. The authoritative sector counts only exist after
+	 *  rendering, and `burn_start` re-checks against the real disc before writing.
+	 */
+	burnPlan: (tracks: BurnTrackInput[], capacitySectors: number, gapless: boolean) => typedError<BurnPlan, string>(__TAURI_INVOKE("burn_plan", { tracks, capacitySectors, gapless })),
+	/**
+	 *  Render `tracks` to Red Book PCM and write them to the disc.
+	 *
+	 *  Returns once the job is registered. Watch `burn:progress` and
+	 *  `burn:complete` for the rest.
+	 */
+	burnStart: (jobId: string, tracks: BurnTrackInput[], options: BurnOptions) => typedError<null, string>(__TAURI_INVOKE("burn_start", { jobId, tracks, options })),
+	/**
+	 *  Stop a running job at its next checkpoint.
+	 *
+	 *  Returns `false` when the job already finished. Cancelling mid-write cannot
+	 *  un-burn committed sectors — the disc is spoiled either way.
+	 */
+	burnCancel: (jobId: string) => __TAURI_INVOKE<boolean>("burn_cancel", { jobId }),
+	/**
+	 *  Erase a CD-RW. `quick` clears the TOC; a full erase rewrites the surface
+	 *  and takes much longer.
+	 */
+	burnErase: (recorderId: string, quick: boolean) => typedError<null, string>(__TAURI_INVOKE("burn_erase", { recorderId, quick })),
+	/**
+	 *  Eject the disc and pull it back in, so the drive re-reads it.
+	 *
+	 *  The recovery for a disc the drive is still describing the way it did when a
+	 *  rehearsal ended. A CD-R cannot be erased, so without this a stale
+	 *  "not blank" verdict has no way out.
+	 */
+	burnReloadMedia: (recorderId: string) => typedError<null, string>(__TAURI_INVOKE("burn_reload_media", { recorderId })),
+	/**
+	 *  A cheap fingerprint of what is in the drive.
+	 *
+	 *  Polled while the burner page is open. The token is opaque: compare it with
+	 *  the last one and re-probe when it differs. Never fails for an absent or busy
+	 *  drive - a poll that raises errors would be a toast every few seconds.
+	 */
+	burnMediaState: (recorderId: string) => typedError<string, string>(__TAURI_INVOKE("burn_media_state", { recorderId })),
 };
 
 /* Types */
@@ -976,6 +1040,189 @@ export type BandsintownEvent = {
 	url: string,
 	on_sale_datetime: string,
 	lineup: string[],
+};
+
+/**  What is actually in the drive right now. */
+export type BurnMediaInfo = {
+	/**  `false` when the tray is empty or the disc is unreadable. */
+	present: boolean,
+	/**  Blank enough to write an audio disc onto. */
+	blank: boolean,
+	/**  CD-RW (or another rewritable) — offer Erase. */
+	erasable: boolean,
+	/**  Physical media label, e.g. `CD-R`. */
+	mediaType: string,
+	/**  Sectors available before the lead-out. `0` when unknown. */
+	capacitySectors: number,
+	/**
+	 *  Write speeds the drive advertises for this disc, in sectors/second.
+	 *  75 sectors/s = 1×.
+	 */
+	writeSpeeds: number[],
+	/**  Set when the disc cannot be used, with the reason to show the user. */
+	blocker: string | null,
+};
+
+/**  Everything the user chose in the burn drawer. */
+export type BurnOptions = {
+	recorderId: string,
+	/**  Sectors/second. `None` lets the drive pick. */
+	writeSpeed: number | null,
+	/**
+	 *  Run the whole write with the laser off. Nothing is committed to the
+	 *  disc, so this is the safe way to shake out a new drive.
+	 */
+	testWrite: boolean,
+	/**  Gapless (no 2-second gap between tracks). On by default. */
+	gapless: boolean,
+	/**  Level every track to a shared gain before writing. */
+	normalize: boolean,
+	ejectWhenDone: boolean,
+	/**  Optional Media Catalog Number (UPC/EAN) for the whole disc. */
+	mediaCatalogNumber: string | null,
+	/**  Write a CD-TEXT lead-in. Ignored when the drive cannot do it. */
+	cdText: boolean,
+	/**  Disc-level CD-TEXT title. */
+	discTitle: string | null,
+	/**  Disc-level CD-TEXT performer. */
+	discPerformer: string | null,
+};
+
+/**  The result of laying the queue out on a disc. */
+export type BurnPlan = {
+	tracks: BurnPlanTrack[],
+	pregapSectors: number,
+	/**  Pregap + every track. This is what must fit. */
+	totalSectors: number,
+	capacitySectors: number,
+	fits: boolean,
+	/**
+	 *  True once the disc runs past 74:00 — still legal on an 80-minute
+	 *  blank, but worth telling the user about.
+	 */
+	pastRedBook74: boolean,
+	/**
+	 *  Human-readable notes to surface in the UI (over capacity, too many
+	 *  tracks, unreadable source, …).
+	 */
+	warnings: string[],
+};
+
+/**  A planned track once its real length is known. */
+export type BurnPlanTrack = {
+	/**  1-based CD track number. */
+	number: number,
+	title: string,
+	artist: string,
+	/**  Absolute LBA of the track's first sector. */
+	startSector: number,
+	sectors: number,
+	durationSec: number | null,
+};
+
+/**  One optical recorder attached to the machine. */
+export type BurnRecorder = {
+	/**
+	 *  Opaque per-platform recorder id — an IMAPI2 id on Windows, a device
+	 *  path on Linux. Round-trips back on every later call, and each backend
+	 *  resolves it against the drives it actually found rather than trusting
+	 *  it as a path.
+	 */
+	id: string,
+	/**  Human label, e.g. `HL-DT-ST BD-RE WH16NS40`. */
+	name: string,
+	/**
+	 *  Where the drive shows up in the filesystem: mount points on Windows
+	 *  (`["E:\\"]`), the device node on Linux (`["/dev/sr0"]`).
+	 */
+	volumePaths: string[],
+	/**
+	 *  Whether the drive can write CD-R/CD-RW at all. A DVD-only reader is
+	 *  listed but not selectable.
+	 */
+	canWriteCd: boolean,
+	/**
+	 *  Whether this drive can carry CD-TEXT, from its own feature page rather
+	 *  than an assumption. See `capabilities`.
+	 */
+	supportsCdText: boolean,
+	/**  The raw answer behind `supports_cd_text`, so the UI can explain itself. */
+	capabilities: BurnWriteCapabilities,
+};
+
+/**
+ *  One track queued for the disc, as the frontend sends it.
+ *
+ *  Either `source_path` (already on disk) or `download_url` must be present.
+ *  When both are, the local file wins and nothing is fetched.
+ */
+export type BurnTrackInput = {
+	/**
+	 *  Absolute path to a local audio file, when the track is already cached
+	 *  offline. `None` means the burner has to fetch it first.
+	 */
+	sourcePath: string | null,
+	/**
+	 *  Original-file URL (`download.view`, never `stream.view` — a transcoded
+	 *  stream would put a lossy copy on a disc that cannot be rewritten).
+	 */
+	downloadUrl: string | null,
+	/**
+	 *  Container extension for the fetched file, e.g. `flac`. Used for the
+	 *  temp filename so the decoder's format hint is right.
+	 */
+	suffix: string | null,
+	/**
+	 *  Server this track belongs to, so per-server HTTP settings (custom
+	 *  headers, self-signed certs) are applied to the fetch.
+	 */
+	serverId: string | null,
+	/**
+	 *  File size the library reports, for the pre-flight disk estimate.
+	 *  `None` when unknown — the estimate then falls back on the duration.
+	 */
+	sizeBytes: number | null,
+	title: string,
+	artist: string,
+	/**
+	 *  Duration the library believes the track has, in seconds. Only used for
+	 *  the pre-render estimate; the rendered sector count is authoritative.
+	 */
+	durationSec: number | null,
+	/**  Optional ISRC, written into the subchannel when present. */
+	isrc: string | null,
+};
+
+/**
+ *  What the drive reports it can do, read from MMC feature 002Eh
+ *  ("CD Mastering") — a read-only query, safe to run with any disc or none.
+ *
+ *  This is how the burner decides whether to offer CD-TEXT instead of guessing:
+ *  `rw_subchannel` is the drive's own answer to "can I write host-supplied R-W
+ *  subchannel data", which is exactly where CD-TEXT lives.
+ */
+export type BurnWriteCapabilities = {
+	/**
+	 *  The drive answered the query at all. `false` means every flag below is
+	 *  a default, not a measurement.
+	 */
+	reported: boolean,
+	/**  Session-At-Once — required for any CD-TEXT write. */
+	sessionAtOnce: boolean,
+	/**  Raw write types. */
+	rawRecording: boolean,
+	/**  Raw multisession. */
+	rawMultisession: boolean,
+	/**  Laser-off test writes. */
+	testWrite: boolean,
+	/**  Mastering onto CD-RW. */
+	cdRewritable: boolean,
+	/**  **Can write host-supplied R-W subchannel — i.e. can carry CD-TEXT.** */
+	rwSubchannel: boolean,
+	/**  Zero-loss linking (burn-proof). */
+	bufferUnderrunFree: boolean,
+	/**  Largest cue sheet the drive will accept, in bytes. */
+	maxCueSheetBytes: number,
 };
 
 /**  Min/max `year` from indexed tracks for a server (Albums year filter UI). */

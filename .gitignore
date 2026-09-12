@@ -71,3 +71,6 @@ dev.sh
 shell.nix
 prod.sh
 tsconfig.tsbuildinfo
+
+# Screenshots from `npm run check:burner-visual -- --shot`. Diagnostic output.
+.burner-visual/

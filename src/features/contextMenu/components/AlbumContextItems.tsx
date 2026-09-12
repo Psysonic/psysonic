@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Play, ListPlus, Heart, Download, ChevronRight, ChevronsRight, User, ListMusic, Star, Share2 } from 'lucide-react';
+import { Play, ListPlus, Heart, Download, ChevronRight, ChevronsRight, User, ListMusic, Star, Share2, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { resolveAlbum, resolveMediaServerId } from '@/features/offline';
 import { star, unstar } from '@/lib/api/subsonicStarRating';
@@ -9,6 +9,8 @@ import StarRating from '@/ui/StarRating';
 import { AlbumToPlaylistSubmenu } from '@/features/contextMenu/components/AlbumArtistToPlaylistSubmenu';
 import { MultiAlbumToPlaylistSubmenu } from '@/features/contextMenu/components/MultiAlbumToPlaylistSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
+import { addTracksToBurnList } from '@/features/burner';
+import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 
@@ -24,6 +26,9 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
   } = props;
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // Top level, not inside the `type === 'album'` body: that body is an IIFE
+  // inside JSX, and a hook cannot live there.
+  const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
   const goLibrary = pinToPlaybackServer ? navigateLibrary : (path: string) => { navigate(path); };
 
   return (
@@ -102,6 +107,32 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
                 </div>
               )}
               <div className="context-menu-divider" />
+              {/* Disabled, not hidden, while a job owns the queue: the running job
+                  already took its track list, so a queue that grew behind it
+                  would describe a disc nobody is burning — and an item that
+                  vanishes from a menu the user just used reads as a bug. */}
+              {burnAvailable && (
+                <div
+                  className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+                  aria-disabled={burnBusy || undefined}
+                  {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+                  onClick={burnBusy ? undefined : () => handleAction(async () => {
+                    const serverId = resolveMediaServerId(album.serverId);
+                    if (!serverId) return;
+                    const albumData = await resolveAlbum(serverId, album.id);
+                    // Silent on a failed resolve, exactly as "Play Next" and
+                    // "Enqueue Album" above: nothing was queued, and a toast for
+                    // an album that would not load says nothing actionable.
+                    if (!albumData) return;
+                    // The resolver already hands songs back in album order (disc,
+                    // then track) and `burnListStore.add` appends, so the running
+                    // order comes out as the album plays — no sort needed here.
+                    addTracksToBurnList(albumData.songs, serverId);
+                  })}
+                >
+                  <Flame size={14} /> {t('burner.addToCd')}
+                </div>
+              )}
               <div className="context-menu-item" onClick={() => handleAction(() => copyShareLink('album', album.id, album.serverId))}>
                 <Share2 size={14} /> {t('contextMenu.shareLink')}
               </div>

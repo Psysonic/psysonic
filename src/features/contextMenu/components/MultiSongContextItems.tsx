@@ -1,11 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { ChevronRight, ChevronsRight, Heart, ListMusic, ListPlus, Play, Star } from 'lucide-react';
+import { ChevronRight, ChevronsRight, Flame, Heart, ListMusic, ListPlus, Play, Star } from 'lucide-react';
 import type { Track } from '@/lib/media/trackTypes';
 import StarRating from '@/ui/StarRating';
 import { queueSongStar } from '@/features/playback';
 import { multiTrackRatingId, unifiedTrackRating } from '@/lib/media/trackRating';
+import { addTracksToBurnList } from '@/features/burner';
+import { resolveMediaServerId } from '@/features/offline';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/AddToPlaylistSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
+import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
 
 /**
  * Menu for a multi-row track selection.
@@ -24,6 +27,7 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
     handleAction, isStarred, offlinePolicy,
   } = props;
   const { t } = useTranslation();
+  const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
   const songs = item as Track[];
   const ratingId = multiTrackRatingId(songs);
   const playlistTriggerId = `multi-song:${songs.map(song => song.id).join(',')}`;
@@ -63,6 +67,24 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
               onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }}
             />
           )}
+        </div>
+      )}
+      {/* Disabled, not hidden, while a job owns the queue: the running job
+          already took its track list, so a queue that grew behind it would
+          describe a disc nobody is burning — and an item that vanishes from a
+          menu the user just used reads as a bug. */}
+      {burnAvailable && (
+        <div
+          className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+          aria-disabled={burnBusy || undefined}
+          {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+          onClick={burnBusy ? undefined : () => handleAction(() => {
+            // Each track keeps its own owner; the active server is only a
+            // fallback for rows that never carried one.
+            addTracksToBurnList(songs, resolveMediaServerId(songs[0]?.serverId) ?? '');
+          })}
+        >
+          <Flame size={14} /> {t('burner.addToCd')}
         </div>
       )}
       {offlinePolicy.canFavorite && (

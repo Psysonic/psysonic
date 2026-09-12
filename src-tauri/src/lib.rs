@@ -377,6 +377,17 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_integration::discord::discord_clear_presence,
             psysonic_integration::discord::resolve_apple_cover,
             psysonic_integration::album_art::resolve_lastfm_cover,
+            // psysonic-burn — audio CD-R burning with CD-TEXT, on Windows,
+            // macOS and Linux.
+            psysonic_burn::commands::burn_list_recorders,
+            psysonic_burn::commands::burn_is_supported,
+            psysonic_burn::commands::burn_probe_media,
+            psysonic_burn::commands::burn_plan,
+            psysonic_burn::commands::burn_start,
+            psysonic_burn::commands::burn_cancel,
+            psysonic_burn::commands::burn_erase,
+            psysonic_burn::commands::burn_reload_media,
+            psysonic_burn::commands::burn_media_state,
         ])
 }
 
@@ -895,6 +906,17 @@ pub fn run() {
             cover_cache::cover_revalidate_enqueue,
             cover_cache::cover_revalidate_tick,
             psysonic_integration::bandsintown::fetch_bandsintown_events,
+            // psysonic-burn — audio CD-R burning with CD-TEXT, on Windows,
+            // macOS and Linux.
+            psysonic_burn::commands::burn_list_recorders,
+            psysonic_burn::commands::burn_is_supported,
+            psysonic_burn::commands::burn_probe_media,
+            psysonic_burn::commands::burn_plan,
+            psysonic_burn::commands::burn_start,
+            psysonic_burn::commands::burn_cancel,
+            psysonic_burn::commands::burn_erase,
+            psysonic_burn::commands::burn_reload_media,
+            psysonic_burn::commands::burn_media_state,
             #[cfg(target_os = "windows")]
             taskbar_win::update_taskbar_icon,
         ])

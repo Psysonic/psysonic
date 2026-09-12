@@ -23,10 +23,11 @@
     "dep:check": "depcruise src --config .dependency-cruiser.cjs --ignore-known",
     "dep:check:barrels": "node scripts/check-feature-barrel-ui.mjs",
     "check:boot-chunks": "node scripts/check-boot-chunk-lucide.mjs",
-    "build:verify": "npm run build && npm run check:boot-chunks",
+    "build:verify": "npm run build && npm run check:boot-chunks && npm run check:burner-visual",
     "test": "npm run prebuild:release-notes && vitest run && node --test scripts/extract-release-section.test.mjs scripts/wix-bundle-version.test.mjs scripts/sync-version-pipeline.test.mjs scripts/sync-flatpak-metainfo-release.test.mjs scripts/prepare-flatpak-packaging.test.mjs scripts/deploy-flatpak-ssh.test.mjs scripts/sign-windows-updater.test.mjs && npm run check:css-imports && npm run dep:check:barrels",
     "test:watch": "vitest",
-    "test:coverage": "npm run prebuild:release-notes && vitest run --coverage && npm run check:css-imports"
+    "test:coverage": "npm run prebuild:release-notes && vitest run --coverage && npm run check:css-imports",
+    "check:burner-visual": "node scripts/check-burner-visual.mjs"
   },
   "dependencies": {
     "@fontsource-variable/dm-sans": "^5.2.8",
