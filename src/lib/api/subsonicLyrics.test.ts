@@ -8,7 +8,13 @@ const { apiMock, apiForServerMock } = vi.hoisted(() => ({
 
 vi.mock('@/lib/api/subsonicClient', () => ({ api: apiMock, apiForServer: apiForServerMock }));
 
-import { getLyricsBySongId, isMainLyricsKind, pickMainStructuredLyrics } from '@/lib/api/subsonicLyrics';
+import {
+  getLyricsBySongId,
+  getLyricsSelectionBySongId,
+  isMainLyricsKind,
+  pickMainStructuredLyrics,
+  pickPronunciationStructuredLyrics,
+} from '@/lib/api/subsonicLyrics';
 
 function lyrics(overrides: Partial<SubsonicStructuredLyrics> = {}): SubsonicStructuredLyrics {
   return { line: [{ start: 0, value: 'la' }], ...overrides };
@@ -57,6 +63,24 @@ describe('pickMainStructuredLyrics', () => {
 
   it('returns null for an empty list', () => {
     expect(pickMainStructuredLyrics([])).toBeNull();
+  });
+});
+
+describe('pickPronunciationStructuredLyrics', () => {
+  it('selects and merges only pronunciation entries', () => {
+    const main = lyrics({ kind: 'main', synced: true, line: [{ start: 1000, value: '君' }] });
+    const pronunciation = [
+      lyrics({ kind: 'pronunciation', synced: true, line: [{ start: 1000, value: 'kimi' }] }),
+      lyrics({ kind: 'pronunciation', synced: true, line: [{ start: 5000, value: 'no na wa' }] }),
+    ];
+    expect(pickPronunciationStructuredLyrics([main, ...pronunciation])?.line).toEqual([
+      { start: 1000, value: 'kimi' },
+      { start: 5000, value: 'no na wa' },
+    ]);
+  });
+
+  it('returns null when the response has no pronunciation layer', () => {
+    expect(pickPronunciationStructuredLyrics([lyrics({ kind: 'main' })])).toBeNull();
   });
 });
 
@@ -194,5 +218,34 @@ describe('getLyricsBySongId', () => {
   it('returns null when the server does not support the endpoint', async () => {
     apiMock.mockRejectedValue(new Error('not supported'));
     await expect(getLyricsBySongId('song-1')).resolves.toBeNull();
+  });
+
+  it('returns the main and pronunciation layers from one enhanced request', async () => {
+    const main = lyrics({ kind: 'main', synced: true, line: [{ start: 0, value: '君' }] });
+    const pronunciation = lyrics({
+      kind: 'pronunciation',
+      synced: true,
+      line: [{ start: 0, value: 'kimi' }],
+    });
+    apiMock.mockResolvedValue({ lyricsList: { structuredLyrics: [main, pronunciation] } });
+
+    await expect(getLyricsSelectionBySongId('song-1', { enhanced: true })).resolves.toEqual({
+      main,
+      pronunciation,
+    });
+  });
+
+  it('does not duplicate a pronunciation-only fallback', async () => {
+    const pronunciation = lyrics({
+      kind: 'pronunciation',
+      synced: true,
+      line: [{ start: 0, value: 'kimi' }],
+    });
+    apiMock.mockResolvedValue({ lyricsList: { structuredLyrics: [pronunciation] } });
+
+    await expect(getLyricsSelectionBySongId('song-1', { enhanced: true })).resolves.toEqual({
+      main: pronunciation,
+      pronunciation: null,
+    });
   });
 });

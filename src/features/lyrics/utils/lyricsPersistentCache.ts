@@ -17,11 +17,11 @@ import type { CachedLyrics } from '@/features/lyrics/types';
 const DB_NAME = 'psysonic-lyrics-cache';
 const STORE_NAME = 'lyrics';
 /**
- * 2 — server lyrics may now carry word-level timing. Entries cached as
- * line-only under v1 would otherwise suppress karaoke for their full 90-day
- * TTL, so the upgrade drops them once and the next play refetches.
+ * 3 — server lyrics may now carry a pronunciation layer. Entries cached under
+ * v2 would otherwise suppress that layer for their full 90-day TTL, so the
+ * upgrade drops them once and the next play refetches.
  */
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const TTL_FOUND_MS    = 90 * 24 * 60 * 60 * 1000;
 const TTL_NOT_FOUND_MS = 7 * 24 * 60 * 60 * 1000;
 

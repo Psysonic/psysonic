@@ -288,6 +288,8 @@ export interface AuthState {
    * Honoured for every lyrics source.
    */
   lyricsStaticOnly: boolean;
+  /** Show a pronunciation layer, generating Japanese Hepburn romaji locally when needed. */
+  lyricsRomanizationEnabled: boolean;
   /** Sidebar lyrics scroll style: 'classic' = scrollIntoView center; 'apple' = scroll to 35% */
   sidebarLyricsStyle: 'classic' | 'apple';
   showFullscreenLyrics: boolean;
@@ -520,6 +522,7 @@ export interface AuthState {
   setEnableNeteaselyrics: (v: boolean) => void;
   setLyricsSources: (sources: LyricsSourceConfig[]) => void;
   setLyricsStaticOnly: (v: boolean) => void;
+  setLyricsRomanizationEnabled: (v: boolean) => void;
   setSidebarLyricsStyle: (v: 'classic' | 'apple') => void;
   setShowFullscreenLyrics: (v: boolean) => void;
   setFsLyricsStyle: (v: 'rail' | 'apple') => void;

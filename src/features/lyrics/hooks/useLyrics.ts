@@ -1,4 +1,4 @@
-import { getLyricsBySongId } from '@/lib/api/subsonicLyrics';
+import { getLyricsSelectionBySongId } from '@/lib/api/subsonicLyrics';
 import type { Track } from '@/lib/media/trackTypes';
 import { useCallback, useEffect, useState } from 'react';
 import { commands } from '@/generated/bindings';
@@ -24,6 +24,8 @@ export interface UseLyricsResult {
   syncedLines: LrcLine[] | null;
   wordLines: WordLyricsLine[] | null;
   plainLyrics: string | null;
+  pronunciationLines: LrcLine[] | null;
+  pronunciationPlainLyrics: string | null;
   source: LyricsSource | null;
   loading: boolean;
   notFound: boolean;
@@ -48,6 +50,8 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
   const [syncedLines, setSyncedLines] = useState<LrcLine[] | null>(cached?.syncedLines ?? null);
   const [wordLines, setWordLines]     = useState<WordLyricsLine[] | null>(cached?.wordLines ?? null);
   const [plainLyrics, setPlainLyrics] = useState<string | null>(cached?.plainLyrics ?? null);
+  const [pronunciationLines, setPronunciationLines] = useState<LrcLine[] | null>(cached?.pronunciationLines ?? null);
+  const [pronunciationPlainLyrics, setPronunciationPlainLyrics] = useState<string | null>(cached?.pronunciationPlainLyrics ?? null);
   const [source, setSource]           = useState<LyricsSource | null>(cached?.source ?? null);
   const [notFound, setNotFound]       = useState(cached?.notFound ?? false);
   // Bumped by `refresh()` to re-run the fetch effect for an unchanged track.
@@ -74,6 +78,8 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       setSyncedLines(null);
       setWordLines(null);
       setPlainLyrics(null);
+      setPronunciationLines(null);
+      setPronunciationPlainLyrics(null);
       setSource(null);
       setNotFound(false);
       setLoading(false);
@@ -85,6 +91,8 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       setSyncedLines(hit.syncedLines);
       setWordLines(hit.wordLines);
       setPlainLyrics(hit.plainLyrics);
+      setPronunciationLines(hit.pronunciationLines ?? null);
+      setPronunciationPlainLyrics(hit.pronunciationPlainLyrics ?? null);
       setSource(hit.source);
       setNotFound(hit.notFound);
       setLoading(false);
@@ -95,6 +103,8 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
     setSyncedLines(null);
     setWordLines(null);
     setPlainLyrics(null);
+    setPronunciationLines(null);
+    setPronunciationPlainLyrics(null);
     setSource(null);
     setNotFound(false);
     setLoading(true);
@@ -105,6 +115,8 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       setSyncedLines(entry.syncedLines);
       setWordLines(entry.wordLines);
       setPlainLyrics(entry.plainLyrics);
+      setPronunciationLines(entry.pronunciationLines ?? null);
+      setPronunciationPlainLyrics(entry.pronunciationPlainLyrics ?? null);
       setSource(entry.source);
       setNotFound(entry.notFound);
       setLoading(false);
@@ -154,15 +166,25 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       // server speaks it. On a v1 server this stays a plain v1 request.
       const enhanced = !!ownerServerId && isFeatureActiveForServer(ownerServerId, FEATURE_ENHANCED_LYRICS);
 
-      const structured = await getLyricsBySongId(currentTrack.id, {
+      const selection = await getLyricsSelectionBySongId(currentTrack.id, {
         enhanced,
         serverId: ownerServerId || undefined,
       });
-      if (!structured) return false;
-      const parsed = parseStructuredLyrics(structured);
+      if (!selection) return false;
+      const parsed = parseStructuredLyrics(selection.main);
       if (!parsed.syncedLines && !parsed.plainLyrics) return false;
-      const wordLines = enhanced ? parseStructuredWordLines(structured) : null;
-      store({ ...parsed, wordLines, source: 'server', notFound: false });
+      const wordLines = enhanced ? parseStructuredWordLines(selection.main) : null;
+      const pronunciation = selection.pronunciation
+        ? parseStructuredLyrics(selection.pronunciation)
+        : null;
+      store({
+        ...parsed,
+        wordLines,
+        pronunciationLines: pronunciation?.syncedLines ?? null,
+        pronunciationPlainLyrics: pronunciation?.plainLyrics ?? null,
+        source: 'server',
+        notFound: false,
+      });
       return true;
     };
 
@@ -235,5 +257,15 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
     return () => { cancelled = true; };
   }, [cacheKey, currentTrack?.id, lyricsSources, ownerServerId, ownerServerKey, reloadNonce]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return { syncedLines, wordLines, plainLyrics, source, loading, notFound, refresh };
+  return {
+    syncedLines,
+    wordLines,
+    plainLyrics,
+    pronunciationLines,
+    pronunciationPlainLyrics,
+    source,
+    loading,
+    notFound,
+    refresh,
+  };
 }

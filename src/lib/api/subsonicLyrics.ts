@@ -12,6 +12,11 @@ export interface GetLyricsOptions {
   serverId?: string;
 }
 
+export interface StructuredLyricsSelection {
+  main: SubsonicStructuredLyrics;
+  pronunciation: SubsonicStructuredLyrics | null;
+}
+
 /**
  * True for the primary lyric layer. `songLyrics` v1 has no `kind` at all and v2
  * omits it for the main layer, so a missing `kind` means main.
@@ -63,6 +68,16 @@ function mergeStructuredLyrics(
   };
 }
 
+function pickPreferredLayer(
+  pool: readonly SubsonicStructuredLyrics[],
+): SubsonicStructuredLyrics | null {
+  if (pool.length === 0) return null;
+  const chosen = pool.find(isSynced) ?? pool[0];
+  const key = layerKey(chosen);
+  const siblings = pool.filter(l => layerKey(l) === key);
+  return siblings.length > 1 ? mergeStructuredLyrics(siblings) : chosen;
+}
+
 /**
  * Choose the layer to display, preferring synced over unsynced.
  *
@@ -105,11 +120,15 @@ export function pickMainStructuredLyrics(
   if (usable.length === 0) return null;
   const main = usable.filter(isMainLyricsKind);
   const pool = main.length > 0 ? main : usable;
-  const chosen = pool.find(isSynced) ?? pool[0];
+  return pickPreferredLayer(pool);
+}
 
-  const key = layerKey(chosen);
-  const siblings = pool.filter(l => layerKey(l) === key);
-  return siblings.length > 1 ? mergeStructuredLyrics(siblings) : chosen;
+export function pickPronunciationStructuredLyrics(
+  list: readonly SubsonicStructuredLyrics[],
+): SubsonicStructuredLyrics | null {
+  return pickPreferredLayer(
+    list.filter(l => Array.isArray(l.line) && l.kind === 'pronunciation'),
+  );
 }
 
 /**
@@ -121,6 +140,14 @@ export async function getLyricsBySongId(
   id: string,
   { enhanced = false, serverId }: GetLyricsOptions = {},
 ): Promise<SubsonicStructuredLyrics | null> {
+  return (await getLyricsSelectionBySongId(id, { enhanced, serverId }))?.main ?? null;
+}
+
+/** Fetches the primary lyrics together with an optional pronunciation layer. */
+export async function getLyricsSelectionBySongId(
+  id: string,
+  { enhanced = false, serverId }: GetLyricsOptions = {},
+): Promise<StructuredLyricsSelection | null> {
   try {
     const endpoint = 'getLyricsBySongId.view';
     const params = enhanced ? { id, enhanced: true } : { id };
@@ -131,7 +158,16 @@ export async function getLyricsBySongId(
           params,
         )
       : await api<{ lyricsList: { structuredLyrics?: SubsonicStructuredLyrics[] } }>(endpoint, params);
-    return pickMainStructuredLyrics(data.lyricsList?.structuredLyrics ?? []);
+    const list = data.lyricsList?.structuredLyrics ?? [];
+    const main = pickMainStructuredLyrics(list);
+    if (!main) return null;
+    const pronunciation = main.kind === 'pronunciation'
+      ? null
+      : pickPronunciationStructuredLyrics(list);
+    return {
+      main,
+      pronunciation,
+    };
   } catch {
     // Server doesn't support the endpoint or track has no embedded lyrics
     return null;

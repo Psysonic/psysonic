@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
-import { useLyrics, type WordLyricsLine } from '@/features/lyrics';
+import { LyricsLineContent, useLyrics, useLyricsRomanization, type WordLyricsLine } from '@/features/lyrics';
 import { useWordLyricsSync } from '@/features/lyrics';
 import { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from '@/features/playback';
 import type { LrcLine } from '@/features/lyrics';
@@ -14,8 +14,16 @@ import { EaseScroller, targetForFraction } from '@/lib/dom/easeScroll';
 // centres it. Word-sync runs imperatively (no React re-renders on every time tick).
 // User scroll pauses auto-scroll for 4 s then resumes.
 export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { currentTrack: Track | null }) {
-  const { syncedLines, wordLines, plainLyrics, loading } = useLyrics(currentTrack);
+  const {
+    syncedLines,
+    wordLines,
+    plainLyrics,
+    pronunciationLines,
+    pronunciationPlainLyrics,
+    loading,
+  } = useLyrics(currentTrack);
   const staticOnly = useAuthStore(s => s.lyricsStaticOnly);
+  const romanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
   const sidebarLyricsStyle = useAuthStore(s => s.sidebarLyricsStyle);
 
   const useWords = !staticOnly && wordLines !== null && wordLines.length > 0;
@@ -23,6 +31,14 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
     ? (wordLines as WordLyricsLine[]).map(l => ({ time: l.time, text: l.text }))
     : (syncedLines as LrcLine[] | null);
   const hasSynced = !staticOnly && lineSrc !== null && lineSrc.length > 0;
+  const romanizedLines = useLyricsRomanization({
+    enabled: romanizationEnabled,
+    syncedLines,
+    wordLines,
+    plainLyrics,
+    pronunciationLines,
+    pronunciationPlainLyrics,
+  });
 
   const duration = usePlayerStore(s => s.currentTrack?.duration ?? 0);
   const seek     = usePlayerStore(s => s.seek);
@@ -37,6 +53,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
   const containerRef  = useRef<HTMLDivElement | null>(null);
   const scrollerRef   = useRef<EaseScroller | null>(null);
   const lineRefs      = useRef<(HTMLDivElement | null)[]>([]);
+  const hasPositionedRef = useRef(false);
   const isUserScroll  = useRef(false);
   const scrollTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -50,6 +67,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
   useEffect(() => {
     lineRefs.current   = [];
     activeIdxRef.current = -1;
+    hasPositionedRef.current = false;
     setActiveIdx(-1);
     scrollerRef.current?.jump(0);
   }, [currentTrack?.id]);
@@ -84,15 +102,21 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
     const el  = lineRefs.current[activeIdx];
     const box = containerRef.current;
     if (!el || !box || !scrollerRef.current) return;
+    const fraction = sidebarLyricsStyle === 'apple' ? 0.35 : 0.5;
+    if (!hasPositionedRef.current) {
+      scrollerRef.current.jump(targetForFraction(box, el, fraction));
+      hasPositionedRef.current = true;
+      return;
+    }
     if (sidebarLyricsStyle === 'apple') {
       scrollerRef.current.scrollTo(targetForFraction(box, el, 0.35));
     } else {
       scrollerRef.current.stop();
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [activeIdx, sidebarLyricsStyle]);
+  }, [activeIdx, romanizedLines, sidebarLyricsStyle]);
 
-  const { setWordRef } = useWordLyricsSync({
+  const { setWordRef, setRomanizationRef } = useWordLyricsSync({
     enabled: useWords,
     wordLines: useWords ? (wordLines as WordLyricsLine[]) : null,
     currentTrack,
@@ -136,15 +160,20 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
               data-time={line.time}
               style={{ '--fsa-dist': activeIdx < 0 ? 0 : i - activeIdx } as React.CSSProperties}
             >
-              {line.words.length > 0
-                ? line.words.map((w, j) => (
-                    <span
-                      key={j}
-                      className="fsa-lyric-word"
-                      ref={setWordRef(i, j)}
-                    >{w.text}</span>
-                  ))
-                : (line.text || ' ')}
+              <LyricsLineContent
+                romanization={romanizedLines?.[i]}
+                romanizationRef={setRomanizationRef(i)}
+              >
+                {line.words.length > 0
+                  ? line.words.map((w, j) => (
+                      <span
+                        key={j}
+                        className="fsa-lyric-word"
+                        ref={setWordRef(i, j)}
+                      >{w.text}</span>
+                    ))
+                  : (line.text || ' ')}
+              </LyricsLineContent>
             </div>
           ))
         : lineSrc!.map((line, i) => (
@@ -155,7 +184,9 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
               data-time={line.time}
               style={{ '--fsa-dist': activeIdx < 0 ? 0 : i - activeIdx } as React.CSSProperties}
             >
-              {line.text || ' '}
+              <LyricsLineContent romanization={romanizedLines?.[i]}>
+                {line.text || ' '}
+              </LyricsLineContent>
             </div>
           ))
       )}
@@ -163,7 +194,11 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
       {!hasSynced && plainLyrics && (
         <div className="fsa-plain-lyrics">
           {plainLyrics.split('\n').map((line, i) => (
-            <p key={i} className="fsa-plain-line">{line || ' '}</p>
+            <p key={i} className="fsa-plain-line">
+              <LyricsLineContent romanization={romanizedLines?.[i]}>
+                {line || ' '}
+              </LyricsLineContent>
+            </p>
           ))}
         </div>
       )}

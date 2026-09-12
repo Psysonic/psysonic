@@ -123,6 +123,7 @@ export const useAuthStore = create<AuthState>()(
       enableNeteaselyrics: false,
       lyricsSources: DEFAULT_LYRICS_SOURCES,
       lyricsStaticOnly: false,
+      lyricsRomanizationEnabled: false,
       sidebarLyricsStyle: 'classic',
       showFullscreenLyrics: true,
       fsLyricsStyle: 'rail',
