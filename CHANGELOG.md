@@ -132,6 +132,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Input → Global shortcuts** now offers an unbound action for adding the current track to favourites, even while Psysonic is out of focus.
 * On macOS, shortcut capture and labels now call the ⌘ modifier **Command** instead of Super. Existing shortcuts continue to work without being rebound.
 
+### Pronunciation beneath lyrics, with offline Japanese romaji
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1541](https://github.com/Psysonic/psysonic/pull/1541)**
+
+* **Settings → Lyrics → Pronunciation** can show pronunciation supplied by the server beneath the original lyrics. When Japanese lyrics have no pronunciation layer, Psysonic can generate Hepburn romaji locally without contacting another service.
+* Pronunciation follows the sidebar and both fullscreen lyric layouts. Word-timed lyrics fill the second line in step with the original, and auto-scroll keeps the current line in position when it appears.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again

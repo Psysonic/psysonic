@@ -223,6 +223,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Device Sync — shared album and playlist files with crash-safe device recovery (PR #1501)',
       'Global shortcuts for 1–5-star current-track ratings (PR #1503)',
       'Signed stable and RC Flatpak update channels (PR #1525)',
+      'Lyrics pronunciation and offline Japanese Hepburn romaji (PR #1541)',
     ],
   },
   {
