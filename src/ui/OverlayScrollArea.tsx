@@ -249,15 +249,15 @@ export default function OverlayScrollArea({
   } = useOverlayScrollbar<HTMLDivElement>(measureDeps);
   const viewportClass = ['overlay-scroll__viewport', viewportClassName].filter(Boolean).join(' ');
 
-  const bindViewportNode = (element: HTMLDivElement | null) => {
+  const bindViewportNode = useCallback((element: HTMLDivElement | null) => {
     setViewportNode(element);
     assignRef(viewportRefProp, element);
-  };
+  }, [setViewportNode, viewportRefProp]);
 
-  const bindWrapNode = (element: HTMLDivElement | null) => {
+  const bindWrapNode = useCallback((element: HTMLDivElement | null) => {
     setWrapNode(element);
     assignRef(wrapRefProp, element);
-  };
+  }, [setWrapNode, wrapRefProp]);
 
   return (
     <div
