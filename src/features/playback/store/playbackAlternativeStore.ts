@@ -64,6 +64,24 @@ export function recordUnavailablePlaybackFailure(
   return unavailableQueueSlots.size >= queueItems.length;
 }
 
+export function shouldAutoAdvanceAfterUnavailableFailure(args: {
+  failedQueueItems: QueueItemRef[];
+  failedQueueIndex: number;
+  liveQueueItems: QueueItemRef[];
+  liveQueueIndex: number;
+}): boolean {
+  const failedRef = args.failedQueueItems[args.failedQueueIndex];
+  const liveRef = args.liveQueueItems[args.liveQueueIndex];
+  if (
+    args.liveQueueIndex !== args.failedQueueIndex
+    || !failedRef
+    || !liveRef
+    || !sameQueueItemRef(liveRef, failedRef)
+  ) return false;
+
+  return !recordUnavailablePlaybackFailure(args.liveQueueItems, args.liveQueueIndex);
+}
+
 export function clearUnavailablePlaybackFailures(): void {
   failureCycleQueue = null;
   unavailableQueueSlots.clear();

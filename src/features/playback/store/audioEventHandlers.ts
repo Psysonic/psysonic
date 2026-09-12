@@ -99,13 +99,12 @@ import { armCrossfadeDynamicOverlap, getCrossfadeTransition } from '@/features/p
 import { armAutodjMixing } from '@/features/playback/store/autodjTransitionUi';
 import {
   queueItemIdentityKey,
-  sameQueueItemRef,
   sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
 import {
   clearUnavailablePlaybackFailures,
-  recordUnavailablePlaybackFailure,
   reportPlaybackSourceFailure,
+  shouldAutoAdvanceAfterUnavailableFailure,
 } from '@/features/playback/store/playbackAlternativeStore';
 import type { StreamProvenance } from '@/lib/media/streamFormat';
 
@@ -675,15 +674,12 @@ export function handleAudioError(message: string): void {
     setTimeout(() => {
       if (getPlayGeneration() !== gen) return;
       const live = usePlayerStore.getState();
-      const liveRef = live.queueItems[live.queueIndex];
-      const failedRef = store.queueItems[store.queueIndex];
-      if (
-        live.queueIndex !== store.queueIndex ||
-        !liveRef ||
-        !failedRef ||
-        !sameQueueItemRef(liveRef, failedRef)
-      ) return;
-      if (recordUnavailablePlaybackFailure(live.queueItems, live.queueIndex)) return;
+      if (!shouldAutoAdvanceAfterUnavailableFailure({
+        failedQueueItems: store.queueItems,
+        failedQueueIndex: store.queueIndex,
+        liveQueueItems: live.queueItems,
+        liveQueueIndex: live.queueIndex,
+      })) return;
       live.next(false);
     }, 1500);
   });

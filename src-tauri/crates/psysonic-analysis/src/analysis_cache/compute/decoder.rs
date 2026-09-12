@@ -330,5 +330,7 @@ fn decode_mono_pcm_from_session(
             None => "no PCM frames decoded".to_string(),
         });
     }
+    // Enrichment is best-effort: preserve a usable decoded prefix when a later
+    // packet fails, matching the behavior before decode errors became diagnostic.
     Ok((mono, sample_rate))
 }
