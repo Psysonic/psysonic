@@ -29,26 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Each destination in Settings → Integrations shows how many plays are still waiting to be sent, so a service that has quietly fallen behind is visible.
 * Plays are kept for 14 days, which is as far back as the services accept them.
 
-### Psysonic Rewind — your year in music as a shareable poster
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1485](https://github.com/Psysonic/psysonic/pull/1485)**
-
-* The statistics page gains a Psysonic Rewind card: play your year back as a story, then save it as a poster. Four layouts — overview, artist spotlight, album spotlight, and nerd stats — each in story (9:16) and square (1:1) format, drawn in a dedicated dark poster style with a live preview.
-* Everything is computed locally from your own play history — your data never leaves your device, and the poster says so.
-
 ### Windows updates install from inside the app
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1487](https://github.com/Psysonic/psysonic/pull/1487)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1487](https://github.com/Psysonic/psysonic/pull/1487) and PR [#1488](https://github.com/Psysonic/psysonic/pull/1488)**
 
 * On Windows the update dialog now installs the new version itself, the way it already does on macOS: the installer is downloaded, its signature is checked against the key built into the app, and it runs in the background. Psysonic closes and reopens by itself when it is done.
 * Until now Windows only offered the installer as a download to run by hand. Installs of this version and later update in place; an older install still downloads the next installer once.
-
-### Choose where missing album covers come from
-
-**By [@enncoded](https://github.com/enncoded), PR [#1502](https://github.com/Psysonic/psysonic/pull/1502)**
-
-* Settings → Integrations → Album artwork lets you order and switch the sources Psysonic falls back to when your server has no cover for an album: the server itself, Apple Music, and now Last.fm. The first enabled source that returns an image wins, and dragging reorders them.
-* Discord keeps its own separate switch under Rich Presence and still publishes nothing until you pick an option there.
+* Long translated button labels stay inside the update dialog: the window is wider, and the controls wrap onto another row when needed.
 
 ### Device Sync playlists reuse songs already on the device
 
@@ -56,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Albums and playlists now share one physical copy of each song instead of placing another copy inside every playlist folder. Playlist files point to the shared artist and album path, saving device space, transfer time, and duplicate entries in portable-player libraries.
 * Existing Device Sync layouts migrate on the next sync. Interrupted work keeps a recovery plan and only resumes or removes old files when the same removable device is connected again.
+
+### Choose where missing album covers come from
+
+**By [@enncoded](https://github.com/enncoded), PR [#1502](https://github.com/Psysonic/psysonic/pull/1502)**
+
+* Settings → Integrations → Album artwork lets you order and switch the sources Psysonic falls back to when your server has no cover for an album: the server itself, Apple Music, and now Last.fm. The first enabled source that returns an image wins, and dragging reorders them.
+* Discord keeps its own separate switch under Rich Presence and still publishes nothing until you pick an option there.
 
 ### Rate the current track with a global shortcut
 
@@ -90,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Picking more than one track in an album, in Favourites or in a playlist now offers a star rating next to the selection count, and a right-click on the selection opens a menu for all of the picked tracks — play them, queue them, add them to a playlist, favourite them or rate them in one go.
 * The stars show a rating only when every selected track already carries the same one, so a click always means "give all of them this rating".
+* Ratings set through a context menu now stay visible after the server confirms them instead of falling back to the value the page first loaded.
 
 ### Favourite a track straight from the queue
 
@@ -98,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A track in the queue could only be favourited by leaving the queue or going through its context menu. Every row now ends in a heart you can click.
 * An unset heart stays visible as a faint outline, so the control is there when you look for it without cluttering a long queue.
 * **Settings → Personalisation → Queue settings** has a switch for it, on by default.
+
 ### Artists remember the selected view
 
 **By [@cucadmuh](https://github.com/cucadmuh), reported by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1523](https://github.com/Psysonic/psysonic/pull/1523)**
@@ -147,12 +143,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The picture created from Statistics → Most Played Albums drew every album as an empty tile, showing only the rank and the play count. The New Albums export lost its covers the same way.
 * Covers now come from the same place the album cards get theirs, so a shared picture also reuses artwork that is already on screen instead of fetching it a second time.
-
-### Update dialog buttons stay inside the dialog
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1488](https://github.com/Psysonic/psysonic/pull/1488)**
-
-* In languages with long button labels, such as German, the "Install now" button of the update dialog ran past the right edge of the dialog. The dialog is wider now, and should the labels still not fit side by side, the buttons move to a second row instead of being cut off.
 
 ### Navidrome libraries get their ISRC and MusicBrainz ids back, and analysis no longer fails on a stray server key
 
@@ -217,12 +207,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1521](https://github.com/Psysonic/psysonic/pull/1521)**
 
 * Filtering playlists by owner took four buttons on a row of their own, and they looked exactly like the actions above them even though only one can be active. It is now a single dropdown next to the sort control, showing the bucket you are in.
-
-### A rating set from a context menu no longer falls back
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1522](https://github.com/Psysonic/psysonic/pull/1522)**
-
-* Rating a track through its context menu showed the stars for a moment and then dropped them again, and only re-entering the page brought the rating back. The rating now stays where you set it, the same way a favourite already did.
 
 ### Recommendation cards no longer collapse at certain window widths
 
