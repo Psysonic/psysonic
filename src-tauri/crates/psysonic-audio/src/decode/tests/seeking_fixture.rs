@@ -1,6 +1,6 @@
 use super::*;
 
-fn assert_format_replays_after_eof(data: &[u8]) {
+fn assert_format_replays_after_eof(data: &[u8], fail_seek_first: bool) {
     let mss = MediaSourceStream::new(
         seekable_source(data.to_vec()),
         MediaSourceStreamOptions::default(),
@@ -44,6 +44,18 @@ fn assert_format_replays_after_eof(data: &[u8]) {
         );
     }
 
+    if fail_seek_first {
+        format
+            .seek(
+                symphonia::core::formats::SeekMode::Accurate,
+                symphonia::core::formats::SeekTo::Time {
+                    time: symphonia::core::units::Time::try_new(60, 0).unwrap(),
+                    track_id: Some(track_id),
+                },
+            )
+            .expect_err("out-of-range seek after EOF must fail");
+    }
+
     format
         .seek(
             symphonia::core::formats::SeekMode::Accurate,
@@ -74,8 +86,13 @@ fn isomp4_seek_after_eof_preserves_atom_boundaries() {
         ISOMP4_SEEK_FRAGMENTED_M4A.to_vec(),
         fragmented_m4a_with_padded_mdat(),
     ] {
-        assert_format_replays_after_eof(&data);
+        assert_format_replays_after_eof(&data, false);
     }
+}
+
+#[test]
+fn isomp4_failed_seek_after_eof_preserves_fragment_boundary() {
+    assert_format_replays_after_eof(ISOMP4_SEEK_FRAGMENTED_M4A, true);
 }
 
 #[test]

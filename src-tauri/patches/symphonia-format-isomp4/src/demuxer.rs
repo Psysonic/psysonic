@@ -547,8 +547,20 @@ impl<'s> IsoMp4Reader<'s> {
                 seg_skip = seg_idx + 1;
             }
 
-            // Otherwise, try to read more segments from the stream.
+            // Otherwise, try to read more segments from the stream. Preserve the current media
+            // data boundary if the scan only confirms that the requested timestamp is out of
+            // range; a later valid seek still needs it for raw sample reads.
+            let media_data = self
+                .iter
+                .pending()
+                .copied()
+                .filter(|atom| atom.atom_type() == AtomType::MediaData);
             if !self.try_read_more_segments()? {
+                if self.iter.pending().is_none() {
+                    if let Some(atom) = media_data {
+                        self.iter.restore_pending(atom)?;
+                    }
+                }
                 return seek_error(SeekErrorKind::OutOfRange);
             }
         };
