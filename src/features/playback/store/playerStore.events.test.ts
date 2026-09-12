@@ -65,7 +65,10 @@ import {
   setBytePreloadingRequest,
 } from '@/features/playback/store/gaplessPreloadState';
 import { queueTrackIdentityKey } from '@/features/playback/utils/playback/queueIdentity';
-import { usePlaybackAlternativeStore } from '@/features/playback/store/playbackAlternativeStore';
+import {
+  _resetPlaybackAlternativeStoreForTest,
+  usePlaybackAlternativeStore,
+} from '@/features/playback/store/playbackAlternativeStore';
 import { bumpPlayGeneration } from '@/features/playback/store/engineState';
 import {
   _resetGaplessProgressTrackingForTest,
@@ -100,6 +103,7 @@ beforeEach(() => {
   _resetGaplessPreloadStateForTest();
   _resetGaplessProgressTrackingForTest();
   _resetSeekTargetStateForTest();
+  _resetPlaybackAlternativeStoreForTest();
   stubPlaybackInvokes();
   cleanupListeners = initAudioListeners();
 });
@@ -336,6 +340,35 @@ describe('audio:error', () => {
     vi.advanceTimersByTime(1_500);
 
     expect(next).not.toHaveBeenCalled();
+  });
+
+  it('stops automatic error skipping after every repeated queue slot failed', async () => {
+    const queue = makeTracks(2);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    const next = vi.fn();
+    usePlayerStore.setState({ isPlaying: true, repeatMode: 'all', next });
+
+    emitTauriEvent('audio:error', 'unsupported codec');
+    await vi.waitFor(() => {
+      const alternatives = usePlaybackAlternativeStore.getState();
+      expect(alternatives.failure?.queueIndex).toBe(0);
+      expect(alternatives.status).toBe('ready');
+    });
+    vi.advanceTimersByTime(1_500);
+    expect(next).toHaveBeenCalledOnce();
+
+    bumpPlayGeneration();
+    usePlayerStore.setState({ queueIndex: 1, currentTrack: queue[1], isPlaying: true });
+    emitTauriEvent('audio:error', 'unsupported codec');
+    await vi.waitFor(() => {
+      const alternatives = usePlaybackAlternativeStore.getState();
+      expect(alternatives.failure?.queueIndex).toBe(1);
+      expect(alternatives.status).toBe('ready');
+    });
+    vi.advanceTimersByTime(1_500);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
   });
 });
 

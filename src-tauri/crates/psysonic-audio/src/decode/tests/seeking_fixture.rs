@@ -1,5 +1,101 @@
 use super::*;
 
+fn assert_format_replays_after_eof(data: &[u8]) {
+    let mss = MediaSourceStream::new(
+        seekable_source(data.to_vec()),
+        MediaSourceStreamOptions::default(),
+    );
+    let mut hint = Hint::new();
+    hint.with_extension("m4a");
+    let mut format = symphonia::default::get_probe()
+        .probe(
+            &hint,
+            mss,
+            FormatOptions::default(),
+            MetadataOptions::default(),
+        )
+        .expect("M4A fixture must probe");
+    let track_id = format.tracks()[0].id;
+
+    let drain = |format: &mut Box<dyn symphonia::core::formats::FormatReader>| {
+        let mut packets = 0usize;
+        loop {
+            match format.next_packet() {
+                Ok(Some(packet)) => {
+                    if packet.track_id == track_id {
+                        packets += 1;
+                    }
+                }
+                Ok(None) => return packets,
+                Err(error) => panic!("M4A packet pass failed: {error}"),
+            }
+        }
+    };
+
+    let first_pass = drain(&mut format);
+    assert!(first_pass > 0, "M4A fixture must yield audio packets");
+    for _ in 0..3 {
+        assert!(
+            format
+                .next_packet()
+                .expect("repeated EOF must not fail")
+                .is_none(),
+            "repeated EOF must stay at EOF"
+        );
+    }
+
+    format
+        .seek(
+            symphonia::core::formats::SeekMode::Accurate,
+            symphonia::core::formats::SeekTo::Time {
+                time: symphonia::core::units::Time::ZERO,
+                track_id: Some(track_id),
+            },
+        )
+        .expect("seek after EOF must succeed");
+    let replay = drain(&mut format);
+    assert_eq!(replay, first_pass, "seek replay must yield every packet");
+}
+
+fn assert_decoder_replays_after_eof(mut decoder: SizedDecoder) {
+    let first_pass = decoder.by_ref().count();
+    assert!(first_pass > 0, "M4A decoder must yield samples");
+    decoder
+        .try_seek(Duration::ZERO)
+        .expect("decoder seek after EOF must succeed");
+    let replay = decoder.by_ref().count();
+    assert_eq!(replay, first_pass, "decoder replay must yield every sample");
+}
+
+#[test]
+fn isomp4_seek_after_eof_preserves_atom_boundaries() {
+    for data in [
+        ISOMP4_SEEK_NORMAL_M4A.to_vec(),
+        ISOMP4_SEEK_FRAGMENTED_M4A.to_vec(),
+        fragmented_m4a_with_padded_mdat(),
+    ] {
+        assert_format_replays_after_eof(&data);
+    }
+}
+
+#[test]
+fn isomp4_seek_after_eof_works_for_bytes_and_seekable_streams() {
+    assert_decoder_replays_after_eof(
+        SizedDecoder::new(ISOMP4_SEEK_NORMAL_M4A.to_vec(), Some("m4a"), false)
+            .expect("M4A bytes must decode"),
+    );
+    assert_decoder_replays_after_eof(
+        SizedDecoder::new_streaming(
+            seekable_source(fragmented_m4a_with_padded_mdat()),
+            Some("m4a"),
+            "test-stream",
+            true,
+            None,
+        )
+        .expect("seekable M4A stream must decode"),
+    );
+}
+
 #[test]
 fn a_read_failure_before_the_demuxer_moves_stays_a_true_no_op() {
     // The failing half: the demuxer cannot complete its own seek reads, so

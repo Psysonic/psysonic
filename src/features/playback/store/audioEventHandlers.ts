@@ -102,7 +102,11 @@ import {
   sameQueueItemRef,
   sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
-import { reportPlaybackSourceFailure } from '@/features/playback/store/playbackAlternativeStore';
+import {
+  clearUnavailablePlaybackFailures,
+  recordUnavailablePlaybackFailure,
+  reportPlaybackSourceFailure,
+} from '@/features/playback/store/playbackAlternativeStore';
 import type { StreamProvenance } from '@/lib/media/streamFormat';
 
 // Silence-aware crossfade (A-tail): guards the early advance to once per play
@@ -132,6 +136,7 @@ export type NormalizationStatePayload = {
 };
 
 export function handleAudioPlaying(duration: number): void {
+  clearUnavailablePlaybackFailures();
   clearQueueNaturallyEnded();
   setDeferHotCachePrefetch(false);
   resetProgressEmitThrottles();
@@ -678,6 +683,7 @@ export function handleAudioError(message: string): void {
         !failedRef ||
         !sameQueueItemRef(liveRef, failedRef)
       ) return;
+      if (recordUnavailablePlaybackFailure(live.queueItems, live.queueIndex)) return;
       live.next(false);
     }, 1500);
   });

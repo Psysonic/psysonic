@@ -4,7 +4,10 @@ import { libraryResolveEntitySources } from '@/lib/api/library';
 import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
 import { useAuthStore } from '@/store/authStore';
 import { deriveEntitySourceScopes } from '@/lib/library/libraryBrowseScope';
-import { sameQueueItemRef } from '@/features/playback/utils/playback/queueIdentity';
+import {
+  queueItemIdentityKey,
+  sameQueueItemRef,
+} from '@/features/playback/utils/playback/queueIdentity';
 
 export interface PlaybackSourceFailure {
   key: string;
@@ -25,6 +28,8 @@ interface PlaybackAlternativeState {
 }
 
 let lastFailureKey: string | null = null;
+let failureCycleQueue: string | null = null;
+const unavailableQueueSlots = new Set<string>();
 
 export const usePlaybackAlternativeStore = create<PlaybackAlternativeState>(set => ({
   failure: null,
@@ -37,6 +42,31 @@ export const usePlaybackAlternativeStore = create<PlaybackAlternativeState>(set 
 
 function failureKey(generation: number, queueIndex: number, ref: QueueItemRef): string {
   return `${generation}:${queueIndex}:${ref.serverId}:${ref.trackId}`;
+}
+
+function queueFailureSignature(queueItems: QueueItemRef[]): string {
+  return queueItems.map((item, index) => `${index}:${queueItemIdentityKey(item)}`).join('|');
+}
+
+export function recordUnavailablePlaybackFailure(
+  queueItems: QueueItemRef[],
+  queueIndex: number,
+): boolean {
+  const expectedRef = queueItems[queueIndex];
+  if (!expectedRef || queueItems.length === 0) return false;
+
+  const signature = queueFailureSignature(queueItems);
+  if (failureCycleQueue !== signature) {
+    failureCycleQueue = signature;
+    unavailableQueueSlots.clear();
+  }
+  unavailableQueueSlots.add(`${queueIndex}:${queueItemIdentityKey(expectedRef)}`);
+  return unavailableQueueSlots.size >= queueItems.length;
+}
+
+export function clearUnavailablePlaybackFailures(): void {
+  failureCycleQueue = null;
+  unavailableQueueSlots.clear();
 }
 
 export function reportPlaybackSourceFailure(args: {
@@ -111,6 +141,7 @@ export function dismissPlaybackSourceFailure(): void {
 
 export function _resetPlaybackAlternativeStoreForTest(): void {
   lastFailureKey = null;
+  clearUnavailablePlaybackFailures();
   usePlaybackAlternativeStore.setState({
     failure: null,
     status: 'idle',
