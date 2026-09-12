@@ -265,6 +265,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Infinite Queue could add tracks from unselected music folders, especially when Navidrome AudioMuse returned recommendations from the whole server. Similar songs, artist top tracks and the random fallback are now validated against the libraries selected in the sidebar.
 
+### M4A tracks can be replayed after reaching the end
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1542](https://github.com/Psysonic/psysonic/pull/1542)**
+
+* Seeking or replaying an AAC/M4A track after its decoder reached the end no longer fails with an ISO/MP4 atom error.
+
+### Repeat All stops after every unplayable track fails
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1542](https://github.com/Psysonic/psysonic/pull/1542)**
+
+* A queue of unsupported or broken tracks no longer cycles forever under Repeat All. Automatic skipping stops after every concrete queue slot has failed once, including duplicate tracks.
+
 ## [1.52.0]
 
 ## Added
