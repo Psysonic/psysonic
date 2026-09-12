@@ -25,20 +25,19 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 
 ### Safer desktop updates — install the right build with confidence
 
-- **Windows:** the update dialog now downloads, verifies, and installs signed updates inside the app, then restarts Psysonic automatically.
-- Supported Flatpak installs now use signed Psysonic repositories with separate stable and release-candidate channels.
+- **Windows:** the update dialog now downloads, verifies, and installs signed updates inside the app, then restarts Psysonic automatically; long translated controls stay inside the dialog.
+- Supported Flatpak installs now use signed Psysonic repositories with separate stable and release-candidate channels, and retain recent stable versions for manual rollback.
 - The Flatpak update dialog follows the installed channel and shows the exact update command.
-
-### Psysonic Rewind — turn your year into a story
-
-- Open **Statistics → Psysonic Rewind** to explore your year in music and export overview, artist, album, or nerd-stats posters.
-- Choose story or square layouts in a dedicated dark poster style with a live preview.
-- Everything is generated locally from your own play history; your listening data stays on your device.
 
 ### Device Sync — reuse tracks across playlists
 
 - Albums and playlists on a portable device now share one physical copy of each song instead of duplicating it inside every playlist folder.
 - Existing layouts migrate on the next sync, with recovery support if the device is disconnected before the migration finishes.
+
+### Lyrics pronunciation — follow every line more easily
+
+- **Settings → Lyrics → Pronunciation** can show a pronunciation layer supplied by the server beneath the original lyrics.
+- Japanese lyrics without that layer can generate Hepburn romaji locally and offline, across the sidebar and both fullscreen lyric layouts.
 
 ### Album artwork — choose where missing covers come from
 
@@ -52,9 +51,9 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 
 ### Ratings and queue controls — act without leaving the list
 
-- Assign 1–5 stars to the current track with optional global shortcuts under **Settings → Input**.
+- Assign 1–5 stars or favourite the current track with optional global shortcuts under **Settings → Input**; macOS now labels the ⌘ modifier **Command**.
 - Select several tracks in an album, Favourites, or a playlist to rate, favourite, queue, or add all of them at once.
-- Queue rows now include an optional heart for favouriting a track directly.
+- Ratings set from a context menu stay visible after the server confirms them, and queue rows now include an optional heart for favouriting a track directly.
 
 ### Windows mini player — choose a slimmer frame
 
@@ -72,6 +71,9 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 ### Playback and audio
 
 - **Linux:** PipeWire playback no longer crackles, drops out, or floods the log with buffer underruns.
+- AAC and M4A tracks can be replayed or sought after reaching the end without an ISO/MP4 error.
+- Repeat All stops after every unplayable queue entry has failed instead of cycling forever.
+- Infinite Queue keeps Similar Songs, artist top tracks, and random fallbacks inside the libraries selected in the sidebar.
 - Resuming after a long pause no longer moves the Now Playing display ahead while the current track is still playing.
 - Unfocused visualizers pause in the background by default and resume when Psysonic regains focus.
 
@@ -82,12 +84,13 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 - Albums recover release years and dates from servers that report them differently, restoring recently-added and New Releases results.
 - Multi-disc album subtitles from OpenSubsonic appear on Album Detail again.
 - Album pages stay visible while library sync refreshes them in the background.
+- Discover Songs samples across the whole library again instead of returning runs of tracks from one album.
+- Wide Mainstage rows continue loading until they fill the window, with working scroll arrows when the layout changes.
 - Long playlist pages return to the previous scroll position, and the owner filter now fits beside the sort control.
 - Play count and last played values update on the list where playback started instead of waiting for a page reload.
-- Ratings set from a context menu stay visible, and recommendation cards no longer collapse at narrow widths.
+- Recommendation cards no longer collapse at narrow widths.
 - Lyrics edited or added on the server can be reloaded from the lyrics pane.
 
 ### Other
 
 - Shared Top Albums and New Albums images show their cover art again.
-- Update dialog buttons wrap instead of running outside the dialog in languages with longer labels.
