@@ -196,6 +196,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Albums from servers whose album data carries no year showed no release year at all, even though the tracks had one. The year from the tracks is now kept instead of being overwritten with nothing.
 * The same servers often report dates in a different standard format, which was discarded on import. That left "recently added" and the New Releases page empty for them. Both formats are now understood. Albums already in your library pick their date up on the next full library sync.
 
+### Navidrome initial sync no longer leaves every artist and album "not found"
+
+**By [@starrlord](https://github.com/starrlord), PR [#1514](https://github.com/Psysonic/psysonic/pull/1514)**
+
+* Some Navidrome servers, including 0.63.2, rejected the initial song-list request because one filter was sent as a JSON boolean instead of the string its API expects. The sync then stopped with an empty local library, making every artist and album appear missing.
+* Psysonic now sends the accepted filter format. Existing installs stuck with an empty initial sync recover on the next pass without resetting the library.
+
 ### Lyrics edited on the server can be reloaded
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1516](https://github.com/Psysonic/psysonic/pull/1516)**

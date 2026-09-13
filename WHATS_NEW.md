@@ -33,11 +33,14 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 
 - Albums and playlists on a portable device now share one physical copy of each song instead of duplicating it inside every playlist folder.
 - Existing layouts migrate on the next sync, with recovery support if the device is disconnected before the migration finishes.
+- Device Sync follows a server after its address changes. Devices set up before this version can be reassigned without losing their files, and content can be removed while the server is unreachable.
 
-### Lyrics pronunciation — follow every line more easily
+### Lyrics pronunciation and smooth highlighting — follow every word
 
 - **Settings → Lyrics → Pronunciation** can show a pronunciation layer supplied by the server beneath the original lyrics.
 - Japanese lyrics without that layer can generate Hepburn romaji locally and offline, across the sidebar and both fullscreen lyric layouts.
+- **Settings → Lyrics → Word highlighting** can gradually fill each timed word as it is sung; the existing step-by-step style remains the default.
+- Pronunciation and generated romaji follow the same smooth timing as the original lyric line.
 
 ### Album artwork — choose where missing covers come from
 
@@ -73,14 +76,16 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 - **Linux:** PipeWire playback no longer crackles, drops out, or floods the log with buffer underruns.
 - AAC and M4A tracks can be replayed or sought after reaching the end without an ISO/MP4 error.
 - Repeat All stops after every unplayable queue entry has failed instead of cycling forever.
-- Infinite Queue keeps Similar Songs, artist top tracks, and random fallbacks inside the libraries selected in the sidebar.
+- Infinite Queue, Random Mix, and Genre Mix stay inside the libraries selected in the sidebar; recommendation and random fallbacks are checked against the same scope.
 - Resuming after a long pause no longer moves the Now Playing display ahead while the current track is still playing.
 - Unfocused visualizers pause in the background by default and resume when Psysonic regains focus.
 
 ### Browse and library
 
+- Navidrome initial sync no longer leaves the library empty with every artist and album shown as "not found" on affected servers; existing installs recover on their next sync.
 - Navidrome libraries keep ISRC and MusicBrainz recording IDs again, and existing libraries receive them through a one-time background repair.
 - Library rebuilds remove albums and tracks that were deleted from Navidrome instead of leaving ghost entries.
+- A completed Navidrome library migration no longer runs again after visiting Home.
 - Albums recover release years and dates from servers that report them differently, restoring recently-added and New Releases results.
 - Multi-disc album subtitles from OpenSubsonic appear on Album Detail again.
 - Album pages stay visible while library sync refreshes them in the background.
