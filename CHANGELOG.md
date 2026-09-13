@@ -274,6 +274,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Opening Home could recreate recommendation history that the migration then mistook for leftover legacy data, causing the full library migration to run again. Rebuilt history is now accepted when its ids are already canonical.
 
+### Random Mix stays inside the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1549](https://github.com/Psysonic/psysonic/pull/1549)**
+
+* Random Mix and Genre Mix no longer draw tracks or genres from unselected music folders or from a different active server. Changing the sidebar library selection refreshes the mix against the new scope.
+
 ## [1.52.0]
 
 ## Added
