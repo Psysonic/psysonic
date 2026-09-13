@@ -16,6 +16,10 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
     resetAuthStore();
     useDeviceSyncStore.setState({
       targetDir: null,
+      // Reset explicitly: a case further down leaves the shared layout set, and
+      // the preview aborts silently when it disagrees with its arguments.
+      layoutMode: 'self-contained',
+      playlistPathMode: 'playlist-relative',
       sources: [],
       checkedIds: [],
       pendingDeletion: [],
@@ -298,5 +302,80 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
 
     expect(showToast).toHaveBeenCalledWith(toastKey, 5000, 'error');
     expect(useDeviceSyncJobStore.getState().status).toBe('failed');
+  });
+
+  it('plans a delete-only run after the owning server left the configuration', async () => {
+    // The server this device was bound to moved to a new address, so nothing
+    // resolves its key any more — clearing the device must still be possible.
+    const staleKey = 'gone.test:4533';
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey: staleKey,
+    };
+    const sourceKey = JSON.stringify([staleKey, 'album', 'album-1']);
+    useAuthStore.setState(makeAuthState({ servers: [], activeServerId: null }));
+    useDeviceSyncStore.setState({
+      targetDir: '/device',
+      sources: [source],
+      pendingDeletion: [sourceKey],
+      pendingPlanChecked: true,
+    });
+
+    let seenAuth: { serverIndexKey: string; baseUrl: string } | null = null;
+    onInvoke('calculate_sync_payload', args => {
+      seenAuth = (args as { auth: { serverIndexKey: string; baseUrl: string } }).auth;
+      return {
+        planId: 'plan-1', deviceId: 'device-1',
+        addBytes: 0, addCount: 0, delBytes: 10, delCount: 1, reclaimableBytes: 10,
+        availableBytes: 1, tracks: [], deletePaths: ['/device/old.flac'],
+        deferredDeletePaths: [], playlists: [], manifestFiles: [], manifestPlaylists: [],
+      };
+    });
+
+    const setSyncDelta = vi.fn<(delta: SyncDelta) => void>();
+    await runDeviceSyncSummaryPrompt({
+      targetDir: '/device',
+      sources: [source],
+      pendingDeletion: [sourceKey],
+      layoutMode: 'self-contained',
+      playlistPathMode: 'playlist-relative',
+      t: ((key: string) => key) as never,
+      setPreSyncLoading: vi.fn(),
+      setPreSyncOpen: vi.fn(),
+      setSyncDelta,
+    });
+
+    // The owner key still identifies the plan; only the credentials are absent.
+    expect(seenAuth).toMatchObject({ serverIndexKey: staleKey, baseUrl: '' });
+    expect(setSyncDelta).toHaveBeenCalledTimes(1);
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it('refuses a transfer while the owning server is gone instead of reporting a fetch error', async () => {
+    const staleKey = 'gone.test:4533';
+    const source: DeviceSyncSource = {
+      type: 'album', id: 'album-1', name: 'Album', serverIndexKey: staleKey,
+    };
+    useAuthStore.setState(makeAuthState({ servers: [], activeServerId: null }));
+    useDeviceSyncStore.setState({
+      targetDir: '/device', sources: [source], pendingDeletion: [], pendingPlanChecked: true,
+    });
+
+    const invoked = vi.fn();
+    onInvoke('calculate_sync_payload', args => { invoked(args); return null; });
+
+    await runDeviceSyncSummaryPrompt({
+      targetDir: '/device',
+      sources: [source],
+      pendingDeletion: [],
+      layoutMode: 'self-contained',
+      playlistPathMode: 'playlist-relative',
+      t: ((key: string) => key) as never,
+      setPreSyncLoading: vi.fn(),
+      setPreSyncOpen: vi.fn(),
+      setSyncDelta: vi.fn(),
+    });
+
+    expect(invoked).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith('deviceSync.serverUnresolved', 5000, 'error');
   });
 });

@@ -19,6 +19,10 @@ describe('showDeviceSyncErrorToast', () => {
     ['DEVICE_SYNC_CLEANUP_FAILED', 'deviceSync.cleanupFailed'],
     ['DEVICE_SYNC_PATH_COLLISION:Artist/Album/song.flac', 'deviceSync.pathCollision'],
     ['DEVICE_SYNC_PATH_IDENTITY_COLLISION:artist/album/song.flac', 'deviceSync.pathCollision'],
+    // Used to land on the generic "failed to fetch tracks" text, which named
+    // the wrong problem for a run that never intended to fetch anything.
+    ['DEVICE_SYNC_SERVER_UNRESOLVED', 'deviceSync.serverUnresolved'],
+    ['DEVICE_SYNC_SERVER_OWNER_MISMATCH', 'deviceSync.serverUnresolved'],
   ])('maps %s to %s', (message, key) => {
     showDeviceSyncErrorToast(new Error(message), t);
 

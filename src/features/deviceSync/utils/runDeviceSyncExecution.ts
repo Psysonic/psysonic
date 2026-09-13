@@ -45,9 +45,26 @@ export interface SyncDelta {
   context: DeviceSyncJobContext | null;
 }
 
-function deviceSyncAuth(serverIndexKey: string) {
+/**
+ * Credentials for the owning server.
+ *
+ * A run that only removes sources fetches nothing, so it may proceed without a
+ * resolvable profile — that is exactly the case where the server changed its
+ * address and the device still needs to be cleaned up. Any run that has to list
+ * tracks stops here instead, with a code the toast layer can name.
+ */
+function deviceSyncAuth(serverIndexKey: string, fetchesRequired: boolean) {
   const server = findServerByIdOrIndexKey(serverIndexKey);
-  if (!server) throw new Error(`Unknown device sync server: ${serverIndexKey}`);
+  if (!server) {
+    if (fetchesRequired) throw new Error('DEVICE_SYNC_SERVER_UNRESOLVED');
+    return {
+      baseUrl: '',
+      ...getAuthParams('', ''),
+      u: '',
+      serverId: '',
+      serverIndexKey,
+    };
+  }
   return {
     baseUrl: restBaseFromUrl(connectBaseUrlForServer(server)),
     ...getAuthParams(server.username, server.password),
@@ -112,10 +129,13 @@ export async function runDeviceSyncSummaryPrompt(deps: RunDeviceSyncSummaryDeps)
     if (!serverIndexKey) throw new Error('Device sync sources do not have one server owner');
     const sourceSnapshot = sources.map(source => ({ ...source }));
     const deletionSnapshot = [...pendingDeletion];
+    const fetchesRequired = sourceSnapshot.some(
+      source => !deletionSnapshot.includes(deviceSyncSourceKey(source)),
+    );
     const payload = await invoke<Omit<SyncDelta, 'context'>>('calculate_sync_payload', {
       sources: sourceSnapshot,
       deletionIds: deletionSnapshot,
-      auth: deviceSyncAuth(serverIndexKey),
+      auth: deviceSyncAuth(serverIndexKey, fetchesRequired),
       targetDir,
       layoutMode,
       playlistPathMode,
@@ -183,13 +203,6 @@ export async function runDeviceSyncExecute(deps: RunDeviceSyncExecuteDeps): Prom
     showToast(t('deviceSync.fetchError'), 3000, 'error');
     return;
   }
-  const runtimeServer = findServerByIdOrIndexKey(serverIndexKey);
-  if (!runtimeServer) {
-    setPreSyncOpen(false);
-    showToast(t('deviceSync.fetchError'), 3000, 'error');
-    return;
-  }
-
   setPreSyncOpen(false);
 
   const allTracks = syncDelta.tracks;
@@ -213,6 +226,15 @@ export async function runDeviceSyncExecute(deps: RunDeviceSyncExecuteDeps): Prom
       showDeviceSyncErrorToast(error, t);
     }
     await scanDevice();
+    return;
+  }
+
+  // Only a transfer needs the server, and it is resolved here rather than up
+  // front so a delete-only run survives the server changing its address.
+  const runtimeServer = findServerByIdOrIndexKey(serverIndexKey);
+  if (!runtimeServer) {
+    useDeviceSyncJobStore.getState().fail(0, 0, allTracks.length);
+    showToast(t('deviceSync.serverUnresolved'), 5000, 'error');
     return;
   }
 

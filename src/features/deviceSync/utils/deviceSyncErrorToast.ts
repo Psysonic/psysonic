@@ -5,7 +5,10 @@ export function showDeviceSyncErrorToast(error: unknown, t: TFunction): void {
   const message = error instanceof Error ? error.message : String(error);
   let key = 'deviceSync.fetchError';
 
-  if (message.includes('NOT_ENOUGH_SPACE')) {
+  if (message.includes('DEVICE_SYNC_SERVER_UNRESOLVED')
+    || message.includes('DEVICE_SYNC_SERVER_OWNER_MISMATCH')) {
+    key = 'deviceSync.serverUnresolved';
+  } else if (message.includes('NOT_ENOUGH_SPACE')) {
     key = 'deviceSync.notEnoughSpace';
   } else if (message.includes('NOT_MOUNTED_VOLUME')) {
     key = 'deviceSync.notMountedVolume';

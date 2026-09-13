@@ -44,6 +44,29 @@ fn source_owner_must_match_the_captured_auth_owner() {
 }
 
 #[test]
+fn sources_marked_for_deletion_are_never_listed_from_the_server() {
+    let source = |id: &str| DeviceSyncSourcePayload {
+        source_type: "album".into(),
+        id: id.into(),
+        name: Some("Album".into()),
+        path_id: None,
+        server_index_key: "server-a.test".into(),
+    };
+    let removed = source("album-1");
+    let kept = source("album-2");
+    let deletion_keys = std::collections::HashSet::from([device_sync_source_key(&removed)]);
+
+    // A delete-only run has no source left to list, which is what makes it
+    // possible without reachable server credentials.
+    assert!(!device_sync_source_requires_fetch(&removed, &deletion_keys));
+    assert!(device_sync_source_requires_fetch(&kept, &deletion_keys));
+    assert!(device_sync_source_requires_fetch(
+        &removed,
+        &std::collections::HashSet::new()
+    ));
+}
+
+#[test]
 fn sanitization_equivalent_playlist_names_receive_identity_suffixes() {
     let source = |id: &str, name: &str| DeviceSyncSourcePayload {
         source_type: "playlist".into(),

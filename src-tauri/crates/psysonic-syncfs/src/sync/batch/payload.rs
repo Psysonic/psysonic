@@ -8,9 +8,11 @@ use super::{
     DeviceSyncSourcePayload, SubsonicAuthPayload, SyncDeltaResult,
 };
 
+/// `None` marks a source that is on its way off the device: it contributes no
+/// tracks to the desired state, so its listing is never requested.
 type SourceFetchHandle = (
     DeviceSyncSourcePayload,
-    tokio::task::JoinHandle<Result<Vec<serde_json::Value>, String>>,
+    Option<tokio::task::JoinHandle<Result<Vec<serde_json::Value>, String>>>,
 );
 use super::planner::{build_sync_plan_with_resume, FetchedDeviceSyncSource};
 use crate::file_transfer::{apply_server_http_get, subsonic_http_client};
@@ -32,6 +34,16 @@ pub(super) fn validate_device_sync_source_owners(
         return Err("DEVICE_SYNC_SERVER_OWNER_MISMATCH".to_string());
     }
     Ok(())
+}
+
+/// A source that is on its way off the device contributes no tracks to the
+/// desired state, so its listing is never needed. Skipping the request is also
+/// what lets a delete-only run finish when the server has moved or is offline.
+pub(super) fn device_sync_source_requires_fetch(
+    source: &DeviceSyncSourcePayload,
+    deletion_keys: &std::collections::HashSet<String>,
+) -> bool {
+    !deletion_keys.contains(&device_sync_source_key(source))
 }
 
 pub(super) fn playlist_collision_source_keys(
@@ -91,6 +103,10 @@ pub(super) async fn calculate_sync_payload_impl(
 
     let mut handles: Vec<SourceFetchHandle> = Vec::new();
     for source in sources {
+        if !device_sync_source_requires_fetch(&source, &deletion_keys) {
+            handles.push((source, None));
+            continue;
+        }
         let auth_clone = auth.clone();
         let cli = client.clone();
         let reg_for_task = http_registry.clone();
@@ -159,20 +175,22 @@ pub(super) async fn calculate_sync_payload_impl(
                 ))
             }
         });
-        handles.push((source_snapshot, handle));
+        handles.push((source_snapshot, Some(handle)));
     }
 
     let mut fetched = Vec::with_capacity(handles.len());
     for (source, handle) in handles {
-        let source_key = device_sync_source_key(&source);
-        let tracks = match handle.await.map_err(|error| error.to_string())? {
-            Ok(tracks) => tracks,
-            Err(_) if deletion_keys.contains(&source_key) => Vec::new(),
-            Err(error) => {
-                return Err(format!(
-                    "DEVICE_SYNC_SOURCE_FETCH_FAILED:{source_key}:{error}"
-                ))
-            }
+        let tracks = match handle {
+            None => Vec::new(),
+            Some(handle) => match handle.await.map_err(|error| error.to_string())? {
+                Ok(tracks) => tracks,
+                Err(error) => {
+                    let source_key = device_sync_source_key(&source);
+                    return Err(format!(
+                        "DEVICE_SYNC_SOURCE_FETCH_FAILED:{source_key}:{error}"
+                    ));
+                }
+            },
         };
         fetched.push(FetchedDeviceSyncSource { source, tracks });
     }
