@@ -14,6 +14,7 @@ import {
   navidromeCanonicalCheckpointStatus,
 } from '@/lib/server/navidromeCanonicalCheckpointStatus';
 import { resolveStorageServerIndexKey } from '@/lib/server/serverIndexKey';
+import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
 
 interface DeviceSyncManifestInput {
   destDir: string;
@@ -27,6 +28,8 @@ interface DeviceSyncManifestInput {
 
 export function prepareDeviceSyncManifest(args: DeviceSyncManifestInput): {
   ownerServerIndexKey: string;
+  /** Stable owner identity written next to the address; `null` when unknown. */
+  ownerServerProfileId: string | null;
   sources: DeviceSyncSource[];
   canonicalIdVersion: number | null;
 } {
@@ -40,16 +43,26 @@ export function prepareDeviceSyncManifest(args: DeviceSyncManifestInput): {
   if (checkpointStatus === 'pending' || checkpointStatus === 'invalid') {
     throw new Error(`canonical_migration_not_ready:${ownerServerIndexKey}`);
   }
+  // Recorded so a later read can recognize this owner after its address
+  // changed. Resolved from the live profile list rather than taken from the
+  // sources, which may predate the field.
+  const ownerServerProfileId = findServerByIdOrIndexKey(ownerServerIndexKey)?.id ?? null;
   const normalized = new Map<string, DeviceSyncSource>();
   for (const source of args.sources) {
+    const owned: DeviceSyncSource = {
+      ...source,
+      serverIndexKey: ownerServerIndexKey,
+      ...(ownerServerProfileId ? { serverProfileId: ownerServerProfileId } : {}),
+    };
     const next = checkpointStatus === 'ready'
-      ? { ...source, id: canonicalNavidromeId(source.id), serverIndexKey: ownerServerIndexKey }
-      : { ...source, serverIndexKey: ownerServerIndexKey };
+      ? { ...owned, id: canonicalNavidromeId(owned.id) }
+      : owned;
     normalized.set(deviceSyncSourceKey(next), next);
   }
   const sources = [...normalized.values()];
   return {
     ownerServerIndexKey,
+    ownerServerProfileId,
     sources,
     canonicalIdVersion: checkpointStatus === 'ready' ? 1 : null,
   };
@@ -60,6 +73,7 @@ export async function writeDeviceSyncManifest(args: DeviceSyncManifestInput): Pr
   await invoke('write_device_manifest', {
     destDir: args.destDir,
     ownerServerIndexKey: prepared.ownerServerIndexKey,
+    ownerServerProfileId: prepared.ownerServerProfileId,
     sources: prepared.sources,
     canonicalIdVersion: prepared.canonicalIdVersion,
     layoutMode: args.layoutMode,

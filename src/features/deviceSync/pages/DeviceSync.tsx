@@ -18,6 +18,7 @@ import { useDeviceSyncDrives } from '@/features/deviceSync/hooks/useDeviceSyncDr
 import { useDeviceSyncSourceStatuses } from '@/features/deviceSync/hooks/useDeviceSyncSourceStatuses';
 import { useDeviceSyncBrowser } from '@/features/deviceSync/hooks/useDeviceSyncBrowser';
 import { useDeviceSyncDeviceScan } from '@/features/deviceSync/hooks/useDeviceSyncDeviceScan';
+import { useDeviceSyncOwnerRelocation } from '@/features/deviceSync/hooks/useDeviceSyncOwnerRelocation';
 import {
   runDeviceSyncMigrationPreview,
   runDeviceSyncMigrationExecute,
@@ -35,6 +36,7 @@ import DeviceSyncMigrationModal from '@/features/deviceSync/components/DeviceSyn
 import DeviceSyncBrowserPanel from '@/features/deviceSync/components/DeviceSyncBrowserPanel';
 import DeviceSyncDevicePanel from '@/features/deviceSync/components/DeviceSyncDevicePanel';
 import DeviceSyncLegacyRecovery from '@/features/deviceSync/components/DeviceSyncLegacyRecovery';
+import DeviceSyncOwnerRepair from '@/features/deviceSync/components/DeviceSyncOwnerRepair';
 
 // ─── component ───────────────────────────────────────────────────────────────
 
@@ -113,6 +115,9 @@ export default function DeviceSync() {
     expandedArtistIds, artistAlbumsMap, loadingArtistIds,
     toggleArtistExpand,
     serverIndexKey: browserServerIndexKey,
+    serverProfileId: browserServerProfileId,
+    unresolvedOwnerKey,
+    loadFailed: browserLoadFailed,
   } = useDeviceSyncBrowser(activeTab, search, resetSearch);
 
   // ─── Device scan + manifest auto-import ─────────────────────────────────
@@ -125,6 +130,10 @@ export default function DeviceSync() {
       ? `${activeDrive.mount_point}\0${activeDrive.name}\0${activeDrive.total_space}\0${activeDrive.file_system}`
       : null,
   );
+
+  // Follow the owning server when it changes address, before anything reads
+  // the now-stale owner key.
+  useDeviceSyncOwnerRelocation();
 
   // Source status (path map + derived synced/pending/deletion)
   const { sourcePathsMap, sourceStatuses } = useDeviceSyncSourceStatuses(
@@ -254,6 +263,7 @@ export default function DeviceSync() {
       />
 
       <DeviceSyncLegacyRecovery />
+      <DeviceSyncOwnerRepair />
 
       {/* ── Main ── */}
       <div className="device-sync-main">
@@ -274,6 +284,9 @@ export default function DeviceSync() {
           loadingArtistIds={loadingArtistIds}
           toggleArtistExpand={toggleArtistExpand}
           serverIndexKey={browserServerIndexKey}
+          serverProfileId={browserServerProfileId}
+          unresolvedOwnerKey={unresolvedOwnerKey}
+          loadFailed={browserLoadFailed}
           sources={sources}
           pendingDeletion={pendingDeletion}
           handleToggleSource={handleToggleSource}

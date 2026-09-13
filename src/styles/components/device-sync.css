@@ -858,6 +858,17 @@
   color: var(--text-secondary);
 }
 
+/* Says why the list is empty — a blank panel otherwise reads as "no results". */
+.device-sync-browser-notice {
+  margin: 0;
+  padding: 20px 16px;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
 .device-sync-browser-row {
   display: flex;
   align-items: center;

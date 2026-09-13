@@ -5,12 +5,16 @@ import {
   deviceSyncOwnerKey,
   deviceSyncSourceKey,
   deviceSyncSourcesFromManifest,
+  deviceSyncOwnerRelocation,
+  deviceSyncUnresolvedOwnerKey,
   migrateDeviceSyncPersistedState,
   useDeviceSyncStore,
   type DeviceSyncSource,
 } from './deviceSyncStore';
 import { canonicalNavidromeId } from '@/lib/server/navidromeCanonicalId';
 import { NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY } from '@/lib/server/navidromeCanonicalCheckpointStatus';
+import { useAuthStore } from '@/store/authStore';
+import { resetAuthStore } from '@/test/helpers/storeReset';
 
 const sourceA: DeviceSyncSource = {
   type: 'album',
@@ -28,6 +32,9 @@ const sourceB: DeviceSyncSource = {
 describe('deviceSyncStore ownership', () => {
   beforeEach(() => {
     localStorage.clear();
+    // Cases below seed server profiles; without this the next case inherits
+    // them and its owner resolution silently changes meaning.
+    resetAuthStore();
     useDeviceSyncStore.setState({
       targetDir: null,
       sources: [],
@@ -127,6 +134,7 @@ describe('deviceSyncStore ownership', () => {
       files: [],
       playlists: [],
       hasMaterializedPlan: false,
+      declaresConfiguration: false,
     });
   });
 
@@ -150,7 +158,163 @@ describe('deviceSyncStore ownership', () => {
       layoutMode: 'shared-album-tree',
       playlistPathMode: 'device-rooted',
       hasMaterializedPlan: true,
+      declaresConfiguration: true,
     }));
+  });
+
+  it('keeps the chosen layout when a manifest states none of its own', () => {
+    useDeviceSyncStore.getState().setLayoutMode('shared-album-tree');
+    useDeviceSyncStore.getState().setPlaylistPathMode('device-rooted');
+
+    const imported = deviceSyncManifestImport({
+      version: 3,
+      schema: 'fixed-v1',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+    });
+    useDeviceSyncStore.getState().applyManifestConfiguration(
+      imported!.layoutMode,
+      imported!.playlistPathMode,
+      imported!.declaresConfiguration,
+    );
+
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      // The device predates the layout modes, so it is laid out the old way —
+      // the mismatch is what marks the configuration dirty.
+      syncedLayoutMode: 'self-contained',
+      syncedPlaylistPathMode: 'playlist-relative',
+    });
+  });
+
+  it('adopts the layout a manifest states as both desired and synced', () => {
+    useDeviceSyncStore.getState().setLayoutMode('self-contained');
+    useDeviceSyncStore.getState().setPlaylistPathMode('playlist-relative');
+
+    const imported = deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      files: [],
+      playlists: [],
+    });
+    useDeviceSyncStore.getState().applyManifestConfiguration(
+      imported!.layoutMode,
+      imported!.playlistPathMode,
+      imported!.declaresConfiguration,
+    );
+
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      syncedLayoutMode: 'shared-album-tree',
+      syncedPlaylistPathMode: 'device-rooted',
+    });
+  });
+
+  it('follows the owning profile to its new address and carries the plan with it', () => {
+    // The device was written before the server moved, so its recorded address
+    // is stale by definition — the profile id is what still identifies it.
+    const movedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+    useAuthStore.setState({ servers: [movedServer] } as never);
+    const staleKey = sourceA.serverIndexKey;
+    const staleSourceKey = JSON.stringify([staleKey, 'album', sourceA.id]);
+
+    const imported = deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: staleKey,
+      ownerServerProfileId: 'profile-1',
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      files: [{
+        trackId: 'track-1',
+        relativePath: 'Artist/Album/01 - Song.flac',
+        sourceKeys: [staleSourceKey],
+        sizeBytes: 100,
+      }],
+      playlists: [{ sourceKey: staleSourceKey, relativePath: 'Playlists/Mix/Mix.m3u8' }],
+    });
+
+    const movedSourceKey = JSON.stringify(['server-c.test', 'album', sourceA.id]);
+    expect(imported?.ownerServerIndexKey).toBe('server-c.test');
+    expect(imported?.sources).toEqual([
+      { ...sourceA, serverIndexKey: 'server-c.test', serverProfileId: 'profile-1' },
+    ]);
+    // Without this the device's files look unclaimed and get downloaded again.
+    expect(imported?.files[0]?.sourceKeys).toEqual([movedSourceKey]);
+    expect(imported?.playlists[0]?.sourceKey).toBe(movedSourceKey);
+  });
+
+  it('keeps the recorded address when the owning profile is gone', () => {
+    useAuthStore.setState({ servers: [] } as never);
+
+    const imported = deviceSyncManifestImport({
+      version: 3,
+      schema: 'fixed-v1',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      ownerServerProfileId: 'profile-1',
+      sources: [sourceA],
+    });
+
+    expect(imported?.ownerServerIndexKey).toBe(sourceA.serverIndexKey);
+  });
+
+  it('reports a relocation only while the profile identity is unambiguous', () => {
+    const movedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+    const owned = { ...sourceA, serverProfileId: 'profile-1' };
+
+    expect(deviceSyncOwnerRelocation([owned], [movedServer]))
+      .toEqual({ from: sourceA.serverIndexKey, to: 'server-c.test' });
+    // Already current.
+    expect(deviceSyncOwnerRelocation(
+      [{ ...owned, serverIndexKey: 'server-c.test' }], [movedServer],
+    )).toBeNull();
+    // Recorded before the profile id existed — only manual repair can fix this.
+    expect(deviceSyncOwnerRelocation([sourceA], [movedServer])).toBeNull();
+    // Profile no longer configured.
+    expect(deviceSyncOwnerRelocation([owned], [])).toBeNull();
+  });
+
+  it('does not ask for a repair decision when the owner can simply relocate', () => {
+    const movedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+    const owned = { ...sourceA, serverProfileId: 'profile-1' };
+
+    expect(deviceSyncUnresolvedOwnerKey([owned], [movedServer])).toBeNull();
+    expect(deviceSyncUnresolvedOwnerKey([sourceA], [movedServer])).toBe(sourceA.serverIndexKey);
+  });
+
+  it('reports an owner that no configured server resolves to', () => {
+    const movedServer = { id: 'profile-1', url: 'http://server-a.test', name: 'A' } as never;
+    const relocatedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+
+    expect(deviceSyncUnresolvedOwnerKey([sourceA], [movedServer])).toBeNull();
+    expect(deviceSyncUnresolvedOwnerKey([sourceA], [relocatedServer])).toBe(sourceA.serverIndexKey);
+    expect(deviceSyncUnresolvedOwnerKey([], [])).toBeNull();
+  });
+
+  it('carries the selection and pending deletions onto the new owner keys', () => {
+    const previousKey = deviceSyncSourceKey(sourceA);
+    useDeviceSyncStore.setState({
+      sources: [sourceA],
+      checkedIds: [previousKey],
+      pendingDeletion: [previousKey],
+    });
+
+    useDeviceSyncStore.getState().reassignSourceOwner('server-c.test');
+
+    const nextKey = deviceSyncSourceKey({ ...sourceA, serverIndexKey: 'server-c.test' });
+    expect(nextKey).not.toBe(previousKey);
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      sources: [{ ...sourceA, serverIndexKey: 'server-c.test' }],
+      checkedIds: [nextKey],
+      pendingDeletion: [nextKey],
+    });
   });
 
   it('rejects a non-empty owned manifest with malformed sources instead of clearing state', () => {

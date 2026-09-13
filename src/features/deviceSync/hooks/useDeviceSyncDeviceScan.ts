@@ -107,7 +107,11 @@ export function useDeviceSyncDeviceScan(
         const store = useDeviceSyncStore.getState();
         store.clearSources();
         store.setPendingPlan(pendingPlan);
-        store.applyManifestConfiguration(manifestImport.layoutMode, manifestImport.playlistPathMode);
+        store.applyManifestConfiguration(
+          manifestImport.layoutMode,
+          manifestImport.playlistPathMode,
+          manifestImport.declaresConfiguration,
+        );
         manifestImport.sources.forEach(s => useDeviceSyncStore.getState().addSource(s));
         showToast(t('deviceSync.manifestImported', { count: manifestImport.sources.length }), 4000, 'info');
       }

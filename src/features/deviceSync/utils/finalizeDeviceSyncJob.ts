@@ -22,6 +22,7 @@ export async function finalizeDeviceSyncJob(context: DeviceSyncJobContext): Prom
       planId: context.planId,
       expectedDeviceId: context.deviceId,
       ownerServerIndexKey: manifest.ownerServerIndexKey,
+      ownerServerProfileId: manifest.ownerServerProfileId,
       sources: manifest.sources.map(source => ({
         ...source,
         pathId: source.pathId ?? null,

@@ -50,7 +50,11 @@ export async function runDeviceSyncChooseFolder(deps: RunDeviceSyncChooseFolderD
     if (manifestImport) {
       const store = useDeviceSyncStore.getState();
       store.clearSources();
-      store.applyManifestConfiguration(manifestImport.layoutMode, manifestImport.playlistPathMode);
+      store.applyManifestConfiguration(
+        manifestImport.layoutMode,
+        manifestImport.playlistPathMode,
+        manifestImport.declaresConfiguration,
+      );
       manifestImport.sources.forEach(s => useDeviceSyncStore.getState().addSource(s));
       showToast(t('deviceSync.manifestImported', { count: manifestImport.sources.length }), 4000, 'info');
     }

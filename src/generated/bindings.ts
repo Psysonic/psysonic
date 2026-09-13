@@ -1142,6 +1142,11 @@ export type DeviceSyncFinalizePayload = {
 	planId: string,
 	expectedDeviceId: string,
 	ownerServerIndexKey: string,
+	/**
+	 *  Stable identity of the owning profile, recorded next to the address-
+	 *  derived key so a later reader can follow the server to a new address.
+	 */
+	ownerServerProfileId?: string | null,
 	sources: DeviceSyncFinalizeSource[],
 	canonicalIdVersion: number | null,
 	layoutMode: string,

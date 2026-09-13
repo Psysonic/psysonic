@@ -2,11 +2,21 @@ import { useAuthStore } from '@/store/authStore';
 import type { ServerProfile } from '@/store/authStoreTypes';
 import { serverIndexKeyForProfile, serverIndexKeyFromUrl } from '@/lib/server/serverIndexKey';
 
-export function findServerByIdOrIndexKey(serverIdOrKey: string): ServerProfile | undefined {
-  const servers = useAuthStore.getState().servers;
+/**
+ * Pure variant for callers that already hold the server list — a React render
+ * that must recompute when the list changes cannot depend on a `getState()` read.
+ */
+export function findServerInListByIdOrIndexKey(
+  servers: readonly ServerProfile[],
+  serverIdOrKey: string,
+): ServerProfile | undefined {
   const direct = servers.find(s => s.id === serverIdOrKey);
   if (direct) return direct;
   return servers.find(s => serverIndexKeyForProfile(s) === serverIdOrKey);
+}
+
+export function findServerByIdOrIndexKey(serverIdOrKey: string): ServerProfile | undefined {
+  return findServerInListByIdOrIndexKey(useAuthStore.getState().servers, serverIdOrKey);
 }
 
 export function resolveServerIdForIndexKey(serverIdOrKey: string): string {

@@ -133,6 +133,7 @@ pub fn get_removable_drives() -> Vec<RemovableDrive> {
 pub async fn write_device_manifest(
     dest_dir: String,
     owner_server_index_key: String,
+    owner_server_profile_id: Option<String>,
     sources: serde_json::Value,
     canonical_id_version: Option<u8>,
     layout_mode: Option<String>,
@@ -146,6 +147,7 @@ pub async fn write_device_manifest(
     manifest::write_device_manifest_payload(DeviceManifestWrite {
         dest_dir,
         owner_server_index_key,
+        owner_server_profile_id,
         sources,
         canonical_id_version,
         layout_mode,

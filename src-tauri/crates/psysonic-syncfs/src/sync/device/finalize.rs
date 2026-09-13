@@ -43,6 +43,10 @@ pub struct DeviceSyncFinalizePayload {
     plan_id: String,
     expected_device_id: String,
     owner_server_index_key: String,
+    /// Stable identity of the owning profile, recorded next to the address-
+    /// derived key so a later reader can follow the server to a new address.
+    #[serde(default)]
+    owner_server_profile_id: Option<String>,
     sources: Vec<DeviceSyncFinalizeSource>,
     canonical_id_version: Option<u8>,
     layout_mode: String,
@@ -298,6 +302,7 @@ fn finalize_device_sync_with_validator(
         write_device_manifest_payload(DeviceManifestWrite {
             dest_dir: root.to_string_lossy().to_string(),
             owner_server_index_key: payload.owner_server_index_key.clone(),
+            owner_server_profile_id: payload.owner_server_profile_id.clone(),
             sources: serde_json::to_value(&payload.sources).map_err(|error| error.to_string())?,
             canonical_id_version: payload.canonical_id_version,
             layout_mode: Some(payload.layout_mode.clone()),

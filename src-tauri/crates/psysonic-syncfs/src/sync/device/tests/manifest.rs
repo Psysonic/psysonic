@@ -58,6 +58,7 @@ fn manifest_v4_persists_the_materialized_shared_file_plan() {
     write_device_manifest_payload(DeviceManifestWrite {
         dest_dir: dir.path().to_string_lossy().to_string(),
         owner_server_index_key: owner.to_string(),
+        owner_server_profile_id: None,
         sources,
         canonical_id_version: Some(1),
         layout_mode: Some("shared-album-tree".to_string()),
@@ -89,6 +90,7 @@ fn canonical_migration_rewrites_materialized_manifest_ids() {
     write_device_manifest_payload(DeviceManifestWrite {
         dest_dir: dir.path().to_string_lossy().to_string(),
         owner_server_index_key: previous_owner.to_string(),
+        owner_server_profile_id: None,
         sources: serde_json::json!([{
             "type": "playlist",
             "id": legacy_playlist,
@@ -158,6 +160,7 @@ async fn ordinary_manifest_write_rejects_a_host_directory() {
     let result = write_device_manifest(
         dir.path().to_string_lossy().to_string(),
         "server.test".to_string(),
+        None,
         serde_json::json!([]),
         Some(1),
         None,
@@ -194,6 +197,7 @@ async fn manifest_write_is_rejected_while_migration_is_active() {
     let result = write_device_manifest(
         dir.path().to_string_lossy().to_string(),
         "server.test".to_string(),
+        None,
         serde_json::json!([{
             "type": "album",
             "id": "album-1",

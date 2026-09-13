@@ -6,6 +6,11 @@ use super::planned_path_stays_within;
 pub(super) struct DeviceManifestWrite {
     pub(super) dest_dir: String,
     pub(super) owner_server_index_key: String,
+    /// Stable identity of the owning server profile. The index key is derived
+    /// from the address and dies when the server moves; this one survives it,
+    /// so a reader can recognize the owner and follow it to its new address.
+    /// `None` keeps whatever the device already recorded.
+    pub(super) owner_server_profile_id: Option<String>,
     pub(super) sources: serde_json::Value,
     pub(super) canonical_id_version: Option<u8>,
     pub(super) layout_mode: Option<String>,
@@ -58,6 +63,9 @@ pub fn write_device_manifest_for_migration(
     write_device_manifest_payload(DeviceManifestWrite {
         dest_dir,
         owner_server_index_key,
+        // The canonical-ID migration only re-keys entities; the owning profile
+        // is unchanged, so whatever the device recorded is kept.
+        owner_server_profile_id: None,
         sources,
         canonical_id_version,
         layout_mode: None,
@@ -153,6 +161,7 @@ pub(super) fn write_device_manifest_payload(input: DeviceManifestWrite) -> Resul
     let DeviceManifestWrite {
         dest_dir,
         owner_server_index_key,
+        owner_server_profile_id,
         sources,
         canonical_id_version,
         layout_mode,
@@ -233,6 +242,19 @@ pub(super) fn write_device_manifest_payload(input: DeviceManifestWrite) -> Resul
     if let (Some(files), Some(playlists)) = (files, playlists) {
         payload["files"] = files;
         payload["playlists"] = playlists;
+    }
+    // Carried forward when the caller does not supply one, so a write that only
+    // touches the plan cannot strip the device's stable owner identity.
+    if let Some(profile_id) = owner_server_profile_id.or_else(|| {
+        previous
+            .as_ref()
+            .and_then(|value| value.get("ownerServerProfileId"))
+            .and_then(|value| value.as_str())
+            .map(str::to_string)
+    }) {
+        if !profile_id.trim().is_empty() {
+            payload["ownerServerProfileId"] = serde_json::json!(profile_id);
+        }
     }
     if let Some(version) = canonical_id_version {
         payload["canonicalIdVersion"] = serde_json::json!(version);

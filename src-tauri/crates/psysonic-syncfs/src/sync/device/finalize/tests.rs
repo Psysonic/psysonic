@@ -79,6 +79,7 @@ fn payload(
         plan_id: result.plan_id,
         expected_device_id: "device-1".to_string(),
         owner_server_index_key: "owner.test".to_string(),
+        owner_server_profile_id: Some("profile-1".to_string()),
         sources: vec![DeviceSyncFinalizeSource {
             source_type: "playlist".to_string(),
             id: "playlist-1".to_string(),
