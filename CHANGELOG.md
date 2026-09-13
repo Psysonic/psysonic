@@ -280,6 +280,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Random Mix and Genre Mix no longer draw tracks or genres from unselected music folders or from a different active server. Changing the sidebar library selection refreshes the mix against the new scope.
 
+### Device Sync survives the music server changing its address
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1552](https://github.com/Psysonic/psysonic/pull/1552)**
+
+* Giving the server a new address used to break Device Sync for good: the Playlists, Albums and Artists lists stayed empty next to a perfectly healthy connection, and reconnecting the device brought the broken state back. Device Sync now recognizes the server at its new address and follows it, keeping the files already on the device.
+* A device set up before this version cannot be recognized that way and offers to be reassigned to a server instead, which also moves the files already on it.
+* Removing content from a device no longer needs the server at all, so a device can be cleaned up while the server is unreachable — and a failure there no longer reports a problem fetching tracks.
+* The browser now says why a list is empty instead of showing nothing, and the Playlist storage choice is no longer reset by a device that has no layout of its own recorded.
+
 ## [1.52.0]
 
 ## Added
