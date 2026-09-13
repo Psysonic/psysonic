@@ -135,6 +135,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Lyrics → Pronunciation** can show pronunciation supplied by the server beneath the original lyrics. When Japanese lyrics have no pronunciation layer, Psysonic can generate Hepburn romaji locally without contacting another service.
 * Pronunciation follows the sidebar and both fullscreen lyric layouts. Word-timed lyrics fill the second line in step with the original, and auto-scroll keeps the current line in position when it appears.
 
+### Smooth word-by-word lyrics highlighting
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1548](https://github.com/Psysonic/psysonic/pull/1548)**
+
+* **Settings → Lyrics → Word highlighting** can gradually fill each timed word as it is sung in the sidebar and both fullscreen lyric layouts. The existing step-by-step style remains the default.
+* Pronunciation and generated romaji follow the same smooth progress as the original lyric line.
+
 ## Fixed
 
 ### Shared Top Albums pictures show their covers again

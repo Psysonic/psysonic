@@ -224,6 +224,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Global shortcuts for 1–5-star ratings and favouriting the current track, with macOS Command naming (PR #1503, #1540)',
       'Signed stable and RC Flatpak update channels (PR #1525)',
       'Lyrics pronunciation and offline Japanese Hepburn romaji (PR #1541)',
+      'Smooth word-synced lyrics highlighting in sidebar and fullscreen views (PR #1548)',
     ],
   },
   {
