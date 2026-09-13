@@ -79,28 +79,34 @@ describe('useWordLyricsSync romanization progress', () => {
     }), { initialProps: { highlightMode: 'smooth' } });
     const first = document.createElement('span');
     const second = document.createElement('span');
+    const romanization = document.createElement('span');
 
     act(() => {
       result.current.setWordRef(0, 0)(first);
       result.current.setWordRef(0, 1)(second);
+      result.current.setRomanizationRef(0)(romanization);
       playback.listener?.(1.5);
     });
     expect(first).toHaveClass('active', 'smooth-mode');
     expect(first.style.getPropertyValue('--lyrics-word-progress')).toBe('50%');
+    expect(romanization.style.getPropertyValue('--lyrics-romanization-progress')).toBe('25%');
 
     act(() => playback.listener?.(1.75));
     expect(first.style.getPropertyValue('--lyrics-word-progress')).toBe('75%');
+    expect(romanization.style.getPropertyValue('--lyrics-romanization-progress')).toBe('37.5%');
 
     act(() => playback.listener?.(2.25));
     expect(first).toHaveClass('played', 'smooth-mode');
     expect(first.style.getPropertyValue('--lyrics-word-progress')).toBe('100%');
     expect(second).toHaveClass('active', 'smooth-mode');
     expect(second.style.getPropertyValue('--lyrics-word-progress')).toBe('25%');
+    expect(romanization.style.getPropertyValue('--lyrics-romanization-progress')).toBe('62.5%');
 
     playback.time = 2.25;
     rerender({ highlightMode: 'step' });
     expect(second).toHaveClass('active');
     expect(second).not.toHaveClass('smooth-mode');
     expect(second.style.getPropertyValue('--lyrics-word-progress')).toBe('');
+    expect(romanization.style.getPropertyValue('--lyrics-romanization-progress')).toBe('100%');
   });
 });

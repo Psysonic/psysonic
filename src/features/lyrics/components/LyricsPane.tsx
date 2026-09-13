@@ -75,7 +75,7 @@ export default function LyricsPane({ currentTrack }: Props) {
   const lineRefs      = useRef<(HTMLDivElement | null)[]>([]);
   const wordRefs      = useRef<HTMLSpanElement[][]>([]);
   const romanizationRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const prevActive    = useRef({ line: -1, word: -1 });
+  const prevActive    = useRef({ line: -1, word: -1, progress: 0 });
   const prevTrackId   = useRef<string | null | undefined>(undefined);
   const isUserScroll  = useRef(false);
   const scrollTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -117,7 +117,7 @@ export default function LyricsPane({ currentTrack }: Props) {
       lineRefs.current = [];
       wordRefs.current = [];
       romanizationRefs.current = [];
-      prevActive.current = { line: -1, word: -1 };
+      prevActive.current = { line: -1, word: -1, progress: 0 };
       scrollerRef.current?.jump(0);
     }
     prevTrackId.current = id;
@@ -153,7 +153,21 @@ export default function LyricsPane({ currentTrack }: Props) {
             smoothWordHighlight,
             wordPosition?.wordProgress ?? 0,
           );
+          setRomanizationProgress(
+            romanizationRefs.current[lineIdx],
+            'active',
+            romanizationProgressForWord(
+              (wordLines as WordLyricsLine[])[lineIdx].words.length,
+              wordIdx,
+              smoothWordHighlight ? wordPosition?.wordProgress ?? 0 : 1,
+            ),
+          );
         }
+        prevActive.current = {
+          line: lineIdx,
+          word: wordIdx,
+          progress: wordPosition?.wordProgress ?? 0,
+        };
         refreshHighlightMode = false;
         return;
       }
@@ -171,6 +185,7 @@ export default function LyricsPane({ currentTrack }: Props) {
                 ? romanizationProgressForWord(
                     useWords ? (wordLines as WordLyricsLine[])[i]?.words.length ?? 0 : 0,
                     wordIdx,
+                    smoothWordHighlight ? wordPosition?.wordProgress ?? 0 : 1,
                   )
                 : 0,
           );
@@ -213,11 +228,19 @@ export default function LyricsPane({ currentTrack }: Props) {
         setRomanizationProgress(
           romanizationRefs.current[lineIdx],
           'active',
-          romanizationProgressForWord((wordLines as WordLyricsLine[])[lineIdx].words.length, wordIdx),
+          romanizationProgressForWord(
+            (wordLines as WordLyricsLine[])[lineIdx].words.length,
+            wordIdx,
+            smoothWordHighlight ? wordPosition?.wordProgress ?? 0 : 1,
+          ),
         );
       }
 
-      prevActive.current = { line: lineIdx, word: wordIdx };
+      prevActive.current = {
+        line: lineIdx,
+        word: wordIdx,
+        progress: wordPosition?.wordProgress ?? 0,
+      };
       refreshHighlightMode = false;
     };
 
@@ -247,10 +270,11 @@ export default function LyricsPane({ currentTrack }: Props) {
           ? romanizationProgressForWord(
               (wordLines as WordLyricsLine[])[lineIndex]?.words.length ?? 0,
               current.word,
+              wordHighlightMode === 'smooth' ? current.progress : 1,
             )
           : 0,
     );
-  }, [useWords, wordLines]);
+  }, [useWords, wordLines, wordHighlightMode]);
 
   if (!currentTrack) {
     return (

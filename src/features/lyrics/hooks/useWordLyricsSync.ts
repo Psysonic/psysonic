@@ -34,12 +34,16 @@ export function useWordLyricsSync({
 }: Args) {
   const wordRefs = useRef<HTMLSpanElement[][]>([]);
   const romanizationRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const prevWord = useRef<{ line: number; word: number }>({ line: -1, word: -1 });
+  const prevWord = useRef<{ line: number; word: number; progress: number }>({
+    line: -1,
+    word: -1,
+    progress: 0,
+  });
 
   useEffect(() => {
     wordRefs.current = [];
     romanizationRefs.current = [];
-    prevWord.current = { line: -1, word: -1 };
+    prevWord.current = { line: -1, word: -1, progress: 0 };
   }, [currentTrack?.id, enabled]);
 
   useEffect(() => {
@@ -54,7 +58,13 @@ export function useWordLyricsSync({
       if (prev.line === li && prev.word === wi) {
         if ((smooth || refreshHighlightMode) && li >= 0 && wi >= 0) {
           setWordHighlight(wordRefs.current[li]?.[wi], baseClass, 'active', smooth, wordProgress);
+          setRomanizationProgress(
+            romanizationRefs.current[li],
+            'active',
+            romanizationProgressForWord(lines[li].words.length, wi, smooth ? wordProgress : 1),
+          );
         }
+        prevWord.current = { line: li, word: wi, progress: wordProgress };
         refreshHighlightMode = false;
         return;
       }
@@ -63,7 +73,11 @@ export function useWordLyricsSync({
           setRomanizationProgress(
             romanizationRefs.current[i],
             i < li ? 'played' : i === li ? 'active' : 'upcoming',
-            i < li ? 100 : i === li ? romanizationProgressForWord(lines[i]?.words.length ?? 0, wi) : 0,
+            i < li
+              ? 100
+              : i === li
+                ? romanizationProgressForWord(lines[i]?.words.length ?? 0, wi, smooth ? wordProgress : 1)
+                : 0,
           );
         }
       }
@@ -89,10 +103,10 @@ export function useWordLyricsSync({
         setRomanizationProgress(
           romanizationRefs.current[li],
           'active',
-          romanizationProgressForWord(lines[li].words.length, wi),
+          romanizationProgressForWord(lines[li].words.length, wi, smooth ? wordProgress : 1),
         );
       }
-      prevWord.current = { line: li, word: wi };
+      prevWord.current = { line: li, word: wi, progress: wordProgress };
       refreshHighlightMode = false;
     };
     apply(getSmoothPlaybackTime());
@@ -114,7 +128,11 @@ export function useWordLyricsSync({
       lineIdx < current.line
         ? 100
         : lineIdx === current.line
-          ? romanizationProgressForWord(wordLines[lineIdx]?.words.length ?? 0, current.word)
+          ? romanizationProgressForWord(
+              wordLines[lineIdx]?.words.length ?? 0,
+              current.word,
+              highlightMode === 'smooth' ? current.progress : 1,
+            )
           : 0,
     );
   };
