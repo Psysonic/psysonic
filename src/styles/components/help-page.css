@@ -404,6 +404,39 @@
   color: var(--text-primary);
   text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
 }
+.lyrics-word.active.smooth-mode {
+  --lyrics-word-upcoming-color: var(--text-muted);
+}
+
+.lyrics-word.smooth-mode,
+.fsa-lyric-word.smooth-mode,
+.fsr-lyric-word.smooth-mode {
+  --lyrics-word-active-color: currentColor;
+  --lyrics-word-upcoming-color: currentColor;
+  background-image: linear-gradient(
+    to right,
+    var(--lyrics-word-active-color) 0%,
+    var(--lyrics-word-active-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: none;
+}
+
+.lyrics-word.smooth-mode:dir(rtl),
+.fsa-lyric-word.smooth-mode:dir(rtl),
+.fsr-lyric-word.smooth-mode:dir(rtl) {
+  background-image: linear-gradient(
+    to left,
+    var(--lyrics-word-active-color) 0%,
+    var(--lyrics-word-active-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) 100%
+  );
+}
 
 .lyrics-line-content {
   display: inline-flex;

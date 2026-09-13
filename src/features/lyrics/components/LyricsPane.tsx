@@ -17,6 +17,10 @@ import {
   romanizationProgressForWord,
   setRomanizationProgress,
 } from '@/features/lyrics/utils/romanizationProgress';
+import {
+  setWordHighlight,
+  wordLyricsPositionAt,
+} from '@/features/lyrics/utils/wordLyricsProgress';
 
 interface Props {
   currentTrack: Track | null;
@@ -41,9 +45,10 @@ export default function LyricsPane({ currentTrack }: Props) {
     notFound,
     refresh,
   } = useLyrics(currentTrack);
-  const { staticOnly, romanizationEnabled, sidebarLyricsStyle, lyricsSources } = useAuthStore(useShallow(s => ({
+  const { staticOnly, romanizationEnabled, wordHighlightMode, sidebarLyricsStyle, lyricsSources } = useAuthStore(useShallow(s => ({
     staticOnly: s.lyricsStaticOnly,
     romanizationEnabled: s.lyricsRomanizationEnabled,
+    wordHighlightMode: s.lyricsWordHighlightMode,
     sidebarLyricsStyle: s.sidebarLyricsStyle,
     lyricsSources: s.lyricsSources,
   })));
@@ -52,6 +57,7 @@ export default function LyricsPane({ currentTrack }: Props) {
 
   const useWords  = !staticOnly && wordLines !== null && wordLines.length > 0;
   const hasSynced = !staticOnly && !useWords && syncedLines !== null && syncedLines.length > 0;
+  const wordClass = `lyrics-word${wordHighlightMode === 'smooth' ? ' smooth-mode' : ''}`;
   const romanizedLines = useLyricsRomanization({
     enabled: romanizationEnabled,
     syncedLines,
@@ -120,26 +126,37 @@ export default function LyricsPane({ currentTrack }: Props) {
   // Imperative tracker — subscribes directly to the store, zero React re-renders per tick.
   useEffect(() => {
     if (!useWords && !hasSynced) return;
+    const smoothWordHighlight = useWords && wordHighlightMode === 'smooth';
+    let refreshHighlightMode = true;
 
     const apply = (time: number) => {
       const lines = useWords ? (wordLines as WordLyricsLine[]) : (syncedLines as LrcLine[]);
-      let lineIdx = -1;
-      for (let i = 0; i < lines.length; i++) {
-        if (time >= lines[i].time) lineIdx = i;
-        else break;
-      }
-
-      let wordIdx = -1;
-      if (useWords && lineIdx >= 0) {
-        const words = (wordLines as WordLyricsLine[])[lineIdx].words;
-        for (let j = 0; j < words.length; j++) {
-          if (time >= words[j].time) wordIdx = j;
+      const wordPosition = useWords
+        ? wordLyricsPositionAt(wordLines as WordLyricsLine[], time)
+        : null;
+      let lineIdx = wordPosition?.lineIndex ?? -1;
+      const wordIdx = wordPosition?.wordIndex ?? -1;
+      if (!useWords) {
+        for (let i = 0; i < lines.length; i++) {
+          if (time >= lines[i].time) lineIdx = i;
           else break;
         }
       }
 
       const prev = prevActive.current;
-      if (prev.line === lineIdx && prev.word === wordIdx) return;
+      if (prev.line === lineIdx && prev.word === wordIdx) {
+        if (useWords && (smoothWordHighlight || refreshHighlightMode) && lineIdx >= 0 && wordIdx >= 0) {
+          setWordHighlight(
+            wordRefs.current[lineIdx]?.[wordIdx],
+            wordClass,
+            'active',
+            smoothWordHighlight,
+            wordPosition?.wordProgress ?? 0,
+          );
+        }
+        refreshHighlightMode = false;
+        return;
+      }
 
       if (prev.line < 0) {
         for (let i = 0; i < lineRefs.current.length; i++) {
@@ -174,16 +191,22 @@ export default function LyricsPane({ currentTrack }: Props) {
           }
         }
         if (useWords && prev.line >= 0 && wordRefs.current[prev.line]) {
-          for (const w of wordRefs.current[prev.line]) w.className = 'lyrics-word';
+          for (const word of wordRefs.current[prev.line]) {
+            setWordHighlight(word, wordClass, 'upcoming', smoothWordHighlight);
+          }
         }
       }
 
       if (useWords && lineIdx >= 0 && wordRefs.current[lineIdx]) {
         const ws = wordRefs.current[lineIdx];
         for (let j = 0; j < ws.length; j++) {
-          ws[j].className = j < wordIdx ? 'lyrics-word played'
-                          : j === wordIdx ? 'lyrics-word active'
-                          : 'lyrics-word';
+          setWordHighlight(
+            ws[j],
+            wordClass,
+            j < wordIdx ? 'played' : j === wordIdx ? 'active' : 'upcoming',
+            smoothWordHighlight,
+            j === wordIdx ? wordPosition?.wordProgress ?? 0 : 0,
+          );
         }
       }
       if (useWords && lineIdx >= 0) {
@@ -195,11 +218,12 @@ export default function LyricsPane({ currentTrack }: Props) {
       }
 
       prevActive.current = { line: lineIdx, word: wordIdx };
+      refreshHighlightMode = false;
     };
 
     apply(getSmoothPlaybackTime());
     return subscribeSmoothPlaybackTime(apply);
-  }, [useWords, hasSynced, wordLines, syncedLines, scrollToLine]);
+  }, [useWords, hasSynced, wordLines, syncedLines, scrollToLine, wordHighlightMode, wordClass]);
 
   useLayoutEffect(() => {
     if (!romanizedLines) return;
@@ -301,7 +325,7 @@ export default function LyricsPane({ currentTrack }: Props) {
                   {line.words.length > 0 ? line.words.map((w, j) => (
                     <span
                       key={j}
-                      className="lyrics-word"
+                      className={wordClass}
                       ref={el => {
                         if (!wordRefs.current[i]) wordRefs.current[i] = [];
                         if (el) wordRefs.current[i][j] = el;

@@ -113,6 +113,7 @@ export type LoudnessLufsPreset = -16 | -14 | -12 | -10;
 
 export type LyricsSourceId = 'server' | 'lrclib' | 'netease';
 export interface LyricsSourceConfig { id: LyricsSourceId; enabled: boolean; }
+export type LyricsWordHighlightMode = 'step' | 'smooth';
 
 export type TrackPreviewLocation =
   | 'suggestions'
@@ -290,6 +291,8 @@ export interface AuthState {
   lyricsStaticOnly: boolean;
   /** Show a pronunciation layer, generating Japanese Hepburn romaji locally when needed. */
   lyricsRomanizationEnabled: boolean;
+  /** Word-synced lyrics: switch whole words at timestamps or fill the active word continuously. */
+  lyricsWordHighlightMode: LyricsWordHighlightMode;
   /** Sidebar lyrics scroll style: 'classic' = scrollIntoView center; 'apple' = scroll to 35% */
   sidebarLyricsStyle: 'classic' | 'apple';
   showFullscreenLyrics: boolean;
@@ -523,6 +526,7 @@ export interface AuthState {
   setLyricsSources: (sources: LyricsSourceConfig[]) => void;
   setLyricsStaticOnly: (v: boolean) => void;
   setLyricsRomanizationEnabled: (v: boolean) => void;
+  setLyricsWordHighlightMode: (v: LyricsWordHighlightMode) => void;
   setSidebarLyricsStyle: (v: 'classic' | 'apple') => void;
   setShowFullscreenLyrics: (v: boolean) => void;
   setFsLyricsStyle: (v: 'rail' | 'apple') => void;

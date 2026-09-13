@@ -106,6 +106,10 @@
   text-shadow: 0 0 32px color-mix(in srgb, var(--dynamic-fs-accent, var(--accent)), transparent 10%);
 }
 
+.fsa-lyric-line.fsal-active .fsa-lyric-word.active.smooth-mode {
+  --lyrics-word-upcoming-color: rgba(255, 255, 255, 0.28);
+}
+
 /* Plain (unsynced) lyrics */
 .fsa-plain-lyrics {
   pointer-events: none;

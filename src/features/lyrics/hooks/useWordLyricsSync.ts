@@ -2,10 +2,15 @@ import { useEffect, useRef } from 'react';
 import { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from '@/features/playback';
 import type { Track } from '@/lib/media/trackTypes';
 import type { WordLyricsLine } from '@/features/lyrics/types';
+import type { LyricsWordHighlightMode } from '@/store/authStoreTypes';
 import {
   romanizationProgressForWord,
   setRomanizationProgress,
 } from '@/features/lyrics/utils/romanizationProgress';
+import {
+  setWordHighlight,
+  wordLyricsPositionAt,
+} from '@/features/lyrics/utils/wordLyricsProgress';
 
 interface Args {
   enabled: boolean;
@@ -13,13 +18,20 @@ interface Args {
   currentTrack: Track | null;
   /** CSS class prefix — `fsa` for Apple Music view, `fsr` for rail view. */
   classPrefix: 'fsa' | 'fsr';
+  highlightMode: LyricsWordHighlightMode;
 }
 
 /** Imperative word-sync DOM updates — toggles the per-word `<span>` classes
  *  (`<prefix>-lyric-word`, ` played`, ` active`) from a single playback-progress
  *  subscription without re-rendering React on every tick. Returns the ref array
  *  the consumer attaches to each word span. */
-export function useWordLyricsSync({ enabled, wordLines, currentTrack, classPrefix }: Args) {
+export function useWordLyricsSync({
+  enabled,
+  wordLines,
+  currentTrack,
+  classPrefix,
+  highlightMode,
+}: Args) {
   const wordRefs = useRef<HTMLSpanElement[][]>([]);
   const romanizationRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const prevWord = useRef<{ line: number; word: number }>({ line: -1, word: -1 });
@@ -33,17 +45,19 @@ export function useWordLyricsSync({ enabled, wordLines, currentTrack, classPrefi
   useEffect(() => {
     if (!enabled || !wordLines) return;
     const lines = wordLines;
-    const baseClass = `${classPrefix}-lyric-word`;
+    const smooth = highlightMode === 'smooth';
+    const baseClass = `${classPrefix}-lyric-word${smooth ? ' smooth-mode' : ''}`;
+    let refreshHighlightMode = true;
     const apply = (time: number) => {
-      let li = -1;
-      for (let i = 0; i < lines.length; i++) { if (time >= lines[i].time) li = i; else break; }
-      let wi = -1;
-      if (li >= 0) {
-        const ws = lines[li].words;
-        for (let j = 0; j < ws.length; j++) { if (time >= ws[j].time) wi = j; else break; }
-      }
+      const { lineIndex: li, wordIndex: wi, wordProgress } = wordLyricsPositionAt(lines, time);
       const prev = prevWord.current;
-      if (prev.line === li && prev.word === wi) return;
+      if (prev.line === li && prev.word === wi) {
+        if ((smooth || refreshHighlightMode) && li >= 0 && wi >= 0) {
+          setWordHighlight(wordRefs.current[li]?.[wi], baseClass, 'active', smooth, wordProgress);
+        }
+        refreshHighlightMode = false;
+        return;
+      }
       if (prev.line < 0) {
         for (let i = 0; i < romanizationRefs.current.length; i++) {
           setRomanizationProgress(
@@ -54,13 +68,21 @@ export function useWordLyricsSync({ enabled, wordLines, currentTrack, classPrefi
         }
       }
       if (prev.line !== li && prev.line >= 0) {
-        for (const w of wordRefs.current[prev.line] ?? []) w.className = baseClass;
+        for (const word of wordRefs.current[prev.line] ?? []) {
+          setWordHighlight(word, baseClass, 'upcoming', false);
+        }
         setRomanizationProgress(romanizationRefs.current[prev.line], 'played', 100);
       }
       if (li >= 0 && wordRefs.current[li]) {
         const ws = wordRefs.current[li];
         for (let j = 0; j < ws.length; j++) {
-          ws[j].className = j < wi ? `${baseClass} played` : j === wi ? `${baseClass} active` : baseClass;
+          setWordHighlight(
+            ws[j],
+            baseClass,
+            j < wi ? 'played' : j === wi ? 'active' : 'upcoming',
+            smooth,
+            j === wi ? wordProgress : 0,
+          );
         }
       }
       if (li >= 0) {
@@ -71,10 +93,11 @@ export function useWordLyricsSync({ enabled, wordLines, currentTrack, classPrefi
         );
       }
       prevWord.current = { line: li, word: wi };
+      refreshHighlightMode = false;
     };
     apply(getSmoothPlaybackTime());
     return subscribeSmoothPlaybackTime(apply);
-  }, [enabled, wordLines, classPrefix]);
+  }, [enabled, wordLines, classPrefix, highlightMode]);
 
   const setWordRef = (lineIdx: number, wordIdx: number) => (el: HTMLSpanElement | null) => {
     if (!wordRefs.current[lineIdx]) wordRefs.current[lineIdx] = [];

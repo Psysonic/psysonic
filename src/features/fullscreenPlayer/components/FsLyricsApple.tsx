@@ -24,6 +24,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
   } = useLyrics(currentTrack);
   const staticOnly = useAuthStore(s => s.lyricsStaticOnly);
   const romanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
+  const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
   const sidebarLyricsStyle = useAuthStore(s => s.sidebarLyricsStyle);
 
   const useWords = !staticOnly && wordLines !== null && wordLines.length > 0;
@@ -121,6 +122,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
     wordLines: useWords ? (wordLines as WordLyricsLine[]) : null,
     currentTrack,
     classPrefix: 'fsa',
+    highlightMode: wordHighlightMode,
   });
 
   const handleUserScroll = useCallback(() => {
@@ -168,7 +170,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
                   ? line.words.map((w, j) => (
                       <span
                         key={j}
-                        className="fsa-lyric-word"
+                        className={`fsa-lyric-word${wordHighlightMode === 'smooth' ? ' smooth-mode' : ''}`}
                         ref={setWordRef(i, j)}
                       >{w.text}</span>
                     ))

@@ -124,6 +124,7 @@ export const useAuthStore = create<AuthState>()(
       lyricsSources: DEFAULT_LYRICS_SOURCES,
       lyricsStaticOnly: false,
       lyricsRomanizationEnabled: false,
+      lyricsWordHighlightMode: 'step',
       sidebarLyricsStyle: 'classic',
       showFullscreenLyrics: true,
       fsLyricsStyle: 'rail',

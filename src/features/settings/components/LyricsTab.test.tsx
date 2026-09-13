@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { resetAuthStore } from '@/test/helpers/storeReset';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
+import { useAuthStore } from '@/store/authStore';
 import { LyricsTab } from './LyricsTab';
 
 beforeEach(resetAuthStore);
@@ -22,5 +23,20 @@ describe('LyricsTab', () => {
     expect(within(pronunciationSection!).getByRole('checkbox', {
       name: 'Pronunciation and Japanese romaji',
     })).not.toBeChecked();
+  });
+
+  it('stores smooth word highlighting as a separate lyrics mode', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LyricsTab />);
+
+    const section = screen.getByText('Word highlighting').closest('details');
+    expect(section).not.toBeNull();
+    await user.click(screen.getByText('Word highlighting'));
+    await user.click(within(section!).getByRole('radio', { name: 'Smooth' }));
+
+    expect(useAuthStore.getState().lyricsWordHighlightMode).toBe('smooth');
+    expect(within(section!).getByText(
+      'Gradually fills the current word over its timed duration.',
+    )).toBeInTheDocument();
   });
 });

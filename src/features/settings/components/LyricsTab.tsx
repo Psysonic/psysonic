@@ -14,6 +14,8 @@ export function LyricsTab() {
   const setSidebarLyricsStyle = useAuthStore(s => s.setSidebarLyricsStyle);
   const lyricsRomanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
   const setLyricsRomanizationEnabled = useAuthStore(s => s.setLyricsRomanizationEnabled);
+  const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
+  const setWordHighlightMode = useAuthStore(s => s.setLyricsWordHighlightMode);
 
   const lyricsStyleOptions: SegmentedOption<'classic' | 'apple'>[] = [
     { id: 'classic', label: t('settings.sidebarLyricsStyleClassic') },
@@ -23,6 +25,13 @@ export function LyricsTab() {
     sidebarLyricsStyle === 'classic'
       ? 'settings.sidebarLyricsStyleClassicDesc'
       : 'settings.sidebarLyricsStyleAppleDesc';
+  const wordHighlightOptions: SegmentedOption<'step' | 'smooth'>[] = [
+    { id: 'step', label: t('settings.lyricsWordHighlightStep') },
+    { id: 'smooth', label: t('settings.lyricsWordHighlightSmooth') },
+  ];
+  const wordHighlightDescKey = wordHighlightMode === 'step'
+    ? 'settings.lyricsWordHighlightStepDesc'
+    : 'settings.lyricsWordHighlightSmoothDesc';
 
   return (
     <>
@@ -33,6 +42,24 @@ export function LyricsTab() {
       >
         <SettingsGroup>
           <LyricsSourcesCustomizer />
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('settings.lyricsWordHighlightTitle')}
+        icon={<AudioLines size={16} />}
+        searchText={`${t('settings.lyricsWordHighlightTitle')} ${t('settings.lyricsWordHighlightStep')} ${t('settings.lyricsWordHighlightSmooth')} ${t(wordHighlightDescKey)}`}
+      >
+        <SettingsGroup>
+          <SettingsSegmented
+            options={wordHighlightOptions}
+            value={wordHighlightMode}
+            onChange={setWordHighlightMode}
+            ariaLabel={t('settings.lyricsWordHighlightTitle')}
+          />
+          <SettingsSubCard style={{ marginTop: '0.85rem' }}>
+            <SettingsField desc={t(wordHighlightDescKey)} />
+          </SettingsSubCard>
         </SettingsGroup>
       </SettingsSubSection>
 

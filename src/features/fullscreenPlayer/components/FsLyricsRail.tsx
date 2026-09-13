@@ -28,6 +28,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
   } = useLyrics(currentTrack);
   const staticOnly = useAuthStore(s => s.lyricsStaticOnly);
   const romanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
+  const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
 
   const useWords  = !staticOnly && wordLines !== null && wordLines.length > 0;
   const lineSrc: LrcLine[] | null = useWords
@@ -92,6 +93,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
     wordLines: useWords ? (wordLines as WordLyricsLine[]) : null,
     currentTrack,
     classPrefix: 'fsr',
+    highlightMode: wordHighlightMode,
   });
 
   if (!currentTrack || loading || !hasSynced) return null;
@@ -119,7 +121,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
                   {line.words.length > 0 ? line.words.map((w, j) => (
                     <span
                       key={j}
-                      className="fsr-lyric-word"
+                      className={`fsr-lyric-word${wordHighlightMode === 'smooth' ? ' smooth-mode' : ''}`}
                       ref={setWordRef(i, j)}
                     >{w.text}</span>
                   )) : (line.text || ' ')}
