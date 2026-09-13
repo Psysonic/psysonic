@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { canonicalNavidromeId } from '@/lib/server/navidromeCanonicalId';
-import { rewriteNavidromeCanonicalFrontendState } from './navidromeCanonicalFrontend';
+import {
+  rewriteNavidromeCanonicalFrontendState,
+  verifyNavidromeCanonicalFrontendState,
+} from './navidromeCanonicalFrontend';
 
 const LEGACY = 'e3b7fc2ae9447bbec37a13bf916e3cf6';
 const CANONICAL = '6VHl3uR4kss6sUPKA8Cwnk';
@@ -246,6 +249,36 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
     expect(localStorage.getItem('psysonic-hot-cache')).toBeNull();
     expect(localStorage.getItem('psysonic-local-playback-migrated-v1')).toBe('1');
     expect(localStorage.getItem('psysonic_because_anchor_history:music.test')).toBeNull();
+  });
+
+  it('accepts derived history caches recreated with canonical IDs after migration', () => {
+    rewriteNavidromeCanonicalFrontendState(scope);
+    const cacheScope = JSON.stringify([
+      ['music.test', [CANONICAL]],
+      ['other.test', [LEGACY]],
+    ]);
+    localStorage.setItem(
+      `psysonic_because_anchor_history:${cacheScope}`,
+      JSON.stringify([`music.test:${CANONICAL}`, `other.test:${LEGACY}`]),
+    );
+    localStorage.setItem(
+      `psysonic_because_picks:${cacheScope}`,
+      JSON.stringify([`profile-a:${CANONICAL}`]),
+    );
+
+    expect(() => verifyNavidromeCanonicalFrontendState(localStorage, scope)).not.toThrow();
+  });
+
+  it('rejects recreated derived history caches that still contain legacy IDs', () => {
+    rewriteNavidromeCanonicalFrontendState(scope);
+    const cacheScope = JSON.stringify([['music.test', [CANONICAL]]]);
+    localStorage.setItem(
+      `psysonic_because_anchor_history:${cacheScope}`,
+      JSON.stringify([`music.test:${LEGACY}`]),
+    );
+
+    expect(() => verifyNavidromeCanonicalFrontendState(localStorage, scope))
+      .toThrow('Legacy psysonic_because_anchor_history:');
   });
 
   it('blocks conflicting local playback destinations instead of deleting either path', () => {
