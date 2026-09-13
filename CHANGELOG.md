@@ -261,6 +261,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * A queue of unsupported or broken tracks no longer cycles forever under Repeat All. Automatic skipping stops after every concrete queue slot has failed once, including duplicate tracks.
 
+### Navidrome's library migration no longer repeats after visiting Home
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1547](https://github.com/Psysonic/psysonic/pull/1547)**
+
+* Opening Home could recreate recommendation history that the migration then mistook for leftover legacy data, causing the full library migration to run again. Rebuilt history is now accepted when its ids are already canonical.
+
 ## [1.52.0]
 
 ## Added
