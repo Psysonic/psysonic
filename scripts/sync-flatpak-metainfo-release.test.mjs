@@ -10,6 +10,19 @@ const base = `  <releases>
   </releases>
 `;
 
+const releaseCandidateHistory = `  <releases>
+    <release version="1.53.0-rc.3" date="2026-09-13">
+      <url type="details">https://github.com/Psysonic/psysonic/releases/tag/app-v1.53.0-rc.3</url>
+    </release>
+    <release version="1.53.0-rc.2" date="2026-09-12">
+      <url type="details">https://github.com/Psysonic/psysonic/releases/tag/app-v1.53.0-rc.2</url>
+    </release>
+    <release version="1.52.0" date="2026-08-31">
+      <url type="details">https://github.com/Psysonic/psysonic/releases/tag/app-v1.52.0</url>
+    </release>
+  </releases>
+`;
+
 describe('syncFlatpakMetainfoRelease', () => {
   it('inserts the promoted release before prior entries', () => {
     const result = syncFlatpakMetainfoRelease(base, '1.53.0-rc.1', '2026-09-10');
@@ -26,6 +39,32 @@ describe('syncFlatpakMetainfoRelease', () => {
 
     assert.equal(second.changed, false);
     assert.equal(second.xml, first.xml);
+  });
+
+  it('removes release candidates when finalizing stable metadata', () => {
+    const result = syncFlatpakMetainfoRelease(releaseCandidateHistory, '1.53.0', '2026-09-14');
+
+    assert.equal(result.changed, true);
+    assert.match(result.xml, /<release version="1\.53\.0" date="2026-09-14">/);
+    assert.doesNotMatch(result.xml, /<release version="[^\"]+-rc\.\d+"/);
+    assert.match(result.xml, /<release version="1\.52\.0"/);
+  });
+
+  it('cleans release candidates when copied stable metadata already has the final release', () => {
+    const promoted = syncFlatpakMetainfoRelease(
+      releaseCandidateHistory,
+      '1.53.0',
+      '2026-09-14',
+    ).xml;
+    const copiedFromTag = promoted.replace(
+      '  <releases>\n',
+      `  <releases>\n    <release version="1.53.0-rc.3" date="2026-09-13">\n      <url type="details">https://github.com/Psysonic/psysonic/releases/tag/app-v1.53.0-rc.3</url>\n    </release>\n`,
+    );
+    const result = syncFlatpakMetainfoRelease(copiedFromTag, '1.53.0', '2026-09-14');
+
+    assert.equal(result.changed, true);
+    assert.doesNotMatch(result.xml, /1\.53\.0-rc\.3/);
+    assert.equal(result.xml.match(/<release version="1\.53\.0"/g)?.length, 1);
   });
 
   it('rejects development versions that cannot be published', () => {
@@ -155,6 +194,15 @@ describe('Flatpak GitHub Release publication gate', () => {
     assert.match(source, /PSYSONIC_FLATPAK_VERSION="\$PACKAGE_VERSION"/);
     assert.match(source, /commit\/\$SOURCE_SHA/);
     assert.doesNotMatch(source, /\[ "\$IS_TEST" = false \] && ! grep/);
+  });
+
+  it('normalizes copied AppStream metadata for every publication channel', () => {
+    const source = readFileSync(new URL('../.github/workflows/flatpak-release.yml', import.meta.url), 'utf8');
+
+    assert.match(
+      source,
+      /if \[ "\$IS_TEST" = true \]; then[\s\S]*?fi\n\s+PSYSONIC_FLATPAK_METAINFO_PATH=[\s\S]*?node tooling\/scripts\/sync-flatpak-metainfo-release\.mjs/,
+    );
   });
 });
 

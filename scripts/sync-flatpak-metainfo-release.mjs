@@ -34,8 +34,15 @@ export function syncFlatpakMetainfoRelease(xml, version, date, options = {}) {
     throw new Error('Flatpak development release requires an explicit details URL');
   }
 
-  if (xml.includes(`<release version="${version}"`)) {
-    return { xml, changed: false };
+  const normalizedXml = /^\d+\.\d+\.\d+$/.test(version)
+    ? xml.replace(
+        /    <release version="\d+\.\d+\.\d+-rc\.\d+"[^>]*>[\s\S]*?    <\/release>\n/g,
+        '',
+      )
+    : xml;
+
+  if (normalizedXml.includes(`<release version="${version}"`)) {
+    return { xml: normalizedXml, changed: normalizedXml !== xml };
   }
 
   const release = [
@@ -49,7 +56,7 @@ export function syncFlatpakMetainfoRelease(xml, version, date, options = {}) {
   }
 
   return {
-    xml: xml.replace(marker, `${marker}${release}\n`),
+    xml: normalizedXml.replace(marker, `${marker}${release}\n`),
     changed: true,
   };
 }
