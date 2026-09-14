@@ -296,6 +296,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Removing content from a device no longer needs the server at all, so a device can be cleaned up while the server is unreachable — and a failure there no longer reports a problem fetching tracks.
 * The browser now says why a list is empty instead of showing nothing, and the Playlist storage choice is no longer reset by a device that has no layout of its own recorded.
 
+### Settings open again after importing a backup
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1561](https://github.com/Psysonic/psysonic/pull/1561)**
+
+* Opening Settings → Themes could replace the whole Settings page with an error message, on any platform, for anyone who had ever imported a settings backup. Root cause: the import wrote the stored interface language back with quotation marks around it, which is not a language code the date and time formatting accepts.
+* Affected installs repair the value themselves on the next start, and exporting a backup from one now produces a clean file. The language dropdown shows the language name again instead of a raw value.
+
 ## [1.52.0]
 
 ## Added
