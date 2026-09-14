@@ -79,7 +79,7 @@ jobs:
         run: npx vitest run --coverage
       - name: hot-path file coverage gate
         run: bash scripts/check-frontend-hot-path-coverage.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage-lcov
           path: coverage/lcov.info

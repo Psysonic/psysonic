@@ -2,6 +2,33 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SubsonicAlbum, SubsonicSong } from '@/lib/api/subsonicTypes';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { resetPlayerStore } from '@/test/helpers/storeReset';
+import type { LibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
+
+const {
+  getRandomSongsMock,
+  getRandomSongsForServerMock,
+  getLibraryBrowseScopeMock,
+} = vi.hoisted(() => ({
+  getRandomSongsMock: vi.fn(),
+  getRandomSongsForServerMock: vi.fn(),
+  getLibraryBrowseScopeMock: vi.fn<() => LibraryBrowseScope>(() => ({
+    anchorServerId: 'server-a',
+    serverIds: ['server-a'],
+    pairs: [{ serverId: 'server-a', libraryId: null }],
+    fingerprint: 'server-a:all',
+    multiServer: false,
+  })),
+}));
+
+vi.mock('@/lib/api/subsonicLibrary', () => ({
+  getRandomSongs: getRandomSongsMock,
+  getRandomSongsForServer: getRandomSongsForServerMock,
+}));
+
+vi.mock('@/lib/library/libraryBrowseScope', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/library/libraryBrowseScope')>(),
+  getLibraryBrowseScope: getLibraryBrowseScopeMock,
+}));
 
 vi.mock('@/lib/api/subsonicRatings', () => ({
   entityUserRatingKey: ({ serverId, entityKind, entityId }: { serverId: string; entityKind: string; entityId: string }) => `${serverId}\u0001${entityKind}\u0001${entityId}`,
@@ -14,6 +41,7 @@ vi.mock('@/store/authStore', () => ({ useAuthStore: { getState: () => ({ activeS
 import { putLocalEntityUserRatings, resolveEntityUserRatings } from '@/lib/api/subsonicRatings';
 import {
   enrichSongsForMixRatingFilter,
+  fetchRandomMixSongsUntilFull,
   filterAlbumsByMixRatingsAcrossServers,
   filterTopArtistsForMixRatings,
   passesMixMinRatings,
@@ -36,6 +64,66 @@ beforeEach(() => {
   vi.mocked(resolveEntityUserRatings).mockReset();
   vi.mocked(resolveEntityUserRatings).mockResolvedValue(new Map());
   vi.mocked(putLocalEntityUserRatings).mockReset();
+  getRandomSongsMock.mockReset();
+  getRandomSongsForServerMock.mockReset();
+  getLibraryBrowseScopeMock.mockReturnValue({
+    anchorServerId: 'server-a',
+    serverIds: ['server-a'],
+    pairs: [{ serverId: 'server-a', libraryId: null }],
+    fingerprint: 'server-a:all',
+    multiServer: false,
+  });
+});
+
+describe('fetchRandomMixSongsUntilFull - library scope', () => {
+  it('uses the selected sidebar libraries instead of the legacy active-server scope', async () => {
+    getLibraryBrowseScopeMock.mockReturnValue({
+      anchorServerId: 'server-a',
+      serverIds: ['server-a'],
+      pairs: [{ serverId: 'server-a', libraryId: 'music' }],
+      fingerprint: 'server-a:music',
+      multiServer: false,
+    });
+    getRandomSongsForServerMock.mockResolvedValue([song({ id: 'scoped' })]);
+
+    await expect(fetchRandomMixSongsUntilFull(
+      { enabled: false, minSong: 0, minAlbum: 0, minArtist: 0 },
+      { genre: 'Rock', timeout: 2468, targetSize: 1 },
+    )).resolves.toEqual([song({ id: 'scoped' })]);
+
+    expect(getRandomSongsForServerMock).toHaveBeenCalledWith(
+      'server-a',
+      50,
+      'Rock',
+      2468,
+      ['music'],
+    );
+    expect(getRandomSongsMock).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the selected browse server when the active server is outside the scope', async () => {
+    getLibraryBrowseScopeMock.mockReturnValue({
+      anchorServerId: 'server-b',
+      serverIds: ['server-b'],
+      pairs: [{ serverId: 'server-b', libraryId: 'library-b' }],
+      fingerprint: 'server-b:library-b',
+      multiServer: false,
+    });
+    getRandomSongsForServerMock.mockResolvedValue([song({ id: 'server-b-song' })]);
+
+    await fetchRandomMixSongsUntilFull(
+      { enabled: false, minSong: 0, minAlbum: 0, minArtist: 0 },
+      { targetSize: 1 },
+    );
+
+    expect(getRandomSongsForServerMock).toHaveBeenCalledWith(
+      'server-b',
+      50,
+      undefined,
+      15000,
+      ['library-b'],
+    );
+  });
 });
 
 describe('filterAlbumsByMixRatingsAcrossServers', () => {

@@ -27,9 +27,15 @@ interface Props<V extends string> {
    * it sorts. The popover itself is unchanged, so the selection stays readable.
    */
   iconOnly?: boolean;
+  /**
+   * Trigger glyph, defaulting to the sort arrows. Other single-choice pickers
+   * in the same toolbar reuse this control so they read as one kind of thing;
+   * they pass their own icon rather than pretending to be a sort.
+   */
+  icon?: React.ReactNode;
 }
 
-export default function SortDropdown<V extends string>({ value, options, onChange, ariaLabel, tooltip, align = 'left', iconOnly = false }: Props<V>) {
+export default function SortDropdown<V extends string>({ value, options, onChange, ariaLabel, tooltip, align = 'left', iconOnly = false, icon }: Props<V>) {
   const [open, setOpen] = useState(false);
   const [popStyle, setPopStyle] = useState<React.CSSProperties>({});
 
@@ -110,7 +116,7 @@ export default function SortDropdown<V extends string>({ value, options, onChang
         {...(tooltip ? tooltipAttrs(tooltip, { pos: 'bottom' }) : {})}
         style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
       >
-        <ArrowDownUp size={14} />
+        {icon ?? <ArrowDownUp size={14} />}
         {!iconOnly && <span className="toolbar-btn-label">{current?.label ?? value}</span>}
       </button>
 

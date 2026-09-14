@@ -65,6 +65,7 @@ export const player = {
   lyricsSourceServer: 'Източник: сървър',
   lyricsSourceLrclib: 'Източник: LRCLIB',
   lyricsSourceNetease: 'Източник: Netease',
+  lyricsRefresh: 'Обнови текста',
   showDuration: 'Покажи времетраенето',
   showRemainingTime: 'Покажи оставащото време',
   scrobbleStatus: 'Състояние на скробването',

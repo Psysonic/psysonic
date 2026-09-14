@@ -438,6 +438,41 @@ describe('audio_play failure', () => {
       detail: 'Error: engine rejected source',
     }));
   });
+
+  it('bounds repeat-all rejection skipping and restarts after an explicit retry', async () => {
+    const server = makeServer({ id: 'srv-a', url: 'https://a.test' });
+    useAuthStore.setState({
+      servers: [server],
+      activeServerId: server.id,
+      libraryBrowseServerIds: [server.id],
+    });
+    const queue = makeTracks(2, index => ({
+      id: `track-${index}`,
+      serverId: server.id,
+    }));
+    seedQueue(queue, { index: 0, currentTrack: queue[0], serverId: server.id });
+    const next = vi.fn();
+    usePlayerStore.setState({ repeatMode: 'all', next });
+    onInvoke('audio_play', () => { throw new Error('connection failed'); });
+
+    usePlayerStore.getState().playTrack(queue[0], undefined, true, false, 0);
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+    expect(next).toHaveBeenCalledOnce();
+
+    usePlayerStore.getState().playTrack(queue[1], undefined, false, false, 1);
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(usePlayerStore.getState().queueIndex).toBe(1);
+    expect(usePlayerStore.getState().currentTrack?.id).toBe('track-1');
+
+    usePlayerStore.getState().playTrack(queue[0], undefined, true, false, 0);
+    await vi.runAllTimersAsync();
+
+    expect(next).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('Orbit host server ownership', () => {

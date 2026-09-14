@@ -20,6 +20,8 @@ import { useOrbitSongRowBehavior } from '@/features/orbit';
 import { songToTrack } from '@/lib/media/songToTrack';
 import type { PlaylistSortKey, PlaylistSortDir } from '@/features/playlist/utils/playlistDisplayedSongs';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
+import { BulkTrackRating } from '@/features/playback';
+import { offlineActionPolicy, useOfflineBrowseContext } from '@/features/offline';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
@@ -90,6 +92,7 @@ interface Props {
 
   // Empty state
   setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  tracksReadOnly?: boolean;
 }
 
 export default function PlaylistTracklist({
@@ -102,7 +105,7 @@ export default function PlaylistTracklist({
   contextMenuSongId, setContextMenuSongId, dropTargetIdx,
   ratings, starredSongs, handleRate, handleToggleStar,
   handleRowMouseDown, handleRowMouseEnter, removeSong,
-  setSearchOpen,
+  setSearchOpen, tracksReadOnly = false,
 }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -119,12 +122,18 @@ export default function PlaylistTracklist({
   const trackListCoversOn = useTrackListCoverArtEnabled('pages');
   const { isDragging } = useDragDrop();
   const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { active: offlineBrowseActive } = useOfflineBrowseContext();
+  const policy = offlineActionPolicy('playlistDetail', offlineBrowseActive);
+  const selectedSongs = useMemo(
+    () => songs.filter(song => selectedIds.has(song.id)),
+    [songs, selectedIds],
+  );
 
   const latestVals = {
     selectedIds, orbitActive, displayedTracks, isFiltered, id, songs, serverId,
     toggleSelect, handleRowMouseDown, handleRowMouseEnter, handleToggleStar,
     handleRate, removeSong, playTrack, openContextMenu, setContextMenuSongId,
-    navigate, location, queueHint, addTrackToOrbit,
+    navigate, location, queueHint, addTrackToOrbit, tracksReadOnly,
   };
   const latest = useRef(latestVals);
   latest.current = latestVals;
@@ -147,6 +156,15 @@ export default function PlaylistTracklist({
     context: (song, rIdx, e) => {
       e.preventDefault();
       const L = latest.current;
+      // A right-click inside a multi-row selection addresses the whole
+      // selection (same as the album/artist grids); one row keeps its own menu.
+      if (L.selectedIds.size > 1) {
+        const selected = L.songs.filter(s => L.selectedIds.has(s.id));
+        if (selected.length > 1) {
+          L.openContextMenu(e.clientX, e.clientY, selected.map(songToTrack), 'multi-song');
+          return;
+        }
+      }
       L.setContextMenuSongId(song.id);
       L.openContextMenu(
         e.clientX,
@@ -158,10 +176,12 @@ export default function PlaylistTracklist({
         rIdx,
         undefined,
         undefined,
-        () => {
-          const sourceIndex = latest.current.songs.findIndex(candidate => candidate.id === song.id);
-          if (sourceIndex >= 0) latest.current.removeSong(sourceIndex);
-        },
+        L.tracksReadOnly
+          ? undefined
+          : () => {
+            const sourceIndex = latest.current.songs.findIndex(candidate => candidate.id === song.id);
+            if (sourceIndex >= 0) latest.current.removeSong(sourceIndex);
+          },
       );
     },
     mouseDownRow: (rIdx, e) => latest.current.handleRowMouseDown(e, rIdx),
@@ -262,7 +282,7 @@ export default function PlaylistTracklist({
   });
 
   let dropIndicatorY: number | null = null;
-  if (isDragging && !isFiltered && dropTargetIdx) {
+  if (isDragging && !isFiltered && !tracksReadOnly && dropTargetIdx) {
     const vi = virtualItems.find(v => v.index === dropTargetIdx.idx);
     const start = vi ? vi.start : dropTargetIdx.idx * 48 + scrollMargin;
     const size = vi ? vi.size : 48;
@@ -289,6 +309,13 @@ export default function PlaylistTracklist({
           <span className="bulk-action-count">
             {t('common.bulkSelected', { count: selectedIds.size })}
           </span>
+          {policy.canRate && (
+            <BulkTrackRating
+              tracks={selectedSongs}
+              ratings={ratings}
+              onRate={(song, rating) => handleRate(song.id, rating)}
+            />
+          )}
           <div className="bulk-pl-picker-wrap">
             <button
               className="btn btn-surface btn-sm"
@@ -306,6 +333,7 @@ export default function PlaylistTracklist({
               />
             )}
           </div>
+          {!tracksReadOnly && (
           <button
             className="btn btn-surface btn-sm"
             style={{ color: 'var(--danger)' }}
@@ -314,6 +342,7 @@ export default function PlaylistTracklist({
             <Trash2 size={14} />
             {t('common.bulkRemoveFromPlaylist')}
           </button>
+          )}
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setSelectedIds(new Set())}
@@ -454,11 +483,13 @@ export default function PlaylistTracklist({
 
       {songs.length === 0 && (
         <div className="empty-state" style={{ padding: '2rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-          <span>{t('playlists.emptyPlaylist')}</span>
+          <span>{tracksReadOnly ? t('playlists.smartReadOnlyEmpty') : t('playlists.emptyPlaylist')}</span>
+          {!tracksReadOnly && (
           <button className="btn btn-primary" onClick={() => setSearchOpen(true)}>
             <Search size={15} />
             {t('playlists.addFirstSong')}
           </button>
+          )}
         </div>
       )}
 

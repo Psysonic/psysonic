@@ -4,10 +4,10 @@ import { useAuthStore } from '@/store/authStore';
 import {
   DEFAULT_ARTIST_BROWSE_RETURN_STATE,
   type ArtistBrowseReturnState,
-  type ArtistBrowseViewMode,
   isArtistsBrowsePath,
   useArtistBrowseSessionStore,
 } from '@/features/artist/store/artistBrowseSessionStore';
+import { useArtistViewModeStore } from '@/features/artist/store/artistViewModeStore';
 import type { ArtistCreditMode } from '@/lib/api/library';
 import { isArtistDetailPath } from '@/features/album';
 import { ALL_SENTINEL } from '@/features/artist/utils/artistsHelpers';
@@ -42,6 +42,8 @@ export function useArtistsBrowseFilters(
   const setShowArtistImages = useAuthStore(s => s.setShowArtistImages);
   const creditMode = useAuthStore(s => s.artistBrowseCreditMode);
   const setArtistBrowseCreditMode = useAuthStore(s => s.setArtistBrowseCreditMode);
+  const viewMode = useArtistViewModeStore(s => s.viewMode);
+  const setViewMode = useArtistViewModeStore(s => s.setViewMode);
 
   const [letterFilter, setLetterFilter] = useState(
     () => returnStateForNavigation(serverId, navigationType, location.state).letterFilter,
@@ -49,10 +51,6 @@ export function useArtistsBrowseFilters(
   const [starredOnly, setStarredOnlyRaw] = useState(
     () => returnStateForNavigation(serverId, navigationType, location.state).starredOnly,
   );
-  const [viewMode, setViewMode] = useState<ArtistBrowseViewMode>(
-    () => returnStateForNavigation(serverId, navigationType, location.state).viewMode,
-  );
-
   const browseStateRef = useRef<ArtistBrowseReturnState>(DEFAULT_ARTIST_BROWSE_RETURN_STATE);
   const restoredFromStashRef = useRef(false);
   const showArtistImages = useAuthStore(s => s.showArtistImages);
@@ -108,8 +106,14 @@ export function useArtistsBrowseFilters(
     useLiveSearchScopeStore.getState().setQuery('');
     setLetterFilter(DEFAULT_ARTIST_BROWSE_RETURN_STATE.letterFilter);
     setStarredOnlyRaw(false);
-    setViewMode('grid');
-  }, [serverId, navigationType, location.state, setShowArtistImages, setArtistBrowseCreditMode]);
+  }, [
+    serverId,
+    navigationType,
+    location.state,
+    setShowArtistImages,
+    setArtistBrowseCreditMode,
+    setViewMode,
+  ]);
 
   useEffect(() => {
     return () => {

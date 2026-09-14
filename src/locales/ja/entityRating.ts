@@ -5,5 +5,6 @@ export const entityRating = {
   artistAriaLabel: 'アーティスト評価',
   selectedArtistsRatingAriaLabel: '選択中の {{count}} 人のアーティストの星評価',
   selectedAlbumsRatingAriaLabel: '選択中の {{count}} 枚のアルバムの星評価',
+  selectedSongsRatingAriaLabel: '選択した {{count}} 曲の星評価',
   saveFailed: '評価を保存できませんでした。',
 };

@@ -1,0 +1,25 @@
+name: Flatpak SSH Diagnostics
+
+# Safe manual verification for the dedicated deployment key. It uploads one
+# short-lived text file, fetches it over HTTPS, and removes it on every exit.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: verify SSH authentication and public upload path
+        env:
+          OSTREE_SSH_HOST: ${{ secrets.OSTREE_SSH_HOST }}
+          OSTREE_SSH_KNOWN_HOSTS: ${{ secrets.OSTREE_SSH_KNOWN_HOSTS }}
+          OSTREE_SSH_PATH: ${{ secrets.OSTREE_SSH_PATH }}
+          OSTREE_SSH_PORT: ${{ secrets.OSTREE_SSH_PORT }}
+          OSTREE_SSH_PRIVATE_KEY: ${{ secrets.OSTREE_SSH_PRIVATE_KEY }}
+          OSTREE_SSH_USER: ${{ secrets.OSTREE_SSH_USER }}
+          PUBLIC_BASE_URL: https://flatpak.psysonic.de
+        run: scripts/deploy-flatpak-ssh.sh diagnose

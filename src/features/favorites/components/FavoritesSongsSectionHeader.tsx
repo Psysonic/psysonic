@@ -6,6 +6,8 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useSelectionStore } from '@/store/selectionStore';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
+import { BulkTrackRating } from '@/features/playback';
+import { offlineActionPolicy, useOfflineBrowseContext } from '@/features/offline';
 import GenreFilterBar from '@/ui/GenreFilterBar';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { useAuthStore } from '@/store/authStore';
@@ -34,6 +36,8 @@ interface Props {
   selectedIds: ReadonlySet<string>;
   showPlPicker: boolean;
   setShowPlPicker: React.Dispatch<React.SetStateAction<boolean>>;
+  ratings: Record<string, number>;
+  onRate: (song: SubsonicSong, rating: number) => void;
 }
 
 export default function FavoritesSongsSectionHeader({
@@ -42,9 +46,12 @@ export default function FavoritesSongsSectionHeader({
   showFilters, setShowFilters, setSortKey, setSortClickCount,
   playTrack, enqueue, starredOverrides, minYear, currentYear,
   inSelectMode, selectedCount, selectedIds, showPlPicker, setShowPlPicker,
+  ratings, onRate,
 }: Props) {
   const { t } = useTranslation();
   const activeServerId = useAuthStore(s => s.activeServerId);
+  const { active: offlineBrowseActive } = useOfflineBrowseContext();
+  const policy = offlineActionPolicy('trackRow', offlineBrowseActive);
 
   const targetSongs = useMemo(() => {
     if (!inSelectMode) return visibleSongs;
@@ -140,6 +147,9 @@ export default function FavoritesSongsSectionHeader({
             <span className="bulk-action-count">
               {t('common.bulkSelected', { count: selectedCount })}
             </span>
+            {policy.canRate && (
+              <BulkTrackRating tracks={targetSongs} ratings={ratings} onRate={onRate} />
+            )}
             {playlistSourceServerId && <div className="bulk-pl-picker-wrap">
               <button
                 className="btn btn-surface btn-sm"

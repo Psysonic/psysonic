@@ -257,6 +257,54 @@
 
 /* ── Lyrics Pane (sidebar) ────────────────────────────────────────────────── */
 
+/* Wrapper so the refresh action can sit above the scrolling text instead of
+   scrolling away with it. Takes over the flex role the pane itself used to
+   hold inside the queue panel. */
+.lyrics-pane-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Set off from the scrolling text with the same top edge the tab bar below it
+   uses, so the pane reads as text / actions / tabs instead of running together. */
+.lyrics-pane-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 7px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-hover);
+  flex-shrink: 0;
+}
+
+/* Matches `.lyrics-source` so the two footer items read as one row; only the
+   hover state marks this one as the interactive half. */
+.lyrics-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.lyrics-refresh-btn:hover:not(:disabled) {
+  color: var(--accent);
+}
+
+.lyrics-refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .lyrics-pane {
   flex: 1;
   min-height: 0;
@@ -356,6 +404,81 @@
   color: var(--text-primary);
   text-shadow: 0 0 14px color-mix(in srgb, var(--accent) 55%, transparent);
 }
+.lyrics-word.active.smooth-mode {
+  --lyrics-word-upcoming-color: var(--text-muted);
+}
+
+.lyrics-word.smooth-mode,
+.fsa-lyric-word.smooth-mode,
+.fsr-lyric-word.smooth-mode {
+  --lyrics-word-active-color: currentColor;
+  --lyrics-word-upcoming-color: currentColor;
+  background-image: linear-gradient(
+    to right,
+    var(--lyrics-word-active-color) 0%,
+    var(--lyrics-word-active-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  transition: none;
+}
+
+.lyrics-word.smooth-mode:dir(rtl),
+.fsa-lyric-word.smooth-mode:dir(rtl),
+.fsr-lyric-word.smooth-mode:dir(rtl) {
+  background-image: linear-gradient(
+    to left,
+    var(--lyrics-word-active-color) 0%,
+    var(--lyrics-word-active-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) var(--lyrics-word-progress, 0%),
+    var(--lyrics-word-upcoming-color) 100%
+  );
+}
+
+.lyrics-line-content {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+  min-width: 0;
+  vertical-align: top;
+}
+
+.lyrics-line-primary,
+.lyrics-romanization {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.lyrics-romanization {
+  display: block;
+  position: relative;
+  margin-top: 0.08em;
+  font-size: 0.62em;
+  font-weight: 500;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+  text-shadow: none;
+}
+
+.lyrics-romanization-base {
+  opacity: 0.62;
+}
+
+.lyrics-romanization-progress {
+  position: absolute;
+  inset: 0;
+  clip-path: inset(0 calc(100% - var(--lyrics-romanization-progress, 0%)) 0 0);
+  color: currentColor;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.lyrics-word-synced .lyrics-romanization.active .lyrics-romanization-progress {
+  color: var(--text-primary);
+}
 
 .lyrics-plain {
   padding: 4px 0 16px;
@@ -369,12 +492,17 @@
   margin: 0;
 }
 
+/* Sits in the footer next to the refresh action, separated by a rule that only
+   exists while both halves are on screen. Same weight and colour as the button
+   so the row reads as one unit. */
 .lyrics-source {
   font-size: 11px;
   color: var(--text-muted);
   text-align: center;
-  margin: 8px 0 4px;
-  opacity: 0.6;
+  margin: 0;
+  line-height: 1.2;
+  padding-left: 12px;
+  border-left: 1px solid var(--border-subtle);
 }
 
 
@@ -449,4 +577,3 @@
 .settings-toggle-row:hover {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
-

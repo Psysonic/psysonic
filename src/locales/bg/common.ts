@@ -50,6 +50,7 @@ export const common = {
   updaterInstallHint: 'Затворете Psysonic и стартирайте инсталатора ръчно.',
   updaterAurHint: 'Инсталирайте актуализацията чрез AUR:',
   updaterWingetHint: 'Или актуализирайте чрез WinGet:',
+  updaterFlatpakHint: 'Изпълнете тази команда, след което рестартирайте Psysonic:',
   updaterErrorMsg: 'Изтеглянето се провали',
   updaterWinReady: 'Актуализацията се изтегля, проверява и инсталира във фонов режим — без ръчна инсталация. Psysonic се затваря и се отваря отново сам.',
   updaterWinInstallingTitle: 'Инсталиране на актуализацията',

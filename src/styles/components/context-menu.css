@@ -99,3 +99,11 @@
   min-height: 1em;
 }
 
+/* Caption above a multi-selection menu ("N tracks selected"). */
+.context-menu-header {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+}
+

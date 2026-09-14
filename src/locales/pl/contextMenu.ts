@@ -26,6 +26,7 @@ export const contextMenu = {
   addToPlaylist: 'Dodaj do playlisty',
   selectedPlaylists: 'Wybrano {{count}} playlist',
   selectedAlbums: 'Wybrano {{count}} albumów',
+  selectedSongs: 'Wybrano {{count}} utworów',
   selectedArtists: 'Wybrano {{count}} wykonawców',
   songInfo: 'Informacje o utworze',
   shareLink: 'Skopiuj link udostępniania',

@@ -20,6 +20,7 @@ export function createUiStateActions(set: SetState): Pick<
   PlayerState,
   | 'setStarredOverride'
   | 'setUserRatingOverride'
+  | 'setPlayStatsOverride'
   | 'openContextMenu'
   | 'closeContextMenu'
   | 'openSongInfo'
@@ -48,6 +49,17 @@ export function createUiStateActions(set: SetState): Pick<
                 : s.currentTrack,
           };
       }),
+
+    // Merged, not replaced: a scrobble writes the play timestamp when it settles
+    // and the count only once the server has been read back, so the second write
+    // must not drop the first.
+    setPlayStatsOverride: (id, stats) =>
+      set(s => ({
+        playStatsOverrides: {
+          ...s.playStatsOverrides,
+          [id]: { ...s.playStatsOverrides[id], ...stats },
+        },
+      })),
 
     openContextMenu: (x, y, item, type, queueIndex, playlistId, playlistSongIndex, shareKindOverride, pinToPlaybackServer, playlistSongRemove, timelineFromHereRefs) => {
       const pin = pinToPlaybackServer ?? type === 'queue-item';

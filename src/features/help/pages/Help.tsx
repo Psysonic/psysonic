@@ -124,6 +124,8 @@ export default function Help() {
       items: [
         { id: 'q32', q: t('help.q32'), a: t('help.a32') },
         { id: 'q33', q: t('help.q33'), a: t('help.a33') },
+        { id: 'q55', q: t('help.q55'), a: t('help.a55') },
+        { id: 'q56', q: t('help.q56'), a: t('help.a56') },
         { id: 'q34', q: t('help.q34'), a: t('help.a34') },
         { id: 'q35', q: t('help.q35'), a: t('help.a35') },
       ],

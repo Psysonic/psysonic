@@ -22,9 +22,14 @@ import {
   SUBSONIC_CLIENT,
   api,
   apiWithCredentials,
+  isMissingHttpResponseError,
   secureRandomSalt,
   type ServerHttpHeaderProfile,
 } from '@/lib/api/subsonicClient';
+import {
+  markNativeTransportRequired,
+  nativeTransportRequiredFor,
+} from '@/lib/server/nativeTransportFallback';
 import type { PingWithCredentialsResult, SubsonicSong } from '@/lib/api/subsonicTypes';
 
 export async function ping(): Promise<boolean> {
@@ -86,7 +91,8 @@ export async function pingWithCredentialsForProfile(
   // paths that already ride these headers. Header-less servers keep the
   // lightweight WebView path below.
   const httpContext = serverHttpContextWireForProbe(profile);
-  if (httpContext) {
+
+  const probeNatively = async (): Promise<PingWithCredentialsResult> => {
     try {
       const res = await commands.probeServerConnection(base, profile.username, profile.password, httpContext);
       if (res.status === 'error') {
@@ -105,7 +111,11 @@ export async function pingWithCredentialsForProfile(
       console.warn('[psysonic] pingWithCredentialsForProfile probe threw:', endpointBaseUrl, err);
       return { ok: false, error: err instanceof Error ? err.message : undefined };
     }
-  }
+  };
+
+  // Gate headers force the native path; so does an address a previous call
+  // already found to be CORS-less (see `nativeTransportFallback`).
+  if (httpContext || nativeTransportRequiredFor(base)) return probeNatively();
 
   try {
     const salt = secureRandomSalt();
@@ -135,6 +145,15 @@ export async function pingWithCredentialsForProfile(
       error: ok ? undefined : serverMessage,
     };
   } catch (err) {
+    // No HTTP response reached the WebView. The server may still be alive and
+    // simply send no CORS headers (Bandcamp's Subsonic API, strict proxies), so
+    // retry once natively before calling the address unreachable. A success
+    // pins this address to the native transport for the rest of the session.
+    if (isMissingHttpResponseError(err)) {
+      const native = await probeNatively();
+      if (native.ok) markNativeTransportRequired(base);
+      return native;
+    }
     console.warn('[psysonic] pingWithCredentialsForProfile failed:', endpointBaseUrl, err);
     return { ok: false, error: err instanceof Error ? err.message : undefined };
   }

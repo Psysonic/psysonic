@@ -49,6 +49,7 @@ export const common = {
   updaterInstallHint: '请关闭 Psysonic 并手动运行安装程序。',
   updaterAurHint: '通过 AUR 安装更新：',
   updaterWingetHint: '或通过 WinGet 更新：',
+  updaterFlatpakHint: '运行此命令，然后重新启动 Psysonic：',
   updaterErrorMsg: '下载失败',
   updaterWinReady: '更新会在后台下载、校验并安装，无需手动操作。Psysonic 会自动关闭并重新打开。',
   updaterWinInstallingTitle: '正在安装更新',

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import SongContextItems from '@/features/contextMenu/components/SongContextItems';
+import MultiSongContextItems from '@/features/contextMenu/components/MultiSongContextItems';
 import QueueItemContextItems from '@/features/contextMenu/components/QueueItemContextItems';
 import AlbumContextItems from '@/features/contextMenu/components/AlbumContextItems';
 import ArtistContextItems from '@/features/contextMenu/components/ArtistContextItems';
@@ -13,6 +14,8 @@ export default function ContextMenuItems(props: ContextMenuItemsProps) {
     case 'album-song':
     case 'favorite-song':
       return <SongContextItems {...props} />;
+    case 'multi-song':
+      return <MultiSongContextItems {...props} />;
     case 'queue-item':
       return <QueueItemContextItems {...props} />;
     case 'album':

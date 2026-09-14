@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Optionnel. Charge les concerts de l\'artiste via l\'API publique Bandsintown.',
   enableBandsintownPrivacy: 'Lors de l\'activation, le nom de l\'artiste en cours de lecture est envoyé à l\'API Bandsintown pour récupérer les dates de tournée. Aucun compte ni données personnelles ne quittent votre appareil.',
   enableBandsintownAction: 'Activer',
+  dismissBandsintownPrompt: 'Ne plus afficher',
+  bandsintownPromptDismissed: 'Les dates de tournée restent masquées. Vous pouvez les activer dans Paramètres → Intégrations.',
   role: {
     artist: 'Artiste',
     albumArtist: 'Artiste de l\'album',

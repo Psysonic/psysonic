@@ -10,6 +10,7 @@ import { useLibraryIndexStore } from '@/store/libraryIndexStore';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/lib/hooks/useIsMobile';
 import { useOrbitSongRowBehavior } from '@/features/orbit';
+import { getLibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
 import {
   fetchRandomMixSongsUntilFull,
   getMixMinRatingsConfigFromAuth,
@@ -64,8 +65,10 @@ export default function RandomMix() {
     [mixMinRatingFilterEnabled, mixMinRatingSong, mixMinRatingAlbum, mixMinRatingArtist]
   );
   const musicLibraryFilterVersion = useAuthStore(s => s.musicLibraryFilterVersion);
+  const libraryBrowseScopeVersion = useAuthStore(s => s.libraryBrowseScopeVersion);
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
-  const indexEnabled = useLibraryIndexStore(s => s.isIndexEnabled(activeServerId));
+  const browseServerId = getLibraryBrowseScope().anchorServerId ?? activeServerId;
+  const indexEnabled = useLibraryIndexStore(s => s.isIndexEnabled(browseServerId));
   const [addedGenre, setAddedGenre] = useState<string | null>(null);
   const [addedArtist, setAddedArtist] = useState<string | null>(null);
 
@@ -113,7 +116,7 @@ export default function RandomMix() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSongs();
     setGenresLoading(true);
-    void fetchGenreCatalog(activeServerId, indexEnabled)
+    void fetchGenreCatalog(browseServerId, indexEnabled)
       .then(data => {
         setServerGenres(data);
         const audiobookLower = AUDIOBOOK_GENRES.map(g => g.toLowerCase());
@@ -133,7 +136,7 @@ export default function RandomMix() {
     // fetchSongs is a local helper recreated each render; the mix reload is keyed
     // on the library filter / server / index, not on the function identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [musicLibraryFilterVersion, activeServerId, indexEnabled]);
+  }, [musicLibraryFilterVersion, libraryBrowseScopeVersion, browseServerId, indexEnabled]);
 
   const filteredSongs = filterRandomMixSongs(songs, { excludeAudiobooks, customGenreBlacklist, mixRatingCfg });
   const filteredGenreMixSongs = filterRandomMixSongs(genreMixSongs, {

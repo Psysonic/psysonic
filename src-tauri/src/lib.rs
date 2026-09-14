@@ -2,9 +2,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod benchmark;
+mod canonical_migration;
 pub mod cli;
 mod cover_cache;
-mod canonical_migration;
+pub(crate) mod desktop_palette;
 mod lib_commands;
 pub(crate) mod library_analysis_backfill;
 mod library_identity_maintenance;
@@ -242,7 +243,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_syncfs::cache::hot::get_hot_cache_size,
             psysonic_syncfs::cache::hot::delete_hot_cache_track,
             psysonic_syncfs::cache::hot::purge_hot_cache,
-            psysonic_syncfs::sync::device::sync_track_to_device,
+            psysonic_syncfs::sync::device::download::sync_track_to_device,
             psysonic_syncfs::sync::batch::sync_batch_to_device,
             psysonic_syncfs::sync::batch::cancel_device_sync,
             psysonic_syncfs::sync::device::compute_sync_paths,
@@ -250,6 +251,10 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_syncfs::sync::batch::delete_device_file,
             psysonic_syncfs::sync::batch::delete_device_files,
             psysonic_syncfs::sync::device::get_removable_drives,
+            psysonic_syncfs::sync::device::finalize_device_sync,
+            psysonic_syncfs::sync::device::has_pending_device_sync_plan,
+            psysonic_syncfs::sync::device::pending_device_sync_plan_device_id,
+            psysonic_syncfs::sync::device::device_sync_device_id,
             psysonic_syncfs::sync::device::write_playlist_m3u8,
             psysonic_syncfs::sync::device::rename_device_files,
             psysonic_syncfs::cache::downloads::download_zip,
@@ -310,6 +315,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::app_api::platform::linux_wayland_text_render_settings_available,
             crate::lib_commands::app_api::platform::set_linux_wayland_text_render_profile,
             crate::lib_commands::app_api::platform::theme_animation_risk,
+            crate::lib_commands::app_api::flatpak::flatpak_update_info,
             crate::lib_commands::app_api::migration::migration_inspect,
             crate::lib_commands::app_api::migration::migration_run,
             crate::lib_commands::app_api::network::resolve_host_addresses,
@@ -335,6 +341,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::ui::mini::preload_mini_player,
             crate::lib_commands::ui::mini::close_mini_player,
             crate::lib_commands::ui::mini::set_mini_player_always_on_top,
+            crate::lib_commands::ui::mini::set_mini_player_decorations,
             crate::lib_commands::ui::mini::resize_mini_player,
             crate::lib_commands::ui::mini::show_main_window,
             crate::lib_commands::ui::mini::pause_rendering,
@@ -346,11 +353,14 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::sync::tray::set_tray_tooltip,
             crate::lib_commands::sync::tray::set_tray_menu_labels,
             crate::theme_import::import_theme_zip,
+            crate::desktop_palette::read_desktop_palette,
             crate::library_analysis_backfill::library_analysis_backfill_configure,
             // psysonic-integration — typeable subset. Excluded (stay on generate_handler!):
             // the nd_list_*/nd_create_*/nd_update_* + scrobbler (audioscrobbler/listenbrainz/
             // maloja) + radio-browser + fetch_json_url raw-JSON commands (serde_json::Value /
             // passthrough), and discord_update_presence (>10 args) — noted at their defs.
+            // resolve_apple_cover / resolve_lastfm_cover are the new cover-chain steps
+            // (Option<String> — collected here, not excluded).
             psysonic_integration::bandsintown::fetch_bandsintown_events,
             psysonic_integration::navidrome::covers::upload_playlist_cover,
             psysonic_integration::navidrome::covers::upload_radio_cover,
@@ -365,6 +375,8 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             psysonic_integration::remote::fetch_icy_metadata,
             psysonic_integration::remote::resolve_stream_url,
             psysonic_integration::discord::discord_clear_presence,
+            psysonic_integration::discord::resolve_apple_cover,
+            psysonic_integration::album_art::resolve_lastfm_cover,
         ])
 }
 
@@ -482,6 +494,9 @@ pub fn run() {
             #[cfg(debug_assertions)]
             startup::theme_watch::setup(app);
 
+            // Follow the desktop's palette file, when this machine publishes one.
+            desktop_palette::setup(app);
+
             startup::services::initialize(app)?;
 
             // ── Custom title bar on Linux ─────────────────────────────────
@@ -538,6 +553,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             theme_import::import_theme_zip,
+            desktop_palette::read_desktop_palette,
             backup_export_library_db,
             backup_import_library_db,
             backup_rollback_imported_databases,
@@ -576,6 +592,7 @@ pub fn run() {
             linux_wayland_gpu_font_tuning_active,
             linux_wayland_text_render_settings_available,
             set_linux_wayland_text_render_profile,
+            flatpak_update_info,
             set_logging_mode,
             set_psylab_albums_browse_trace,
             set_psylab_artists_browse_trace,
@@ -593,6 +610,7 @@ pub fn run() {
             preload_mini_player,
             close_mini_player,
             set_mini_player_always_on_top,
+            set_mini_player_decorations,
             resize_mini_player,
             show_main_window,
             pause_rendering,
@@ -635,6 +653,8 @@ pub fn run() {
             audio::commands::audio_chain_preload,
             psysonic_integration::discord::discord_update_presence,
             psysonic_integration::discord::discord_clear_presence,
+            psysonic_integration::discord::resolve_apple_cover,
+            psysonic_integration::album_art::resolve_lastfm_cover,
             psysonic_integration::remote::audioscrobbler_request,
             psysonic_integration::remote::listenbrainz_request,
             psysonic_integration::remote::maloja_request,
@@ -656,6 +676,8 @@ pub fn run() {
             psysonic_integration::navidrome::playlists::nd_create_playlist,
             psysonic_integration::navidrome::playlists::nd_update_playlist,
             psysonic_integration::navidrome::playlists::nd_get_playlist,
+            psysonic_integration::navidrome::playlists::nd_get_playlist_tracks,
+            psysonic_integration::navidrome::playlists::nd_preview_playlist,
             psysonic_integration::navidrome::playlists::nd_delete_playlist,
             psysonic_integration::navidrome::queries::nd_get_song_path,
             psysonic_integration::remote::search_radio_browser,
@@ -820,7 +842,7 @@ pub fn run() {
             psysonic_syncfs::cache::hot::get_hot_cache_size,
             psysonic_syncfs::cache::hot::delete_hot_cache_track,
             psysonic_syncfs::cache::hot::purge_hot_cache,
-            psysonic_syncfs::sync::device::sync_track_to_device,
+            psysonic_syncfs::sync::device::download::sync_track_to_device,
             psysonic_syncfs::sync::batch::sync_batch_to_device,
             psysonic_syncfs::sync::batch::cancel_device_sync,
             psysonic_syncfs::sync::device::compute_sync_paths,
@@ -829,6 +851,10 @@ pub fn run() {
             psysonic_syncfs::sync::batch::delete_device_files,
             psysonic_syncfs::sync::device::get_removable_drives,
             psysonic_syncfs::sync::device::write_device_manifest,
+            psysonic_syncfs::sync::device::finalize_device_sync,
+            psysonic_syncfs::sync::device::has_pending_device_sync_plan,
+            psysonic_syncfs::sync::device::pending_device_sync_plan_device_id,
+            psysonic_syncfs::sync::device::device_sync_device_id,
             psysonic_syncfs::sync::device::read_device_manifest,
             psysonic_syncfs::sync::device::write_playlist_m3u8,
             psysonic_syncfs::sync::device::rename_device_files,
@@ -993,7 +1019,9 @@ mod specta_export {
             "library_upsert_songs_from_api",
             "nd_create_playlist",
             "nd_get_playlist",
+            "nd_get_playlist_tracks",
             "nd_list_playlists",
+            "nd_preview_playlist",
             "nd_update_playlist",
             "nd_create_user",
             "nd_list_users",

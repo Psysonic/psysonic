@@ -7,10 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock factories run before module-level vars are initialized; route the
 // shared mocks through vi.hoisted() so the references resolve in time.
-const { themeRehydrate, fontRehydrate, keybindingsRehydrate } = vi.hoisted(() => ({
+const { themeRehydrate, fontRehydrate, keybindingsRehydrate, authRehydrate } = vi.hoisted(() => ({
   themeRehydrate: vi.fn(),
   fontRehydrate: vi.fn(),
   keybindingsRehydrate: vi.fn(),
+  authRehydrate: vi.fn(),
 }));
 
 vi.mock('../store/themeStore', () => ({
@@ -21,6 +22,9 @@ vi.mock('../store/fontStore', () => ({
 }));
 vi.mock('../store/keybindingsStore', () => ({
   useKeybindingsStore: { persist: { rehydrate: keybindingsRehydrate } },
+}));
+vi.mock('../store/authStore', () => ({
+  useAuthStore: { persist: { rehydrate: authRehydrate } },
 }));
 vi.mock('@/lib/perf/perfFlags', () => ({
   usePerfProbeFlags: () => ({ disableTooltipPortal: true }),
@@ -44,6 +48,7 @@ beforeEach(() => {
   themeRehydrate.mockClear();
   fontRehydrate.mockClear();
   keybindingsRehydrate.mockClear();
+  authRehydrate.mockClear();
   vi.mocked(i18n.changeLanguage).mockClear();
 });
 
@@ -88,6 +93,13 @@ describe('MiniPlayerApp', () => {
       render(<MiniPlayerApp />);
       fireStorage('psysonic_keybindings');
       expect(keybindingsRehydrate).toHaveBeenCalledTimes(1);
+    });
+
+    it('rehydrates authStore on psysonic-auth writes so settings reach the mini', () => {
+      render(<MiniPlayerApp />);
+      fireStorage('psysonic-auth');
+      expect(authRehydrate).toHaveBeenCalledTimes(1);
+      expect(themeRehydrate).not.toHaveBeenCalled();
     });
 
     it('switches i18n language on psysonic_language writes', () => {

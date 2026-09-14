@@ -1,5 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { isWithinModerationWindow, WINGET_MODERATION_DELAY_MS } from '@/lib/util/appUpdaterHelpers';
+import { isNewer, isNewerRelease, isWithinModerationWindow, WINGET_MODERATION_DELAY_MS } from '@/lib/util/appUpdaterHelpers';
+
+describe('isNewer', () => {
+  it('keeps legacy two-component versions and ignores prerelease suffixes', () => {
+    expect(isNewer('1.21', '1.0.0')).toBe(true);
+    expect(isNewer('1.53.0', '1.53.0-dev')).toBe(false);
+  });
+});
+
+describe('isNewerRelease', () => {
+  it('orders development, RC and stable versions within one release line', () => {
+    expect(isNewerRelease('1.53.0-rc.1', '1.53.0-dev')).toBe(true);
+    expect(isNewerRelease('1.53.0-rc.2', '1.53.0-rc.1')).toBe(true);
+    expect(isNewerRelease('1.53.0', '1.53.0-rc.2')).toBe(true);
+    expect(isNewerRelease('1.53.0-rc.2', '1.53.0')).toBe(false);
+  });
+
+  it('compares the numeric release line before prerelease rank', () => {
+    expect(isNewerRelease('1.54.0-rc.1', '1.53.1')).toBe(true);
+    expect(isNewerRelease('1.53.1', '1.54.0-rc.1')).toBe(false);
+  });
+});
 
 describe('isWithinModerationWindow', () => {
   const published = '2026-06-27T00:00:00Z';

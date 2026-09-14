@@ -3,7 +3,7 @@ import { getArtistInfoForServer } from '@/lib/api/subsonicArtists';
 import type { SubsonicArtistInfo, SubsonicSong } from '@/lib/api/subsonicTypes';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Info } from 'lucide-react';
+import { Info, X } from 'lucide-react';
 import { open as shellOpen } from '@tauri-apps/plugin-shell';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
@@ -12,6 +12,7 @@ import { fetchBandsintownEvents, type BandsintownEvent } from '@/lib/api/bandsin
 import CachedImage from '@/ui/CachedImage';
 import OverlayScrollArea from '@/ui/OverlayScrollArea';
 import { primaryTrackArtistRef } from '@/features/playback/utils/playback/trackArtistRefs';
+import { showToast } from '@/lib/dom/toast';
 
 const TOUR_LIMIT = 5;
 const BIO_CLAMP_LINES = 4;
@@ -86,6 +87,8 @@ export default function NowPlayingInfo() {
   const currentTrack = usePlayerStore(s => s.currentTrack);
   const enableBandsintown = useAuthStore(s => s.enableBandsintown);
   const setEnableBandsintown = useAuthStore(s => s.setEnableBandsintown);
+  const bandsintownPromptDismissed = useAuthStore(s => s.bandsintownPromptDismissed);
+  const setBandsintownPromptDismissed = useAuthStore(s => s.setBandsintownPromptDismissed);
   const subsonicServerId = usePlaybackServerId();
   const subsonicReady = Boolean(subsonicServerId);
 
@@ -214,6 +217,7 @@ export default function NowPlayingInfo() {
         artistId,
         songId,
         enableBandsintown,
+        bandsintownPromptDismissed,
         tourLoading,
         tourEvents.length,
         showAllTours,
@@ -278,8 +282,10 @@ export default function NowPlayingInfo() {
         </section>
       )}
 
-      {/* Tour: prompt to opt-in when off, list when on */}
-      {!enableBandsintown ? (
+      {/* Tour: prompt to opt-in when off, list when on. A dismissed prompt shows
+          nothing — declining an optional feature has to stick — and Settings →
+          Integrations stays the way back in. */}
+      {!enableBandsintown && !bandsintownPromptDismissed && (
         <section className="np-info-section">
           <div className="np-info-bandsintown-prompt">
             <div className="np-info-bandsintown-prompt-title">
@@ -294,6 +300,18 @@ export default function NowPlayingInfo() {
               >
                 <Info size={13} />
               </span>
+              <button
+                type="button"
+                className="np-info-bandsintown-prompt-dismiss"
+                onClick={() => {
+                  setBandsintownPromptDismissed(true);
+                  showToast(t('nowPlayingInfo.bandsintownPromptDismissed'));
+                }}
+                data-tooltip={t('nowPlayingInfo.dismissBandsintownPrompt')}
+                aria-label={t('nowPlayingInfo.dismissBandsintownPrompt')}
+              >
+                <X size={13} />
+              </button>
             </div>
             <div className="np-info-bandsintown-prompt-desc">
               {t('nowPlayingInfo.enableBandsintownPromptDesc', 'Optional. Loads concerts for the current artist via Bandsintown.')}
@@ -307,7 +325,8 @@ export default function NowPlayingInfo() {
             </button>
           </div>
         </section>
-      ) : (
+      )}
+      {enableBandsintown && (
         <section className="np-info-section">
           <div className="np-info-section-title">{t('nowPlayingInfo.onTour', 'On tour')}</div>
           {tourLoading && tourEvents.length === 0 && (

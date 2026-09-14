@@ -49,6 +49,7 @@ export const common = {
   updaterInstallHint: 'Fermez Psysonic et lancez le programme d\'installation manuellement.',
   updaterAurHint: 'Installer la mise à jour via AUR :',
   updaterWingetHint: 'Ou mettez à jour via WinGet :',
+  updaterFlatpakHint: 'Exécutez cette commande, puis redémarrez Psysonic :',
   updaterErrorMsg: 'Échec du téléchargement',
   updaterWinReady: 'La mise à jour est téléchargée, vérifiée et installée en arrière-plan — rien à lancer à la main. Psysonic se ferme puis se rouvre tout seul.',
   updaterWinInstallingTitle: 'Installation de la mise à jour',

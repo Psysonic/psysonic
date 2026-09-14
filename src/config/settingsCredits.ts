@@ -220,6 +220,11 @@ const CONTRIBUTOR_ENTRIES = [
       'Timeline — replay listening history from any selected point (PR #1423)',
       'Offline downloads — slow-server tolerance, resumable transfers, owner-safe pins, and coordinated cancellation and maintenance (report: jsongerber, PR #1457)',
       'Navidrome canonical-ID upgrade — resumable migration for library, analysis, offline, cache, and persisted app state (PR #1464)',
+      'Device Sync — shared album and playlist files with crash-safe device recovery (PR #1501)',
+      'Global shortcuts for 1–5-star ratings and favouriting the current track, with macOS Command naming (PR #1503, #1540)',
+      'Signed stable and RC Flatpak update channels (PR #1525)',
+      'Lyrics pronunciation and offline Japanese Hepburn romaji (PR #1541)',
+      'Smooth word-synced lyrics highlighting in sidebar and fullscreen views (PR #1548)',
     ],
   },
   {
@@ -451,8 +456,11 @@ const CONTRIBUTOR_ENTRIES = [
       'Playlists — a header switch separating your own playlists from the ones shared with you (PR #1454)',
       'Sidebar — playlist covers and song counts, plus sorting by name, creation date or size (PR #1455)',
       'Artist pages — an All Tracks tab listing everything an artist performs on, with pickable sortable columns (PR #1458)',
-      'Psysonic Rewind — a year-in-review story and shareable posters in four layouts (PR #1485)',
       'Windows — updates install from inside the app, signed and verified like on macOS (PR #1487)',
+      'Servers that refuse browser-style requests can be added and browsed (PR #1511)',
+      'Info tab — the tour dates prompt can be dismissed for good (PR #1513)',
+      'Rate a whole track selection at once, and favourite a track from the queue (PR #1522)',
+      'Windows — the mini player can drop the system title bar for its own slim one (PR #1528)',
     ],
   },
   {
@@ -520,6 +528,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Now-playing badge shows the real decoded stream format on server transcode (PR #1338)',
       'Audio visualizer across Now Playing, radio and fullscreen player surfaces (PR #1375)',
       'Per-address Navidrome streaming quality with original-stream analysis and cache isolation (PR #1334)',
+      'Theme that follows the palette your desktop publishes, live (PR #1507)',
     ],
   },
   {
@@ -527,6 +536,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.51.0',
     contributions: [
       'Clickable artist credits in the fullscreen, mini and mobile players (PR #1371)',
+      'Configurable album cover source chain with a Last.fm provider (PR #1502)',
     ],
   },
   {
@@ -548,6 +558,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.52.0',
     contributions: [
       'Configurable scrobble threshold and force-scrobble action (PR #1425)',
+      'Native Navidrome smart-playlist detection and rule editors (PR #1428)',
     ],
   },
   {
@@ -562,6 +573,13 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.52.0',
     contributions: [
       'Ukrainian translation, with Ukrainian Cyrillic folding in library identity keys (PR #1465)',
+    ],
+  },
+  {
+    github: 'starrlord',
+    since: '1.53.0',
+    contributions: [
+      'Navidrome song-list filter fix that unblocked native library sync (PR #1514)',
     ],
   },
 ] as const;

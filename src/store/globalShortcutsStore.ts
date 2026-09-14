@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { commands } from '@/generated/bindings';
+import { IS_MACOS } from '@/lib/util/platform';
 import { MODIFIER_KEY_CODES, formatBinding } from './keybindingsStore';
 import { DEFAULT_GLOBAL_SHORTCUTS, isGlobalShortcutActionId, type GlobalAction } from '@/config/shortcutActions';
 
@@ -8,7 +9,7 @@ import { DEFAULT_GLOBAL_SHORTCUTS, isGlobalShortcutActionId, type GlobalAction }
 const GLOBAL_SHORTCUTS_OS_ENABLED = !import.meta.env.DEV;
 
 /** Build a Tauri-compatible shortcut string from a KeyboardEvent, or null if invalid. */
-export function buildGlobalShortcut(e: KeyboardEvent): string | null {
+export function buildGlobalShortcut(e: KeyboardEvent, isMacOS = IS_MACOS): string | null {
   if ((MODIFIER_KEY_CODES as readonly string[]).includes(e.code)) return null;
   // Require at least Ctrl, Alt, or Meta — Shift alone is too invasive
   if (!e.ctrlKey && !e.altKey && !e.metaKey) return null;
@@ -17,14 +18,14 @@ export function buildGlobalShortcut(e: KeyboardEvent): string | null {
   if (e.ctrlKey)  mods.push('ctrl');
   if (e.altKey)   mods.push('alt');
   if (e.shiftKey) mods.push('shift');
-  if (e.metaKey)  mods.push('super');
+  if (e.metaKey)  mods.push(isMacOS ? 'command' : 'super');
 
   return [...mods, e.code].join('+');
 }
 
 /** Human-readable label for a stored shortcut string, e.g. "ctrl+alt+ArrowRight" → "Ctrl+Alt+→". */
-export function formatGlobalShortcut(shortcut: string): string {
-  return formatBinding(shortcut);
+export function formatGlobalShortcut(shortcut: string, isMacOS = IS_MACOS): string {
+  return formatBinding(shortcut, isMacOS);
 }
 
 // Module-level guard — prevents double-registration from React StrictMode's

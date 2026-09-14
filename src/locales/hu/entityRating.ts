@@ -5,5 +5,6 @@ export const entityRating = {
   artistAriaLabel: 'Előadó értékelése',
   selectedArtistsRatingAriaLabel: '{{count}} kijelölt előadó csillagos értékelése',
   selectedAlbumsRatingAriaLabel: '{{count}} kijelölt album csillagos értékelése',
+  selectedSongsRatingAriaLabel: 'Csillagos értékelés {{count}} kiválasztott számhoz',
   saveFailed: 'Az értékelés mentése nem sikerült.',
 };

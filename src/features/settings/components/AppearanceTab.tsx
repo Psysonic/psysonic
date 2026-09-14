@@ -163,6 +163,17 @@ export function AppearanceTab() {
                 />
               </>
             )}
+            {IS_WINDOWS && (
+              <>
+                <div className="settings-section-divider" />
+                <SettingsToggle
+                  label={t('settings.miniPlayerCustomTitlebar')}
+                  desc={t('settings.miniPlayerCustomTitlebarDesc')}
+                  checked={auth.miniPlayerCustomTitlebar}
+                  onChange={auth.setMiniPlayerCustomTitlebar}
+                />
+              </>
+            )}
           </SettingsGroup>
 
           {IS_LINUX && !isTilingWm && (

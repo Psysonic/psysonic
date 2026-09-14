@@ -24,6 +24,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setWindowButtonStyle'
   | 'setShowMinimizeButton'
   | 'setPreloadMiniPlayer'
+  | 'setMiniPlayerCustomTitlebar'
   | 'setLinuxWebkitKineticScroll'
   | 'setLinuxWaylandTextRenderProfile'
   | 'setLinuxWebkitInputForceRepaint'
@@ -32,6 +33,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setQueueDurationDisplayMode'
   | 'setQueueDisplayMode'
   | 'setQueueTrackListCovers'
+  | 'setQueueRowFavoriteButton'
   | 'setSidebarLyricsStyle'
   | 'setShowFullscreenLyrics'
   | 'setFsLyricsStyle'
@@ -64,6 +66,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
     setWindowButtonStyle: (v) => set({ windowButtonStyle: v }),
     setShowMinimizeButton: (v) => set({ showMinimizeButton: v }),
     setPreloadMiniPlayer: (v) => set({ preloadMiniPlayer: v }),
+    setMiniPlayerCustomTitlebar: (v) => set({ miniPlayerCustomTitlebar: v }),
     setLinuxWebkitKineticScroll: (v) => set({ linuxWebkitKineticScroll: v }),
     setLinuxWaylandTextRenderProfile: (v) => set({ linuxWaylandTextRenderProfile: v }),
     setLinuxWebkitInputForceRepaint: (v) => set({ linuxWebkitInputForceRepaint: v }),
@@ -72,6 +75,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
     setQueueDurationDisplayMode: (v) => set({ queueDurationDisplayMode: v }),
     setQueueDisplayMode: (v) => set({ queueDisplayMode: v }),
     setQueueTrackListCovers: (v) => set({ queueTrackListCovers: v }),
+    setQueueRowFavoriteButton: (v) => set({ queueRowFavoriteButton: v }),
     setSidebarLyricsStyle: (v) => set({ sidebarLyricsStyle: v }),
     setShowFullscreenLyrics: (v) => set({ showFullscreenLyrics: v }),
     setFsLyricsStyle: (v) => set({ fsLyricsStyle: v }),

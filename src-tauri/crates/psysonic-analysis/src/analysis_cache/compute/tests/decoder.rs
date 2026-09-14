@@ -4,6 +4,9 @@ use super::super::decoder::{
 };
 use super::{build_mono_pcm16_aiff, build_mono_pcm16_wav, sine_440_at_minus_6db};
 
+const ISOMP4_SEEK_NORMAL_M4A: &[u8] =
+    include_bytes!("../../../../../psysonic-audio/fixtures/isomp4_seek_normal.m4a");
+
 #[test]
 fn analysis_pcm_window_uses_center_for_long_tracks() {
     let w = analysis_pcm_window(180.0, 60.0);
@@ -105,7 +108,10 @@ fn decode_mono_pcm_limited_rejects_empty_buffer() {
 #[test]
 fn decode_mono_pcm_limited_rejects_invalid_bytes() {
     let err = decode_mono_pcm_limited(b"not-audio", Some(0.5)).unwrap_err();
-    assert!(err.contains("failed to open audio decode session"));
+    assert!(
+        err.contains("format probe failed"),
+        "unexpected error: {err}"
+    );
 }
 
 #[test]
@@ -131,10 +137,22 @@ fn decode_mono_pcm_window_decodes_center_slice() {
 }
 
 #[test]
+fn decode_mono_pcm_window_seeks_inside_m4a() {
+    let (window_pcm, sample_rate) =
+        decode_mono_pcm_window(ISOMP4_SEEK_NORMAL_M4A, 0.2, 0.1).expect("M4A window decode");
+    assert_eq!(sample_rate, 44_100.0);
+    assert!(
+        (3_500..=5_500).contains(&window_pcm.len()),
+        "0.1 seconds at 44.1kHz should decode about 4.4k samples, got {}",
+        window_pcm.len()
+    );
+}
+
+#[test]
 fn decode_mono_pcm_window_rejects_invalid_bytes() {
     let err = decode_mono_pcm_window(b"not-audio", 0.0, 1.0).unwrap_err();
     assert!(
-        err.contains("failed to open audio decode session"),
+        err.contains("format probe failed"),
         "unexpected error: {err}"
     );
 }

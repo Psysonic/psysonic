@@ -344,10 +344,7 @@ export const commands = {
 	deleteHotCacheTrack: (localPath: string, customDir: string | null) => typedError<null, string>(__TAURI_INVOKE("delete_hot_cache_track", { localPath, customDir })),
 	/**  Removes the entire hot cache root (`psysonic-hot-cache` for the active location). */
 	purgeHotCache: (customDir: string | null) => typedError<null, string>(__TAURI_INVOKE("purge_hot_cache", { customDir })),
-	/**
-	 *  Downloads a single track to a USB/SD device using the configured filename template.
-	 *  Emits `device:sync:progress` events with `{ jobId, trackId, status, path? }`.
-	 */
+	/**  Downloads one track through the legacy single-track command. */
 	syncTrackToDevice: (track: TrackSyncInfo, destDir: string, jobId: string) => typedError<SyncTrackResult, string>(__TAURI_INVOKE("sync_track_to_device", { track, destDir, jobId })),
 	/**
 	 *  Downloads a batch of tracks to a USB/SD device with controlled concurrency.
@@ -355,7 +352,7 @@ export const commands = {
 	 *  Emits throttled `device:sync:progress` events (max once per 500ms) and a
 	 *  final `device:sync:complete` event with the summary.
 	 */
-	syncBatchToDevice: (tracks: TrackSyncInfo[], destDir: string, jobId: string, expectedBytes: number, serverId: string | null) => typedError<SyncBatchResult, string>(__TAURI_INVOKE("sync_batch_to_device", { tracks, destDir, jobId, expectedBytes, serverId })),
+	syncBatchToDevice: (tracks: TrackSyncInfo[], destDir: string, jobId: string, expectedBytes: number, expectedDeviceId: string, planId: string, serverId: string | null) => typedError<SyncBatchResult, string>(__TAURI_INVOKE("sync_batch_to_device", { tracks, destDir, jobId, expectedBytes, expectedDeviceId, planId, serverId })),
 	/**  Signals a running `sync_batch_to_device` job to stop after its current tracks finish. */
 	cancelDeviceSync: (jobId: string) => __TAURI_INVOKE<void>("cancel_device_sync", { jobId }),
 	/**
@@ -368,25 +365,28 @@ export const commands = {
 	 *  Deletes a file from the device and prunes empty parent directories
 	 *  (up to 2 levels: album folder, then artist folder).
 	 */
-	deleteDeviceFile: (path: string) => typedError<null, string>(__TAURI_INVOKE("delete_device_file", { path })),
+	deleteDeviceFile: (destDir: string, path: string) => typedError<null, string>(__TAURI_INVOKE("delete_device_file", { destDir, path })),
 	/**
 	 *  Deletes multiple files from the device in one call and prunes empty parent
 	 *  directories. Returns the number of files successfully deleted.
 	 */
-	deleteDeviceFiles: (paths: string[]) => typedError<number, string>(__TAURI_INVOKE("delete_device_files", { paths })),
+	deleteDeviceFiles: (destDir: string, paths: string[]) => typedError<number, string>(__TAURI_INVOKE("delete_device_files", { destDir, paths })),
 	/**
 	 *  Returns all currently mounted removable drives.
 	 *  On Linux these are typically USB sticks / SD cards under /media or /run/media.
 	 *  On macOS they appear under /Volumes. On Windows they are separate drive letters.
 	 */
 	getRemovableDrives: () => __TAURI_INVOKE<RemovableDrive[]>("get_removable_drives"),
+	finalizeDeviceSync: (destDir: string, payload: DeviceSyncFinalizePayload) => typedError<DeviceSyncFinalizeResult, string>(__TAURI_INVOKE("finalize_device_sync", { destDir, payload })),
+	hasPendingDeviceSyncPlan: (destDir: string) => typedError<boolean, string>(__TAURI_INVOKE("has_pending_device_sync_plan", { destDir })),
+	pendingDeviceSyncPlanDeviceId: (destDir: string) => typedError<string | null, string>(__TAURI_INVOKE("pending_device_sync_plan_device_id", { destDir })),
+	deviceSyncDeviceId: (destDir: string) => typedError<string, string>(__TAURI_INVOKE("device_sync_device_id", { destDir })),
 	/**
 	 *  Writes an Extended-M3U playlist at `{dest_dir}/Playlists/{name}/{name}.m3u8`.
-	 *  References are sibling filenames (just `01 - Artist - Title.ext`) so the
-	 *  playlist is self-contained — moving/copying the folder anywhere keeps it
-	 *  working. Tracks are expected to be in playlist order (index starts at 1).
+	 *  Explicit references allow shared album-tree files; omitted references keep
+	 *  the legacy self-contained sibling-filename behavior.
 	 */
-	writePlaylistM3u8: (destDir: string, playlistName: string, playlistId: string | null, tracks: TrackSyncInfo[]) => typedError<null, string>(__TAURI_INVOKE("write_playlist_m3u8", { destDir, playlistName, playlistId, tracks })),
+	writePlaylistM3u8: (destDir: string, playlistName: string, playlistId: string | null, tracks: TrackSyncInfo[], references: string[] | null) => typedError<null, string>(__TAURI_INVOKE("write_playlist_m3u8", { destDir, playlistName, playlistId, tracks, references })),
 	/**
 	 *  Atomically renames files on the device from their old path to the new fixed-
 	 *  schema path. Intended for the migration flow when switching away from the
@@ -561,6 +561,13 @@ export const commands = {
 	 *  Always false off Linux.
 	 */
 	themeAnimationRisk: () => __TAURI_INVOKE<boolean>("theme_animation_risk"),
+	/**  Return update metadata from the repository backing the current Flatpak branch. */
+	flatpakUpdateInfo: () => __TAURI_INVOKE<{
+	branch: string,
+	version: string,
+	tag: string,
+	body: string,
+} | null>("flatpak_update_info"),
 	migrationInspect: (mappings: ServerIndexMapping[]) => typedError<MigrationInspectReport, string>(__TAURI_INVOKE("migration_inspect", { mappings })),
 	migrationRun: (mappings: ServerIndexMapping[]) => typedError<MigrationRunResult, string>(__TAURI_INVOKE("migration_run", { mappings })),
 	/**
@@ -677,6 +684,21 @@ export const commands = {
 	 */
 	setMiniPlayerAlwaysOnTop: (onTop: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mini_player_always_on_top", { onTop })),
 	/**
+	 *  Show or hide the mini player's native window frame.
+	 *
+	 *  Windows and macOS keep the system caption bar by default; Linux has always
+	 *  used the in-page titlebar instead. This lets the Windows build switch to
+	 *  that same in-page bar, so a picture-in-picture window is not framed by
+	 *  buttons that duplicate what its own toolbar already does.
+	 *
+	 *  Applied from the mini webview after it mounts rather than at build time.
+	 *  The window is built once — on Windows before the first open — and rebuilding
+	 *  the second WebView2 at runtime is exactly the path that used to stall the
+	 *  event loop (see `build_mini_player_window`), so the frame is changed on the
+	 *  live window instead.
+	 */
+	setMiniPlayerDecorations: (decorations: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mini_player_decorations", { decorations })),
+	/**
 	 *  Resize the mini player window (logical pixels). Used when toggling the
 	 *  queue panel to expand/collapse without a capability dance. Optional
 	 *  `minWidth` / `minHeight` adjust the window's resize floor so the user
@@ -749,6 +771,23 @@ export const commands = {
 	 */
 	setTrayMenuLabels: (playPause: string, next: string, previous: string, showHide: string, quit: string, nothingPlaying: string) => typedError<null, string>(__TAURI_INVOKE("set_tray_menu_labels", { playPause, next, previous, showHide, quit, nothingPlaying })),
 	importThemeZip: (path: string) => typedError<ImportedThemeFiles, string>(__TAURI_INVOKE("import_theme_zip", { path })),
+	/**  Current desktop palette, or `None` when this machine publishes none. */
+	readDesktopPalette: () => typedError<{
+	/**
+	 *  Absolute path the palette was read from — shown in settings so the user
+	 *  can see which file is driving the theme.
+	 */
+	source: string,
+	/**  Human-readable name of the desktop theme, when the source publishes one. */
+	name: string | null,
+	/**  `"dark"` or `"light"` when the source declares it; `None` otherwise. */
+	mode: string | null,
+	/**
+	 *  Colour name → `#rrggbb`. Keys are lowercased verbatim from the file, so
+	 *  the frontend can map whatever vocabulary a given desktop uses.
+	 */
+	colors: { [key in string]: string },
+} | null, string>(__TAURI_INVOKE("read_desktop_palette")),
 	libraryAnalysisBackfillConfigure: (enabled: boolean, serverIndexKey: string, libraryServerId: string, serverUrl: string, username: string, password: string, workers: number) => typedError<null, string>(__TAURI_INVOKE("library_analysis_backfill_configure", { enabled, serverIndexKey, libraryServerId, serverUrl, username, password, workers })),
 	/**
 	 *  Fetch upcoming Bandsintown events for an artist by name.
@@ -810,6 +849,14 @@ export const commands = {
 	resolveStreamUrl: (url: string) => __TAURI_INVOKE<string>("resolve_stream_url", { url }),
 	/**  Clear the Discord Rich Presence activity (e.g. playback stopped). */
 	discordClearPresence: () => typedError<null, string>(__TAURI_INVOKE("discord_clear_presence")),
+	/**
+	 *  Resolve an iTunes artwork URL directly (Discord chain step). Reuses the
+	 *  blocking `search_itunes_artwork` + the managed client/cache so the 1h TTL
+	 *  is shared with the old `discord_update_presence` path.
+	 */
+	resolveAppleCover: (artist: string, album: string, title: string) => typedError<string | null, string>(__TAURI_INVOKE("resolve_apple_cover", { artist, album, title })),
+	/**  Resolve a Last.fm album-cover URL directly (Discord chain step). */
+	resolveLastfmCover: (artist: string, album: string) => __TAURI_INVOKE<string | null>("resolve_lastfm_cover", { artist, album }),
 };
 
 /* Types */
@@ -1000,12 +1047,26 @@ export type CoverCacheEnsureArgs = {
 	 *  the project key (§22). Falls back to the `PSYSONIC_FANART_CLIENT_KEY` env.
 	 */
 	externalArtworkByok?: string | null,
+	/**
+	 *  Ordered external album chain (§5, cover provider chain): the enabled
+	 *  `apple`/`lastfm` sources the server-miss fallback should try when the
+	 *  Navidrome/Subsonic server returns no cover art. `None`/empty = external
+	 *  album fallback off. This keys the album external branch (NOT
+	 *  `external_artwork_enabled`, which is the fanart master toggle).
+	 */
+	externalAlbumSources?: string[] | null,
 };
 
 export type CoverCacheEnsureResult = {
 	hit: boolean,
 	path: string,
 	tier: number,
+	/**
+	 *  mtime (epoch secs) of the returned tier file — the webview appends it as
+	 *  `?v=` to the asset URL so overwritten tiers bust the webview image
+	 *  cache. `0` on miss / unreadable file (versioning degrades gracefully).
+	 */
+	pathVersion?: number,
 };
 
 export type CoverCacheNavidromeMigrationDto = {
@@ -1059,6 +1120,76 @@ export type CustomHeaderEntryWire = {
 
 export type CustomHeadersApplyTo = "local" | "public" | "both";
 
+/**  The desktop's active palette, as read off disk. */
+export type DesktopPalette = {
+	/**
+	 *  Absolute path the palette was read from — shown in settings so the user
+	 *  can see which file is driving the theme.
+	 */
+	source: string,
+	/**  Human-readable name of the desktop theme, when the source publishes one. */
+	name: string | null,
+	/**  `"dark"` or `"light"` when the source declares it; `None` otherwise. */
+	mode: string | null,
+	/**
+	 *  Colour name → `#rrggbb`. Keys are lowercased verbatim from the file, so
+	 *  the frontend can map whatever vocabulary a given desktop uses.
+	 */
+	colors: { [key in string]: string },
+};
+
+export type DeviceSyncFinalizePayload = {
+	planId: string,
+	expectedDeviceId: string,
+	ownerServerIndexKey: string,
+	/**
+	 *  Stable identity of the owning profile, recorded next to the address-
+	 *  derived key so a later reader can follow the server to a new address.
+	 */
+	ownerServerProfileId?: string | null,
+	sources: DeviceSyncFinalizeSource[],
+	canonicalIdVersion: number | null,
+	layoutMode: string,
+	playlistPathMode: string,
+	files: DeviceSyncManifestFile[],
+	manifestPlaylists: DeviceSyncManifestPlaylist[],
+	playlists: DeviceSyncFinalizePlaylist[],
+	deferredDeletePaths: string[],
+};
+
+export type DeviceSyncFinalizePlaylist = {
+	name: string,
+	pathId: string | null,
+	tracks: TrackSyncInfo[],
+	references: string[],
+};
+
+export type DeviceSyncFinalizeResult = {
+	deleted: number,
+	cleanupFailed: boolean,
+};
+
+export type DeviceSyncFinalizeSource = {
+	type: string,
+	id: string,
+	name: string,
+	pathId: string | null,
+	serverIndexKey: string,
+	artist: string | null,
+};
+
+export type DeviceSyncManifestFile = {
+	trackId: string,
+	relativePath: string,
+	sourceKeys: string[],
+	sizeBytes: number,
+};
+
+export type DeviceSyncManifestPlaylist = {
+	sourceKey: string,
+	relativePath: string,
+};
+
 export type EndpointKind = "local" | "public";
 
 export type EnqueueSeedFromUrlOutcome = "enqueued" | "alreadyReserved" | "skipped" | "unsupported";
@@ -1094,6 +1225,13 @@ export type FactInputDto = {
 	confidence?: number | null,
 	contentHash?: string | null,
 	expiresAt?: number | null,
+};
+
+export type FlatpakUpdateInfo = {
+	branch: string,
+	version: string,
+	tag: string,
+	body: string,
 };
 
 export type FullImportRecoveryPhase = "prepared" | "databases-restored" | "committed";
@@ -1817,10 +1955,8 @@ export type TrackSyncInfo = {
 	/**  Duration in seconds — needed for Extended M3U (#EXTINF) playlist entries. */
 	duration?: number | null,
 	/**
-	 *  When set, the track belongs to a playlist source and is placed under
+	 *  When set, the self-contained layout places this track under
 	 *  `Playlists/{name}/` with `playlist_index` as its filename prefix.
-	 *  Same track synced from both an album and a playlist source ends up twice
-	 *  on the device — once in the album tree, once in the playlist folder.
 	 */
 	playlistName?: string | null,
 	/**  Stable source identity used to disambiguate playlists with the same display name. */

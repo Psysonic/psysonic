@@ -7,13 +7,26 @@ import type {
   SubsonicAlbum, SubsonicArtist, SubsonicPlaylist,
 } from '@/lib/api/subsonicTypes';
 import type { SourceTab } from '@/features/deviceSync/utils/deviceSyncHelpers';
-import { deviceSyncOwnerKey, useDeviceSyncStore } from '@/features/deviceSync/store/deviceSyncStore';
+import {
+  deviceSyncOwnerKey,
+  deviceSyncUnresolvedOwnerKey,
+  useDeviceSyncStore,
+} from '@/features/deviceSync/store/deviceSyncStore';
 import { resolveStorageServerIndexKey } from '@/lib/server/serverIndexKey';
-import { resolveServerIdForIndexKey } from '@/lib/server/serverLookup';
+import {
+  findServerInListByIdOrIndexKey,
+  resolveServerIdForIndexKey,
+} from '@/lib/server/serverLookup';
 import { useAuthStore } from '@/store/authStore';
 
 export interface DeviceSyncBrowserResult {
   serverIndexKey: string | null;
+  /** Stable identity of the server being browsed, recorded on new sources. */
+  serverProfileId: string | null;
+  /** Owner key of the configured sources when no configured server matches it. */
+  unresolvedOwnerKey: string | null;
+  /** The last listing request against a resolvable server failed. */
+  loadFailed: boolean;
   playlists: SubsonicPlaylist[];
   randomAlbums: SubsonicAlbum[];
   albumSearchResults: SubsonicAlbum[];
@@ -32,12 +45,23 @@ export function useDeviceSyncBrowser(
   resetSearch: () => void,
 ): DeviceSyncBrowserResult {
   const activeServerId = useAuthStore(s => s.activeServerId);
+  const servers = useAuthStore(s => s.servers);
   const sources = useDeviceSyncStore(s => s.sources);
   const configuredOwner = deviceSyncOwnerKey(sources);
-  const serverIndexKey = configuredOwner ?? (
-    activeServerId ? resolveStorageServerIndexKey(activeServerId) : null
-  );
+  const unresolvedOwnerKey = deviceSyncUnresolvedOwnerKey(sources, servers);
+  // An owner nothing resolves to must not be handed to the API layer as if it
+  // were a server id — offer no server at all instead, so nothing new can be
+  // added under a dead identity and the panel can say what is wrong.
+  const serverIndexKey = unresolvedOwnerKey
+    ? null
+    : configuredOwner ?? (activeServerId ? resolveStorageServerIndexKey(activeServerId) : null);
   const serverId = serverIndexKey ? resolveServerIdForIndexKey(serverIndexKey) : null;
+  // Stamped onto every source the user picks, so the selection survives this
+  // server later changing its address.
+  const serverProfileId = serverIndexKey
+    ? findServerInListByIdOrIndexKey(servers, serverIndexKey)?.id ?? null
+    : null;
+  const [loadFailed, setLoadFailed] = useState(false);
   const serverIdRef = useRef(serverId);
   useEffect(() => {
     serverIdRef.current = serverId;
@@ -66,8 +90,13 @@ export function useDeviceSyncBrowser(
       if (serverIdRef.current === serverId) {
         setPlaylists(result);
         setPlaylistsServerId(serverId);
+        setLoadFailed(false);
       }
-    } catch { /* ignore */ }
+    } catch {
+      // A swallowed failure used to render as an ordinary empty list, which is
+      // indistinguishable from a server that simply has no playlists.
+      if (serverIdRef.current === serverId) setLoadFailed(true);
+    }
     finally { if (serverIdRef.current === serverId) setLoadingBrowser(false); }
   }, [serverId]);
   const loadRandomAlbums = useCallback(async () => {
@@ -77,8 +106,11 @@ export function useDeviceSyncBrowser(
       if (serverIdRef.current === serverId) {
         setRandomAlbums(result);
         setRandomAlbumsServerId(serverId);
+        setLoadFailed(false);
       }
-    } catch { /* ignore */ }
+    } catch {
+      if (serverIdRef.current === serverId) setLoadFailed(true);
+    }
     finally { if (serverIdRef.current === serverId) setLoadingBrowser(false); }
   }, [serverId]);
   const loadArtists = useCallback(async () => {
@@ -88,8 +120,11 @@ export function useDeviceSyncBrowser(
       if (serverIdRef.current === serverId) {
         setArtists(result);
         setArtistsServerId(serverId);
+        setLoadFailed(false);
       }
-    } catch { /* ignore */ }
+    } catch {
+      if (serverIdRef.current === serverId) setLoadFailed(true);
+    }
     finally { if (serverIdRef.current === serverId) setLoadingBrowser(false); }
   }, [serverId]);
 
@@ -163,6 +198,9 @@ export function useDeviceSyncBrowser(
 
   return {
     serverIndexKey,
+    serverProfileId,
+    unresolvedOwnerKey,
+    loadFailed: loadFailed && serverId != null,
     playlists: playlistsServerId === serverId ? playlists : [],
     randomAlbums: randomAlbumsServerId === serverId ? randomAlbums : [],
     albumSearchResults: albumSearchServerId === serverId ? albumSearchResults : [],

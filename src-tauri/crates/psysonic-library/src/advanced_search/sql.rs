@@ -152,6 +152,15 @@ where
     })
 }
 
+/// Column alias the sampler reads back so it can tell two picks apart. Appended
+/// to the caller's select list, so their own column indices stay valid.
+const PIVOT_ROWID_ALIAS: &str = "psy_pivot_rowid";
+
+/// How many picks the sampler may attempt per requested row before giving up.
+/// A pivot can land on a row already taken — likelier the smaller the catalog —
+/// and without a ceiling a set smaller than the limit would spin.
+const PIVOT_ATTEMPTS_PER_ROW: u32 = 4;
+
 pub(super) fn query_random_track_rows<T, F>(
     store: &LibraryStore,
     select_cols: &str,
@@ -162,8 +171,69 @@ pub(super) fn query_random_track_rows<T, F>(
 where
     F: Fn(&rusqlite::Row<'_>) -> rusqlite::Result<T> + Copy,
 {
+    query_random_track_rows_with(store, select_cols, w, limit, map, clock_pivot_source())
+}
+
+/// Successive pivots for one sample.
+///
+/// The first draw is the clock-based one this path has always used; the rest
+/// are derived from it. Calling the clock directly for each draw does not work:
+/// the picks happen microseconds apart, and modulo a small rowid span they
+/// collapse onto the same value, which would return one row instead of a sample.
+fn clock_pivot_source() -> impl FnMut(i64, i64) -> i64 {
+    let mut state: Option<u64> = None;
+    move |min_rowid, max_rowid| {
+        if min_rowid >= max_rowid {
+            return min_rowid;
+        }
+        let span = (max_rowid - min_rowid) as u128 + 1;
+        match state {
+            None => {
+                let first = random_rowid_pivot(min_rowid, max_rowid);
+                state = Some((first as u64) ^ 0x9E37_79B9_7F4A_7C15);
+                first
+            }
+            Some(previous) => {
+                // splitmix64: one multiply-xor chain per draw, no dependencies.
+                let mut z = previous.wrapping_add(0x9E37_79B9_7F4A_7C15);
+                state = Some(z);
+                z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+                z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+                z ^= z >> 31;
+                min_rowid + (u128::from(z) % span) as i64
+            }
+        }
+    }
+}
+
+/// Bounded random track sample: one pivot per row, not one pivot for the page.
+///
+/// The earlier shape drew a single pivot and read `limit` consecutive rowids
+/// from it. Ingest writes a catalog album by album, so a run of rowids is an
+/// album in track order — the sample was never mixed, it was a slice (#1446).
+/// Drawing a pivot per row keeps the bounded-sample intent, and the expensive
+/// part stays a single query: the `MIN/MAX(rowid)` scan runs once, the picks
+/// ride the rowid index.
+///
+/// `pivot_for` is a parameter so tests can pin the draws — an assertion about
+/// mixing is otherwise statistical, and a test that can only flake is no test.
+pub(super) fn query_random_track_rows_with<T, F, P>(
+    store: &LibraryStore,
+    select_cols: &str,
+    w: &WhereBuilder,
+    limit: u32,
+    map: F,
+    mut pivot_for: P,
+) -> Result<(Vec<T>, u32), String>
+where
+    F: Fn(&rusqlite::Row<'_>) -> rusqlite::Result<T> + Copy,
+    P: FnMut(i64, i64) -> i64,
+{
     let where_sql = w.where_sql();
     store.with_read_conn(|conn| {
+        if limit == 0 {
+            return Ok((Vec::new(), 0));
+        }
         let bounds_sql =
             format!("SELECT MIN(t.rowid), MAX(t.rowid) FROM track t WHERE {where_sql}");
         let (min_rowid, max_rowid): (Option<i64>, Option<i64>) = conn.query_row(
@@ -174,29 +244,79 @@ where
         let (Some(min_rowid), Some(max_rowid)) = (min_rowid, max_rowid) else {
             return Ok((Vec::new(), 0));
         };
-        let pivot = random_rowid_pivot(min_rowid, max_rowid);
 
-        let collect = |comparison: &str, pivot: i64, page_limit: u32| -> rusqlite::Result<Vec<T>> {
-            let page_sql = format!(
-                "SELECT {select_cols} FROM track t WHERE {where_sql} \
-                 AND t.rowid {comparison} ? ORDER BY t.rowid LIMIT ?"
-            );
-            let mut page_params: Vec<SqlValue> = w.params.clone();
-            page_params.push(SqlValue::Integer(pivot));
-            page_params.push(SqlValue::Integer(i64::from(page_limit)));
-            let mut stmt = conn.prepare(&page_sql)?;
-            let rows = stmt
-                .query_map(rusqlite::params_from_iter(page_params.iter()), |row| {
-                    map(row)
-                })?
-                .collect::<rusqlite::Result<Vec<T>>>()?;
-            Ok(rows)
+        // A pivot may fall into a gap, so the pick takes the first row at or
+        // above it and wraps to the start of the range when it points past the
+        // last one. Both are single index seeks.
+        let pick_sql = format!(
+            "SELECT {select_cols}, t.rowid AS {PIVOT_ROWID_ALIAS} FROM track t \
+             WHERE {where_sql} AND t.rowid >= ? ORDER BY t.rowid LIMIT 1"
+        );
+        let mut stmt = conn.prepare(&pick_sql)?;
+        let mut pick = |from_rowid: i64| -> rusqlite::Result<Option<(i64, T)>> {
+            let mut params: Vec<SqlValue> = w.params.clone();
+            params.push(SqlValue::Integer(from_rowid));
+            let mut found = stmt.query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                Ok((row.get::<_, i64>(PIVOT_ROWID_ALIAS)?, map(row)?))
+            })?;
+            found.next().transpose()
         };
 
-        let mut rows = collect(">=", pivot, limit)?;
+        let mut rows: Vec<T> = Vec::with_capacity(limit as usize);
+        let mut taken: Vec<i64> = Vec::with_capacity(limit as usize);
+        let attempts = limit.saturating_mul(PIVOT_ATTEMPTS_PER_ROW);
+        for _ in 0..attempts {
+            if rows.len() >= limit as usize {
+                break;
+            }
+            let pivot = pivot_for(min_rowid, max_rowid).clamp(min_rowid, max_rowid);
+            let picked = match pick(pivot)? {
+                Some(hit) => Some(hit),
+                None => pick(min_rowid)?,
+            };
+            let Some((rowid, row)) = picked else {
+                break;
+            };
+            if taken.contains(&rowid) {
+                continue;
+            }
+            taken.push(rowid);
+            rows.push(row);
+        }
+
+        // Repeated draws eat the budget, so a page can still be short while
+        // enough untaken rows exist — likeliest when the eligible set is close
+        // to the page size, or when rowid gaps map many pivots onto the same
+        // successor. The previous shape always returned `min(limit, matching)`,
+        // and a rail that quietly shows nine cards instead of thirteen is worse
+        // than a top-up that is only as mixed as a small set allows.
         if rows.len() < limit as usize {
-            let remaining = limit.saturating_sub(rows.len() as u32);
-            rows.extend(collect("<", pivot, remaining)?);
+            let missing = limit as usize - rows.len();
+            let placeholders = std::iter::repeat_n("?", taken.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let exclude = if taken.is_empty() {
+                String::new()
+            } else {
+                format!("AND t.rowid NOT IN ({placeholders}) ")
+            };
+            let fill_sql = format!(
+                "SELECT {select_cols}, t.rowid AS {PIVOT_ROWID_ALIAS} FROM track t \
+                 WHERE {where_sql} {exclude}ORDER BY t.rowid LIMIT ?"
+            );
+            let mut params: Vec<SqlValue> = w.params.clone();
+            params.extend(taken.iter().map(|rowid| SqlValue::Integer(*rowid)));
+            params.push(SqlValue::Integer(missing as i64));
+            let mut fill_stmt = conn.prepare(&fill_sql)?;
+            let filled = fill_stmt
+                .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                    Ok((row.get::<_, i64>(PIVOT_ROWID_ALIAS)?, map(row)?))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            for (rowid, row) in filled {
+                taken.push(rowid);
+                rows.push(row);
+            }
         }
         Ok((rows, 0))
     })

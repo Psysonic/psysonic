@@ -8,6 +8,7 @@ import type { ServerProfile } from '@/store/authStoreTypes';
 import { connectBaseUrlForServer } from '@/lib/server/serverEndpoint';
 import { headersForServerRequest, serverHttpContextWireForProbe } from '@/lib/server/serverHttpHeaders';
 import { findServerByIdOrIndexKey, resolveServerIdForIndexKey } from '@/lib/server/serverLookup';
+import { nativeTransportRequiredFor } from '@/lib/server/nativeTransportFallback';
 
 export const SUBSONIC_CLIENT = SUBSONIC_CLIENT_ID;
 
@@ -116,7 +117,7 @@ async function requestViaRustProxy<T>(
   serverUrl: string,
   endpoint: string,
   params: Record<string, unknown>,
-  headerProfile: ServerHttpHeaderProfile,
+  headerProfile: ServerHttpHeaderProfile | undefined,
   timeout: number,
   postForm: boolean,
 ): Promise<T> {
@@ -126,7 +127,7 @@ async function requestViaRustProxy<T>(
     subsonicParamPairs(params),
     postForm,
     timeout,
-    serverHttpContextWireForProbe(headerProfile),
+    headerProfile ? serverHttpContextWireForProbe(headerProfile) : null,
   );
   if (res.status === 'error') throw new Error(res.error);
   let json: unknown;
@@ -139,17 +140,40 @@ async function requestViaRustProxy<T>(
 }
 
 /**
- * True when a request to `requestBaseUrl` would carry non-safelisted gate
- * headers — i.e. it must go through the native proxy, not the WebView. Reuses
- * `headersForServerRequest` so the endpoint-kind / apply-to logic stays in one
- * place: an empty header map means the WebView path is safe.
+ * True when a request to `requestBaseUrl` cannot use the WebView. Two reasons:
+ *
+ * 1. It would carry non-safelisted gate headers (Cloudflare Access, Pangolin) —
+ *    reuses `headersForServerRequest` so the endpoint-kind / apply-to logic
+ *    stays in one place: an empty header map means the WebView path is safe.
+ * 2. A previous call already proved the address sends no CORS headers, so the
+ *    WebView would discard the response (see `nativeTransportFallback`).
  */
 function requiresNativeTransport(
   headerProfile: ServerHttpHeaderProfile | undefined,
   requestBaseUrl: string,
 ): boolean {
+  if (nativeTransportRequiredFor(requestBaseUrl)) return true;
   if (!headerProfile) return false;
   return Object.keys(headersForServerRequest(headerProfile, requestBaseUrl)).length > 0;
+}
+
+/**
+ * True when the request never produced an HTTP response: the origin is
+ * unreachable, or the WebView discarded the answer because it carried no CORS
+ * headers. Both look identical from `axios` — a bare `Network Error` with no
+ * `response` — which is exactly why the native retry exists.
+ *
+ * Timeouts and caller-side aborts are excluded: they mean "took too long" or
+ * "no longer wanted", and retrying those natively would double an already slow
+ * request instead of recovering anything.
+ */
+export function isMissingHttpResponseError(err: unknown): boolean {
+  if (!err || typeof err !== 'object') return false;
+  const candidate = err as { response?: unknown; code?: string };
+  if (candidate.response !== undefined) return false;
+  if (candidate.code === 'ECONNABORTED' || candidate.code === 'ETIMEDOUT') return false;
+  if (candidate.code === 'ERR_CANCELED') return false;
+  return true;
 }
 
 export async function apiWithCredentials<T>(
@@ -162,7 +186,7 @@ export async function apiWithCredentials<T>(
   headerProfile?: ServerHttpHeaderProfile,
 ): Promise<T> {
   const params = { ...getAuthParams(username, password), ...extra };
-  if (headerProfile && requiresNativeTransport(headerProfile, serverUrl)) {
+  if (requiresNativeTransport(headerProfile, serverUrl)) {
     return requestViaRustProxy<T>(serverUrl, endpoint, params, headerProfile, timeout, false);
   }
   const headers = headerProfile ? headersForServerRequest(headerProfile, serverUrl) : {};
@@ -189,7 +213,7 @@ export async function apiPostFormWithCredentials<T>(
   headerProfile?: ServerHttpHeaderProfile,
 ): Promise<T> {
   const params = { ...getAuthParams(username, password), ...extra };
-  if (headerProfile && requiresNativeTransport(headerProfile, serverUrl)) {
+  if (requiresNativeTransport(headerProfile, serverUrl)) {
     return requestViaRustProxy<T>(serverUrl, endpoint, params, headerProfile, timeout, true);
   }
   const headers = {
@@ -279,7 +303,7 @@ export async function api<T>(
   // Gate-header servers: route through the native proxy (no CORS preflight).
   // `signal` isn't forwarded — the underlying request can't be aborted mid-flight,
   // but the caller's promise still settles and stale results are ignored upstream.
-  if (server && connectBase && requiresNativeTransport(server, connectBase)) {
+  if (connectBase && requiresNativeTransport(server, connectBase)) {
     return requestViaRustProxy<T>(connectBase, endpoint, { ...params, ...extra }, server, timeout, false);
   }
   const headers =

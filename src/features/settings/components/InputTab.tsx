@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, RotateCcw, X } from 'lucide-react';
 import { IN_APP_SHORTCUT_ACTIONS, GLOBAL_SHORTCUT_ACTIONS } from '@/config/shortcutActions';
+import { IS_MACOS } from '@/lib/util/platform';
 import { useGlobalShortcutsStore, type GlobalAction, buildGlobalShortcut, formatGlobalShortcut } from '@/store/globalShortcutsStore';
 import { useKeybindingsStore, type KeyAction, buildInAppBinding, formatBinding } from '@/store/keybindingsStore';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
@@ -107,7 +108,7 @@ export function InputTab() {
       <SettingsSubSection
         title={t('settings.globalShortcutsTitle')}
         icon={<Keyboard size={16} />}
-        description={t('settings.globalShortcutsNote')}
+        description={t('settings.globalShortcutsNote', { metaModifier: IS_MACOS ? 'Command' : 'Super' })}
         action={
           <button
             type="button"

@@ -1,8 +1,7 @@
 import { create } from 'zustand';
 import { ALL_SENTINEL } from '@/features/artist/utils/artistsHelpers';
+import type { ArtistBrowseViewMode } from '@/features/artist/store/artistViewModeStore';
 import type { ArtistCreditMode } from '@/lib/api/library';
-
-export type ArtistBrowseViewMode = 'grid' | 'list';
 
 /** Browse state restored when returning to Artists via back from artist detail. */
 export interface ArtistBrowseReturnState {

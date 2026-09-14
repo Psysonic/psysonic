@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Opțional. Încarcă concertele pentru artistul curent prin API-ul public Bandsintown.',
   enableBandsintownPrivacy: 'Când este pornit, numele artistului piesei curente redate este trimis către API-ul Bandsintown pentru a prelua datele turneelor. Nimic din datele personale sau ale contului nu părăsesc dispozitivul.',
   enableBandsintownAction: 'Pornește',
+  dismissBandsintownPrompt: 'Nu mai afișa',
+  bandsintownPromptDismissed: 'Datele turneelor rămân ascunse. Le poți activa din Setări → Integrări.',
   role: {
     artist: 'Artist',
     albumArtist: 'Artist album',

@@ -31,6 +31,7 @@ import { useAuthStore } from './authStore';
 import { resetAuthStore, resetPlayerStore } from '@/test/helpers/storeReset';
 import { onInvoke } from '@/test/mocks/tauri';
 import {
+  DEFAULT_COVER_SOURCES,
   LIBRARY_GRID_MAX_COLUMNS_MAX,
   LIBRARY_GRID_MAX_COLUMNS_MIN,
 } from './authStoreDefaults';
@@ -64,10 +65,13 @@ describe('trivial pass-through setters', () => {
     ['setWindowButtonStyle', 'windowButtonStyle', 'flat'],
     ['setShowMinimizeButton', 'showMinimizeButton', false],
     ['setPreloadMiniPlayer', 'preloadMiniPlayer', true],
+    ['setMiniPlayerCustomTitlebar', 'miniPlayerCustomTitlebar', true],
     ['setLinuxWebkitKineticScroll', 'linuxWebkitKineticScroll', false],
     ['setLinuxWaylandTextRenderProfile', 'linuxWaylandTextRenderProfile', 'gpu'],
     ['setNowPlayingEnabled', 'nowPlayingEnabled', true],
     ['setLyricsStaticOnly', 'lyricsStaticOnly', true],
+    ['setLyricsRomanizationEnabled', 'lyricsRomanizationEnabled', true],
+    ['setLyricsWordHighlightMode', 'lyricsWordHighlightMode', 'smooth'],
     ['setShowChangelogOnUpdate', 'showChangelogOnUpdate', false],
     ['setQueueNowPlayingCollapsed', 'queueNowPlayingCollapsed', true],
     ['setQueueDurationDisplayMode', 'queueDurationDisplayMode', 'eta'],
@@ -234,6 +238,13 @@ describe('discord cover source setters', () => {
       expect(useAuthStore.getState().discordCoverSource).toBe(src);
     }
   });
+});
+
+describe('cover source chain setters', () => {
+  it('setCoverSources stores the ordered chain', () => {
+    useAuthStore.getState().setCoverSources(DEFAULT_COVER_SOURCES);
+    expect(useAuthStore.getState().coverSources).toEqual(DEFAULT_COVER_SOURCES);
+  });
 
   it('setLoggingMode accepts off / normal / debug', () => {
     for (const mode of ['off', 'normal', 'debug'] as const) {
@@ -303,6 +314,15 @@ describe('genre blacklist + audio output device', () => {
 
     useAuthStore.getState().setCustomGenreBlacklist([]);
     expect(useAuthStore.getState().customGenreBlacklist).toEqual([]);
+  });
+
+  it('setSmartPlaylistCustomFields replaces the list', () => {
+    const fields = [{ name: 'ndmood_energy', type: 'string' as const, kind: 'tag' as const }];
+    useAuthStore.getState().setSmartPlaylistCustomFields(fields);
+    expect(useAuthStore.getState().smartPlaylistCustomFields).toEqual(fields);
+
+    useAuthStore.getState().setSmartPlaylistCustomFields([]);
+    expect(useAuthStore.getState().smartPlaylistCustomFields).toEqual([]);
   });
 
   it('setAudioOutputDevice stores the device id or null', () => {

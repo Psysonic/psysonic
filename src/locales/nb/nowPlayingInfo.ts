@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Valgfritt. Henter konserter for gjeldende artist via det offentlige Bandsintown-API-et.',
   enableBandsintownPrivacy: 'Ved aktivering sendes navnet på artisten som spilles av til Bandsintown-API-et for å hente turnédatoer. Ingen konto- eller personopplysninger forlater enheten din.',
   enableBandsintownAction: 'Aktiver',
+  dismissBandsintownPrompt: 'Ikke vis dette igjen',
+  bandsintownPromptDismissed: 'Turnédatoer forblir skjult. Du kan slå dem på under Innstillinger → Integrasjoner.',
   role: {
     artist: 'Artist',
     albumArtist: 'Albumartist',

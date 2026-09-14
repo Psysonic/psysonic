@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
 import { setLinuxWebkitSmoothScrolling } from '@/lib/api/platformShell';
-import { resizeMiniPlayer, setMiniPlayerAlwaysOnTop } from '@/lib/api/miniPlayer';
+import {
+  resizeMiniPlayer, setMiniPlayerAlwaysOnTop, setMiniPlayerDecorations,
+} from '@/lib/api/miniPlayer';
 import { useAuthStore } from '@/store/authStore';
-import { IS_LINUX } from '@/lib/util/platform';
+import { IS_LINUX, IS_WINDOWS } from '@/lib/util/platform';
 import {
   EXPANDED_SIZE, EXPANDED_MIN, readStoredExpandedHeight,
 } from '@/features/miniPlayer/utils/miniPlayerHelpers';
@@ -16,6 +18,8 @@ import {
  *    constraint after Hide/Show cycles, so we re-assert it whenever the user
  *    actually brings the window to the foreground. */
 export function useMiniWindowSetup(alwaysOnTop: boolean, initialQueueOpen: boolean) {
+  const miniPlayerCustomTitlebar = useAuthStore(s => s.miniPlayerCustomTitlebar);
+
   useEffect(() => {
     if (!IS_LINUX) return;
     const apply = () => {
@@ -28,6 +32,16 @@ export function useMiniWindowSetup(alwaysOnTop: boolean, initialQueueOpen: boole
       apply();
     });
   }, []);
+
+  // Windows only: the frame the user chose. The window is built once — before
+  // this webview mounts — so the frame is switched on the live window rather
+  // than at build time. Subscribing to the value rather than reading it once
+  // covers all three moments it can arrive: mount, the persisted store
+  // finishing its read, and the user flipping the setting in the main window.
+  useEffect(() => {
+    if (!IS_WINDOWS) return;
+    setMiniPlayerDecorations({ decorations: !miniPlayerCustomTitlebar }).catch(() => {});
+  }, [miniPlayerCustomTitlebar]);
 
   useEffect(() => {
     if (!initialQueueOpen) return;

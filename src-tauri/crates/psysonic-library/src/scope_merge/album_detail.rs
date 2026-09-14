@@ -132,7 +132,11 @@ fn overlay_priority_album_row(
     album.artist = final_name;
     album.song_count = song_count;
     album.duration_sec = duration_sec;
-    album.year = year;
+    // A standalone row without a year states nothing: not every server reports one
+    // on `getAlbum`, while its tracks carry it. Overwriting the track-derived value
+    // with that emptiness blanks the release year in the album header. `starred_at`
+    // stays unconditional below — there an absent value is a real state (unstarred).
+    album.year = year.or(album.year);
     album.genre = genre;
     album.cover_art_id = cover_art_id;
     album.starred_at = starred_at;

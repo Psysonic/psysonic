@@ -26,6 +26,7 @@ export const contextMenu = {
   addToPlaylist: 'Adaugă la Playlist',
   selectedPlaylists: '{{count}} playlisturi selectate',
   selectedAlbums: '{{count}} albume selectate',
+  selectedSongs: '{{count}} piese selectate',
   selectedArtists: '{{count}} artiști selectați',
   songInfo: 'Informații despre Piesă',
   shareLink: 'Copiază link-ul',

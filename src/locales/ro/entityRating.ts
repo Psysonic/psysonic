@@ -5,5 +5,6 @@ export const entityRating = {
   artistAriaLabel: 'Rating artist',
   selectedArtistsRatingAriaLabel: 'Rating în stele pentru {{count}} artiști selectați',
   selectedAlbumsRatingAriaLabel: 'Rating în stele pentru {{count}} albume selectate ',
+  selectedSongsRatingAriaLabel: 'Rating în stele pentru {{count}} piese selectate',
   saveFailed: 'Nu s-a putut salva rating-ul.',
 };

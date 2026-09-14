@@ -8,9 +8,16 @@ import type {
   SubsonicServerIdentity,
 } from '@/lib/server/subsonicServerIdentity';
 import type { PersistedAccount, QueuedScrobble } from '../music-network';
+import type { CoverSourcePref } from '@/cover/coverSources';
 
 /** Album-artist vs track-performer browse (#1209). Duplicated here — not `@/lib/api/library` — to avoid store ↔ library import cycles (dependency-cruiser). */
 export type ArtistBrowseCreditMode = 'album' | 'track';
+
+export type SmartPlaylistCustomFieldSetting = {
+  name: string;
+  type: 'string' | 'number' | 'boolean' | 'date';
+  kind: 'tag' | 'role';
+};
 
 export type CustomHeaderEntry = {
   name: string;
@@ -96,6 +103,7 @@ export type { DebugLoggingDepth } from '@/lib/perf/debugLoggingMode';
  */
 export type ClockFormat = 'auto' | '24h' | '12h';
 export type NormalizationEngine = 'off' | 'replaygain' | 'loudness';
+/** What Discord Rich Presence may publish as album art (#1299). 'none' shows the app icon only. */
 export type DiscordCoverSource = 'none' | 'server' | 'apple';
 /** Wayland + WebKit text/GPU profile (Settings → System, Linux only when available). */
 export type LinuxWaylandTextRenderProfile = 'balanced' | 'sharp' | 'gpu' | 'minimal';
@@ -105,6 +113,7 @@ export type LoudnessLufsPreset = -16 | -14 | -12 | -10;
 
 export type LyricsSourceId = 'server' | 'lrclib' | 'netease';
 export interface LyricsSourceConfig { id: LyricsSourceId; enabled: boolean; }
+export type LyricsWordHighlightMode = 'step' | 'smooth';
 
 export type TrackPreviewLocation =
   | 'suggestions'
@@ -125,6 +134,17 @@ export interface AuthState {
   
   // Multi-server
   servers: ServerProfile[];
+  /**
+   * Every server-profile id this install has ever minted, including profiles
+   * that were removed later. A minted id is ephemeral identity and must never
+   * reach durable storage as a server key, while an address-derived key must;
+   * the two cannot be told apart by shape, because a profile id is base36 and
+   * so is a single-label hostname. Membership here is the non-ambiguous test —
+   * the app mints these ids itself, so it knows them by construction.
+   * Append-only: a removed profile keeps its entry, otherwise its id would look
+   * like an address again the moment the profile is gone.
+   */
+  mintedServerProfileIds: string[];
   activeServerId: string | null;
   /** Servers included in Library pages/search. Priority follows `servers` order. */
   libraryBrowseServerIds: string[];
@@ -151,6 +171,8 @@ export interface AuthState {
   mediaDir: string;
   excludeAudiobooks: boolean;
   customGenreBlacklist: string[];
+  /** Server-specific smart-playlist tags/roles shown in the Advanced field picker. */
+  smartPlaylistCustomFields: SmartPlaylistCustomFieldSetting[];
   replayGainEnabled: boolean;
   normalizationEngine: NormalizationEngine;
   loudnessTargetLufs: LoudnessLufsPreset;
@@ -215,9 +237,17 @@ export interface AuthState {
    *  touch Orbit can hide it so the header stays uncluttered. */
   showOrbitTrigger: boolean;
   discordRichPresence: boolean;
+  /** Opt-in gate for what Discord may publish as cover art (#1299). Independent of the in-app `coverSources` chain. */
   discordCoverSource: DiscordCoverSource;
+  coverSources: CoverSourcePref[];
   /** Opt-in: fetch upcoming tour dates from Bandsintown for the Now-Playing info panel. */
   enableBandsintown: boolean;
+  /**
+   * The info tab's opt-in prompt for {@link enableBandsintown} was dismissed.
+   * Declining an optional feature has to stick, so the prompt stays hidden; the
+   * feature itself remains reachable through Settings → Integrations.
+   */
+  bandsintownPromptDismissed: boolean;
   discordTemplateDetails: string;
   discordTemplateState: string;
   discordTemplateLargeText: string;
@@ -233,6 +263,10 @@ export interface AuthState {
   /** Pre-build the mini-player webview at app start on Linux/macOS so content is available instantly
    *  on first open. Ignored on Windows — that platform always pre-creates as a hang workaround. */
   preloadMiniPlayer: boolean;
+  /** Windows: drop the native caption bar on the mini player and use the in-page titlebar the Linux
+   *  build already has. Off by default — the native frame stays the standard look. Linux never has a
+   *  native frame here, macOS keeps its traffic lights. */
+  miniPlayerCustomTitlebar: boolean;
   /** Linux WebKitGTK: smooth wheel on when true; off only after explicit opt-out in Settings. */
   linuxWebkitKineticScroll: boolean;
   /** Linux Wayland + GPU compositing: WebKit text rasterisation profile (live, no restart). */
@@ -255,6 +289,10 @@ export interface AuthState {
    * Honoured for every lyrics source.
    */
   lyricsStaticOnly: boolean;
+  /** Show a pronunciation layer, generating Japanese Hepburn romaji locally when needed. */
+  lyricsRomanizationEnabled: boolean;
+  /** Word-synced lyrics: switch whole words at timestamps or fill the active word continuously. */
+  lyricsWordHighlightMode: LyricsWordHighlightMode;
   /** Sidebar lyrics scroll style: 'classic' = scrollIntoView center; 'apple' = scroll to 35% */
   sidebarLyricsStyle: 'classic' | 'apple';
   showFullscreenLyrics: boolean;
@@ -281,6 +319,8 @@ export interface AuthState {
   queueDisplayMode: QueueDisplayMode;
   /** Mini album thumbs beside each row in the queue panel, mini queue, and fs Up next. */
   queueTrackListCovers: boolean;
+  /** Favourite toggle at the end of each queue row. */
+  queueRowFavoriteButton: boolean;
 
   /** Alpha: native hi-res sample rate output (disabled = safe 44.1 kHz mode) */
   enableHiRes: boolean;
@@ -429,6 +469,7 @@ export interface AuthState {
   setOfflineDownloadDir: (v: string) => void;
   setExcludeAudiobooks: (v: boolean) => void;
   setCustomGenreBlacklist: (v: string[]) => void;
+  setSmartPlaylistCustomFields: (v: SmartPlaylistCustomFieldSetting[]) => void;
   setReplayGainEnabled: (v: boolean) => void;
   setNormalizationEngine: (v: NormalizationEngine) => void;
   setLoudnessTargetLufs: (v: LoudnessLufsPreset) => void;
@@ -462,7 +503,9 @@ export interface AuthState {
   setShowOrbitTrigger: (v: boolean) => void;
   setDiscordRichPresence: (v: boolean) => void;
   setDiscordCoverSource: (v: DiscordCoverSource) => void;
+  setCoverSources: (v: CoverSourcePref[]) => void;
   setEnableBandsintown: (v: boolean) => void;
+  setBandsintownPromptDismissed: (v: boolean) => void;
   setDiscordTemplateDetails: (v: string) => void;
   setDiscordTemplateState: (v: string) => void;
   setDiscordTemplateLargeText: (v: string) => void;
@@ -471,6 +514,7 @@ export interface AuthState {
   setWindowButtonStyle: (v: WindowButtonStyle) => void;
   setShowMinimizeButton: (v: boolean) => void;
   setPreloadMiniPlayer: (v: boolean) => void;
+  setMiniPlayerCustomTitlebar: (v: boolean) => void;
   setLinuxWebkitKineticScroll: (v: boolean) => void;
   setLinuxWaylandTextRenderProfile: (v: LinuxWaylandTextRenderProfile) => void;
   setLinuxWebkitInputForceRepaint: (v: boolean) => void;
@@ -481,6 +525,8 @@ export interface AuthState {
   setEnableNeteaselyrics: (v: boolean) => void;
   setLyricsSources: (sources: LyricsSourceConfig[]) => void;
   setLyricsStaticOnly: (v: boolean) => void;
+  setLyricsRomanizationEnabled: (v: boolean) => void;
+  setLyricsWordHighlightMode: (v: LyricsWordHighlightMode) => void;
   setSidebarLyricsStyle: (v: 'classic' | 'apple') => void;
   setShowFullscreenLyrics: (v: boolean) => void;
   setFsLyricsStyle: (v: 'rail' | 'apple') => void;
@@ -496,6 +542,7 @@ export interface AuthState {
   setQueueDurationDisplayMode: (v: DurationMode) => void;
   setQueueDisplayMode: (v: QueueDisplayMode) => void;
   setQueueTrackListCovers: (v: boolean) => void;
+  setQueueRowFavoriteButton: (v: boolean) => void;
   setEnableHiRes: (v: boolean) => void;
   setHiResCrossfadeResampleHz: (v: HiResCrossfadeResampleHz) => void;
   setAudioOutputDevice: (v: string | null) => void;

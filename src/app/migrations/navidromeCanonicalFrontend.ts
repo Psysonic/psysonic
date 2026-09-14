@@ -640,6 +640,23 @@ function rewriteDeviceSyncState(
     }
     state.sources = [...sources.values()];
   }
+  if (Array.isArray(state.pendingDeletion)) {
+    state.pendingDeletion = [...new Set(state.pendingDeletion.map(value => {
+      if (typeof value !== 'string') return value;
+      try {
+        const key = JSON.parse(value) as unknown;
+        if (!Array.isArray(key) || key.length !== 3 || key.some(part => typeof part !== 'string')) {
+          return value;
+        }
+        const owner = resolveOwnerServerIndexKey(key[0], scope);
+        return owner === scope.serverIndexKey
+          ? JSON.stringify([scope.serverIndexKey, key[1], canonicalNavidromeId(key[2])])
+          : value;
+      } catch {
+        return value;
+      }
+    }))];
+  }
   writeJson(storage, DEVICE_SYNC_KEY, { ...root, state });
 }
 
@@ -810,6 +827,46 @@ function assertCanonicalTrack(value: unknown, label: string): void {
 function assertCanonicalIdList(value: unknown, label: string): void {
   if (!Array.isArray(value)) throw new Error(`Malformed persisted state in ${label}`);
   value.forEach(id => assertCanonical(id, label));
+}
+
+function verifyDerivedState(
+  storage: NavidromeCanonicalFrontendStorage,
+  scope: NavidromeCanonicalFrontendScope,
+): void {
+  const keys = Array.from({ length: storage.length }, (_, index) => storage.key(index))
+    .filter((key): key is string => Boolean(key));
+  for (const key of keys) {
+    const prefix = INVALIDATED_PREFIXES.find(candidate => key.startsWith(candidate));
+    if (!prefix) continue;
+
+    let cacheScope: unknown;
+    try {
+      cacheScope = JSON.parse(key.slice(prefix.length)) as unknown;
+    } catch (error) {
+      const wrapped = new Error(`Malformed persisted state in ${key}`) as Error & { cause?: unknown };
+      wrapped.cause = error;
+      throw wrapped;
+    }
+    if (!Array.isArray(cacheScope)) throw new Error(`Malformed persisted state in ${key}`);
+    for (const entry of cacheScope) {
+      if (!Array.isArray(entry) || entry.length !== 2) {
+        throw new Error(`Malformed persisted state in ${key}`);
+      }
+      if (resolveOwnerServerIndexKey(entry[0], scope) === scope.serverIndexKey) {
+        assertCanonicalIdList(entry[1], `${key} library ID`);
+      }
+    }
+
+    const history = readJson(storage, key);
+    if (!Array.isArray(history)) throw new Error(`Malformed persisted state in ${key}`);
+    for (const value of history) {
+      if (typeof value !== 'string') throw new Error(`Malformed persisted state in ${key}`);
+      const parts = splitKnownOwnerKey(value, scope);
+      if (parts && resolveOwnerServerIndexKey(parts[0], scope) === scope.serverIndexKey) {
+        assertCanonical(parts[1], `${key} history ID`);
+      }
+    }
+  }
 }
 
 export function verifyNavidromeCanonicalFrontendState(
@@ -1046,11 +1103,7 @@ export function verifyNavidromeCanonicalFrontendState(
   if (storage.getItem(HOT_CACHE_KEY) !== null) {
     throw new Error(`Legacy ${HOT_CACHE_KEY} source remains in frontend persistence`);
   }
-  const persistedKeys = Array.from({ length: storage.length }, (_, index) => storage.key(index))
-    .filter((key): key is string => Boolean(key));
-  if (persistedKeys.some(key => INVALIDATED_PREFIXES.some(prefix => key.startsWith(prefix)))) {
-    throw new Error('Legacy derived identity cache remains in frontend persistence');
-  }
+  verifyDerivedState(storage, scope);
 }
 
 /** Rewrite all declared identity-bearing frontend persistence before Zustand imports hydrate it. */

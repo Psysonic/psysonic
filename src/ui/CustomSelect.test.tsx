@@ -5,7 +5,7 @@
  * pointing at the highlighted option.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CustomSelect from '@/ui/CustomSelect';
 
@@ -52,9 +52,9 @@ describe('CustomSelect keyboard operation', () => {
     const active = trigger.getAttribute('aria-activedescendant');
     expect(document.getElementById(active!)?.textContent).toBe('Gamma');
     expect(document.getElementById(active!)?.className).toContain('active');
-    expect(screen.getByRole('option', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('option', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('option', { name: 'Beta' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('option', { name: 'Gamma' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('option', { name: 'Gamma' })).toHaveAttribute('aria-selected', 'false');
   });
 
   it('Enter selects the highlighted option and closes the list', async () => {
@@ -89,5 +89,52 @@ describe('CustomSelect keyboard operation', () => {
     expect(onChange).toHaveBeenCalledWith('c');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(after).toHaveFocus();
+  });
+
+  it('supports searchable options without treating the active result as selected', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <CustomSelect
+        value="a"
+        options={OPTIONS}
+        onChange={onChange}
+        ariaLabel="pick"
+        searchable
+        searchPlaceholder="Search"
+      />,
+    );
+
+    const input = screen.getByRole('combobox', { name: 'pick' });
+    await user.click(input);
+    await user.type(input, 'gam');
+
+    const gamma = screen.getByRole('option', { name: 'Gamma' });
+    expect(gamma).toHaveAttribute('aria-selected', 'false');
+    expect(input).toHaveAttribute('aria-activedescendant', gamma.id);
+    expect(fireEvent.keyDown(input, { key: 'Home' })).toBe(true);
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith('c');
+    expect(input).toHaveFocus();
+  });
+
+  it('keeps focus on a searchable combobox when Escape closes its list', async () => {
+    const user = userEvent.setup();
+    render(
+      <CustomSelect
+        value="a"
+        options={OPTIONS}
+        onChange={vi.fn()}
+        ariaLabel="pick"
+        searchable
+      />,
+    );
+
+    const input = screen.getByRole('combobox', { name: 'pick' });
+    await user.click(input);
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
   });
 });

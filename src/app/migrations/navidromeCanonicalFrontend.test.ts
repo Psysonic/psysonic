@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { canonicalNavidromeId } from '@/lib/server/navidromeCanonicalId';
-import { rewriteNavidromeCanonicalFrontendState } from './navidromeCanonicalFrontend';
+import {
+  rewriteNavidromeCanonicalFrontendState,
+  verifyNavidromeCanonicalFrontendState,
+} from './navidromeCanonicalFrontend';
 
 const LEGACY = 'e3b7fc2ae9447bbec37a13bf916e3cf6';
 const CANONICAL = '6VHl3uR4kss6sUPKA8Cwnk';
@@ -129,6 +132,7 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
         { type: 'album', id: CANONICAL, name: '', note: 'canonical metadata', serverIndexKey: 'music.test' },
         { type: 'playlist', id: PLAYLIST_LEGACY, name: 'Playlist', serverIndexKey: 'profile-a' },
       ],
+      pendingDeletion: [JSON.stringify(['profile-a', 'playlist', PLAYLIST_LEGACY])],
       legacySources: [{ type: 'artist', id: LEGACY, name: 'Unassigned' }],
     }, 2));
     localStorage.setItem('psysonic_playlists_recent', persisted({
@@ -222,6 +226,9 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
     expect(device.sources[1]).toMatchObject({
       type: 'playlist', id: PLAYLIST_CANONICAL, serverIndexKey: 'music.test',
     });
+    expect(device.pendingDeletion).toEqual([
+      JSON.stringify(['music.test', 'playlist', PLAYLIST_CANONICAL]),
+    ]);
     expect(device.legacySources[0].id).toBe(LEGACY);
     const playlists = JSON.parse(localStorage.getItem('psysonic_playlists_recent') ?? '{}').state;
     expect(playlists.playlists[0]).toMatchObject({
@@ -242,6 +249,36 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
     expect(localStorage.getItem('psysonic-hot-cache')).toBeNull();
     expect(localStorage.getItem('psysonic-local-playback-migrated-v1')).toBe('1');
     expect(localStorage.getItem('psysonic_because_anchor_history:music.test')).toBeNull();
+  });
+
+  it('accepts derived history caches recreated with canonical IDs after migration', () => {
+    rewriteNavidromeCanonicalFrontendState(scope);
+    const cacheScope = JSON.stringify([
+      ['music.test', [CANONICAL]],
+      ['other.test', [LEGACY]],
+    ]);
+    localStorage.setItem(
+      `psysonic_because_anchor_history:${cacheScope}`,
+      JSON.stringify([`music.test:${CANONICAL}`, `other.test:${LEGACY}`]),
+    );
+    localStorage.setItem(
+      `psysonic_because_picks:${cacheScope}`,
+      JSON.stringify([`profile-a:${CANONICAL}`]),
+    );
+
+    expect(() => verifyNavidromeCanonicalFrontendState(localStorage, scope)).not.toThrow();
+  });
+
+  it('rejects recreated derived history caches that still contain legacy IDs', () => {
+    rewriteNavidromeCanonicalFrontendState(scope);
+    const cacheScope = JSON.stringify([['music.test', [CANONICAL]]]);
+    localStorage.setItem(
+      `psysonic_because_anchor_history:${cacheScope}`,
+      JSON.stringify([`music.test:${LEGACY}`]),
+    );
+
+    expect(() => verifyNavidromeCanonicalFrontendState(localStorage, scope))
+      .toThrow('Legacy psysonic_because_anchor_history:');
   });
 
   it('blocks conflicting local playback destinations instead of deleting either path', () => {

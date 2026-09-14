@@ -1,6 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { LibraryBig, Share2, User, Users } from 'lucide-react';
+import SortDropdown from '@/ui/SortDropdown';
 import { usePlaylistLayoutStore } from '@/features/playlist/store/playlistLayoutStore';
 import {
   hasSharedPlaylists,
@@ -45,27 +46,19 @@ export default function PlaylistsOwnershipFilter({ counts }: Props) {
 
   if (!hasSharedPlaylists(counts) && ownershipFilter === 'all') return null;
 
+  // One dropdown rather than four buttons: the header row already carries real
+  // actions, and four more of them read as actions too while being a single
+  // choice. Same control the list sort uses, so the toolbar stays one row.
+  const ActiveIcon = (OPTIONS.find(o => o.value === ownershipFilter) ?? OPTIONS[0]).Icon;
+
   return (
-    <div
-      className="playlists-ownership-filter"
-      role="group"
-      aria-label={t('playlists.ownership.groupLabel')}
-    >
-      {OPTIONS.map(({ value, labelKey, Icon }) => {
-        const active = ownershipFilter === value;
-        return (
-          <button
-            key={value}
-            type="button"
-            className={`btn btn-surface${active ? ' btn-sort-active' : ''}`}
-            onClick={() => setOwnershipFilter(value)}
-            aria-pressed={active}
-            style={active ? { background: 'var(--accent)', color: 'var(--text-on-accent)' } : {}}
-          >
-            <Icon size={15} /> {t(labelKey)}
-          </button>
-        );
-      })}
-    </div>
+    <SortDropdown
+      value={ownershipFilter}
+      options={OPTIONS.map(({ value, labelKey }) => ({ value, label: t(labelKey) }))}
+      onChange={setOwnershipFilter}
+      ariaLabel={t('playlists.ownership.groupLabel')}
+      tooltip={t('playlists.ownership.groupLabel')}
+      icon={<ActiveIcon size={14} />}
+    />
   );
 }

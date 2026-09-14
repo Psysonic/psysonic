@@ -11,6 +11,7 @@ import StarRating from '@/ui/StarRating';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
 import { resolveTrackArtistRefs } from '@/features/playback/utils/playback/trackArtistRefs';
+import { useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 
 export interface FavoriteSongRowCallbacks {
@@ -52,6 +53,7 @@ function FavoriteSongRow({
   const { t } = useTranslation();
   // `song.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
+  const playStats = useTrackPlayStats(song);
 
   return (
     <div
@@ -135,10 +137,10 @@ function FavoriteSongRow({
           case 'rating': return <StarRating key="rating" value={ratingValue} onChange={r => cb.rate(song, r)} />;
           case 'duration': return <div key="duration" className="track-duration">{formatTrackTime(song.duration)}</div>;
           case 'playCount': return (
-            <div key="playCount" className="track-duration">{song.playCount ?? '—'}</div>
+            <div key="playCount" className="track-duration">{playStats.playCount ?? '—'}</div>
           );
           case 'lastPlayed': return (
-            <div key="lastPlayed" className="track-genre">{song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}</div>
+            <div key="lastPlayed" className="track-genre">{playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}</div>
           );
           case 'bpm': return (
             <div key="bpm" className="track-duration">{song.bpm && song.bpm > 0 ? song.bpm : '—'}</div>

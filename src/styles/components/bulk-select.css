@@ -54,3 +54,24 @@
   pointer-events: all;
 }
 
+/* Star row inside a bulk toolbar — sits next to the other bulk actions. */
+.bulk-action-rating {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.bulk-action-rating .bulk-action-rating-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.bulk-action-rating .star-rating {
+  width: auto;
+  justify-content: flex-start;
+  line-height: 1;
+}
+.bulk-action-rating .star-rating .star {
+  padding: 0 1px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1;
+}

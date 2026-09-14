@@ -35,6 +35,8 @@ export interface CachedLyrics {
   syncedLines: LrcLine[] | null;
   wordLines: WordLyricsLine[] | null;
   plainLyrics: string | null;
+  pronunciationLines?: LrcLine[] | null;
+  pronunciationPlainLyrics?: string | null;
   source: LyricsSource | null;
   notFound: boolean;
 }

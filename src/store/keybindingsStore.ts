@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DEFAULT_IN_APP_BINDINGS, type KeyAction } from '@/config/shortcutActions';
+import { IS_MACOS } from '@/lib/util/platform';
 
 /** Physical keys only — ignore for binding capture */
 export const MODIFIER_KEY_CODES = [
@@ -113,13 +114,14 @@ export function formatKeyCode(code: string): string {
 }
 
 /** Label for settings UI: plain key or chord (same string shape as global shortcuts). */
-export function formatBinding(binding: string): string {
+export function formatBinding(binding: string, isMacOS = IS_MACOS): string {
   if (!binding.includes('+')) return formatKeyCode(binding);
   return binding.split('+').map(part => {
     if (part === 'ctrl') return 'Ctrl';
     if (part === 'alt') return 'Alt';
     if (part === 'shift') return 'Shift';
-    if (part === 'super' || part === 'meta') return 'Super';
+    if (part === 'command' || part === 'cmd') return 'Command';
+    if (part === 'super' || part === 'meta') return isMacOS ? 'Command' : 'Super';
     return formatKeyCode(part);
   }).join('+');
 }

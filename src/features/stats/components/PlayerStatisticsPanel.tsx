@@ -19,6 +19,7 @@ import YearRecapExportModal from '@/features/stats/components/YearRecapExportMod
 import { formatPlayerStatsListeningTotal } from '@/lib/format/formatHumanDuration';
 
 const currentCalendarYear = () => new Date().getFullYear();
+const SHOW_YEAR_RECAP = false;
 
 export default function PlayerStatisticsPanel() {
   const { t } = useTranslation();
@@ -188,7 +189,7 @@ export default function PlayerStatisticsPanel() {
             <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>{t('statistics.playerEmpty')}</p>
           )}
 
-          {!empty && (
+          {SHOW_YEAR_RECAP && !empty && (
             <div className="year-recap-card">
               <div className="year-recap-card-text">
                 <span className="year-recap-card-kicker">{t('statistics.recapIntroKicker')}</span>
@@ -237,14 +238,14 @@ export default function PlayerStatisticsPanel() {
         />
       )}
 
-      {recapStoryOpen && recapData.data && (
+      {SHOW_YEAR_RECAP && recapStoryOpen && recapData.data && (
         <YearRecapStory
           data={recapData.data}
           onClose={() => setRecapStoryOpen(false)}
           onShare={() => setRecapExportOpen(true)}
         />
       )}
-      {recapData.data && (
+      {SHOW_YEAR_RECAP && recapData.data && (
         <YearRecapExportModal
           open={recapExportOpen}
           data={recapData.data}

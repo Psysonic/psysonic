@@ -76,6 +76,7 @@ export const usePlayerStore = create<PlayerState>()(
       networkLovedCache: initialNetworkLovedCache,
       starredOverrides: {},
       userRatingOverrides: {},
+      playStatsOverrides: {},
       isQueueVisible: readInitialQueueVisibility(),
       isFullscreenOpen: false,
       scheduledPauseAtMs: null,

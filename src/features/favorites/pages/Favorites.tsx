@@ -264,6 +264,8 @@ export default function Favorites() {
                 selectedIds={selectedIds}
                 showPlPicker={showPlPicker}
                 setShowPlPicker={setShowPlPicker}
+                ratings={ratings}
+                onRate={handleRate}
               />
               <FavoritesSongsTracklist
                 visibleSongs={visibleSongs}

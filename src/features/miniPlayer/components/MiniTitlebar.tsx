@@ -1,6 +1,5 @@
 import { Maximize2, Pin, PinOff, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import { IS_LINUX } from '@/lib/util/platform';
 
 interface Props {
   trackTitle: string | undefined;
@@ -8,18 +7,24 @@ interface Props {
   toggleOnTop: () => void;
   showMain: () => void;
   closeMini: () => void;
+  /**
+   * The window has no system frame, so this bar is the whole chrome: it carries
+   * the drag region, the title and its own close button. Always true on Linux,
+   * and on Windows when the user asked for it.
+   */
+  customChrome: boolean;
   t: TFunction;
 }
 
 export function MiniTitlebar({
-  trackTitle, alwaysOnTop, toggleOnTop, showMain, closeMini, t,
+  trackTitle, alwaysOnTop, toggleOnTop, showMain, closeMini, customChrome, t,
 }: Props) {
   return (
     <div
-      className={`mini-player__titlebar${!IS_LINUX ? ' mini-player__titlebar--mac' : ''}`}
-      {...(!IS_LINUX ? {} : { 'data-tauri-drag-region': true })}
+      className={`mini-player__titlebar${!customChrome ? ' mini-player__titlebar--mac' : ''}`}
+      {...(!customChrome ? {} : { 'data-tauri-drag-region': true })}
     >
-      {IS_LINUX ? (
+      {customChrome ? (
         <span className="mini-player__titlebar-title" data-tauri-drag-region>
           {trackTitle ?? 'Psysonic Mini'}
         </span>
@@ -49,9 +54,9 @@ export function MiniTitlebar({
       >
         <Maximize2 size={13} />
       </button>
-      {/* macOS + Windows already provide Close via the native titlebar —
-          skip the duplicate so the in-app titlebar stays minimal. */}
-      {IS_LINUX && (
+      {/* With a system frame, Close already sits in it — skip the duplicate
+          so the in-app titlebar stays minimal. */}
+      {customChrome && (
         <button
           type="button"
           className="mini-player__titlebar-btn mini-player__titlebar-btn--close"

@@ -13,7 +13,8 @@ export default function AppUpdater() {
   const {
     release, dismissed, setDismissed, changelogOpen, setChangelogOpen,
     dlState, dlProgress, dlError, countdown,
-    asset, showAurHint, showWingetHint, updaterPlatform, useTauriUpdater, showInstallBtn, pct,
+    asset, isFlatpakBuild, flatpakUpdateCommand,
+    showAurHint, showWingetHint, updaterPlatform, useTauriUpdater, showInstallBtn, pct,
     handleSkip, handleRestartNow, handleDownload, handleShowFolder,
   } = useAppUpdater();
 
@@ -199,6 +200,17 @@ export default function AppUpdater() {
               <div className="app-updater-error">{dlError || t('common.updaterErrorMsg')}</div>
             )}
           </>
+        ) : isFlatpakBuild ? (
+          <div className="update-modal-aur">
+            <div className="update-modal-aur-title">{t('common.updaterFlatpakHint')}</div>
+            <code className="update-modal-aur-cmd">{flatpakUpdateCommand}</code>
+            <button
+              className="app-updater-btn-primary"
+              onClick={() => open(`https://github.com/Psysonic/psysonic/releases/tag/${release.tag}`)}
+            >
+              {t('common.updaterOpenGitHub')}
+            </button>
+          </div>
         ) : asset ? (
           <>
             {dlState === 'idle' && (

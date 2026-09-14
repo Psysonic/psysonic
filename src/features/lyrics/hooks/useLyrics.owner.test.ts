@@ -6,12 +6,14 @@ import { lyricsCache, useLyrics } from '@/features/lyrics/hooks/useLyrics';
 import { lyricsCacheKey } from '@/features/lyrics/utils/lyricsPersistentCache';
 
 const mocks = vi.hoisted(() => ({
-  getLyricsBySongId: vi.fn(),
+  getLyricsSelectionBySongId: vi.fn(),
   getCachedLyrics: vi.fn(),
   putCachedLyrics: vi.fn(),
 }));
 
-vi.mock('@/lib/api/subsonicLyrics', () => ({ getLyricsBySongId: mocks.getLyricsBySongId }));
+vi.mock('@/lib/api/subsonicLyrics', () => ({
+  getLyricsSelectionBySongId: mocks.getLyricsSelectionBySongId,
+}));
 vi.mock('@/features/lyrics/utils/lyricsPersistentCache', async importOriginal => {
   const actual = await importOriginal<typeof import('@/features/lyrics/utils/lyricsPersistentCache')>();
   return {
@@ -33,7 +35,7 @@ const track: Track = {
 
 beforeEach(() => {
   lyricsCache.clear();
-  mocks.getLyricsBySongId.mockReset();
+  mocks.getLyricsSelectionBySongId.mockReset();
   mocks.getCachedLyrics.mockReset().mockResolvedValue(null);
   mocks.putCachedLyrics.mockReset().mockResolvedValue(undefined);
   useAuthStore.setState({
@@ -72,26 +74,36 @@ describe('useLyrics owner scope', () => {
 
     rerender({ current: { ...track, serverId: 'srv-other' } });
     await waitFor(() => expect(result.current.plainLyrics).toBe('Other lyrics'));
-    expect(mocks.getLyricsBySongId).not.toHaveBeenCalled();
+    expect(mocks.getLyricsSelectionBySongId).not.toHaveBeenCalled();
   });
 
   it('keeps an in-flight server fetch and cache write pinned to the track owner', async () => {
     let resolveLyrics!: (value: unknown) => void;
-    mocks.getLyricsBySongId.mockReturnValue(new Promise(resolve => { resolveLyrics = resolve; }));
+    mocks.getLyricsSelectionBySongId.mockReturnValue(new Promise(resolve => { resolveLyrics = resolve; }));
 
     const { result } = renderHook(() => useLyrics(track));
-    await waitFor(() => expect(mocks.getLyricsBySongId).toHaveBeenCalledWith(
+    await waitFor(() => expect(mocks.getLyricsSelectionBySongId).toHaveBeenCalledWith(
       'shared-song-id',
       { enhanced: false, serverId: 'srv-owner' },
     ));
 
     act(() => useAuthStore.setState({ activeServerId: 'srv-other' }));
-    resolveLyrics({ line: [{ start: 0, value: 'Owner lyrics' }], synced: true });
+    resolveLyrics({
+      main: { line: [{ start: 0, value: 'Owner lyrics' }], synced: true },
+      pronunciation: { line: [{ start: 0, value: 'owner pronunciation' }], synced: true },
+    });
 
     await waitFor(() => expect(result.current.source).toBe('server'));
+    expect(result.current.pronunciationLines).toEqual([
+      { time: 0, text: 'owner pronunciation' },
+    ]);
     expect(mocks.putCachedLyrics).toHaveBeenCalledWith(
       lyricsCacheKey('srv-owner', 'shared-song-id'),
-      expect.objectContaining({ source: 'server', notFound: false }),
+      expect.objectContaining({
+        pronunciationLines: [{ time: 0, text: 'owner pronunciation' }],
+        source: 'server',
+        notFound: false,
+      }),
     );
     expect(lyricsCache.has(lyricsCacheKey('srv-owner', 'shared-song-id'))).toBe(true);
     expect(lyricsCache.has(lyricsCacheKey('srv-other', 'shared-song-id'))).toBe(false);

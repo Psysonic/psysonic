@@ -5,5 +5,6 @@ export const entityRating = {
   artistAriaLabel: 'Рейтинг виконавця',
   selectedArtistsRatingAriaLabel: 'Оцінка в зірках для {{count}} вибраних виконавців',
   selectedAlbumsRatingAriaLabel: 'Оцінка в зірках для {{count}} вибраних альбомів',
+  selectedSongsRatingAriaLabel: 'Зіркова оцінка для вибраних треків ({{count}})',
   saveFailed: 'Не вдалося зберегти рейтинг.',
 };

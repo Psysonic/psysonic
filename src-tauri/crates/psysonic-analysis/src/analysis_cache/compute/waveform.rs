@@ -102,7 +102,7 @@ pub(super) fn decode_scan_pcm(
         mut decoder,
         track_id,
         ..
-    } = open_decode_session(bytes, format_hint)?;
+    } = open_decode_session(bytes, format_hint).ok()?;
 
     let mut bin_max = vec![0.0f32; bin_count];
     let mut bin_sum = vec![0.0f32; bin_count];

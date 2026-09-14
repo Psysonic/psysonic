@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { waitFor } from '@testing-library/react';
+import { act, waitFor } from '@testing-library/react';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
+import { latestResizeObserver } from '@/test/mocks/browser';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 const { artistInfoMock, artistMock, readCacheMock, writeCacheMock, primeMock } = vi.hoisted(() => ({
   artistInfoMock: vi.fn(),
@@ -156,5 +159,71 @@ describe('BecauseYouLikeRail diagnostics', () => {
       'similar',
       { libraryIds: ['lib-a'] },
     ));
+  });
+});
+
+describe('BecauseYouLikeRail narrow swap', () => {
+  beforeEach(() => {
+    artistInfoMock.mockReset();
+    artistMock.mockReset();
+    readCacheMock.mockReset();
+    writeCacheMock.mockReset();
+    primeMock.mockReset();
+    readCacheMock.mockReturnValue(null);
+    primeMock.mockResolvedValue(undefined);
+    // Keep the rail in its loading state for the whole test.
+    artistInfoMock.mockReturnValue(new Promise(() => {}));
+  });
+
+  function renderRail() {
+    return renderWithProviders(
+      <BecauseYouLikeRail
+        mostPlayed={[album('srv-a', 'seed', 'Seed')]}
+        scopeKey="scope-narrow"
+        scopeVersion={9}
+        scopes={[{ serverId: 'srv-a', libraryId: 'lib-a' }]}
+      />,
+    );
+  }
+
+  /** Drive the observer the rail installs on its own wrapper. */
+  function reportWidth(width: number) {
+    const observer = latestResizeObserver();
+    if (!observer) throw new Error('rail did not observe its container');
+    act(() => {
+      observer.callback(
+        [{ contentRect: { width } } as unknown as ResizeObserverEntry],
+        observer as unknown as ResizeObserver,
+      );
+    });
+  }
+
+  it('keeps the wide-card skeleton out of a narrow container', () => {
+    // jsdom reports a zero-width box, which is below the swap width.
+    const { container } = renderRail();
+    expect(container.querySelectorAll('.because-card').length).toBe(0);
+  });
+
+  it('shows the skeleton again once the container is wide enough', () => {
+    const { container } = renderRail();
+    reportWidth(900);
+    expect(container.querySelectorAll('.because-card').length).toBeGreaterThan(0);
+  });
+});
+
+describe('because-card container queries', () => {
+  const css = readFileSync(
+    join(process.cwd(), 'src/styles/components/orbit-session-top-strip.css'),
+    'utf8',
+  );
+
+  it('drops the third card with no lower container bound', () => {
+    // A lower bound leaves a band where the container is already too narrow for
+    // two cards while the JS swap to the compact row has not kicked in yet, and
+    // three cards then squeeze around their fixed-width cover.
+    const rules = [...css.matchAll(/@container \(([^)]*)\)([^{]*)\{/g)].map(m => m[0]);
+    const cardRules = rules.filter(rule => rule.includes('1051'));
+    expect(cardRules.length).toBeGreaterThan(0);
+    for (const rule of cardRules) expect(rule).not.toContain('min-width');
   });
 });

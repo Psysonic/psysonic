@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import PlaylistsHeader from '@/features/playlist/components/PlaylistsHeader';
@@ -112,7 +113,7 @@ describe('PlaylistsHeader', () => {
       <HeaderHarness ownershipCounts={{ personal: 4, sharedByMe: 0, sharedWithMe: 0 }} />,
     );
 
-    expect(view.queryByRole('group', { name: 'Playlists by owner' })).not.toBeInTheDocument();
+    expect(view.queryByRole('button', { name: 'Playlists by owner' })).not.toBeInTheDocument();
   });
 
   it('keeps the filter reachable when the last shared playlist disappears', () => {
@@ -124,34 +125,39 @@ describe('PlaylistsHeader', () => {
       <HeaderHarness ownershipCounts={{ personal: 4, sharedByMe: 0, sharedWithMe: 0 }} />,
     );
 
-    expect(view.getByRole('group', { name: 'Playlists by owner' })).toBeInTheDocument();
-    expect(view.getByRole('button', { name: 'All' })).toBeInTheDocument();
+    expect(view.getByRole('button', { name: 'Playlists by owner' })).toBeInTheDocument();
   });
 
-  it('shows the ownership filter once something is shared', () => {
+  it('shows the ownership filter once something is shared', async () => {
+    const user = userEvent.setup();
     const view = renderWithProviders(
       <HeaderHarness ownershipCounts={{ personal: 4, sharedByMe: 0, sharedWithMe: 1 }} />,
     );
 
-    const group = view.getByRole('group', { name: 'Playlists by owner' });
-    expect(group).toBeInTheDocument();
+    // One trigger in the toolbar, labelled with the active bucket; the buckets
+    // themselves only appear once it is opened.
+    const trigger = view.getByRole('button', { name: 'Playlists by owner' });
+    expect(trigger).toHaveTextContent('All');
+    await user.click(trigger);
+
     for (const name of ['All', 'Personal', 'Shared by me', 'Shared with me']) {
-      expect(view.getByRole('button', { name })).toBeInTheDocument();
+      expect(await screen.findByRole('option', { name })).toBeInTheDocument();
     }
-    // `all` is the default, and the pressed state is what a screen reader reads out.
-    expect(view.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
-    expect(view.getByRole('button', { name: 'Personal' })).toHaveAttribute('aria-pressed', 'false');
+    // `all` is the default, and the selected state is what a screen reader reads out.
+    expect(screen.getByRole('option', { name: 'All' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('option', { name: 'Personal' })).toHaveAttribute('aria-selected', 'false');
   });
 
-  it('moves the pressed state to the bucket the user picks', async () => {
+  it('moves the selection to the bucket the user picks', async () => {
     const user = userEvent.setup();
     const view = renderWithProviders(
       <HeaderHarness ownershipCounts={{ personal: 2, sharedByMe: 1, sharedWithMe: 3 }} />,
     );
 
-    await user.click(view.getByRole('button', { name: 'Shared with me' }));
+    await user.click(view.getByRole('button', { name: 'Playlists by owner' }));
+    await user.click(await screen.findByRole('option', { name: 'Shared with me' }));
 
-    expect(view.getByRole('button', { name: 'Shared with me' })).toHaveAttribute('aria-pressed', 'true');
-    expect(view.getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'false');
+    expect(usePlaylistLayoutStore.getState().ownershipFilter).toBe('sharedWithMe');
+    expect(view.getByRole('button', { name: 'Playlists by owner' })).toHaveTextContent('Shared with me');
   });
 });

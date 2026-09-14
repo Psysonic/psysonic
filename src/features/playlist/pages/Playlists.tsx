@@ -2,6 +2,7 @@ import { resolvePlaylistTracks } from '@/features/playlist/utils/resolvePlaylist
 import { getGenresForServer } from '@/lib/api/subsonicGenres';
 import type { SubsonicPlaylist, SubsonicGenre } from '@/lib/api/subsonicTypes';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { usePlaylistStore } from '@/features/playlist/store/playlistStore';
 import { useAuthStore } from '@/store/authStore';
@@ -21,10 +22,23 @@ import {
   defaultSmartFilters,
   type SmartFilters, type PendingSmartPlaylist,
 } from '@/features/playlist/utils/playlistsSmart';
+import {
+  createSmartEditorSession,
+  previewRulesFromSession,
+  syncSessionFromBasicFilters,
+  type SmartEditorSession,
+} from '@/features/playlist/utils/smartPlaylistEditor';
+import { ndPreviewSmartPlaylist } from '@/lib/api/navidromeSmart';
+import { playlistDisplayName } from '@/lib/format/playlistClassification';
 import { useSmartCoverCollage } from '@/features/playlist/hooks/useSmartCoverCollage';
 import { usePlaylistsLibraryScopeCounts } from '@/features/playlist/hooks/usePlaylistsLibraryScopeCounts';
 import { usePendingSmartPolling } from '@/features/playlist/hooks/usePendingSmartPolling';
 import { runPlaylistsOpenSmartEditor } from '@/features/playlist/utils/runPlaylistsOpenSmartEditor';
+import type { SmartPreviewTrack } from '@/features/playlist/utils/formatSmartPreviewTrack';
+import {
+  playlistStubFromOpenSmartEditorIntent,
+  readOpenSmartEditorIntent,
+} from '@/features/playlist/utils/playlistOwnedMutation';
 import { runPlaylistsSaveSmart } from '@/features/playlist/utils/runPlaylistsSaveSmart';
 import {
   runPlaylistDelete, runPlaylistDeleteSelected,
@@ -46,6 +60,8 @@ import { serverListDisplayLabel } from '@/lib/server/serverDisplayName';
 
 export default function Playlists() {
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
   const perfFlags = usePerfProbeFlags();
   const playTrack = usePlayerStore(s => s.playTrack);
   const touchPlaylist = usePlaylistStore((s) => s.touchPlaylist);
@@ -112,7 +128,8 @@ export default function Playlists() {
   const [creating, setCreating] = useState(false);
   const [creatingSmart, setCreatingSmart] = useState(false);
   const [newName, setNewName] = useState('');
-  const [smartFilters, setSmartFilters] = useState<SmartFilters>(defaultSmartFilters);
+  const [smartSession, setSmartSession] = useState<SmartEditorSession>(() => createSmartEditorSession());
+  const [smartFilters, setSmartFiltersState] = useState<SmartFilters>(defaultSmartFilters);
   const [genres, setGenres] = useState<SubsonicGenre[]>([]);
   const [genresServerId, setGenresServerId] = useState<string | null>(null);
   const [genreQuery, setGenreQuery] = useState('');
@@ -223,7 +240,21 @@ export default function Playlists() {
     setNewName('');
   };
 
-  const handleOpenSmartEditor = async (pl: SubsonicPlaylist) => {
+  const setSmartFilters: React.Dispatch<React.SetStateAction<SmartFilters>> = (action) => {
+    setSmartFiltersState(prev => {
+      const next = typeof action === 'function' ? action(prev) : action;
+      setSmartSession(session => (
+        session.mode === 'basic'
+          ? syncSessionFromBasicFilters(session, next, {
+            allGenres: genres.map(genre => genre.value),
+          })
+          : { ...session, filters: { ...session.filters, name: next.name } }
+      ));
+      return next;
+    });
+  };
+
+  const handleOpenSmartEditor = useCallback(async (pl: SubsonicPlaylist) => {
     const playlistServerId = pl.serverId;
     if (!playlistServerId) return;
     smartOperationGenerationRef.current += 1;
@@ -232,18 +263,37 @@ export default function Playlists() {
       playlistServerId
       && (subsonicIdentityByServer[playlistServerId]?.type ?? '').toLowerCase() === 'navidrome'
     );
-    const playlistGenres = await getGenresForServer(playlistServerId).catch(() => []);
-    if (smartEditorGenerationRef.current !== generation) return;
-    setGenres(playlistGenres);
-    setGenresServerId(playlistServerId);
+    const cachedGenres = genresServerId === playlistServerId ? genres : [];
+    void getGenresForServer(playlistServerId)
+      .then(nextGenres => {
+        if (smartEditorGenerationRef.current !== generation) return;
+        setGenres(nextGenres);
+        setGenresServerId(playlistServerId);
+      })
+      .catch(() => {
+        if (smartEditorGenerationRef.current !== generation) return;
+        setGenres([]);
+        setGenresServerId(playlistServerId);
+      });
     await runPlaylistsOpenSmartEditor({
-      pl, serverId: playlistServerId, isNavidromeServer: playlistIsNavidrome, allGenres: playlistGenres, t,
-      setSmartFilters, setEditingSmartId, setGenreQuery,
+      pl, serverId: playlistServerId, isNavidromeServer: playlistIsNavidrome, allGenres: cachedGenres, t,
+      setSmartFilters: setSmartFiltersState, setSmartSession, setEditingSmartId, setGenreQuery,
       setCreating, setCreatingSmart, setCreatingSmartBusy,
       setEditingSmartServerId,
       isCurrent: () => smartEditorGenerationRef.current === generation,
     });
-  };
+  }, [genres, genresServerId, subsonicIdentityByServer, t]);
+
+  useEffect(() => {
+    const intent = readOpenSmartEditorIntent(location.state);
+    if (!intent) return;
+    const pl = playlists.find(p => (
+      p.id === intent.id
+      && p.serverId === intent.serverId
+    )) ?? playlistStubFromOpenSmartEditorIntent(intent);
+    navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    void handleOpenSmartEditor(pl);
+  }, [location.state, location.pathname, location.search, navigate, playlists, handleOpenSmartEditor]);
 
   const smartEditorServerId = editingSmartId
     ? editingSmartServerId ?? createServerId
@@ -258,19 +308,37 @@ export default function Playlists() {
     .filter(v => !smartFilters.selectedGenres.includes(v))
     .filter(v => !genreQuery.trim() || v.toLowerCase().includes(genreQuery.trim().toLowerCase()))
     .sort((a, b) => a.localeCompare(b));
-  const handleCreateSmart = () => {
+  const ownerUsername = servers.find(server => server.id === smartEditorServerId)?.username;
+  const handleCreateSmart = (saveAsCopy = false) => {
     if (!smartGenresReady) return Promise.resolve();
     const generation = ++smartOperationGenerationRef.current;
     return runPlaylistsSaveSmart({
       isNavidromeServer: smartEditorIsNavidrome, serverId: smartEditorServerId, smartFilters,
-      allGenres: smartEditorGenres.map(g => g.value), editingSmartId, playlists, fetchPlaylists, t,
-      setPendingSmart, setCreatingSmart, setEditingSmartId, setSmartFilters,
-      setGenreQuery, setCreatingSmartBusy, setEditingSmartServerId,
+      smartSession, allGenres: smartEditorGenres.map(g => g.value), editingSmartId, playlists, fetchPlaylists, t,
+      ownerUsername, saveAsCopy,
+      setPendingSmart, setCreatingSmart, setEditingSmartId, setSmartFilters: setSmartFiltersState,
+      setSmartSession, setGenreQuery, setCreatingSmartBusy, setEditingSmartServerId,
       isCurrent: () => smartOperationGenerationRef.current === generation,
     });
   };
 
-  // Smart playlist rules are processed asynchronously on server.
+  const handlePreviewSmart = async () => {
+    const owner = smartSession.owner || ownerUsername;
+    if (!owner) throw new Error('owner required');
+    const sessionForPreview = smartSession.mode === 'basic'
+      ? { ...smartSession, filters: smartFilters }
+      : smartSession;
+    const rules = previewRulesFromSession(sessionForPreview, {
+      allGenres: smartEditorGenres.map(genre => genre.value),
+    });
+    const tracks = await ndPreviewSmartPlaylist({
+      owner,
+      rules,
+    }, smartEditorServerId);
+    return tracks as SmartPreviewTrack[];
+  };
+
+  // Poll until Navidrome materializes tracks (0.63.x refresh-delay window).
   usePendingSmartPolling(pendingSmart, setPendingSmart, fetchPlaylists);
 
   const handlePlay = async (e: React.MouseEvent, pl: SubsonicPlaylist) => {
@@ -405,6 +473,7 @@ export default function Playlists() {
           smartOperationGenerationRef.current += 1;
           smartEditorGenerationRef.current += 1;
           setCreatingSmartBusy(false);
+          setSmartSession(createSmartEditorSession());
         }}
         actionPolicy={playlistsActionPolicy}
         foldersEnabled={effectiveServerIds.length === 1 && effectiveServerIds[0] === activeServerId}
@@ -413,6 +482,8 @@ export default function Playlists() {
 
       {creatingSmart && (
         <PlaylistsSmartEditor
+          session={smartSession}
+          setSession={setSmartSession}
           smartFilters={smartFilters}
           setSmartFilters={setSmartFilters}
           availableGenres={availableGenres}
@@ -431,7 +502,24 @@ export default function Playlists() {
           createServerOptions={smartCreateServerOptions}
           setCreatingSmart={setCreatingSmart}
           setEditingSmartId={setEditingSmartId}
-          onSave={handleCreateSmart}
+          onSave={() => { void handleCreateSmart(false); }}
+          onSaveCopy={() => { void handleCreateSmart(true); }}
+          onResetToServer={() => {
+            const pl = playlists.find(item => item.id === editingSmartId && item.serverId === smartEditorServerId);
+            if (pl) void handleOpenSmartEditor(pl);
+          }}
+          onPreview={handlePreviewSmart}
+          serverIdentity={subsonicIdentityByServer[smartEditorServerId]}
+          playlistOptions={playlists
+            .filter(item => item.serverId === smartEditorServerId)
+            .map(item => ({
+              id: item.id,
+              name: playlistDisplayName(item),
+              rules: item.smartRules,
+              smart: item.smart,
+              smartMetadataUnavailable: item.smartMetadataUnavailable,
+            }))}
+          ownerUsername={ownerUsername}
           onCancel={() => {
             smartOperationGenerationRef.current += 1;
             smartEditorGenerationRef.current += 1;

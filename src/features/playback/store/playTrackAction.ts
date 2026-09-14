@@ -11,7 +11,6 @@ import {
   queueItemIdentityKey,
   queueTrackIdentityKey,
   queueTrackIdentityMatches,
-  sameQueueItemRef,
   sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
 import {
@@ -95,8 +94,10 @@ import {
   setSeekTarget,
 } from '@/features/playback/store/seekTargetState';
 import {
+  clearUnavailablePlaybackFailures,
   dismissPlaybackSourceFailure,
   reportPlaybackSourceFailure,
+  shouldAutoAdvanceAfterUnavailableFailure,
 } from '@/features/playback/store/playbackAlternativeStore';
 type SetState = (
   partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
@@ -255,6 +256,7 @@ export function runPlayTrack(
 
   const gen = bumpPlayGeneration();
   dismissPlaybackSourceFailure();
+  if (manual) clearUnavailablePlaybackFailures();
   clearInterruptHandoff();
   setIsAudioPaused(false);
   clearPreloadingIds(); // new track — allow fresh preload for next
@@ -622,14 +624,12 @@ export function runPlayTrack(
             setTimeout(() => {
               if (getPlayGeneration() !== gen) return;
               const live = get();
-              const liveRef = live.queueItems[live.queueIndex];
-              const failedRef = failed.queueItems[failed.queueIndex];
-              if (
-                live.queueIndex !== failed.queueIndex ||
-                !liveRef ||
-                !failedRef ||
-                !sameQueueItemRef(liveRef, failedRef)
-              ) return;
+              if (!shouldAutoAdvanceAfterUnavailableFailure({
+                failedQueueItems: failed.queueItems,
+                failedQueueIndex: failed.queueIndex,
+                liveQueueItems: live.queueItems,
+                liveQueueIndex: live.queueIndex,
+              })) return;
               live.next(false);
             }, 500);
           });
