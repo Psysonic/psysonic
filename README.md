@@ -200,30 +200,37 @@ The things you simply expect from a serious music player — and Psysonic does t
 
 ## Linux
 
+Choose the installation method that best fits your distribution.
+
+### Installer script
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Psysonic/psysonic/main/scripts/install.sh | sudo bash
 ```
 
 ### Flatpak (experimental)
 
-> **Experimental:** The Flatpak packaging and signed update repository are new and may still have platform-integration issues. The stable channel installs the current release version of Psysonic.
-
-Install for the current user:
+> **Experimental:** The Flatpak packaging and signed update repository are new and may still have platform-integration issues.
 
 ```bash
-flatpak remote-add --user --if-not-exists flathub \
-  https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user \
-  https://flatpak.psysonic.de/stable/psysonic.flatpakref
+flatpak install --user https://flatpak.psysonic.de/stable/psysonic.flatpakref
 ```
 
-Psysonic will appear in the desktop application menu. Updates are delivered through the same signed Flatpak remote.
+This installs the current stable release, adds the signed Psysonic remote and creates the desktop application entry.
 
-Linux builds are also available through GitHub Releases, AUR and Cachix/Nix, or via Homebrew on x86_64:
+### Homebrew
 
 ```bash
 brew install --cask psysonic
 ```
+
+Homebrew currently supports x86_64 Linux.
+
+### Other packages
+
+- **AppImage, DEB and RPM:** [GitHub Releases](https://github.com/Psysonic/psysonic/releases/latest)
+- **Arch Linux:** AUR packages [`psysonic`](https://aur.archlinux.org/packages/psysonic) and [`psysonic-bin`](https://aur.archlinux.org/packages/psysonic-bin)
+- **NixOS:** [flake installation guide](nixos-install.md) and [Cachix cache](https://psysonic.cachix.org)
 
 > **AppImage runs under X11/XWayland** — it pins `GDK_BACKEND=x11` for a stable WebKitGTK stack. For a native-Wayland launch, use the `.deb`, `.rpm`, AUR, or Nix packages, which follow your session's display server.
 
