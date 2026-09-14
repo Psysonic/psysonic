@@ -95,6 +95,42 @@ describe('settings backup stores', () => {
     expect(JSON.parse(localStorage.getItem('psysonic_np_layout') ?? 'null')).toEqual(layout);
   });
 
+  it('round-trips the language without quoting it into the stored value', async () => {
+    // `psysonic_language` is the one backup key holding a bare string rather
+    // than a serialized store, so `collectStores` carries it raw. Restoring it
+    // through `JSON.stringify` used to write `"en"` — quotes included — which
+    // is not a valid BCP-47 tag and made every Intl call from it throw.
+    localStorage.setItem('psysonic_language', 'de');
+
+    await exportBackupToPath('config', '/tmp/settings.psybkp');
+    const bytes = mocks.writeFile.mock.calls[0]?.[1] as Uint8Array;
+    const manifest = JSON.parse(new TextDecoder().decode(bytes)) as {
+      stores: Record<string, unknown>;
+    };
+    expect(manifest.stores.psysonic_language).toBe('de');
+
+    localStorage.clear();
+    restoreBackupStores(manifest.stores);
+    expect(localStorage.getItem('psysonic_language')).toBe('de');
+  });
+
+  it('heals an already-quoted language when it is exported and restored again', async () => {
+    // An install damaged by the old behaviour: the quotes are part of the value.
+    localStorage.setItem('psysonic_language', '"en"');
+
+    await exportBackupToPath('config', '/tmp/settings.psybkp');
+    const bytes = mocks.writeFile.mock.calls[0]?.[1] as Uint8Array;
+    const manifest = JSON.parse(new TextDecoder().decode(bytes)) as {
+      stores: Record<string, unknown>;
+    };
+    // Export parses the quoted value cleanly, so the manifest already holds `en`.
+    expect(manifest.stores.psysonic_language).toBe('en');
+
+    localStorage.clear();
+    restoreBackupStores(manifest.stores);
+    expect(localStorage.getItem('psysonic_language')).toBe('en');
+  });
+
   it('restores only allowlisted stores and removes allowlisted values absent from the backup', () => {
     localStorage.setItem('psysonic-player', JSON.stringify({ state: { currentTrack: 'old' } }));
     restoreBackupStores({

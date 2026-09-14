@@ -1,3 +1,5 @@
+import { usableLocale } from '@/lib/format/localeTag';
+
 export const PLAYER_STATS_RECENT_DAYS_LIMIT = 30;
 
 export function localTodayIso(): string {
@@ -31,7 +33,7 @@ export function formatPlayerStatsDayLabel(
   if (diffDays === 0) return t('statistics.playerDayToday');
   if (diffDays === 1) return t('statistics.playerDayYesterday');
 
-  const fmt = new Intl.DateTimeFormat(locale, {
+  const fmt = new Intl.DateTimeFormat(usableLocale(locale), {
     weekday: 'long',
     month: 'short',
     day: 'numeric',

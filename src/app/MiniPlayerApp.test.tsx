@@ -29,7 +29,10 @@ vi.mock('../store/authStore', () => ({
 vi.mock('@/lib/perf/perfFlags', () => ({
   usePerfProbeFlags: () => ({ disableTooltipPortal: true }),
 }));
-vi.mock('@/lib/i18n', () => ({
+vi.mock('@/lib/i18n', async () => ({
+  // Keep the real `normalizeLanguageCode` so the guard is exercised for real;
+  // only the instance itself is stubbed.
+  ...(await vi.importActual<typeof import('@/lib/i18n')>('@/lib/i18n')),
   default: { changeLanguage: vi.fn() },
 }));
 vi.mock('@/features/miniPlayer', () => ({ default: () => <div data-testid="mini-player" /> }));
@@ -111,6 +114,18 @@ describe('MiniPlayerApp', () => {
     it('ignores psysonic_language when newValue is empty', () => {
       render(<MiniPlayerApp />);
       fireStorage('psysonic_language', '');
+      expect(i18n.changeLanguage).not.toHaveBeenCalled();
+    });
+
+    it('unwraps a quoted psysonic_language value before switching', () => {
+      render(<MiniPlayerApp />);
+      fireStorage('psysonic_language', '"de"');
+      expect(i18n.changeLanguage).toHaveBeenCalledWith('de');
+    });
+
+    it('ignores a psysonic_language value it cannot use', () => {
+      render(<MiniPlayerApp />);
+      fireStorage('psysonic_language', 'not a language');
       expect(i18n.changeLanguage).not.toHaveBeenCalled();
     });
 

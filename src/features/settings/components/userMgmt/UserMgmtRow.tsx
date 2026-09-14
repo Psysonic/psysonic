@@ -3,6 +3,7 @@ import { Shield, Trash2, User, Wand2 } from 'lucide-react';
 import type { i18n as I18nType, TFunction } from 'i18next';
 import type { NdLibrary, NdUser } from '@/lib/api/navidromeAdmin';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
+import { usableLocale } from '@/lib/format/localeTag';
 
 interface Props {
   user: NdUser;
@@ -46,7 +47,7 @@ export function UserMgmtRow({
       : libraries.filter(l => u.libraryIds.includes(l.id)).map(l => l.name).join(', ');
   const lastSeen = formatLastSeen(u.lastAccessAt, i18n.language, t('settings.userMgmtNeverSeen'));
   const lastSeenAbsolute = u.lastAccessAt
-    ? new Date(u.lastAccessAt).toLocaleString(i18n.language)
+    ? new Date(u.lastAccessAt).toLocaleString(usableLocale(i18n.language))
     : '';
 
   return (

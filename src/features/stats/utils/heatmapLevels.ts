@@ -1,3 +1,5 @@
+import { usableLocale } from '@/lib/format/localeTag';
+
 /** GitHub-style intensity bucket from track play count vs year max. */
 export function heatmapLevel(count: number, maxCount: number): 0 | 1 | 2 | 3 | 4 {
   if (count <= 0 || maxCount <= 0) return 0;
@@ -55,7 +57,7 @@ export function heatmapMonthLabels(
   year: number,
   locale?: string,
 ): { columnIndex: number; label: string }[] {
-  const fmt = new Intl.DateTimeFormat(locale, { month: 'short' });
+  const fmt = new Intl.DateTimeFormat(usableLocale(locale), { month: 'short' });
   const firstDow = new Date(year, 0, 1).getDay();
   const labels: { columnIndex: number; label: string }[] = [];
   let lastMonth = -1;
@@ -76,7 +78,7 @@ export function heatmapMonthLabels(
 
 /** Weekday row labels (Sun–Sat); empty string hides a row label like GitHub. */
 export function heatmapWeekdayLabels(locale?: string): string[] {
-  const fmt = new Intl.DateTimeFormat(locale, { weekday: 'narrow' });
+  const fmt = new Intl.DateTimeFormat(usableLocale(locale), { weekday: 'narrow' });
   // Jan 4 2026 is Sunday — anchor week for stable weekday order.
   const anchor = new Date(2026, 0, 4);
   return Array.from({ length: 7 }, (_, i) => {

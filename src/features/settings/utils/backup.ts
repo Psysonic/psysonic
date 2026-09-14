@@ -43,6 +43,16 @@ const BACKUP_KEYS = [
   'psysonic_np_layout',
 ] as const;
 const BACKUP_KEY_SET = new Set<string>(BACKUP_KEYS);
+/**
+ * Keys holding a bare string rather than a serialized store. `collectStores`
+ * cannot JSON-parse those, so it carries the raw string — and the restore has
+ * to write it back raw as well. Sending them through `JSON.stringify` on the
+ * way in adds literal quotes to the stored value, which is how a language of
+ * `en` used to come back as `"en"` and make every `Intl` call built from it
+ * throw. A backup taken from an already-quoted value parses cleanly on export,
+ * so restoring raw also repairs the older backups.
+ */
+const RAW_STRING_BACKUP_KEYS = new Set<string>(['psysonic_language']);
 export const FULL_BACKUP_IMPORT_JOURNAL_KEY = 'psysonic-full-backup-import-journal-v1';
 
 type FullBackupImportJournal = {
@@ -70,6 +80,7 @@ function filterBackupStores(stores: Record<string, unknown>): Record<string, unk
 }
 
 function serializedStore(value: unknown, key: string): string {
+  if (RAW_STRING_BACKUP_KEYS.has(key) && typeof value === 'string') return value;
   const serialized = JSON.stringify(value);
   if (serialized === undefined) throw new Error(`invalid_backup_store:${key}`);
   return serialized;

@@ -18,4 +18,12 @@ describe('formatRelativeTime', () => {
     expect(formatRelativeTime(new Date(Date.now() + 2 * DAY), 'en')).toBe('in 2 days');
     expect(formatRelativeTime(new Date(Date.now() - 3 * DAY), 'de')).toBe('vor 3 Tagen');
   });
+
+  it('still formats when the locale is unusable', () => {
+    // `"en"` with the quotes as part of the value is what an older settings
+    // backup import stored. `Intl` rejects it, and the throw used to take down
+    // every view that rendered a relative time.
+    expect(() => formatRelativeTime(new Date(Date.now() - 3 * DAY), '"en"')).not.toThrow();
+    expect(formatRelativeTime(new Date(Date.now() - 3 * DAY), '"en"')).toBeTruthy();
+  });
 });
