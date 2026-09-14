@@ -192,7 +192,7 @@ The things you simply expect from a serious music player — and Psysonic does t
 | ------- | -------------------------------------------------------------------------- |
 | Windows | Native installer / WinGet / Scoop                                          |
 | macOS   | Signed DMG / Homebrew                                                      |
-| Linux   | AppImage / DEB / RPM / AUR (`psysonic`, `psysonic-bin`) / NixOS / Homebrew |
+| Linux   | AppImage / DEB / RPM / AUR (`psysonic`, `psysonic-bin`) / NixOS / Homebrew / Flatpak (experimental) |
 
 ---
 
@@ -203,6 +203,21 @@ The things you simply expect from a serious music player — and Psysonic does t
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Psysonic/psysonic/main/scripts/install.sh | sudo bash
 ```
+
+### Flatpak (experimental)
+
+> **Experimental:** The Flatpak packaging and signed update repository are new and may still have platform-integration issues. The stable channel installs the current release version of Psysonic.
+
+Install for the current user:
+
+```bash
+flatpak remote-add --user --if-not-exists flathub \
+  https://flathub.org/repo/flathub.flatpakrepo
+flatpak install --user \
+  https://flatpak.psysonic.de/stable/psysonic.flatpakref
+```
+
+Psysonic will appear in the desktop application menu. Updates are delivered through the same signed Flatpak remote.
 
 Linux builds are also available through GitHub Releases, AUR and Cachix/Nix, or via Homebrew on x86_64:
 
