@@ -12,7 +12,7 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: verify SSH authentication and public upload path
         env:
           OSTREE_SSH_HOST: ${{ secrets.OSTREE_SSH_HOST }}

@@ -43,8 +43,8 @@ jobs:
     name: eslint
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -56,8 +56,8 @@ jobs:
     name: dependency-cruiser
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
           cache: 'npm'

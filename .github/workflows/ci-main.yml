@@ -19,7 +19,7 @@ jobs:
       # Load only the trusted gate implementation. The PR head is inspected via
       # read-only API calls below and must never execute in this job.
       - name: checkout trusted gate code
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.base.sha || github.sha }}
           persist-credentials: false

@@ -26,7 +26,7 @@ dasp_sample = "0.11.0"
 md5 = "0.8"
 url = "2"
 thread-priority = "3"
-lofty = "0.24"
+lofty = "0.25"
 id3 = "1.17"
 pitch_shift = "2.1"
 

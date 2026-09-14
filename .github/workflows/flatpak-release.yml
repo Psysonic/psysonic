@@ -32,21 +32,21 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: check out publication tooling
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && github.ref || github.event.repository.default_branch }}
           path: tooling
           persist-credentials: false
 
       - name: check out release source
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.test_source_sha || inputs.release_tag || github.event.release.tag_name || github.sha }}
           path: app
           persist-credentials: false
 
       - name: check out Flatpak packaging
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
         with:
           repository: Psysonic/flatpak-psysonic
           ref: main
@@ -55,7 +55,7 @@ jobs:
           persist-credentials: false
 
       - name: set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
 

@@ -36,12 +36,12 @@ jobs:
         if: inputs.source_branch != 'main'
         run: |
           echo "Skipping required-check validation: source_branch is '${{ inputs.source_branch }}', not main."
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: next
       - name: setup node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
       - name: fast-forward next to source branch tip

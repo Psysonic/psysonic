@@ -54,7 +54,7 @@ fn apply_linux_webkit_nvidia_quirk(silent: bool) {
         match kind {
             WorkaroundKind::None => {}
             WorkaroundKind::DisableWebkitDmabufRenderer | WorkaroundKind::DisableNvExplicitSync => {
-                set_webkit_disable_dmabuf_renderer();
+                set_webkit_disable_dmabuf_renderer(true);
             }
         }
     } else {

@@ -36,7 +36,7 @@ fn write_minimal_flac(dir: &Path, name: &str) -> PathBuf {
 
 fn write_flac_comment(dir: &Path, name: &str, key: &str, value: &str) -> PathBuf {
     use lofty::config::WriteOptions;
-    use lofty::ogg::VorbisComments;
+    use lofty::ogg::tag::VorbisComments;
     use lofty::prelude::TagExt;
 
     let path = write_minimal_flac(dir, name);
@@ -124,7 +124,7 @@ fn vorbis_lyrics_field_is_returned_verbatim() {
 #[test]
 fn vorbis_synced_lyrics_wins_over_plain_lyrics() {
     use lofty::config::WriteOptions;
-    use lofty::ogg::VorbisComments;
+    use lofty::ogg::tag::VorbisComments;
     use lofty::prelude::TagExt;
 
     let dir = tempfile::tempdir().unwrap();

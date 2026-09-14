@@ -21,7 +21,7 @@ jobs:
     name: cargo test --workspace
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: install Linux build dependencies
         run: |
           sudo apt-get update
@@ -45,7 +45,7 @@ jobs:
     name: cargo test --workspace (windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -58,7 +58,7 @@ jobs:
     name: cargo clippy --workspace
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: install Linux build dependencies
         run: |
           sudo apt-get update
@@ -81,7 +81,7 @@ jobs:
     name: cargo clippy --workspace (windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -96,7 +96,7 @@ jobs:
     name: cargo llvm-cov (baseline + hot-path file gate)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: install Linux build dependencies
         run: |
           sudo apt-get update

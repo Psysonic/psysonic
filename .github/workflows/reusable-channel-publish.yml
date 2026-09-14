@@ -46,14 +46,14 @@ jobs:
     outputs:
       source_commit_sha: ${{ steps.final-sha.outputs.value }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: ${{ inputs.target_branch }}
       - name: install Nix
-        uses: DeterminateSystems/nix-installer-action@v15
+        uses: DeterminateSystems/nix-installer-action@v23
       - name: configure Cachix (managed signing)
-        uses: cachix/cachix-action@v15
+        uses: cachix/cachix-action@v17
         with:
           name: psysonic
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -108,11 +108,11 @@ jobs:
       release_tag: ${{ steps.tag.outputs.value }}
       source_commit_sha: ${{ steps.source-sha.outputs.value }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.verify_nix && needs.prepare-nix-sources.outputs.source_commit_sha || inputs.source_ref }}
       - name: setup node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: "npm"
@@ -277,11 +277,11 @@ jobs:
             args: "--bundles nsis"
     runs-on: ${{ matrix.settings.platform }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.create-release.outputs.source_commit_sha }}
       - name: setup node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: "npm"
@@ -351,7 +351,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.create-release.outputs.source_commit_sha }}
       - name: generate latest.json
@@ -373,7 +373,7 @@ jobs:
       contents: write
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.create-release.outputs.source_commit_sha }}
       - name: install dependencies
@@ -383,7 +383,7 @@ jobs:
             libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
             libasound2-dev squashfs-tools cmake
       - name: setup node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
           cache: "npm"
@@ -418,12 +418,12 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: main
       - name: setup node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v7
         with:
           node-version: lts/*
       - name: compute next dev version
