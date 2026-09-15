@@ -28,6 +28,7 @@ export const sidebar = {
   radio: '网络电台',
   folderBrowser: '文件夹浏览器',
   deviceSync: '设备同步',
+  burner: 'CD 刻录',
   libraryScope: '资料库范围',
   allLibraries: '所有资料库',
   librarySelect: '包含 {{name}}',

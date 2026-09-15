@@ -32,6 +32,7 @@ export const sidebar = {
   radio: 'Интернет радио',
   folderBrowser: 'Преглед на папки',
   deviceSync: 'Синхронизация с устройство',
+  burner: 'Записване на CD',
   libraryScope: 'Обхват на библиотеката',
   allLibraries: 'Всички библиотеки',
   librarySelect: 'Включи {{name}}',

@@ -32,6 +32,7 @@ export const sidebar = {
   radio: 'インターネットラジオ',
   folderBrowser: 'フォルダーブラウザー',
   deviceSync: 'デバイス同期',
+  burner: 'CD 書き込み',
   libraryScope: 'ライブラリ範囲',
   allLibraries: 'すべてのライブラリ',
   librarySelect: '{{name}} を含める',

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { Play, ChevronsRight, ChevronRight, FolderTree, ListMusic, ListPlus, Sparkles, Trash2 } from 'lucide-react';
+import { Play, ChevronsRight, ChevronRight, Flame, FolderTree, ListMusic, ListPlus, Sparkles, Trash2 } from 'lucide-react';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import {
   deleteOwnedPlaylist,
@@ -8,6 +8,9 @@ import {
   resolvePlaylistTracks,
   usePlaylistStore,
 } from '@/features/playlist';
+import { addTracksToBurnList } from '@/features/burner';
+import { resolveMediaServerId } from '@/features/offline';
+import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
 import { isSmartPlaylist } from '@/lib/format/playlistClassification';
 import { MultiPlaylistToPlaylistSubmenu, SinglePlaylistToPlaylistSubmenu } from '@/features/contextMenu/components/PlaylistToPlaylistSubmenus';
 import MoveToFolderSubmenu from '@/features/contextMenu/components/MoveToFolderSubmenu';
@@ -25,6 +28,9 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
   } = props;
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // Top level: the per-type bodies below are IIFEs inside JSX, which is no
+  // place for a hook.
+  const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
 
   return (
     <>
@@ -87,6 +93,35 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
                   if (dest) navigate(dest.pathname, { state: dest.state });
                 })}>
                   <Sparkles size={14} /> {t('playlists.editRules')}
+                </div>
+              )}
+              {/* Last in this group, deliberately — do not move it up beside
+                  "Add to Playlist" to match the song menu. This menu has
+                  hover-opening submenus on "Add to Playlist" and "Move to
+                  folder"; wedged between them, a mouse sliding off either
+                  trigger lands on a control that queues an entire playlist.
+                  Here it also leaves those two and "Edit rules" on exactly the
+                  rows they occupied before this item existed. */}
+              {/* Disabled, not hidden, while a job owns the queue: the job took
+                  its track list when it started, and an item that vanishes from
+                  a menu the user just used reads as a bug. */}
+              {burnAvailable && (
+                <div
+                  className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+                  aria-disabled={burnBusy || undefined}
+                  {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+                  onClick={burnBusy ? undefined : () => handleAction(async () => {
+                    const tracks = await resolvePlaylistTracks(playlist.id, playlist.serverId);
+                    // `resolvePlaylistTracks` swallows its own failures to `[]`, so an
+                    // empty result covers both "playlist would not load" and "playlist
+                    // is empty" — nothing to queue, and nothing worth a toast.
+                    if (tracks.length === 0) return;
+                    // Each resolved track already carries its owner; the playlist's
+                    // own server is only the fallback for rows without one.
+                    addTracksToBurnList(tracks, resolveMediaServerId(playlist.serverId) ?? '');
+                  })}
+                >
+                  <Flame size={14} /> {t('burner.addToCd')}
                 </div>
               )}
               {offlinePolicy.canEditPlaylist && (

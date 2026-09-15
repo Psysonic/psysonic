@@ -29,6 +29,7 @@ export const sidebar = {
   radio: 'Radio por Internet',
   folderBrowser: 'Explorar Carpetas',
   deviceSync: 'Sincronizar dispositivo',
+  burner: 'Grabador de CD',
   libraryScope: 'Ámbito de biblioteca',
   allLibraries: 'Todas las bibliotecas',
   librarySelect: 'Incluir {{name}}',

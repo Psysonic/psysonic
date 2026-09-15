@@ -28,6 +28,7 @@ export const sidebar = {
   radio: 'Radio Internet',
   folderBrowser: 'Explorateur de dossiers',
   deviceSync: 'Sync appareil',
+  burner: 'Graveur de CD',
   libraryScope: 'Portée de la bibliothèque',
   allLibraries: 'Toutes les bibliothèques',
   librarySelect: 'Inclure {{name}}',

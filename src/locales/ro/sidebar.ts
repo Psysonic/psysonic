@@ -30,6 +30,7 @@ export const sidebar = {
   radio: 'Radio Internet',
   folderBrowser: 'Browser de foldere',
   deviceSync: 'Sincronizare Dispozitive',
+  burner: 'Inscriptor CD',
   libraryScope: 'Domeniul bibliotecii',
   allLibraries: 'Toate librăriile',
   librarySelect: 'Include {{name}}',

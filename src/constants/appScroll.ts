@@ -9,6 +9,7 @@ export const RANDOM_ALBUMS_INPAGE_SCROLL_VIEWPORT_ID = 'random-albums-inpage-scr
 export const LOSSLESS_ALBUMS_INPAGE_SCROLL_VIEWPORT_ID = 'lossless-albums-inpage-scroll-viewport';
 export const COMPOSERS_INPAGE_SCROLL_VIEWPORT_ID = 'composers-inpage-scroll-viewport';
 export const GENRE_DETAIL_INPAGE_SCROLL_VIEWPORT_ID = 'genre-detail-inpage-scroll-viewport';
+export const BURNER_INPAGE_SCROLL_VIEWPORT_ID = 'burner-inpage-scroll-viewport';
 
 export type AlbumGridInpageScrollSurface = 'albums' | 'new-releases' | 'random-albums';
 
@@ -20,6 +21,9 @@ export const MAIN_ROUTE_INPAGE_SCROLL_VIEWPORT_ID_BY_PATH: Readonly<Record<strin
   '/random/albums': RANDOM_ALBUMS_INPAGE_SCROLL_VIEWPORT_ID,
   '/lossless-albums': LOSSLESS_ALBUMS_INPAGE_SCROLL_VIEWPORT_ID,
   '/composers': COMPOSERS_INPAGE_SCROLL_VIEWPORT_ID,
+  // The burner is a workbench, not a document: the running order scrolls
+  // inside its panel so the ring, options and readout stay put.
+  '/burn': BURNER_INPAGE_SCROLL_VIEWPORT_ID,
 };
 
 const INPAGE_VIEWPORT_ID_BY_SURFACE: Record<AlbumGridInpageScrollSurface, string> = {

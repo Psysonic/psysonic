@@ -32,6 +32,7 @@ export const sidebar = {
   radio: 'Radio internetowe',
   folderBrowser: 'Przeglądarka folderów',
   deviceSync: 'Synchronizacja urządzeń',
+  burner: 'Nagrywarka CD',
   libraryScope: 'Zakres biblioteki',
   allLibraries: 'Wszystkie biblioteki',
   librarySelect: 'Uwzględnij {{name}}',

@@ -40,6 +40,7 @@ import { smartPlaylists } from './smartPlaylists';
 import { radio } from './radio';
 import { folderBrowser } from './folderBrowser';
 import { deviceSync } from './deviceSync';
+import { burner } from './burner';
 import { orbit } from './orbit';
 import { tray } from './tray';
 import { licenses } from './licenses';
@@ -90,6 +91,7 @@ export const nbTranslation = {
   radio,
   folderBrowser,
   deviceSync,
+  burner,
   orbit,
   tray,
   licenses,

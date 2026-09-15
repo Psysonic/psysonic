@@ -32,6 +32,7 @@ export const sidebar = {
   radio: 'Internetes rádió',
   folderBrowser: 'Mappaböngésző',
   deviceSync: 'Eszköz-szinkronizálás',
+  burner: 'CD-író',
   libraryScope: 'Könyvtár hatóköre',
   allLibraries: 'Összes könyvtár',
   librarySelect: '{{name}} belefoglalása',

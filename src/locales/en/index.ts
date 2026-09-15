@@ -40,6 +40,7 @@ import { losslessAlbums } from './losslessAlbums';
 import { radio } from './radio';
 import { folderBrowser } from './folderBrowser';
 import { deviceSync } from './deviceSync';
+import { burner } from './burner';
 import { orbit } from './orbit';
 import { tray } from './tray';
 import { licenses } from './licenses';
@@ -90,6 +91,7 @@ export const enTranslation = {
   radio,
   folderBrowser,
   deviceSync,
+  burner,
   orbit,
   tray,
   licenses,

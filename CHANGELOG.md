@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 >
 
 
+## [1.54.0]
+
+## Added
+
+### Burn audio CDs from your library
+
+**By [@starrlord](https://github.com/starrlord), PR [#1538](https://github.com/Psysonic/psysonic/pull/1538)**
+
+* A new **CD Burner** page writes a running order from your library to a blank CD-R as a Red Book audio disc, on Windows, macOS and Linux. Gapless or with the usual two-second gaps, optional level matching across tracks, and CD-TEXT, so players that support it show track and artist names. Tracks you have not downloaded are fetched when the burn starts, without touching your offline library.
+* **Rehearse** runs the whole burn with the laser off, so a running order can be checked without spending a disc. After a real burn the disc itself is read back instead of trusting what the drive reported while writing.
+* Right-click a track, album or playlist and choose **Add to CD** to build the running order.
+
 ## [1.53.0]
 
 ## Added
