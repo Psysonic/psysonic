@@ -35,6 +35,11 @@ jobs:
       - name: cargo test --workspace
         working-directory: src-tauri
         run: cargo test --workspace --all-targets
+      - name: isolated library performance budgets
+        working-directory: src-tauri
+        run: >-
+          cargo test -p psysonic-library --lib rows_meets_perf_budget --
+          --ignored --nocapture --test-threads=1
 
   # Windows is the second platform the app ships on, and parts of the backend
   # are cfg-gated to it — SQLite locking behaviour, path handling, and the
@@ -53,6 +58,11 @@ jobs:
       - name: cargo test --workspace
         working-directory: src-tauri
         run: cargo test --workspace --all-targets
+      - name: isolated library performance budgets
+        working-directory: src-tauri
+        run: >-
+          cargo test -p psysonic-library --lib rows_meets_perf_budget --
+          --ignored --nocapture --test-threads=1
 
   clippy:
     name: cargo clippy --workspace
