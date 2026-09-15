@@ -580,6 +580,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.53.0',
     contributions: [
       'Navidrome song-list filter fix that unblocked native library sync (PR #1514)',
+      'Audio CD burning with CD-TEXT on Windows, macOS and Linux (PR #1538)',
     ],
   },
 ] as const;
