@@ -28,6 +28,7 @@ export const sidebar = {
   radio: 'Internetradio',
   folderBrowser: 'Mappenverkenner',
   deviceSync: 'Apparaatsync',
+  burner: 'Cd-brander',
   libraryScope: 'Bibliotheekbereik',
   allLibraries: 'Alle bibliotheken',
   librarySelect: '{{name}} opnemen',

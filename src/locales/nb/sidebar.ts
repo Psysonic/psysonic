@@ -28,6 +28,7 @@ export const sidebar = {
   radio: 'Internettradio',
   folderBrowser: 'Mappeleser',
   deviceSync: 'Enhetssynk',
+  burner: 'CD-brenner',
   libraryScope: 'Biblioteksomfang',
   allLibraries: 'Alle biblioteker',
   librarySelect: 'Inkluder {{name}}',
