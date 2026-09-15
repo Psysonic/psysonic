@@ -1,5 +1,5 @@
-use reqwest::Client;
 use psysonic_core::server_http::ServerHttpRegistry;
+use reqwest::Client;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use url::Url;
 
@@ -180,9 +180,13 @@ mod tests {
         assert!(cover_http_status_is_transient(StatusCode::FORBIDDEN));
         assert!(cover_http_status_is_transient(StatusCode::REQUEST_TIMEOUT));
         assert!(cover_http_status_is_transient(StatusCode::TOO_EARLY));
-        assert!(cover_http_status_is_transient(StatusCode::TOO_MANY_REQUESTS));
+        assert!(cover_http_status_is_transient(
+            StatusCode::TOO_MANY_REQUESTS
+        ));
         assert!(cover_http_status_is_transient(StatusCode::BAD_GATEWAY));
-        assert!(cover_http_status_is_transient(StatusCode::SERVICE_UNAVAILABLE));
+        assert!(cover_http_status_is_transient(
+            StatusCode::SERVICE_UNAVAILABLE
+        ));
     }
 
     #[test]
@@ -196,13 +200,7 @@ mod tests {
 
     #[test]
     fn cover_url_from_host_root() {
-        let url = build_cover_art_url(
-            "http://navidrome.local:4533",
-            "u",
-            "p",
-            "al-1",
-            800,
-        );
+        let url = build_cover_art_url("http://navidrome.local:4533", "u", "p", "al-1", 800);
         assert!(url.starts_with("http://navidrome.local:4533/rest/getCoverArt.view?"));
         assert!(url.contains("id=al-1"));
         assert!(url.contains("size=800"));
@@ -210,13 +208,7 @@ mod tests {
 
     #[test]
     fn cover_url_when_rest_suffix_already_present() {
-        let url = build_cover_art_url(
-            "http://navidrome.local:4533/rest",
-            "u",
-            "p",
-            "al-1",
-            128,
-        );
+        let url = build_cover_art_url("http://navidrome.local:4533/rest", "u", "p", "al-1", 128);
         assert!(url.starts_with("http://navidrome.local:4533/rest/getCoverArt.view?"));
         assert!(!url.contains("/rest/rest/"));
     }

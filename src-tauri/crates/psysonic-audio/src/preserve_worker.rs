@@ -13,8 +13,8 @@ use ringbuf::{HeapCons, HeapProd, HeapRb};
 use rodio::Source;
 
 use crate::playback_rate::{
-    effective_pitch, is_effect_active, preserve_out_samples, PlaybackRateAtomics, PRESERVE_MAKEUP_GAIN,
-    uses_preserve_dsp,
+    effective_pitch, is_effect_active, preserve_out_samples, uses_preserve_dsp,
+    PlaybackRateAtomics, PRESERVE_MAKEUP_GAIN,
 };
 
 const FRAME_BLOCK: usize = 128;
@@ -379,11 +379,7 @@ fn worker_main<S: Source<Item = f32> + Send>(
                     .iter()
                     .all(|c| c.frame.len() >= FRAME_BLOCK)
                 {
-                    preserve.process_block(
-                        atomics.load_speed(),
-                        effective_pitch(&atomics),
-                        sr,
-                    );
+                    preserve.process_block(atomics.load_speed(), effective_pitch(&atomics), sr);
                 }
             }
             None => break,

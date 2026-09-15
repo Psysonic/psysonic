@@ -76,9 +76,7 @@ pub struct SyncDrainBarrier {
     _scheduler: OwnedRwLockWriteGuard<()>,
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize, specta::Type,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum MigrationPhase {
     Pending,
@@ -110,9 +108,15 @@ pub struct MigrationServerSnapshotDto {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, specta::Type)]
-#[serde(tag = "state", rename_all = "kebab-case", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "state",
+    rename_all = "kebab-case",
+    rename_all_fields = "camelCase"
+)]
 pub enum MigrationGenerationSnapshotDto {
-    Inactive { last_generation: u64 },
+    Inactive {
+        last_generation: u64,
+    },
     Active {
         generation: u64,
         servers: Vec<MigrationServerSnapshotDto>,
@@ -252,10 +256,8 @@ impl LibraryRuntime {
                 MigrationGenerationState::Active(active) => {
                     let mut servers = Vec::with_capacity(admitted.len());
                     for server_id in admitted {
-                        let previous_phase = active
-                            .servers
-                            .get(&server_id)
-                            .map(|server| server.phase);
+                        let previous_phase =
+                            active.servers.get(&server_id).map(|server| server.phase);
                         servers.push(MigrationBeginServerDto {
                             server_id: server_id.clone(),
                             previous_phase,
@@ -349,9 +351,7 @@ impl LibraryRuntime {
         Ok(result)
     }
 
-    pub fn inspect_migration_generation(
-        &self,
-    ) -> Result<MigrationGenerationSnapshotDto, String> {
+    pub fn inspect_migration_generation(&self) -> Result<MigrationGenerationSnapshotDto, String> {
         let state = self
             .migration_generation
             .lock()
@@ -362,20 +362,18 @@ impl LibraryRuntime {
                     last_generation: *last_generation,
                 }
             }
-            MigrationGenerationState::Active(active) => {
-                MigrationGenerationSnapshotDto::Active {
-                    generation: active.generation,
-                    servers: active
-                        .servers
-                        .iter()
-                        .map(|(server_id, server)| MigrationServerSnapshotDto {
-                            server_id: server_id.clone(),
-                            phase: server.phase,
-                            error: server.error.clone(),
-                        })
-                        .collect(),
-                }
-            }
+            MigrationGenerationState::Active(active) => MigrationGenerationSnapshotDto::Active {
+                generation: active.generation,
+                servers: active
+                    .servers
+                    .iter()
+                    .map(|(server_id, server)| MigrationServerSnapshotDto {
+                        server_id: server_id.clone(),
+                        phase: server.phase,
+                        error: server.error.clone(),
+                    })
+                    .collect(),
+            },
         })
     }
 
@@ -438,7 +436,10 @@ impl LibraryRuntime {
         let MigrationGenerationState::Active(active) = &*state else {
             return Err("no active library migration generation".to_string());
         };
-        let server = active.servers.get(server_id).expect("admission checked above");
+        let server = active
+            .servers
+            .get(server_id)
+            .expect("admission checked above");
         if server.phase != MigrationPhase::Sync {
             return Err(format!(
                 "server `{server_id}` is in migration phase {:?}, not sync",
@@ -462,7 +463,10 @@ impl LibraryRuntime {
         let MigrationGenerationState::Active(active) = &*state else {
             return Err("no active library migration generation".to_string());
         };
-        let server = active.servers.get(server_id).expect("admission checked above");
+        let server = active
+            .servers
+            .get(server_id)
+            .expect("admission checked above");
         if server.phase != expected {
             return Err(format!(
                 "server `{server_id}` is in migration phase {:?}, not {expected:?}",
@@ -558,11 +562,7 @@ impl LibraryRuntime {
         Ok(())
     }
 
-    pub fn retry_migration_server(
-        &self,
-        generation: u64,
-        server_id: &str,
-    ) -> Result<(), String> {
+    pub fn retry_migration_server(&self, generation: u64, server_id: &str) -> Result<(), String> {
         let mut state = self
             .migration_generation
             .lock()

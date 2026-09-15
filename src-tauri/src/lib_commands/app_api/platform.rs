@@ -27,7 +27,10 @@ fn sanitized_wayland_text_profile(profile: &str) -> String {
 
 #[cfg(target_os = "linux")]
 fn wayland_text_profile_persist_path(app: &tauri::AppHandle) -> Option<PathBuf> {
-    app.path().app_config_dir().ok().map(|p| p.join(LINUX_WAYLAND_TEXT_PROFILE_FILE))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|p| p.join(LINUX_WAYLAND_TEXT_PROFILE_FILE))
 }
 
 /// Load persisted Wayland text profile into the in-process cache before the main webview is tuned.
@@ -63,7 +66,9 @@ fn remember_wayland_text_render_profile(profile: &str, app: Option<&tauri::AppHa
 
 /// Re-apply the last **Settings** Wayland text profile to a webview (used when the mini window is built).
 #[cfg(target_os = "linux")]
-pub(crate) fn linux_webkit_reapply_cached_wayland_text_render_profile(win: &tauri::WebviewWindow) -> Result<(), String> {
+pub(crate) fn linux_webkit_reapply_cached_wayland_text_render_profile(
+    win: &tauri::WebviewWindow,
+) -> Result<(), String> {
     let p = last_wayland_text_render_profile_cell()
         .lock()
         .ok()
@@ -121,21 +126,22 @@ pub(crate) fn linux_wayland_gpu_font_tuning_should_apply() -> bool {
 /// text is less often rasterised into GL layers (common "washed" / blurry look).
 /// No-op when [`linux_wayland_gpu_font_tuning_should_apply`] is false.
 #[cfg(target_os = "linux")]
-pub(crate) fn linux_webkit_apply_wayland_gpu_font_tuning(win: &tauri::WebviewWindow) -> Result<(), String> {
+pub(crate) fn linux_webkit_apply_wayland_gpu_font_tuning(
+    win: &tauri::WebviewWindow,
+) -> Result<(), String> {
     if !linux_wayland_gpu_font_tuning_should_apply() {
         return Ok(());
     }
-    win
-        .with_webview(|platform| {
-            use webkit2gtk::{SettingsExt, WebViewExt};
-            if let Some(settings) = platform.inner().settings() {
-                let policy = wayland_hw_acceleration_policy_from_env();
-                if settings.hardware_acceleration_policy() != policy {
-                    settings.set_hardware_acceleration_policy(policy);
-                }
+    win.with_webview(|platform| {
+        use webkit2gtk::{SettingsExt, WebViewExt};
+        if let Some(settings) = platform.inner().settings() {
+            let policy = wayland_hw_acceleration_policy_from_env();
+            if settings.hardware_acceleration_policy() != policy {
+                settings.set_hardware_acceleration_policy(policy);
             }
-        })
-        .map_err(|e| e.to_string())
+        }
+    })
+    .map_err(|e| e.to_string())
 }
 
 /// WebKitGTK auto-registers its **own** MPRIS player whenever an HTML
@@ -195,7 +201,8 @@ fn apply_window_decorations(
     if win.is_decorated().ok() == Some(enabled) {
         return Ok(());
     }
-    win.set_decorations(enabled).map_err(|error| error.to_string())?;
+    win.set_decorations(enabled)
+        .map_err(|error| error.to_string())?;
     // Re-enabling native decorations on GTK causes the window manager to
     // re-stack the window, which drops focus. Runtime preference changes need
     // focus restored; startup preparation runs while the window is still hidden.
@@ -246,7 +253,7 @@ pub(crate) fn set_window_decorations(
 ) -> Result<bool, String> {
     match state.apply_frontend_decorations(generation, transition, || {
         if let Some(win) = app_handle.get_webview_window("main") {
-                apply_window_decorations(&win, enabled, true)
+            apply_window_decorations(&win, enabled, true)
         } else {
             Ok(())
         }
@@ -261,7 +268,10 @@ pub(crate) fn set_window_decorations(
 
 /// WebKitGTK: `enable-smooth-scrolling` also drives deferred / kinetic wheel scrolling.
 #[cfg(target_os = "linux")]
-pub(crate) fn linux_webkit_apply_smooth_scrolling(win: &tauri::WebviewWindow, enabled: bool) -> Result<(), String> {
+pub(crate) fn linux_webkit_apply_smooth_scrolling(
+    win: &tauri::WebviewWindow,
+    enabled: bool,
+) -> Result<(), String> {
     win.with_webview(move |platform| {
         use webkit2gtk::{SettingsExt, WebViewExt};
         if let Some(settings) = platform.inner().settings() {
@@ -274,7 +284,10 @@ pub(crate) fn linux_webkit_apply_smooth_scrolling(win: &tauri::WebviewWindow, en
 /// Called from the frontend settings toggle (Linux); no-op on other platforms.
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn set_linux_webkit_smooth_scrolling(enabled: bool, app_handle: tauri::AppHandle) -> Result<(), String> {
+pub(crate) fn set_linux_webkit_smooth_scrolling(
+    enabled: bool,
+    app_handle: tauri::AppHandle,
+) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
         use tauri::Manager;
@@ -309,7 +322,9 @@ pub(crate) fn linux_wayland_gpu_font_tuning_active() -> bool {
 }
 
 #[cfg(target_os = "linux")]
-fn hardware_acceleration_policy_from_render_profile(profile: &str) -> webkit2gtk::HardwareAccelerationPolicy {
+fn hardware_acceleration_policy_from_render_profile(
+    profile: &str,
+) -> webkit2gtk::HardwareAccelerationPolicy {
     use webkit2gtk::HardwareAccelerationPolicy;
     match profile.trim() {
         // `Never` here has been observed to break main-viewport wheel scrolling on WebKitGTK
@@ -334,16 +349,15 @@ pub(crate) fn linux_webkit_apply_wayland_text_render_profile(
         return Ok(());
     }
     let policy = hardware_acceleration_policy_from_render_profile(profile);
-    win
-        .with_webview(move |platform| {
-            use webkit2gtk::{SettingsExt, WebViewExt};
-            if let Some(settings) = platform.inner().settings() {
-                if settings.hardware_acceleration_policy() != policy {
-                    settings.set_hardware_acceleration_policy(policy);
-                }
+    win.with_webview(move |platform| {
+        use webkit2gtk::{SettingsExt, WebViewExt};
+        if let Some(settings) = platform.inner().settings() {
+            if settings.hardware_acceleration_policy() != policy {
+                settings.set_hardware_acceleration_policy(policy);
             }
-        })
-        .map_err(|e| e.to_string())
+        }
+    })
+    .map_err(|e| e.to_string())
 }
 
 /// Persist the Wayland text profile for the next app start and for new mini-player webviews.

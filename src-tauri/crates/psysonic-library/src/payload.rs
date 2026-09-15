@@ -182,20 +182,24 @@ mod tests {
 
     #[test]
     fn idle_payload_failure_preserves_job_context() {
-        let mut payload =
-            LibrarySyncIdlePayload::ok("s1", "scope", "delta_sync", "foreground")
-                .with_job_id("job-1");
+        let mut payload = LibrarySyncIdlePayload::ok("s1", "scope", "delta_sync", "foreground")
+            .with_job_id("job-1");
         payload.mark_failed("identity maintenance failed");
 
         assert!(!payload.ok);
-        assert_eq!(payload.error.as_deref(), Some("identity maintenance failed"));
+        assert_eq!(
+            payload.error.as_deref(),
+            Some("identity maintenance failed")
+        );
         assert_eq!(payload.job_id.as_deref(), Some("job-1"));
     }
 
     #[test]
     fn phase_changed_maps_to_phase_kind() {
         let p = LibrarySyncProgressPayload::from_event(
-            &ProgressEvent::PhaseChanged { phase: "ingest".into() },
+            &ProgressEvent::PhaseChanged {
+                phase: "ingest".into(),
+            },
             "s1",
             "",
         );
@@ -263,7 +267,9 @@ mod tests {
     #[test]
     fn completed_event_records_kind_string() {
         let p = LibrarySyncProgressPayload::from_event(
-            &ProgressEvent::Completed { kind: "initial_sync".into() },
+            &ProgressEvent::Completed {
+                kind: "initial_sync".into(),
+            },
             "s1",
             "",
         );
@@ -274,7 +280,9 @@ mod tests {
     #[test]
     fn error_event_records_message() {
         let p = LibrarySyncProgressPayload::from_event(
-            &ProgressEvent::Error { message: "timeout".into() },
+            &ProgressEvent::Error {
+                message: "timeout".into(),
+            },
             "s1",
             "",
         );
@@ -309,7 +317,10 @@ mod tests {
         let metrics = json.get("ingestMetrics").unwrap();
         assert_eq!(metrics.get("fetchMs").and_then(|v| v.as_u64()), Some(120));
         assert_eq!(metrics.get("lockWaitMs").and_then(|v| v.as_u64()), Some(0));
-        assert_eq!(metrics.get("bulkIngestActive").and_then(|v| v.as_bool()), Some(true));
+        assert_eq!(
+            metrics.get("bulkIngestActive").and_then(|v| v.as_bool()),
+            Some(true)
+        );
     }
 
     #[test]

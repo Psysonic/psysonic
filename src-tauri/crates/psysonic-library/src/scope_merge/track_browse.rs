@@ -5,9 +5,9 @@ use super::browse_lists::{artist_row_to_dto, map_artist_list_row};
 use super::common::{
     album_row_to_dto, append_extra_where, ensure_cluster_keys_for_all_scopes,
     finish_scope_album_list, map_album_list_row, merge_binds, non_empty_scopes,
-    plain_track_columns_sql, scope_cte_sql, scoped_track_join,
-    scoped_track_join_layer1, ALBUM_DEDUP_KEY, ALBUM_PICK_KEY, ARTIST_DEDUP_KEY, ARTIST_PICK_KEY,
-    TRACK_DEDUP_KEY, TRACK_FTS_BM25_RANK,
+    plain_track_columns_sql, scope_cte_sql, scoped_track_join, scoped_track_join_layer1,
+    ALBUM_DEDUP_KEY, ALBUM_PICK_KEY, ARTIST_DEDUP_KEY, ARTIST_PICK_KEY, TRACK_DEDUP_KEY,
+    TRACK_FTS_BM25_RANK,
 };
 use crate::dto::{LibraryAlbumDto, LibraryArtistDto, LibraryScopePair, LibraryTrackDto};
 use crate::repos::row_to_track_row;

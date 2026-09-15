@@ -230,10 +230,8 @@ impl CoverCacheState {
         // album is coverless, skip the cached-placeholder peek and let the
         // external chain run first (below). OFF during `library_bulk`.
         let ext_gate_ok = ext_album_chain_armed(args);
-        let album_is_coverless =
-            args.cache_kind == "album" && args.cover_art_id.ends_with("_0");
-        let album_already_hit =
-            args.cache_kind == "album" && external_ensure::album_ext_hit(&dir);
+        let album_is_coverless = args.cache_kind == "album" && args.cover_art_id.ends_with("_0");
+        let album_already_hit = args.cache_kind == "album" && external_ensure::album_ext_hit(&dir);
 
         if !(ext_gate_ok && album_is_coverless && !album_already_hit) {
             if let Some(path) = ensure_peek(&dir, args.tier, args) {
@@ -278,11 +276,7 @@ impl CoverCacheState {
         // (30 min) and falls through to the cached placeholder below.
         if ext_gate_ok && album_is_coverless && !album_already_hit {
             if let Some(path) = external_ensure::try_external_album_cover(
-                args,
-                &dir,
-                &client,
-                &album_sem,
-                args.tier,
+                args, &dir, &client, &album_sem, args.tier,
             )
             .await
             {
@@ -360,11 +354,7 @@ impl CoverCacheState {
                     // recording a miss (OFF during library_bulk).
                     if ext_album_chain_armed(args) {
                         if let Some(path) = external_ensure::try_external_album_cover(
-                            args,
-                            &dir,
-                            &client,
-                            &album_sem,
-                            args.tier,
+                            args, &dir, &client, &album_sem, args.tier,
                         )
                         .await
                         {
@@ -823,7 +813,10 @@ mod tests {
         {
             let guard = map.lock().unwrap();
             let weak = guard.get(&dir).expect("entry registered");
-            assert!(weak.upgrade().is_some(), "live while a flight holds the Arc");
+            assert!(
+                weak.upgrade().is_some(),
+                "live while a flight holds the Arc"
+            );
         }
         drop(flight);
         {

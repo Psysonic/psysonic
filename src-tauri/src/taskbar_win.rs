@@ -25,12 +25,12 @@ use windows::{
         UI::{
             Shell::{
                 DefSubclassProc, ITaskbarList3, RemoveWindowSubclass, SetWindowSubclass,
-                TaskbarList, THUMBBUTTON, THUMBBUTTONFLAGS, THUMBBUTTONMASK, THBN_CLICKED,
-                THB_FLAGS, THB_ICON, THB_TOOLTIP,
+                TaskbarList, THBN_CLICKED, THB_FLAGS, THB_ICON, THB_TOOLTIP, THUMBBUTTON,
+                THUMBBUTTONFLAGS, THUMBBUTTONMASK,
             },
             WindowsAndMessaging::{
-                CreateIconFromResourceEx, DestroyIcon, HICON, LR_DEFAULTCOLOR,
-                RegisterWindowMessageW, WM_COMMAND, WM_NCDESTROY,
+                CreateIconFromResourceEx, DestroyIcon, RegisterWindowMessageW, HICON,
+                LR_DEFAULTCOLOR, WM_COMMAND, WM_NCDESTROY,
             },
         },
     },
@@ -38,10 +38,10 @@ use windows::{
 
 // ── Embedded ICO assets ──────────────────────────────────────────────────────
 
-static PREV_ICO:  &[u8] = include_bytes!("../icons/windows/prev.ico");
-static PLAY_ICO:  &[u8] = include_bytes!("../icons/windows/play.ico");
+static PREV_ICO: &[u8] = include_bytes!("../icons/windows/prev.ico");
+static PLAY_ICO: &[u8] = include_bytes!("../icons/windows/play.ico");
 static PAUSE_ICO: &[u8] = include_bytes!("../icons/windows/pause.ico");
-static NEXT_ICO:  &[u8] = include_bytes!("../icons/windows/next.ico");
+static NEXT_ICO: &[u8] = include_bytes!("../icons/windows/next.ico");
 
 // Button IDs — arbitrary u32 values, must fit in WPARAM low-word.
 const BTN_PREV: u32 = 0xE001;
@@ -54,13 +54,13 @@ const SUBCLASS_ID: usize = 0xC0DE_7A8B;
 // Raw pointers kept as atomics so `update_taskbar_icon` can reach the
 // COM object and icons without managed state.
 static TASKBAR_PTR: AtomicIsize = AtomicIsize::new(0);
-static HWND_VAL:    AtomicIsize = AtomicIsize::new(0);
+static HWND_VAL: AtomicIsize = AtomicIsize::new(0);
 
 // All four HICONs stored for WM_NCDESTROY cleanup and play/pause swapping.
-static HICON_PREV:  AtomicIsize = AtomicIsize::new(0);
-static HICON_PLAY:  AtomicIsize = AtomicIsize::new(0);
+static HICON_PREV: AtomicIsize = AtomicIsize::new(0);
+static HICON_PLAY: AtomicIsize = AtomicIsize::new(0);
 static HICON_PAUSE: AtomicIsize = AtomicIsize::new(0);
-static HICON_NEXT:  AtomicIsize = AtomicIsize::new(0);
+static HICON_NEXT: AtomicIsize = AtomicIsize::new(0);
 
 // Registered window-message id for the shell's "TaskbarButtonCreated"
 // broadcast (0 until registered in `init`).
@@ -101,8 +101,8 @@ unsafe fn load_icon_from_memory(bytes: &[u8]) -> HICON {
         }
     }
 
-    let entry      = &bytes[6 + best_idx * 16..];
-    let img_size   = u32::from_le_bytes(entry[8..12].try_into().unwrap_or([0; 4]));
+    let entry = &bytes[6 + best_idx * 16..];
+    let img_size = u32::from_le_bytes(entry[8..12].try_into().unwrap_or([0; 4]));
     let img_offset = u32::from_le_bytes(entry[12..16].try_into().unwrap_or([0; 4])) as usize;
 
     if img_size == 0 || img_offset + img_size as usize > bytes.len() {
@@ -113,7 +113,8 @@ unsafe fn load_icon_from_memory(bytes: &[u8]) -> HICON {
         &bytes[img_offset..img_offset + img_size as usize],
         true,        // fIcon = TRUE
         0x0003_0000, // dwVer = 3.0 (required by the API)
-        0, 0,        // cxDesired / cyDesired — 0 lets the system choose
+        0,
+        0, // cxDesired / cyDesired — 0 lets the system choose
         LR_DEFAULTCOLOR,
     )
     .unwrap_or_default()
@@ -127,12 +128,8 @@ fn copy_tip(dest: &mut [u16], src: &str) {
     dest[..len].copy_from_slice(&wide[..len]);
 }
 
-unsafe fn make_buttons(
-    h_prev: HICON,
-    h_play: HICON,
-    h_next: HICON,
-) -> [THUMBBUTTON; 3] {
-    let mask  = THUMBBUTTONMASK(THB_ICON.0 | THB_TOOLTIP.0 | THB_FLAGS.0);
+unsafe fn make_buttons(h_prev: HICON, h_play: HICON, h_next: HICON) -> [THUMBBUTTON; 3] {
+    let mask = THUMBBUTTONMASK(THB_ICON.0 | THB_TOOLTIP.0 | THB_FLAGS.0);
     let flags = THUMBBUTTONFLAGS(0); // THBF_ENABLED
 
     let mut prev = THUMBBUTTON {
@@ -172,12 +169,12 @@ struct SubclassData {
 }
 
 unsafe extern "system" fn subclass_proc(
-    hwnd:   HWND,
-    msg:    u32,
+    hwnd: HWND,
+    msg: u32,
     wparam: WPARAM,
     lparam: LPARAM,
-    _uid:   usize,
-    data:   usize,
+    _uid: usize,
+    data: usize,
 ) -> LRESULT {
     // The shell sends this once the taskbar button exists (on the first window
     // show) and again after an explorer.exe restart — the only safe moment to
@@ -218,7 +215,9 @@ unsafe extern "system" fn subclass_proc(
         // Destroy all stored HICONs.
         for cell in [&HICON_PREV, &HICON_PLAY, &HICON_PAUSE, &HICON_NEXT] {
             let h = cell.swap(0, Ordering::SeqCst);
-            if h != 0 { let _ = DestroyIcon(HICON(h as *mut _)); }
+            if h != 0 {
+                let _ = DestroyIcon(HICON(h as *mut _));
+            }
         }
     }
 
@@ -237,16 +236,20 @@ unsafe extern "system" fn subclass_proc(
 /// taskbar button does not exist yet).
 unsafe fn add_thumb_buttons() {
     let taskbar_raw = TASKBAR_PTR.load(Ordering::SeqCst);
-    let hwnd_raw    = HWND_VAL.load(Ordering::SeqCst);
-    if taskbar_raw == 0 || hwnd_raw == 0 { return; }
+    let hwnd_raw = HWND_VAL.load(Ordering::SeqCst);
+    if taskbar_raw == 0 || hwnd_raw == 0 {
+        return;
+    }
 
     let h_prev = HICON_PREV.load(Ordering::SeqCst);
     let h_play = HICON_PLAY.load(Ordering::SeqCst);
     let h_next = HICON_NEXT.load(Ordering::SeqCst);
-    if h_prev == 0 || h_play == 0 || h_next == 0 { return; }
+    if h_prev == 0 || h_play == 0 || h_next == 0 {
+        return;
+    }
 
     let taskbar = &*(taskbar_raw as *const ITaskbarList3);
-    let hwnd    = HWND(hwnd_raw as *mut _);
+    let hwnd = HWND(hwnd_raw as *mut _);
 
     // Harmless on an already-initialised object; required again after an
     // explorer restart recreates the taskbar button.
@@ -270,28 +273,30 @@ pub fn init(app: &AppHandle, hwnd_raw: isize) {
 
         let hwnd = HWND(hwnd_raw as *mut _);
 
-        let taskbar: ITaskbarList3 = match CoCreateInstance(
-            &TaskbarList, None, CLSCTX_INPROC_SERVER,
-        ) {
-            Ok(t)  => t,
-            Err(e) => { crate::app_eprintln!("[psysonic] taskbar: CoCreateInstance failed: {e}"); return; }
-        };
+        let taskbar: ITaskbarList3 =
+            match CoCreateInstance(&TaskbarList, None, CLSCTX_INPROC_SERVER) {
+                Ok(t) => t,
+                Err(e) => {
+                    crate::app_eprintln!("[psysonic] taskbar: CoCreateInstance failed: {e}");
+                    return;
+                }
+            };
 
         if let Err(e) = taskbar.HrInit() {
             crate::app_eprintln!("[psysonic] taskbar: HrInit failed: {e}");
             return;
         }
 
-        let h_prev  = load_icon_from_memory(PREV_ICO);
-        let h_play  = load_icon_from_memory(PLAY_ICO);
+        let h_prev = load_icon_from_memory(PREV_ICO);
+        let h_play = load_icon_from_memory(PLAY_ICO);
         let h_pause = load_icon_from_memory(PAUSE_ICO);
-        let h_next  = load_icon_from_memory(NEXT_ICO);
+        let h_next = load_icon_from_memory(NEXT_ICO);
 
         // Store all HICONs for cleanup and play/pause swapping.
-        HICON_PREV .store(h_prev .0 as isize, Ordering::SeqCst);
-        HICON_PLAY .store(h_play .0 as isize, Ordering::SeqCst);
+        HICON_PREV.store(h_prev.0 as isize, Ordering::SeqCst);
+        HICON_PLAY.store(h_play.0 as isize, Ordering::SeqCst);
         HICON_PAUSE.store(h_pause.0 as isize, Ordering::SeqCst);
-        HICON_NEXT .store(h_next .0 as isize, Ordering::SeqCst);
+        HICON_NEXT.store(h_next.0 as isize, Ordering::SeqCst);
 
         // Register the shell's "TaskbarButtonCreated" message. The buttons are
         // added from the subclass proc when it fires (after the first window
@@ -302,7 +307,7 @@ pub fn init(app: &AppHandle, hwnd_raw: isize) {
 
         let raw = Box::into_raw(Box::new(taskbar));
         TASKBAR_PTR.store(raw as isize, Ordering::SeqCst);
-        HWND_VAL   .store(hwnd_raw,     Ordering::SeqCst);
+        HWND_VAL.store(hwnd_raw, Ordering::SeqCst);
 
         let data = Box::into_raw(Box::new(SubclassData { app: app.clone() }));
         if !SetWindowSubclass(hwnd, Some(subclass_proc), SUBCLASS_ID, data as usize).as_bool() {
@@ -317,19 +322,23 @@ pub fn init(app: &AppHandle, hwnd_raw: isize) {
 #[tauri::command]
 pub fn update_taskbar_icon(is_playing: bool) {
     let taskbar_raw = TASKBAR_PTR.load(Ordering::SeqCst);
-    let hwnd_raw    = HWND_VAL   .load(Ordering::SeqCst);
-    if taskbar_raw == 0 || hwnd_raw == 0 { return; }
+    let hwnd_raw = HWND_VAL.load(Ordering::SeqCst);
+    if taskbar_raw == 0 || hwnd_raw == 0 {
+        return;
+    }
 
     let icon_raw = if is_playing {
         HICON_PAUSE.load(Ordering::SeqCst)
     } else {
         HICON_PLAY.load(Ordering::SeqCst)
     };
-    if icon_raw == 0 { return; }
+    if icon_raw == 0 {
+        return;
+    }
 
     unsafe {
         let taskbar = &*(taskbar_raw as *const ITaskbarList3);
-        let hwnd    = HWND(hwnd_raw as *mut _);
+        let hwnd = HWND(hwnd_raw as *mut _);
 
         let mut btn = THUMBBUTTON {
             dwMask: THUMBBUTTONMASK(THB_ICON.0 | THB_TOOLTIP.0 | THB_FLAGS.0),

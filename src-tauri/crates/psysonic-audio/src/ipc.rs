@@ -25,15 +25,23 @@ pub(crate) struct NormalizationStatePayload {
 /// payloads. The frontend already debounces this event, but on Windows
 /// (WebView2) the IPC pipe is the bottleneck — every echo we skip here is
 /// renderer-thread time we don't pay.
-pub(crate) static LAST_NORM_STATE_EMIT: OnceLock<Mutex<Option<NormalizationStatePayload>>> = OnceLock::new();
+pub(crate) static LAST_NORM_STATE_EMIT: OnceLock<Mutex<Option<NormalizationStatePayload>>> =
+    OnceLock::new();
 
 pub(crate) fn norm_state_lock() -> &'static Mutex<Option<NormalizationStatePayload>> {
     LAST_NORM_STATE_EMIT.get_or_init(|| Mutex::new(None))
 }
 
-pub(crate) fn norm_state_changed(prev: &NormalizationStatePayload, next: &NormalizationStatePayload) -> bool {
-    if prev.engine != next.engine { return true; }
-    if (prev.target_lufs - next.target_lufs).abs() >= 0.02 { return true; }
+pub(crate) fn norm_state_changed(
+    prev: &NormalizationStatePayload,
+    next: &NormalizationStatePayload,
+) -> bool {
+    if prev.engine != next.engine {
+        return true;
+    }
+    if (prev.target_lufs - next.target_lufs).abs() >= 0.02 {
+        return true;
+    }
     match (prev.current_gain_db, next.current_gain_db) {
         (None, None) => false,
         (Some(a), Some(b)) => (a - b).abs() >= 0.05,
@@ -47,7 +55,9 @@ pub(crate) fn maybe_emit_normalization_state(app: &AppHandle, payload: Normaliza
         Some(prev) => norm_state_changed(prev, &payload),
         None => true,
     };
-    if !should_emit { return; }
+    if !should_emit {
+        return;
+    }
     *guard = Some(payload.clone());
     drop(guard);
     let _ = app.emit("audio:normalization-state", payload);
@@ -59,7 +69,9 @@ pub(crate) fn maybe_emit_normalization_state(app: &AppHandle, payload: Normaliza
 /// the time-based throttle alone is not enough to keep the loop quiet. A replay
 /// starts a new generation and must emit its first provisional gain even when it
 /// happens to match the previous play.
-pub(crate) static LAST_PARTIAL_LOUDNESS_EMIT: OnceLock<Mutex<std::collections::HashMap<String, (u64, f32)>>> = OnceLock::new();
+pub(crate) static LAST_PARTIAL_LOUDNESS_EMIT: OnceLock<
+    Mutex<std::collections::HashMap<String, (u64, f32)>>,
+> = OnceLock::new();
 pub(crate) const PARTIAL_LOUDNESS_DELTA_THRESHOLD_DB: f32 = 0.1;
 
 pub(crate) fn partial_loudness_should_emit(track_key: &str, generation: u64, gain_db: f32) -> bool {
@@ -177,7 +189,10 @@ mod tests {
     fn partial_loudness_emits_again_when_threshold_is_crossed() {
         let key = "test-emits-after-threshold";
         assert!(partial_loudness_should_emit(key, 1, -3.0));
-        assert!(partial_loudness_should_emit(key, 1, -3.5), "delta >= 0.1 dB re-emits");
+        assert!(
+            partial_loudness_should_emit(key, 1, -3.5),
+            "delta >= 0.1 dB re-emits"
+        );
     }
 
     #[test]

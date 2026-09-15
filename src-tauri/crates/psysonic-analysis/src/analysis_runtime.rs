@@ -6,6 +6,7 @@ mod http_backfill;
 mod trusted_revision;
 mod types;
 
+pub use admission::analysis_migration_admission_guard;
 pub use backfill_queue::{
     analysis_backfill_shared, AnalysisBackfillQueueState, AnalysisBackfillShared,
     PlaybackPriorityHints,
@@ -16,7 +17,6 @@ pub use cpu_seed::{
     analysis_track_in_cpu_pipeline, clear_analysis_backfill_failure_state, prune_analysis_queues,
     quiesce_analysis_for_migration,
 };
-pub use admission::analysis_migration_admission_guard;
 pub use enqueue::{
     analysis_backfill_is_current_track, analysis_backfill_resolve_priority,
     analysis_emits_ui_events, enqueue_analysis_seed, enqueue_offline_library_analysis_from_file,

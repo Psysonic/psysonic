@@ -1,7 +1,9 @@
 use rusqlite::params;
 use serde_json::json;
 
-use crate::repos::TrackRepository;
+use super::super::native_strong_keys_reconcile::{
+    maybe_reconcile_native_strong_keys_backfill, NATIVE_STRONG_KEYS_BACKFILL_RECONCILE_ID,
+};
 use super::super::reconciles::{
     maybe_reconcile_artist_name_fold, maybe_reconcile_artist_name_sort,
     maybe_reconcile_duration_sec_backfill, maybe_reconcile_library_id_backfill,
@@ -10,11 +12,9 @@ use super::super::reconciles::{
     DURATION_SEC_BACKFILL_RECONCILE_ID, LIBRARY_ID_BACKFILL_RECONCILE_ID,
     ORPHAN_BROWSE_RECONCILE_ID,
 };
-use super::super::native_strong_keys_reconcile::{
-    maybe_reconcile_native_strong_keys_backfill, NATIVE_STRONG_KEYS_BACKFILL_RECONCILE_ID,
-};
 use super::super::track_timestamp_reconcile::TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID;
 use super::super::{LibraryBackfillStep, LibraryStore, TrackTimestampBackfillStep};
+use crate::repos::TrackRepository;
 
 #[test]
 fn migration_022_backfills_unicode_artist_name_fold() {
@@ -774,7 +774,11 @@ fn native_strong_keys_backfill_fills_columns_from_raw_json_and_links_once() {
             ("column-wins".into(), Some("USRC-COL".into()), None),
             ("keyed-unlinked".into(), Some("USRC-K".into()), None),
             ("mbid-only".into(), None, Some("mb-only".into())),
-            ("native".into(), Some("USRC-N1".into()), Some("mb-native".into())),
+            (
+                "native".into(),
+                Some("USRC-N1".into()),
+                Some("mb-native".into())
+            ),
             ("no-keys".into(), None, None),
             ("tombstone".into(), None, None),
         ]
@@ -823,7 +827,9 @@ fn native_strong_keys_backfill_fills_columns_from_raw_json_and_links_once() {
         .expect("guarded strong-key backfill");
     let isrc_after: Option<String> = store
         .with_read_conn(|conn| {
-            conn.query_row("SELECT isrc FROM track WHERE id = 'native'", [], |row| row.get(0))
+            conn.query_row("SELECT isrc FROM track WHERE id = 'native'", [], |row| {
+                row.get(0)
+            })
         })
         .expect("isrc after guarded re-run");
     assert_eq!(isrc_after, None, "the completion marker stops the pass");

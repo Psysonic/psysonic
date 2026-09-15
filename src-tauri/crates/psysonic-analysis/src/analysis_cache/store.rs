@@ -10,11 +10,11 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::Connection;
 
-#[allow(unused_imports)]
-pub(crate) use migrations::run_migrations_with;
 pub use migration::{
     AnalysisMigrationBatchDto, AnalysisMigrationFinalizeDto, AnalysisMigrationStep,
 };
+#[allow(unused_imports)]
+pub(crate) use migrations::run_migrations_with;
 
 pub(super) const WAVEFORM_ALGO_VERSION: i64 = 4;
 pub(super) const LOUDNESS_ALGO_VERSION: i64 = 1;
@@ -137,8 +137,7 @@ impl AnalysisCache {
         operation: impl FnOnce() -> R,
     ) -> R {
         psysonic_core::migration_write_barrier::MigrationWriteBarrier::scope_sync(
-            generation,
-            operation,
+            generation, operation,
         )
     }
 }

@@ -95,7 +95,12 @@ pub async fn fetch_lastfm_album_image_with_base(
     }
 
     let v: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
-    let images = v.get("album").and_then(|a| a.get("image")).and_then(|i| i.as_array()).cloned().unwrap_or_default();
+    let images = v
+        .get("album")
+        .and_then(|a| a.get("image"))
+        .and_then(|i| i.as_array())
+        .cloned()
+        .unwrap_or_default();
     for size in ["mega", "extralarge", "large", "medium", "small"] {
         if let Some(url) = images
             .iter()

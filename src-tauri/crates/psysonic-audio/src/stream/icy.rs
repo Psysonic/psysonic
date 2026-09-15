@@ -28,7 +28,10 @@ pub(crate) struct IcyInterceptor {
 
 impl IcyInterceptor {
     pub(crate) fn new(metaint: usize) -> Self {
-        Self { metaint, state: IcyState::ReadingAudio { remaining: metaint } }
+        Self {
+            metaint,
+            state: IcyState::ReadingAudio { remaining: metaint },
+        }
     }
 
     /// Feed a raw HTTP chunk.
@@ -52,7 +55,9 @@ impl IcyInterceptor {
                     let len_n = input[i] as usize;
                     i += 1;
                     self.state = if len_n == 0 {
-                        IcyState::ReadingAudio { remaining: self.metaint }
+                        IcyState::ReadingAudio {
+                            remaining: self.metaint,
+                        }
                     } else {
                         IcyState::ReadingMetadata {
                             remaining: len_n * 16,
@@ -68,7 +73,9 @@ impl IcyInterceptor {
                     if *remaining == 0 {
                         let bytes = std::mem::take(buf);
                         extracted = parse_icy_meta(&bytes);
-                        self.state = IcyState::ReadingAudio { remaining: self.metaint };
+                        self.state = IcyState::ReadingAudio {
+                            remaining: self.metaint,
+                        };
                     }
                 }
             }
@@ -176,7 +183,10 @@ mod tests {
         let input: Vec<u8> = b"AAAA\x00BBBB".to_vec();
         let result = icy.process(&input, &mut audio);
         assert_eq!(audio, b"AAAABBBB");
-        assert!(result.is_none(), "zero-length metadata block produces no IcyMeta");
+        assert!(
+            result.is_none(),
+            "zero-length metadata block produces no IcyMeta"
+        );
     }
 
     #[test]
@@ -228,14 +238,17 @@ mod tests {
         // First block: AA + length=1 + 16-byte meta
         let mut input = b"AA\x01".to_vec();
         input.extend_from_slice(b"StreamTitle='1';"); // exactly 16 bytes
-        // Second block: BB + length=1 + 16-byte meta
+                                                      // Second block: BB + length=1 + 16-byte meta
         input.extend_from_slice(b"BB\x01");
         input.extend_from_slice(b"StreamTitle='2';"); // exactly 16 bytes
-        // Trailing audio
+                                                      // Trailing audio
         input.extend_from_slice(b"CC");
 
         let _ = icy.process(&input, &mut audio);
-        assert_eq!(audio, b"AABBCC", "all audio bytes survive across two cycles");
+        assert_eq!(
+            audio, b"AABBCC",
+            "all audio bytes survive across two cycles"
+        );
 
         // Title verification with split input: a single process() returns at
         // most one IcyMeta, so feed the two metadata blocks in separate calls.

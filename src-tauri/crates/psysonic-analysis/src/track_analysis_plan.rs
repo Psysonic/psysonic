@@ -311,7 +311,10 @@ mod tests {
         let cache = AnalysisCache::open_in_memory();
         seed_waveform_loudness(&cache, "s1", "stream:t1", "abc");
         let (wf, ld) = cache_gaps_for_content(Some(&cache), "s1", "t1", "abc");
-        assert!(!wf && !ld, "bare id should resolve stream: cached fingerprint");
+        assert!(
+            !wf && !ld,
+            "bare id should resolve stream: cached fingerprint"
+        );
     }
 
     #[test]
@@ -319,9 +322,11 @@ mod tests {
         let cache = AnalysisCache::open_in_memory();
         seed_waveform_loudness(&cache, "navidrome.test:4533", "t1", "abc");
         let (wf, ld) = cache_gaps_for_content(Some(&cache), "library-uuid", "t1", "abc");
-        assert!(wf && ld, "library uuid alone should miss playback-scoped cache");
+        assert!(
+            wf && ld,
+            "library uuid alone should miss playback-scoped cache"
+        );
         let (wf2, ld2) = cache_gaps_for_content(Some(&cache), "navidrome.test:4533", "t1", "abc");
         assert!(!wf2 && !ld2, "playback index key should hit the cached row");
     }
-
 }

@@ -134,12 +134,8 @@ fn apply_album_list_page_preserves_album_version_and_invalidates_identity() {
         .unwrap();
     crate::identity::rebuild_cluster_keys(&store, None).unwrap();
 
-    repo.apply_album_list_page(
-        "s1",
-        "1",
-        &[album_summary("al1", Some("Deluxe Edition"))],
-    )
-    .unwrap();
+    repo.apply_album_list_page("s1", "1", &[album_summary("al1", Some("Deluxe Edition"))])
+        .unwrap();
 
     let (raw, album_raw, pending): (String, String, i64) = store
         .with_read_conn(|conn| {
@@ -483,9 +479,7 @@ fn sparse_omission_is_healed_by_the_next_album_list_page() {
     let raw: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(raw["albumVersion"], json!("Fresh"));
     assert_eq!(raw["_psysonicAlbumVersionFromList"], json!(true));
-    assert!(raw
-        .get("_psysonicAlbumVersionNeedsListRefresh")
-        .is_none());
+    assert!(raw.get("_psysonicAlbumVersionNeedsListRefresh").is_none());
 
     repo.apply_album_list_page("s1", "1", &[album_summary("al1", None)])
         .unwrap();
@@ -537,9 +531,7 @@ fn authoritative_top_level_clear_removes_stale_tag_fallback() {
     let raw: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert!(raw.get("albumVersion").is_none());
     assert!(raw.pointer("/tags/albumversion").is_none());
-    assert!(raw
-        .get("_psysonicAlbumVersionNeedsListRefresh")
-        .is_none());
+    assert!(raw.get("_psysonicAlbumVersionNeedsListRefresh").is_none());
 
     let mut newly_inserted = row("s1", "t2", "Second");
     newly_inserted.raw_json = json!({

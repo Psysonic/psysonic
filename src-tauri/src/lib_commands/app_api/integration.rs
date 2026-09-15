@@ -38,7 +38,9 @@ pub(crate) fn register_global_shortcut(
         map.insert(shortcut.clone(), action.clone());
         drop(map); // release lock before the blocking OS call
 
-        let parsed: Shortcut = shortcut.parse().map_err(|_| format!("Invalid shortcut: {shortcut}"))?;
+        let parsed: Shortcut = shortcut
+            .parse()
+            .map_err(|_| format!("Invalid shortcut: {shortcut}"))?;
         app.global_shortcut()
             .on_shortcut(parsed, move |app, _shortcut, event| {
                 if event.state == ShortcutState::Pressed {
@@ -66,8 +68,12 @@ pub(crate) fn unregister_global_shortcut(
     {
         use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
         shortcut_map.lock().unwrap().remove(&shortcut);
-        let parsed: Shortcut = shortcut.parse().map_err(|_| format!("Invalid shortcut: {shortcut}"))?;
-        app.global_shortcut().unregister(parsed).map_err(|e| e.to_string())
+        let parsed: Shortcut = shortcut
+            .parse()
+            .map_err(|_| format!("Invalid shortcut: {shortcut}"))?;
+        app.global_shortcut()
+            .unregister(parsed)
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -86,7 +92,9 @@ pub(crate) fn mpris_set_metadata(
 
     let duration = duration_secs.map(Duration::from_secs_f64);
     let mut guard = controls.lock().unwrap();
-    let Some(ctrl) = guard.as_mut() else { return Ok(()); };
+    let Some(ctrl) = guard.as_mut() else {
+        return Ok(());
+    };
 
     // #1102: Windows SMTC cannot render our cached WebP covers. souvlaki loads
     // the file and SetThumbnail/set_metadata succeed, but the lock screen and
@@ -165,7 +173,9 @@ pub(crate) fn mpris_set_playback(
         MediaPlayback::Paused { progress }
     };
     let mut guard = controls.lock().unwrap();
-    let Some(ctrl) = guard.as_mut() else { return Ok(()); };
+    let Some(ctrl) = guard.as_mut() else {
+        return Ok(());
+    };
     ctrl.set_playback(playback)
         .map_err(|e| format!("MPRIS set_playback failed: {e:?}"))
 }
@@ -182,7 +192,9 @@ pub(crate) fn mpris_set_volume(
     #[cfg(target_os = "linux")]
     {
         let mut guard = controls.lock().unwrap();
-        let Some(ctrl) = guard.as_mut() else { return Ok(()); };
+        let Some(ctrl) = guard.as_mut() else {
+            return Ok(());
+        };
         ctrl.set_volume(volume)
             .map_err(|e| format!("MPRIS set_volume failed: {e:?}"))
     }

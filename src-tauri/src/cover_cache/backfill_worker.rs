@@ -165,7 +165,9 @@ impl CoverBackfillWorker {
 
     /// Current backfill download/encode concurrency.
     pub fn parallel(&self) -> usize {
-        self.parallel.load(Ordering::Relaxed).max(LIBRARY_BACKFILL_PARALLEL_MIN)
+        self.parallel
+            .load(Ordering::Relaxed)
+            .max(LIBRARY_BACKFILL_PARALLEL_MIN)
     }
 
     /// Retune backfill concurrency at runtime. Resizes the shared HTTP permit
@@ -239,7 +241,10 @@ impl CoverBackfillWorker {
     }
 }
 
-fn sync_allows_cover_backfill(store: &psysonic_library::store::LibraryStore, server_id: &str) -> bool {
+fn sync_allows_cover_backfill(
+    store: &psysonic_library::store::LibraryStore,
+    server_id: &str,
+) -> bool {
     let repo = SyncStateRepository::new(store);
     match repo.get_sync_phase(server_id, "") {
         Ok(Some(phase)) => phase != "initial_sync" && phase != "probing",
@@ -255,7 +260,10 @@ fn session_matches_server(session: &CoverBackfillSession, server_id: &str) -> bo
 /// server). A connect-URL flip keeps the same `server_index_key` and is picked
 /// up live via `worker.base_url()`, so it does not abort the pass — only a
 /// server switch or disable does.
-async fn session_still_focused(worker: &CoverBackfillWorker, expected: &CoverBackfillSession) -> bool {
+async fn session_still_focused(
+    worker: &CoverBackfillWorker,
+    expected: &CoverBackfillSession,
+) -> bool {
     if !worker.enabled.load(Ordering::Relaxed) || worker.migration_hold() {
         return false;
     }
@@ -647,7 +655,11 @@ async fn current_cover_signature(
 
 /// True when the previous pass settled with nothing pending and the catalog
 /// still matches that signature — so an idle event need not rescan.
-async fn cover_idle_gate_should_skip(app: &AppHandle, worker: &CoverBackfillWorker, session: &CoverBackfillSession) -> bool {
+async fn cover_idle_gate_should_skip(
+    app: &AppHandle,
+    worker: &CoverBackfillWorker,
+    session: &CoverBackfillSession,
+) -> bool {
     let Some(settled) = *worker.settled.lock().await else {
         return false;
     };
@@ -704,7 +716,10 @@ pub fn setup_library_sync_idle_listener(app: &AppHandle) {
 }
 
 /// Legacy single-step API (optional diagnostics).
-pub async fn pulse_backfill(app: &AppHandle, _worker: &Arc<CoverBackfillWorker>) -> CoverBackfillPulseDto {
+pub async fn pulse_backfill(
+    app: &AppHandle,
+    _worker: &Arc<CoverBackfillWorker>,
+) -> CoverBackfillPulseDto {
     if try_schedule_full_pass(app, false).await {
         return CoverBackfillPulseDto {
             scheduled: 0,

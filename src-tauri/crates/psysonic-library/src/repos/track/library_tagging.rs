@@ -129,7 +129,7 @@ impl TrackRepository<'_> {
                     };
                     let track_changes = tx
                         .prepare_cached(
-                        "UPDATE track SET raw_json = json_set( \
+                            "UPDATE track SET raw_json = json_set( \
                            json_remove( \
                              CASE WHEN json_valid(raw_json) THEN \
                                CASE WHEN json_type(raw_json, '$') = 'object' \
@@ -211,7 +211,7 @@ impl TrackRepository<'_> {
                         .execute(params![server_id, album.id, version])?;
                     let album_changes = tx
                         .prepare_cached(
-                        "UPDATE album SET raw_json = json_set( \
+                            "UPDATE album SET raw_json = json_set( \
                            json_remove( \
                              CASE WHEN json_valid(raw_json) THEN \
                                CASE WHEN json_type(raw_json, '$') = 'object' \
@@ -272,7 +272,8 @@ impl TrackRepository<'_> {
                     .chunks(CHUNK)
                 {
                     let placeholders = (0..chunk.len()).map(|_| "?").collect::<Vec<_>>().join(", ");
-                    let mut lookup_params = vec![rusqlite::types::Value::Text(server_id.to_string())];
+                    let mut lookup_params =
+                        vec![rusqlite::types::Value::Text(server_id.to_string())];
                     lookup_params.extend(
                         chunk
                             .iter()

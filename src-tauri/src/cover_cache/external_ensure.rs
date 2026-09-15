@@ -6,8 +6,8 @@
 //! site in `mod.rs`. Pure code move; behaviour unchanged.
 
 use super::encode::write_webp_tier;
-use super::{decode_image_bytes, disk, external, fetch, peek_fallback_tiers, peek_tier_path};
 use super::CoverCacheEnsureArgs;
+use super::{decode_image_bytes, disk, external, fetch, peek_fallback_tiers, peek_tier_path};
 use psysonic_integration::discord::ArtworkCacheEntry;
 use psysonic_library::LibraryRuntime;
 use reqwest::Client;
@@ -43,7 +43,11 @@ pub(super) fn external_surface(surface_kind: Option<&str>) -> Option<&str> {
 /// returns None so ensure runs the external branch (fetch; Navidrome is the
 /// fallback inside that branch's miss path) instead of short-circuiting on a
 /// cached Navidrome tier (§18, "external prioritised").
-pub(super) fn peek_cover_path(dir: &Path, want: u32, args: &CoverCacheEnsureArgs) -> Option<PathBuf> {
+pub(super) fn peek_cover_path(
+    dir: &Path,
+    want: u32,
+    args: &CoverCacheEnsureArgs,
+) -> Option<PathBuf> {
     if let Some(surface) = external_surface(args.surface_kind.as_deref()) {
         if let Some(p) = disk::provider_tier_exists(dir, want, surface) {
             return Some(p);
@@ -127,12 +131,17 @@ async fn read_artist_lookup(
     surface: &str,
 ) -> Option<psysonic_library::artist_artwork::ArtistArtworkRow> {
     let store = store.clone()?;
-    let (server_id, artist_id, surface) =
-        (server_id.to_string(), artist_id.to_string(), surface.to_string());
+    let (server_id, artist_id, surface) = (
+        server_id.to_string(),
+        artist_id.to_string(),
+        surface.to_string(),
+    );
     tauri::async_runtime::spawn_blocking(move || {
-        psysonic_library::artist_artwork::get_artist_artwork(&store, &server_id, &artist_id, &surface)
-            .ok()
-            .flatten()
+        psysonic_library::artist_artwork::get_artist_artwork(
+            &store, &server_id, &artist_id, &surface,
+        )
+        .ok()
+        .flatten()
     })
     .await
     .ok()
@@ -300,8 +309,15 @@ pub(super) async fn try_external_fanart(
                             }
                             Ok(external::MbResolution::Ambiguous) => {
                                 persist_artist_lookup(
-                                    &store, server_id, artist_id, surface, "mbid_ambiguous", None,
-                                    None, None, now,
+                                    &store,
+                                    server_id,
+                                    artist_id,
+                                    surface,
+                                    "mbid_ambiguous",
+                                    None,
+                                    None,
+                                    None,
+                                    now,
                                 )
                                 .await;
                                 return None;
@@ -336,37 +352,32 @@ pub(super) async fn try_external_fanart(
         },
     };
 
-    let img_url = match external::fetch_fanart_image_url(
-        client,
-        &mbid,
-        &api_key,
-        byok.as_deref(),
-        surface,
-    )
-    .await
-    {
-        Ok(Some(u)) => u,
-        Ok(None) => {
-            write_marker(&miss_marker); // artist has no image of this kind
-            persist_artist_lookup(
-                &store,
-                server_id,
-                artist_id,
-                surface,
-                "miss",
-                Some(&mbid),
-                mbid_source.as_deref(),
-                None,
-                now,
-            )
-            .await;
-            return None;
-        }
-        Err(e) => {
-            eprintln!("[fanart] lookup failed: {e}"); // transient — don't cache
-            return None;
-        }
-    };
+    let img_url =
+        match external::fetch_fanart_image_url(client, &mbid, &api_key, byok.as_deref(), surface)
+            .await
+        {
+            Ok(Some(u)) => u,
+            Ok(None) => {
+                write_marker(&miss_marker); // artist has no image of this kind
+                persist_artist_lookup(
+                    &store,
+                    server_id,
+                    artist_id,
+                    surface,
+                    "miss",
+                    Some(&mbid),
+                    mbid_source.as_deref(),
+                    None,
+                    now,
+                )
+                .await;
+                return None;
+            }
+            Err(e) => {
+                eprintln!("[fanart] lookup failed: {e}"); // transient — don't cache
+                return None;
+            }
+        };
 
     let bytes = match fetch::fetch_cover_bytes(client, &img_url, None, None).await {
         Ok(b) => b,
@@ -385,7 +396,11 @@ pub(super) async fn try_external_fanart(
         let img = decode_image_bytes(&bytes)?;
         std::fs::create_dir_all(&dir_owned).map_err(|e| e.to_string())?;
         for tier in [2000u32, 512u32] {
-            write_webp_tier(&img, tier, &disk::provider_tier_path(&dir_owned, tier, &surface_owned))?;
+            write_webp_tier(
+                &img,
+                tier,
+                &disk::provider_tier_path(&dir_owned, tier, &surface_owned),
+            )?;
         }
         Ok(())
     })
@@ -461,13 +476,15 @@ pub(super) async fn try_external_album_cover(
     let mut had_definitive_miss = false;
     for source in sources {
         let outcome = match source.as_str() {
-            "lastfm" => psysonic_integration::album_art::fetch_lastfm_album_image(
-                client,
-                &psysonic_integration::album_art::lastfm_api_key(),
-                artist,
-                album,
-            )
-            .await,
+            "lastfm" => {
+                psysonic_integration::album_art::fetch_lastfm_album_image(
+                    client,
+                    &psysonic_integration::album_art::lastfm_api_key(),
+                    artist,
+                    album,
+                )
+                .await
+            }
             "apple" => {
                 // iTunes is blocking + lives in psysonic-integration; bridge via
                 // spawn_blocking so the existing fuzzy 3-strategy matching + the
@@ -484,19 +501,21 @@ pub(super) async fn try_external_album_cover(
                     // marker below already de-dupe across ensures.
                     let cache: Mutex<HashMap<String, ArtworkCacheEntry>> =
                         Mutex::new(HashMap::new());
-                    tauri::async_runtime::spawn_blocking(move || -> Result<Option<String>, String> {
-                        let blocking_client = reqwest::blocking::Client::builder()
-                            .timeout(Duration::from_secs(5))
-                            .build()
-                            .map_err(|e| e.to_string())?;
-                        Ok(psysonic_integration::discord::search_itunes_artwork(
-                            &blocking_client,
-                            &cache,
-                            &artist,
-                            &album,
-                            &album,
-                        ))
-                    })
+                    tauri::async_runtime::spawn_blocking(
+                        move || -> Result<Option<String>, String> {
+                            let blocking_client = reqwest::blocking::Client::builder()
+                                .timeout(Duration::from_secs(5))
+                                .build()
+                                .map_err(|e| e.to_string())?;
+                            Ok(psysonic_integration::discord::search_itunes_artwork(
+                                &blocking_client,
+                                &cache,
+                                &artist,
+                                &album,
+                                &album,
+                            ))
+                        },
+                    )
                     .await
                     .map_err(|e| e.to_string())?
                 }

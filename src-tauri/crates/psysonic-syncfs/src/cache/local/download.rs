@@ -475,10 +475,8 @@ mod tests {
         tokio::fs::write(&file, b"existing bytes").await.unwrap();
         let flag = Arc::new(AtomicBool::new(false));
         let (sender, receiver) = tokio::sync::watch::channel(false);
-        let mut cancellation = crate::file_transfer::DownloadCancellation::new(
-            Arc::clone(&flag),
-            receiver,
-        );
+        let mut cancellation =
+            crate::file_transfer::DownloadCancellation::new(Arc::clone(&flag), receiver);
         let client = reqwest::Client::new();
         let url = format!("http://{address}/rest/stream.view?id=track");
         let registry = ServerHttpRegistry::new();

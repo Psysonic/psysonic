@@ -51,9 +51,8 @@ pub enum TrackEnrichmentOutcome {
     SkippedNoPort,
 }
 
-type PlanFn = std::sync::Arc<
-    dyn Fn(&str, &str, &str) -> TrackEnrichmentPlan + Send + Sync + 'static,
->;
+type PlanFn =
+    std::sync::Arc<dyn Fn(&str, &str, &str) -> TrackEnrichmentPlan + Send + Sync + 'static>;
 type StoreFn = std::sync::Arc<
     dyn Fn(&str, &str, &str, &TrackEnrichmentFacts) -> Result<(), String> + Send + Sync + 'static,
 >;

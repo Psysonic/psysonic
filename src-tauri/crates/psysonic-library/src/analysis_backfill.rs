@@ -1,8 +1,8 @@
 //! Advanced analytics strategy — batch-select library tracks that still need
 //! waveform / loudness / enrichment work (spec: Settings → Library).
 
-use psysonic_core::ports::TrackAnalysisNeedsWorkQuery;
 use psysonic_core::database_pair_admission::database_pair_read_scope;
+use psysonic_core::ports::TrackAnalysisNeedsWorkQuery;
 use tauri::{AppHandle, Manager};
 
 use crate::repos::TrackRepository;
@@ -194,11 +194,7 @@ pub fn collect_analysis_progress(
     let mut pending: i64 = 0;
     let mut after: Option<String> = None;
     loop {
-        let page = repo.list_track_ids_after(
-            server_id,
-            after.as_deref(),
-            PROGRESS_SCAN_CHUNK,
-        )?;
+        let page = repo.list_track_ids_after(server_id, after.as_deref(), PROGRESS_SCAN_CHUNK)?;
         if page.is_empty() {
             break;
         }

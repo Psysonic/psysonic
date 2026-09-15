@@ -15,15 +15,15 @@ use super::helpers::*;
 use super::hi_res_blend::{self, OutgoingBlendSnapshot};
 use super::ipc::{maybe_emit_normalization_state, NormalizationStatePayload};
 use super::play_input::{select_play_input, url_format_hint, PlayInputContext};
+use super::playback_rate::{preserve_pitch_will_run, raw_counter_samples_for_content_position};
 use super::preload_commands::{publish_preloaded_if_current, PreloadSnapshot};
-use super::source_build::{build_playback_source_with_probe_fallback, BuildSourceArgs};
+use super::preview::preview_clear_for_new_main_playback;
+use super::progress_task::spawn_progress_task;
 use super::sink_swap::{
     spawn_legacy_stream_start_when_armed, swap_in_new_sink, LegacyStreamStartWhenArmed,
     SinkSwapInputs,
 };
-use super::playback_rate::{preserve_pitch_will_run, raw_counter_samples_for_content_position};
-use super::preview::preview_clear_for_new_main_playback;
-use super::progress_task::spawn_progress_task;
+use super::source_build::{build_playback_source_with_probe_fallback, BuildSourceArgs};
 use super::sources::CancellableSource;
 use super::state::{install_current_source_done, ChainedInfo, PreloadedTrack};
 
@@ -75,7 +75,7 @@ pub async fn audio_play(
     fallback_db: f32,
     manual: bool, // true = user-initiated skip → bypass crossfade, start immediately
     hi_res_enabled: bool, // false = safe 44.1 kHz mode; true = native rate (alpha)
-  hi_res_crossfade_resample_hz: Option<u32>, // 44100 / 88200 / 96000 when hi-res + crossfade
+    hi_res_crossfade_resample_hz: Option<u32>, // 44100 / 88200 / 96000 when hi-res + crossfade
     analysis_track_id: Option<String>,
     server_id: Option<String>,
     stream_format_suffix: Option<String>,
@@ -138,7 +138,10 @@ pub async fn audio_play(
     // the current source is still playing until the chain drains. User-initiated
     // play must clear the chain and start this URL immediately (standard path).
     if gapless && !manual {
-        let already_chained = state.chained_info.lock().unwrap()
+        let already_chained = state
+            .chained_info
+            .lock()
+            .unwrap()
             .as_ref()
             .map(|c| same_playback_target(&c.url, &url))
             .unwrap_or(false);
@@ -165,10 +168,12 @@ pub async fn audio_play(
     // clear any stale chain metadata.
     let reuse_chained_bytes: Option<Vec<u8>> = if gapless && manual {
         let mut ci = state.chained_info.lock().unwrap();
-        if ci.as_ref().is_some_and(|c| same_playback_target(&c.url, &url)) {
-            ci.take().map(|info| {
-                Arc::try_unwrap(info.raw_bytes).unwrap_or_else(|a| (*a).clone())
-            })
+        if ci
+            .as_ref()
+            .is_some_and(|c| same_playback_target(&c.url, &url))
+        {
+            ci.take()
+                .map(|info| Arc::try_unwrap(info.raw_bytes).unwrap_or_else(|a| (*a).clone()))
         } else {
             *ci = None;
             None
@@ -194,7 +199,10 @@ pub async fn audio_play(
     *state.current_analysis_track_id.lock().unwrap() = logical_trim.clone();
     let cache_id_for_tasks = analysis_cache_track_id(logical_trim.as_deref(), &url);
     // Playback server scope for the analysis-cache write key (empty → legacy '').
-    let analysis_server_id = server_id.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let analysis_server_id = server_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     // Pin it so the gain-resolution + replay-gain-update + device-resume reads
     // scope to this server too (mirrors `current_analysis_track_id`).
     *state.current_playback_server_id.lock().unwrap() = analysis_server_id.map(str::to_string);
@@ -222,7 +230,9 @@ pub async fn audio_play(
         },
         &state,
         &app,
-    ).await? {
+    )
+    .await?
+    {
         Some(input) => input,
         None => {
             crate::app_deprintln!(
@@ -233,11 +243,12 @@ pub async fn audio_play(
         }
     };
 
-
     if state.generation.load(Ordering::SeqCst) != gen {
         crate::app_deprintln!(
             "[audio] audio_play superseded after select_play_input: gen={} cur={} track_id={:?}",
-            gen, state.generation.load(Ordering::SeqCst), cache_id_for_tasks
+            gen,
+            state.generation.load(Ordering::SeqCst),
+            cache_id_for_tasks
         );
         return Ok(());
     }
@@ -283,8 +294,7 @@ pub async fn audio_play(
     let crossfade_secs_val = if let Some(override_secs) = crossfade_secs_override {
         override_secs.clamp(0.5, 30.0)
     } else {
-        f32::from_bits(state.crossfade_secs.load(Ordering::Relaxed))
-            .clamp(0.5, 12.0)
+        f32::from_bits(state.crossfade_secs.load(Ordering::Relaxed)).clamp(0.5, 12.0)
     };
 
     // Measure how much audio Track A actually has left right now.
@@ -364,12 +374,16 @@ pub async fn audio_play(
         } else {
             crate::app_deprintln!(
                 "[audio] suppressed audio:error for superseded play (gen={} cur={}): {}",
-                gen, state.generation.load(Ordering::SeqCst), e
+                gen,
+                state.generation.load(Ordering::SeqCst),
+                e
             );
         }
         e
     })?;
-    state.current_is_seekable.store(playback_source.is_seekable, Ordering::SeqCst);
+    state
+        .current_is_seekable
+        .store(playback_source.is_seekable, Ordering::SeqCst);
     let source_seekable = playback_source.is_seekable;
     let built = playback_source.built;
     let mut source = built.source;
@@ -379,8 +393,12 @@ pub async fn audio_play(
     let resolved_format = built.resolved_format;
 
     // Store the actual output rate/channels for position calculation.
-    state.current_sample_rate.store(output_rate, Ordering::Relaxed);
-    state.current_channels.store(output_channels as u32, Ordering::Relaxed);
+    state
+        .current_sample_rate
+        .store(output_rate, Ordering::Relaxed);
+    state
+        .current_channels
+        .store(output_channels as u32, Ordering::Relaxed);
 
     if state.generation.load(Ordering::SeqCst) != gen {
         return Ok(());
@@ -391,34 +409,33 @@ pub async fn audio_play(
     // the server transcodes). Emitted before the play/deferred-start branching
     // so it fires on both paths. The frontend stamps it onto the current track.
     if let Some(fmt) = resolved_format.as_ref() {
-        let ev = crate::decode::AudioFormatEvent::from_info(fmt, crate::decode::AudioFormatIdentity {
-            track_id: logical_trim.clone(),
-            server_id: analysis_server_id.map(str::to_string),
-            generation: Some(gen),
-            stream_cap_kbps: crate::play_input::url_stream_cap_kbps(&url),
-        });
+        let ev = crate::decode::AudioFormatEvent::from_info(
+            fmt,
+            crate::decode::AudioFormatIdentity {
+                track_id: logical_trim.clone(),
+                server_id: analysis_server_id.map(str::to_string),
+                generation: Some(gen),
+                stream_cap_kbps: crate::play_input::url_stream_cap_kbps(&url),
+            },
+        );
         app.emit("audio:format", ev).ok();
     }
 
     let current_stream_rate = state.stream_sample_rate.load(Ordering::Relaxed);
     let current_requested_rate = state.stream_requested_rate.load(Ordering::Relaxed);
-    let outgoing_blend: Option<OutgoingBlendSnapshot> =
-        if let Some(blend) = blend_rate {
-            if crossfade_enabled
-                && current_requested_rate > 0
-                && current_requested_rate != blend
-            {
-                hi_res_blend::capture_outgoing_blend_snapshot(
-                    &state,
-                    outgoing_fade_secs,
-                    actual_fade_secs,
-                )
-            } else {
-                None
-            }
+    let outgoing_blend: Option<OutgoingBlendSnapshot> = if let Some(blend) = blend_rate {
+        if crossfade_enabled && current_requested_rate > 0 && current_requested_rate != blend {
+            hi_res_blend::capture_outgoing_blend_snapshot(
+                &state,
+                outgoing_fade_secs,
+                actual_fade_secs,
+            )
         } else {
             None
-        };
+        }
+    } else {
+        None
+    };
 
     if outgoing_blend.is_some() {
         hi_res_blend::detach_current_sink_for_blend_reopen(&state);
@@ -472,14 +489,8 @@ pub async fn audio_play(
     }
 
     if let (Some(snap), Some(blend)) = (&outgoing_blend, blend_rate) {
-        if let Err(e) = hi_res_blend::spawn_outgoing_blend_resample(
-            &app,
-            &state,
-            snap,
-            blend,
-            gen,
-        )
-        .await
+        if let Err(e) =
+            hi_res_blend::spawn_outgoing_blend_resample(&app, &state, snap, blend, gen).await
         {
             crate::app_eprintln!("{e}");
         }
@@ -557,11 +568,7 @@ pub async fn audio_play(
     sink.append(source);
 
     if needs_prefill {
-        let prefill_ms = if needs_preserve_prefill {
-            800
-        } else {
-            500
-        };
+        let prefill_ms = if needs_preserve_prefill { 800 } else { 500 };
         tokio::time::sleep(Duration::from_millis(prefill_ms)).await;
         if state.generation.load(Ordering::SeqCst) != gen {
             return Ok(()); // skipped during pre-fill — abort silently
@@ -576,18 +583,21 @@ pub async fn audio_play(
         return Ok(());
     }
 
-    swap_in_new_sink(&state, SinkSwapInputs {
-        sink,
-        duration_secs,
-        volume,
-        gain_linear,
-        fadeout_trigger: built.fadeout_trigger,
-        fadeout_samples: built.fadeout_samples,
-        crossfade_enabled,
-        actual_fade_secs,
-        outgoing_fade_secs,
-        start_paused,
-    });
+    swap_in_new_sink(
+        &state,
+        SinkSwapInputs {
+            sink,
+            duration_secs,
+            volume,
+            gain_linear,
+            fadeout_trigger: built.fadeout_trigger,
+            fadeout_samples: built.fadeout_samples,
+            crossfade_enabled,
+            actual_fade_secs,
+            outgoing_fade_secs,
+            start_paused,
+        },
+    );
     drop(stream_attach);
 
     // B-head: `swap_in_new_sink` resets `seek_offset` to 0 and starts the play
@@ -696,7 +706,10 @@ pub async fn audio_chain_preload(
     // Idempotent: already chained this track → nothing to do.
     {
         let chained = state.chained_info.lock().unwrap();
-        if chained.as_ref().is_some_and(|c| same_playback_target(&c.url, &url)) {
+        if chained
+            .as_ref()
+            .is_some_and(|c| same_playback_target(&c.url, &url))
+        {
             return Ok(());
         }
     }
@@ -712,7 +725,10 @@ pub async fn audio_chain_preload(
     let data: Vec<u8> = {
         let cached = {
             let mut preloaded = state.preloaded.lock().unwrap();
-            if preloaded.as_ref().is_some_and(|p| same_playback_target(&p.url, &url)) {
+            if preloaded
+                .as_ref()
+                .is_some_and(|p| same_playback_target(&p.url, &url))
+            {
                 preloaded.take().map(|p| p.data)
             } else {
                 None
@@ -723,14 +739,9 @@ pub async fn audio_chain_preload(
         } else if let Some(path) = url.strip_prefix("psysonic-local://") {
             tokio::fs::read(path).await.map_err(|e| e.to_string())?
         } else {
-            let resp = crate::engine::playback_scoped_get(
-                &state,
-                &app,
-                &url,
-                server_id.as_deref(),
-            )
-            .send()
-            .await
+            let resp = crate::engine::playback_scoped_get(&state, &app, &url, server_id.as_deref())
+                .send()
+                .await
                 .map_err(|e| e.to_string())?;
             if !resp.status().is_success() {
                 return Ok(()); // silently fail — audio_play will retry
@@ -759,7 +770,10 @@ pub async fn audio_chain_preload(
         .as_ref()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
-    let analysis_server_id = server_id.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let analysis_server_id = server_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
 
     if let Some(track_id) = analysis_cache_track_id(logical_trim.as_deref(), &url) {
         let (sid, priority) = crate::analysis_dispatch::prepare_playback_analysis(
@@ -788,7 +802,13 @@ pub async fn audio_chain_preload(
     // current track ends, and `Sink::set_volume` affects the WHOLE Sink (incl.
     // the still-playing current source). Volume for the chained track is
     // applied at the gapless transition in `spawn_progress_task`, not here.
-    let gain_inputs = resolve_track_gain_inputs(&state, &app, &url, logical_trim.as_deref(), loudness_gain_db);
+    let gain_inputs = resolve_track_gain_inputs(
+        &state,
+        &app,
+        &url,
+        logical_trim.as_deref(),
+        loudness_gain_db,
+    );
     let (gain_linear, _effective_volume) = compute_gain(
         gain_inputs.norm_mode,
         replay_gain_db,
@@ -804,7 +824,8 @@ pub async fn audio_chain_preload(
     // samples_played when the chained track becomes active.
     let chain_counter = Arc::new(AtomicU64::new(0));
     // Always 0 unless hi-res gapless blend resampling is active.
-    let blend_rate = hi_res_blend::blend_rate_hz(hi_res_enabled, hi_res_enabled, hi_res_crossfade_resample_hz);
+    let blend_rate =
+        hi_res_blend::blend_rate_hz(hi_res_enabled, hi_res_enabled, hi_res_crossfade_resample_hz);
     let target_rate: u32 = blend_rate.unwrap_or(0);
     let format_hint = url_format_hint(&url);
     let built = build_source(
@@ -823,7 +844,8 @@ pub async fn audio_chain_preload(
         crate::engine::output_device_channels(&state),
         format_hint.as_deref(),
         hi_res_enabled,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     let output_rate = built.output_rate;
     let output_channels = built.output_channels;
     let source = built.source;
@@ -880,13 +902,18 @@ pub async fn audio_chain_preload(
             }
         }
     } else {
-        let next_rate = if hi_res_enabled { built.output_rate } else { 44_100 };
+        let next_rate = if hi_res_enabled {
+            built.output_rate
+        } else {
+            44_100
+        };
         if hi_res_enabled
             && super::engine::stream_rate_needs_switch(next_rate, requested_stream_rate)
         {
             crate::app_eprintln!(
                 "[psysonic] gapless chain skipped: next track rate {} Hz ≠ stream {} Hz",
-                next_rate, requested_stream_rate
+                next_rate,
+                requested_stream_rate
             );
             restore_chain_preload_if_current(&state, snapshot, &url, &raw_bytes);
             return Ok(());

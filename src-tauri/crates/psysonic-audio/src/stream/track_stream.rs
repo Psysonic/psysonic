@@ -11,8 +11,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use ringbuf::HeapProd;
 use ringbuf::traits::{Observer, Producer};
+use ringbuf::HeapProd;
 use tauri::AppHandle;
 use tokio::io::AsyncWriteExt;
 
@@ -20,8 +20,8 @@ use super::super::engine::PlaybackHttpHeaders;
 use super::super::helpers::{install_stream_completed_spill_if, stream_spill_file_paths};
 use super::super::state::{PreloadedTrack, StreamCompletedSpill};
 use super::{
-    AnalysisSeedHoldGuard, TRACK_STREAM_MAX_RECONNECTS, TRACK_STREAM_PROMOTE_MAX_BYTES,
-    StreamDownloadControl, maybe_arm_stream_playback,
+    maybe_arm_stream_playback, AnalysisSeedHoldGuard, StreamDownloadControl,
+    TRACK_STREAM_MAX_RECONNECTS, TRACK_STREAM_PROMOTE_MAX_BYTES,
 };
 
 struct LegacySpillCapture {
@@ -157,7 +157,8 @@ pub(crate) async fn track_download_task(
                     if reconnects >= TRACK_STREAM_MAX_RECONNECTS {
                         crate::app_eprintln!(
                             "[audio] streaming reconnect failed after {} attempts: {}",
-                            reconnects, err
+                            reconnects,
+                            err
                         );
                         download_control.mark_ended_without_reusable_bytes();
                         return;
@@ -187,7 +188,9 @@ pub(crate) async fn track_download_task(
             if gen_arc.load(Ordering::SeqCst) != gen {
                 crate::app_deprintln!(
                     "[stream] track-stream dl superseded by skip: track_id={:?} gen={}→{}",
-                    cache_track_id, gen, gen_arc.load(Ordering::SeqCst)
+                    cache_track_id,
+                    gen,
+                    gen_arc.load(Ordering::SeqCst)
                 );
                 done.store(true, Ordering::SeqCst);
                 return;
@@ -198,7 +201,8 @@ pub(crate) async fn track_download_task(
                     if reconnects >= TRACK_STREAM_MAX_RECONNECTS {
                         crate::app_eprintln!(
                             "[audio] streaming download error after {} reconnects: {}",
-                            reconnects, e
+                            reconnects,
+                            e
                         );
                         download_control.mark_ended_without_reusable_bytes();
                         return;
@@ -241,9 +245,7 @@ pub(crate) async fn track_download_task(
                             }
                         }
                     } else if !capture_over_limit {
-                        if capture.len().saturating_add(pushed)
-                            <= TRACK_STREAM_PROMOTE_MAX_BYTES
-                        {
+                        if capture.len().saturating_add(pushed) <= TRACK_STREAM_PROMOTE_MAX_BYTES {
                             capture.extend_from_slice(pushed_bytes);
                         } else {
                             if let Some(track_id) = cache_track_id.as_deref() {
@@ -310,10 +312,7 @@ pub(crate) async fn track_download_task(
                 &spill_cache_slot,
                 url.clone(),
                 path.clone(),
-                || {
-                    gen_arc.load(Ordering::SeqCst) == gen
-                        && !download_control.fallback_succeeded()
-                },
+                || gen_arc.load(Ordering::SeqCst) == gen && !download_control.fallback_succeeded(),
             ) {
                 done.store(true, Ordering::SeqCst);
                 return;
@@ -419,8 +418,8 @@ pub(crate) async fn track_download_task(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ringbuf::HeapRb;
     use ringbuf::traits::Split;
+    use ringbuf::HeapRb;
 
     #[test]
     fn closed_consumer_advances_without_filling_the_ring() {

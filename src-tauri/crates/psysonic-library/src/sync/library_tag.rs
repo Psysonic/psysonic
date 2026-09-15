@@ -271,12 +271,7 @@ pub async fn tag_library_membership(
         .await
         .map_err(SyncError::from)?;
     if folders.is_empty() {
-        write_tag_completion(
-            store,
-            server_id,
-            &album_list_state_hash(&folders),
-            untagged,
-        )?;
+        write_tag_completion(store, server_id, &album_list_state_hash(&folders), untagged)?;
         return Ok(TagReport {
             folders_processed: 0,
             albums_processed: 0,

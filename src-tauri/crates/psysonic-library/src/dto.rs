@@ -1305,7 +1305,10 @@ mod tests {
         let mut row = sample_row();
         row.raw_json = "{not valid json}".into();
         let dto = LibraryTrackDto::from_row(&row);
-        assert!(dto.raw_json.is_null(), "invalid JSON must surface as Value::Null");
+        assert!(
+            dto.raw_json.is_null(),
+            "invalid JSON must surface as Value::Null"
+        );
     }
 
     #[test]
@@ -1380,10 +1383,7 @@ mod tests {
             n1_bulk_unreliable: None,
         };
         let json = serde_json::to_value(dto).unwrap();
-        assert_eq!(
-            json.get("syncPhase").and_then(|v| v.as_str()),
-            Some("idle")
-        );
+        assert_eq!(json.get("syncPhase").and_then(|v| v.as_str()), Some("idle"));
         // `null` survives as JSON null, not omitted — explicit shape
         // for the WebView so it can distinguish "missing" from
         // "unset".

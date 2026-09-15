@@ -20,7 +20,10 @@ pub(crate) struct ListeningSessionStats {
 
 pub(crate) fn listening_session_stats(plays: &[PlaySpan]) -> ListeningSessionStats {
     if plays.is_empty() {
-        return ListeningSessionStats { count: 0, longest_listened_sec: 0.0 };
+        return ListeningSessionStats {
+            count: 0,
+            longest_listened_sec: 0.0,
+        };
     }
     let mut sorted = plays.to_vec();
     sorted.sort_by_key(|p| p.started_at_ms);
@@ -37,7 +40,10 @@ pub(crate) fn listening_session_stats(plays: &[PlaySpan]) -> ListeningSessionSta
         longest_listened = longest_listened.max(current_listened);
         prev_end = prev_end.max(play_end_ms(*span));
     }
-    ListeningSessionStats { count: sessions, longest_listened_sec: longest_listened }
+    ListeningSessionStats {
+        count: sessions,
+        longest_listened_sec: longest_listened,
+    }
 }
 
 pub(crate) fn count_listening_sessions(plays: &[PlaySpan]) -> u32 {
@@ -50,9 +56,15 @@ mod tests {
 
     #[test]
     fn clusters_by_thirty_minute_gap() {
-    let plays = vec![
-            PlaySpan { started_at_ms: 0, listened_sec: 120.0 },
-            PlaySpan { started_at_ms: 5 * 60 * 1000, listened_sec: 120.0 },
+        let plays = vec![
+            PlaySpan {
+                started_at_ms: 0,
+                listened_sec: 120.0,
+            },
+            PlaySpan {
+                started_at_ms: 5 * 60 * 1000,
+                listened_sec: 120.0,
+            },
             PlaySpan {
                 started_at_ms: 45 * 60 * 1000,
                 listened_sec: 120.0,
@@ -75,9 +87,18 @@ mod tests {
         // must not count, so the session weighs 120 + 180 = 300 s.
         // Session 2 (after a >30-minute gap): a single 240 s play.
         let plays = vec![
-            PlaySpan { started_at_ms: 0, listened_sec: 120.0 },
-            PlaySpan { started_at_ms: 12 * 60 * 1000, listened_sec: 180.0 },
-            PlaySpan { started_at_ms: 60 * 60 * 1000, listened_sec: 240.0 },
+            PlaySpan {
+                started_at_ms: 0,
+                listened_sec: 120.0,
+            },
+            PlaySpan {
+                started_at_ms: 12 * 60 * 1000,
+                listened_sec: 180.0,
+            },
+            PlaySpan {
+                started_at_ms: 60 * 60 * 1000,
+                listened_sec: 240.0,
+            },
         ];
         let stats = listening_session_stats(&plays);
         assert_eq!(stats.count, 2);

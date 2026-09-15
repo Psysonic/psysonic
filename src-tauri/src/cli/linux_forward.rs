@@ -89,7 +89,9 @@ pub enum LinuxPlayerForwardResult {
     ContinueStartup,
 }
 
-pub fn linux_try_forward_player_cli_secondary(args: &[String]) -> Result<LinuxPlayerForwardResult, String> {
+pub fn linux_try_forward_player_cli_secondary(
+    args: &[String],
+) -> Result<LinuxPlayerForwardResult, String> {
     use zbus::blocking::Connection;
 
     let well_known = single_instance_bus_name();
@@ -168,11 +170,20 @@ pub fn linux_try_forward_player_cli_secondary(args: &[String]) -> Result<LinuxPl
                 println!("OK: {}", describe_cli_command(&cmd));
             }
         }
-    } else if matches!(parse_cli_command(args), Some(CliCommand::BenchmarkRun(_)) | Some(CliCommand::BenchmarkLatest)) {
+    } else if matches!(
+        parse_cli_command(args),
+        Some(CliCommand::BenchmarkRun(_)) | Some(CliCommand::BenchmarkLatest)
+    ) {
         let text = read_benchmark_cli_response_blocking(Duration::from_secs(60 * 30));
         print_benchmark_cli_stdout(&text, wants_cli_json_output(args));
         if !wants_quiet(args) {
-            println!("OK: {}", parse_cli_command(args).as_ref().map(describe_cli_command).unwrap_or_default());
+            println!(
+                "OK: {}",
+                parse_cli_command(args)
+                    .as_ref()
+                    .map(describe_cli_command)
+                    .unwrap_or_default()
+            );
         }
     } else if !wants_quiet(args) {
         if let Some(cmd) = parse_cli_command(args) {

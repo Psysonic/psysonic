@@ -5,10 +5,10 @@ use std::time::{Duration, Instant};
 use tauri::Emitter;
 use tauri::Manager;
 
-use super::device_resume::{try_resume_after_device_change, ResumeOutcome, ResumeSnapshot};
-use super::engine::AudioEngine;
 #[cfg(not(target_os = "linux"))]
 use super::dev_io::output_enumeration_includes_pinned;
+use super::device_resume::{try_resume_after_device_change, ResumeOutcome, ResumeSnapshot};
+use super::engine::AudioEngine;
 
 /// What to tell the frontend after a successful stream reopen.
 #[derive(Clone, Copy)]
@@ -54,8 +54,8 @@ async fn reopen_output_stream(
     let Some(engine) = app.try_state::<AudioEngine>() else {
         return Err("audio engine is unavailable".to_string());
     };
-    let expected_generation = required_generation
-        .unwrap_or_else(|| engine.generation.load(Ordering::SeqCst));
+    let expected_generation =
+        required_generation.unwrap_or_else(|| engine.generation.load(Ordering::SeqCst));
     let app_for_open = app.clone();
     let expected_device = device_name.clone();
     let snapshot = tauri::async_runtime::spawn_blocking(move || {
@@ -179,7 +179,8 @@ async fn reopen_output_stream(
             if resumed {
                 app.emit("audio:device-changed", Option::<f64>::None).ok();
             } else {
-                app.emit("audio:device-changed", snapshot.current_time_secs).ok();
+                app.emit("audio:device-changed", snapshot.current_time_secs)
+                    .ok();
             }
         }
         #[cfg(not(target_os = "linux"))]
@@ -187,7 +188,8 @@ async fn reopen_output_stream(
             if resumed {
                 app.emit("audio:device-reset", Option::<f64>::None).ok();
             } else {
-                app.emit("audio:device-reset", snapshot.current_time_secs).ok();
+                app.emit("audio:device-reset", snapshot.current_time_secs)
+                    .ok();
             }
         }
     }
@@ -248,7 +250,9 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         let mut last_default: Option<String> = tauri::async_runtime::spawn_blocking(|| {
             super::dev_io::effective_default_output_device_name_for_poll()
-        }).await.unwrap_or(None);
+        })
+        .await
+        .unwrap_or(None);
 
         // macOS/Windows: consecutive polls where a pinned device is absent from cpal's list.
         #[cfg(not(target_os = "linux"))]
@@ -333,12 +337,8 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
                     samples_now,
                     pinned
                 );
-                match reopen_output_stream_with_retry(
-                    &app,
-                    pinned,
-                    ReopenNotify::DeviceChanged,
-                )
-                .await
+                match reopen_output_stream_with_retry(&app, pinned, ReopenNotify::DeviceChanged)
+                    .await
                 {
                     Ok(ReopenOutcome::Reopened) => {
                         stalled_since = None;
@@ -372,7 +372,12 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
                 let _guard = unsafe {
                     struct StderrGuard(i32);
                     impl Drop for StderrGuard {
-                        fn drop(&mut self) { unsafe { libc::dup2(self.0, 2); libc::close(self.0); } }
+                        fn drop(&mut self) {
+                            unsafe {
+                                libc::dup2(self.0, 2);
+                                libc::close(self.0);
+                            }
+                        }
                     }
                     let saved = libc::dup(2);
                     let devnull = libc::open(c"/dev/null".as_ptr(), libc::O_WRONLY);
@@ -387,7 +392,9 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
                     Vec::new()
                 };
                 (default, available)
-            }).await.unwrap_or((None, vec![]));
+            })
+            .await
+            .unwrap_or((None, vec![]));
 
             // Empty list (only when we actually enumerated for a pinned device)
             // almost always means a transient enumeration failure, not that every
@@ -429,12 +436,8 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
 
                     tokio::time::sleep(Duration::from_millis(500)).await;
 
-                    match reopen_output_stream_with_retry(
-                        &app,
-                        None,
-                        ReopenNotify::DeviceReset,
-                    )
-                    .await
+                    match reopen_output_stream_with_retry(&app, None, ReopenNotify::DeviceReset)
+                        .await
                     {
                         Ok(ReopenOutcome::Reopened) => last_default = current_default,
                         Ok(ReopenOutcome::Superseded) => {}

@@ -28,7 +28,13 @@ pub(super) fn preflight(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Resu
     let mut cursor_rowid = 0;
     let mut scanned = 0u64;
     loop {
-        let rows = load_batch(tx, server_id, cursor_rowid, upper_rowid, super::MAX_BATCH_LIMIT)?;
+        let rows = load_batch(
+            tx,
+            server_id,
+            cursor_rowid,
+            upper_rowid,
+            super::MAX_BATCH_LIMIT,
+        )?;
         let Some(last_rowid) = rows.last().map(|row| row.rowid) else {
             break;
         };
@@ -213,10 +219,7 @@ fn ensure_equivalent(destination: &TrackRow, source: &TrackRow) -> rusqlite::Res
     }
 }
 
-fn canonicalize_owner(
-    mut row: TrackRow,
-    destination_id: String,
-) -> rusqlite::Result<TrackRow> {
+fn canonicalize_owner(mut row: TrackRow, destination_id: String) -> rusqlite::Result<TrackRow> {
     row.id = destination_id;
     row.artist_id = canonical_optional_id(row.artist_id);
     row.album_id = canonical_optional_id(row.album_id);
@@ -256,9 +259,7 @@ fn merge_owner(
         suffix: destination.suffix.or(source.suffix),
         bit_rate: destination.bit_rate.or(source.bit_rate),
         size_bytes: destination.size_bytes.or(source.size_bytes),
-        cover_art_id: canonical_optional_artwork(
-            destination.cover_art_id.or(source.cover_art_id),
-        ),
+        cover_art_id: canonical_optional_artwork(destination.cover_art_id.or(source.cover_art_id)),
         starred_at: if source_is_newer {
             source.starred_at
         } else {
@@ -284,14 +285,8 @@ fn merge_owner(
             .or(source.replay_gain_album_db),
         replay_gain_peak: destination.replay_gain_peak.or(source.replay_gain_peak),
         content_hash: destination.content_hash.or(source.content_hash),
-        server_updated_at: max_optional(
-            destination.server_updated_at,
-            source.server_updated_at,
-        ),
-        server_created_at: max_optional(
-            destination.server_created_at,
-            source.server_created_at,
-        ),
+        server_updated_at: max_optional(destination.server_updated_at, source.server_updated_at),
+        server_created_at: max_optional(destination.server_created_at, source.server_created_at),
         deleted: destination.deleted && source.deleted,
         synced_at: destination.synced_at.max(source.synced_at),
         raw_json: merge_canonical_payloads(

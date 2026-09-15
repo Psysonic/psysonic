@@ -77,10 +77,13 @@ jobs:
             libasound2-dev cmake
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - name: cargo fmt --all --check
+        working-directory: src-tauri
+        run: cargo fmt --all --check
       - name: cargo clippy --workspace
         working-directory: src-tauri
         run: cargo clippy --workspace --all-targets -- -D warnings

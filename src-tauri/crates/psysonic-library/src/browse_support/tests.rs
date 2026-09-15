@@ -463,7 +463,10 @@ fn overlay_album_size_and_added_fills_totals_and_arrival_date() {
     assert_eq!(albums[0].duration_sec, Some(400));
     // The oldest track decides: the column reports when the album arrived, so a
     // later addition must not move the date forward.
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(1_000));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(1_000)
+    );
 }
 
 // A release from years back that gains one track today — a late rip, or a re-tag
@@ -486,7 +489,10 @@ fn overlay_album_size_and_added_keeps_the_arrival_date_when_a_track_lands_later(
         })
         .unwrap();
 
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(1_000));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(1_000)
+    );
 }
 
 // A row whose `raw_json` is neither absent nor an object carries a shape this
@@ -534,7 +540,10 @@ fn overlay_album_size_and_added_keeps_values_the_query_computed() {
 
     assert_eq!(albums[0].song_count, Some(1));
     assert_eq!(albums[0].duration_sec, Some(200));
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(42));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(42)
+    );
 }
 
 #[test]
@@ -552,7 +561,10 @@ fn overlay_album_size_and_added_keeps_other_raw_json_fields() {
         })
         .unwrap();
 
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(7_000));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(7_000)
+    );
     assert!(albums[0].raw_json.get("releaseTypes").is_some());
 }
 

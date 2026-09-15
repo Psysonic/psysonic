@@ -7,7 +7,9 @@ use std::sync::Arc;
 use psysonic_core::server_http::ServerHttpRegistry;
 use tauri::State;
 
-use super::client::{navidrome_token_with_registry, nd_apply_request, nd_err, nd_http_client, nd_retry};
+use super::client::{
+    navidrome_token_with_registry, nd_apply_request, nd_err, nd_http_client, nd_retry,
+};
 
 /// GET `/api/song?_sort=...&_order=...&_start=...&_end=...` — paginated
 /// song list. Pure async helper used by the library-side N1 ingest
@@ -109,13 +111,17 @@ fn nd_song_list_filter_seed() -> serde_json::Map<String, serde_json::Value> {
     seed
 }
 
-fn nd_build_filters(seed: serde_json::Map<String, serde_json::Value>, library_id: Option<&str>) -> String {
+fn nd_build_filters(
+    seed: serde_json::Map<String, serde_json::Value>,
+    library_id: Option<&str>,
+) -> String {
     let mut obj = seed;
     if let Some(lib) = library_id {
         // Navidrome stores library ids as i64; our state holds them as strings
         // (Subsonic musicFolderId). Send numeric when parseable, fall back to
         // string for safety against future non-numeric ids.
-        let val = lib.parse::<i64>()
+        let val = lib
+            .parse::<i64>()
             .map(|n| serde_json::Value::Number(n.into()))
             .unwrap_or_else(|_| serde_json::Value::String(lib.to_string()));
         obj.insert("library_id".to_string(), val);
@@ -265,7 +271,9 @@ pub async fn nd_list_libraries(
                 Some(reg),
                 None,
                 &url,
-                nd_http_client().get(&url).header("X-ND-Authorization", auth),
+                nd_http_client()
+                    .get(&url)
+                    .header("X-ND-Authorization", auth),
             )
             .send()
             .await
@@ -365,7 +373,10 @@ pub async fn nd_get_song_path(
         return Err(format!("HTTP {}", resp.status()));
     }
     let data: serde_json::Value = resp.json().await.map_err(nd_err)?;
-    Ok(data["path"].as_str().map(|s| s.to_string()).filter(|s| !s.is_empty()))
+    Ok(data["path"]
+        .as_str()
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty()))
 }
 
 #[cfg(test)]
@@ -395,7 +406,10 @@ mod tests {
     #[test]
     fn build_filters_emits_seed_unchanged_when_library_id_none() {
         let mut seed = serde_json::Map::new();
-        seed.insert("role".to_string(), serde_json::Value::String("composer".to_string()));
+        seed.insert(
+            "role".to_string(),
+            serde_json::Value::String("composer".to_string()),
+        );
         let out = nd_build_filters(seed, None);
         let parsed = parse_json_object(&out);
         assert_eq!(parsed.get("role").unwrap(), "composer");
@@ -408,7 +422,11 @@ mod tests {
         let out = nd_build_filters(seed, Some("42"));
         let parsed = parse_json_object(&out);
         let lib = parsed.get("library_id").expect("library_id present");
-        assert_eq!(lib.as_i64(), Some(42), "numeric library_id stored as Number");
+        assert_eq!(
+            lib.as_i64(),
+            Some(42),
+            "numeric library_id stored as Number"
+        );
     }
 
     #[test]
@@ -424,7 +442,10 @@ mod tests {
     #[test]
     fn build_filters_preserves_existing_seed_keys_alongside_library_id() {
         let mut seed = serde_json::Map::new();
-        seed.insert("role".to_string(), serde_json::Value::String("conductor".to_string()));
+        seed.insert(
+            "role".to_string(),
+            serde_json::Value::String("conductor".to_string()),
+        );
         seed.insert(
             "role_lyricist_id".to_string(),
             serde_json::Value::String("artist-7".to_string()),

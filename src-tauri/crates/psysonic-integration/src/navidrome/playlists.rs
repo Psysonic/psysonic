@@ -181,15 +181,7 @@ pub async fn nd_get_playlist_tracks(
     start: Option<u32>,
     end: Option<u32>,
 ) -> Result<serde_json::Value, String> {
-    get_playlist_tracks(
-        http_registry.as_ref(),
-        &server_url,
-        &token,
-        &id,
-        start,
-        end,
-    )
-    .await
+    get_playlist_tracks(http_registry.as_ref(), &server_url, &token, &id, start, end).await
 }
 
 async fn get_playlist_tracks(

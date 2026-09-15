@@ -55,8 +55,14 @@ fn parses_nested_and_flat_composer_credits() {
     assert_eq!(
         extract_composer_credits(&raw.to_string()),
         vec![
-            ComposerCredit { id: "c1".into(), name: "One".into() },
-            ComposerCredit { id: "c2".into(), name: "Two".into() },
+            ComposerCredit {
+                id: "c1".into(),
+                name: "One".into()
+            },
+            ComposerCredit {
+                id: "c2".into(),
+                name: "Two".into()
+            },
         ]
     );
 }
@@ -68,14 +74,15 @@ fn ingest_dedupes_album_credit_and_removes_stale_composer() {
     let raw = serde_json::json!({
         "contributors": [{ "role": "composer", "artistId": "c1", "name": "Composer" }]
     });
-    repo.upsert_batch(&[
-        track("t1", "a1", raw.clone()),
-        track("t2", "a1", raw),
-    ])
-    .unwrap();
+    repo.upsert_batch(&[track("t1", "a1", raw.clone()), track("t2", "a1", raw)])
+        .unwrap();
     let count: i64 = store
         .with_conn("test", |conn| {
-            conn.query_row("SELECT COUNT(*) FROM composer_album_projection", [], |row| row.get(0))
+            conn.query_row(
+                "SELECT COUNT(*) FROM composer_album_projection",
+                [],
+                |row| row.get(0),
+            )
         })
         .unwrap();
     assert_eq!(count, 1);
@@ -86,7 +93,11 @@ fn ingest_dedupes_album_credit_and_removes_stale_composer() {
         .unwrap();
     let count: i64 = store
         .with_conn("test", |conn| {
-            conn.query_row("SELECT COUNT(*) FROM composer_album_projection", [], |row| row.get(0))
+            conn.query_row(
+                "SELECT COUNT(*) FROM composer_album_projection",
+                [],
+                |row| row.get(0),
+            )
         })
         .unwrap();
     assert_eq!(count, 0);
@@ -121,7 +132,11 @@ fn projection_follows_album_moves_and_tombstones() {
         .unwrap();
     let count: i64 = store
         .with_conn("test", |conn| {
-            conn.query_row("SELECT COUNT(*) FROM composer_album_projection", [], |row| row.get(0))
+            conn.query_row(
+                "SELECT COUNT(*) FROM composer_album_projection",
+                [],
+                |row| row.get(0),
+            )
         })
         .unwrap();
     assert_eq!(count, 0);
@@ -153,7 +168,11 @@ fn backfill_is_idempotent_and_marks_completion() {
     assert!(!inspect(&store).unwrap().needed);
     let count: i64 = store
         .with_conn("test", |conn| {
-            conn.query_row("SELECT COUNT(*) FROM composer_album_projection", [], |row| row.get(0))
+            conn.query_row(
+                "SELECT COUNT(*) FROM composer_album_projection",
+                [],
+                |row| row.get(0),
+            )
         })
         .unwrap();
     assert_eq!(count, 1);
@@ -169,10 +188,7 @@ fn partial_incremental_projection_does_not_imply_completion() {
         "contributors": [{ "role": "composer", "artistId": "c2", "name": "Two" }]
     });
     TrackRepository::new(&store)
-        .upsert_batch(&[
-            track("t1", "a1", raw_one),
-            track("t2", "a2", raw_two),
-        ])
+        .upsert_batch(&[track("t1", "a1", raw_one), track("t2", "a2", raw_two)])
         .unwrap();
     store
         .with_conn_mut("test.partial_composer_projection", |conn| {
@@ -197,9 +213,11 @@ fn partial_incremental_projection_does_not_imply_completion() {
     assert!(!inspect(&store).unwrap().needed);
     let count: i64 = store
         .with_conn("test", |conn| {
-            conn.query_row("SELECT COUNT(*) FROM composer_album_projection", [], |row| {
-                row.get(0)
-            })
+            conn.query_row(
+                "SELECT COUNT(*) FROM composer_album_projection",
+                [],
+                |row| row.get(0),
+            )
         })
         .unwrap();
     assert_eq!(count, 2);

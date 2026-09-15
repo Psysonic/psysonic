@@ -41,9 +41,7 @@ impl LibraryStore {
 
     pub fn init_with_migration_barrier(
         app: &tauri::AppHandle,
-        migration_write_barrier: Arc<
-            psysonic_core::migration_write_barrier::MigrationWriteBarrier,
-        >,
+        migration_write_barrier: Arc<psysonic_core::migration_write_barrier::MigrationWriteBarrier>,
     ) -> Result<Self, String> {
         let db_path = library_db_path(app)?;
         if let Some(parent) = db_path.parent() {
@@ -54,9 +52,7 @@ impl LibraryStore {
 
     fn open_file(
         db_path: &Path,
-        migration_write_barrier: Arc<
-            psysonic_core::migration_write_barrier::MigrationWriteBarrier,
-        >,
+        migration_write_barrier: Arc<psysonic_core::migration_write_barrier::MigrationWriteBarrier>,
     ) -> Result<Self, String> {
         let (write_conn, read_conn, mainstage_read_conn, scope_detail_read_conn) =
             open_database_connections(db_path).map_err(|e| e.to_string())?;
@@ -83,17 +79,13 @@ impl LibraryStore {
         let read_conn = Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .map_err(|error| error.to_string())?;
         configure_read_connection(&read_conn).map_err(|error| error.to_string())?;
-        let mainstage_read_conn = Connection::open_with_flags(
-            db_path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )
-        .map_err(|error| error.to_string())?;
+        let mainstage_read_conn =
+            Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| error.to_string())?;
         configure_read_connection(&mainstage_read_conn).map_err(|error| error.to_string())?;
-        let scope_detail_read_conn = Connection::open_with_flags(
-            db_path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )
-        .map_err(|error| error.to_string())?;
+        let scope_detail_read_conn =
+            Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| error.to_string())?;
         configure_read_connection(&scope_detail_read_conn).map_err(|error| error.to_string())?;
 
         let cluster_uri = in_memory_cluster_uri();

@@ -115,8 +115,8 @@ mod tests {
     fn artist_ids(store: &LibraryStore, server: &str) -> Vec<String> {
         store
             .with_read_conn(|c| {
-                let mut stmt = c
-                    .prepare("SELECT id FROM artist WHERE server_id = ?1 ORDER BY id")?;
+                let mut stmt =
+                    c.prepare("SELECT id FROM artist WHERE server_id = ?1 ORDER BY id")?;
                 let rows = stmt
                     .query_map(params![server], |r| r.get::<_, String>(0))?
                     .collect::<rusqlite::Result<Vec<_>>>()?;

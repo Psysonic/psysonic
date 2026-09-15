@@ -23,7 +23,10 @@ pub async fn native_bulk_available(
     token: &str,
 ) -> Result<bool, String> {
     let client = nd_http_client();
-    let url = format!("{}/api/song?_start=0&_end=1", server_url.trim_end_matches('/'));
+    let url = format!(
+        "{}/api/song?_start=0&_end=1",
+        server_url.trim_end_matches('/')
+    );
     let resp = nd_apply_request(
         registry,
         server_ref,
@@ -66,7 +69,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let ok = native_bulk_available(None, None, &server.uri(), "tok-123").await.unwrap();
+        let ok = native_bulk_available(None, None, &server.uri(), "tok-123")
+            .await
+            .unwrap();
         assert!(ok);
     }
 
@@ -81,7 +86,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let ok = native_bulk_available(None, None, &server.uri(), "tok").await.unwrap();
+        let ok = native_bulk_available(None, None, &server.uri(), "tok")
+            .await
+            .unwrap();
         assert!(!ok);
     }
 
@@ -94,7 +101,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let ok = native_bulk_available(None, None, &server.uri(), "bad").await.unwrap();
+        let ok = native_bulk_available(None, None, &server.uri(), "bad")
+            .await
+            .unwrap();
         assert!(!ok, "401 reads as `endpoint not available for this caller`");
     }
 
@@ -107,7 +116,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let err = native_bulk_available(None, None, &server.uri(), "tok").await.unwrap_err();
+        let err = native_bulk_available(None, None, &server.uri(), "tok")
+            .await
+            .unwrap_err();
         assert!(err.contains("503"));
     }
 
@@ -121,6 +132,8 @@ mod tests {
             .await;
 
         let with_slash = format!("{}/", server.uri());
-        assert!(native_bulk_available(None, None, &with_slash, "tok").await.unwrap());
+        assert!(native_bulk_available(None, None, &with_slash, "tok")
+            .await
+            .unwrap());
     }
 }

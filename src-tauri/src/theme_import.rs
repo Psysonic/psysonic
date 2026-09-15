@@ -122,7 +122,9 @@ fn read_asset_entries<R: Read + std::io::Seek>(
             ));
         }
         if assets.len() >= MAX_ASSET_FILES {
-            return Err(format!("archive has more than {MAX_ASSET_FILES} asset files"));
+            return Err(format!(
+                "archive has more than {MAX_ASSET_FILES} asset files"
+            ));
         }
         let mut buf = Vec::new();
         entry

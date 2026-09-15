@@ -302,7 +302,10 @@ mod tests {
 
     #[test]
     fn normalize_album_strips_trailing_qualifier_only() {
-        assert_eq!(normalize_album_for_mb("Show No Mercy (2004 Remastered)"), "Show No Mercy");
+        assert_eq!(
+            normalize_album_for_mb("Show No Mercy (2004 Remastered)"),
+            "Show No Mercy"
+        );
         assert_eq!(normalize_album_for_mb("Album [Deluxe Edition]"), "Album");
         assert_eq!(normalize_album_for_mb("Reign in Blood"), "Reign in Blood");
         // leading qualifier left intact (does not end with a close bracket)
@@ -341,11 +344,15 @@ mod tests {
             ]}"#,
         )
         .unwrap();
-        assert!(matches!(classify_mb_releases(&two), MbResolution::Ambiguous));
+        assert!(matches!(
+            classify_mb_releases(&two),
+            MbResolution::Ambiguous
+        ));
 
-        let low: serde_json::Value =
-            serde_json::from_str(r#"{"releases":[{"score":50,"artist-credit":[{"artist":{"id":"x"}}]}]}"#)
-                .unwrap();
+        let low: serde_json::Value = serde_json::from_str(
+            r#"{"releases":[{"score":50,"artist-credit":[{"artist":{"id":"x"}}]}]}"#,
+        )
+        .unwrap();
         assert!(matches!(classify_mb_releases(&low), MbResolution::None));
 
         let empty: serde_json::Value = serde_json::from_str(r#"{"releases":[]}"#).unwrap();

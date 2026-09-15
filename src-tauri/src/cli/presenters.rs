@@ -203,7 +203,10 @@ pub(super) fn print_info_human(v: &Value) {
         }
     }
 
-    println!("=== queue ({} items) ===", o.get("queue_length").and_then(|x| x.as_u64()).unwrap_or(0));
+    println!(
+        "=== queue ({} items) ===",
+        o.get("queue_length").and_then(|x| x.as_u64()).unwrap_or(0)
+    );
     if let Some(Value::Array(items)) = o.get("queue") {
         for (i, item) in items.iter().enumerate() {
             let line = match item {

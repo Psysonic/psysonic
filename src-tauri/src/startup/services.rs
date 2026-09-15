@@ -9,14 +9,13 @@ use crate::{
 mod library_scheduler;
 
 pub(crate) fn initialize(app: &mut tauri::App) -> Result<(), String> {
-    let migration_write_barrier = Arc::new(
-        psysonic_core::migration_write_barrier::MigrationWriteBarrier::default(),
-    );
+    let migration_write_barrier =
+        Arc::new(psysonic_core::migration_write_barrier::MigrationWriteBarrier::default());
     let cache = analysis_cache::AnalysisCache::init_with_migration_barrier(
         app.handle(),
         Arc::clone(&migration_write_barrier),
     )
-        .map_err(|e| format!("analysis cache init failed: {e}"))?;
+    .map_err(|e| format!("analysis cache init failed: {e}"))?;
     app.manage(cache);
 
     cover_cache::init_cover_cache(app.handle())
@@ -29,7 +28,7 @@ pub(crate) fn initialize(app: &mut tauri::App) -> Result<(), String> {
         app.handle(),
         migration_write_barrier,
     )
-        .map_err(|e| format!("library store init failed: {e}"))?;
+    .map_err(|e| format!("library store init failed: {e}"))?;
     let runtime = psysonic_library::LibraryRuntime::new(Arc::new(store));
     app.manage(runtime);
     library_identity_maintenance::setup_library_identity_maintenance(app.handle());

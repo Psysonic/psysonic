@@ -32,10 +32,7 @@ impl Drop for ReadOpOwnerGuard<'_> {
 }
 
 impl LibraryStore {
-    pub(crate) async fn scope_migration_write_generation<F>(
-        generation: u64,
-        future: F,
-    ) -> F::Output
+    pub(crate) async fn scope_migration_write_generation<F>(generation: u64, future: F) -> F::Output
     where
         F: std::future::Future,
     {
@@ -48,8 +45,7 @@ impl LibraryStore {
         operation: impl FnOnce() -> R,
     ) -> R {
         psysonic_core::migration_write_barrier::MigrationWriteBarrier::scope_sync(
-            generation,
-            operation,
+            generation, operation,
         )
     }
 

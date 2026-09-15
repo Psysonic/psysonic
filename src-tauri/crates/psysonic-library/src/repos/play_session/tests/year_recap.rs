@@ -87,16 +87,40 @@ fn year_recap_ranks_and_aggregates() {
     // Artist Alpha owns two tracks on album "First" (flac, Rock, with cover);
     // artist Beta owns one track on album "Second" (mp3, Jazz, no ids).
     recap_track(
-        &store, "s1", "t1", "Song One", "Alpha", "First",
-        Some("al-1"), Some("Rock"), Some("flac"), Some("cov-1"),
+        &store,
+        "s1",
+        "t1",
+        "Song One",
+        "Alpha",
+        "First",
+        Some("al-1"),
+        Some("Rock"),
+        Some("flac"),
+        Some("cov-1"),
     );
     recap_track(
-        &store, "s1", "t2", "Song Two", "Alpha", "First",
-        Some("al-1"), Some("Rock"), Some("flac"), Some("cov-1"),
+        &store,
+        "s1",
+        "t2",
+        "Song Two",
+        "Alpha",
+        "First",
+        Some("al-1"),
+        Some("Rock"),
+        Some("flac"),
+        Some("cov-1"),
     );
     recap_track(
-        &store, "s1", "t3", "Song Three", "Beta", "Second",
-        None, Some("Jazz"), Some("mp3"), None,
+        &store,
+        "s1",
+        "t3",
+        "Song Three",
+        "Beta",
+        "Second",
+        None,
+        Some("Jazz"),
+        Some("mp3"),
+        None,
     );
     let repo = PlaySessionRepository::new(&store);
 
@@ -155,8 +179,12 @@ fn year_recap_ranks_and_aggregates() {
 #[test]
 fn year_recap_new_artist_count_spans_full_history() {
     let store = LibraryStore::open_in_memory();
-    recap_track(&store, "s1", "t1", "Old Song", "Alpha", "First", None, None, None, None);
-    recap_track(&store, "s1", "t2", "New Song", "Beta", "Second", None, None, None, None);
+    recap_track(
+        &store, "s1", "t1", "Old Song", "Alpha", "First", None, None, None, None,
+    );
+    recap_track(
+        &store, "s1", "t2", "New Song", "Beta", "Second", None, None, None, None,
+    );
     let repo = PlaySessionRepository::new(&store);
 
     // Alpha was first heard in 2023; only Beta debuts in 2024.
@@ -174,7 +202,9 @@ fn year_recap_new_artist_count_spans_full_history() {
 #[test]
 fn year_recap_empty_year_is_all_zeroes() {
     let store = LibraryStore::open_in_memory();
-    recap_track(&store, "s1", "t1", "Song", "Alpha", "First", None, None, None, None);
+    recap_track(
+        &store, "s1", "t1", "Song", "Alpha", "First", None, None, None, None,
+    );
     let repo = PlaySessionRepository::new(&store);
     insert_session(&repo, "s1", "t1", MID_2024_MS, 120.0);
 

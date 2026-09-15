@@ -315,7 +315,6 @@ impl ServerHttpRegistry {
         self.resolve_context(server_ref, full_http_url)
             .is_some_and(|ctx| ctx.supports_raw_stream)
     }
-
 }
 
 /// The single entry point for attaching a gated server's custom headers to any
@@ -346,10 +345,7 @@ mod tests {
     #[test]
     fn request_base_url_strips_rest_and_query() {
         let url = "https://music.example/rest/stream.view?id=1&u=x";
-        assert_eq!(
-            request_base_url_from_http_url(url),
-            "https://music.example"
-        );
+        assert_eq!(request_base_url_from_http_url(url), "https://music.example");
     }
 
     #[test]
@@ -366,7 +362,10 @@ mod tests {
         let lan = headers_for_request_base_url(&ctx, "http://192.168.0.10");
         assert!(lan.is_empty());
         let pub_ = headers_for_request_base_url(&ctx, "https://music.example");
-        assert_eq!(pub_.get("X-Gate").map(|v| v.to_str().ok()), Some(Some("secret")));
+        assert_eq!(
+            pub_.get("X-Gate").map(|v| v.to_str().ok()),
+            Some(Some("secret"))
+        );
     }
 
     #[test]
@@ -396,11 +395,17 @@ mod tests {
             .resolve_context(Some("some-stale-playback-id"), stream_url)
             .expect("stale ref must fall back to URL endpoint match");
         let headers = headers_for_request_base_url(&ctx, "http://127.0.0.1:8899");
-        assert_eq!(headers.get("X-Gate").map(|v| v.to_str().ok()), Some(Some("tok")));
+        assert_eq!(
+            headers.get("X-Gate").map(|v| v.to_str().ok()),
+            Some(Some("tok"))
+        );
 
         // A non-gated server URL never resolves — foreign servers stay untouched.
         assert!(reg
-            .resolve_context(Some("some-stale-playback-id"), "https://other.example/rest/stream.view?id=1")
+            .resolve_context(
+                Some("some-stale-playback-id"),
+                "https://other.example/rest/stream.view?id=1"
+            )
             .is_none());
     }
 
@@ -518,9 +523,8 @@ mod tests {
 
         assert!(reg.get("old.example").is_none());
         assert!(reg.get_for_server_ref("uuid-1").is_none());
-        assert!(!reg.supports_raw_stream_for_request(
-            None,
-            "https://old.example/rest/stream.view?id=1"
-        ));
+        assert!(
+            !reg.supports_raw_stream_for_request(None, "https://old.example/rest/stream.view?id=1")
+        );
     }
 }

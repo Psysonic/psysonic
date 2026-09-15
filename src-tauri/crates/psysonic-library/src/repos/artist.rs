@@ -29,9 +29,8 @@ impl<'a> ArtistRepository<'a> {
         self.store.with_conn_mut("artist.upsert_index", |conn| {
             let tx = conn.transaction()?;
             let mut changed_identity = HashSet::new();
-            let mut previous_name = tx.prepare_cached(
-                "SELECT name FROM artist WHERE server_id = ?1 AND id = ?2",
-            )?;
+            let mut previous_name =
+                tx.prepare_cached("SELECT name FROM artist WHERE server_id = ?1 AND id = ?2")?;
             for bucket in &index.index {
                 for artist in &bucket.artist {
                     let previous = previous_name
@@ -97,21 +96,22 @@ impl<'a> ArtistRepository<'a> {
         }
 
         let mut count = 0u32;
-        self.store.with_conn_mut("artist.backfill_from_tracks", |conn| {
-            let tx = conn.transaction()?;
-            for (id, name) in &rows {
-                let name_sort = sort_key_for_display_name(name, ignored_articles);
-                upsert_artist_row(&tx, server_id, id, name, &name_sort, None, synced_at)?;
-                count += 1;
-            }
-            crate::identity::record_artists(
-                &tx,
-                server_id,
-                rows.iter().map(|(id, _)| id.as_str()),
-            )?;
-            tx.commit()?;
-            Ok(())
-        })?;
+        self.store
+            .with_conn_mut("artist.backfill_from_tracks", |conn| {
+                let tx = conn.transaction()?;
+                for (id, name) in &rows {
+                    let name_sort = sort_key_for_display_name(name, ignored_articles);
+                    upsert_artist_row(&tx, server_id, id, name, &name_sort, None, synced_at)?;
+                    count += 1;
+                }
+                crate::identity::record_artists(
+                    &tx,
+                    server_id,
+                    rows.iter().map(|(id, _)| id.as_str()),
+                )?;
+                tx.commit()?;
+                Ok(())
+            })?;
         Ok(count)
     }
 
@@ -188,19 +188,20 @@ impl<'a> ArtistRepository<'a> {
         }
 
         let mut count = 0u32;
-        self.store.with_conn_mut("artist.backfill_null_name_sort", |conn| {
-            let tx = conn.transaction()?;
-            for (server_id, id, name) in &rows {
-                let name_sort = sort_key_for_display_name(name, ignored_articles);
-                tx.execute(
-                    "UPDATE artist SET name_sort = ?1 WHERE server_id = ?2 AND id = ?3",
-                    params![name_sort, server_id, id],
-                )?;
-                count += 1;
-            }
-            tx.commit()?;
-            Ok(())
-        })?;
+        self.store
+            .with_conn_mut("artist.backfill_null_name_sort", |conn| {
+                let tx = conn.transaction()?;
+                for (server_id, id, name) in &rows {
+                    let name_sort = sort_key_for_display_name(name, ignored_articles);
+                    tx.execute(
+                        "UPDATE artist SET name_sort = ?1 WHERE server_id = ?2 AND id = ?3",
+                        params![name_sort, server_id, id],
+                    )?;
+                    count += 1;
+                }
+                tx.commit()?;
+                Ok(())
+            })?;
         Ok(count)
     }
 }
@@ -223,7 +224,15 @@ fn upsert_artist_row(
             name_fold = excluded.name_fold, \
             album_count = COALESCE(excluded.album_count, artist.album_count), \
             synced_at = excluded.synced_at",
-        params![server_id, id, name, name_sort, name.trim().to_lowercase(), album_count, synced_at],
+        params![
+            server_id,
+            id,
+            name,
+            name_sort,
+            name.trim().to_lowercase(),
+            album_count,
+            synced_at
+        ],
     )?;
     Ok(())
 }
@@ -315,12 +324,14 @@ mod tests {
         let repo = ArtistRepository::new(&store);
 
         assert_eq!(
-            repo.resolve_ids_by_name("s1", &["Echo".to_string()]).unwrap(),
+            repo.resolve_ids_by_name("s1", &["Echo".to_string()])
+                .unwrap(),
             vec![Some("ar_zz_albums".to_string())]
         );
         // An artist that only exists on another server must not leak into this one.
         assert_eq!(
-            repo.resolve_ids_by_name("s1", &["Alice".to_string()]).unwrap(),
+            repo.resolve_ids_by_name("s1", &["Alice".to_string()])
+                .unwrap(),
             vec![None]
         );
     }
