@@ -269,6 +269,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   padding: 6px 10px;
+  max-width: 100%;
 }
 
 .burner-icon-btn {
@@ -1693,11 +1694,17 @@ body.psy-dragging .burner-seam { pointer-events: none; }
   padding: var(--space-3);
 }
 
+/* Wraps because a `select` cannot shrink: its width comes from its longest
+   option. A label that cannot break then pushes it out of the 216px rail and
+   the rail clips it — measured at 6px for German, 13px for Dutch and 8px for
+   Norwegian, all of which name this setting in a single compound word.
+   Wrapping puts the control on its own line rather than out of sight. */
 .burner-option-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
 }
 
 .burner-option-row > label {
