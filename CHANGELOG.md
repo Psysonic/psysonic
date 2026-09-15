@@ -303,6 +303,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Opening Settings → Themes could replace the whole Settings page with an error message, on any platform, for anyone who had ever imported a settings backup. Root cause: the import wrote the stored interface language back with quotation marks around it, which is not a language code the date and time formatting accepts.
 * Affected installs repair the value themselves on the next start, and exporting a backup from one now produces a clean file. The language dropdown shows the language name again instead of a raw value.
 
+### Card grids no longer overlap on wide windows
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1565](https://github.com/Psysonic/psysonic/pull/1565)**
+
+* On a wide window with a low column setting, each row of album, artist, playlist, radio and Offline Library cards was drawn over the row above it: titles were hidden and the bottom of every card was cut off. Rows are now as tall as the cards they hold, at any tile size.
+* The bigger the screen, the sooner it appeared — a 4K display overlapped at seven columns and fewer, while a narrower window or more columns looked correct. Both render the same now.
+
 ## [1.52.0]
 
 ## Added
