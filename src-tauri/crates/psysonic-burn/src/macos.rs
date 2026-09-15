@@ -341,7 +341,9 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
                 "This is {media_type}. Audio CDs need a blank CD-R or CD-RW."
             ))
         } else if is_cdrom {
-            Some("This is a pressed CD-ROM and cannot be written to.".to_string())
+            // Not necessarily pressed: a burned, closed CD-R can be reported as
+            // CD-ROM too, so this may be the user's own disc.
+            Some(crate::mmc::scsi::CLOSED_DISC_MESSAGE.to_string())
         } else if !is_blank {
             Some(if erasable {
                 "This CD-RW already holds data. Erase it before burning.".to_string()

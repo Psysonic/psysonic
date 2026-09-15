@@ -527,7 +527,9 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
                 "This is {media_type}. Audio CDs need a blank CD-R or CD-RW."
             ))
         } else if media == IMAPI_MEDIA_TYPE_CDROM {
-            Some("This is a pressed CD-ROM and cannot be written to.".to_string())
+            // Not necessarily pressed: drives report a burned, closed CD-R as
+            // CD-ROM too, so this is often the user's own disc.
+            Some(scsi::CLOSED_DISC_MESSAGE.to_string())
         } else if !blank {
             Some(if erasable {
                 "This CD-RW already holds data. Erase it before burning.".to_string()

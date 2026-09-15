@@ -47,11 +47,11 @@ const EJECT_ATTEMPTS: u32 = 3;
 /// runs to tens of seconds, because giving up early there spoils the disc.
 const EJECT_SETTLE: Duration = Duration::from_millis(200);
 
-/// Shown when a write finished without a single sector reaching the disc.
+/// Shown when a write finished and the disc still reads as blank.
 ///
-/// Worded around what was observed rather than a diagnosis: the case this was
-/// written for was USB-attached, but that is not yet shown to be the cause.
-const NOTHING_WRITTEN_MESSAGE: &str = "The drive accepted the whole burn, but the disc is still blank — nothing reached it. This has been seen with drives attached over USB. The disc is unused and can be burned again.";
+/// Worded around what was observed, not a diagnosis. It does not promise the
+/// disc is reusable: a drive can have burned a lead-in it does not yet report.
+const NOTHING_WRITTEN_MESSAGE: &str = "The drive accepted the whole burn, but the disc still reads as blank, so nothing appears to have reached it.";
 
 /// Read the kernel's drive table.
 ///
@@ -191,7 +191,9 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
             "This is {media_type}. Audio CDs need a blank CD-R or CD-RW."
         ))
     } else if profile == scsi::PROFILE_CD_ROM {
-        Some("This is a pressed CD-ROM and cannot be written to.".to_string())
+        // Not necessarily pressed: a burned, closed CD-R reports this profile
+        // too, so this is often the user's own disc.
+        Some(scsi::CLOSED_DISC_MESSAGE.to_string())
     } else if status.is_none() {
         Some("The drive would not describe this disc.".to_string())
     } else if !blank {

@@ -222,18 +222,18 @@ impl DiscStatus {
 /// What a finished write actually left on the disc, judged from the disc
 /// rather than from the drive's replies while writing.
 ///
-/// Every command in a write can come back OK without a single sector reaching
-/// the medium. A USB-attached drive has been seen accepting an entire
-/// Session-At-Once burn — cue sheet, lead-in, the whole program area, the
-/// closing `SYNCHRONIZE CACHE` — at a rate no CD writer can reach, and leaving
-/// a blank disc behind it. Nothing in the replies tells that apart from a real
-/// burn, so the only honest check is to ask the disc afterwards.
+/// Every command in a write can appear to succeed without a single sector
+/// reaching the medium. On Windows that once happened to every Session-At-Once
+/// burn on drives that refused the cue sheet: IMAPI2 reports a refusal as a
+/// success code, so the whole write "finished" at bus speed and left a blank
+/// disc. That is now caught where it happens, but the replies are still not the
+/// disc, so this asks the disc afterwards.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WriteVerdict {
     /// The disc holds what was written.
     Written,
-    /// The disc is still blank: nothing the write sent reached it. The disc is
-    /// untouched, which is what makes writing it again another way safe.
+    /// The disc still reads as blank, with no table of contents: nothing the
+    /// write sent is known to have reached it.
     NothingWritten,
     /// Something reached the disc but its session was left open. Not safe to
     /// write again, and it may not play.
@@ -343,6 +343,14 @@ pub fn sense_triplet(sense: &[u8], written: usize) -> Option<(u8, u8, u8)> {
 pub fn refusal(sense: &[u8], written: usize) -> Option<(u8, u8, u8)> {
     sense_triplet(sense, written).filter(|(key, _, _)| *key > 0x01)
 }
+
+/// Shown for a disc the drive reports as CD-ROM.
+///
+/// Worded so it is true of both discs that report that way: a pressed CD, and a
+/// CD-R that has been burned and closed — which drives also report as CD-ROM,
+/// so the disc in question is often the one the user burned a minute ago.
+pub const CLOSED_DISC_MESSAGE: &str =
+    "This disc has already been written and closed, so it cannot be written to.";
 
 /// Shown when a write left the disc with an open session and no readable table
 /// of contents.
