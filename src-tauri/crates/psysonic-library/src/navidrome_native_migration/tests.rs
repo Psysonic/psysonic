@@ -1,8 +1,8 @@
 use rusqlite::params;
 
 use super::{
-    finalize, preflight, reconcile_offline_paths, retarget_offline_paths, run_batch, upper_rowid,
-    verify_offline_paths, NavidromeNativeMigrationStep,
+    finalize, has_rebuildable_state, preflight, reconcile_offline_paths, retarget_offline_paths,
+    run_batch, upper_rowid, verify_offline_paths, NavidromeNativeMigrationStep,
 };
 use crate::navidrome_id_codec::canonical_id;
 use crate::store::LibraryStore;
@@ -458,6 +458,25 @@ fn finalization_clears_rebuildable_state_and_rebuilds_fts() {
         })
         .unwrap();
     assert_eq!(state, (0, 0, 0, 1, 1));
+}
+
+#[test]
+fn rebuildable_state_distinguishes_a_pristine_server() {
+    let store = LibraryStore::open_in_memory();
+    assert!(!has_rebuildable_state(&store, "s1").unwrap());
+
+    store
+        .with_conn_mut("test.seed_rebuildable_state", |conn| {
+            conn.execute(
+                "INSERT INTO sync_state (server_id, library_scope) VALUES ('s1', '')",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    assert!(has_rebuildable_state(&store, "s1").unwrap());
+    assert!(!has_rebuildable_state(&store, "s2").unwrap());
 }
 
 #[test]

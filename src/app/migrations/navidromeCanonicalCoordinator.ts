@@ -682,6 +682,10 @@ async function canAdmitCanonicalServerWithoutMigration(args: {
 }): Promise<boolean> {
   const liveTracks = await invoke<number>('library_count_live_tracks', { serverId: args.serverId });
   if (liveTracks !== 0) return false;
+  const hasRebuildableState = await invoke<boolean>('library_migration_has_rebuildable_state', {
+    serverId: args.serverId,
+  });
+  if (hasRebuildableState) return false;
   try {
     await verifyCanonicalInventory(args);
     return true;

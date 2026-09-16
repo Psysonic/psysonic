@@ -421,6 +421,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
   it('accepts a newly added canonical server with no local identity data without migration', async () => {
     mocks.invoke.mockImplementation(async (command: string) => {
       if (command === 'library_count_live_tracks') return 0;
+      if (command === 'library_migration_has_rebuildable_state') return false;
       if (command === 'library_migration_inventory') return undefined;
       throw new Error(`Unexpected command ${command}`);
     });
@@ -444,6 +445,26 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
     });
     expect(stored.servers['music.test'].localCompletedAt).toBeTypeOf('number');
     expect(stored.servers['music.test'].syncCompletedAt).toBeTypeOf('number');
+  });
+
+  it('keeps an empty canonical server with rebuildable state in the migration path', async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 0;
+      if (command === 'library_migration_has_rebuildable_state') return true;
+      if (command === 'library_migration_begin') return beginResult(14);
+      throw new Error(`Unexpected command ${command}`);
+    });
+
+    await expect(observeNavidromeCanonicalSuccessfulPing({
+      profile: {
+        id: 'profile', name: 'Music', url: 'https://music.test', username: 'user', password: 'password',
+      },
+      ping: { type: 'navidrome', serverVersion: '0.64.0' },
+    })).resolves.toBe(true);
+
+    expect(mocks.invoke).toHaveBeenCalledWith('library_migration_begin', { serverIds: ['music.test'] });
+    const stored = JSON.parse(localStorage.getItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY) ?? '{}');
+    expect(stored.servers['music.test']).toMatchObject({ phase: 'pending' });
   });
 
   it('serializes runtime observations so different server checkpoints cannot overwrite each other', async () => {

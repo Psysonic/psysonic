@@ -353,6 +353,22 @@ pub async fn library_migration_inventory(
     .await
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn library_migration_has_rebuildable_state(
+    runtime: State<'_, psysonic_library::LibraryRuntime>,
+    server_id: String,
+) -> Result<bool, String> {
+    let store = Arc::clone(&runtime.store);
+    migration_spawn_blocking(move || {
+        psysonic_library::navidrome_native_migration::has_rebuildable_state(
+            &store,
+            server_id.trim(),
+        )
+    })
+    .await
+}
+
 #[cfg(test)]
 mod tests {
     use tokio::sync::{mpsc, oneshot, Notify, RwLock};
