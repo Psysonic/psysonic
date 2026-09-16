@@ -43,13 +43,25 @@ export type CardGridRowHeightVariant =
 /** Album table row height in CSS px — 40px cover thumb plus vertical padding. */
 export const ALBUM_TABLE_ROW_HEIGHT_PX = 48;
 
-const VARIANT: Record<CardGridRowHeightVariant, { extra: number; min: number; max: number }> = {
-  artist: { extra: 72, min: 200, max: 520 },
+/**
+ * `max` is only for variants whose height does not follow the cell.
+ *
+ * An image tile's cover is square, so its height *is* the cell width plus a
+ * fixed text block — measured against the real stylesheets, that block is
+ * constant from 180px to 870px tiles (album 101, playlist 68, offline 114,
+ * artist 52, the last one over an avatar inset 34px from the cell). Capping
+ * such a row leaves it shorter than the card it has to hold, and because
+ * `VirtualCardGrid` positions rows from this number without measuring them,
+ * the next row lands on top of the previous one. Wide tiles are exactly what
+ * the Settings column cap is for, so they must not be capped here.
+ */
+const VARIANT: Record<CardGridRowHeightVariant, { extra: number; min: number; max?: number }> = {
+  artist: { extra: 72, min: 200 },
   /** Cover scales with cell width; ~108px headroom matches prior ~288px row at ~180px tiles. */
-  album: { extra: 108, min: 260, max: 560 },
-  playlist: { extra: 108, min: 260, max: 560 },
+  album: { extra: 108, min: 260 },
+  playlist: { extra: 108, min: 260 },
   /** Offline Library cards: album metadata + track-count footer + row gap in virtual rows. */
-  offline: { extra: 140, min: 290, max: 580 },
+  offline: { extra: 140, min: 290 },
   /** Text-only composer tiles: no imagery → fixed intrinsic height, does not
    * scale with cell width like the image variants. min === max pins it. */
   composer: { extra: 0, min: 88, max: 88 },
@@ -64,5 +76,6 @@ const VARIANT: Record<CardGridRowHeightVariant, { extra: number; min: number; ma
 
 export function estimateRowHeightPx(cellWidthPx: number, variant: CardGridRowHeightVariant): number {
   const { extra, min, max } = VARIANT[variant];
-  return Math.max(min, Math.min(max, Math.ceil(cellWidthPx + extra)));
+  const height = Math.ceil(cellWidthPx + extra);
+  return max === undefined ? Math.max(min, height) : Math.max(min, Math.min(max, height));
 }

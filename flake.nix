@@ -58,6 +58,7 @@
             rustc
             cargo
             clippy
+            rustfmt
             cargo-llvm-cov
             llvmPackages.llvm
             jq
