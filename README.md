@@ -200,14 +200,6 @@ The things you simply expect from a serious music player — and Psysonic does t
 
 ## Linux
 
-Choose the installation method that best fits your distribution.
-
-### Installer script
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Psysonic/psysonic/main/scripts/install.sh | sudo bash
-```
-
 ### Flatpak (experimental)
 
 > **Experimental:** The Flatpak packaging and signed update repository are new and may still have platform-integration issues.
