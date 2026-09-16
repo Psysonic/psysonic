@@ -20,6 +20,7 @@ use crate::model::{
 };
 use crate::plan::plan_disc;
 use crate::platform;
+use crate::preflight;
 use crate::render::{self, RenderedTrack};
 use psysonic_core::server_http::ServerHttpRegistry;
 
@@ -502,6 +503,36 @@ fn run_job(
     // estimate depends on the worker count, so it waits until that is known.
     let workers = render_workers(tracks.len());
     fetch::check_free_space(workdir, fetch::estimated_peak_bytes(&tracks, workers))?;
+
+    // Cheaper still to refuse before downloading anything at all. A track the
+    // server will not hand over used to surface as a render failure, after
+    // every track ahead of it had already been fetched and decoded — and the
+    // whole disc was abandoned for it. A few kilobytes each settles the
+    // question first, and only a refusal the preflight is certain about stops
+    // the burn, so a quiet server costs nothing but the asking.
+    if let Some(client) = http.as_ref() {
+        let refused = tauri::async_runtime::block_on(preflight::check_tracks(
+            &tracks,
+            &plan.indices,
+            client,
+            registry.as_deref(),
+            cancel,
+            &|index| job::emit_progress(app, job_id, BurnPhase::Fetching, Some(index), 0, 0, None),
+        ));
+        // Logged even when it finds nothing. A silent preflight is
+        // indistinguishable from one that never ran, which makes it impossible
+        // to tell a healthy queue from a step that was skipped.
+        crate::app_eprintln!(
+            "[burn] preflight checked {} track(s), refused {}",
+            plan.indices.len(),
+            refused.len()
+        );
+        // A cancel during the preflight is a cancellation, not a bad track: the
+        // loop stops early either way, and the check below reports it properly.
+        if !refused.is_empty() && !cancel.load(Ordering::Relaxed) {
+            return Err(preflight::describe(&refused));
+        }
+    }
 
     // Duration-based estimate, only so the progress bar has a denominator. The
     // rendered sector counts below are what actually decide the disc.

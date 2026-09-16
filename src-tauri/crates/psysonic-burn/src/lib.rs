@@ -18,6 +18,7 @@
 //! Layout:
 //! - `model`       — Red Book constants and the IPC DTOs
 //! - `fetch`       — pulls source audio down when it is not already cached
+//! - `preflight`   — asks whether the server will hand each track over, first
 //! - `cdtext`      — CD-TEXT pack encoding and read-back scoring (pure)
 //! - `mmc`         — cue sheet / mode page / CDB construction (pure)
 //! - `cdrom_info`  — parses the kernel's drive table (pure; Linux uses it)
@@ -45,6 +46,7 @@ pub mod mmc;
 pub mod model;
 pub mod plan;
 pub mod platform;
+pub mod preflight;
 pub mod render;
 
 #[cfg(windows)]

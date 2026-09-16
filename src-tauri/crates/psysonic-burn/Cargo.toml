@@ -39,3 +39,8 @@ windows-core = "0.62"
 
 [dev-dependencies]
 tempfile = { workspace = true }
+# The preflight asks a server a question, so testing it needs a server to
+# answer: wiremock, as the rest of the workspace tests HTTP. `macros` and
+# `rt-multi-thread` are for the `#[tokio::test]`s those checks run under.
+tokio = { version = "1", features = ["rt", "time", "sync", "macros", "rt-multi-thread"] }
+wiremock = { workspace = true }
