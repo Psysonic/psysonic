@@ -328,6 +328,7 @@ pub(crate) fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspe
         .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 pub(crate) fn run_backfill(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
     let inspect_result = inspect(store)?;
     let progress_total = if inspect_result.needed {

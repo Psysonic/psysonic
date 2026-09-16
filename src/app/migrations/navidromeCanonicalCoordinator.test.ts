@@ -264,8 +264,31 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
     expect(localStorage.getItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY)).toBe('1');
   });
 
-  it('inventories actual persistence before taking the same-version ready fast path', async () => {
+  it('skips startup I/O for a fully verified canonical checkpoint', async () => {
     checkpoint('ready');
+    const stored = JSON.parse(localStorage.getItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY) ?? '{}');
+    stored.servers['music.test'].checkedVersion = '0.64.0';
+    stored.servers['music.test'].localCompletedAt = 10;
+    stored.servers['music.test'].syncCompletedAt = 11;
+    localStorage.setItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY, JSON.stringify(stored));
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_migration_inspect') return { state: 'inactive', lastGeneration: 0 };
+      throw new Error(`Unexpected command ${command}`);
+    });
+
+    await expect(runNavidromeCanonicalMigrationCoordinator({ windowKind: 'main' }))
+      .resolves.toEqual({ blocked: false, migratedServers: 0 });
+    expect(mocks.invoke).not.toHaveBeenCalledWith('probe_server_connection', expect.anything());
+    expect(mocks.invoke).not.toHaveBeenCalledWith('library_migration_inventory', expect.anything());
+    expect(mocks.verifyFrontend).not.toHaveBeenCalled();
+    expect(mocks.invoke).not.toHaveBeenCalledWith('library_migration_begin', expect.anything());
+  });
+
+  it('rechecks a ready checkpoint that has no durable completion markers', async () => {
+    checkpoint('ready');
+    const stored = JSON.parse(localStorage.getItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY) ?? '{}');
+    stored.servers['music.test'].checkedVersion = '0.64.0';
+    localStorage.setItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY, JSON.stringify(stored));
     mocks.invoke.mockImplementation(async (command: string) => {
       if (command === 'library_migration_inspect') return { state: 'inactive', lastGeneration: 0 };
       if (command === 'probe_server_connection') {
@@ -277,14 +300,47 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
 
     await expect(runNavidromeCanonicalMigrationCoordinator({ windowKind: 'main' }))
       .resolves.toEqual({ blocked: false, migratedServers: 0 });
-    expect(mocks.invoke).toHaveBeenCalledWith('library_migration_inventory', {
-      serverId: 'music.test',
-      serverIndexKey: 'music.test',
-      customOfflineDir: null,
-      customHotCacheDir: '',
+    expect(mocks.invoke).toHaveBeenCalledWith('probe_server_connection', expect.anything());
+    expect(mocks.invoke).toHaveBeenCalledWith('library_migration_inventory', expect.anything());
+  });
+
+  it('defers an unverified background profile to runtime admission', async () => {
+    localStorage.setItem('psysonic-auth', JSON.stringify({
+      state: {
+        servers: [{
+          id: 'active-profile',
+          name: 'Active',
+          url: 'https://music.test',
+          username: 'user',
+          password: 'password',
+        }, {
+          id: 'background-profile',
+          name: 'Background',
+          url: 'https://slow.test',
+          username: 'user',
+          password: 'password',
+        }],
+        activeServerId: 'active-profile',
+        hotCacheDownloadDir: '',
+      },
+      version: 1,
+    }));
+    checkpoint('ready');
+    const stored = JSON.parse(localStorage.getItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY) ?? '{}');
+    stored.servers['music.test'].checkedVersion = '0.64.0';
+    stored.servers['music.test'].localCompletedAt = 10;
+    stored.servers['music.test'].syncCompletedAt = 11;
+    localStorage.setItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY, JSON.stringify(stored));
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_migration_inspect') return { state: 'inactive', lastGeneration: 0 };
+      throw new Error(`Unexpected command ${command}`);
     });
-    expect(mocks.verifyFrontend).toHaveBeenCalledOnce();
-    expect(mocks.invoke).not.toHaveBeenCalledWith('library_migration_begin', expect.anything());
+
+    await expect(runNavidromeCanonicalMigrationCoordinator({ windowKind: 'main' }))
+      .resolves.toEqual({ blocked: false, migratedServers: 0 });
+    expect(mocks.invoke).not.toHaveBeenCalledWith('probe_server_connection', expect.objectContaining({
+      baseUrl: 'https://slow.test',
+    }));
   });
 
   it('arms a pending writer generation before a changed runtime canonical version is published', async () => {

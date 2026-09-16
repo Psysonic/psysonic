@@ -202,6 +202,16 @@ function checkpointHasCanonicalNamespace(
     }) === 'canonical');
 }
 
+function checkpointIsTrustedReady(
+  checkpoint: NavidromeCanonicalMigrationServerCheckpointV1 | undefined,
+): boolean {
+  return checkpoint?.phase === 'ready'
+    && checkpoint.localCompletedAt !== null
+    && checkpoint.syncCompletedAt !== null
+    && checkpoint.lastError === null
+    && checkpointHasCanonicalNamespace(checkpoint);
+}
+
 function rawAuthState(storage: Storage): Record<string, unknown> {
   const raw = storage.getItem('psysonic-auth');
   if (!raw) return {};
@@ -816,10 +826,19 @@ export async function runNavidromeCanonicalMigrationCoordinator(
     await discardCommittedImportBackups();
     return complete({ blocked: false, migratedServers: 0 });
   }
+  const activeProfileId = typeof authState.activeServerId === 'string' ? authState.activeServerId : null;
+  const groupsToProbe = backendAtStart.state === 'inactive'
+    ? groups.filter(group => {
+        const saved = checkpoint.servers[group.serverIndexKey];
+        if (checkpointIsTrustedReady(saved)) return false;
+        if (activeProfileId && group.profiles.some(profile => profile.id === activeProfileId)) return true;
+        return Boolean(saved && (saved.phase === 'ready' || BLOCKING_PHASES.has(saved.phase)));
+      })
+    : groups;
   const reachable: ReachableServer[] = [];
-  for (let index = 0; index < groups.length; index += 1) {
-    const group = groups[index];
-    emit(group.serverIndexKey, 'probing', null, index, groups.length);
+  for (let index = 0; index < groupsToProbe.length; index += 1) {
+    const group = groupsToProbe[index];
+    emit(group.serverIndexKey, 'probing', null, index, groupsToProbe.length);
     const server = await probeGroup(group);
     if (server) reachable.push(server);
   }
