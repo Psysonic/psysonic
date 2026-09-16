@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * With shuffle switched on, double-clicking a track in an album, playlist or favourites now queues that whole list in random order, starting with the track you picked. Until now the list arrived in its own order while the shuffle button said otherwise.
 * Switching shuffle back off puts the list into the order it had when you started it.
 
+### Browse all your favourite albums as a grid
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1583](https://github.com/Psysonic/psysonic/pull/1583)**
+
+* Clicking **Albums** on the Favorites page now opens All Albums showing only your favourites, so hundreds of them can be browsed as a grid with sorting and filters instead of scrolling one long row.
+
 ## [1.54.0]
 
 ## Fixed
