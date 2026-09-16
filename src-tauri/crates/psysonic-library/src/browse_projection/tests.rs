@@ -99,6 +99,18 @@ fn browse_albums(
 }
 
 #[test]
+fn combined_projection_work_reports_one_logical_track_total() {
+    let first_quarter = logical_progress(50_000, 200_000, 100_000);
+    assert_eq!((first_quarter.done, first_quarter.total), (25_000, 100_000));
+
+    let second_pass = logical_progress(100_000, 200_000, 100_000);
+    assert_eq!((second_pass.done, second_pass.total), (50_000, 100_000));
+
+    let complete = logical_progress(200_000, 200_000, 100_000);
+    assert_eq!((complete.done, complete.total), (100_000, 100_000));
+}
+
+#[test]
 fn ingest_refreshes_only_affected_album_projection() {
     let store = LibraryStore::open_in_memory();
     TrackRepository::new(&store)

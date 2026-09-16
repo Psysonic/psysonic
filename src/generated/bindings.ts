@@ -78,6 +78,7 @@ export const commands = {
 	libraryMigrationAnalysisFinalize: (generation: number, serverId: string) => typedError<AnalysisMigrationFinalizeDto, string>(__TAURI_INVOKE("library_migration_analysis_finalize", { generation, serverId })),
 	libraryMigrationVerify: (generation: number, serverId: string) => typedError<null, string>(__TAURI_INVOKE("library_migration_verify", { generation, serverId })),
 	libraryMigrationInventory: (serverId: string, serverIndexKey: string, customOfflineDir: string | null, customHotCacheDir: string | null) => typedError<null, string>(__TAURI_INVOKE("library_migration_inventory", { serverId, serverIndexKey, customOfflineDir, customHotCacheDir })),
+	libraryMigrationHasRebuildableState: (serverId: string) => typedError<boolean, string>(__TAURI_INVOKE("library_migration_has_rebuildable_state", { serverId })),
 	libraryMigrationInspect: () => typedError<MigrationGenerationSnapshotDto, string>(__TAURI_INVOKE("library_migration_inspect")),
 	libraryMigrationUpdatePhase: (generation: number, serverId: string, phase: MigrationPhase) => typedError<null, string>(__TAURI_INVOKE("library_migration_update_phase", { generation, serverId, phase })),
 	libraryMigrationAbort: (generation: number, serverId: string, error: string) => typedError<null, string>(__TAURI_INVOKE("library_migration_abort", { generation, serverId, error })),
