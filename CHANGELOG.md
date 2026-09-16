@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The album page now shows the description your server holds for a release, under the genre tags. Long ones are trimmed to two lines with a link to read the rest in place.
 * It also shows the comment tag from your files — notes like "Remaster 2024" that had nowhere to appear before. Shown only when every tagged track on the release says the same thing, so a note about a single track is never presented as one about the album.
 
+### Shuffle now applies to a list you start playing
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1576](https://github.com/Psysonic/psysonic/pull/1576)**
+
+* With shuffle switched on, double-clicking a track in an album, playlist or favourites now queues that whole list in random order, starting with the track you picked. Until now the list arrived in its own order while the shuffle button said otherwise.
+* Switching shuffle back off puts the list into the order it had when you started it.
+
 ## [1.54.0]
 
 ## Fixed
