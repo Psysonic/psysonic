@@ -846,15 +846,32 @@ pub fn burn(
                             // that is not proof: a drive can take a whole session
                             // without committing it. So ask the disc, while the
                             // drive is still held. A rehearsal writes nothing by
-                            // design, so there is nothing to judge.
-                            let verdict = if options.test_write {
-                                WriteVerdict::Unknown
-                            } else {
-                                verdict_while_held(&recorder)
-                            };
+                            // design, so there is nothing to judge -- which is a
+                            // different thing from asking and getting no answer,
+                            // and the two are kept apart so the log can tell them
+                            // apart too.
+                            let verdict =
+                                (!options.test_write).then(|| verdict_while_held(&recorder));
+
+                            // Say what the disc said. A burn that goes on despite
+                            // the drive refusing to answer must not look, in the
+                            // log, exactly like one the disc confirmed: that is
+                            // the same not-knowing-dressed-as-success that made
+                            // IMAPI2's sense-data HRESULT so expensive here.
+                            match verdict {
+                                Some(WriteVerdict::Written) => {
+                                    crate::app_eprintln!("[burn] the disc confirms the write");
+                                }
+                                Some(WriteVerdict::Unknown) => {
+                                    crate::app_eprintln!(
+                                        "[burn] the drive would not say whether the write reached the disc; continuing as written"
+                                    );
+                                }
+                                _ => {}
+                            }
 
                             match verdict {
-                                WriteVerdict::NothingWritten => {
+                                Some(WriteVerdict::NothingWritten) => {
                                     // The drive accepted and flushed the whole session,
                                     // and the disc still reads as blank with no table of
                                     // contents. If it burned nothing, the IMAPI2 path
@@ -866,11 +883,16 @@ pub fn burn(
                                         "[burn] the drive accepted the Session-At-Once write but the disc is still blank; burning again without CD-TEXT"
                                     );
                                 }
-                                WriteVerdict::Unfinished => {
+                                Some(WriteVerdict::Unfinished) => {
                                     drop(lock);
                                     return Err(scsi::UNFINISHED_WRITE_MESSAGE.to_string());
                                 }
-                                WriteVerdict::Written | WriteVerdict::Unknown => {
+                                // `None` is a rehearsal, which wrote nothing and
+                                // was never judged; the other two are a write the
+                                // disc confirmed and one it would not speak to.
+                                // They finish the same way, and the log above is
+                                // what distinguishes them.
+                                Some(WriteVerdict::Written | WriteVerdict::Unknown) | None => {
                                     // Verify against the disc rather than trusting the
                                     // drive's own claim that it can do this. A failed
                                     // query is reported as such, not as an empty disc.

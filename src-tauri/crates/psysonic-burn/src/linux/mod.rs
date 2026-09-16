@@ -370,7 +370,20 @@ pub fn burn(
             scsi::WriteVerdict::Unfinished => {
                 return Err(scsi::UNFINISHED_WRITE_MESSAGE.to_string());
             }
-            scsi::WriteVerdict::Written | scsi::WriteVerdict::Unknown => {}
+            scsi::WriteVerdict::Written => {
+                crate::app_eprintln!("[burn] the disc confirms the write");
+            }
+            scsi::WriteVerdict::Unknown => {
+                // The drive answered neither READ DISC INFORMATION nor READ TOC,
+                // so nothing here knows whether the session reached the disc.
+                // Going on is the safer of the two wrong answers -- there is no
+                // second write path to fall back to, and calling a good disc a
+                // failure wastes it -- but the not-knowing is said out loud
+                // rather than passed off as a confirmed burn.
+                crate::app_eprintln!(
+                    "[burn] the drive would not say whether the write reached the disc; continuing as written"
+                );
+            }
         }
     }
 
