@@ -69,6 +69,58 @@ struct DecodeSession {
     track_id: u32,
 }
 
+/// What a file Symphonia would not open appears to be.
+///
+/// "Unrecognised audio format" is true of a codec nobody supports and of an
+/// error page saved under an audio file's name, and the two need different
+/// answers from whoever reads it. A track the library indexes as a 320 kbps MP3
+/// arrived as something no decoder would touch, and the message said nothing
+/// about which had happened.
+///
+/// Takes the first bytes and the size; asserts nothing it cannot see.
+pub fn describe_unreadable(head: &[u8], len: u64) -> String {
+    if len == 0 {
+        return "the file is empty".to_string();
+    }
+
+    let trimmed = head
+        .iter()
+        .position(|b| !b.is_ascii_whitespace())
+        .map_or(&[][..], |at| &head[at..]);
+    let starts_with = |prefix: &str| {
+        trimmed.len() >= prefix.len()
+            && trimmed[..prefix.len()].eq_ignore_ascii_case(prefix.as_bytes())
+    };
+
+    let shape = if starts_with("<?xml") || starts_with("<subsonic-response") {
+        "XML, which is what a Subsonic server sends when it refuses a request"
+    } else if starts_with("<!doctype") || starts_with("<html") {
+        "a web page"
+    } else if starts_with("{") || starts_with("[") {
+        "JSON, which is what a server sends when it refuses a request"
+    } else if trimmed.iter().all(|b| b.is_ascii_graphic() || b.is_ascii_whitespace()) {
+        "plain text"
+    } else {
+        return format!(
+            "{len} bytes that start {:02X?}, which no decoder recognised",
+            &head[..head.len().min(8)]
+        );
+    };
+
+    format!("{len} bytes of {shape}, not audio")
+}
+
+/// `describe_unreadable` for a file on disk, as a sentence to append.
+fn unreadable_detail(path: &Path) -> String {
+    let Ok(mut file) = File::open(path) else {
+        return String::new();
+    };
+    let len = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let mut head = [0_u8; 64];
+    let read = std::io::Read::read(&mut file, &mut head).unwrap_or(0);
+    format!(" — {}", describe_unreadable(&head[..read], len))
+}
+
 fn open_decode_session(path: &Path) -> Result<DecodeSession, String> {
     let file = File::open(path).map_err(|e| format!("cannot open {}: {e}", path.display()))?;
     let mss = MediaSourceStream::new(Box::new(file), Default::default());
@@ -85,7 +137,7 @@ fn open_decode_session(path: &Path) -> Result<DecodeSession, String> {
             FormatOptions::default(),
             MetadataOptions::default(),
         )
-        .map_err(|e| format!("unrecognised audio format: {e}"))?;
+        .map_err(|e| format!("unrecognised audio format: {e}{}", unreadable_detail(path)))?;
 
     // Prefer a track that declares both rate and channels; fall back to the
     // first known audio codec so cover-art video tracks are skipped.
@@ -565,6 +617,104 @@ pub fn sectors_to_bytes(sectors: u32) -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Render a file that is not audio, and return what the user would be told.
+    ///
+    /// Through `render_track`, not the helper underneath it: the point is that
+    /// a probe failure actually reaches the description, which is the wiring a
+    /// test of the pure function alone would never touch.
+    fn render_failure(name: &str, body: &[u8]) -> String {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let source = dir.path().join(name);
+        std::fs::write(&source, body).expect("write the source");
+        let cancel = AtomicBool::new(false);
+
+        render_track(&source, &dir.path().join("out.pcm"), 1.0, &cancel, &|_| {})
+            .expect_err("a file that is not audio cannot render")
+    }
+
+    #[test]
+    fn a_server_error_saved_as_a_track_says_what_it_really_is() {
+        // The reported case: the library had the track as a 320 kbps MP3, the
+        // download was something no decoder would touch, and the message said
+        // only "unrecognised audio format".
+        let body = br#"<?xml version="1.0" encoding="UTF-8"?>
+<subsonic-response xmlns="http://subsonic.org/restapi" status="failed" version="1.16.1">
+  <error code="70" message="Requested data was not found"/>
+</subsonic-response>"#;
+        let error = render_failure("src-01.mp3", body);
+
+        assert!(error.contains("unrecognised audio format"), "{error}");
+        assert!(error.contains("XML"), "{error}");
+        assert!(error.contains(&body.len().to_string()), "the size is the tell: {error}");
+    }
+
+    #[test]
+    fn a_web_page_saved_as_a_track_is_named_as_one() {
+        let body = b"<!DOCTYPE html>\n<html><head><title>404</title></head><body>Not found</body></html>";
+        let error = render_failure("src-02.flac", body);
+        assert!(error.contains("web page"), "{error}");
+    }
+
+    #[test]
+    fn an_empty_download_is_not_blamed_on_the_codec() {
+        let error = render_failure("src-03.mp3", b"");
+        assert!(error.contains("the file is empty"), "{error}");
+    }
+
+    #[test]
+    fn an_empty_file_says_so() {
+        assert_eq!(describe_unreadable(&[], 0), "the file is empty");
+    }
+
+    #[test]
+    fn a_server_refusal_is_named_as_one() {
+        // What a track "not downloaded" can actually arrive as. Saying
+        // "unrecognised audio format" about this sends the reader after the
+        // wrong thing entirely.
+        let xml = br#"<?xml version="1.0"?><subsonic-response status="failed">"#;
+        assert!(describe_unreadable(xml, xml.len() as u64).contains("XML"));
+
+        let direct = b"<subsonic-response status=\"failed\"";
+        assert!(describe_unreadable(direct, direct.len() as u64).contains("XML"));
+
+        let json = br#"{"subsonic-response":{"status":"failed"}}"#;
+        assert!(describe_unreadable(json, json.len() as u64).contains("JSON"));
+
+        let html = b"<!DOCTYPE html><html><body>404";
+        assert!(describe_unreadable(html, html.len() as u64).contains("web page"));
+    }
+
+    #[test]
+    fn leading_whitespace_does_not_hide_what_it_is() {
+        let xml = b"\r\n  <?xml version=\"1.0\"?>";
+        assert!(describe_unreadable(xml, xml.len() as u64).contains("XML"));
+    }
+
+    #[test]
+    fn audio_that_no_decoder_knows_is_reported_as_bytes() {
+        // A real codec nobody supports: the bytes are the only honest answer,
+        // and they are what identifies the format to whoever reads the log.
+        let head = [0x2E, 0x72, 0x61, 0xFD, 0x00, 0x01, 0x02, 0x03];
+        let text = describe_unreadable(&head, 4_200);
+        assert!(text.contains("4200 bytes"), "{text}");
+        assert!(text.contains("2E"), "{text}");
+        assert!(!text.contains("not audio"), "nothing here says what it is: {text}");
+    }
+
+    #[test]
+    fn plain_text_is_called_text() {
+        let text = b"Not Found";
+        assert!(describe_unreadable(text, text.len() as u64).contains("plain text"));
+    }
+
+    #[test]
+    fn the_size_is_always_there_to_compare_against_the_track() {
+        // A 412-byte "MP3" is the tell; the size makes it obvious at a glance.
+        for head in [&b"Not Found"[..], &b"<html>"[..], &[0xFF, 0xFB, 0x90][..]] {
+            assert!(describe_unreadable(head, 412).contains("412"));
+        }
+    }
 
     /// A minimal 44.1 kHz 16-bit stereo WAV, `frames` long.
     ///
