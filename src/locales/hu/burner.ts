@@ -137,6 +137,15 @@ export const burner = {
   cancelSpoilsDisc:
     'A CD-R most íródik. A leállítás használhatatlanná teszi a lemezt — a CD-R nem írható újra.',
 
+  mediaBlockerNoDisc: 'Nincs lemez a meghajtóban.',
+  mediaBlockerNotCd: 'Ez {{mediaType}}. Egy hang-CD-hez üres CD-R vagy CD-RW kell.',
+  mediaBlockerAlreadyWritten: 'Ez a lemez már meg van írva és le van zárva, ezért nem írható.',
+  mediaBlockerNotBlankRewritable: 'Ez a CD-RW már tartalmaz adatot. Töröld írás előtt.',
+  mediaBlockerNotBlankRecordable: 'Ez a CD-R nem üres. A hang-CD-t egy menetben kell megírni.',
+  mediaBlockerDriveRefused: 'A meghajtó nem fogadja el ezt a lemezt.',
+  mediaBlockerDriveSilent: 'A meghajtó nem adott leírást erről a lemezről.',
+  mediaBlockerUnknown: 'Erre a lemezre nem lehet írni.',
+
   blockerEmpty: 'Adj hozzá legalább egy számot lemez írásához.',
   blockerOverCapacity:
     'A kapacitás {{over}} értékkel túllépve. Távolíts el egy számot, vagy használj 80 perces lemezt.',

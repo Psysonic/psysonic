@@ -665,7 +665,10 @@ fn run_job(
             .unwrap_or_else(|| "The running order does not fit this disc.".to_string()));
     }
     if let Some(blocker) = media.blocker {
-        return Err(blocker);
+        // English here on purpose: this is a burn that was started against a
+        // disc the page had already blocked, so it ends as an error rather than
+        // in the alert line the frontend translates.
+        return Err(blocker.message(&media.media_type));
     }
 
     let track_count = rendered.len() as u32;

@@ -1042,6 +1042,38 @@ export type BandsintownEvent = {
 	lineup: string[],
 };
 
+/**
+ *  Why the disc in the drive cannot be written to.
+ *
+ *  A code rather than a sentence: the backends build finished English prose for
+ *  everything else they report, and the frontend renders it verbatim, so no
+ *  locale file can reach it. This is the one such message a user meets in
+ *  normal use — it sits in the burner's alert line whenever the disc is wrong —
+ *  so the backend says *which* problem and the frontend says it in the user's
+ *  language.
+ *
+ *  Deliberately carries no data. The only variable any of these sentences needs
+ *  is the media type, which `BurnMediaInfo` already reports on its own field.
+ */
+export type BurnMediaBlocker =
+/**  The tray is empty, or what is in it cannot be read at all. */
+"noDisc" |
+/**  Not a CD: a DVD, a Blu-ray, or something the drive would not name. */
+"notCd" |
+/**
+ *  Written and closed. A pressed CD reports this way, and so does a CD-R
+ *  the user burned a minute ago.
+ */
+"alreadyWritten" |
+/**  A CD-RW with data on it, which erasing makes usable again. */
+"notBlankRewritable" |
+/**  A CD-R with data on it, which nothing makes usable again. */
+"notBlankRecordable" |
+/**  The drive itself turned the disc down. */
+"driveRefusedDisc" |
+/**  The drive would not describe the disc, so nothing about it is known. */
+"driveSilent";
+
 /**  What is actually in the drive right now. */
 export type BurnMediaInfo = {
 	/**  `false` when the tray is empty or the disc is unreadable. */
@@ -1059,8 +1091,11 @@ export type BurnMediaInfo = {
 	 *  75 sectors/s = 1×.
 	 */
 	writeSpeeds: number[],
-	/**  Set when the disc cannot be used, with the reason to show the user. */
-	blocker: string | null,
+	/**
+	 *  Set when the disc cannot be used, saying which problem it is. The
+	 *  frontend turns it into a sentence in the user's language.
+	 */
+	blocker: BurnMediaBlocker | null,
 };
 
 /**  Everything the user chose in the burn drawer. */

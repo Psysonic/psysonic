@@ -135,6 +135,17 @@ export const burner = {
   cancelSpoilsDisc:
     'CD-R-en brennes nå. Å stoppe gjør platen ubrukelig — en CD-R kan ikke skrives om.',
 
+  mediaBlockerNoDisc: 'Ingen plate i stasjonen.',
+  mediaBlockerNotCd: 'Dette er {{mediaType}}. En lyd-CD trenger en tom CD-R eller CD-RW.',
+  mediaBlockerAlreadyWritten:
+    'Denne platen er allerede skrevet og lukket, så den kan ikke skrives til.',
+  mediaBlockerNotBlankRewritable:
+    'Denne CD-RW-en inneholder allerede data. Slett den før brenning.',
+  mediaBlockerNotBlankRecordable: 'Denne CD-R-en er ikke tom. Lyd-CD-er må skrives i én omgang.',
+  mediaBlockerDriveRefused: 'Stasjonen godtar ikke denne platen.',
+  mediaBlockerDriveSilent: 'Stasjonen beskrev ikke denne platen.',
+  mediaBlockerUnknown: 'Denne platen kan ikke skrives til.',
+
   blockerEmpty: 'Legg til minst ett spor for å brenne en plate.',
   blockerOverCapacity:
     'Over kapasiteten med {{over}}. Fjern et spor eller bruk en 80-minutters plate.',

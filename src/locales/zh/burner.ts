@@ -131,6 +131,15 @@ export const burner = {
 
   cancelSpoilsDisc: 'CD-R 正在刻录。停止会让光盘无法使用 — CD-R 不能重写。',
 
+  mediaBlockerNoDisc: '驱动器中没有光盘。',
+  mediaBlockerNotCd: '这是 {{mediaType}}。音频 CD 需要空白的 CD-R 或 CD-RW。',
+  mediaBlockerAlreadyWritten: '此光盘已写入并封盘，无法再写入。',
+  mediaBlockerNotBlankRewritable: '此 CD-RW 已有数据。刻录前请先擦除。',
+  mediaBlockerNotBlankRecordable: '此 CD-R 不是空白的。音频 CD 必须一次性写入。',
+  mediaBlockerDriveRefused: '驱动器不接受此光盘。',
+  mediaBlockerDriveSilent: '驱动器未提供此光盘的信息。',
+  mediaBlockerUnknown: '无法向此光盘写入。',
+
   blockerEmpty: '请至少添加一首曲目才能刻录光盘。',
   blockerOverCapacity: '超出容量 {{over}}。请移除一首曲目或改用 80 分钟光盘。',
   blockerTooManyTracks: '一张 CD 最多容纳 {{max}} 首曲目；此队列有 {{count}} 首。',

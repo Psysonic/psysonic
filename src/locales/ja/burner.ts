@@ -136,6 +136,15 @@ export const burner = {
   cancelSpoilsDisc:
     'CD-R を書き込み中です。停止するとディスクは使えなくなります — CD-R は書き直せません。',
 
+  mediaBlockerNoDisc: 'ドライブにディスクがありません。',
+  mediaBlockerNotCd: 'これは {{mediaType}} です。オーディオ CD には空の CD-R または CD-RW が必要です。',
+  mediaBlockerAlreadyWritten: 'このディスクは書き込み済みでクローズされているため、書き込めません。',
+  mediaBlockerNotBlankRewritable: 'この CD-RW にはすでにデータがあります。書き込む前に消去してください。',
+  mediaBlockerNotBlankRecordable: 'この CD-R は空ではありません。オーディオ CD は一度に書き込む必要があります。',
+  mediaBlockerDriveRefused: 'ドライブがこのディスクを受け付けません。',
+  mediaBlockerDriveSilent: 'ドライブがこのディスクの情報を返しませんでした。',
+  mediaBlockerUnknown: 'このディスクには書き込めません。',
+
   blockerEmpty: 'ディスクを書き込むには、少なくとも 1 曲追加してください。',
   blockerOverCapacity: '容量を {{over}} 超えています。曲を減らすか、80 分ディスクを使ってください。',
   blockerTooManyTracks: 'CD には最大 {{max}} 曲までです。このキューには {{count}} 曲あります。',

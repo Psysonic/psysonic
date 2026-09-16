@@ -136,6 +136,16 @@ export const burner = {
   cancelSpoilsDisc:
     'El CD-R se está grabando ahora. Detenerlo deja el disco inservible: un CD-R no se puede reescribir.',
 
+  mediaBlockerNoDisc: 'No hay disco en la unidad.',
+  mediaBlockerNotCd: 'Esto es {{mediaType}}. Un CD de audio necesita un CD-R o CD-RW virgen.',
+  mediaBlockerAlreadyWritten: 'Este disco ya está grabado y cerrado, así que no se puede grabar.',
+  mediaBlockerNotBlankRewritable: 'Este CD-RW ya contiene datos. Bórralo antes de grabar.',
+  mediaBlockerNotBlankRecordable:
+    'Este CD-R no está virgen. Los CD de audio deben grabarse de una sola vez.',
+  mediaBlockerDriveRefused: 'La unidad no acepta este disco.',
+  mediaBlockerDriveSilent: 'La unidad no describió este disco.',
+  mediaBlockerUnknown: 'En este disco no se puede grabar.',
+
   blockerEmpty: 'Añade al menos una pista para grabar un disco.',
   blockerOverCapacity:
     'Se excede la capacidad en {{over}}. Quita una pista o usa un disco de 80 minutos.',

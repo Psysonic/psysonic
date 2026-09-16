@@ -13,6 +13,7 @@ import type {
 } from '@/generated/bindings';
 
 export type {
+  BurnMediaBlocker,
   BurnMediaInfo,
   BurnOptions,
   BurnRecorder,

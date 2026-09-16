@@ -143,6 +143,18 @@ export const burner = {
   cancelSpoilsDisc:
     'CD-R-ul se inscripționează chiar acum. Oprirea face discul inutilizabil — un CD-R nu poate fi rescris.',
 
+  mediaBlockerNoDisc: 'Niciun disc în unitate.',
+  mediaBlockerNotCd: 'Acesta este {{mediaType}}. Un CD audio are nevoie de un CD-R sau CD-RW gol.',
+  mediaBlockerAlreadyWritten:
+    'Acest disc este deja inscripționat și închis, așa că nu mai poate fi inscripționat.',
+  mediaBlockerNotBlankRewritable:
+    'Acest CD-RW conține deja date. Șterge-l înainte de inscripționare.',
+  mediaBlockerNotBlankRecordable:
+    'Acest CD-R nu este gol. Un CD audio trebuie inscripționat dintr-o singură dată.',
+  mediaBlockerDriveRefused: 'Unitatea nu acceptă acest disc.',
+  mediaBlockerDriveSilent: 'Unitatea nu a descris acest disc.',
+  mediaBlockerUnknown: 'Pe acest disc nu se poate scrie.',
+
   blockerEmpty: 'Adaugă cel puțin o melodie pentru a inscripționa un disc.',
   blockerOverCapacity:
     'Capacitate depășită cu {{over}}. Elimină o melodie sau folosește un disc de 80 de minute.',

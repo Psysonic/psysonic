@@ -52,8 +52,8 @@ use crate::mmc::read_disc_information_cdb;
 use crate::mmc::scsi::{self, DiscStatus, WriteVerdict};
 use crate::cdtext::{CdTextBlock, CdTextInput, CdTextTrack};
 use crate::model::{
-    BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder, BurnWriteCapabilities,
-    DEFAULT_80_MIN_SECTORS,
+    BurnMediaBlocker, BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder,
+    BurnWriteCapabilities, DEFAULT_80_MIN_SECTORS,
 };
 use crate::win_sao::{self, SaoError};
 use crate::render::RenderedTrack;
@@ -468,7 +468,7 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
                 media_type: String::new(),
                 capacity_sectors: 0,
                 write_speeds: Vec::new(),
-                blocker: Some("No disc in the drive.".to_string()),
+                blocker: Some(BurnMediaBlocker::NoDisc),
             });
         }
         let _ = format.SetClientName(&BSTR::from(CLIENT_NAME));
@@ -523,21 +523,19 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
             .collect();
 
         let blocker = if !is_cd {
-            Some(format!(
-                "This is {media_type}. Audio CDs need a blank CD-R or CD-RW."
-            ))
+            Some(BurnMediaBlocker::NotCd)
         } else if media == IMAPI_MEDIA_TYPE_CDROM {
             // Not necessarily pressed: drives report a burned, closed CD-R as
             // CD-ROM too, so this is often the user's own disc.
-            Some(scsi::CLOSED_DISC_MESSAGE.to_string())
+            Some(BurnMediaBlocker::AlreadyWritten)
         } else if !blank {
             Some(if erasable {
-                "This CD-RW already holds data. Erase it before burning.".to_string()
+                BurnMediaBlocker::NotBlankRewritable
             } else {
-                "This CD-R is not blank. Audio CDs must be written in one go.".to_string()
+                BurnMediaBlocker::NotBlankRecordable
             })
         } else if !supported {
-            Some("The drive will not accept this disc.".to_string())
+            Some(BurnMediaBlocker::DriveRefusedDisc)
         } else {
             None
         };

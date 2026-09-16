@@ -48,9 +48,9 @@ use crate::cdtext::to_latin1;
 use crate::job::{emit_progress, PROGRESS_THROTTLE_MS};
 use crate::macos_ffi::*;
 use crate::model::{
-    BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder, BurnWriteCapabilities,
-    CdTextVerification, BYTES_PER_AUDIO_SECTOR, DEFAULT_80_MIN_SECTORS, PREGAP_SECTORS,
-    SECTORS_PER_SECOND,
+    BurnMediaBlocker, BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder,
+    BurnWriteCapabilities, CdTextVerification, BYTES_PER_AUDIO_SECTOR, DEFAULT_80_MIN_SECTORS,
+    PREGAP_SECTORS, SECTORS_PER_SECOND,
 };
 use crate::render::RenderedTrack;
 
@@ -302,7 +302,7 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
                 media_type: String::new(),
                 capacity_sectors: 0,
                 write_speeds: Vec::new(),
-                blocker: Some("No disc in the drive.".to_string()),
+                blocker: Some(BurnMediaBlocker::NoDisc),
             });
         }
 
@@ -337,18 +337,16 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
         let write_speeds = read_burn_speeds(status);
 
         let blocker = if !is_cd {
-            Some(format!(
-                "This is {media_type}. Audio CDs need a blank CD-R or CD-RW."
-            ))
+            Some(BurnMediaBlocker::NotCd)
         } else if is_cdrom {
             // Not necessarily pressed: a burned, closed CD-R can be reported as
             // CD-ROM too, so this may be the user's own disc.
-            Some(crate::mmc::scsi::CLOSED_DISC_MESSAGE.to_string())
+            Some(BurnMediaBlocker::AlreadyWritten)
         } else if !is_blank {
             Some(if erasable {
-                "This CD-RW already holds data. Erase it before burning.".to_string()
+                BurnMediaBlocker::NotBlankRewritable
             } else {
-                "This CD-R is not blank. Audio CDs must be written in one go.".to_string()
+                BurnMediaBlocker::NotBlankRecordable
             })
         } else {
             None

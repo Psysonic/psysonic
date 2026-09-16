@@ -22,8 +22,8 @@ use tauri::AppHandle;
 use crate::cdrom_info::{parse_cdrom_info, CdromDrive};
 use crate::mmc::scsi;
 use crate::model::{
-    BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder, BurnWriteCapabilities,
-    CdTextVerification, DEFAULT_80_MIN_SECTORS,
+    BurnMediaBlocker, BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder,
+    BurnWriteCapabilities, CdTextVerification, DEFAULT_80_MIN_SECTORS,
 };
 use crate::render::RenderedTrack;
 use sg::ScsiDevice;
@@ -149,7 +149,7 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
         media_type: String::new(),
         capacity_sectors: 0,
         write_speeds: Vec::new(),
-        blocker: Some("No disc in the drive.".to_string()),
+        blocker: Some(BurnMediaBlocker::NoDisc),
     };
 
     // No disc, or one the drive has not finished looking at.
@@ -187,20 +187,18 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
     let capacity_sectors = disc_capacity_sectors(&device).unwrap_or(DEFAULT_80_MIN_SECTORS);
 
     let blocker = if !is_cd {
-        Some(format!(
-            "This is {media_type}. Audio CDs need a blank CD-R or CD-RW."
-        ))
+        Some(BurnMediaBlocker::NotCd)
     } else if profile == scsi::PROFILE_CD_ROM {
         // Not necessarily pressed: a burned, closed CD-R reports this profile
         // too, so this is often the user's own disc.
-        Some(scsi::CLOSED_DISC_MESSAGE.to_string())
+        Some(BurnMediaBlocker::AlreadyWritten)
     } else if status.is_none() {
-        Some("The drive would not describe this disc.".to_string())
+        Some(BurnMediaBlocker::DriveSilent)
     } else if !blank {
         Some(if erasable {
-            "This CD-RW already holds data. Erase it before burning.".to_string()
+            BurnMediaBlocker::NotBlankRewritable
         } else {
-            "This CD-R is not blank. Audio CDs must be written in one go.".to_string()
+            BurnMediaBlocker::NotBlankRecordable
         })
     } else {
         None

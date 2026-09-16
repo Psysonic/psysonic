@@ -22,6 +22,7 @@ import { ABORT_ARM_MS, burnStageFrom, isExpanded } from '@/features/burner/utils
 import { useBurnerSplit } from '@/features/burner/hooks/useBurnerSplit';
 import BurnChassis from '@/features/burner/components/BurnChassis';
 import BurnAlertLine from '@/features/burner/components/BurnAlertLine';
+import { describeMediaBlocker } from '@/features/burner/utils/mediaBlocker';
 import BurnSeam from '@/features/burner/components/BurnSeam';
 import {
   discGeometry,
@@ -357,7 +358,12 @@ export default function Burner() {
   );
   const showSectors = onDisc || job.status === 'done';
 
-  const mediaBlocker = drives.media?.blocker ?? null;
+  // The backend names the problem; the sentence is ours to say, in the user's
+  // language. Every other message it sends is finished English prose.
+  const mediaBlocker = useMemo(() => {
+    const described = describeMediaBlocker(drives.media?.blocker, drives.media?.mediaType ?? '');
+    return described ? t(described.key, described.values) : null;
+  }, [drives.media, t]);
 
   // The seam owns the running order's width; the hook owns the measurement and
   // every handler. `enabled` goes false while a row drag has the pointer, so

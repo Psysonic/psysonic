@@ -136,6 +136,18 @@ export const burner = {
   cancelSpoilsDisc:
     'Il CD-R è in fase di masterizzazione. Fermarlo rende il disco inutilizzabile — un CD-R non può essere riscritto.',
 
+  mediaBlockerNoDisc: 'Nessun disco nell’unità.',
+  mediaBlockerNotCd: 'Questo è {{mediaType}}. Un CD audio richiede un CD-R o CD-RW vuoto.',
+  mediaBlockerAlreadyWritten:
+    'Questo disco è già stato scritto e chiuso, quindi non può essere scritto.',
+  mediaBlockerNotBlankRewritable:
+    'Questo CD-RW contiene già dati. Cancellalo prima di masterizzare.',
+  mediaBlockerNotBlankRecordable:
+    'Questo CD-R non è vuoto. I CD audio devono essere scritti in una sola volta.',
+  mediaBlockerDriveRefused: 'L’unità non accetta questo disco.',
+  mediaBlockerDriveSilent: 'L’unità non ha descritto questo disco.',
+  mediaBlockerUnknown: 'Questo disco non può essere scritto.',
+
   blockerEmpty: 'Aggiungi almeno un brano per masterizzare un disco.',
   blockerOverCapacity:
     'Capacità superata di {{over}}. Rimuovi un brano o usa un disco da 80 minuti.',

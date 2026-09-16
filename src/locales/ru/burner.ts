@@ -148,6 +148,15 @@ export const burner = {
   cancelSpoilsDisc:
     'CD-R записывается прямо сейчас. Остановка сделает диск непригодным — CD-R нельзя перезаписать.',
 
+  mediaBlockerNoDisc: 'В приводе нет диска.',
+  mediaBlockerNotCd: 'Это {{mediaType}}. Для аудио-CD нужен чистый CD-R или CD-RW.',
+  mediaBlockerAlreadyWritten: 'Этот диск уже записан и закрыт, поэтому записать на него нельзя.',
+  mediaBlockerNotBlankRewritable: 'На этом CD-RW уже есть данные. Сотрите его перед записью.',
+  mediaBlockerNotBlankRecordable: 'Этот CD-R не чистый. Аудио-CD нужно записывать за один раз.',
+  mediaBlockerDriveRefused: 'Привод не принимает этот диск.',
+  mediaBlockerDriveSilent: 'Привод не сообщил сведения об этом диске.',
+  mediaBlockerUnknown: 'На этот диск нельзя записать.',
+
   blockerEmpty: 'Добавьте хотя бы один трек, чтобы записать диск.',
   blockerOverCapacity:
     'Ёмкость превышена на {{over}}. Уберите трек или возьмите 80-минутный диск.',

@@ -161,6 +161,18 @@ export const burner = {
     'The CD-R is being burned now. Stopping leaves the disc unusable — a CD-R cannot be rewritten.',
 
   // Blockers
+  // What the drive says about the disc in it. The backend sends a code
+  // rather than a sentence, so these can be translated.
+  mediaBlockerNoDisc: 'No disc in the drive.',
+  mediaBlockerNotCd: 'This is {{mediaType}}. Audio CDs need a blank CD-R or CD-RW.',
+  mediaBlockerAlreadyWritten:
+    'This disc has already been written and closed, so it cannot be written to.',
+  mediaBlockerNotBlankRewritable: 'This CD-RW already holds data. Erase it before burning.',
+  mediaBlockerNotBlankRecordable: 'This CD-R is not blank. Audio CDs must be written in one go.',
+  mediaBlockerDriveRefused: 'The drive will not accept this disc.',
+  mediaBlockerDriveSilent: 'The drive would not describe this disc.',
+  mediaBlockerUnknown: 'This disc cannot be written to.',
+
   blockerEmpty: 'Add at least one track to burn a disc.',
   blockerOverCapacity: 'Over capacity by {{over}}. Remove a track or use an 80-minute disc.',
   blockerTooManyTracks: 'A CD holds at most {{max}} tracks; this queue has {{count}}.',

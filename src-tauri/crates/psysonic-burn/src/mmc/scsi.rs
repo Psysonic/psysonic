@@ -344,14 +344,6 @@ pub fn refusal(sense: &[u8], written: usize) -> Option<(u8, u8, u8)> {
     sense_triplet(sense, written).filter(|(key, _, _)| *key > 0x01)
 }
 
-/// Shown for a disc the drive reports as CD-ROM.
-///
-/// Worded so it is true of both discs that report that way: a pressed CD, and a
-/// CD-R that has been burned and closed — which drives also report as CD-ROM,
-/// so the disc in question is often the one the user burned a minute ago.
-pub const CLOSED_DISC_MESSAGE: &str =
-    "This disc has already been written and closed, so it cannot be written to.";
-
 /// Shown when a write left the disc with an open session and no readable table
 /// of contents.
 pub const UNFINISHED_WRITE_MESSAGE: &str =

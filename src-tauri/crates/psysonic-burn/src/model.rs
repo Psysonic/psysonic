@@ -98,6 +98,66 @@ impl BurnWriteCapabilities {
     }
 }
 
+/// Why the disc in the drive cannot be written to.
+///
+/// A code rather than a sentence: the backends build finished English prose for
+/// everything else they report, and the frontend renders it verbatim, so no
+/// locale file can reach it. This is the one such message a user meets in
+/// normal use — it sits in the burner's alert line whenever the disc is wrong —
+/// so the backend says *which* problem and the frontend says it in the user's
+/// language.
+///
+/// Deliberately carries no data. The only variable any of these sentences needs
+/// is the media type, which `BurnMediaInfo` already reports on its own field.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "camelCase")]
+pub enum BurnMediaBlocker {
+    /// The tray is empty, or what is in it cannot be read at all.
+    NoDisc,
+    /// Not a CD: a DVD, a Blu-ray, or something the drive would not name.
+    NotCd,
+    /// Written and closed. A pressed CD reports this way, and so does a CD-R
+    /// the user burned a minute ago.
+    AlreadyWritten,
+    /// A CD-RW with data on it, which erasing makes usable again.
+    NotBlankRewritable,
+    /// A CD-R with data on it, which nothing makes usable again.
+    NotBlankRecordable,
+    /// The drive itself turned the disc down.
+    DriveRefusedDisc,
+    /// The drive would not describe the disc, so nothing about it is known.
+    DriveSilent,
+}
+
+impl BurnMediaBlocker {
+    /// The English sentence for this blocker.
+    ///
+    /// For logs, and for the burn command's own refusal — a burn started
+    /// against a disc the page had already blocked ends as an error, and an
+    /// error is not the alert line. The burner page does not use this: it
+    /// translates the code instead.
+    pub fn message(self, media_type: &str) -> String {
+        match self {
+            Self::NoDisc => "No disc in the drive.".to_string(),
+            Self::NotCd => {
+                format!("This is {media_type}. Audio CDs need a blank CD-R or CD-RW.")
+            }
+            Self::AlreadyWritten => {
+                "This disc has already been written and closed, so it cannot be written to."
+                    .to_string()
+            }
+            Self::NotBlankRewritable => {
+                "This CD-RW already holds data. Erase it before burning.".to_string()
+            }
+            Self::NotBlankRecordable => {
+                "This CD-R is not blank. Audio CDs must be written in one go.".to_string()
+            }
+            Self::DriveRefusedDisc => "The drive will not accept this disc.".to_string(),
+            Self::DriveSilent => "The drive would not describe this disc.".to_string(),
+        }
+    }
+}
+
 /// What is actually in the drive right now.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase")]
@@ -115,8 +175,9 @@ pub struct BurnMediaInfo {
     /// Write speeds the drive advertises for this disc, in sectors/second.
     /// 75 sectors/s = 1×.
     pub write_speeds: Vec<u32>,
-    /// Set when the disc cannot be used, with the reason to show the user.
-    pub blocker: Option<String>,
+    /// Set when the disc cannot be used, saying which problem it is. The
+    /// frontend turns it into a sentence in the user's language.
+    pub blocker: Option<BurnMediaBlocker>,
 }
 
 /// One track queued for the disc, as the frontend sends it.

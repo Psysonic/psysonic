@@ -137,6 +137,16 @@ export const burner = {
   cancelSpoilsDisc:
     'CD-R се записва в момента. Спирането прави диска негоден — CD-R не може да се презаписва.',
 
+  mediaBlockerNoDisc: 'Няма диск в устройството.',
+  mediaBlockerNotCd: 'Това е {{mediaType}}. За аудио CD е нужен празен CD-R или CD-RW.',
+  mediaBlockerAlreadyWritten:
+    'Този диск вече е записан и затворен, затова не може да бъде записван.',
+  mediaBlockerNotBlankRewritable: 'Този CD-RW вече съдържа данни. Изтрийте го преди запис.',
+  mediaBlockerNotBlankRecordable: 'Този CD-R не е празен. Аудио CD трябва да се запише наведнъж.',
+  mediaBlockerDriveRefused: 'Устройството не приема този диск.',
+  mediaBlockerDriveSilent: 'Устройството не описа този диск.',
+  mediaBlockerUnknown: 'На този диск не може да се записва.',
+
   blockerEmpty: 'Добавете поне една песен, за да запишете диск.',
   blockerOverCapacity:
     'Капацитетът е надвишен с {{over}}. Премахнете песен или използвайте 80-минутен диск.',

@@ -147,6 +147,17 @@ export const burner = {
   cancelSpoilsDisc:
     'Płyta CD-R jest właśnie nagrywana. Zatrzymanie sprawi, że będzie bezużyteczna — płyty CD-R nie da się nagrać ponownie.',
 
+  mediaBlockerNoDisc: 'Brak płyty w napędzie.',
+  mediaBlockerNotCd: 'To jest {{mediaType}}. Płyta audio wymaga pustego CD-R lub CD-RW.',
+  mediaBlockerAlreadyWritten:
+    'Ta płyta jest już nagrana i zamknięta, więc nie można na niej nagrywać.',
+  mediaBlockerNotBlankRewritable: 'Ten CD-RW zawiera już dane. Wymaż go przed nagrywaniem.',
+  mediaBlockerNotBlankRecordable:
+    'Ten CD-R nie jest pusty. Płytę audio trzeba nagrać za jednym razem.',
+  mediaBlockerDriveRefused: 'Napęd nie akceptuje tej płyty.',
+  mediaBlockerDriveSilent: 'Napęd nie opisał tej płyty.',
+  mediaBlockerUnknown: 'Na tej płycie nie można nagrywać.',
+
   blockerEmpty: 'Dodaj co najmniej jeden utwór, aby nagrać płytę.',
   blockerOverCapacity:
     'Pojemność przekroczona o {{over}}. Usuń utwór lub użyj płyty 80-minutowej.',

@@ -138,6 +138,17 @@ export const burner = {
   cancelSpoilsDisc:
     'Die CD-R wird gerade gebrannt. Ein Stopp macht die Disc unbrauchbar — eine CD-R lässt sich nicht neu beschreiben.',
 
+  mediaBlockerNoDisc: 'Keine Disc im Laufwerk.',
+  mediaBlockerNotCd: 'Das ist {{mediaType}}. Eine Audio-CD braucht eine leere CD-R oder CD-RW.',
+  mediaBlockerAlreadyWritten:
+    'Diese Disc wurde bereits beschrieben und abgeschlossen und kann nicht mehr beschrieben werden.',
+  mediaBlockerNotBlankRewritable: 'Diese CD-RW enthält bereits Daten. Lösche sie vor dem Brennen.',
+  mediaBlockerNotBlankRecordable:
+    'Diese CD-R ist nicht leer. Audio-CDs müssen in einem Durchgang geschrieben werden.',
+  mediaBlockerDriveRefused: 'Das Laufwerk nimmt diese Disc nicht an.',
+  mediaBlockerDriveSilent: 'Das Laufwerk machte keine Angaben zu dieser Disc.',
+  mediaBlockerUnknown: 'Diese Disc kann nicht beschrieben werden.',
+
   blockerEmpty: 'Füge mindestens einen Titel hinzu, um eine Disc zu brennen.',
   blockerOverCapacity:
     'Kapazität um {{over}} überschritten. Entferne einen Titel oder nimm eine 80-Minuten-Disc.',

@@ -136,6 +136,17 @@ export const burner = {
   cancelSpoilsDisc:
     'De cd-r wordt nu gebrand. Stoppen maakt de disc onbruikbaar — een cd-r kan niet opnieuw worden beschreven.',
 
+  mediaBlockerNoDisc: 'Geen disc in het station.',
+  mediaBlockerNotCd: 'Dit is {{mediaType}}. Een audio-cd heeft een lege cd-r of cd-rw nodig.',
+  mediaBlockerAlreadyWritten:
+    'Deze disc is al beschreven en afgesloten en kan niet worden beschreven.',
+  mediaBlockerNotBlankRewritable: 'Deze cd-rw bevat al gegevens. Wis hem voor het branden.',
+  mediaBlockerNotBlankRecordable:
+    'Deze cd-r is niet leeg. Audio-cd’s moeten in één keer worden geschreven.',
+  mediaBlockerDriveRefused: 'Het station accepteert deze disc niet.',
+  mediaBlockerDriveSilent: 'Het station gaf geen beschrijving van deze disc.',
+  mediaBlockerUnknown: 'Deze disc kan niet worden beschreven.',
+
   blockerEmpty: 'Voeg minstens één nummer toe om een disc te branden.',
   blockerOverCapacity:
     'Capaciteit met {{over}} overschreden. Verwijder een nummer of gebruik een disc van 80 minuten.',
