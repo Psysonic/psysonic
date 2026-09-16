@@ -293,6 +293,30 @@ pub const POST_WRITE_STATUS_ATTEMPTS: u32 = 5;
 /// `SYNCHRONIZE CACHE` returns, and answers NOT READY until it has.
 pub const POST_WRITE_STATUS_PAUSE: Duration = Duration::from_secs(1);
 
+/// The same question after a tray cycle, which is a much longer wait: the drive
+/// has to spin the disc up and read it again before it can say anything about
+/// it.
+///
+/// Measured on an LG WH10LS30 over USB, ejecting and closing the tray three
+/// times: `READ DISC INFORMATION` answered at 7.8 s, 8.0 s and 7.8 s, and then
+/// reported the disc correctly. The post-write budget above — five asks a
+/// second apart — gave up before every one of them, which made a drive that was
+/// merely slow look like a drive that would not answer.
+///
+/// `TEST UNIT READY` is no use as a readiness signal here: across those same
+/// three cycles it never returned GOOD, including while `READ DISC INFORMATION`
+/// was already answering.
+///
+/// 10 seconds is a quarter more than the measured figure. Overrunning it costs
+/// only the log line saying the drive would not describe the disc — nothing
+/// fails and no disc is at risk — so a slower drive buys back at most that one
+/// misleading line. Polling four times a second rather than once keeps the
+/// normal case close to the 8 seconds it actually takes.
+pub const AFTER_RELOAD_ATTEMPTS: u32 = 40;
+
+/// See `AFTER_RELOAD_ATTEMPTS`.
+pub const AFTER_RELOAD_PAUSE: Duration = Duration::from_millis(250);
+
 /// Ask until the drive gives an answer, up to `attempts` times.
 ///
 /// Only a non-answer is retried. An answer — even an unwelcome one — is what
@@ -611,6 +635,19 @@ mod tests {
         assert_eq!(parse_toc_track_count(&[0, 2, 0, 0]), None);
         assert_eq!(parse_toc_track_count(&[0, 2, 5, 2]), None);
         assert_eq!(parse_toc_track_count(&[0, 2, 1, 170]), None);
+    }
+
+    #[test]
+    fn the_post_reload_wait_covers_a_drive_spinning_a_disc_back_up() {
+        // Measured at ~8 s on an LG WH10LS30 over USB. A budget trimmed back
+        // near that figure would report a slow drive as a silent one, which is
+        // the mistake this constant exists to correct.
+        let window = AFTER_RELOAD_PAUSE * AFTER_RELOAD_ATTEMPTS;
+        assert!(window >= Duration::from_secs(10), "{window:?} is not enough after a tray cycle");
+        assert!(
+            AFTER_RELOAD_PAUSE <= Duration::from_millis(500),
+            "polling this slowly adds delay the drive did not ask for"
+        );
     }
 
     #[test]

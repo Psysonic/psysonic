@@ -419,11 +419,13 @@ fn reload_after_rehearsal(device: &ScsiDevice) {
         return;
     }
 
-    // The drive is entitled to be busy for a moment after a tray cycle, which
-    // is what `settle` waits out; an answer, welcome or not, is taken as final.
+    // A tray cycle costs the drive seconds, not milliseconds: it has to spin
+    // the disc up and read it again. `AFTER_RELOAD_ATTEMPTS` is sized from a
+    // measurement of exactly that, and returns as soon as the drive answers —
+    // welcome or not, an answer is taken as final.
     match scsi::settle(
-        scsi::POST_WRITE_STATUS_ATTEMPTS,
-        scsi::POST_WRITE_STATUS_PAUSE,
+        scsi::AFTER_RELOAD_ATTEMPTS,
+        scsi::AFTER_RELOAD_PAUSE,
         || disc_status(device),
     ) {
         Some(scsi::DiscStatus::Empty) => {}
