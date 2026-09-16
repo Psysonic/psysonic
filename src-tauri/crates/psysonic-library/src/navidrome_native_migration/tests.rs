@@ -480,6 +480,18 @@ fn rebuildable_state_distinguishes_a_pristine_server() {
 }
 
 #[test]
+fn rebuildable_state_allows_a_missing_cluster_sidecar() {
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_conn_mut("test.detach_cluster_sidecar", |conn| {
+            conn.execute_batch("DETACH DATABASE cluster")
+        })
+        .unwrap();
+
+    assert!(!has_rebuildable_state(&store, "s1").unwrap());
+}
+
+#[test]
 fn finalization_rolls_back_cleanup_when_legacy_residue_remains() {
     let store = LibraryStore::open_in_memory();
     store

@@ -328,7 +328,7 @@ pub fn has_rebuildable_state(store: &LibraryStore, server_id: &str) -> Result<bo
     validate_server_id(server_id)?;
     store
         .with_read_conn(|conn| {
-            conn.query_row(
+            let main_state = conn.query_row(
                 "SELECT \
                    EXISTS(SELECT 1 FROM track_genre WHERE server_id = ?1) OR \
                    EXISTS(SELECT 1 FROM album_browse_projection WHERE server_id = ?1) OR \
@@ -337,7 +337,27 @@ pub fn has_rebuildable_state(store: &LibraryStore, server_id: &str) -> Result<bo
                    EXISTS(SELECT 1 FROM identity_invalidation WHERE server_id = ?1) OR \
                    EXISTS(SELECT 1 FROM library_tag_state WHERE server_id = ?1) OR \
                    EXISTS(SELECT 1 FROM library_tag_cursor WHERE server_id = ?1) OR \
-                   EXISTS(SELECT 1 FROM sync_state WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM sync_state WHERE server_id = ?1)",
+                params![server_id],
+                |row| row.get::<_, bool>(0),
+            )?;
+            if main_state {
+                return Ok(true);
+            }
+
+            let cluster_attached = {
+                let mut statement = conn.prepare("PRAGMA database_list")?;
+                let names = statement
+                    .query_map([], |row| row.get::<_, String>(1))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                names.iter().any(|name| name == "cluster")
+            };
+            if !cluster_attached {
+                return Ok(false);
+            }
+
+            conn.query_row(
+                "SELECT \
                    EXISTS(SELECT 1 FROM cluster.track_cluster_key WHERE server_id = ?1) OR \
                    EXISTS(SELECT 1 FROM cluster.cluster_meta WHERE key = ?2)",
                 params![server_id, format!("dirty_server:{server_id}")],
