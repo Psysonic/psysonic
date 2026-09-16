@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.54.0]
 
+## Added
+
+### Album descriptions and comment tags on the album page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1569](https://github.com/Psysonic/psysonic/pull/1569)**
+
+* The album page now shows the description your server holds for a release, under the genre tags. Long ones are trimmed to two lines with a link to read the rest in place.
+* It also shows the comment tag from your files — notes like "Remaster 2024" that had nowhere to appear before. Shown only when every tagged track on the release says the same thing, so a note about a single track is never presented as one about the album.
+
 ## Fixed
 
 ### Settings open again after importing a backup

@@ -461,6 +461,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Info tab — the tour dates prompt can be dismissed for good (PR #1513)',
       'Rate a whole track selection at once, and favourite a track from the queue (PR #1522)',
       'Windows — the mini player can drop the system title bar for its own slim one (PR #1528)',
+      'Album page — shows the release description and the comment tag from your files (PR #1569)',
     ],
   },
   {
