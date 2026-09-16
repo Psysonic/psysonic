@@ -28,6 +28,7 @@ interface Props {
   shareForServer: (serverId: string) => Promise<void>;
   closeSharePicker: () => void;
   handleClear: () => void;
+  handleClearExceptCurrent: () => void;
   publicShareQueueActive: boolean;
   gaplessEnabled: boolean;
   crossfadeEnabled: boolean;
@@ -43,7 +44,7 @@ export function QueueToolbar({
   queue, activePlaylist, saveState, toolbarButtons, shuffleQueue,
   handleSave, handleLoad, handleCopyQueueShare,
   sharePickerOpen, queueServerOptions, defaultQueueServerId, shareForServer, closeSharePicker,
-  handleClear,
+  handleClear, handleClearExceptCurrent,
   publicShareQueueActive,
   gaplessEnabled, crossfadeEnabled, crossfadeTrimSilence,
   crossfadeSecs, setCrossfadeSecs,
@@ -152,7 +153,14 @@ export function QueueToolbar({
             );
           case 'clear':
             return (
-              <button key={btn.id} className="queue-round-btn" onClick={handleClear} data-tooltip={t('queue.clear')} aria-label={t('queue.clear')}>
+              <button
+                key={btn.id}
+                className="queue-round-btn"
+                onClick={handleClear}
+                onContextMenu={e => { e.preventDefault(); handleClearExceptCurrent(); }}
+                data-tooltip={t('queue.clear')}
+                aria-label={t('queue.clear')}
+              >
                 <Trash2 size={13} />
               </button>
             );

@@ -252,6 +252,22 @@ describe('QueuePanel — toolbar', () => {
     expect(queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('right-clicking Clear keeps only the active track playing', () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 1, currentTrack: tracks[1] });
+    usePlayerStore.setState({ isPlaying: true, currentTime: 42 });
+    const { getByLabelText } = renderWithProviders(<QueuePanel />);
+
+    fireEvent.contextMenu(getByLabelText('Clear queue'));
+
+    const state = usePlayerStore.getState();
+    expect(state.queueItems.map(ref => ref.trackId)).toEqual([tracks[1].id]);
+    expect(state.queueIndex).toBe(0);
+    expect(state.currentTrack).toBe(tracks[1]);
+    expect(state.isPlaying).toBe(true);
+    expect(state.currentTime).toBe(42);
+  });
+
   it('keeps the latest playlist load when an older request resolves last', async () => {
     const serverId = useAuthStore.getState().activeServerId ?? undefined;
     const playlistA = { id: 'a', serverId, name: 'Playlist A', songCount: 0, duration: 0, created: '', changed: '' };
