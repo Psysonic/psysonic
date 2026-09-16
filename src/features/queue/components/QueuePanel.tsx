@@ -88,6 +88,7 @@ function QueuePanelHostOrSolo() {
   const isQueueVisible = usePlayerStore(s => s.isQueueVisible);
   const playTrack = usePlayerStore(s => s.playTrack);
   const clearQueue = usePlayerStore(s => s.clearQueue);
+  const clearQueueExceptCurrent = usePlayerStore(s => s.clearQueueExceptCurrent);
 
   const reorderQueue = usePlayerStore(s => s.reorderQueue);
   const removeTrack = usePlayerStore(s => s.removeTrack);
@@ -241,15 +242,16 @@ function QueuePanelHostOrSolo() {
     setLoadModalOpen(true);
   };
 
-  const handleClear = () => {
+  const finishQueueClear = () => {
     playlistOperationGenerationRef.current += 1;
     activePlaylistSaveGenerationRef.current += 1;
     setSaveState('idle');
-    clearQueue();
     setActivePlaylist(null);
     setSaveModalOpen(false);
     closeSharePicker();
   };
+  const handleClear = () => { clearQueue(); finishQueueClear(); };
+  const handleClearExceptCurrent = () => { clearQueueExceptCurrent(); finishQueueClear(); };
 
   // Queue mode shows upcoming tracks only — the current track lives in the
   // header and drops out of the list once played. Playlist mode keeps the full
@@ -374,6 +376,7 @@ function QueuePanelHostOrSolo() {
             shareForServer={shareForServer}
             closeSharePicker={closeSharePicker}
             handleClear={handleClear}
+            handleClearExceptCurrent={handleClearExceptCurrent}
             publicShareQueueActive={publicShareQueueActive}
             gaplessEnabled={gaplessEnabled}
             crossfadeEnabled={crossfadeEnabled}

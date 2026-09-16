@@ -342,6 +342,38 @@ describe('reorderQueue', () => {
   });
 });
 
+describe('clearQueueExceptCurrent', () => {
+  it('keeps the exact active owner and preserves playback state', () => {
+    const sameIdOtherServer = makeTrack({ id: 'shared', serverId: 'srv-a' });
+    const current = makeTrack({ id: 'shared', serverId: 'srv-b' });
+    const next = makeTrack({ id: 'next', serverId: 'srv-b' });
+    seedQueue([sameIdOtherServer, current, next], { index: 1, currentTrack: current, serverId: 'srv-b' });
+    usePlayerStore.setState({
+      isPlaying: true,
+      currentTime: 42,
+      progress: 0.25,
+      navidromePublicSharePageUrl: 'https://music.test/share/example',
+    });
+    appendTimelineSessionPlay({ serverId: 'srv-a', trackId: 'history', playedAtMs: 1 });
+    invokeMock.mockClear();
+
+    usePlayerStore.getState().clearQueueExceptCurrent();
+
+    const state = usePlayerStore.getState();
+    expect(state.queueItems).toEqual([
+      expect.objectContaining({ serverId: 'srv-b', trackId: 'shared' }),
+    ]);
+    expect(state.queueIndex).toBe(0);
+    expect(state.currentTrack).toBe(current);
+    expect(state.isPlaying).toBe(true);
+    expect(state.currentTime).toBe(42);
+    expect(state.progress).toBe(0.25);
+    expect(state.navidromePublicSharePageUrl).toBeNull();
+    expect(getTimelineSessionHistorySnapshot()).toEqual([]);
+    expect(invokeMock.mock.calls.some(([command]) => command === 'audio_stop')).toBe(false);
+  });
+});
+
 describe('mixed-server queue identity', () => {
   it('retains one server and follows its current track to the new index', () => {
     const other = makeTrack({ id: 'other', serverId: 'srv-a' });

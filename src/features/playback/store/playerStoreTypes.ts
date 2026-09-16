@@ -139,6 +139,8 @@ export interface PlayerState {
    * constrains a mixed-server session to its selected Navidrome host. */
   retainQueueForServer: (serverId: string) => void;
   clearQueue: () => void;
+  /** Clear queue history and upcoming tracks while keeping the active track playing. */
+  clearQueueExceptCurrent: () => void;
 
   isQueueVisible: boolean;
   toggleQueue: () => void;

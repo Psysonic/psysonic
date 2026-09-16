@@ -87,6 +87,7 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
   | 'pruneUpcomingToCurrent'
   | 'retainQueueForServer'
   | 'clearQueue'
+  | 'clearQueueExceptCurrent'
   | 'reorderQueue'
   | 'shuffleQueue'
   | 'shuffleUpcomingQueue'
@@ -418,6 +419,35 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
         currentTime: 0,
       });
       syncUserQueueClearToServers(previousItems);
+    },
+
+    clearQueueExceptCurrent: () => {
+      const state = get();
+      const currentTrack = state.currentTrack;
+      if (!currentTrack) {
+        get().clearQueue();
+        return;
+      }
+      const previousItems = itemsOf(state);
+      const indexedRef = previousItems[state.queueIndex];
+      const currentRef = queueItemRefMatchesTrack(indexedRef, currentTrack)
+        ? indexedRef
+        : previousItems.find(ref => queueItemRefMatchesTrack(ref, currentTrack));
+
+      pushQueueUndoFromGetter(get);
+      seedIncoming(state, [currentTrack]);
+      const nextItems = currentRef
+        ? [currentRef]
+        : toQueueItemRefs(state.queueServerId ?? '', [currentTrack]);
+      clearRadioSessionSeenIds();
+      setCurrentRadioArtistId(null);
+      clearTimelineSessionHistory();
+      set({
+        queueItems: nextItems,
+        queueIndex: 0,
+        navidromePublicSharePageUrl: null,
+      });
+      syncUserQueueMutationToServer(previousItems, nextItems, currentTrack, state.currentTime);
     },
 
     reorderQueue: (startIndex, endIndex) => {
