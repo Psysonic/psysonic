@@ -23,6 +23,8 @@ import {
 } from '@/lib/library/favoritesBrowseDebug';
 import { usePsyLabDebugTraces } from '@/lib/perf/psyLabDebugTraces';
 import { getLibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
+import { openFavoriteAlbums } from '@/features/album';
+import { useNavigate } from 'react-router';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { sameRadioStation } from '@/features/radio';
@@ -48,6 +50,7 @@ const MIN_YEAR = 1950;
 
 export default function Favorites() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const favoritesBrowseDiagnosticsEnabled = usePsyLabDebugTraces().favoritesBrowse;
   const favoritesTraceEntries = useSyncExternalStore(
     subscribeFavoritesBrowseTrace,
@@ -207,12 +210,24 @@ export default function Favorites() {
         <div className="empty-state">{t('favorites.empty')}</div>
       ) : (
         <>
+          {/* The albums heading opens All Albums with its favourites filter on
+              (#1556). A row of six is fine as a glance; for hundreds of
+              favourites the grid there is the place to browse, with its
+              sorting, filters and paging.
+
+              The artists row has no such link yet: the artists page cannot
+              filter by favourites at all (#1582), so it would lead to an empty
+              list. It follows once that is fixed. */}
           {artists.length > 0 && (
             <ArtistRow title={t('favorites.artists')} artists={artists} />
           )}
 
           {albums.length > 0 && (
-            <AlbumRow title={t('favorites.albums')} albums={albums} />
+            <AlbumRow
+              title={t('favorites.albums')}
+              onTitleClick={() => openFavoriteAlbums(navigate)}
+              albums={albums}
+            />
           )}
 
           {radioStations.length > 0 && (

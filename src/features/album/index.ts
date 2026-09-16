@@ -34,6 +34,7 @@ export * from './utils/albumRecency';
 export * from './utils/albumTrackListHelpers';
 export * from './utils/deriveAlbumHeaderArtistRefs';
 export * from './utils/exportAlbumCard';
+export * from './utils/openFavoriteAlbums';
 export { default as AlbumCard } from './components/AlbumCard';
 export { default as AlbumHeader } from './components/AlbumHeader';
 export { default as AlbumRow } from './components/AlbumRow';
