@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { onInvoke } from '@/test/mocks/tauri';
 import type { BurnMediaInfo, BurnRecorder } from '@/lib/api/burn';
 import { _resetBurnSupportForTest } from '@/features/burner/store/burnSupportStore';
+import { useBurnRecorderStore } from '@/features/burner/store/burnRecorderStore';
 import { useBurnRecorders } from './useBurnRecorders';
 
 /** Mirrors MEDIA_POLL_MS, which the hook keeps private. */
@@ -71,6 +72,9 @@ describe('useBurnRecorders media poll', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     _resetBurnSupportForTest();
+    // The selection outlives the page on purpose now, so it also outlives a
+    // test unless it is cleared here.
+    useBurnRecorderStore.getState().select('');
     token = 'tray-empty';
     media = EMPTY_TRAY;
     probes = 0;
@@ -138,6 +142,94 @@ describe('useBurnRecorders media poll', () => {
     await settle(POLL_MS * 2);
 
     expect(fingerprint).not.toHaveBeenCalled();
+  });
+
+  it('does not probe the drive a burn is holding, on mount or after', async () => {
+    // The poll stood down and the probe went in behind it: returning to the
+    // burner page mid-burn fired a full probe — ATIP and TOC — straight at a
+    // drive that was writing.
+    renderHook(() => useBurnRecorders(true));
+    await settle(POLL_MS * 2);
+
+    expect(probes).toBe(0);
+  });
+
+  it('probes again once the burn lets go of the drive', async () => {
+    const { rerender } = renderHook(({ busy }) => useBurnRecorders(busy), {
+      initialProps: { busy: true },
+    });
+    await settle();
+    expect(probes).toBe(0);
+
+    rerender({ busy: false });
+    await settle();
+    await settle(POLL_MS);
+    expect(probes).toBeGreaterThan(0);
+  });
+});
+
+describe('useBurnRecorders selection', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    _resetBurnSupportForTest();
+    useBurnRecorderStore.getState().select('');
+    media = BLANK_CDR;
+    token = 'cdr-blank';
+    onInvoke('burn_is_supported', () => true);
+    onInvoke('burn_media_state', () => token);
+    onInvoke('burn_probe_media', () => media);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    useBurnRecorderStore.getState().select('');
+  });
+
+  const SECOND: BurnRecorder = { ...RECORDER, id: 'drive-2', name: 'PIONEER BD-RW BDR-UD04' };
+
+  it('keeps the chosen drive across leaving the page and coming back', async () => {
+    // The reported bug: page state died with the page, so the picker fell back
+    // to the first writable drive and the next burn went somewhere else.
+    onInvoke('burn_list_recorders', () => [RECORDER, SECOND]);
+
+    const first = renderHook(() => useBurnRecorders());
+    await settle();
+    act(() => first.result.current.select('drive-2'));
+    expect(first.result.current.selectedId).toBe('drive-2');
+
+    first.unmount();
+    const second = renderHook(() => useBurnRecorders());
+    await settle();
+
+    expect(second.result.current.selectedId).toBe('drive-2');
+  });
+
+  it('drops a drive that is no longer there rather than keeping it selected', async () => {
+    onInvoke('burn_list_recorders', () => [RECORDER, SECOND]);
+    const first = renderHook(() => useBurnRecorders());
+    await settle();
+    act(() => first.result.current.select('drive-2'));
+    first.unmount();
+
+    // Unplugged between visits.
+    onInvoke('burn_list_recorders', () => [RECORDER]);
+    const second = renderHook(() => useBurnRecorders());
+    await settle();
+
+    expect(second.result.current.selectedId).toBe('drive-1');
+  });
+
+  it('ignores a remembered drive that cannot write CDs', async () => {
+    useBurnRecorderStore.getState().select('reader-only');
+    onInvoke('burn_list_recorders', () => [
+      { ...RECORDER, id: 'reader-only', canWriteCd: false },
+      RECORDER,
+    ]);
+
+    const { result } = renderHook(() => useBurnRecorders());
+    await settle();
+
+    expect(result.current.selectedId).toBe('drive-1');
   });
 });
 

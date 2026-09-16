@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { listRecorders, mediaState, probeMedia } from '@/lib/api/burn';
 import type { BurnMediaInfo, BurnRecorder } from '@/lib/api/burn';
 import { primeBurnSupport, useBurnSupportStore } from '@/features/burner/store/burnSupportStore';
+import { useBurnRecorderStore } from '@/features/burner/store/burnRecorderStore';
 
 /** How often to ask the drive what is in it, while the page is open. */
 const MEDIA_POLL_MS = 3000;
@@ -38,7 +39,11 @@ export function useBurnRecorders(paused = false): BurnRecordersState {
   // process; this hook only waits for it.
   const support = useBurnSupportStore(s => s.supported);
   const [recorders, setRecorders] = useState<BurnRecorder[]>([]);
-  const [selectedId, setSelectedId] = useState('');
+  // In a store, not in this hook: the burner page can be left and returned to,
+  // and a selection that died with the page would send the next burn to
+  // whichever drive happens to be listed first.
+  const selectedId = useBurnRecorderStore(s => s.selectedId);
+  const setSelectedId = useBurnRecorderStore(s => s.select);
   const [media, setMedia] = useState<BurnMediaInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -73,11 +78,14 @@ export function useBurnRecorders(paused = false): BurnRecordersState {
         const found = await listRecorders();
         if (cancelled) return;
         setRecorders(found);
-        setSelectedId(current => {
-          const writable = found.filter(r => r.canWriteCd);
-          if (current && writable.some(r => r.id === current)) return current;
-          return writable[0]?.id ?? '';
-        });
+        // Whatever the store holds is validated against the drives actually
+        // found: a drive that has been unplugged since must not stay selected,
+        // and one that is still here must not be swapped underneath the user.
+        const writable = found.filter(r => r.canWriteCd);
+        const current = useBurnRecorderStore.getState().selectedId;
+        if (!current || !writable.some(r => r.id === current)) {
+          setSelectedId(writable[0]?.id ?? '');
+        }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : String(err));
       } finally {
@@ -86,7 +94,9 @@ export function useBurnRecorders(paused = false): BurnRecordersState {
     })();
 
     return () => { cancelled = true; };
-  }, [support, nonce]);
+    // `setSelectedId` is the store's action and never changes identity, so
+    // listing it costs nothing and keeps the rule honest.
+  }, [support, nonce, setSelectedId]);
 
   // Watch for a disc being put in or taken out.
   //
@@ -123,7 +133,13 @@ export function useBurnRecorders(paused = false): BurnRecordersState {
   }, [selectedId, paused]);
 
   // Media in the selected drive.
+  //
+  // Paused for the same reason the poll above is: a probe reads ATIP and the
+  // TOC, and a burn holds the drive. Without this, returning to the burner page
+  // mid-burn fired a full probe straight at a drive that was writing — the poll
+  // stood down and this went in behind it.
   useEffect(() => {
+    if (paused) return;
     let cancelled = false;
     void (async () => {
       if (!selectedId) {
@@ -140,7 +156,10 @@ export function useBurnRecorders(paused = false): BurnRecordersState {
       }
     })();
     return () => { cancelled = true; };
-  }, [selectedId, nonce]);
+    // `paused` belongs here as much as in the guard above: without it the
+    // effect never re-runs when the burn lets go, and the drive would keep
+    // looking empty until the user pressed Refresh.
+  }, [selectedId, nonce, paused]);
 
   return {
     // "Not asked yet" must not render as unsupported — the page would flash a

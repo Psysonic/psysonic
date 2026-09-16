@@ -395,7 +395,9 @@ export default function Burner() {
         trackCount={layout.arcs.length}
         runtime={formatDuration(sectorsToSeconds(layout.totalSectors))}
         free={formatDuration(sectorsToSeconds(layout.remainingSectors))}
-        hasDisc={Boolean(drives.media?.present)}
+        // A burn holds the drive, so the media probe stands down and says
+        // nothing about what is in it. There is a disc: it is being written to.
+        hasDisc={Boolean(drives.media?.present) || busy}
       />
 
       <div className="burner-split" ref={splitRef}>
