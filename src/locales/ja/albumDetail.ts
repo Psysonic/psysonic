@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: '列',
   resetColumns: '既定に戻す',
   notFound: 'アルバムが見つかりません。',
+  notesShowMore: '続きを読む',
+  notesShowLess: '折りたたむ',
   bioModal: 'アーティスト紹介',
   bioClose: '閉じる',
   ratingLabel: '評価',

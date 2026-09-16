@@ -48,6 +48,8 @@ export const albumDetail = {
   columns: 'Колонки',
   resetColumns: 'Сбросить',
   notFound: 'Альбом не найден.',
+  notesShowMore: 'Читать далее',
+  notesShowLess: 'Свернуть',
   bioModal: 'Биография исполнителя',
   bioClose: 'Закрыть',
   ratingLabel: 'Оценка',

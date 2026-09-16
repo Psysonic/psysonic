@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: 'Kolonner',
   resetColumns: 'Tilbakestill',
   notFound: 'Album ble ikke funnet.',
+  notesShowMore: 'Les mer',
+  notesShowLess: 'Vis mindre',
   bioModal: 'Artistbiografi',
   bioClose: 'Lukk',
   ratingLabel: 'Vurdering',

@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: 'Coloane',
   resetColumns: 'Resetează la predefinite',
   notFound: 'Albumul nu a fost găsit.',
+  notesShowMore: 'Mai mult',
+  notesShowLess: 'Mai puțin',
   bioModal: 'Biografia Artistului',
   bioClose: 'Închide',
   ratingLabel: 'Rating',

@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: 'Стовпці',
   resetColumns: 'Скинути за замовчуванням',
   notFound: 'Альбом не знайдено.',
+  notesShowMore: 'Читати більше',
+  notesShowLess: 'Показати менше',
   bioModal: 'Біографія виконавця',
   bioClose: 'Закрити',
   ratingLabel: 'Рейтинг',

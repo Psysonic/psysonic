@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: 'Kolommen',
   resetColumns: 'Standaard herstellen',
   notFound: 'Album niet gevonden.',
+  notesShowMore: 'Meer lezen',
+  notesShowLess: 'Minder tonen',
   bioModal: 'Artiest biografie',
   bioClose: 'Sluiten',
   ratingLabel: 'Beoordeling',
