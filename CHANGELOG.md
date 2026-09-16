@@ -35,6 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * With shuffle switched on, double-clicking a track in an album, playlist or favourites now queues that whole list in random order, starting with the track you picked. Until now the list arrived in its own order while the shuffle button said otherwise.
 * Switching shuffle back off puts the list into the order it had when you started it.
 
+### Clear the queue without stopping the current track
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1581](https://github.com/Psysonic/psysonic/pull/1581)**
+
+* Right-click the queue's **Clear** button to remove its history and upcoming tracks while the current track keeps playing from the same position.
+
 ## Fixed
 
 ### Artist top tracks can be dragged to the queue
