@@ -8,9 +8,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 
 use crate::artist_sort::{sort_key_for_display_name, DEFAULT_IGNORED_ARTICLES};
-use crate::browse_projection::{
-    AlbumScope, ScopeBrowseProjectionInspectDto, ScopeBrowseProjectionProgressEvent,
-};
+use crate::browse_projection::{logical_progress, AlbumScope, ScopeBrowseProjectionInspectDto};
 use crate::store::LibraryStore;
 
 pub const MIGRATION_ID: &str = "scope_browse_composer_projection_v1";
@@ -336,7 +334,7 @@ pub(crate) fn run_backfill(store: &LibraryStore, app: Option<&AppHandle>) -> Res
     } else {
         0
     };
-    run_backfill_with_progress(store, app, 0, progress_total)
+    run_backfill_with_progress(store, app, 0, progress_total, progress_total)
 }
 
 pub(crate) fn run_backfill_with_progress(
@@ -344,6 +342,7 @@ pub(crate) fn run_backfill_with_progress(
     app: Option<&AppHandle>,
     progress_offset: u64,
     progress_total: u64,
+    total_tracks: u64,
 ) -> Result<(), String> {
     let inspect_result = inspect(store)?;
     if !inspect_result.needed {
@@ -409,10 +408,11 @@ pub(crate) fn run_backfill_with_progress(
         if let Some(app) = app {
             app.emit(
                 "scope_browse_projection:progress",
-                ScopeBrowseProjectionProgressEvent {
-                    done: progress_offset.saturating_add(done),
-                    total: progress_total,
-                },
+                logical_progress(
+                    progress_offset.saturating_add(done),
+                    progress_total,
+                    total_tracks,
+                ),
             )
             .map_err(|error| error.to_string())?;
         }

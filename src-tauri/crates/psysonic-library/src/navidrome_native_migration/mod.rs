@@ -477,11 +477,11 @@ pub(super) fn record_mapping(
     old_id: &str,
     new_id: &str,
 ) -> rusqlite::Result<()> {
-    tx.execute(
+    tx.prepare_cached(
         "INSERT INTO navidrome_id_batch_mapping (entity_kind, source_rowid, old_id, new_id) \
          VALUES (?1, ?2, ?3, ?4)",
-        params![entity_kind, source_rowid, old_id, new_id],
-    )?;
+    )?
+    .execute(params![entity_kind, source_rowid, old_id, new_id])?;
     Ok(())
 }
 

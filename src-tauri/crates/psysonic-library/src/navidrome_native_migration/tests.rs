@@ -194,6 +194,70 @@ fn track_collision_keeps_canonical_owner_and_retargets_history() {
 }
 
 #[test]
+fn track_without_preserved_references_uses_alias_history_and_drops_genres() {
+    let store = LibraryStore::open_in_memory();
+    let canonical_track = canonical_id(LEGACY_TRACK);
+    store
+        .with_conn_mut("test.seed_simple_native_track", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Legacy title', 'Album', 0, 10, ?2)",
+                params![
+                    LEGACY_TRACK,
+                    serde_json::json!({ "id": LEGACY_TRACK, "genre": "Rock" }).to_string()
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_genre (server_id, track_id, genre) \
+                 VALUES ('s1', ?1, 'Rock')",
+                params![LEGACY_TRACK],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let upper = upper_rowid(&store, "s1", NavidromeNativeMigrationStep::Track).unwrap();
+    let result = run_batch(
+        &store,
+        "s1",
+        NavidromeNativeMigrationStep::Track,
+        0,
+        upper,
+        20,
+    )
+    .unwrap();
+    assert!(result.done);
+    assert_eq!(result.moved, 1);
+
+    let state: (bool, bool, String, i64, i64) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?1), \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?2), \
+                   (SELECT new_id FROM track_id_history \
+                    WHERE server_id = 's1' AND old_id = ?1), \
+                   (SELECT COUNT(*) FROM track_genre WHERE server_id = 's1'), \
+                   (SELECT COUNT(*) FROM sqlite_master WHERE type = 'trigger' \
+                    AND name IN ('track_ai', 'track_ad', 'track_au'))",
+                params![LEGACY_TRACK, canonical_track],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+        })
+        .unwrap();
+    assert_eq!(state, (false, true, canonical_track, 0, 3));
+}
+
+#[test]
 fn album_collision_retargets_tracks_and_preserves_newer_user_state() {
     let store = LibraryStore::open_in_memory();
     let canonical_album = canonical_id(LEGACY_ALBUM);

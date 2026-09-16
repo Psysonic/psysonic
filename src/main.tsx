@@ -43,6 +43,11 @@ function escapeHtml(value: string): string {
   })[character]!);
 }
 
+function migrationStepLabel(step: string | null | undefined): string {
+  if (!step) return i18n.t('migration.working');
+  return i18n.t(`migration.steps.${step}`, { defaultValue: step });
+}
+
 function renderMigrationShell(
   progress?: NavidromeCanonicalMigrationProgress,
   error?: unknown,
@@ -53,18 +58,45 @@ function renderMigrationShell(
   const phase = progress?.phase === 'probing' ? i18n.t('migration.preparing') : i18n.t('migration.migrating');
   const detail = error
     ? String(error instanceof Error ? error.message : error).slice(0, 500)
-    : progress?.step ?? i18n.t('migration.working');
+    : migrationStepLabel(progress?.step);
+  const formatter = new Intl.NumberFormat(i18n.language);
   const progressText = progress && progress.total > 0
-    ? `${progress.completed} / ${progress.total}`
+    ? `${formatter.format(progress.completed)} / ${formatter.format(progress.total)}`
     : null;
+  const showMigrationDetails = !error && progress
+    && progress.phase !== 'probing'
+    && progress.phase !== 'idle';
   const safeTitle = escapeHtml(error ? i18n.t('migration.failed') : phase);
   const safeDetail = escapeHtml(detail);
+  const safeReason = escapeHtml(i18n.t('migration.canonicalIdReason'));
+  const safeServer = progress?.serverId ? escapeHtml(progress.serverId) : null;
+  const safeVersion = progress?.serverVersion ? escapeHtml(progress.serverVersion) : null;
+  const progressPercent = progressText && progress
+    ? Math.min(100, Math.max(0, Math.round((progress.completed / progress.total) * 100)))
+    : 0;
   rootElement.innerHTML = `
     <main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--text)">
       <section role="${error ? 'alert' : 'status'}" aria-live="${error ? 'assertive' : 'polite'}" style="width:min(560px,92vw);padding:24px 28px;border-radius:14px;background:var(--bg-card);box-shadow:var(--shadow-lg)">
         <h2 style="margin:0 0 12px">${safeTitle}</h2>
-        <p style="margin:0;color:var(--text-muted);overflow-wrap:anywhere">${safeDetail}</p>
-        ${progressText ? `<p style="margin:12px 0 0;color:var(--text-muted)">${escapeHtml(progressText)}</p>` : ''}
+        ${showMigrationDetails ? `
+          <dl style="display:grid;grid-template-columns:max-content 1fr;gap:8px 14px;margin:0;color:var(--text-muted)">
+            <dt>${escapeHtml(i18n.t('migration.reasonLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeReason}</dd>
+            ${safeServer ? `<dt>${escapeHtml(i18n.t('migration.serverLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeServer}</dd>` : ''}
+            ${safeVersion ? `<dt>${escapeHtml(i18n.t('migration.versionLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeVersion}</dd>` : ''}
+            <dt>${escapeHtml(i18n.t('migration.stepLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeDetail}</dd>
+          </dl>
+        ` : `<p style="margin:0;color:var(--text-muted);overflow-wrap:anywhere">${safeDetail}</p>`}
+        ${progressText ? `
+          <div style="margin-top:16px">
+            <div style="display:flex;justify-content:space-between;gap:16px;color:var(--text-muted)">
+              <span>${escapeHtml(i18n.t('migration.progressLabel'))}</span>
+              <span>${escapeHtml(progressText)}</span>
+            </div>
+            <div role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPercent}" style="height:6px;margin-top:8px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--text-muted) 20%,transparent)">
+              <div style="width:${progressPercent}%;height:100%;background:var(--accent);transition:width 160ms ease"></div>
+            </div>
+          </div>
+        ` : ''}
         ${error ? `
           <div style="display:flex;gap:8px;margin-top:16px">
             <button id="canonical-migration-retry" class="btn-primary">${escapeHtml(i18n.t('migration.retry'))}</button>
@@ -88,7 +120,9 @@ function freezeApplication(): void {
   applicationRoot?.unmount();
   applicationRoot = null;
   renderMigrationShell({
+    reason: 'navidrome-canonical-ids',
     serverId: null,
+    serverVersion: null,
     phase: 'pending',
     step: null,
     completed: 0,
@@ -109,7 +143,15 @@ async function mountApplication(): Promise<void> {
     },
   });
   if (windowKind === 'mini' && windowGate.engageIfActive()) return;
-  renderMigrationShell({ serverId: null, phase: 'probing', step: null, completed: 0, total: 0 });
+  renderMigrationShell({
+    reason: 'navidrome-canonical-ids',
+    serverId: null,
+    serverVersion: null,
+    phase: 'probing',
+    step: null,
+    completed: 0,
+    total: 0,
+  });
   installImportedBackupCoordinator({
     arm: () => armNavidromeCanonicalBackupImport(),
     disarm: () => disarmNavidromeCanonicalBackupImport(),
@@ -124,7 +166,15 @@ async function mountApplication(): Promise<void> {
     onProgress: progress => renderMigrationShell(progress),
   });
   if (result.blocked) {
-    renderMigrationShell({ serverId: null, phase: 'pending', step: null, completed: 0, total: 0 });
+    renderMigrationShell({
+      reason: 'navidrome-canonical-ids',
+      serverId: null,
+      serverVersion: null,
+      phase: 'pending',
+      step: null,
+      completed: 0,
+      total: 0,
+    });
     window.setTimeout(() => window.location.reload(), 2_000);
     return;
   }

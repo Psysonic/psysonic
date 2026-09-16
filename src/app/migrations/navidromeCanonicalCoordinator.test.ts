@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   invoke: vi.fn(),
   listen: vi.fn(),
   idleHandler: null as ((event: { payload: unknown }) => void) | null,
+  progressHandler: null as ((event: { payload: unknown }) => void) | null,
   rewriteFrontend: vi.fn(),
   verifyFrontend: vi.fn(),
   inspectCoverUpper: vi.fn(async () => null),
@@ -98,9 +99,12 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
   beforeEach(() => {
     localStorage.clear();
     seedAuth();
+    mocks.idleHandler = null;
+    mocks.progressHandler = null;
     mocks.invoke.mockReset();
-    mocks.listen.mockReset().mockImplementation(async (_event: string, handler: (event: { payload: unknown }) => void) => {
-      mocks.idleHandler = handler;
+    mocks.listen.mockReset().mockImplementation(async (event: string, handler: (event: { payload: unknown }) => void) => {
+      if (event === 'library:sync-idle') mocks.idleHandler = handler;
+      if (event === 'library:sync-progress') mocks.progressHandler = handler;
       return vi.fn();
     });
     mocks.rewriteFrontend.mockReset();
@@ -638,14 +642,35 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
         return { ok: true, type: 'navidrome', serverVersion: '0.64.0', openSubsonic: true };
       }
       if (command === 'library_migration_begin') return beginResult(7);
-      if (command.endsWith('_upper_rowid')) return 0;
+      if (command === 'library_migration_native_preflight') {
+        return { artistsScanned: 1, albumsScanned: 2, tracksScanned: 3 };
+      }
+      if (command === 'library_migration_native_upper_rowid') {
+        return args?.step === 'artist' ? 1 : args?.step === 'album' ? 2 : 3;
+      }
+      if (command === 'library_migration_native_batch') {
+        const upperRowid = Number(args?.upperRowid ?? 0);
+        return {
+          cursorRowid: upperRowid,
+          upperRowid,
+          processed: upperRowid,
+          done: true,
+        };
+      }
+      if (command === 'library_migration_analysis_upper_rowid') return 0;
+      if (command === 'library_count_live_tracks') return 3;
       if (command === 'library_migration_sync_start') {
-        queueMicrotask(() => mocks.idleHandler?.({
-          payload: {
-            serverId: 'music.test', libraryScope: '', kind: 'initial_sync', source: 'foreground',
-            jobId: 'job-1', ok: true, error: null,
-          },
-        }));
+        queueMicrotask(() => {
+          mocks.progressHandler?.({
+            payload: { serverId: 'music.test', kind: 'ingest_page', ingestedTotal: 2 },
+          });
+          mocks.idleHandler?.({
+            payload: {
+              serverId: 'music.test', libraryScope: '', kind: 'initial_sync', source: 'foreground',
+              jobId: 'job-1', ok: true, error: null,
+            },
+          });
+        });
         return { jobId: 'job-1', serverId: 'music.test', kind: 'initial_sync' };
       }
       if (command === 'library_migration_finish_server') {
@@ -658,12 +683,20 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
       .resolves.toEqual({ blocked: false, migratedServers: 1 });
 
     expect(onProgress).toHaveBeenCalledWith({
+      reason: 'navidrome-canonical-ids',
       serverId: 'music.test',
+      serverVersion: '0.64.0',
       phase: 'pending',
       step: null,
       completed: 0,
-      total: 1,
+      total: 0,
     });
+    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'native', step: 'track', completed: 3, total: 3,
+    }));
+    expect(onProgress).toHaveBeenCalledWith(expect.objectContaining({
+      phase: 'sync', step: 'authoritative-full-sync', completed: 2, total: 3,
+    }));
     const pendingProgressIndex = onProgress.mock.calls.findIndex(([progress]) => progress.phase === 'pending');
     const nativeProgressIndex = onProgress.mock.calls.findIndex(([progress]) => progress.phase === 'native');
     expect(pendingProgressIndex).toBeGreaterThanOrEqual(0);
@@ -713,7 +746,11 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
         return { ok: true, type: 'navidrome', serverVersion: '0.64.0', openSubsonic: true };
       }
       if (command === 'library_migration_begin') return beginResult(8);
+      if (command === 'library_migration_native_preflight') {
+        return { artistsScanned: 0, albumsScanned: 0, tracksScanned: 0 };
+      }
       if (command.endsWith('_upper_rowid')) return 0;
+      if (command === 'library_count_live_tracks') return 0;
       if (command === 'library_migration_sync_start') {
         queueMicrotask(() => mocks.idleHandler?.({
           payload: {

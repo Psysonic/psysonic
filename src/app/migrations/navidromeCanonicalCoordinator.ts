@@ -82,7 +82,14 @@ type MigrationSnapshot =
 type MigrationBatch = {
   cursorRowid: number;
   upperRowid: number;
+  processed: number;
   done: boolean;
+};
+
+type NativePreflight = {
+  artistsScanned: number;
+  albumsScanned: number;
+  tracksScanned: number;
 };
 
 type SyncJob = { jobId: string; serverId: string; kind: string };
@@ -95,6 +102,11 @@ type SyncIdle = {
   ok: boolean;
   error?: string | null;
 };
+type SyncProgress = {
+  serverId: string;
+  kind: string;
+  ingestedTotal?: number | null;
+};
 
 type DeviceSyncManifestSource = {
   type: 'album' | 'playlist' | 'artist';
@@ -105,7 +117,9 @@ type DeviceSyncManifestSource = {
 };
 
 export type NavidromeCanonicalMigrationProgress = {
+  reason: 'navidrome-canonical-ids';
   serverId: string | null;
+  serverVersion: string | null;
   phase: NavidromeCanonicalMigrationPhase | 'probing' | 'idle';
   step: string | null;
   completed: number;
@@ -122,6 +136,13 @@ type CoordinatorOptions = {
   storage?: Storage;
   onProgress?: (progress: NavidromeCanonicalMigrationProgress) => void;
 };
+
+type ProgressReporter = (
+  phase: NavidromeCanonicalMigrationPhase,
+  step: string | null,
+  completed?: number,
+  total?: number,
+) => void;
 
 function now(): number {
   return Date.now();
@@ -301,7 +322,7 @@ async function runNativePhase(args: {
   server: ReachableServer;
   write: ReturnType<typeof checkpointWriter>;
   authState: Record<string, unknown>;
-  progress: (phase: NavidromeCanonicalMigrationPhase, step: string | null) => void;
+  progress: ProgressReporter;
 }): Promise<void> {
   const { generation, server, write, authState, progress } = args;
   const serverId = server.group.serverIndexKey;
@@ -326,7 +347,15 @@ async function runNativePhase(args: {
     write.set(serverId, sourceVersion, { phase: 'native', step: NATIVE_STEPS[0] });
   }
   progress('native', 'preflight');
-  await invoke('library_migration_native_preflight', { generation, serverId });
+  const preflight = await invoke<NativePreflight>('library_migration_native_preflight', {
+    generation,
+    serverId,
+  });
+  const totals: Record<NativeStep, number> = {
+    artist: preflight.artistsScanned,
+    album: preflight.albumsScanned,
+    track: preflight.tracksScanned,
+  };
 
   const saved = write.get(serverId);
   const savedIndex = saved?.phase === 'native'
@@ -335,10 +364,11 @@ async function runNativePhase(args: {
   const startIndex = savedIndex >= 0 ? savedIndex : 0;
   for (let index = startIndex; index < NATIVE_STEPS.length; index += 1) {
     const step = NATIVE_STEPS[index];
-    progress('native', step);
     const resume = write.get(serverId);
     let cursorRowid = resume?.phase === 'native' && resume.step === step ? resume.cursorRowid : 0;
     let upperRowid = resume?.phase === 'native' && resume.step === step ? resume.upperRowid : 0;
+    const total = totals[step];
+    let completed = cursorRowid > 0 ? Math.min(cursorRowid, total) : 0;
     if (upperRowid === 0) {
       upperRowid = await invoke<number>('library_migration_native_upper_rowid', {
         generation,
@@ -350,6 +380,7 @@ async function runNativePhase(args: {
         phase: 'native', step, cursorRowid, upperRowid, cursorKey: null, upperKey: null,
       });
     }
+    progress('native', step, completed, total);
     while (cursorRowid < upperRowid) {
       const batch = await invoke<MigrationBatch>('library_migration_native_batch', {
         generation,
@@ -363,7 +394,9 @@ async function runNativePhase(args: {
         throw new Error(`Native migration made no progress in ${step}`);
       }
       cursorRowid = batch.cursorRowid;
+      completed = Math.min(total, completed + batch.processed);
       write.set(serverId, sourceVersion, { phase: 'native', step, cursorRowid, upperRowid });
+      progress('native', step, completed, total);
       if (batch.done) break;
     }
     const nextStep = NATIVE_STEPS[index + 1] ?? null;
@@ -379,7 +412,7 @@ async function runAnalysisPhase(args: {
   generation: number;
   server: ReachableServer;
   write: ReturnType<typeof checkpointWriter>;
-  progress: (phase: NavidromeCanonicalMigrationPhase, step: string | null) => void;
+  progress: ProgressReporter;
 }): Promise<void> {
   const { generation, server, write, progress } = args;
   const serverId = server.group.serverIndexKey;
@@ -397,7 +430,6 @@ async function runAnalysisPhase(args: {
   const startIndex = savedIndex >= 0 ? savedIndex : 0;
   for (let index = startIndex; index < ANALYSIS_STEPS.length; index += 1) {
     const step = ANALYSIS_STEPS[index];
-    progress('analysis', step);
     const resume = write.get(serverId);
     let cursorRowid = resume?.phase === 'analysis' && resume.step === step ? resume.cursorRowid : 0;
     let upperRowid = resume?.phase === 'analysis' && resume.step === step ? resume.upperRowid : 0;
@@ -412,6 +444,8 @@ async function runAnalysisPhase(args: {
         phase: 'analysis', step, cursorRowid, upperRowid, cursorKey: null, upperKey: null,
       });
     }
+    let completed = cursorRowid > 0 ? Math.min(cursorRowid, upperRowid) : 0;
+    progress('analysis', step, completed, upperRowid);
     while (cursorRowid < upperRowid) {
       const batch = await invoke<MigrationBatch>('library_migration_analysis_batch', {
         request: { generation, serverId, step, cursorRowid, upperRowid, limit: 2_000 },
@@ -420,7 +454,9 @@ async function runAnalysisPhase(args: {
         throw new Error(`Analysis migration made no progress in ${step}`);
       }
       cursorRowid = batch.cursorRowid;
+      completed = Math.min(upperRowid, completed + batch.processed);
       write.set(serverId, sourceVersion, { phase: 'analysis', step, cursorRowid, upperRowid });
+      progress('analysis', step, completed, upperRowid);
       if (batch.done) break;
     }
     const nextStep = ANALYSIS_STEPS[index + 1] ?? null;
@@ -436,7 +472,7 @@ async function runCoverPhase(args: {
   generation: number;
   server: ReachableServer;
   write: ReturnType<typeof checkpointWriter>;
-  progress: (phase: NavidromeCanonicalMigrationPhase, step: string | null) => void;
+  progress: ProgressReporter;
 }): Promise<void> {
   const { generation, server, write, progress } = args;
   const serverId = server.group.serverIndexKey;
@@ -477,8 +513,10 @@ async function runCoverPhase(args: {
 async function waitForMigrationSync(args: {
   generation: number;
   server: ReachableServer;
+  totalTracks: number;
+  progress: ProgressReporter;
 }): Promise<void> {
-  const { generation, server } = args;
+  const { generation, server, totalTracks, progress } = args;
   const serverId = server.group.serverIndexKey;
   await invoke('server_http_context_sync', {
     wire: serverHttpContextWireForProfile(server.profile, {
@@ -525,6 +563,14 @@ async function waitForMigrationSync(args: {
     'library:sync-idle',
     ({ payload }) => finish(payload),
   );
+  const unlistenProgress: UnlistenFn = await listen<SyncProgress>(
+    'library:sync-progress',
+    ({ payload }) => {
+      if (payload.serverId !== serverId || payload.kind !== 'ingest_page') return;
+      const completed = Math.max(0, payload.ingestedTotal ?? 0);
+      progress('sync', 'authoritative-full-sync', completed, Math.max(totalTracks, completed));
+    },
+  );
   try {
     const job = await invoke<SyncJob>('library_migration_sync_start', {
       generation,
@@ -542,6 +588,7 @@ async function waitForMigrationSync(args: {
   } finally {
     window.clearTimeout(timeout);
     unlisten();
+    unlistenProgress();
   }
 }
 
@@ -783,11 +830,20 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const storage = options.storage ?? localStorage;
   const emit = (
     serverId: string | null,
+    serverVersion: string | null,
     phase: NavidromeCanonicalMigrationProgress['phase'],
     step: string | null,
     completed: number,
     total: number,
-  ) => options.onProgress?.({ serverId, phase, step, completed, total });
+  ) => options.onProgress?.({
+    reason: 'navidrome-canonical-ids',
+    serverId,
+    serverVersion,
+    phase,
+    step,
+    completed,
+    total,
+  });
   if (options.windowKind === 'main') setBootstrapLock(storage);
   const complete = (result: NavidromeCanonicalBootstrapResult) => {
     clearBootstrapLock(storage);
@@ -838,7 +894,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const reachable: ReachableServer[] = [];
   for (let index = 0; index < groupsToProbe.length; index += 1) {
     const group = groupsToProbe[index];
-    emit(group.serverIndexKey, 'probing', null, index, groupsToProbe.length);
+    emit(group.serverIndexKey, null, 'probing', null, index, groupsToProbe.length);
     const server = await probeGroup(group);
     if (server) reachable.push(server);
   }
@@ -955,12 +1011,19 @@ export async function runNavidromeCanonicalMigrationCoordinator(
       ))) {
       throw new Error('A canonical ID migration is active for a server that is currently unreachable');
     }
-    emit(null, 'idle', null, groups.length, groups.length);
+    emit(null, null, 'idle', null, groups.length, groups.length);
     await discardCommittedImportBackups();
     return complete({ blocked: false, migratedServers: 0 });
   }
 
-  emit(migrationServers[0]?.group.serverIndexKey ?? null, 'pending', null, 0, migrationServers.length);
+  emit(
+    migrationServers[0]?.group.serverIndexKey ?? null,
+    migrationServers[0]?.ping.serverVersion ?? null,
+    'pending',
+    null,
+    0,
+    0,
+  );
   let generation: number;
   try {
     ({ generation } = await beginMigrationAdmission(
@@ -979,8 +1042,8 @@ export async function runNavidromeCanonicalMigrationCoordinator(
     const server = migrationServers[index];
     const serverId = server.group.serverIndexKey;
     const sourceVersion = server.ping.serverVersion ?? null;
-    const progress = (phase: NavidromeCanonicalMigrationPhase, step: string | null) => {
-      emit(serverId, phase, step, index, migrationServers.length);
+    const progress: ProgressReporter = (phase, step, completed = 0, total = 0) => {
+      emit(serverId, sourceVersion, phase, step, completed, total);
     };
     try {
       const active = await inspectBackend();
@@ -1035,8 +1098,10 @@ export async function runNavidromeCanonicalMigrationCoordinator(
       if (!write.get(serverId)?.syncCompletedAt) {
         await updateBackendPhase(generation, serverId, 'sync');
         write.set(serverId, sourceVersion, { phase: 'sync', step: 'authoritative-full-sync' });
-        progress('sync', 'authoritative-full-sync');
-        await waitForMigrationSync({ generation, server });
+        const totalTracks = Math.max(0, await invoke<number>('library_count_live_tracks', { serverId }));
+        progress('sync', 'authoritative-full-sync', 0, totalTracks);
+        await waitForMigrationSync({ generation, server, totalTracks, progress });
+        progress('sync', 'authoritative-full-sync', totalTracks, totalTracks);
         write.set(serverId, sourceVersion, { syncCompletedAt: now() });
       }
 
@@ -1073,6 +1138,6 @@ export async function runNavidromeCanonicalMigrationCoordinator(
 
   await invoke('library_migration_release', { generation });
   await discardCommittedImportBackups();
-  emit(null, 'idle', null, migrationServers.length, migrationServers.length);
+  emit(null, null, 'idle', null, migrationServers.length, migrationServers.length);
   return complete({ blocked: false, migratedServers });
 }

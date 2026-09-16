@@ -30,6 +30,22 @@ pub struct ScopeBrowseProjectionProgressEvent {
     pub total: u64,
 }
 
+pub(crate) fn logical_progress(
+    completed_work: u64,
+    total_work: u64,
+    total_tracks: u64,
+) -> ScopeBrowseProjectionProgressEvent {
+    let done = if total_work == 0 || completed_work >= total_work {
+        total_tracks
+    } else {
+        ((completed_work as u128 * total_tracks as u128) / total_work as u128) as u64
+    };
+    ScopeBrowseProjectionProgressEvent {
+        done,
+        total: total_tracks,
+    }
+}
+
 mod refresh;
 
 use refresh::add_scope;
@@ -156,6 +172,7 @@ fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<()
         0
     };
     let total_work = album_work.saturating_add(composer_work);
+    let total_tracks = album_work.max(composer_work);
 
     // Projection batches intentionally write physical fallback identities. Persist
     // a server rebuild request first so a crash can never leave a completed
@@ -174,8 +191,14 @@ fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<()
         crate::identity::mark_cluster_keys_dirty(&tx, server_ids.iter().map(String::as_str))?;
         tx.commit()
     })?;
-    run_album_backfill_impl(store, app, 0, total_work)?;
-    crate::composer_projection::run_backfill_with_progress(store, app, album_work, total_work)?;
+    run_album_backfill_impl(store, app, 0, total_work, total_tracks)?;
+    crate::composer_projection::run_backfill_with_progress(
+        store,
+        app,
+        album_work,
+        total_work,
+        total_tracks,
+    )?;
     crate::identity::ensure_pending_cluster_keys(store)?;
     Ok(())
 }
@@ -185,6 +208,7 @@ fn run_album_backfill_impl(
     app: Option<&AppHandle>,
     progress_offset: u64,
     progress_total: u64,
+    total_tracks: u64,
 ) -> Result<(), String> {
     let inspect_result = inspect_album(store)?;
     if !inspect_result.needed {
@@ -258,10 +282,11 @@ fn run_album_backfill_impl(
         if let Some(app) = app {
             app.emit(
                 "scope_browse_projection:progress",
-                ScopeBrowseProjectionProgressEvent {
-                    done: progress_offset.saturating_add(done),
-                    total: progress_total,
-                },
+                logical_progress(
+                    progress_offset.saturating_add(done),
+                    progress_total,
+                    total_tracks,
+                ),
             )
             .map_err(|error| error.to_string())?;
         }
