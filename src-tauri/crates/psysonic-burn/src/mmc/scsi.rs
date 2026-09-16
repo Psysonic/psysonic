@@ -577,7 +577,9 @@ mod tests {
     fn a_drive_saying_no_is_a_refusal() {
         // Byte for byte what an LG WH10LS30 on USB put in the sense buffer for
         // TEST UNIT READY with the tray empty — while IMAPI2 called it success.
-        let sense = [0x70, 0, 0x02, 0, 0, 0, 0, 0x0A, 0, 0, 0, 0, 0x3A, 0x01, 0, 0, 0, 0];
+        let sense = [
+            0x70, 0, 0x02, 0, 0, 0, 0, 0x0A, 0, 0, 0, 0, 0x3A, 0x01, 0, 0, 0, 0,
+        ];
         assert_eq!(refusal(&sense, sense.len()), Some((0x02, 0x3A, 0x01)));
     }
 
@@ -595,33 +597,54 @@ mod tests {
 
     #[test]
     fn a_disc_still_blank_after_a_write_received_nothing() {
-        assert_eq!(verdict_after_write(Some(DiscStatus::Empty), None), WriteVerdict::NothingWritten);
+        assert_eq!(
+            verdict_after_write(Some(DiscStatus::Empty), None),
+            WriteVerdict::NothingWritten
+        );
     }
 
     #[test]
     fn a_closed_disc_is_written() {
-        assert_eq!(verdict_after_write(Some(DiscStatus::Complete), None), WriteVerdict::Written);
+        assert_eq!(
+            verdict_after_write(Some(DiscStatus::Complete), None),
+            WriteVerdict::Written
+        );
     }
 
     #[test]
     fn a_table_of_contents_outranks_a_stale_status() {
         // A drive can keep describing the disc it was handed; the TOC is the disc.
-        assert_eq!(verdict_after_write(Some(DiscStatus::Empty), Some(12)), WriteVerdict::Written);
-        assert_eq!(verdict_after_write(Some(DiscStatus::Incomplete), Some(3)), WriteVerdict::Written);
+        assert_eq!(
+            verdict_after_write(Some(DiscStatus::Empty), Some(12)),
+            WriteVerdict::Written
+        );
+        assert_eq!(
+            verdict_after_write(Some(DiscStatus::Incomplete), Some(3)),
+            WriteVerdict::Written
+        );
         assert_eq!(verdict_after_write(None, Some(1)), WriteVerdict::Written);
     }
 
     #[test]
     fn an_open_session_with_no_table_of_contents_is_unfinished() {
-        assert_eq!(verdict_after_write(Some(DiscStatus::Incomplete), None), WriteVerdict::Unfinished);
+        assert_eq!(
+            verdict_after_write(Some(DiscStatus::Incomplete), None),
+            WriteVerdict::Unfinished
+        );
     }
 
     #[test]
     fn no_answer_is_neither_success_nor_failure() {
         assert_eq!(verdict_after_write(None, None), WriteVerdict::Unknown);
-        assert_eq!(verdict_after_write(Some(DiscStatus::Other), None), WriteVerdict::Unknown);
+        assert_eq!(
+            verdict_after_write(Some(DiscStatus::Other), None),
+            WriteVerdict::Unknown
+        );
         // A TOC that lists no tracks is no evidence of a write.
-        assert_eq!(verdict_after_write(Some(DiscStatus::Empty), Some(0)), WriteVerdict::NothingWritten);
+        assert_eq!(
+            verdict_after_write(Some(DiscStatus::Empty), Some(0)),
+            WriteVerdict::NothingWritten
+        );
     }
 
     #[test]
@@ -644,7 +667,10 @@ mod tests {
         // near that figure would report a slow drive as a silent one, which is
         // the mistake this constant exists to correct.
         let window = AFTER_RELOAD_PAUSE * AFTER_RELOAD_ATTEMPTS;
-        assert!(window >= Duration::from_secs(10), "{window:?} is not enough after a tray cycle");
+        assert!(
+            window >= Duration::from_secs(10),
+            "{window:?} is not enough after a tray cycle"
+        );
         assert!(
             AFTER_RELOAD_PAUSE <= Duration::from_millis(500),
             "polling this slowly adds delay the drive did not ask for"
@@ -820,7 +846,9 @@ mod tests {
 
     #[test]
     fn a_toc_without_a_lead_out_yields_nothing() {
-        let toc = vec![0_u8, 10, 1, 1, 0x00, 0x14, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00];
+        let toc = vec![
+            0_u8, 10, 1, 1, 0x00, 0x14, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00,
+        ];
         assert_eq!(parse_toc_lead_out(&toc), None);
     }
 
@@ -832,15 +860,24 @@ mod tests {
     #[test]
     fn disc_status_decodes_the_two_bits_that_matter() {
         assert_eq!(DiscStatus::from_disc_information(0x00), DiscStatus::Empty);
-        assert_eq!(DiscStatus::from_disc_information(0x01), DiscStatus::Incomplete);
-        assert_eq!(DiscStatus::from_disc_information(0x02), DiscStatus::Complete);
+        assert_eq!(
+            DiscStatus::from_disc_information(0x01),
+            DiscStatus::Incomplete
+        );
+        assert_eq!(
+            DiscStatus::from_disc_information(0x02),
+            DiscStatus::Complete
+        );
     }
 
     #[test]
     fn disc_status_ignores_the_bits_above_it() {
         // Byte 2 also carries the last-session state and the erasable flag;
         // reading the whole byte would call a blank erasable disc non-empty.
-        assert_eq!(DiscStatus::from_disc_information(0b0001_0000), DiscStatus::Empty);
+        assert_eq!(
+            DiscStatus::from_disc_information(0b0001_0000),
+            DiscStatus::Empty
+        );
     }
 
     #[test]

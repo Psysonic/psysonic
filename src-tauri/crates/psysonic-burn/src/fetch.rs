@@ -343,7 +343,10 @@ mod tests {
         let tracks = [track("a", None, None)];
         let plan = plan_fetch(&tracks);
         // 240 s at the assumed rate.
-        assert_eq!(plan.estimated_bytes, (240.0 * ASSUMED_BYTES_PER_SECOND) as u64);
+        assert_eq!(
+            plan.estimated_bytes,
+            (240.0 * ASSUMED_BYTES_PER_SECOND) as u64
+        );
     }
 
     #[test]

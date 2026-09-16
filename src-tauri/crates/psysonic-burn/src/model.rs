@@ -318,11 +318,19 @@ pub struct CdTextVerification {
 
 impl CdTextVerification {
     pub fn unreadable(reason: impl Into<String>) -> Self {
-        Self { checked: false, packs: 0, error: Some(reason.into()) }
+        Self {
+            checked: false,
+            packs: 0,
+            error: Some(reason.into()),
+        }
     }
 
     pub fn found(packs: u32) -> Self {
-        Self { checked: true, packs, error: None }
+        Self {
+            checked: true,
+            packs,
+            error: None,
+        }
     }
 }
 

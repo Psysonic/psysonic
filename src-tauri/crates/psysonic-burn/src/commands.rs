@@ -216,8 +216,7 @@ pub fn burn_start(
 
     // Taken before anything is registered or created, so a refused second
     // attempt leaves nothing behind it.
-    let latch =
-        BurnLatch::acquire().ok_or_else(|| "A burn is already running.".to_string())?;
+    let latch = BurnLatch::acquire().ok_or_else(|| "A burn is already running.".to_string())?;
 
     // Workdir first, because it can fail: a registration made before it would
     // outlive the job that never started, and `burn_cancel` would then answer
@@ -258,7 +257,11 @@ pub fn burn_start(
                     // which left a failed burn with nothing to paste into a
                     // report — on Linux there was no other trace of it at all.
                     if !cancelled {
-                        let what = if options.test_write { "rehearsal" } else { "burn" };
+                        let what = if options.test_write {
+                            "rehearsal"
+                        } else {
+                            "burn"
+                        };
                         crate::app_eprintln!("[burn] {what} failed: {error}");
                     }
                     BurnResult {
@@ -687,7 +690,12 @@ fn run_job(
     // ── Re-check capacity against what actually rendered ─────────────────
     let hints: Vec<u32> = rendered.iter().map(|t| t.sectors).collect();
     let media = platform::probe_media(&options.recorder_id)?;
-    let plan = plan_disc(&tracks, media.capacity_sectors, Some(&hints), options.gapless);
+    let plan = plan_disc(
+        &tracks,
+        media.capacity_sectors,
+        Some(&hints),
+        options.gapless,
+    );
     if !plan.fits {
         return Err(plan
             .warnings
@@ -788,10 +796,16 @@ mod tests {
             panic!("the job thread died");
         });
         std::panic::set_hook(hook);
-        assert!(blew_up.is_err(), "the test's own panic should have been caught");
+        assert!(
+            blew_up.is_err(),
+            "the test's own panic should have been caught"
+        );
 
         let after = BurnLatch::acquire();
-        assert!(after.is_some(), "an unwinding job must still release the latch");
+        assert!(
+            after.is_some(),
+            "an unwinding job must still release the latch"
+        );
     }
 
     #[test]
@@ -808,8 +822,14 @@ mod tests {
 
         sweep_stale_workdirs(root.path(), &live);
 
-        assert!(live.is_dir(), "the folder this burn is about to use must survive");
-        assert!(!stale_a.exists(), "a crashed run's folder and its PCM must go");
+        assert!(
+            live.is_dir(),
+            "the folder this burn is about to use must survive"
+        );
+        assert!(
+            !stale_a.exists(),
+            "a crashed run's folder and its PCM must go"
+        );
         assert!(!stale_b.exists());
     }
 

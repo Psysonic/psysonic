@@ -128,7 +128,8 @@ impl ScsiDevice {
 
     /// Send a command with no data phase.
     pub fn execute(&self, cdb: &[u8], timeout_s: u32) -> Result<(), ScsiError> {
-        self.transfer(cdb, SG_DXFER_NONE, &mut [], timeout_s).map(|_| ())
+        self.transfer(cdb, SG_DXFER_NONE, &mut [], timeout_s)
+            .map(|_| ())
     }
 
     /// Send a command that carries data to the drive.

@@ -23,8 +23,7 @@ use crate::render::RenderedTrack;
 
 /// Shown wherever a user without a backend reaches the burner.
 #[cfg(not(any(windows, target_os = "macos", target_os = "linux")))]
-pub const UNSUPPORTED: &str =
-    "CD burning is not available on this platform.";
+pub const UNSUPPORTED: &str = "CD burning is not available on this platform.";
 
 /// Is there a burn backend on this platform at all? The UI uses this to show
 /// an explanation instead of an empty drive list.

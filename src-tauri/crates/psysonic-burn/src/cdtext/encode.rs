@@ -348,7 +348,10 @@ mod tests {
         let packs = encode_packs(&input(
             "Long Way Round",
             "Various Artists",
-            &[("Kolibri", "Ansel Mora"), ("Static Bloom", "The Faraday Cage")],
+            &[
+                ("Kolibri", "Ansel Mora"),
+                ("Static Bloom", "The Faraday Cage"),
+            ],
         ))
         .expect("encodes");
 
@@ -410,7 +413,11 @@ mod tests {
                 .iter()
                 .find(|(track, _)| *track == track_number)
                 .map(|(_, text)| text.as_str());
-            assert_eq!(found, Some(artist.as_str()), "track {track_number} lost its artist");
+            assert_eq!(
+                found,
+                Some(artist.as_str()),
+                "track {track_number} lost its artist"
+            );
         }
 
         // And the titles line up with the same track numbers.
@@ -421,7 +428,11 @@ mod tests {
                 .iter()
                 .find(|(track, _)| *track == track_number)
                 .map(|(_, text)| text.as_str());
-            assert_eq!(found, Some(title.as_str()), "track {track_number} lost its title");
+            assert_eq!(
+                found,
+                Some(title.as_str()),
+                "track {track_number} lost its title"
+            );
         }
     }
 
@@ -450,7 +461,11 @@ mod tests {
         let packs = encode_packs(&input("Mixtape", "", &[("One", "Alpha"), ("Two", "Beta")]))
             .expect("encodes");
         let performers = decode_by_track(&packs, PACK_PERFORMER);
-        assert_eq!(performers[0], (0, String::new()), "disc-level slot must be present");
+        assert_eq!(
+            performers[0],
+            (0, String::new()),
+            "disc-level slot must be present"
+        );
         assert_eq!(performers[1], (1, "Alpha".to_string()));
         assert_eq!(performers[2], (2, "Beta".to_string()));
     }
@@ -461,29 +476,40 @@ mod tests {
         // choosing. The disc-level performer is set *and* each track carries
         // its own copy — that is what a player reads when it shows "now
         // playing", so omitting the per-track ones would leave it blank.
-        let tracks: Vec<(&str, &str)> = [
-            "Sabotage", "Intergalactic", "Sure Shot", "Root Down",
-        ]
-        .iter()
-        .map(|title| (*title, "Beastie Boys"))
-        .collect();
+        let tracks: Vec<(&str, &str)> = ["Sabotage", "Intergalactic", "Sure Shot", "Root Down"]
+            .iter()
+            .map(|title| (*title, "Beastie Boys"))
+            .collect();
 
         let packs = encode_packs(&input("Kewl Mix", "Beastie Boys", &tracks)).expect("encodes");
 
         // Item 0 is the disc, items 1..n the tracks.
         assert_eq!(
             decode_items(&packs, PACK_TITLE),
-            vec!["Kewl Mix", "Sabotage", "Intergalactic", "Sure Shot", "Root Down"],
+            vec![
+                "Kewl Mix",
+                "Sabotage",
+                "Intergalactic",
+                "Sure Shot",
+                "Root Down"
+            ],
         );
-        assert_eq!(decode_items(&packs, PACK_PERFORMER), vec!["Beastie Boys"; 5]);
+        assert_eq!(
+            decode_items(&packs, PACK_PERFORMER),
+            vec!["Beastie Boys"; 5]
+        );
     }
 
     #[test]
     fn the_disc_title_is_not_confused_with_the_first_track() {
         // A player reads the disc name from track 0 of the TITLE packs; if the
         // disc title leaked into track 1 the whole disc would be off by one.
-        let packs = encode_packs(&input("Kewl Mix", "Beastie Boys", &[("Sabotage", "Beastie Boys")]))
-            .expect("encodes");
+        let packs = encode_packs(&input(
+            "Kewl Mix",
+            "Beastie Boys",
+            &[("Sabotage", "Beastie Boys")],
+        ))
+        .expect("encodes");
         let by_track = decode_by_track(&packs, PACK_TITLE);
         assert_eq!(by_track[0], (0, "Kewl Mix".to_string()));
         assert_eq!(by_track[1], (1, "Sabotage".to_string()));
@@ -519,7 +545,11 @@ mod tests {
     fn the_header_packs_the_block_number_and_character_position() {
         let packs = encode_packs(&input("Disc", "P", &[])).expect("encodes");
         for pack in &packs {
-            assert_eq!(pack[3] & 0x80, 0, "double-byte flag must be clear for Latin-1");
+            assert_eq!(
+                pack[3] & 0x80,
+                0,
+                "double-byte flag must be clear for Latin-1"
+            );
             assert_eq!((pack[3] >> 4) & 0x07, BLOCK_NUMBER);
         }
     }
@@ -540,7 +570,10 @@ mod tests {
             .filter(|p| p[0] == PACK_TITLE)
             .map(|p| p[3] & 0x0F)
             .collect();
-        assert!(positions.contains(&15), "expected a capped position: {positions:?}");
+        assert!(
+            positions.contains(&15),
+            "expected a capped position: {positions:?}"
+        );
         assert!(positions.iter().all(|p| *p <= 15));
     }
 
@@ -549,7 +582,10 @@ mod tests {
         let packs = encode_packs(&input("D", "P", &[("T1", "A1"), ("T2", "A2")])).expect("encodes");
         // Short strings pack several items per pack, so the first title pack
         // must be attributed to the disc (track 0), not to a later track.
-        let first_title = packs.iter().find(|p| p[0] == PACK_TITLE).expect("a title pack");
+        let first_title = packs
+            .iter()
+            .find(|p| p[0] == PACK_TITLE)
+            .expect("a title pack");
         assert_eq!(first_title[1], 0);
     }
 
@@ -561,7 +597,9 @@ mod tests {
         assert_eq!(tail[0][1], 0);
         assert_eq!(tail[1][1], 1);
         assert_eq!(tail[2][1], 2);
-        assert!(packs[..packs.len() - 3].iter().all(|p| p[0] != PACK_SIZE_INFO));
+        assert!(packs[..packs.len() - 3]
+            .iter()
+            .all(|p| p[0] != PACK_SIZE_INFO));
     }
 
     #[test]
@@ -584,7 +622,11 @@ mod tests {
         assert_eq!(record[5], performers, "0x81 count");
         assert_eq!(record[4 + 0x0F], 3, "0x8F counts itself");
 
-        assert_eq!(record[20], (packs.len() - 1) as u8, "highest sequence number");
+        assert_eq!(
+            record[20],
+            (packs.len() - 1) as u8,
+            "highest sequence number"
+        );
         assert_eq!(record[28], LANGUAGE_ENGLISH);
     }
 
@@ -601,7 +643,11 @@ mod tests {
             record[part * 12..(part + 1) * 12].copy_from_slice(&pack[4..16]);
         }
         let counted: usize = record[4..20].iter().map(|c| *c as usize).sum();
-        assert_eq!(counted, packs.len(), "SIZE_INFO must account for every pack");
+        assert_eq!(
+            counted,
+            packs.len(),
+            "SIZE_INFO must account for every pack"
+        );
     }
 
     #[test]
@@ -619,7 +665,10 @@ mod tests {
 
     #[test]
     fn smart_typography_folds_to_ascii_equivalents() {
-        assert_eq!(to_latin1("Don\u{2019}t \u{201C}stop\u{201D} \u{2014} now\u{2026}"), b"Don't \"stop\" - now...".to_vec());
+        assert_eq!(
+            to_latin1("Don\u{2019}t \u{201C}stop\u{201D} \u{2014} now\u{2026}"),
+            b"Don't \"stop\" - now...".to_vec()
+        );
     }
 
     #[test]
@@ -637,7 +686,10 @@ mod tests {
 
     #[test]
     fn a_disc_with_no_text_at_all_is_rejected() {
-        assert_eq!(encode_packs(&input("", "", &[("", "")])), Err(CdTextError::Empty));
+        assert_eq!(
+            encode_packs(&input("", "", &[("", "")])),
+            Err(CdTextError::Empty)
+        );
     }
 
     #[test]
@@ -664,8 +716,12 @@ mod tests {
         let tracks: Vec<(&str, &str)> = (0..12)
             .map(|_| ("A Reasonably Long Track Title", "Bruce Hornsby & the Range"))
             .collect();
-        let packs = encode_packs(&input("Scenes From The Southside", "Bruce Hornsby & the Range", &tracks))
-            .expect("encodes");
+        let packs = encode_packs(&input(
+            "Scenes From The Southside",
+            "Bruce Hornsby & the Range",
+            &tracks,
+        ))
+        .expect("encodes");
         assert!(packs.len() <= 255, "{} packs", packs.len());
         // Sanity: that is a modest number of lead-in sectors.
         assert!(packs.len().div_ceil(PACKS_PER_SECTOR) < 60);

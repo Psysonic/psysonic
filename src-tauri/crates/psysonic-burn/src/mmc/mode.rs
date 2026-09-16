@@ -174,7 +174,11 @@ mod tests {
     }
 
     fn params() -> WriteParameters {
-        WriteParameters { test_write: false, buffer_underrun_free: false, raw_subchannel: true }
+        WriteParameters {
+            test_write: false,
+            buffer_underrun_free: false,
+            raw_subchannel: true,
+        }
     }
 
     #[test]
@@ -227,15 +231,27 @@ mod tests {
 
     #[test]
     fn without_cd_text_the_block_type_returns_to_plain_audio() {
-        let out = apply(&drive_page(), WriteParameters { raw_subchannel: false, ..params() })
-            .expect("edits");
+        let out = apply(
+            &drive_page(),
+            WriteParameters {
+                raw_subchannel: false,
+                ..params()
+            },
+        )
+        .expect("edits");
         assert_eq!(out[4] & 0x0F, 0x00);
     }
 
     #[test]
     fn the_test_write_bit_is_set_and_cleared_on_request() {
-        let on = apply(&drive_page(), WriteParameters { test_write: true, ..params() })
-            .expect("edits");
+        let on = apply(
+            &drive_page(),
+            WriteParameters {
+                test_write: true,
+                ..params()
+            },
+        )
+        .expect("edits");
         assert_eq!(on[2] & 0x10, 0x10);
 
         let off = apply(&drive_page(), params()).expect("edits");
@@ -247,8 +263,14 @@ mod tests {
         let off = apply(&drive_page(), params()).expect("edits");
         assert_eq!(off[2] & 0x40, 0x00);
 
-        let on = apply(&drive_page(), WriteParameters { buffer_underrun_free: true, ..params() })
-            .expect("edits");
+        let on = apply(
+            &drive_page(),
+            WriteParameters {
+                buffer_underrun_free: true,
+                ..params()
+            },
+        )
+        .expect("edits");
         assert_eq!(on[2] & 0x40, 0x40);
     }
 
@@ -265,7 +287,11 @@ mod tests {
         // Byte 3 carries FP and Copy alongside the multi-session field.
         let page = drive_page();
         let out = apply(&page, params()).expect("edits");
-        assert_eq!(out[3] & 0x3F, page[3] & 0x3F, "only the top two bits are ours");
+        assert_eq!(
+            out[3] & 0x3F,
+            page[3] & 0x3F,
+            "only the top two bits are ours"
+        );
     }
 
     #[test]
@@ -273,7 +299,11 @@ mod tests {
         let page = drive_page();
         assert_ne!(page[0] & 0x80, 0, "fixture must start with PS set");
         let out = apply(&page, params()).expect("edits");
-        assert_eq!(out[0] & 0x80, 0, "PS must be clear on the way back to the drive");
+        assert_eq!(
+            out[0] & 0x80,
+            0,
+            "PS must be clear on the way back to the drive"
+        );
         assert_eq!(out[0] & 0x3F, 0x05, "the page code itself is untouched");
     }
 
@@ -288,7 +318,11 @@ mod tests {
         let page = drive_page();
         let out = apply(&page, params()).expect("edits");
         assert_eq!(out.len(), page.len());
-        assert_eq!(out[0] & 0x7F, page[0] & 0x7F, "page code byte, minus the PS flag");
+        assert_eq!(
+            out[0] & 0x7F,
+            page[0] & 0x7F,
+            "page code byte, minus the PS flag"
+        );
         assert_eq!(out[1], page[1], "page length");
         assert_eq!(out[5], page[5], "link size");
         assert_eq!(out[7], page[7], "host application code");
@@ -297,7 +331,10 @@ mod tests {
 
     #[test]
     fn a_short_page_is_rejected_rather_than_indexed_past_its_end() {
-        assert_eq!(apply(&[0x05, 0x02, 0x00], params()), Err(ModePageError::TooShort(3)));
+        assert_eq!(
+            apply(&[0x05, 0x02, 0x00], params()),
+            Err(ModePageError::TooShort(3))
+        );
         assert_eq!(apply(&[], params()), Err(ModePageError::TooShort(0)));
     }
 

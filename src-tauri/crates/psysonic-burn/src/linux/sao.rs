@@ -178,7 +178,10 @@ impl SectorSource {
             }
             break;
         }
-        Ok(Chunk { skip, bytes: filled })
+        Ok(Chunk {
+            skip,
+            bytes: filled,
+        })
     }
 }
 
@@ -224,13 +227,19 @@ pub fn write_session(
         gapless,
         pauses,
     );
-    let sent = device.send(&send_cue_sheet_cdb(sheet.len() as u32), &sheet, TIMEOUT_SETUP);
+    let sent = device.send(
+        &send_cue_sheet_cdb(sheet.len() as u32),
+        &sheet,
+        TIMEOUT_SETUP,
+    );
     if let Err(refused) = sent {
         // Nothing has been written, so a second layout costs nothing — and
         // some drives take only the second. See `LEAD_IN_AT_PREGAP` and
         // `Pauses::HostSilence`, which only make sense together.
         if lead_in.is_none() {
-            return Err(format!("the drive would not accept the disc layout: {refused}"));
+            return Err(format!(
+                "the drive would not accept the disc layout: {refused}"
+            ));
         }
         crate::app_eprintln!(
             "[burn] the drive would not accept the disc layout ({refused}); retrying with the lead-in announced at the pregap"
@@ -244,7 +253,11 @@ pub fn write_session(
             Pauses::HostSilence,
         );
         device
-            .send(&send_cue_sheet_cdb(sheet.len() as u32), &sheet, TIMEOUT_SETUP)
+            .send(
+                &send_cue_sheet_cdb(sheet.len() as u32),
+                &sheet,
+                TIMEOUT_SETUP,
+            )
             .map_err(|e| format!("the drive would not accept the disc layout: {e}"))?;
         pauses = Pauses::HostSilence;
         crate::app_eprintln!("[burn] the drive accepted the lead-in announced at the pregap");
@@ -266,8 +279,16 @@ pub fn write_session(
         write_cd_text_lead_in(device, block, lead_in)?;
     }
 
-    let written =
-        write_program_area(app, job_id, device, tracks, sectors_total, gapless, pauses, cancel)?;
+    let written = write_program_area(
+        app,
+        job_id,
+        device,
+        tracks,
+        sectors_total,
+        gapless,
+        pauses,
+        cancel,
+    )?;
 
     device
         .execute(&scsi::synchronize_cache_cdb(), TIMEOUT_WRITE)
@@ -428,8 +449,13 @@ fn write_with_backoff(
 fn write_silence(device: &ScsiDevice, lba: i32, sectors: u32) -> Result<(), String> {
     let silence = vec![0_u8; CHUNK_SECTORS * BYTES_PER_AUDIO_SECTOR];
     for (at, count) in silence_writes(lba, sectors, CHUNK_SECTORS as u16) {
-        write_with_backoff(device, at, count, &silence[..usize::from(count) * BYTES_PER_AUDIO_SECTOR])
-            .map_err(|reason| format!("writing a pause failed: {reason}"))?;
+        write_with_backoff(
+            device,
+            at,
+            count,
+            &silence[..usize::from(count) * BYTES_PER_AUDIO_SECTOR],
+        )
+        .map_err(|reason| format!("writing a pause failed: {reason}"))?;
     }
     Ok(())
 }

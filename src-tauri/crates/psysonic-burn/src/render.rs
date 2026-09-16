@@ -98,7 +98,10 @@ pub fn describe_unreadable(head: &[u8], len: u64) -> String {
         "a web page"
     } else if starts_with("{") || starts_with("[") {
         "JSON, which is what a server sends when it refuses a request"
-    } else if trimmed.iter().all(|b| b.is_ascii_graphic() || b.is_ascii_whitespace()) {
+    } else if trimmed
+        .iter()
+        .all(|b| b.is_ascii_graphic() || b.is_ascii_whitespace())
+    {
         "plain text"
     } else {
         return format!(
@@ -646,12 +649,16 @@ mod tests {
 
         assert!(error.contains("unrecognised audio format"), "{error}");
         assert!(error.contains("XML"), "{error}");
-        assert!(error.contains(&body.len().to_string()), "the size is the tell: {error}");
+        assert!(
+            error.contains(&body.len().to_string()),
+            "the size is the tell: {error}"
+        );
     }
 
     #[test]
     fn a_web_page_saved_as_a_track_is_named_as_one() {
-        let body = b"<!DOCTYPE html>\n<html><head><title>404</title></head><body>Not found</body></html>";
+        let body =
+            b"<!DOCTYPE html>\n<html><head><title>404</title></head><body>Not found</body></html>";
         let error = render_failure("src-02.flac", body);
         assert!(error.contains("web page"), "{error}");
     }
@@ -699,7 +706,10 @@ mod tests {
         let text = describe_unreadable(&head, 4_200);
         assert!(text.contains("4200 bytes"), "{text}");
         assert!(text.contains("2E"), "{text}");
-        assert!(!text.contains("not audio"), "nothing here says what it is: {text}");
+        assert!(
+            !text.contains("not audio"),
+            "nothing here says what it is: {text}"
+        );
     }
 
     #[test]
@@ -793,7 +803,10 @@ mod tests {
 
     #[test]
     fn surround_takes_the_front_pair() {
-        assert_eq!(fold_to_stereo(&[0.1, 0.2, 0.3, 0.4, 0.5, 0.6], 6), (0.1, 0.2));
+        assert_eq!(
+            fold_to_stereo(&[0.1, 0.2, 0.3, 0.4, 0.5, 0.6], 6),
+            (0.1, 0.2)
+        );
     }
 
     #[test]

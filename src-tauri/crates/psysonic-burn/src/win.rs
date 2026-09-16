@@ -23,40 +23,39 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::AppHandle;
 use windows::Win32::Foundation::{VARIANT_BOOL, VARIANT_FALSE, VARIANT_TRUE};
 use windows::Win32::Storage::Imapi::{
-    IDiscFormat2Erase, IDiscFormat2RawCD, IDiscFormat2RawCDEventArgs, IDiscMaster2, IDiscRecorder2,
-    IDiscRecorder2Ex, IRawCDImageCreator, DDiscFormat2RawCDEvents, DDiscFormat2RawCDEvents_Impl,
-    IMAPI_CD_SECTOR_AUDIO, IMAPI_FEATURE_PAGE_TYPE_CD_MASTERING,
-    IMAPI_FORMAT2_RAW_CD_DATA_SECTOR_TYPE,
-    IMAPI_FORMAT2_RAW_CD_SUBCODE_IS_COOKED, IMAPI_FORMAT2_RAW_CD_SUBCODE_IS_RAW,
-    IMAPI_FORMAT2_RAW_CD_SUBCODE_PQ_ONLY,
+    DDiscFormat2RawCDEvents, DDiscFormat2RawCDEvents_Impl, IDiscFormat2Erase, IDiscFormat2RawCD,
+    IDiscFormat2RawCDEventArgs, IDiscMaster2, IDiscRecorder2, IDiscRecorder2Ex, IRawCDImageCreator,
+    MsftDiscFormat2Erase, MsftDiscFormat2RawCD, MsftDiscMaster2, MsftDiscRecorder2,
+    MsftRawCDImageCreator, IMAPI_CD_SECTOR_AUDIO, IMAPI_FEATURE_PAGE_TYPE_CD_MASTERING,
+    IMAPI_FORMAT2_RAW_CD_DATA_SECTOR_TYPE, IMAPI_FORMAT2_RAW_CD_SUBCODE_IS_COOKED,
+    IMAPI_FORMAT2_RAW_CD_SUBCODE_IS_RAW, IMAPI_FORMAT2_RAW_CD_SUBCODE_PQ_ONLY,
     IMAPI_FORMAT2_RAW_CD_WRITE_ACTION_FINISHING, IMAPI_FORMAT2_RAW_CD_WRITE_ACTION_PREPARING,
-    IMAPI_MEDIA_PHYSICAL_TYPE, IMAPI_MEDIA_TYPE_CDR,
-    IMAPI_MEDIA_TYPE_CDROM, IMAPI_MEDIA_TYPE_CDRW, MsftDiscFormat2Erase, MsftDiscFormat2RawCD,
-    MsftDiscMaster2, MsftDiscRecorder2, MsftRawCDImageCreator,
+    IMAPI_MEDIA_PHYSICAL_TYPE, IMAPI_MEDIA_TYPE_CDR, IMAPI_MEDIA_TYPE_CDROM, IMAPI_MEDIA_TYPE_CDRW,
 };
 use windows::Win32::System::Com::{
-    CoCreateInstance, CoTaskMemFree, CoInitializeEx, CoUninitialize, IConnectionPoint, IConnectionPointContainer,
-    IDispatch, IDispatch_Impl, IStream, ITypeInfo, CLSCTX_ALL, COINIT_MULTITHREADED,
-    DISPATCH_FLAGS, DISPPARAMS, EXCEPINFO, SAFEARRAY, STGM_READ,
+    CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, IConnectionPoint,
+    IConnectionPointContainer, IDispatch, IDispatch_Impl, IStream, ITypeInfo, CLSCTX_ALL,
+    COINIT_MULTITHREADED, DISPATCH_FLAGS, DISPPARAMS, EXCEPINFO, SAFEARRAY, STGM_READ,
 };
-use windows::Win32::System::Ole::{SafeArrayDestroy, SafeArrayGetElement, SafeArrayGetLBound,
-    SafeArrayGetUBound};
+use windows::Win32::System::Ole::{
+    SafeArrayDestroy, SafeArrayGetElement, SafeArrayGetLBound, SafeArrayGetUBound,
+};
 use windows::Win32::System::Variant::{
     VariantChangeType, VariantClear, VARIANT, VT_BSTR, VT_DISPATCH, VT_I4,
 };
 use windows::Win32::UI::Shell::SHCreateStreamOnFileEx;
 use windows_core::{Interface, Ref, BSTR, GUID, HSTRING, PCWSTR};
 
+use crate::cdtext::{CdTextBlock, CdTextInput, CdTextTrack};
 use crate::job::{emit_progress, PROGRESS_THROTTLE_MS};
 use crate::mmc::read_disc_information_cdb;
 use crate::mmc::scsi::{self, DiscStatus, WriteVerdict};
-use crate::cdtext::{CdTextBlock, CdTextInput, CdTextTrack};
 use crate::model::{
     BurnMediaBlocker, BurnMediaInfo, BurnOptions, BurnOutcome, BurnPhase, BurnRecorder,
     BurnWriteCapabilities, DEFAULT_80_MIN_SECTORS,
 };
-use crate::win_sao::{self, SaoError};
 use crate::render::RenderedTrack;
+use crate::win_sao::{self, SaoError};
 
 /// Name IMAPI2 shows to other apps that ask who owns the drive. It also shows
 /// up in the exclusive-access error when something else holds the recorder,
@@ -81,7 +80,9 @@ where
             // SAFETY: fresh thread, so no apartment has been chosen yet.
             let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
             if hr.is_err() {
-                return Err(format!("could not initialise COM on the burn thread: {hr:?}"));
+                return Err(format!(
+                    "could not initialise COM on the burn thread: {hr:?}"
+                ));
             }
             let out = f();
             // SAFETY: paired with the CoInitializeEx above on this same thread.
@@ -104,7 +105,8 @@ unsafe fn safearray_i32s(psa: *mut SAFEARRAY) -> Vec<i32> {
         return out;
     }
     unsafe {
-        let (Ok(lower), Ok(upper)) = (SafeArrayGetLBound(psa, 1), SafeArrayGetUBound(psa, 1)) else {
+        let (Ok(lower), Ok(upper)) = (SafeArrayGetLBound(psa, 1), SafeArrayGetUBound(psa, 1))
+        else {
             let _ = SafeArrayDestroy(psa);
             return out;
         };
@@ -135,7 +137,8 @@ unsafe fn safearray_strings(psa: *mut SAFEARRAY) -> Vec<String> {
         return out;
     }
     unsafe {
-        let (Ok(lower), Ok(upper)) = (SafeArrayGetLBound(psa, 1), SafeArrayGetUBound(psa, 1)) else {
+        let (Ok(lower), Ok(upper)) = (SafeArrayGetLBound(psa, 1), SafeArrayGetUBound(psa, 1))
+        else {
             let _ = SafeArrayDestroy(psa);
             return out;
         };
@@ -284,7 +287,10 @@ pub fn list_recorders() -> Result<Vec<BurnRecorder>, String> {
                 continue;
             };
 
-            let vendor = recorder.VendorId().map(|v| v.to_string()).unwrap_or_default();
+            let vendor = recorder
+                .VendorId()
+                .map(|v| v.to_string())
+                .unwrap_or_default();
             let product = recorder
                 .ProductId()
                 .map(|v| v.to_string())
@@ -435,7 +441,8 @@ pub fn media_state(recorder_id: &str) -> Result<String, String> {
             // The poll runs constantly and must never raise a toast.
             return Ok("unavailable".to_string());
         };
-        let Ok(format) = CoCreateInstance::<_, IDiscFormat2RawCD>(&MsftDiscFormat2RawCD, None, CLSCTX_ALL)
+        let Ok(format) =
+            CoCreateInstance::<_, IDiscFormat2RawCD>(&MsftDiscFormat2RawCD, None, CLSCTX_ALL)
         else {
             return Ok("unavailable".to_string());
         };
@@ -455,8 +462,9 @@ pub fn probe_media(recorder_id: &str) -> Result<BurnMediaInfo, String> {
     with_com(move || unsafe {
         let recorder = open_recorder(&recorder_id)?;
 
-        let format: IDiscFormat2RawCD = CoCreateInstance(&MsftDiscFormat2RawCD, None, CLSCTX_ALL)
-            .map_err(|e| format!("could not create the CD writer: {e}"))?;
+        let format: IDiscFormat2RawCD =
+            CoCreateInstance(&MsftDiscFormat2RawCD, None, CLSCTX_ALL)
+                .map_err(|e| format!("could not create the CD writer: {e}"))?;
 
         // SetRecorder fails outright when the tray is empty, which is the
         // normal "no disc" case rather than an error worth surfacing raw.
@@ -680,7 +688,11 @@ impl WriteSink {
 }
 
 impl DDiscFormat2RawCDEvents_Impl for WriteSink_Impl {
-    fn Update(&self, _object: Ref<IDispatch>, progress: Ref<IDispatch>) -> windows_core::Result<()> {
+    fn Update(
+        &self,
+        _object: Ref<IDispatch>,
+        progress: Ref<IDispatch>,
+    ) -> windows_core::Result<()> {
         self.on_update(progress.as_ref());
         Ok(())
     }
@@ -925,8 +937,9 @@ pub fn burn(
         // before that fails with IMAPI_E_NOT_PREPARED (0xC0AA0602): none of
         // those questions have an answer until the drive has spun up and read
         // the disc.
-        let format: IDiscFormat2RawCD = CoCreateInstance(&MsftDiscFormat2RawCD, None, CLSCTX_ALL)
-            .map_err(|e| format!("could not create the CD writer: {e}"))?;
+        let format: IDiscFormat2RawCD =
+            CoCreateInstance(&MsftDiscFormat2RawCD, None, CLSCTX_ALL)
+                .map_err(|e| format!("could not create the CD writer: {e}"))?;
         format
             .SetRecorder(&recorder)
             .map_err(|e| format!("the drive would not accept the job: {e}"))?;
@@ -1096,7 +1109,11 @@ pub fn burn(
 
         crate::app_deprintln!(
             "[burn] {} {} sectors in {:?}",
-            if options.test_write { "rehearsed" } else { "wrote" },
+            if options.test_write {
+                "rehearsed"
+            } else {
+                "wrote"
+            },
             sectors_total,
             started.elapsed()
         );
@@ -1355,8 +1372,7 @@ fn describe_write_failure(error: &windows_core::Error) -> String {
         E_WRITE_NOT_SUPPORTED => "This drive cannot write discs.".to_string(),
         E_MEDIUM_WRITE_PROTECTED => "The disc is write-protected.".to_string(),
         E_NOT_PREPARED => {
-            "The drive could not read the disc. Reseat it, or try a different blank."
-                .to_string()
+            "The drive could not read the disc. Reseat it, or try a different blank.".to_string()
         }
         E_LOSS_OF_STREAMING => {
             "The drive ran out of data mid-burn (buffer underrun). Try a slower write speed."
@@ -1375,14 +1391,8 @@ unsafe fn open_file_stream(path: &Path) -> Result<IStream, String> {
     // SAFETY: `wide` outlives the call; IMAPI2 takes its own reference on the
     // returned stream.
     unsafe {
-        SHCreateStreamOnFileEx(
-            PCWSTR(wide.as_ptr()),
-            STGM_READ.0,
-            0,
-            false,
-            None,
-        )
-        .map_err(|e| format!("could not read the rendered track {}: {e}", path.display()))
+        SHCreateStreamOnFileEx(PCWSTR(wide.as_ptr()), STGM_READ.0, 0, false, None)
+            .map_err(|e| format!("could not read the rendered track {}: {e}", path.display()))
     }
 }
 

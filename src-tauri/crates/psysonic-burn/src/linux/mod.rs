@@ -506,9 +506,7 @@ fn read_cd_text(device: &ScsiDevice) -> CdTextVerification {
     // Format 0101b is the CD-TEXT the lead-in carries.
     let cdb = scsi::read_toc_cdb(0x05, 0, buffer.len().min(u16::MAX as usize) as u16);
     let Ok(read) = device.receive(&cdb, &mut buffer, TIMEOUT_QUERY) else {
-        return CdTextVerification::unreadable(
-            "the drive would not report the disc's CD-TEXT",
-        );
+        return CdTextVerification::unreadable("the drive would not report the disc's CD-TEXT");
     };
     // Four bytes of TOC header, then whole 18-byte packs.
     if read <= 4 {

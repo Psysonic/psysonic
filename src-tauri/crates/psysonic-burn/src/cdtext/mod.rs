@@ -156,8 +156,14 @@ mod tests {
             disc_title: "Long Way Round".into(),
             disc_performer: "Various Artists".into(),
             tracks: vec![
-                CdTextTrack { title: "Kolibri".into(), performer: "Ansel Mora".into() },
-                CdTextTrack { title: "Static Bloom".into(), performer: "The Faraday Cage".into() },
+                CdTextTrack {
+                    title: "Kolibri".into(),
+                    performer: "Ansel Mora".into(),
+                },
+                CdTextTrack {
+                    title: "Static Bloom".into(),
+                    performer: "The Faraday Cage".into(),
+                },
             ],
         }
     }
@@ -183,7 +189,10 @@ mod tests {
 
     #[test]
     fn four_pack_slots_fill_a_sector_exactly() {
-        assert_eq!(PACKS_PER_SECTOR * PACK_SLOT_BYTES, SUBCHANNEL_BYTES_PER_SECTOR);
+        assert_eq!(
+            PACKS_PER_SECTOR * PACK_SLOT_BYTES,
+            SUBCHANNEL_BYTES_PER_SECTOR
+        );
     }
 
     #[test]
@@ -200,7 +209,11 @@ mod tests {
     fn every_symbol_fits_in_six_bits() {
         let block = CdTextBlock::encode(&sample()).expect("encodes");
         for byte in block.to_subchannel() {
-            assert_eq!(byte & 0b1100_0000, 0, "P/Q bits must stay clear for the drive");
+            assert_eq!(
+                byte & 0b1100_0000,
+                0,
+                "P/Q bits must stay clear for the drive"
+            );
         }
     }
 
@@ -209,13 +222,19 @@ mod tests {
         let block = CdTextBlock::encode(&sample()).expect("encodes");
         let sub = block.to_subchannel();
         assert_eq!(sub.len() % SUBCHANNEL_BYTES_PER_SECTOR, 0);
-        assert_eq!(sub.len() / SUBCHANNEL_BYTES_PER_SECTOR, block.sector_count());
+        assert_eq!(
+            sub.len() / SUBCHANNEL_BYTES_PER_SECTOR,
+            block.sector_count()
+        );
     }
 
     #[test]
     fn four_packs_fill_exactly_one_sector() {
         // The property the whole lead-in layout rests on.
-        assert_eq!(PACKS_PER_SECTOR * PACK_BYTES * 8 / 6, SUBCHANNEL_BYTES_PER_SECTOR);
+        assert_eq!(
+            PACKS_PER_SECTOR * PACK_BYTES * 8 / 6,
+            SUBCHANNEL_BYTES_PER_SECTOR
+        );
     }
 
     #[test]
@@ -225,7 +244,10 @@ mod tests {
         // sector-aligned rather than cut short.
         let expected = block.pack_count().div_ceil(PACKS_PER_SECTOR);
         assert_eq!(block.sector_count(), expected);
-        assert_eq!(block.to_subchannel().len(), expected * SUBCHANNEL_BYTES_PER_SECTOR);
+        assert_eq!(
+            block.to_subchannel().len(),
+            expected * SUBCHANNEL_BYTES_PER_SECTOR
+        );
     }
 
     #[test]
@@ -249,7 +271,10 @@ mod tests {
             for (i, chunk) in bits.as_chunks::<8>().0.iter().enumerate() {
                 rebuilt[i] = chunk.iter().fold(0u8, |acc, b| (acc << 1) | b);
             }
-            assert_eq!(&rebuilt, pack, "pack {index} did not survive the R-W mapping");
+            assert_eq!(
+                &rebuilt, pack,
+                "pack {index} did not survive the R-W mapping"
+            );
         }
     }
 }

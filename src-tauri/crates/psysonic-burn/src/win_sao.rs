@@ -173,7 +173,12 @@ impl SectorSource {
                     .map_err(|e| format!("cannot read {}: {e}", track.path.display()))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        Ok(Self { files, current: 0, gap_sectors, pending_gap: 0 })
+        Ok(Self {
+            files,
+            current: 0,
+            gap_sectors,
+            pending_gap: 0,
+        })
     }
 
     /// Fill `buffer` with whole sectors and say where they belong.
@@ -217,7 +222,10 @@ impl SectorSource {
             }
             break;
         }
-        Ok(Chunk { skip, bytes: filled })
+        Ok(Chunk {
+            skip,
+            bytes: filled,
+        })
     }
 }
 
@@ -251,7 +259,10 @@ pub fn write_session(
     // IRawCDImageTrackInfo, and for a while this one silently dropped it.
     let cue_tracks: Vec<CueTrack> = tracks
         .iter()
-        .map(|track| CueTrack { sectors: track.sectors, isrc: track.isrc.clone() })
+        .map(|track| CueTrack {
+            sectors: track.sectors,
+            isrc: track.isrc.clone(),
+        })
         .collect();
     // The lead-in geometry has to be known before the cue sheet, which
     // announces where the lead-in starts.
@@ -341,7 +352,11 @@ fn configure_write_parameters(
 
     let edited = mode::apply(
         &page,
-        WriteParameters { test_write, buffer_underrun_free, raw_subchannel },
+        WriteParameters {
+            test_write,
+            buffer_underrun_free,
+            raw_subchannel,
+        },
     )
     .map_err(|e| SaoError::Setup(e.to_string()))?;
 
@@ -490,7 +505,11 @@ fn read_lead_in(ex: &IDiscRecorder2Ex) -> Result<LeadIn, SaoError> {
         ));
     }
 
-    let start = Msf { minute: buffer[17], second: buffer[18], frame: buffer[19] };
+    let start = Msf {
+        minute: buffer[17],
+        second: buffer[18],
+        frame: buffer[19],
+    };
     let sectors = lead_in_sectors(start.to_sector());
     crate::app_deprintln!(
         "[burn] lead-in starts at {:02}:{:02}:{:02} ({} sectors)",
@@ -570,11 +589,7 @@ fn write_cd_text_lead_in(
 /// It is recognised however IMAPI2 delivers it: as a failure code, or as the
 /// success code `checked` exists for. Seen only as the latter, it used to go
 /// unnoticed, and the chunk the drive had turned away was never sent again.
-fn write_with_backoff(
-    ex: &IDiscRecorder2Ex,
-    cdb: &[u8; 10],
-    payload: &[u8],
-) -> Result<(), String> {
+fn write_with_backoff(ex: &IDiscRecorder2Ex, cdb: &[u8; 10], payload: &[u8]) -> Result<(), String> {
     /// Long enough to matter, short enough not to starve the drive.
     const BACKOFF: Duration = Duration::from_millis(40);
     /// 1000 attempts, sleeping `BACKOFF` after each refusal: 40 seconds of
@@ -584,7 +599,8 @@ fn write_with_backoff(
     for _ in 0..MAX_RETRIES {
         let mut sense = [0_u8; 18];
         // SAFETY: `payload` outlives the call; sense is written by the drive.
-        let result = unsafe { ex.SendCommandSendDataToDevice(cdb, &mut sense, TIMEOUT_WRITE, payload) };
+        let result =
+            unsafe { ex.SendCommandSendDataToDevice(cdb, &mut sense, TIMEOUT_WRITE, payload) };
         match checked(result, &sense) {
             Ok(()) => return Ok(()),
             Err(failure) if failure.sense == Some((0x02, 0x04, 0x08)) => {
@@ -803,7 +819,9 @@ mod tests {
     fn rendered(dir: &Path, index: usize, sectors: u32) -> RenderedTrack {
         let path = dir.join(format!("track{index}.pcm"));
         File::create(&path)
-            .and_then(|mut file| file.write_all(&vec![index as u8 + 1; sectors as usize * MAIN_BYTES]))
+            .and_then(|mut file| {
+                file.write_all(&vec![index as u8 + 1; sectors as usize * MAIN_BYTES])
+            })
             .expect("write a rendered track");
         RenderedTrack {
             path,
@@ -893,7 +911,11 @@ mod tests {
             let (issued, audio) = writes_with(&lengths, gapless, Pauses::HostSilence);
             assert_eq!(issued[0].0, -150);
             for pair in issued.windows(2) {
-                assert_eq!(pair[1].0, pair[0].0 + pair[0].1 as i32, "no jump between writes");
+                assert_eq!(
+                    pair[1].0,
+                    pair[0].0 + pair[0].1 as i32,
+                    "no jump between writes"
+                );
             }
             let (_, generated_audio) = writes(&lengths, gapless);
             assert_eq!(audio, generated_audio, "the same audio, in the same order");
@@ -943,7 +965,10 @@ mod tests {
         let transferred = |issued: &[(i32, u32)]| issued.iter().map(|(_, s)| *s).sum::<u32>();
         assert_eq!(transferred(&gapless), 1350);
         assert_eq!(transferred(&gapped), 1350, "the drive writes the pauses");
-        assert_eq!(gapless_audio, gapped_audio, "the same audio, in the same order");
+        assert_eq!(
+            gapless_audio, gapped_audio,
+            "the same audio, in the same order"
+        );
 
         // Each pause pushes the tracks after it 150 sectors further out, which
         // is where the cue sheet puts them: index 1 at 00:02:00 + 150 per gap.
@@ -981,7 +1006,9 @@ mod tests {
     fn a_refusal_reported_as_success_is_still_a_refusal() {
         // What an LG WH10LS30 on USB gave back for TEST UNIT READY with the tray
         // empty: `Ok(())` from windows-rs, and this in the sense buffer.
-        let sense = [0x70, 0, 0x02, 0, 0, 0, 0, 0x0A, 0, 0, 0, 0, 0x3A, 0x01, 0, 0, 0, 0];
+        let sense = [
+            0x70, 0, 0x02, 0, 0, 0, 0, 0x0A, 0, 0, 0, 0, 0x3A, 0x01, 0, 0, 0, 0,
+        ];
         let failure = checked(Ok(()), &sense).expect_err("the drive said no");
         assert_eq!(failure.sense, Some((0x02, 0x3A, 0x01)));
         assert!(failure.to_string().contains("no disc"), "{failure}");
@@ -998,13 +1025,18 @@ mod tests {
 
     #[test]
     fn a_failure_code_fails_with_or_without_sense() {
-        let error = || windows_core::Error::from_hresult(windows_core::HRESULT(0x8000_4005_u32 as i32));
+        let error =
+            || windows_core::Error::from_hresult(windows_core::HRESULT(0x8000_4005_u32 as i32));
 
         let bare = checked(Err(error()), &[0_u8; 18]).expect_err("E_FAIL");
         assert_eq!(bare.sense, None);
 
         let busy = checked(Err(error()), &sense_of(0x02, 0x04, 0x08)).expect_err("E_FAIL");
-        assert_eq!(busy.sense, Some((0x02, 0x04, 0x08)), "back-pressure stays recognisable");
+        assert_eq!(
+            busy.sense,
+            Some((0x02, 0x04, 0x08)),
+            "back-pressure stays recognisable"
+        );
     }
 
     #[test]
@@ -1013,9 +1045,18 @@ mod tests {
         // whole number of them.
         assert_eq!(sectors_per_second_to_kbps(SECTORS_PER_SECOND), Some(176));
         // And it scales: 4x, 8x, 48x, the speeds a drive actually offers.
-        assert_eq!(sectors_per_second_to_kbps(4 * SECTORS_PER_SECOND), Some(706));
-        assert_eq!(sectors_per_second_to_kbps(8 * SECTORS_PER_SECOND), Some(1411));
-        assert_eq!(sectors_per_second_to_kbps(48 * SECTORS_PER_SECOND), Some(8467));
+        assert_eq!(
+            sectors_per_second_to_kbps(4 * SECTORS_PER_SECOND),
+            Some(706)
+        );
+        assert_eq!(
+            sectors_per_second_to_kbps(8 * SECTORS_PER_SECOND),
+            Some(1411)
+        );
+        assert_eq!(
+            sectors_per_second_to_kbps(48 * SECTORS_PER_SECOND),
+            Some(8467)
+        );
     }
 
     #[test]
@@ -1050,4 +1091,3 @@ mod tests {
         assert_eq!(&cdb[6..], &[0; 6], "the rest is reserved");
     }
 }
-

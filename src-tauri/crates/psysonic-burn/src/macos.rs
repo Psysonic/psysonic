@@ -94,14 +94,14 @@ fn sectors_per_second_to_kps(sectors: u32) -> f32 {
 /// The IORegistry path is what `list_recorders` handed the frontend, and it
 /// survives the app being restarted while the drive stays plugged in.
 fn open_device(recorder_id: &str) -> Result<CfOwned, String> {
-    let path = cf_string(recorder_id)
-        .ok_or_else(|| "that drive id is not usable".to_string())?;
+    let path = cf_string(recorder_id).ok_or_else(|| "that drive id is not usable".to_string())?;
     // SAFETY: `path` is a valid CFString for the duration of the call, and the
     // returned device carries a +1 reference `CfOwned` takes over.
-    let device = unsafe { CfOwned::from_create(DRDeviceCopyDeviceForIORegistryEntryPath(path.get())) }
-        .ok_or_else(|| {
-            "that drive is no longer available (reconnect it and refresh)".to_string()
-        })?;
+    let device =
+        unsafe { CfOwned::from_create(DRDeviceCopyDeviceForIORegistryEntryPath(path.get())) }
+            .ok_or_else(|| {
+                "that drive is no longer available (reconnect it and refresh)".to_string()
+            })?;
     // SAFETY: `device` is a valid DRDevice.
     if unsafe { DRDeviceIsValid(device.get()) } == 0 {
         return Err("that drive is no longer available (reconnect it and refresh)".to_string());
@@ -469,8 +469,10 @@ unsafe extern "C" fn produce(
                     0
                 }
                 Err(error) => {
-                    producer.failure =
-                        Some(format!("could not reopen {}: {error}", producer.path.display()));
+                    producer.failure = Some(format!(
+                        "could not reopen {}: {error}",
+                        producer.path.display()
+                    ));
                     kDRDataProductionErr
                 }
             }
@@ -613,7 +615,9 @@ fn build_tracks(
     gapless: bool,
     allow_isrc: bool,
 ) -> Result<TrackSet, String> {
-    let mut set = TrackSet { tracks: Vec::with_capacity(tracks.len()) };
+    let mut set = TrackSet {
+        tracks: Vec::with_capacity(tracks.len()),
+    };
 
     for (index, track) in tracks.iter().enumerate() {
         let properties = build_track_properties(track, index, gapless, allow_isrc)?;
@@ -705,7 +709,12 @@ fn build_track_properties(
         // ISRC is exactly 12 bytes here (Windows takes a string), and a drive
         // that cannot write one fails the whole burn — hence `allow_isrc`.
         if allow_isrc {
-            if let Some(isrc) = track.isrc.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+            if let Some(isrc) = track
+                .isrc
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+            {
                 let bytes: Vec<u8> = isrc
                     .bytes()
                     .filter(|b| b.is_ascii_alphanumeric())
@@ -764,7 +773,12 @@ fn build_cd_text(options: &BurnOptions, tracks: &[RenderedTrack]) -> Option<CfOw
     set_cd_text(&block, 0, unsafe { kDRCDTextPerformerKey }, disc_performer);
     for (index, track) in tracks.iter().enumerate() {
         let slot = (index + 1) as CFIndex;
-        set_cd_text(&block, slot, unsafe { kDRCDTextTitleKey }, track.title.trim());
+        set_cd_text(
+            &block,
+            slot,
+            unsafe { kDRCDTextTitleKey },
+            track.title.trim(),
+        );
         set_cd_text(
             &block,
             slot,
@@ -827,7 +841,9 @@ pub fn burn(
     // SAFETY: as above.
     let allow_isrc = unsafe { can_write_isrc(info.get()) };
 
-    let sectors_total: u32 = tracks.iter().fold(0, |acc, t| acc.saturating_add(t.sectors));
+    let sectors_total: u32 = tracks
+        .iter()
+        .fold(0, |acc, t| acc.saturating_add(t.sectors));
 
     // CD-TEXT is gated on the drive's own answer. Attaching `kDRCDTextKey` to a
     // drive that says no fails the burn with kDRDeviceCantWriteCDTextErr before
@@ -908,7 +924,11 @@ pub fn burn(
 
     crate::app_deprintln!(
         "[burn] {} {} sectors in {:?}",
-        if options.test_write { "rehearsed" } else { "wrote" },
+        if options.test_write {
+            "rehearsed"
+        } else {
+            "wrote"
+        },
         sectors_total,
         started.elapsed()
     );
@@ -921,8 +941,9 @@ pub fn burn(
     // report "no disc" — which would be read as a CD-TEXT failure on a disc
     // that is perfectly good.
     let can_read_back = cd_text_attached && !options.test_write && !options.eject_when_done;
-    let verification = can_read_back
-        .then(|| verify_cd_text(&options.recorder_id).unwrap_or_else(CdTextVerification::unreadable));
+    let verification = can_read_back.then(|| {
+        verify_cd_text(&options.recorder_id).unwrap_or_else(CdTextVerification::unreadable)
+    });
 
     Ok(BurnOutcome {
         sectors: sectors_total,
@@ -1193,9 +1214,8 @@ unsafe fn describe_failure(status: CFDictionaryRef) -> String {
         let code = dict_i64(error, kDRErrorStatusErrorKey).unwrap_or(0) as OSStatus;
         // The framework's own sentence is usually better than anything we
         // could write for the codes we do not special-case.
-        let detail = dict_string(error, kDRErrorStatusErrorStringKey).or_else(|| {
-            dict_string(error, kDRErrorStatusErrorInfoStringKey)
-        });
+        let detail = dict_string(error, kDRErrorStatusErrorStringKey)
+            .or_else(|| dict_string(error, kDRErrorStatusErrorInfoStringKey));
         describe_status(code, detail.as_deref())
     }
 }
@@ -1213,13 +1233,15 @@ fn describe_status(code: OSStatus, detail: Option<&str>) -> String {
         kDRDeviceInvalidErr => {
             Some("That drive is no longer available (reconnect it and refresh).".to_string())
         }
-        kDRDeviceNotReadyErr => Some("The drive is not ready yet. Try again in a moment.".to_string()),
+        kDRDeviceNotReadyErr => {
+            Some("The drive is not ready yet. Try again in a moment.".to_string())
+        }
         kDRDeviceNotSupportedErr => Some("This drive cannot write discs.".to_string()),
         kDRMediaNotPresentErr => Some("The disc was removed during the burn.".to_string()),
         kDRMediaNotWritableErr => Some("The disc is write-protected.".to_string()),
-        kDRMediaNotSupportedErr | kDRMediaInvalidErr => Some(
-            "That disc cannot hold an audio CD. Use a blank CD-R or CD-RW.".to_string(),
-        ),
+        kDRMediaNotSupportedErr | kDRMediaInvalidErr => {
+            Some("That disc cannot hold an audio CD. Use a blank CD-R or CD-RW.".to_string())
+        }
         kDRMediaNotBlankErr => {
             Some("This disc is not blank. Audio CDs must be written in one go.".to_string())
         }
@@ -1240,9 +1262,9 @@ fn describe_status(code: OSStatus, detail: Option<&str>) -> String {
         kDRBurnMediaWriteFailureErr => {
             Some("The drive failed to write the disc. Try a different blank.".to_string())
         }
-        kDRDeviceBurnStrategyNotAvailableErr => Some(
-            "This drive does not support the recording mode an audio CD needs.".to_string(),
-        ),
+        kDRDeviceBurnStrategyNotAvailableErr => {
+            Some("This drive does not support the recording mode an audio CD needs.".to_string())
+        }
         kDRDeviceCantWriteCDTextErr => Some("This drive cannot write CD-TEXT.".to_string()),
         kDRDeviceCantWriteISRCErr => Some("This drive cannot write ISRC codes.".to_string()),
         _ => None,
@@ -1284,7 +1306,11 @@ pub fn erase(recorder_id: &str, quick: bool) -> Result<(), String> {
         );
         // Synchronous: an erase has no per-track progress to report and the
         // caller already runs on a blocking task.
-        CFDictionarySetValue(dict.get().cast_mut(), kDRSynchronousBehaviorKey, cf_bool(true));
+        CFDictionarySetValue(
+            dict.get().cast_mut(),
+            kDRSynchronousBehaviorKey,
+            cf_bool(true),
+        );
         DREraseSetProperties(erase.get(), dict.get());
     }
 
@@ -1428,7 +1454,12 @@ mod tests {
     }
 
     /// Ask the producer for `req` bytes at `address`, as the burn engine would.
-    fn request(track: DRTrackRef, address: u64, req: u32, flags: u32) -> (OSStatus, u32, u32, Vec<u8>) {
+    fn request(
+        track: DRTrackRef,
+        address: u64,
+        req: u32,
+        flags: u32,
+    ) -> (OSStatus, u32, u32, Vec<u8>) {
         let mut buffer = vec![0xCC_u8; req as usize];
         let mut info = DRTrackProductionInfo {
             buffer: buffer.as_mut_ptr().cast(),
@@ -1439,13 +1470,7 @@ mod tests {
             requested_address: address,
         };
         // SAFETY: `info` is well-formed and `buffer` outlives the call.
-        let status = unsafe {
-            produce(
-                track,
-                kDRTrackMessageProduceData,
-                (&raw mut info).cast(),
-            )
-        };
+        let status = unsafe { produce(track, kDRTrackMessageProduceData, (&raw mut info).cast()) };
         (status, info.act_count, info.flags, buffer)
     }
 
@@ -1500,7 +1525,10 @@ mod tests {
         let address = 3 * BYTES_PER_AUDIO_SECTOR as u64;
         let (status, act, flags, _) = request(created, address, 4 * kDRBlockSizeAudio as u32, 0);
         assert_eq!(status, 0);
-        assert_eq!(act, kDRBlockSizeAudio as u32, "must not read past the track");
+        assert_eq!(
+            act, kDRBlockSizeAudio as u32,
+            "must not read past the track"
+        );
         assert!(flags & kDRFlagNoMoreData != 0, "the end must be announced");
 
         // And past the end there is nothing at all.
@@ -1582,10 +1610,9 @@ mod tests {
 
         // SAFETY: `block` is a live CD-Text block; the returned value is
         // borrowed.
-        let title = unsafe {
-            cf_to_string(DRCDTextBlockGetValue(block.get(), 1, kDRCDTextTitleKey))
-        }
-        .expect("a title");
+        let title =
+            unsafe { cf_to_string(DRCDTextBlockGetValue(block.get(), 1, kDRCDTextTitleKey)) }
+                .expect("a title");
         assert!(
             title.starts_with("Zubr Kolektyw"),
             "expected transliteration, got {title:?}"
@@ -1596,9 +1623,8 @@ mod tests {
         );
 
         // SAFETY: as above.
-        let disc = unsafe {
-            cf_to_string(DRCDTextBlockGetValue(block.get(), 0, kDRCDTextTitleKey))
-        };
+        let disc =
+            unsafe { cf_to_string(DRCDTextBlockGetValue(block.get(), 0, kDRCDTextTitleKey)) };
         assert_eq!(disc.as_deref(), Some("Sampler"), "index 0 is the disc");
     }
 

@@ -8,7 +8,7 @@
 //! there too, or the ring promises a fit the burn then refuses.
 
 use crate::model::{
-    sectors_to_seconds, seconds_to_sectors, BurnPlan, BurnPlanTrack, BurnTrackInput,
+    seconds_to_sectors, sectors_to_seconds, BurnPlan, BurnPlanTrack, BurnTrackInput,
     DEFAULT_80_MIN_SECTORS, PREGAP_SECTORS, RED_BOOK_74_MIN_SECTORS,
 };
 
@@ -161,7 +161,12 @@ mod tests {
     fn rendered_sector_counts_win_over_duration_estimates() {
         // The library says 60 s; the decoder found 61 s worth of samples.
         let hints = [61 * 75];
-        let plan = plan_disc(&[track("a", 60.0)], DEFAULT_80_MIN_SECTORS, Some(&hints), true);
+        let plan = plan_disc(
+            &[track("a", 60.0)],
+            DEFAULT_80_MIN_SECTORS,
+            Some(&hints),
+            true,
+        );
         assert_eq!(plan.tracks[0].sectors, 61 * 75);
         assert_eq!(plan.total_sectors, 150 + 61 * 75);
     }
@@ -171,7 +176,12 @@ mod tests {
         let fits = plan_disc(&[track("long", 4790.0)], DEFAULT_80_MIN_SECTORS, None, true);
         assert!(fits.fits, "79:50 should fit an 80-minute disc");
 
-        let over = plan_disc(&[track("longer", 4810.0)], DEFAULT_80_MIN_SECTORS, None, true);
+        let over = plan_disc(
+            &[track("longer", 4810.0)],
+            DEFAULT_80_MIN_SECTORS,
+            None,
+            true,
+        );
         assert!(!over.fits);
         assert!(over.warnings.iter().any(|w| w.contains("Over capacity")));
     }
@@ -215,7 +225,10 @@ mod tests {
     fn a_gapped_disc_reserves_a_pause_before_every_track_but_the_first() {
         let queue = [track("a", 60.0), track("b", 30.0), track("c", 90.0)];
         let plan = plan_disc(&queue, DEFAULT_80_MIN_SECTORS, None, false);
-        assert_eq!(plan.tracks[0].start_sector, 150, "the first pregap is unchanged");
+        assert_eq!(
+            plan.tracks[0].start_sector, 150,
+            "the first pregap is unchanged"
+        );
         assert_eq!(plan.tracks[1].start_sector, 150 + 60 * 75 + 150);
         assert_eq!(plan.tracks[2].start_sector, 150 + 90 * 75 + 300);
         assert_eq!(plan.total_sectors, 150 + 180 * 75 + 300);
@@ -233,8 +246,14 @@ mod tests {
         assert!(gapless.fits);
 
         let gapped = plan_disc(&queue, DEFAULT_80_MIN_SECTORS, Some(&hints), false);
-        assert_eq!(gapped.total_sectors, DEFAULT_80_MIN_SECTORS + PREGAP_SECTORS);
-        assert!(!gapped.fits, "a gapped burn of this queue has to be refused");
+        assert_eq!(
+            gapped.total_sectors,
+            DEFAULT_80_MIN_SECTORS + PREGAP_SECTORS
+        );
+        assert!(
+            !gapped.fits,
+            "a gapped burn of this queue has to be refused"
+        );
         assert!(gapped.warnings.iter().any(|w| w.contains("Over capacity")));
     }
 
@@ -244,7 +263,10 @@ mod tests {
         let queue: Vec<_> = (0..99).map(|i| track(&format!("t{i}"), 10.0)).collect();
         let gapless = plan_disc(&queue, DEFAULT_80_MIN_SECTORS, None, true);
         let gapped = plan_disc(&queue, DEFAULT_80_MIN_SECTORS, None, false);
-        assert_eq!(gapped.total_sectors - gapless.total_sectors, 98 * PREGAP_SECTORS);
+        assert_eq!(
+            gapped.total_sectors - gapless.total_sectors,
+            98 * PREGAP_SECTORS
+        );
         assert_eq!(gapped.total_sectors - gapless.total_sectors, 14_700);
     }
 
@@ -255,7 +277,10 @@ mod tests {
         let gapless = plan_disc(&queue, DEFAULT_80_MIN_SECTORS, None, true);
         let gapped = plan_disc(&queue, DEFAULT_80_MIN_SECTORS, None, false);
         assert_eq!(gapless.total_sectors, gapped.total_sectors);
-        assert_eq!(gapless.tracks[0].start_sector, gapped.tracks[0].start_sector);
+        assert_eq!(
+            gapless.tracks[0].start_sector,
+            gapped.tracks[0].start_sector
+        );
     }
 
     #[test]

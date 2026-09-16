@@ -121,7 +121,11 @@ impl Msf {
 ///
 /// Only the announcement moves. The lead-in is still written from its real
 /// start, 96 bytes of raw P-W per sector, exactly as before.
-pub const LEAD_IN_AT_PREGAP: Msf = Msf { minute: 0, second: 0, frame: 0 };
+pub const LEAD_IN_AT_PREGAP: Msf = Msf {
+    minute: 0,
+    second: 0,
+    frame: 0,
+};
 
 /// Who puts the pauses on the disc: track 1's pregap, and the gap before every
 /// later track on a gapped disc.
@@ -210,7 +214,10 @@ pub struct CueTrack {
 
 impl CueTrack {
     pub fn new(sectors: u32) -> Self {
-        Self { sectors, isrc: None }
+        Self {
+            sectors,
+            isrc: None,
+        }
     }
 }
 
@@ -366,8 +373,10 @@ pub fn build_cue_sheet_with_pauses(
     for entry in &entries {
         if entry.index == 0x01 && entry.track != LEAD_OUT_TRACK {
             if let Some(track) = tracks.get((entry.track as usize).saturating_sub(1)) {
-                if let Some(chars) =
-                    track.isrc.as_deref().and_then(|c| code_entries(c, ISRC_CHARS))
+                if let Some(chars) = track
+                    .isrc
+                    .as_deref()
+                    .and_then(|c| code_entries(c, ISRC_CHARS))
                 {
                     let mut first = [0_u8; ENTRY_BYTES];
                     let mut second = [0_u8; ENTRY_BYTES];
@@ -403,19 +412,51 @@ mod tests {
                 index: c[2],
                 data_form: c[3],
                 scms: c[4],
-                address: Msf { minute: c[5], second: c[6], frame: c[7] },
+                address: Msf {
+                    minute: c[5],
+                    second: c[6],
+                    frame: c[7],
+                },
             })
             .collect()
     }
 
     #[test]
     fn msf_round_trips_and_matches_the_red_book_clock() {
-        assert_eq!(Msf::from_sector(0), Msf { minute: 0, second: 0, frame: 0 });
+        assert_eq!(
+            Msf::from_sector(0),
+            Msf {
+                minute: 0,
+                second: 0,
+                frame: 0
+            }
+        );
         // The 150-sector pregap is exactly two seconds — the sample cue sheet
         // in the specification shows track 1 index 1 at 00:02:00.
-        assert_eq!(Msf::from_sector(150), Msf { minute: 0, second: 2, frame: 0 });
-        assert_eq!(Msf::from_sector(74), Msf { minute: 0, second: 0, frame: 74 });
-        assert_eq!(Msf::from_sector(75 * 60), Msf { minute: 1, second: 0, frame: 0 });
+        assert_eq!(
+            Msf::from_sector(150),
+            Msf {
+                minute: 0,
+                second: 2,
+                frame: 0
+            }
+        );
+        assert_eq!(
+            Msf::from_sector(74),
+            Msf {
+                minute: 0,
+                second: 0,
+                frame: 74
+            }
+        );
+        assert_eq!(
+            Msf::from_sector(75 * 60),
+            Msf {
+                minute: 1,
+                second: 0,
+                frame: 0
+            }
+        );
         for sector in [0, 1, 74, 150, 12_345, 359_849] {
             assert_eq!(Msf::from_sector(sector).to_sector(), sector);
         }
@@ -426,21 +467,33 @@ mod tests {
         // Table 163: bits 7-6 sub-channel form, bits 3-0 main-data form.
         assert_eq!(DATA_FORM_AUDIO, 0x00, "2352 from host, subcode from drive");
         assert_eq!(DATA_FORM_GENERATED, 0x01, "drive generates the whole frame");
-        assert_eq!(DATA_FORM_LEADIN_CD_TEXT, 0x41, "raw P-W from host, main from drive");
+        assert_eq!(
+            DATA_FORM_LEADIN_CD_TEXT, 0x41,
+            "raw P-W from host, main from drive"
+        );
     }
 
     #[test]
     fn ctl_adr_matches_table_157() {
         // CONTROL in the upper nibble, ADR in the lower.
-        assert_eq!(CTL_ADR_AUDIO, 0x01, "2 audio channels, copy prohibited, ADR=1");
-        assert_eq!(CTL_ADR_AUDIO_COPY_PERMITTED, 0x21, "copy bit is CONTROL bit 5");
+        assert_eq!(
+            CTL_ADR_AUDIO, 0x01,
+            "2 audio channels, copy prohibited, ADR=1"
+        );
+        assert_eq!(
+            CTL_ADR_AUDIO_COPY_PERMITTED, 0x21,
+            "copy bit is CONTROL bit 5"
+        );
     }
 
     #[test]
     fn the_lead_in_entry_matches_the_specifications_sample() {
         // Table 155 row "00 (lead-in)": 01 00 00 01 00 00 00 00.
         let sheet = build_cue_sheet(&[CueTrack::new(75 * 60)], None, None, true);
-        assert_eq!(&sheet[..ENTRY_BYTES], &[0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]);
+        assert_eq!(
+            &sheet[..ENTRY_BYTES],
+            &[0x01, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]
+        );
     }
 
     #[test]
@@ -496,7 +549,11 @@ mod tests {
     fn the_lead_in_entry_carries_the_discs_real_lead_in_start() {
         // A blank CD-R reports its lead-in start from ATIP, typically around
         // 97 minutes. The first layout a burn tries announces exactly that.
-        let start = Msf { minute: 97, second: 27, frame: 8 };
+        let start = Msf {
+            minute: 97,
+            second: 27,
+            frame: 8,
+        };
         let sheet = build_cue_sheet(&[CueTrack::new(300)], Some(start), None, true);
         let lead_in = parse(&sheet)[0];
         assert_eq!(lead_in.data_form, DATA_FORM_LEADIN_CD_TEXT);
@@ -507,10 +564,17 @@ mod tests {
     fn the_retry_announces_the_lead_in_at_the_pregap() {
         // Still raw P-W from the host (41h) — only the address moves, to
         // 00:00:00. Everything after the lead-in entry is unchanged.
-        let start = Msf { minute: 97, second: 34, frame: 23 };
+        let start = Msf {
+            minute: 97,
+            second: 34,
+            frame: 23,
+        };
         let first = build_cue_sheet(&[CueTrack::new(300)], Some(start), None, true);
         let retry = build_cue_sheet(&[CueTrack::new(300)], Some(LEAD_IN_AT_PREGAP), None, true);
-        assert_eq!(&retry[..ENTRY_BYTES], &[0x01, 0x00, 0x00, 0x41, 0x00, 0x00, 0x00, 0x00]);
+        assert_eq!(
+            &retry[..ENTRY_BYTES],
+            &[0x01, 0x00, 0x00, 0x41, 0x00, 0x00, 0x00, 0x00]
+        );
         assert_eq!(&retry[ENTRY_BYTES..], &first[ENTRY_BYTES..]);
     }
 
@@ -526,7 +590,12 @@ mod tests {
     #[test]
     fn track_numbers_run_from_one_upwards() {
         let tracks: Vec<CueTrack> = (0..12).map(|_| CueTrack::new(300)).collect();
-        let entries = parse(&build_cue_sheet(&tracks, Some(Msf::from_sector(0)), None, true));
+        let entries = parse(&build_cue_sheet(
+            &tracks,
+            Some(Msf::from_sector(0)),
+            None,
+            true,
+        ));
         let numbered: Vec<u8> = entries
             .iter()
             .filter(|e| e.index == 0x01 && e.track != LEAD_OUT_TRACK)
@@ -552,7 +621,10 @@ mod tests {
         // is present but unused.
         let plain = build_cue_sheet(&[CueTrack::new(300)], Some(Msf::from_sector(0)), None, true);
         let with_empty = build_cue_sheet(
-            &[CueTrack { sectors: 300, isrc: Some(String::new()) }],
+            &[CueTrack {
+                sectors: 300,
+                isrc: Some(String::new()),
+            }],
             Some(Msf::from_sector(0)),
             Some(""),
             true,
@@ -583,7 +655,10 @@ mod tests {
     fn a_tracks_isrc_immediately_precedes_it() {
         let sheet = build_cue_sheet(
             &[
-                CueTrack { sectors: 300, isrc: Some("GBAYE0000351".into()) },
+                CueTrack {
+                    sectors: 300,
+                    isrc: Some("GBAYE0000351".into()),
+                },
                 CueTrack::new(300),
             ],
             Some(Msf::from_sector(0)),
@@ -592,22 +667,35 @@ mod tests {
         );
         let entries = parse(&sheet);
         // lead-in, pause, [isrc, isrc], track 1, track 2, lead-out
-        let isrc: Vec<&CueEntry> = entries.iter().filter(|e| e.ctl_adr & 0x0F == ADR_ISRC).collect();
+        let isrc: Vec<&CueEntry> = entries
+            .iter()
+            .filter(|e| e.ctl_adr & 0x0F == ADR_ISRC)
+            .collect();
         assert_eq!(isrc.len(), 2, "an ISRC is two entries");
         assert!(isrc.iter().all(|e| e.track == 1));
 
-        let position = entries.iter().position(|e| e.ctl_adr & 0x0F == ADR_ISRC).expect("isrc");
+        let position = entries
+            .iter()
+            .position(|e| e.ctl_adr & 0x0F == ADR_ISRC)
+            .expect("isrc");
         let track_one = entries
             .iter()
             .position(|e| e.index == 0x01 && e.track == 1)
             .expect("track 1");
-        assert_eq!(position + 2, track_one, "the pair sits directly before its track");
+        assert_eq!(
+            position + 2,
+            track_one,
+            "the pair sits directly before its track"
+        );
     }
 
     #[test]
     fn the_isrc_characters_are_carried_in_order() {
         let sheet = build_cue_sheet(
-            &[CueTrack { sectors: 300, isrc: Some("GBAYE0000351".into()) }],
+            &[CueTrack {
+                sectors: 300,
+                isrc: Some("GBAYE0000351".into()),
+            }],
             Some(Msf::from_sector(0)),
             None,
             true,
@@ -620,7 +708,10 @@ mod tests {
             .expect("isrc entry")
             * ENTRY_BYTES;
         assert_eq!(&sheet[start + 2..start + 8], b"GBAYE0");
-        assert_eq!(&sheet[start + ENTRY_BYTES + 2..start + ENTRY_BYTES + 8], b"000351");
+        assert_eq!(
+            &sheet[start + ENTRY_BYTES + 2..start + ENTRY_BYTES + 8],
+            b"000351"
+        );
     }
 
     #[test]
@@ -628,13 +719,18 @@ mod tests {
         // Half an ISRC on a disc is worse than none.
         for bad in ["SHORT", "WAYTOOLONGFORANISRC", "GB-AYE-00-003", ""] {
             let sheet = build_cue_sheet(
-                &[CueTrack { sectors: 300, isrc: Some(bad.into()) }],
+                &[CueTrack {
+                    sectors: 300,
+                    isrc: Some(bad.into()),
+                }],
                 Some(Msf::from_sector(0)),
                 Some(bad),
                 true,
             );
             assert!(
-                !parse(&sheet).iter().any(|e| matches!(e.ctl_adr & 0x0F, ADR_ISRC | ADR_CATALOG)),
+                !parse(&sheet)
+                    .iter()
+                    .any(|e| matches!(e.ctl_adr & 0x0F, ADR_ISRC | ADR_CATALOG)),
                 "{bad:?} should not have been encoded"
             );
         }
@@ -714,10 +810,15 @@ mod tests {
         // tracks. Gapping a disc must not add one.
         for gapless in [true, false] {
             let entries = parse(&build_cue_sheet(&three_tracks(), None, None, gapless));
-            let from_host = entries.iter().filter(|e| e.data_form == DATA_FORM_AUDIO).count();
+            let from_host = entries
+                .iter()
+                .filter(|e| e.data_form == DATA_FORM_AUDIO)
+                .count();
             assert_eq!(from_host, 3, "one host-supplied region per track");
             assert!(
-                entries.iter().all(|e| e.index != 0x00 || e.data_form == DATA_FORM_GENERATED),
+                entries
+                    .iter()
+                    .all(|e| e.index != 0x00 || e.data_form == DATA_FORM_GENERATED),
                 "every pause is the drive's to write"
             );
         }
@@ -733,8 +834,10 @@ mod tests {
             Pauses::HostSilence,
         );
         let entries = parse(&sheet);
-        let pauses: Vec<&CueEntry> =
-            entries.iter().filter(|e| e.index == 0x00 && e.track != 0x00).collect();
+        let pauses: Vec<&CueEntry> = entries
+            .iter()
+            .filter(|e| e.index == 0x00 && e.track != 0x00)
+            .collect();
         assert_eq!(pauses.len(), 3, "track 1's pregap and two gaps");
         assert!(pauses.iter().all(|e| e.data_form == DATA_FORM_AUDIO));
     }
@@ -757,7 +860,10 @@ mod tests {
             for (g, h) in generated.iter().zip(&host) {
                 assert_eq!((g.track, g.index, g.address), (h.track, h.index, h.address));
                 if g.index == 0x00 && g.track != 0x00 {
-                    assert_eq!((g.data_form, h.data_form), (DATA_FORM_GENERATED, DATA_FORM_AUDIO));
+                    assert_eq!(
+                        (g.data_form, h.data_form),
+                        (DATA_FORM_GENERATED, DATA_FORM_AUDIO)
+                    );
                 } else {
                     assert_eq!(g.data_form, h.data_form);
                 }
@@ -777,7 +883,14 @@ mod tests {
         // Track 1's pregap in 27-sector writes: from −150, ending exactly at 0.
         assert_eq!(
             silence_writes(-150, 150, 27),
-            vec![(-150, 27), (-123, 27), (-96, 27), (-69, 27), (-42, 27), (-15, 15)],
+            vec![
+                (-150, 27),
+                (-123, 27),
+                (-96, 27),
+                (-69, 27),
+                (-42, 27),
+                (-15, 15)
+            ],
         );
         assert_eq!(silence_writes(0, 10, 27), vec![(0, 10)]);
         assert!(silence_writes(450, 0, 27).is_empty(), "no pause, no write");
@@ -826,7 +939,10 @@ mod tests {
         let sheet = build_cue_sheet(
             &[
                 CueTrack::new(300),
-                CueTrack { sectors: 300, isrc: Some("GBAYE0000351".into()) },
+                CueTrack {
+                    sectors: 300,
+                    isrc: Some("GBAYE0000351".into()),
+                },
             ],
             Some(Msf::from_sector(0)),
             None,
@@ -841,7 +957,11 @@ mod tests {
             .iter()
             .position(|e| e.index == 0x01 && e.track == 2)
             .expect("track 2");
-        assert_eq!(isrc + 2, audio, "the pair sits between the pause and the audio");
+        assert_eq!(
+            isrc + 2,
+            audio,
+            "the pair sits between the pause and the audio"
+        );
         assert_eq!(entries[isrc - 1].index, 0x00, "track 2's pause comes first");
         assert_eq!(entries[isrc - 1].track, 2);
     }

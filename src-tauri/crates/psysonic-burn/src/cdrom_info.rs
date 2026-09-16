@@ -138,7 +138,8 @@ Can write DVD-R:\t0\t0
     fn cd_r_and_cd_rw_rows_are_told_apart() {
         // "Can write CD-R" is a prefix of "Can write CD-RW", so a naive
         // starts_with would read the RW row for both.
-        let drives = parse_cdrom_info("drive name:\t\tsr0\nCan write CD-R:\t\t0\nCan write CD-RW:\t1\n");
+        let drives =
+            parse_cdrom_info("drive name:\t\tsr0\nCan write CD-R:\t\t0\nCan write CD-RW:\t1\n");
         assert!(!drives[0].can_write_cd_r);
         assert!(drives[0].can_write_cd_rw);
     }

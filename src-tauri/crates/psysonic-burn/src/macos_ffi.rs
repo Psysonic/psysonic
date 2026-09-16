@@ -110,11 +110,7 @@ unsafe extern "C" {
     pub static kCFBooleanTrue: CFBooleanRef;
     pub static kCFBooleanFalse: CFBooleanRef;
 
-    pub fn CFDataCreate(
-        allocator: CFAllocatorRef,
-        bytes: *const u8,
-        length: CFIndex,
-    ) -> CFDataRef;
+    pub fn CFDataCreate(allocator: CFAllocatorRef, bytes: *const u8, length: CFIndex) -> CFDataRef;
 
     pub fn CFGetTypeID(cf: CFTypeRef) -> usize;
     pub fn CFNumberGetTypeID() -> usize;
@@ -146,8 +142,11 @@ pub struct DRTrackProductionInfo {
     pub requested_address: u64,
 }
 
-pub type DRTrackCallbackProc =
-    unsafe extern "C" fn(track: DRTrackRef, message: DRTrackMessage, io_param: *mut c_void) -> OSStatus;
+pub type DRTrackCallbackProc = unsafe extern "C" fn(
+    track: DRTrackRef,
+    message: DRTrackMessage,
+    io_param: *mut c_void,
+) -> OSStatus;
 
 // Track messages. Four-character codes, big-endian as written in the header.
 pub const kDRTrackMessagePreBurn: DRTrackMessage = 0x7072_6520; // 'pre '
