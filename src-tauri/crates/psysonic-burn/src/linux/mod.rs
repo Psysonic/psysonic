@@ -388,7 +388,7 @@ pub fn burn(
     // disc out and immediately asks for the tray back, handing it to the drive
     // again rather than to the person waiting for it.
     if options.test_write {
-        let _ = device.reload();
+        reload_after_rehearsal(&device);
     } else if options.eject_when_done {
         eject(&device);
     }
@@ -398,6 +398,43 @@ pub fn burn(
         cd_text_written: block.is_some(),
         cd_text_verification: verification,
     })
+}
+
+/// Clear the drive-side state a rehearsal leaves behind, and say so when it
+/// does not clear.
+///
+/// The reload matters: until the medium is re-read, the drive goes on
+/// describing an untouched CD-R as written, and a CD-R has no erase to recover
+/// with. It does not always take. On a BDR-UD04 one rehearsal ended with the
+/// drive still calling the blank disc written until its tray was cycled by
+/// hand, while another cleared on its own — and because the result was
+/// discarded, neither left anything in the log to tell them apart.
+///
+/// Nothing here fails the rehearsal: it succeeded, and the disc is fine.
+fn reload_after_rehearsal(device: &ScsiDevice) {
+    if let Err(error) = device.reload() {
+        crate::app_eprintln!(
+            "[burn] the drive would not reload the disc after the rehearsal: {error}"
+        );
+        return;
+    }
+
+    // The drive is entitled to be busy for a moment after a tray cycle, which
+    // is what `settle` waits out; an answer, welcome or not, is taken as final.
+    match scsi::settle(
+        scsi::POST_WRITE_STATUS_ATTEMPTS,
+        scsi::POST_WRITE_STATUS_PAUSE,
+        || disc_status(device),
+    ) {
+        Some(scsi::DiscStatus::Empty) => {}
+        Some(status) => crate::app_eprintln!(
+            "[burn] the rehearsal wrote nothing, but the drive still describes the disc as \
+             {status:?}. Ejecting it and pushing it back in clears that."
+        ),
+        None => crate::app_eprintln!(
+            "[burn] the drive would not describe the disc after the rehearsal's reload"
+        ),
+    }
 }
 
 /// Put the disc out and leave it out.

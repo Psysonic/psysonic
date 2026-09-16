@@ -868,9 +868,16 @@ pub fn burn(
                                     if options.test_write || options.eject_when_done {
                                         // See `reload_media`: a rehearsal leaves the drive
                                         // holding an unfinished session, and only a reload
-                                        // makes it call the disc blank again.
-                                        let _ = recorder.EjectMedia();
+                                        // makes it call the disc blank again. A refusal is
+                                        // logged rather than returned — the burn itself
+                                        // succeeded — but it must not pass in silence.
+                                        if let Err(error) = recorder.EjectMedia() {
+                                            crate::app_eprintln!(
+                                                "[burn] the drive would not eject the disc: {error}"
+                                            );
+                                        }
                                         if options.test_write {
+                                            // Slot and slim drives have no motorised tray.
                                             let _ = recorder.CloseTray();
                                         }
                                     }
@@ -1076,9 +1083,13 @@ pub fn burn(
             // A rehearsal leaves the drive holding a session it opened and never
             // closed, so it stops reporting the disc as blank until the medium is
             // reloaded. That is not a convenience eject - it is what keeps the
-            // disc usable - so it happens whatever `eject_when_done` says.
-            let _ = recorder.EjectMedia();
+            // disc usable - so it happens whatever `eject_when_done` says. A
+            // refusal is logged rather than returned: the burn already succeeded.
+            if let Err(error) = recorder.EjectMedia() {
+                crate::app_eprintln!("[burn] the drive would not eject the disc: {error}");
+            }
             if options.test_write {
+                // Slot and slim drives have no motorised tray.
                 let _ = recorder.CloseTray();
             }
         }
