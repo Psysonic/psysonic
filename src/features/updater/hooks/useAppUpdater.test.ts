@@ -1,6 +1,21 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/lib/i18n';
+import { version as appVersion } from '../../../../package.json';
+
+/**
+ * A release the hook must treat as newer than whatever the app currently is.
+ *
+ * Derived rather than written down: the hook compares against the version in
+ * `package.json`, so a fixed string only stays newer until the next version
+ * bump moves the app past it. That is not hypothetical — a literal `1.54.0`
+ * here survived the bump to `1.54.0-dev` (same numbers, and a final release
+ * outranks its own `-dev` prerelease) and then failed the bump to `1.55.0-dev`,
+ * where it was a minor version behind.
+ */
+const [major, minor] = appVersion.split('.');
+const NEWER_VERSION = `${major}.${Number(minor) + 1}.0`;
+const NEWER_RC_VERSION = `${NEWER_VERSION}-rc.2`;
 
 const platform = vi.hoisted(() => ({ IS_LINUX: false, IS_MACOS: false, IS_WINDOWS: false }));
 vi.mock('@/lib/util/platform', () => platform);
@@ -130,8 +145,8 @@ describe('useAppUpdater in-app install', () => {
     vi.stubEnv('VITE_PSYSONIC_FLATPAK', '1');
     flatpakUpdateInfo.mockResolvedValue({
       branch: 'stable',
-      version: '1.54.0',
-      tag: 'app-v1.54.0',
+      version: NEWER_VERSION,
+      tag: `app-v${NEWER_VERSION}`,
       body: 'Release notes',
     });
     const { result } = renderHook(() => useAppUpdater());
@@ -141,7 +156,7 @@ describe('useAppUpdater in-app install', () => {
     });
 
     expect(flatpakUpdateInfo).toHaveBeenCalledTimes(1);
-    expect(result.current.release?.version).toBe('1.54.0');
+    expect(result.current.release?.version).toBe(NEWER_VERSION);
     expect(result.current.release?.body).toBe('Release notes');
     expect(result.current.flatpakBranch).toBe('stable');
     expect(result.current.flatpakUpdateCommand).toBe(
@@ -157,8 +172,8 @@ describe('useAppUpdater in-app install', () => {
     vi.stubEnv('VITE_PSYSONIC_FLATPAK', '1');
     flatpakUpdateInfo.mockResolvedValue({
       branch: 'rc',
-      version: '1.54.0-rc.2',
-      tag: 'app-v1.54.0-rc.2',
+      version: NEWER_RC_VERSION,
+      tag: `app-v${NEWER_RC_VERSION}`,
       body: 'RC notes',
     });
     const { result } = renderHook(() => useAppUpdater());
@@ -167,7 +182,7 @@ describe('useAppUpdater in-app install', () => {
       await vi.advanceTimersByTimeAsync(4_000);
     });
 
-    expect(result.current.release?.version).toBe('1.54.0-rc.2');
+    expect(result.current.release?.version).toBe(NEWER_RC_VERSION);
     expect(result.current.flatpakBranch).toBe('rc');
     expect(result.current.flatpakUpdateCommand).toBe(
       'flatpak update --user io.github.psysonic.psysonic//rc',
