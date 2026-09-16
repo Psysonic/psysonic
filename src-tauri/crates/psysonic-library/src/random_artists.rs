@@ -12,29 +12,32 @@ pub fn list_random_artists(
     server_id: &str,
     limit: Option<u32>,
 ) -> Result<Vec<LibraryArtistDto>, String> {
-    let limit = limit.unwrap_or(RANDOM_ARTISTS_LIMIT).clamp(1, RANDOM_ARTISTS_LIMIT);
+    let limit = limit
+        .unwrap_or(RANDOM_ARTISTS_LIMIT)
+        .clamp(1, RANDOM_ARTISTS_LIMIT);
     let (artists, timing) = store
         .with_read_conn_timed(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT server_id, id, name, name_sort, album_count, synced_at, raw_json \
                  FROM artist WHERE server_id = ?1 ORDER BY RANDOM() LIMIT ?2",
             )?;
-            let rows = stmt.query_map(params![server_id, i64::from(limit)], |row| {
-                let raw_json = row
-                    .get::<_, Option<String>>(6)?
-                    .and_then(|raw| serde_json::from_str(&raw).ok())
-                    .unwrap_or(serde_json::Value::Null);
-                Ok(LibraryArtistDto {
-                    server_id: row.get(0)?,
-                    id: row.get(1)?,
-                    name: row.get(2)?,
-                    name_sort: row.get(3)?,
-                    album_count: row.get(4)?,
-                    synced_at: row.get(5)?,
-                    raw_json,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<_>>>();
+            let rows = stmt
+                .query_map(params![server_id, i64::from(limit)], |row| {
+                    let raw_json = row
+                        .get::<_, Option<String>>(6)?
+                        .and_then(|raw| serde_json::from_str(&raw).ok())
+                        .unwrap_or(serde_json::Value::Null);
+                    Ok(LibraryArtistDto {
+                        server_id: row.get(0)?,
+                        id: row.get(1)?,
+                        name: row.get(2)?,
+                        name_sort: row.get(3)?,
+                        album_count: row.get(4)?,
+                        synced_at: row.get(5)?,
+                        raw_json,
+                    })
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>();
             rows
         })
         .map_err(|error| error.to_string())?;
@@ -57,15 +60,17 @@ mod tests {
     use super::*;
 
     fn insert_artists(store: &LibraryStore, server_id: &str, count: u32) {
-        store.with_conn_mut("random_artists.test", |conn| {
-            for index in 0..count {
-                conn.execute(
+        store
+            .with_conn_mut("random_artists.test", |conn| {
+                for index in 0..count {
+                    conn.execute(
                     "INSERT INTO artist (server_id, id, name, synced_at) VALUES (?1, ?2, ?3, 1)",
                     params![server_id, format!("artist-{index}"), format!("Artist {index}")],
                 )?;
-            }
-            Ok(())
-        }).unwrap();
+                }
+                Ok(())
+            })
+            .unwrap();
     }
 
     #[test]

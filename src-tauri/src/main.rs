@@ -35,9 +35,9 @@ fn apply_linux_webkit_nvidia_quirk(silent: bool) {
     let kind = needs_workaround();
     psysonic_lib::theme_animation::set_nvidia_quirk_active(!matches!(kind, WorkaroundKind::None));
 
-    let forced_x11_gdk = std::env::var("GDK_BACKEND").ok().is_some_and(|s| {
-        matches!(s.split(',').next().map(str::trim), Some("x11"))
-    });
+    let forced_x11_gdk = std::env::var("GDK_BACKEND")
+        .ok()
+        .is_some_and(|s| matches!(s.split(',').next().map(str::trim), Some("x11")));
     if silent {
         if forced_x11_gdk {
             match kind {
@@ -78,7 +78,9 @@ fn apply_pipewire_latency() {
 
 #[cfg(target_os = "linux")]
 fn try_forward_linux_cli_player_argv(args: &[String]) {
-    use psysonic_lib::cli::{linux_try_forward_player_cli_secondary, parse_cli_command, LinuxPlayerForwardResult};
+    use psysonic_lib::cli::{
+        linux_try_forward_player_cli_secondary, parse_cli_command, LinuxPlayerForwardResult,
+    };
 
     if parse_cli_command(args).is_none() {
         return;
@@ -101,9 +103,7 @@ fn main() {
         return;
     }
     if psysonic_lib::cli::wants_help(&args) {
-        psysonic_lib::cli::print_help(
-            args.first().map(|s| s.as_str()).unwrap_or("psysonic"),
-        );
+        psysonic_lib::cli::print_help(args.first().map(|s| s.as_str()).unwrap_or("psysonic"));
         return;
     }
     if let Some(code) = psysonic_lib::cli::try_completions_dispatch(&args) {

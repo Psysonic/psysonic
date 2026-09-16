@@ -108,7 +108,10 @@ mod tests {
         let c = InitialSyncCursor::fresh(IngestStrategy::S2, Some("lib-1".into()));
         assert_eq!(c.library_scope.as_deref(), Some("lib-1"));
         match c.strategy_state {
-            StrategyState::AlbumCrawl { album_offset, current_album_id } => {
+            StrategyState::AlbumCrawl {
+                album_offset,
+                current_album_id,
+            } => {
                 assert_eq!(album_offset, 0);
                 assert!(current_album_id.is_none());
             }

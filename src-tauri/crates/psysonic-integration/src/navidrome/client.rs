@@ -4,7 +4,11 @@
 use psysonic_core::server_http::{apply_optional_registry_headers, ServerHttpRegistry};
 
 /// Authenticate with Navidrome's own REST API and return a Bearer token.
-pub async fn navidrome_token(server_url: &str, username: &str, password: &str) -> Result<String, String> {
+pub async fn navidrome_token(
+    server_url: &str,
+    username: &str,
+    password: &str,
+) -> Result<String, String> {
     navidrome_token_with_registry(None, server_url, username, password).await
 }
 
@@ -229,7 +233,11 @@ mod tests {
         .await
         .expect("status errors come back as Ok(resp)");
         assert_eq!(resp.status(), 404);
-        assert_eq!(attempts.load(Ordering::SeqCst), 1, "404 must not trigger a retry");
+        assert_eq!(
+            attempts.load(Ordering::SeqCst),
+            1,
+            "404 must not trigger a retry"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
@@ -269,7 +277,11 @@ mod tests {
         })
         .await;
         assert!(result.is_err());
-        assert_eq!(attempts.load(Ordering::SeqCst), 1, "non-transient error must not retry");
+        assert_eq!(
+            attempts.load(Ordering::SeqCst),
+            1,
+            "non-transient error must not retry"
+        );
     }
 
     // ── navidrome_token via wiremock ──────────────────────────────────────────
@@ -302,7 +314,9 @@ mod tests {
             .mount(&server)
             .await;
 
-        let err = navidrome_token(&server.uri(), "user", "wrong").await.unwrap_err();
+        let err = navidrome_token(&server.uri(), "user", "wrong")
+            .await
+            .unwrap_err();
         assert!(err.contains("no token"), "got {err}");
     }
 }

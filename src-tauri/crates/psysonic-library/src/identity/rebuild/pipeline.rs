@@ -6,8 +6,7 @@ use super::ranks::{
 };
 use super::{concrete_physical_album_key, dirty_meta_key, set_cluster_meta, DIRTY_META_PREFIX};
 use crate::identity::keys::{
-    build_album_key_with_version, build_track_cluster_key_with_version,
-    build_track_cluster_keys,
+    build_album_key_with_version, build_track_cluster_key_with_version, build_track_cluster_keys,
 };
 use crate::identity::norm::norm_part;
 
@@ -73,8 +72,7 @@ fn json_string_or_first_array_text_expr(json_column: &str, path: &str) -> String
 
 fn track_album_version_expr(track_json: &str) -> String {
     let track_album_version = json_text_expr(track_json, "$.albumVersion");
-    let track_tag_version =
-        json_string_or_first_array_text_expr(track_json, "$.tags.albumversion");
+    let track_tag_version = json_string_or_first_array_text_expr(track_json, "$.tags.albumversion");
     format!("COALESCE({track_album_version}, {track_tag_version})")
 }
 
@@ -87,14 +85,12 @@ fn json_true_expr(json_column: &str, path: &str) -> String {
 
 fn canonical_album_version_expr(album_json: &str, track_json: &str) -> String {
     let album_version = json_text_expr(album_json, "$.version");
-    let album_tag_version =
-        json_string_or_first_array_text_expr(album_json, "$.tags.albumversion");
+    let album_tag_version = json_string_or_first_array_text_expr(album_json, "$.tags.albumversion");
     let album_value = format!("COALESCE({album_version}, {album_tag_version})");
     let album_from_list = json_true_expr(album_json, "$._psysonicAlbumVersionFromList");
     let track_value = track_album_version_expr(track_json);
     let track_from_list = json_true_expr(track_json, "$._psysonicAlbumVersionFromList");
-    let track_needs_refresh =
-        json_true_expr(track_json, "$._psysonicAlbumVersionNeedsListRefresh");
+    let track_needs_refresh = json_true_expr(track_json, "$._psysonicAlbumVersionNeedsListRefresh");
     let authoritative_track = format!(
         "CASE WHEN NOT ({track_from_list}) AND NOT ({track_needs_refresh}) \
          THEN {track_value} END"

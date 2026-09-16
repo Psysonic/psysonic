@@ -286,7 +286,10 @@ fn normalize_navidrome_participants(raw: &Value) -> Value {
     if let Some(participants) = participants_value.as_object() {
         obj.insert(
             "artists".to_string(),
-            participants.get("artist").cloned().unwrap_or_else(|| empty.clone()),
+            participants
+                .get("artist")
+                .cloned()
+                .unwrap_or_else(|| empty.clone()),
         );
         obj.insert(
             "albumArtists".to_string(),

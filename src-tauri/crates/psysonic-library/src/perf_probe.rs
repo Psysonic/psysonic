@@ -237,10 +237,7 @@ fn album_census_inventory_on_a_real_library() {
         // it summarises — a census run against a stale summary would invent
         // gaps and removal candidates out of nothing.
         let drift = crate::sync::census::diff_inventories(&inventory, &aggregated);
-        let songs: i64 = inventory
-            .iter()
-            .filter_map(|entry| entry.song_count)
-            .sum();
+        let songs: i64 = inventory.iter().filter_map(|entry| entry.song_count).sum();
         eprintln!(
             "server {index}: albums={} songs={songs} pages_at_500={} \
              projection_ms={projection_ms} aggregate_ms={aggregate_ms} \
@@ -415,9 +412,7 @@ fn artist_browse_phase_breakdown_on_a_real_library() {
         .map(|(i, v)| format!("SELECT {i} AS pr, * FROM (VALUES {v})"))
         .collect::<Vec<_>>()
         .join(" UNION ALL ");
-    let scope_cte = format!(
-        "WITH scope(pr, server_id, library_id) AS ({scope_rows})"
-    );
+    let scope_cte = format!("WITH scope(pr, server_id, library_id) AS ({scope_rows})");
 
     let phases: [(&str, String); 4] = [
         (
@@ -601,7 +596,9 @@ fn discover_songs_sample_spread_on_a_real_library() {
                     binds.push(rusqlite::types::Value::Integer(i64::from(take)));
                     let mut stmt = conn.prepare(sql)?;
                     let rows = stmt
-                        .query_map(rusqlite::params_from_iter(binds.iter()), |row| album_of(row))?
+                        .query_map(rusqlite::params_from_iter(binds.iter()), |row| {
+                            album_of(row)
+                        })?
                         .collect::<rusqlite::Result<Vec<_>>>();
                     rows
                 };
@@ -630,7 +627,9 @@ fn discover_songs_sample_spread_on_a_real_library() {
                 binds.push(rusqlite::types::Value::Integer(i64::from(LIMIT)));
                 let mut stmt = conn.prepare(&shuffle_sql)?;
                 let mut ids = stmt
-                    .query_map(rusqlite::params_from_iter(binds.iter()), |row| album_of(row))?
+                    .query_map(rusqlite::params_from_iter(binds.iter()), |row| {
+                        album_of(row)
+                    })?
                     .collect::<rusqlite::Result<Vec<_>>>()?;
                 shuffle_ms.push(started.elapsed().as_millis());
                 ids.sort();
@@ -833,13 +832,19 @@ fn multi_folder_random_sample_shapes_on_a_real_library() {
         ids.sort();
         ids.dedup();
         spans.push(ids.len());
-        assert_eq!(rows, LIMIT as usize, "production request returned a short page");
+        assert_eq!(
+            rows, LIMIT as usize,
+            "production request returned a short page"
+        );
     }
     let worst = times.iter().copied().max().unwrap_or(0);
-    summarise("(d) production request through run_advanced_search", &spans, &times);
+    summarise(
+        "(d) production request through run_advanced_search",
+        &spans,
+        &times,
+    );
     eprintln!(
         "    local-read budget={HOME_LOCAL_READ_BUDGET_MS}ms headroom_at_worst={}ms",
         HOME_LOCAL_READ_BUDGET_MS as i128 - worst as i128,
     );
-
 }

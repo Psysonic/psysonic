@@ -78,11 +78,8 @@ fn sanitization_equivalent_playlist_names_receive_identity_suffixes() {
     let first = source("playlist-1", "Road/Trip");
     let second = source("playlist-2", "Road:Trip");
     let unique = source("playlist-3", "Workout");
-    let collisions = playlist_collision_source_keys(&[
-        first.clone(),
-        second.clone(),
-        unique.clone(),
-    ]);
+    let collisions =
+        playlist_collision_source_keys(&[first.clone(), second.clone(), unique.clone()]);
 
     assert!(collisions.contains(&device_sync_source_key(&first)));
     assert!(collisions.contains(&device_sync_source_key(&second)));

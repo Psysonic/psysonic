@@ -46,7 +46,9 @@ impl AnalysisQueueAdmission {
             if remaining.is_zero() {
                 state.waiting_writers = state.waiting_writers.saturating_sub(1);
                 self.changed.notify_all();
-                return Err("timed out acquiring exclusive analysis migration admission".to_string());
+                return Err(
+                    "timed out acquiring exclusive analysis migration admission".to_string()
+                );
             }
             let (next, wait) = self
                 .changed
@@ -56,7 +58,9 @@ impl AnalysisQueueAdmission {
             if wait.timed_out() && (state.writer_active || state.readers > 0) {
                 state.waiting_writers = state.waiting_writers.saturating_sub(1);
                 self.changed.notify_all();
-                return Err("timed out acquiring exclusive analysis migration admission".to_string());
+                return Err(
+                    "timed out acquiring exclusive analysis migration admission".to_string()
+                );
             }
         }
         state.waiting_writers -= 1;
@@ -247,11 +251,10 @@ mod tests {
             assert!(!barrier_for_late.load(Ordering::Acquire));
             late_prechecked_tx.send(()).unwrap();
             let admission_for_blocking = Arc::clone(&admission_for_late);
-            let guard = tokio::task::spawn_blocking(move || {
-                admission_for_blocking.ordinary_guard()
-            })
-            .await
-            .unwrap();
+            let guard =
+                tokio::task::spawn_blocking(move || admission_for_blocking.ordinary_guard())
+                    .await
+                    .unwrap();
             if barrier_for_late.load(Ordering::Acquire) {
                 drop(guard);
                 return Err("migration barrier active");
@@ -261,9 +264,11 @@ mod tests {
         });
         late_prechecked_rx.await.unwrap();
 
-        assert!(tokio::time::timeout(Duration::from_millis(50), &mut activation_rx)
-            .await
-            .is_err());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), &mut activation_rx)
+                .await
+                .is_err()
+        );
         continue_insertion_tx.send(()).unwrap();
         inflight.join().unwrap();
 

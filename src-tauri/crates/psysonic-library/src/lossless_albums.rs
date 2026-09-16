@@ -4,7 +4,9 @@
 
 use crate::dto::{LibraryAlbumDto, LibraryLosslessAlbumsRequest, LibraryLosslessAlbumsResponse};
 use crate::lossless_formats::track_is_lossless_sql;
-use crate::search::{combined_scope_library_ids, library_scope_in_sql, library_scope_sargable_equals_sql};
+use crate::search::{
+    combined_scope_library_ids, library_scope_in_sql, library_scope_sargable_equals_sql,
+};
 use crate::store::LibraryStore;
 use rusqlite::types::Value as SqlValue;
 use serde_json::Value;
@@ -278,7 +280,14 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         insert_album(&store, "s1", "al1", "Album Table Name");
         TrackRepository::new(&store)
-            .upsert_batch(&[track_with_suffix("s1", "t1", "al1", "Track Title", "flac", 16)])
+            .upsert_batch(&[track_with_suffix(
+                "s1",
+                "t1",
+                "al1",
+                "Track Title",
+                "flac",
+                16,
+            )])
             .unwrap();
 
         let resp = list_lossless_albums(&store, &req("s1", 50, 0)).unwrap();
@@ -293,9 +302,7 @@ mod tests {
         a.library_id = Some("lib1".into());
         let mut b = track_with_suffix("s1", "t2", "al2", "B", "flac", 16);
         b.library_id = Some("lib2".into());
-        TrackRepository::new(&store)
-            .upsert_batch(&[a, b])
-            .unwrap();
+        TrackRepository::new(&store).upsert_batch(&[a, b]).unwrap();
 
         let mut scoped = req("s1", 50, 0);
         scoped.library_scope = Some("lib1".into());

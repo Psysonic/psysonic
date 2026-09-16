@@ -22,15 +22,24 @@ pub(crate) use cli_bridge::{
     cli_publish_server_list,
 };
 pub(crate) use core::{
-    exit_app, export_runtime_logs, frontend_debug_log, get_logging_mode, greet, set_logging_mode,
-    set_psylab_albums_browse_trace, set_psylab_artists_browse_trace, set_subsonic_wire_user_agent,
-    tail_runtime_logs, window_lifecycle_begin, window_lifecycle_fallback,
-    window_lifecycle_generation, window_lifecycle_hide, window_lifecycle_ready,
-    window_lifecycle_startup_visibility, window_lifecycle_update_fallback_policy,
-    LifecycleRequest, MainWindowLifecycleState, PendingLifecycleAction,
-    run_native_lifecycle_fallback,
+    exit_app, export_runtime_logs, frontend_debug_log, get_logging_mode, greet,
+    run_native_lifecycle_fallback, set_logging_mode, set_psylab_albums_browse_trace,
+    set_psylab_artists_browse_trace, set_subsonic_wire_user_agent, tail_runtime_logs,
+    window_lifecycle_begin, window_lifecycle_fallback, window_lifecycle_generation,
+    window_lifecycle_hide, window_lifecycle_ready, window_lifecycle_startup_visibility,
+    window_lifecycle_update_fallback_policy, LifecycleRequest, MainWindowLifecycleState,
+    PendingLifecycleAction,
 };
 pub(crate) use flatpak::flatpak_update_info;
+pub(crate) use integration::{
+    check_dir_accessible, mpris_set_metadata, mpris_set_playback, mpris_set_volume,
+    register_global_shortcut, unregister_global_shortcut,
+};
+pub(crate) use migration::{migration_inspect, migration_run};
+pub(crate) use network::{
+    probe_server_connection, resolve_host_addresses, server_http_context_clear,
+    server_http_context_sync, server_http_context_sync_all, subsonic_proxy_request,
+};
 pub(crate) use perf::performance_cpu_snapshot;
 pub(crate) use platform::{
     linux_wayland_gpu_font_tuning_active, linux_wayland_text_render_settings_available,
@@ -42,15 +51,6 @@ pub(crate) use platform::{
     linux_webkit_apply_wayland_gpu_font_tuning, linux_webkit_disable_media_session,
     linux_webkit_reapply_cached_wayland_text_render_profile,
     sync_wayland_text_profile_cache_from_disk,
-};
-pub(crate) use integration::{
-    check_dir_accessible, mpris_set_metadata, mpris_set_playback, mpris_set_volume,
-    register_global_shortcut, unregister_global_shortcut,
-};
-pub(crate) use migration::{migration_inspect, migration_run};
-pub(crate) use network::{
-    probe_server_connection, resolve_host_addresses, server_http_context_clear,
-    server_http_context_sync, server_http_context_sync_all, subsonic_proxy_request,
 };
 
 // Discord, Navidrome admin, last.fm + radio-browser + CORS proxy, bandsintown,

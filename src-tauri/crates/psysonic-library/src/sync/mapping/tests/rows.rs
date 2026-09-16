@@ -243,7 +243,10 @@ fn navidrome_song_reads_the_play_date_under_its_own_name() {
     });
     let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
 
-    assert!(row.played_at.is_some(), "the play date has to survive the mapper");
+    assert!(
+        row.played_at.is_some(),
+        "the play date has to survive the mapper"
+    );
     assert_eq!(row.play_count, Some(4));
     assert!(row.starred_at.is_some());
     assert_eq!(row.user_rating, Some(5));
@@ -273,7 +276,10 @@ fn an_empty_play_date_falls_through_to_the_next_name() {
     });
     let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
 
-    assert!(row.played_at.is_some(), "an unusable first name must not end the search");
+    assert!(
+        row.played_at.is_some(),
+        "an unusable first name must not end the search"
+    );
 }
 
 #[test]

@@ -20,9 +20,15 @@ fn scope_where(scope: &LibraryStatisticsScope, alias: &str) -> (String, Vec<SqlV
     if !library_ids.is_empty() {
         clauses.push(format!(
             "{alias}.library_id IN ({})",
-            std::iter::repeat_n("?", library_ids.len()).collect::<Vec<_>>().join(", ")
+            std::iter::repeat_n("?", library_ids.len())
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
-        params.extend(library_ids.into_iter().map(|id| SqlValue::Text(id.to_string())));
+        params.extend(
+            library_ids
+                .into_iter()
+                .map(|id| SqlValue::Text(id.to_string())),
+        );
     }
     (clauses.join(" AND "), params)
 }
@@ -178,21 +184,33 @@ mod tests {
             Ok(())
         }).unwrap();
 
-        let result = query_statistics(&store, &LibraryStatisticsRequest {
-            scopes: vec![
-                LibraryStatisticsScope { server_id: "s1".into(), library_ids: vec!["one".into(), "two".into()] },
-                LibraryStatisticsScope { server_id: "s2".into(), library_ids: vec![] },
-            ],
-        }).unwrap();
+        let result = query_statistics(
+            &store,
+            &LibraryStatisticsRequest {
+                scopes: vec![
+                    LibraryStatisticsScope {
+                        server_id: "s1".into(),
+                        library_ids: vec!["one".into(), "two".into()],
+                    },
+                    LibraryStatisticsScope {
+                        server_id: "s2".into(),
+                        library_ids: vec![],
+                    },
+                ],
+            },
+        )
+        .unwrap();
 
         assert_eq!(result.song_count, 3);
         assert_eq!(result.album_count, 3);
         assert_eq!(result.playtime_sec, 540);
-        assert_eq!(result.artist_count, 3, "each selected folder/server keeps its own artist row");
+        assert_eq!(
+            result.artist_count, 3,
+            "each selected folder/server keeps its own artist row"
+        );
         assert_eq!(result.genres[0].value, "Rock");
         assert_eq!(result.genres[0].song_count, 2);
         assert_eq!(result.formats[0].value, "FLAC");
         assert_eq!(result.formats[0].song_count, 2);
-
     }
 }

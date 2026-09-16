@@ -40,7 +40,10 @@ pub async fn navidrome_login(
         return Err(format!("Navidrome login failed: HTTP {}", resp.status()));
     }
     let data: serde_json::Value = resp.json().await.map_err(nd_err)?;
-    let token = data["token"].as_str().ok_or("no token in response")?.to_string();
+    let token = data["token"]
+        .as_str()
+        .ok_or("no token in response")?
+        .to_string();
     let user_id = data["id"].as_str().unwrap_or("").to_string();
     let is_admin = data["isAdmin"].as_bool().unwrap_or(false);
     Ok(NdLoginResult {

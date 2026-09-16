@@ -6,12 +6,12 @@ use std::sync::atomic::Ordering;
 
 use tauri::{Emitter, State};
 
+#[cfg(target_os = "linux")]
+use super::dev_io::output_device_keys_equivalent;
 use super::dev_io::{
     enumerate_output_device_entries, legacy_output_device_display_label,
     output_devices_logically_same, resolve_legacy_pinned_key, OutputDeviceEntry,
 };
-#[cfg(target_os = "linux")]
-use super::dev_io::output_device_keys_equivalent;
 use super::engine::AudioEngine;
 
 /// One row in the audio output device picker (`key` is persisted; `label` is display-only).
@@ -164,10 +164,14 @@ pub async fn audio_set_device(
         let mut cur = state.current.lock().unwrap();
         let pos = cur.position();
         let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
-        if let Some(s) = cur.sink.take() { s.stop(); }
+        if let Some(s) = cur.sink.take() {
+            s.stop();
+        }
         (pos, generation)
     };
-    if let Some(s) = state.fading_out_sink.lock().unwrap().take() { s.stop(); }
+    if let Some(s) = state.fading_out_sink.lock().unwrap().take() {
+        s.stop();
+    }
 
     if let Err(error) = super::engine::open_output_stream_blocking_locked(
         &state,
@@ -214,7 +218,8 @@ pub async fn audio_set_device(
     // null is reserved for "Rust already resumed internally" (see reopen_output_stream).
     let _commit_guard = state.playback_commit_lock.lock().unwrap();
     if state.generation.load(Ordering::SeqCst) == switch_generation {
-        app.emit("audio:device-changed", current_time).map_err(|e| e.to_string())?;
+        app.emit("audio:device-changed", current_time)
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }

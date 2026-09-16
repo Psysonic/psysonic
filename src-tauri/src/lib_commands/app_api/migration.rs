@@ -2,9 +2,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 
-use psysonic_core::database_pair_admission::{
-    database_pair_read_scope, database_pair_write_scope,
-};
+use psysonic_core::database_pair_admission::{database_pair_read_scope, database_pair_write_scope};
 use tauri::{AppHandle, Emitter, Manager};
 
 mod analysis;

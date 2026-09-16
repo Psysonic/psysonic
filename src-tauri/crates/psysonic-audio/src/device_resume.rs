@@ -23,12 +23,12 @@ use tauri::Manager;
 
 use super::engine::AudioEngine;
 use super::play_input::{url_format_hint, PlayInput};
+use super::progress_task::spawn_progress_task;
+use super::sink_swap::{swap_in_new_sink, SinkSwapInputs};
 use super::source_build::{
     build_playback_source_with_probe_fallback, BuildSourceArgs, PlaybackSource,
 };
-use super::sink_swap::{swap_in_new_sink, SinkSwapInputs};
 use super::state::install_current_source_done;
-use super::progress_task::spawn_progress_task;
 use super::stream::LocalFileSource;
 
 /// Snapshot of playback state captured before the blocking stream reopen.
@@ -128,14 +128,20 @@ pub(crate) async fn try_resume_after_device_change(
         // which will re-fetch from the server.
         let ram_bytes = {
             let guard = engine.stream_completed_cache.lock().unwrap();
-            guard.as_ref().filter(|t| t.url == url).map(|t| t.data.clone())
+            guard
+                .as_ref()
+                .filter(|t| t.url == url)
+                .map(|t| t.data.clone())
         };
         let bytes = if let Some(b) = ram_bytes {
             b
         } else {
             let spill_path = {
                 let guard = engine.stream_completed_spill.lock().unwrap();
-                guard.as_ref().filter(|s| s.url == url).map(|s| s.path.clone())
+                guard
+                    .as_ref()
+                    .filter(|s| s.url == url)
+                    .map(|s| s.path.clone())
             };
             match spill_path {
                 Some(p) => match std::fs::read(&p) {
@@ -297,12 +303,15 @@ pub(crate) async fn try_resume_after_device_change(
     app.emit("audio:playing", ps.built.duration_secs).ok();
     // Re-assert the real decoded format after the device swap (same track).
     if let Some(fmt) = ps.built.resolved_format.as_ref() {
-        let ev = crate::decode::AudioFormatEvent::from_info(fmt, crate::decode::AudioFormatIdentity {
-            track_id: engine.current_analysis_track_id.lock().unwrap().clone(),
-            server_id: engine.current_playback_server_id.lock().unwrap().clone(),
-            generation: Some(gen),
-            stream_cap_kbps: crate::play_input::url_stream_cap_kbps(url),
-        });
+        let ev = crate::decode::AudioFormatEvent::from_info(
+            fmt,
+            crate::decode::AudioFormatIdentity {
+                track_id: engine.current_analysis_track_id.lock().unwrap().clone(),
+                server_id: engine.current_playback_server_id.lock().unwrap().clone(),
+                generation: Some(gen),
+                stream_cap_kbps: crate::play_input::url_stream_cap_kbps(url),
+            },
+        );
         app.emit("audio:format", ev).ok();
     }
 

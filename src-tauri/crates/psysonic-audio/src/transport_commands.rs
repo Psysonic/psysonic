@@ -30,10 +30,7 @@ pub fn audio_pause(fade_secs: Option<f32>, state: State<'_, AudioEngine>) {
     if let Some(fade_secs) = fade_secs {
         let sink = {
             let cur = state.current.lock().unwrap();
-            cur.sink
-                .as_ref()
-                .filter(|sink| !sink.is_paused())
-                .cloned()
+            cur.sink.as_ref().filter(|sink| !sink.is_paused()).cloned()
         };
         if let Some(sink) = sink {
             let current = Arc::clone(&state.current);
@@ -43,31 +40,25 @@ pub fn audio_pause(fade_secs: Option<f32>, state: State<'_, AudioEngine>) {
             let playback_rate = state.playback_rate.clone();
             let completion_sink = Arc::clone(&sink);
             let from = sink_volume_now(&sink);
-            ramp_sink_volume_smooth_over_secs_then(
-                sink,
-                from,
-                0.0,
-                fade_secs,
-                move || {
-                    let mut cur = current.lock().unwrap();
-                    let Some(active_sink) = cur.sink.as_ref() else {
-                        return;
-                    };
-                    if !Arc::ptr_eq(active_sink, &completion_sink) || active_sink.is_paused() {
-                        return;
-                    }
-                    let pos = content_position_from_samples(
-                        samples_played.load(Ordering::Relaxed),
-                        sample_rate.load(Ordering::Relaxed),
-                        channels.load(Ordering::Relaxed),
-                        &playback_rate,
-                    )
-                    .min(cur.duration_secs.max(0.001));
-                    active_sink.pause();
-                    cur.paused_at = Some(pos);
-                    cur.play_started = None;
-                },
-            );
+            ramp_sink_volume_smooth_over_secs_then(sink, from, 0.0, fade_secs, move || {
+                let mut cur = current.lock().unwrap();
+                let Some(active_sink) = cur.sink.as_ref() else {
+                    return;
+                };
+                if !Arc::ptr_eq(active_sink, &completion_sink) || active_sink.is_paused() {
+                    return;
+                }
+                let pos = content_position_from_samples(
+                    samples_played.load(Ordering::Relaxed),
+                    sample_rate.load(Ordering::Relaxed),
+                    channels.load(Ordering::Relaxed),
+                    &playback_rate,
+                )
+                .min(cur.duration_secs.max(0.001));
+                active_sink.pause();
+                cur.paused_at = Some(pos);
+                cur.play_started = None;
+            });
         }
     } else {
         pause_current_sink(&state);
@@ -142,8 +133,8 @@ pub async fn audio_resume(
     let resume_ramp = {
         let mut cur = state.current.lock().unwrap();
         if let Some(sink) = cur.sink.clone() {
-            let target = (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM)
-                .clamp(0.0, 1.0);
+            let target =
+                (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM).clamp(0.0, 1.0);
             if sink.is_paused() {
                 let pos = cur.paused_at.unwrap_or(cur.seek_offset);
                 if fade_secs.is_some() {
@@ -152,9 +143,9 @@ pub async fn audio_resume(
                     sink.set_volume(target);
                 }
                 sink.play();
-                cur.seek_offset  = pos;
+                cur.seek_offset = pos;
                 cur.play_started = Some(Instant::now());
-                cur.paused_at    = None;
+                cur.paused_at = None;
             } else if fade_secs.is_none() {
                 sink.set_volume(target);
             }
@@ -174,8 +165,7 @@ pub async fn audio_resume(
                 .is_some_and(|active_sink| Arc::ptr_eq(active_sink, &completion_sink))
             {
                 completion_sink.set_volume(
-                    (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM)
-                        .clamp(0.0, 1.0),
+                    (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM).clamp(0.0, 1.0),
                 );
             }
         });
@@ -249,18 +239,16 @@ pub fn audio_stop(state: State<'_, AudioEngine>, app: AppHandle) {
         // Drop RadioLiveState → triggers Drop → task.abort() → TCP released.
         drop(state.radio_state.lock().unwrap().take());
         let mut cur = state.current.lock().unwrap();
-        if let Some(sink) = cur.sink.take() { sink.stop(); }
+        if let Some(sink) = cur.sink.take() {
+            sink.stop();
+        }
         cur.duration_secs = 0.0;
-        cur.seek_offset   = 0.0;
-        cur.play_started  = None;
-        cur.paused_at     = None;
+        cur.seek_offset = 0.0;
+        cur.play_started = None;
+        cur.paused_at = None;
         generation
     };
-    let _ = super::stream_idle::release_output_stream_on_stop(
-        state.inner(),
-        &app,
-        stop_generation,
-    );
+    let _ = super::stream_idle::release_output_stream_on_stop(state.inner(), &app, stop_generation);
 }
 
 #[tauri::command]
@@ -355,7 +343,9 @@ pub fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(), Str
     }
 
     let mut cur = lock_current_with_timeout(AUDIO_SEEK_LOCK_TIMEOUT_MS)?;
-    if cur.sink.is_none() { return Ok(()); }
+    if cur.sink.is_none() {
+        return Ok(());
+    }
 
     if cur.paused_at.is_some() {
         cur.paused_at = Some(seek_seconds);

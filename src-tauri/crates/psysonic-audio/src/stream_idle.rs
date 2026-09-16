@@ -69,10 +69,7 @@ fn close_output_device_handle_locked(engine: &AudioEngine, app: &AppHandle) -> R
 }
 
 /// Release the output device after the idle timer (pause with no other active audio).
-pub(crate) fn release_output_stream(
-    engine: &AudioEngine,
-    app: &AppHandle,
-) -> Result<(), String> {
+pub(crate) fn release_output_stream(engine: &AudioEngine, app: &AppHandle) -> Result<(), String> {
     let _open_guard = engine.stream_open_lock.lock().unwrap();
     if engine.stream_handle.lock().unwrap().is_none() {
         return Ok(());
@@ -280,10 +277,12 @@ mod tests {
         let engine = minimal_engine();
         *engine.stream_attach_pending.0.lock().unwrap() = 1;
 
-        assert!(!super::super::engine::wait_for_stream_attachments_timeout_locked(
-            &engine,
-            Duration::from_millis(5),
-        ));
+        assert!(
+            !super::super::engine::wait_for_stream_attachments_timeout_locked(
+                &engine,
+                Duration::from_millis(5),
+            )
+        );
     }
 
     #[test]
@@ -298,10 +297,12 @@ mod tests {
             ready.notify_all();
         });
 
-        assert!(super::super::engine::wait_for_stream_attachments_timeout_locked(
-            &engine,
-            Duration::from_secs(1),
-        ));
+        assert!(
+            super::super::engine::wait_for_stream_attachments_timeout_locked(
+                &engine,
+                Duration::from_secs(1),
+            )
+        );
         attachment.join().unwrap();
     }
 

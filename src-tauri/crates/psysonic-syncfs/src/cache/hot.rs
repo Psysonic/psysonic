@@ -5,9 +5,9 @@ use psysonic_audio as audio;
 use psysonic_core::user_agent::subsonic_wire_user_agent;
 use tauri::Manager;
 
-use crate::file_transfer::{apply_server_http_get, stream_to_file};
 use super::downloads::{resolve_hot_cache_root, HotCacheDownloadResult};
 use super::offline::enqueue_analysis_seed_from_file;
+use crate::file_transfer::{apply_server_http_get, stream_to_file};
 
 #[tauri::command]
 #[specta::specta]
@@ -169,7 +169,10 @@ pub async fn promote_stream_cache_to_hot_cache(
         tokio::spawn(async move {
             enqueue_analysis_seed_from_file(&app_seed, &sid, &tid, &fp, None).await;
         });
-        return Ok(Some(HotCacheDownloadResult { path: path_str, size }));
+        return Ok(Some(HotCacheDownloadResult {
+            path: path_str,
+            size,
+        }));
     }
 
     if let Some(bytes) = audio::take_stream_completed_for_url(&state, &url) {
@@ -183,10 +186,7 @@ pub async fn promote_stream_cache_to_hot_cache(
             .map_err(|e| e.to_string())?;
 
         let priority = psysonic_analysis::analysis_runtime::analysis_backfill_resolve_priority(
-            &app,
-            &server_id,
-            &track_id,
-            None,
+            &app, &server_id, &track_id, None,
         );
         let format_hint = Some(suffix.to_ascii_lowercase());
         let _ = enqueue_track_analysis(
@@ -209,7 +209,10 @@ pub async fn promote_stream_cache_to_hot_cache(
             server_id,
             size
         );
-        return Ok(Some(HotCacheDownloadResult { path: path_str, size }));
+        return Ok(Some(HotCacheDownloadResult {
+            path: path_str,
+            size,
+        }));
     }
 
     if let Some(spill_path) = audio::take_stream_completed_spill_for_url(&state, &url) {
@@ -237,7 +240,10 @@ pub async fn promote_stream_cache_to_hot_cache(
             server_id,
             size
         );
-        return Ok(Some(HotCacheDownloadResult { path: path_str, size }));
+        return Ok(Some(HotCacheDownloadResult {
+            path: path_str,
+            size,
+        }));
     }
 
     crate::app_deprintln!(
@@ -290,7 +296,10 @@ pub async fn delete_hot_cache_track(
 /// Removes the entire hot cache root (`psysonic-hot-cache` for the active location).
 #[tauri::command]
 #[specta::specta]
-pub async fn purge_hot_cache(custom_dir: Option<String>, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn purge_hot_cache(
+    custom_dir: Option<String>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
     let _filesystem_write_guard = crate::filesystem_write_guard().await?;
     let root = resolve_hot_cache_root(custom_dir, &app)?;
     if !root.exists() {

@@ -48,8 +48,7 @@ pub struct CoverCacheState {
     /// for the same album so a quiet/opts-less flight (library backfill,
     /// background hook) can never interleave its writes with an in-flight
     /// external chain. `Weak` entries evaporate once the last flight drops.
-    pub inflight_dirs:
-        std::sync::Mutex<HashMap<PathBuf, std::sync::Weak<tokio::sync::Mutex<()>>>>,
+    pub inflight_dirs: std::sync::Mutex<HashMap<PathBuf, std::sync::Weak<tokio::sync::Mutex<()>>>>,
     /// Live permit count of `cover_cpu_backfill_sem` (the semaphore itself only
     /// exposes *available* permits, not the configured ceiling).
     cover_cpu_backfill_max: AtomicUsize,

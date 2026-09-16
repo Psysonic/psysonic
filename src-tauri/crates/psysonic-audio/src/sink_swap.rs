@@ -74,7 +74,9 @@ pub(super) fn spawn_legacy_stream_start_when_armed(args: LegacyStreamStartWhenAr
                 }
                 sink.play();
                 app.emit("audio:playing", duration_secs).ok();
-                crate::app_deprintln!("[stream] legacy track-stream: playback started after buffer ready");
+                crate::app_deprintln!(
+                    "[stream] legacy track-stream: playback started after buffer ready"
+                );
             }
         }
     });
@@ -189,10 +191,7 @@ pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapI
         } else if let Some(old) = old_sink {
             // Prep already volume-ducked A; scenario-A keeps sample gain at 1.0
             // so clamp the handoff sink or A blasts over B's fade-in.
-            if state
-                .interrupt_outgoing_duck_active
-                .load(Ordering::Relaxed)
-            {
+            if state.interrupt_outgoing_duck_active.load(Ordering::Relaxed) {
                 old.set_volume(0.0);
             }
             *state.fading_out_sink.lock().unwrap() = Some(old);

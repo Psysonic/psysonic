@@ -34,7 +34,10 @@ pub(crate) fn autoeq_profile_url_candidates(
             format!("{}/{}/{}/{}/{}", base, source, form, name, filename),
         ]
     } else {
-        vec![format!("{}/{}/{}/{}/{}", base, source, form, name, filename)]
+        vec![format!(
+            "{}/{}/{}/{}/{}",
+            base, source, form, name, filename
+        )]
     }
 }
 
@@ -44,8 +47,12 @@ pub(crate) fn autoeq_profile_url_candidates(
 pub async fn autoeq_entries(state: State<'_, AudioEngine>) -> Result<String, String> {
     audio_http_client(&state)
         .get("https://autoeq.app/entries")
-        .send().await.map_err(|e| e.to_string())?
-        .text().await.map_err(|e| e.to_string())
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .text()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Fetches the AutoEQ FixedBandEQ profile for a specific headphone from GitHub raw content.
@@ -62,7 +69,11 @@ pub async fn autoeq_fetch_profile(
         autoeq_profile_url_candidates(AUTOEQ_RAW_BASE, &source, &form, &name, rig.as_deref());
 
     for url in &candidates {
-        let resp = audio_http_client(&state).get(url).send().await.map_err(|e| e.to_string())?;
+        let resp = audio_http_client(&state)
+            .get(url)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
         if resp.status().is_success() {
             return resp.text().await.map_err(|e| e.to_string());
         }
@@ -116,13 +127,8 @@ mod tests {
 
     #[test]
     fn url_candidates_preserves_spaces_in_headphone_names() {
-        let urls = autoeq_profile_url_candidates(
-            "base",
-            "src",
-            "form",
-            "Audio-Technica ATH-M50x",
-            None,
-        );
+        let urls =
+            autoeq_profile_url_candidates("base", "src", "form", "Audio-Technica ATH-M50x", None);
         // Spaces inside the name aren't URL-encoded — reqwest does that on send.
         assert!(urls[0].contains("Audio-Technica ATH-M50x"));
         assert!(urls[0].ends_with("Audio-Technica ATH-M50x FixedBandEQ.txt"));

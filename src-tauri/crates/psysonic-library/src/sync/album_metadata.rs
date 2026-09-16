@@ -68,9 +68,7 @@ pub(crate) fn upsert_album_from_get_album(
         }
     }
     let raw_json = stored_raw_album.to_string();
-    let song_count = album
-        .song_count
-        .or(Some(album.song.len() as i64));
+    let song_count = album.song_count.or(Some(album.song.len() as i64));
     store
         .with_conn_mut("sync.upsert_album_metadata", |conn| {
             let tx = conn.transaction()?;

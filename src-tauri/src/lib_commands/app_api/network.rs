@@ -5,7 +5,9 @@ use std::collections::HashSet;
 
 use std::sync::Arc;
 
-use psysonic_core::server_http::{ServerHttpContext, ServerHttpContextSyncWire, ServerHttpRegistry};
+use psysonic_core::server_http::{
+    ServerHttpContext, ServerHttpContextSyncWire, ServerHttpRegistry,
+};
 use psysonic_integration::subsonic::{ServerInfo, SubsonicClient, SubsonicError};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -373,9 +375,8 @@ mod tests {
 
     #[test]
     fn probe_failure_reason_renders_http_status() {
-        let reason = probe_failure_reason(&SubsonicError::HttpStatus(
-            reqwest::StatusCode::FORBIDDEN,
-        ));
+        let reason =
+            probe_failure_reason(&SubsonicError::HttpStatus(reqwest::StatusCode::FORBIDDEN));
         assert_eq!(reason, "HTTP 403 Forbidden");
     }
 

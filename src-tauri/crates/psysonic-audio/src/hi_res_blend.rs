@@ -8,9 +8,11 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, State};
 
 use super::engine::AudioEngine;
-use super::playback_rate::raw_counter_samples_for_content_position;
 use super::play_input::{url_format_hint, PlayInput};
-use super::source_build::{build_playback_source_with_probe_fallback, BuildSourceArgs, PlaybackSource};
+use super::playback_rate::raw_counter_samples_for_content_position;
+use super::source_build::{
+    build_playback_source_with_probe_fallback, BuildSourceArgs, PlaybackSource,
+};
 use super::state::install_current_source_done;
 use super::stream::LocalFileSource;
 

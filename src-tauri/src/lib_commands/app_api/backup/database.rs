@@ -5,16 +5,16 @@ use psysonic_core::database_pair_admission::database_pair_write_scope;
 use rusqlite::{Connection, OpenFlags};
 use tauri::{AppHandle, Manager};
 
-mod recovery;
 mod full_import_recovery;
+mod recovery;
 
-pub(super) use recovery::cleanup_database_paths;
 pub(crate) use full_import_recovery::FullImportRecoveryStatusDto;
 use full_import_recovery::{
     commit_full_import_recovery, finalize_full_import_recovery, inspect_full_import_recovery,
     lock_full_import_recovery, prepare_full_import_recovery, recover_full_import_databases_with,
     FullImportRecoveryPaths,
 };
+pub(super) use recovery::cleanup_database_paths;
 use recovery::{
     combine_results, copy_database_artifact, finalize_import_backups_or_rollback_with,
     next_recovery_path, restore_database_pair_with,
@@ -35,7 +35,10 @@ pub(super) fn analysis_db_path(app: &AppHandle) -> Result<PathBuf, String> {
 }
 
 fn full_import_recovery_paths(app: &AppHandle) -> Result<FullImportRecoveryPaths, String> {
-    let base = app.path().app_data_dir().map_err(|error| error.to_string())?;
+    let base = app
+        .path()
+        .app_data_dir()
+        .map_err(|error| error.to_string())?;
     Ok(FullImportRecoveryPaths::new(&base))
 }
 
@@ -208,9 +211,7 @@ pub(super) fn inspect_full_import_recovery_for_app(
     inspect_full_import_recovery(&full_import_recovery_paths(app)?)
 }
 
-pub(super) fn recover_full_import_databases(
-    app: &AppHandle,
-) -> Result<(), String> {
+pub(super) fn recover_full_import_databases(app: &AppHandle) -> Result<(), String> {
     let _guard = lock_full_import_recovery()?;
     let _pair_scope = database_pair_write_scope();
     let active_library = library_db_path(app)?;
@@ -238,7 +239,9 @@ pub(super) fn finalize_full_import_recovery_for_app(app: &AppHandle) -> Result<(
     finalize_full_import_recovery(
         &full_import_recovery_paths(app)?,
         &[
-            active_library.with_file_name("library.sqlite.import.bak").as_path(),
+            active_library
+                .with_file_name("library.sqlite.import.bak")
+                .as_path(),
             active_analysis
                 .with_file_name("audio-analysis.sqlite.import.bak")
                 .as_path(),
@@ -253,7 +256,9 @@ pub(super) fn commit_imported_databases(app: &AppHandle) -> Result<(), String> {
     commit_full_import_recovery(
         &full_import_recovery_paths(app)?,
         &[
-            active_library.with_file_name("library.sqlite.import.bak").as_path(),
+            active_library
+                .with_file_name("library.sqlite.import.bak")
+                .as_path(),
             active_analysis
                 .with_file_name("audio-analysis.sqlite.import.bak")
                 .as_path(),
@@ -319,8 +324,11 @@ fn rollback_after_analysis_switch_failure(
     active_library: &Path,
 ) -> Result<(), String> {
     let library_work = next_recovery_path(active_library, "analysis-switch-old-work");
-    let library_restore = copy_database_artifact(&[library_backup], &library_work)
-        .and_then(|_| runtime.store.restore_database_backup(&library_work, active_library));
+    let library_restore = copy_database_artifact(&[library_backup], &library_work).and_then(|_| {
+        runtime
+            .store
+            .restore_database_backup(&library_work, active_library)
+    });
     let library_verify = runtime.store.verify_operational_schema();
     let analysis_verify = cache.verify_operational_schema();
     let rollback = combine_results(

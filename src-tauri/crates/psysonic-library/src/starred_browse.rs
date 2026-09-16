@@ -19,7 +19,10 @@ pub struct LibraryStarredResponse {
     pub blocked_by: Option<String>,
 }
 
-pub fn list_starred(store: &LibraryStore, server_id: &str) -> Result<LibraryStarredResponse, String> {
+pub fn list_starred(
+    store: &LibraryStore,
+    server_id: &str,
+) -> Result<LibraryStarredResponse, String> {
     let server_id = server_id.trim();
     if server_id.is_empty() {
         return Ok(LibraryStarredResponse {
@@ -91,7 +94,9 @@ pub fn list_starred(store: &LibraryStore, server_id: &str) -> Result<LibraryStar
         tracks,
         read_lock_wait_ms: timing.lock_wait_ms,
         sql_ms: timing.exec_ms,
-        blocked_by: timing.blocked_by.map(|owner| format!("{}:{}", owner.file, owner.line)),
+        blocked_by: timing
+            .blocked_by
+            .map(|owner| format!("{}:{}", owner.file, owner.line)),
     })
 }
 
@@ -165,8 +170,22 @@ mod tests {
 
         let response = list_starred(&store, "s1").unwrap();
 
-        assert_eq!(response.albums.iter().map(|album| album.id.as_str()).collect::<Vec<_>>(), ["album-starred"]);
-        assert_eq!(response.tracks.iter().map(|track| track.id.as_str()).collect::<Vec<_>>(), ["track-starred"]);
+        assert_eq!(
+            response
+                .albums
+                .iter()
+                .map(|album| album.id.as_str())
+                .collect::<Vec<_>>(),
+            ["album-starred"]
+        );
+        assert_eq!(
+            response
+                .tracks
+                .iter()
+                .map(|track| track.id.as_str())
+                .collect::<Vec<_>>(),
+            ["track-starred"]
+        );
     }
 
     #[test]

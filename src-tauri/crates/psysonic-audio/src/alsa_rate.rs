@@ -78,8 +78,9 @@ pub(super) fn negotiated_output_rate(
         .map_err(|error| format!("failed to select ALSA interleaved access: {error}"))?;
     params
         .set_format(
-            alsa_format(&params, config.sample_format())
-                .ok_or_else(|| format!("ALSA does not support {} output", config.sample_format()))?,
+            alsa_format(&params, config.sample_format()).ok_or_else(|| {
+                format!("ALSA does not support {} output", config.sample_format())
+            })?,
         )
         .map_err(|error| format!("failed to select ALSA sample format: {error}"))?;
     params
@@ -112,7 +113,10 @@ mod tests {
             (SampleFormat::U24, (Format::U24LE, Some(Format::U24BE))),
             (SampleFormat::U32, (Format::U32LE, Some(Format::U32BE))),
             (SampleFormat::F32, (Format::FloatLE, Some(Format::FloatBE))),
-            (SampleFormat::F64, (Format::Float64LE, Some(Format::Float64BE))),
+            (
+                SampleFormat::F64,
+                (Format::Float64LE, Some(Format::Float64BE)),
+            ),
         ]);
         #[cfg(target_endian = "big")]
         expected.extend([
@@ -123,7 +127,10 @@ mod tests {
             (SampleFormat::U24, (Format::U24BE, Some(Format::U24LE))),
             (SampleFormat::U32, (Format::U32BE, Some(Format::U32LE))),
             (SampleFormat::F32, (Format::FloatBE, Some(Format::FloatLE))),
-            (SampleFormat::F64, (Format::Float64BE, Some(Format::Float64LE))),
+            (
+                SampleFormat::F64,
+                (Format::Float64BE, Some(Format::Float64LE)),
+            ),
         ]);
 
         for (format, mapping) in expected {

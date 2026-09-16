@@ -29,16 +29,16 @@ pub(crate) use migrations::{
     MIGRATION_025_IDENTITY_INVALIDATION, MIGRATION_026_LIBRARY_TAG_CURSOR,
 };
 pub use migrations::{LIBRARY_DB_MIN_COMPATIBLE_VERSION, LIBRARY_DB_SCHEMA_VERSION};
-pub use track_timestamp_reconcile::TrackTimestampBackfillStep;
-/// Every idle-scheduler backfill reports the same three steps; the timestamp
-/// name above stays for its existing callers.
-pub use track_timestamp_reconcile::TrackTimestampBackfillStep as LibraryBackfillStep;
 #[allow(unused_imports)]
 pub(crate) use reconciles::{
     ARTIST_NAME_FOLD_RECONCILE_ID, ARTIST_NAME_SORT_RECONCILE_ID,
     DURATION_SEC_BACKFILL_RECONCILE_ID, LIBRARY_ID_BACKFILL_RECONCILE_ID,
     ORPHAN_BROWSE_RECONCILE_ID, REPLAY_GAIN_PEAK_RECONCILE_ID,
 };
+pub use track_timestamp_reconcile::TrackTimestampBackfillStep;
+/// Every idle-scheduler backfill reports the same three steps; the timestamp
+/// name above stays for its existing callers.
+pub use track_timestamp_reconcile::TrackTimestampBackfillStep as LibraryBackfillStep;
 
 pub struct LibraryStore {
     /// Writes, migrations, and sync ingest (single writer).

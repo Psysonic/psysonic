@@ -71,18 +71,17 @@ pub fn list_composers(
     binds.push(SqlValue::Integer(i64::from(offset)));
     store.with_read_conn(|conn| {
         let mut statement = conn.prepare(&sql)?;
-        let mapped = statement
-            .query_map(params_from_iter(binds.iter()), |row| {
-                Ok(LibraryArtistDto {
-                    server_id: row.get(0)?,
-                    id: row.get(1)?,
-                    name: row.get(2)?,
-                    name_sort: Some(row.get(3)?),
-                    album_count: Some(row.get(4)?),
-                    synced_at: row.get(5)?,
-                    raw_json: parse_raw_json(row.get(6)?),
-                })
-            })?;
+        let mapped = statement.query_map(params_from_iter(binds.iter()), |row| {
+            Ok(LibraryArtistDto {
+                server_id: row.get(0)?,
+                id: row.get(1)?,
+                name: row.get(2)?,
+                name_sort: Some(row.get(3)?),
+                album_count: Some(row.get(4)?),
+                synced_at: row.get(5)?,
+                raw_json: parse_raw_json(row.get(6)?),
+            })
+        })?;
         mapped.collect::<rusqlite::Result<Vec<_>>>()
     })
 }
@@ -112,16 +111,21 @@ fn anchor_identity(
          GROUP BY cp.identity_key, cp.composer_name, cp.name_sort, ar.raw_json \
          ORDER BY MIN(s.pr) LIMIT 1"
     );
-    store.with_scope_detail_read_conn(|conn| {
-        conn.query_row(
-            &sql,
-            params_from_iter(binds.iter()),
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-        )
-        .optional()?
-        .ok_or(rusqlite::Error::QueryReturnedNoRows)
-    })
-    .map_err(|error| error.to_string())
+    store
+        .with_scope_detail_read_conn(|conn| {
+            conn.query_row(&sql, params_from_iter(binds.iter()), |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get(1)?,
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })
+            .optional()?
+            .ok_or(rusqlite::Error::QueryReturnedNoRows)
+        })
+        .map_err(|error| error.to_string())
 }
 
 fn anchor_is_ambiguous(
@@ -192,36 +196,35 @@ pub fn composer_detail(
 
     let rows = store.with_scope_detail_read_conn(|conn| {
         let mut statement = conn.prepare(&sql)?;
-        let mapped = statement
-            .query_map(params_from_iter(binds.iter()), |row| {
-                Ok(DetailRow {
-                    album_identity_key: row.get(6)?,
-                    album: LibraryAlbumDto {
-                        server_id: row.get(0)?,
-                        id: row.get(7)?,
-                        name: row.get(8)?,
-                        artist: row.get(9)?,
-                        artist_id: row.get(10)?,
-                        song_count: Some(row.get(11)?),
-                        duration_sec: Some(row.get(12)?),
-                        year: row.get(13)?,
-                        genre: row.get(14)?,
-                        cover_art_id: row.get(15)?,
-                        starred_at: row.get(16)?,
-                        synced_at: row.get(17)?,
-                        raw_json: Value::Null,
-                    },
-                })
-            })?;
+        let mapped = statement.query_map(params_from_iter(binds.iter()), |row| {
+            Ok(DetailRow {
+                album_identity_key: row.get(6)?,
+                album: LibraryAlbumDto {
+                    server_id: row.get(0)?,
+                    id: row.get(7)?,
+                    name: row.get(8)?,
+                    artist: row.get(9)?,
+                    artist_id: row.get(10)?,
+                    song_count: Some(row.get(11)?),
+                    duration_sec: Some(row.get(12)?),
+                    year: row.get(13)?,
+                    genre: row.get(14)?,
+                    cover_art_id: row.get(15)?,
+                    starred_at: row.get(16)?,
+                    synced_at: row.get(17)?,
+                    raw_json: Value::Null,
+                },
+            })
+        })?;
         mapped.collect::<rusqlite::Result<Vec<_>>>()
     })?;
 
     let mut seen_albums = HashSet::new();
     let mut albums = Vec::new();
     for row in rows {
-        let album_key = row.album_identity_key.unwrap_or_else(|| {
-            format!("owner:{}:{}", row.album.server_id, row.album.id)
-        });
+        let album_key = row
+            .album_identity_key
+            .unwrap_or_else(|| format!("owner:{}:{}", row.album.server_id, row.album.id));
         if seen_albums.insert(album_key) {
             albums.push(row.album);
         }
@@ -247,7 +250,13 @@ mod tests {
     use super::*;
     use crate::repos::{TrackRepository, TrackRow};
 
-    fn track(server_id: &str, id: &str, album_id: &str, composer_id: &str, composer: &str) -> TrackRow {
+    fn track(
+        server_id: &str,
+        id: &str,
+        album_id: &str,
+        composer_id: &str,
+        composer: &str,
+    ) -> TrackRow {
         TrackRow {
             server_id: server_id.into(),
             id: id.into(),
@@ -293,8 +302,14 @@ mod tests {
 
     fn scopes() -> Vec<LibraryScopePair> {
         vec![
-            LibraryScopePair { server_id: "s1".into(), library_id: Some("lib".into()) },
-            LibraryScopePair { server_id: "s2".into(), library_id: Some("lib".into()) },
+            LibraryScopePair {
+                server_id: "s1".into(),
+                library_id: Some("lib".into()),
+            },
+            LibraryScopePair {
+                server_id: "s2".into(),
+                library_id: Some("lib".into()),
+            },
         ]
     }
 
@@ -322,7 +337,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(
-            composers.iter().map(|composer| composer.name.as_str()).collect::<Vec<_>>(),
+            composers
+                .iter()
+                .map(|composer| composer.name.as_str())
+                .collect::<Vec<_>>(),
             vec!["Empty Composer", "Tagged Composer"]
         );
     }
@@ -350,7 +368,12 @@ mod tests {
 
         let composers = list_composers(
             &store,
-            &LibraryScopeListRequest { scopes: scopes(), sort: None, limit: None, offset: None },
+            &LibraryScopeListRequest {
+                scopes: scopes(),
+                sort: None,
+                limit: None,
+                offset: None,
+            },
         )
         .unwrap();
         assert_eq!(composers.len(), 1);
@@ -382,7 +405,12 @@ mod tests {
             .unwrap();
         let composers = list_composers(
             &store,
-            &LibraryScopeListRequest { scopes: scopes(), sort: None, limit: None, offset: None },
+            &LibraryScopeListRequest {
+                scopes: scopes(),
+                sort: None,
+                limit: None,
+                offset: None,
+            },
         )
         .unwrap();
         assert_eq!(composers.len(), 3);
@@ -394,10 +422,7 @@ mod tests {
         let mut renamed = track("s1", "t2", "a2", "c1", "New Name");
         renamed.synced_at = 2;
         TrackRepository::new(&store)
-            .upsert_batch(&[
-                track("s1", "t1", "a1", "c1", "Old Name"),
-                renamed,
-            ])
+            .upsert_batch(&[track("s1", "t1", "a1", "c1", "Old Name"), renamed])
             .unwrap();
         let single_scope = vec![LibraryScopePair {
             server_id: "s1".into(),

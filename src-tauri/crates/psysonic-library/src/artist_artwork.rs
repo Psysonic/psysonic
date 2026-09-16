@@ -108,13 +108,15 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         let sk = "fanart";
 
-        assert!(get_artist_artwork(&store, "srv", "ar-1", sk).unwrap().is_none());
+        assert!(get_artist_artwork(&store, "srv", "ar-1", sk)
+            .unwrap()
+            .is_none());
 
-        upsert_artist_artwork(
-            &store, "srv", "ar-1", sk, None, None, "no_mbid", None, 1000,
-        )
-        .unwrap();
-        let row = get_artist_artwork(&store, "srv", "ar-1", sk).unwrap().unwrap();
+        upsert_artist_artwork(&store, "srv", "ar-1", sk, None, None, "no_mbid", None, 1000)
+            .unwrap();
+        let row = get_artist_artwork(&store, "srv", "ar-1", sk)
+            .unwrap()
+            .unwrap();
         assert_eq!(row.status, "no_mbid");
         assert_eq!(row.mbid, None);
         assert_eq!(row.updated_at, 1000);
@@ -132,7 +134,9 @@ mod tests {
             2000,
         )
         .unwrap();
-        let row = get_artist_artwork(&store, "srv", "ar-1", sk).unwrap().unwrap();
+        let row = get_artist_artwork(&store, "srv", "ar-1", sk)
+            .unwrap()
+            .unwrap();
         assert_eq!(row.status, "hit");
         assert_eq!(row.mbid.as_deref(), Some("mbid-123"));
         assert_eq!(row.mbid_source.as_deref(), Some("tag"));
@@ -141,6 +145,8 @@ mod tests {
 
         // Clear-per-server removes it.
         assert_eq!(clear_artist_artwork_for_server(&store, "srv").unwrap(), 1);
-        assert!(get_artist_artwork(&store, "srv", "ar-1", sk).unwrap().is_none());
+        assert!(get_artist_artwork(&store, "srv", "ar-1", sk)
+            .unwrap()
+            .is_none());
     }
 }

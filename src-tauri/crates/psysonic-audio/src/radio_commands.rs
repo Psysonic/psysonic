@@ -11,19 +11,19 @@ use rodio::Source;
 use tauri::{AppHandle, Emitter, State};
 
 use super::decode::SizedDecoder;
-use super::playback_rate::PlaybackRateAtomics;
 use super::engine::{audio_http_client, AudioEngine};
 use super::helpers::{content_type_to_hint, MASTER_HEADROOM};
-use super::progress_task::spawn_progress_task;
+use super::playback_rate::PlaybackRateAtomics;
 use super::preview::preview_clear_for_new_main_playback;
+use super::progress_task::spawn_progress_task;
 use super::sources::{
-    CountingSource, DynSource, EqSource, EqualPowerFadeIn, NotifyingSource,
-    PriorityBoostSource, TriggeredFadeOut,
+    CountingSource, DynSource, EqSource, EqualPowerFadeIn, NotifyingSource, PriorityBoostSource,
+    TriggeredFadeOut,
 };
 use super::state::install_current_source_done;
 use super::stream::{
-    radio_download_task, AudioStreamReader, RadioLiveState, RadioSharedFlags,
-    RADIO_BUF_CAPACITY, RADIO_READ_TIMEOUT_SECS,
+    radio_download_task, AudioStreamReader, RadioLiveState, RadioSharedFlags, RADIO_BUF_CAPACITY,
+    RADIO_READ_TIMEOUT_SECS,
 };
 
 /// Play a live internet radio stream.
@@ -53,9 +53,13 @@ pub async fn audio_play_radio(
     *state.chained_info.lock().unwrap() = None;
     {
         let mut cur = state.current.lock().unwrap();
-        if let Some(old) = cur.sink.take() { old.stop(); }
+        if let Some(old) = cur.sink.take() {
+            old.stop();
+        }
     }
-    if let Some(old) = state.fading_out_sink.lock().unwrap().take() { old.stop(); }
+    if let Some(old) = state.fading_out_sink.lock().unwrap().take() {
+        old.stop();
+    }
 
     // ── Open initial HTTP connection ──────────────────────────────────────────
     let response = audio_http_client(&state)
@@ -76,7 +80,8 @@ pub async fn audio_play_radio(
     }
 
     let fmt_hint = content_type_to_hint(
-        response.headers()
+        response
+            .headers()
             .get("content-type")
             .and_then(|v| v.to_str().ok())
             .unwrap_or(""),
@@ -88,9 +93,9 @@ pub async fn audio_play_radio(
 
     let (new_cons_tx, new_cons_rx) = std::sync::mpsc::channel::<HeapCons<u8>>();
     let flags = Arc::new(RadioSharedFlags {
-        is_paused:      AtomicBool::new(false),
+        is_paused: AtomicBool::new(false),
         is_hard_paused: AtomicBool::new(false),
-        new_cons_tx:    Mutex::new(new_cons_tx),
+        new_cons_tx: Mutex::new(new_cons_tx),
     });
 
     // ── Spawn download task ───────────────────────────────────────────────────
@@ -106,7 +111,7 @@ pub async fn audio_play_radio(
     ));
 
     *state.radio_state.lock().unwrap() = Some(RadioLiveState {
-        url:  url.clone(),
+        url: url.clone(),
         gen,
         task,
         flags: flags.clone(),
@@ -118,17 +123,22 @@ pub async fn audio_play_radio(
         cons: Mutex::new(cons),
         new_cons_rx: Mutex::new(new_cons_rx),
         deadline: std::time::Instant::now() + Duration::from_secs(RADIO_READ_TIMEOUT_SECS),
-        gen_arc:  state.generation.clone(),
+        gen_arc: state.generation.clone(),
         gen,
         source_tag: "radio",
         eof_when_empty: None,
         pos: 0,
     };
 
-    if state.generation.load(Ordering::SeqCst) != gen { return Ok(()); }
+    if state.generation.load(Ordering::SeqCst) != gen {
+        return Ok(());
+    }
 
     let hint_clone = fmt_hint.clone();
-    let radio_guard = crate::stream::GenerationGuard { gen, gen_arc: state.generation.clone() };
+    let radio_guard = crate::stream::GenerationGuard {
+        gen,
+        gen_arc: state.generation.clone(),
+    };
     let decoder = tokio::task::spawn_blocking(move || {
         SizedDecoder::new_streaming(
             Box::new(reader),
@@ -141,26 +151,34 @@ pub async fn audio_play_radio(
     .await
     .map_err(|e| e.to_string())??;
 
-    if state.generation.load(Ordering::SeqCst) != gen { return Ok(()); }
+    if state.generation.load(Ordering::SeqCst) != gen {
+        return Ok(());
+    }
 
-    let sample_rate     = decoder.sample_rate();
-    let channels        = decoder.channels();
-    let done_flag       = Arc::new(AtomicBool::new(false));
+    let sample_rate = decoder.sample_rate();
+    let channels = decoder.channels();
+    let done_flag = Arc::new(AtomicBool::new(false));
     let fadeout_trigger = Arc::new(AtomicBool::new(false));
     let fadeout_samples = Arc::new(AtomicU64::new(0));
     state.samples_played.store(0, Ordering::Relaxed);
 
     // Radio: no gapless trim, no ReplayGain, 5 ms fade-in to suppress click.
-    let dyn_src   = DynSource::new(decoder);
-    let eq_src    = EqSource::new(dyn_src, state.eq_gains.clone(),
-                                  state.eq_enabled.clone(), state.eq_pre_gain.clone());
-    let fade_in   = EqualPowerFadeIn::new(eq_src, Duration::from_millis(5));
-    let fade_out  = TriggeredFadeOut::new(fade_in, fadeout_trigger.clone(), fadeout_samples.clone());
+    let dyn_src = DynSource::new(decoder);
+    let eq_src = EqSource::new(
+        dyn_src,
+        state.eq_gains.clone(),
+        state.eq_enabled.clone(),
+        state.eq_pre_gain.clone(),
+    );
+    let fade_in = EqualPowerFadeIn::new(eq_src, Duration::from_millis(5));
+    let fade_out = TriggeredFadeOut::new(fade_in, fadeout_trigger.clone(), fadeout_samples.clone());
     let notifying = NotifyingSource::new(fade_out, done_flag.clone());
-    let counting  = CountingSource::new(notifying, state.samples_played.clone());
-    let boosted   = PriorityBoostSource::new(counting);
+    let counting = CountingSource::new(notifying, state.samples_played.clone());
+    let boosted = PriorityBoostSource::new(counting);
 
-    if state.generation.load(Ordering::SeqCst) != gen { return Ok(()); }
+    if state.generation.load(Ordering::SeqCst) != gen {
+        return Ok(());
+    }
 
     let (sink, stream_attach) = super::engine::connect_new_player(&state)?;
     let commit_guard = state.playback_commit_lock.lock().unwrap();
@@ -175,24 +193,30 @@ pub async fn audio_play_radio(
     }
     {
         let mut cur = state.current.lock().unwrap();
-        if let Some(old) = cur.sink.take() { old.stop(); }
-        cur.sink              = Some(sink);
-        cur.duration_secs     = 0.0; // sentinel: live stream
-        cur.seek_offset       = 0.0;
-        cur.play_started      = Some(Instant::now());
-        cur.paused_at         = None;
+        if let Some(old) = cur.sink.take() {
+            old.stop();
+        }
+        cur.sink = Some(sink);
+        cur.duration_secs = 0.0; // sentinel: live stream
+        cur.seek_offset = 0.0;
+        cur.play_started = Some(Instant::now());
+        cur.paused_at = None;
         cur.replay_gain_linear = 1.0;
-        cur.base_volume       = volume.clamp(0.0, 1.0);
-        cur.fadeout_trigger   = Some(fadeout_trigger);
-        cur.fadeout_samples   = Some(fadeout_samples);
+        cur.base_volume = volume.clamp(0.0, 1.0);
+        cur.fadeout_trigger = Some(fadeout_trigger);
+        cur.fadeout_samples = Some(fadeout_samples);
     }
     drop(stream_attach);
     drop(commit_guard);
 
     *state.current_playback_url.lock().unwrap() = Some(url.clone());
 
-    state.current_sample_rate.store(sample_rate.get(), Ordering::Relaxed);
-    state.current_channels.store(channels.get() as u32, Ordering::Relaxed);
+    state
+        .current_sample_rate
+        .store(sample_rate.get(), Ordering::Relaxed);
+    state
+        .current_channels
+        .store(channels.get() as u32, Ordering::Relaxed);
 
     app.emit("audio:playing", 0.0f64).ok();
 

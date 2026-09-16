@@ -41,9 +41,10 @@ impl<'a> IcyMetadataBlock<'a> {
 
 fn find_field_end(value: &str) -> Option<usize> {
     let bytes = value.as_bytes();
-    bytes.windows(2).enumerate().find_map(|(index, pair)| {
-        (pair == b"';" && !is_escaped(bytes, index)).then_some(index)
-    })
+    bytes
+        .windows(2)
+        .enumerate()
+        .find_map(|(index, pair)| (pair == b"';" && !is_escaped(bytes, index)).then_some(index))
 }
 
 fn is_escaped(bytes: &[u8], index: usize) -> bool {
@@ -81,31 +82,26 @@ mod tests {
 
     #[test]
     fn falls_back_to_latin1_for_invalid_utf8() {
-        let metadata =
-            IcyMetadataBlock::parse(b"StreamTitle='\xA9 Track';StreamUrl='x';");
+        let metadata = IcyMetadataBlock::parse(b"StreamTitle='\xA9 Track';StreamUrl='x';");
         assert_eq!(metadata.stream_title(), Some("\u{00a9} Track"));
     }
 
     #[test]
     fn tolerates_trailing_null_padding() {
-        let metadata =
-            IcyMetadataBlock::parse(b"StreamTitle='Track';StreamUrl='0';\0\0");
+        let metadata = IcyMetadataBlock::parse(b"StreamTitle='Track';StreamUrl='0';\0\0");
         assert_eq!(metadata.stream_title(), Some("Track"));
         assert_eq!(metadata.stream_url(), Some("0"));
     }
 
     #[test]
     fn ignores_escaped_field_terminator() {
-        let metadata =
-            IcyMetadataBlock::parse(b"StreamTitle='Rock \\'; Roll';StreamUrl='x';");
+        let metadata = IcyMetadataBlock::parse(b"StreamTitle='Rock \\'; Roll';StreamUrl='x';");
         assert_eq!(metadata.stream_title(), Some("Rock \\'; Roll"));
     }
 
     #[test]
     fn even_backslashes_do_not_escape_field_terminator() {
-        let metadata = IcyMetadataBlock::parse(
-            b"StreamTitle='Track \\\\';ignored';StreamUrl='x';",
-        );
+        let metadata = IcyMetadataBlock::parse(b"StreamTitle='Track \\\\';ignored';StreamUrl='x';");
         assert_eq!(metadata.stream_title(), Some("Track \\\\"));
     }
 

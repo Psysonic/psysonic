@@ -270,10 +270,7 @@ fn sparse_remap_invalidates_album_list_state_and_marks_preserved_version_pending
     assert_eq!(state_hash, "dirty");
     assert_eq!(cursor_count, 1);
     assert_eq!(raw["albumVersion"], json!("Stale authoritative value"));
-    assert_eq!(
-        raw["_psysonicAlbumVersionNeedsListRefresh"],
-        json!(true)
-    );
+    assert_eq!(raw["_psysonicAlbumVersionNeedsListRefresh"], json!(true));
 }
 
 #[test]

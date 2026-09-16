@@ -48,9 +48,7 @@ fn track_sync_info_from_json_uses_album_artist_when_present() {
     assert_eq!(info.track_number, Some(7));
     assert_eq!(info.duration, Some(380));
     assert!(
-        info.playlist_name.is_none()
-            && info.playlist_id.is_none()
-            && info.playlist_index.is_none()
+        info.playlist_name.is_none() && info.playlist_id.is_none() && info.playlist_index.is_none()
     );
 }
 

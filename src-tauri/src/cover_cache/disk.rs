@@ -5,7 +5,12 @@ pub use psysonic_core::cover_cache_layout;
 pub const DERIVE_TIERS: [u32; 4] = [128, 256, 512, 800];
 
 /// Delegates to [`cover_cache_layout::cover_dir`] — disk path format lives in `psysonic-core`.
-pub fn cover_dir(root: &Path, server_index_key: &str, cache_kind: &str, cache_entity_id: &str) -> PathBuf {
+pub fn cover_dir(
+    root: &Path,
+    server_index_key: &str,
+    cache_kind: &str,
+    cache_entity_id: &str,
+) -> PathBuf {
     cover_cache_layout::cover_dir(root, server_index_key, cache_kind, cache_entity_id)
 }
 
@@ -36,7 +41,11 @@ pub fn meta_path(dir: &Path) -> PathBuf {
 
 pub fn tier_exists(dir: &Path, tier: u32) -> Option<PathBuf> {
     let p = tier_path(dir, tier);
-    if p.is_file() { Some(p) } else { None }
+    if p.is_file() {
+        Some(p)
+    } else {
+        None
+    }
 }
 
 /// Version stamp for a tier file: mtime in epoch seconds, `0` when the file is

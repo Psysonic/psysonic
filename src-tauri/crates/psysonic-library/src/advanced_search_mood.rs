@@ -50,10 +50,7 @@ fn mood_tag_exists_fragment(tags: &[String]) -> SqlFragment {
              WHERE mf.server_id = t.server_id AND mf.track_id = t.id \
                AND mf.fact_kind = 'mood_tag' AND mf.value_text IN ({placeholders}))"
         ),
-        params: tags
-            .iter()
-            .map(|t| SqlValue::Text(t.clone()))
-            .collect(),
+        params: tags.iter().map(|t| SqlValue::Text(t.clone())).collect(),
     }
 }
 
@@ -99,7 +96,7 @@ fn json_to_string_list(
                 detail: "operator `in` requires an array value".to_string(),
             }
             .to_string()),
-        }
+        },
         _ => Err(filter::FilterError::UnsupportedOp {
             field: field.to_string(),
             op: op.as_str(),

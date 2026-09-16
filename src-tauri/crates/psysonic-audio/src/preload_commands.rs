@@ -80,13 +80,7 @@ fn publish_fresh_preload_if_current(
     emit_ready: impl FnOnce(),
     spawn_analysis: impl FnOnce(),
 ) -> bool {
-    if !publish_preloaded_if_current(
-        generation,
-        preload_epoch,
-        snapshot,
-        preloaded,
-        value,
-    ) {
+    if !publish_preloaded_if_current(generation, preload_epoch, snapshot, preloaded, value) {
         return false;
     }
     emit_ready();
@@ -163,22 +157,13 @@ fn seed_preload_analysis_file(
 }
 
 fn emit_preload_ready(app: &AppHandle, url: String, track_id: Option<String>) {
-    let _ = app.emit(
-        "audio:preload-ready",
-        PreloadEventPayload {
-            url,
-            track_id,
-        },
-    );
+    let _ = app.emit("audio:preload-ready", PreloadEventPayload { url, track_id });
 }
 
 fn emit_preload_cancelled(app: &AppHandle, url: String, track_id: Option<String>) {
     let _ = app.emit(
         "audio:preload-cancelled",
-        PreloadEventPayload {
-            url,
-            track_id,
-        },
+        PreloadEventPayload { url, track_id },
     );
 }
 
@@ -199,11 +184,7 @@ fn invalidate_preload_state(
 #[tauri::command]
 #[specta::specta]
 pub fn audio_invalidate_preloads(state: State<'_, AudioEngine>) {
-    invalidate_preload_state(
-        &state.preload_epoch,
-        &state.preloaded,
-        &state.chained_info,
-    );
+    invalidate_preload_state(&state.preload_epoch, &state.preloaded, &state.chained_info);
 }
 
 #[tauri::command]
@@ -303,15 +284,10 @@ pub async fn audio_preload(
         }
     }
 
-    let response = crate::engine::playback_scoped_get(
-        &state,
-        &app,
-        &url,
-        server_id.as_deref(),
-    )
-    .send()
-    .await
-    .map_err(|e| e.to_string())?;
+    let response = crate::engine::playback_scoped_get(&state, &app, &url, server_id.as_deref())
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     if !response.status().is_success() {
         emit_preload_cancelled(&app, url, track_id_for_events);
         return Ok(());
@@ -371,7 +347,10 @@ mod tests {
         let published = publish_fresh_preload_if_current(
             &generation,
             &preload_epoch,
-            PreloadSnapshot { generation: 4, epoch: 2 },
+            PreloadSnapshot {
+                generation: 4,
+                epoch: 2,
+            },
             &preloaded,
             PreloadedTrack {
                 url: "https://example.test/stream".to_string(),
@@ -403,7 +382,10 @@ mod tests {
         let published = publish_fresh_preload_if_current(
             &generation,
             &preload_epoch,
-            PreloadSnapshot { generation: 4, epoch: 2 },
+            PreloadSnapshot {
+                generation: 4,
+                epoch: 2,
+            },
             &preloaded,
             PreloadedTrack {
                 url: "https://example.test/stale".to_string(),
@@ -428,7 +410,10 @@ mod tests {
         let published = publish_preloaded_if_current(
             &generation,
             &preload_epoch,
-            PreloadSnapshot { generation: 4, epoch: 2 },
+            PreloadSnapshot {
+                generation: 4,
+                epoch: 2,
+            },
             &preloaded,
             PreloadedTrack {
                 url: "https://example.test/stale-epoch".to_string(),

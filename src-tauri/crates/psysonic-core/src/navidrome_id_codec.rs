@@ -1,7 +1,6 @@
 //! Deterministic Navidrome entity and structured-artwork ID codec.
 
-const BASE62_DIGITS: &[u8; 62] =
-    b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+const BASE62_DIGITS: &[u8; 62] = b"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 const ARTWORK_PREFIXES: [&str; 7] = ["mf-", "al-", "ar-", "pl-", "ra-", "tr-", "dc-"];
 
 pub fn canonical_id(value: &str) -> String {

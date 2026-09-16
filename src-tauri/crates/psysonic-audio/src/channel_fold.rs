@@ -101,7 +101,12 @@ pub(crate) struct FoldToStereo<S> {
 
 impl<S> FoldToStereo<S> {
     pub(crate) fn new(inner: S, channels: usize) -> Self {
-        Self { inner, channels, scale: fold_normalisation(channels), pending_right: None }
+        Self {
+            inner,
+            channels,
+            scale: fold_normalisation(channels),
+            pending_right: None,
+        }
     }
 }
 
@@ -219,10 +224,22 @@ mod tests {
             let (l, r) = fold_gains(idx, 6);
             assert!(l > 0.0 || r > 0.0, "channel {idx} of 5.1 goes nowhere");
         }
-        assert_eq!(fold_gains(2, 6), (MINUS_3_DB, MINUS_3_DB), "centre feeds both");
+        assert_eq!(
+            fold_gains(2, 6),
+            (MINUS_3_DB, MINUS_3_DB),
+            "centre feeds both"
+        );
         assert_eq!(fold_gains(3, 6), (0.5, 0.5), "LFE feeds both, quieter");
-        assert_eq!(fold_gains(4, 6), (MINUS_3_DB, 0.0), "left surround stays left");
-        assert_eq!(fold_gains(5, 6), (0.0, MINUS_3_DB), "right surround stays right");
+        assert_eq!(
+            fold_gains(4, 6),
+            (MINUS_3_DB, 0.0),
+            "left surround stays left"
+        );
+        assert_eq!(
+            fold_gains(5, 6),
+            (0.0, MINUS_3_DB),
+            "right surround stays right"
+        );
     }
 
     #[test]
@@ -295,15 +312,27 @@ mod tests {
         // Issue #1408: a 5.1 track lost centre, LFE and both surrounds on a
         // stereo device because rodio keeps the first two channels and discards
         // the rest. Each contribution has to be present in the sum.
-        let source = Labelled { pos: 0, channels: 6, frames: 4 };
+        let source = Labelled {
+            pos: 0,
+            channels: 6,
+            frames: 4,
+        };
         let folded: Vec<f32> = FoldToStereo::new(source, 6).take(2).collect();
 
         let scale = fold_normalisation(6);
         let expected_left = (0.1 + 0.3 * MINUS_3_DB + 0.4 * 0.5 + 0.5 * MINUS_3_DB) * scale;
         let expected_right = (0.2 + 0.3 * MINUS_3_DB + 0.4 * 0.5 + 0.6 * MINUS_3_DB) * scale;
 
-        assert!((folded[0] - expected_left).abs() < 1e-6, "left was {}", folded[0]);
-        assert!((folded[1] - expected_right).abs() < 1e-6, "right was {}", folded[1]);
+        assert!(
+            (folded[0] - expected_left).abs() < 1e-6,
+            "left was {}",
+            folded[0]
+        );
+        assert!(
+            (folded[1] - expected_right).abs() < 1e-6,
+            "right was {}",
+            folded[1]
+        );
 
         // The failure mode being fixed: output that contains only channels 1
         // and 2 — that is what discarding looks like.
@@ -320,7 +349,11 @@ mod tests {
         // and rate. Rounding an ended span up to a non-zero value leaves the queue
         // describing the finished source at a gapless boundary.
         use rodio::Source as _;
-        let source = Labelled { pos: 0, channels: 6, frames: 0 };
+        let source = Labelled {
+            pos: 0,
+            channels: 6,
+            frames: 0,
+        };
         let folded = FoldToStereo::new(source, 6);
         assert_eq!(folded.current_span_len(), Some(0));
         assert!(folded.is_exhausted());
@@ -332,7 +365,11 @@ mod tests {
         // under-reports by one — the same off-by-one that puts rodio's converters
         // on the wrong channel.
         use rodio::Source as _;
-        let source = Labelled { pos: 0, channels: 6, frames: 4 };
+        let source = Labelled {
+            pos: 0,
+            channels: 6,
+            frames: 4,
+        };
         let mut folded = FoldToStereo::new(source, 6);
         assert_eq!(folded.current_span_len(), Some(8));
         let _left = folded.next().expect("a left sample");
@@ -352,7 +389,11 @@ mod tests {
         // for the rest of the track. Seeks arrive on an odd stride, so they hit
         // mid-frame about half the time.
         use rodio::Source as _;
-        let source = Labelled { pos: 0, channels: 6, frames: 8 };
+        let source = Labelled {
+            pos: 0,
+            channels: 6,
+            frames: 8,
+        };
         let mut folded = FoldToStereo::new(source, 6);
 
         let first_left = folded.next().expect("a left sample");
@@ -367,7 +408,10 @@ mod tests {
         );
 
         let right = folded.next().expect("the owed right sample");
-        assert!(right != first_left, "left and right must stay distinguishable");
+        assert!(
+            right != first_left,
+            "left and right must stay distinguishable"
+        );
     }
 
     #[test]
@@ -376,9 +420,17 @@ mod tests {
         // RC SL SR. The rear centre is index 4 — where 5.1 and 7.1 have a left
         // surround — and reading it as a pair puts the rear centre in the left
         // speaker and swaps the sides. Indices per symphonia's FLAC channel map.
-        assert_eq!(fold_gains(4, 7), (MINUS_3_DB, MINUS_3_DB), "rear centre feeds both");
+        assert_eq!(
+            fold_gains(4, 7),
+            (MINUS_3_DB, MINUS_3_DB),
+            "rear centre feeds both"
+        );
         assert_eq!(fold_gains(5, 7), (MINUS_3_DB, 0.0), "side left stays left");
-        assert_eq!(fold_gains(6, 7), (0.0, MINUS_3_DB), "side right stays right");
+        assert_eq!(
+            fold_gains(6, 7),
+            (0.0, MINUS_3_DB),
+            "side right stays right"
+        );
     }
 
     #[test]
@@ -400,7 +452,11 @@ mod tests {
     #[test]
     fn the_folded_source_reports_stereo_and_whole_frames() {
         use rodio::Source as _;
-        let source = Labelled { pos: 0, channels: 6, frames: 4 };
+        let source = Labelled {
+            pos: 0,
+            channels: 6,
+            frames: 4,
+        };
         let folded = FoldToStereo::new(source, 6);
         assert_eq!(folded.channels().get(), 2);
         let span = folded.current_span_len().expect("a finite span");
@@ -416,19 +472,34 @@ mod tests {
             type Item = f32;
             fn next(&mut self) -> Option<f32> {
                 self.0 = self.0.saturating_sub(1);
-                if self.0 == 0 { None } else { Some(1.0) }
+                if self.0 == 0 {
+                    None
+                } else {
+                    Some(1.0)
+                }
             }
         }
         impl rodio::Source for AllOnes {
-            fn current_span_len(&self) -> Option<usize> { None }
-            fn channels(&self) -> rodio::ChannelCount { std::num::NonZeroU16::new(6).unwrap() }
-            fn sample_rate(&self) -> rodio::SampleRate { std::num::NonZeroU32::new(44_100).unwrap() }
-            fn total_duration(&self) -> Option<std::time::Duration> { None }
+            fn current_span_len(&self) -> Option<usize> {
+                None
+            }
+            fn channels(&self) -> rodio::ChannelCount {
+                std::num::NonZeroU16::new(6).unwrap()
+            }
+            fn sample_rate(&self) -> rodio::SampleRate {
+                std::num::NonZeroU32::new(44_100).unwrap()
+            }
+            fn total_duration(&self) -> Option<std::time::Duration> {
+                None
+            }
         }
 
         let folded: Vec<f32> = FoldToStereo::new(AllOnes(64), 6).take(8).collect();
         for sample in folded {
-            assert!(sample.abs() <= 1.0 + f32::EPSILON, "fold clipped at {sample}");
+            assert!(
+                sample.abs() <= 1.0 + f32::EPSILON,
+                "fold clipped at {sample}"
+            );
         }
     }
 

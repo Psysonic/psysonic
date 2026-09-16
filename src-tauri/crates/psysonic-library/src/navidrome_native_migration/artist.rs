@@ -30,7 +30,13 @@ pub(super) fn preflight(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Resu
     let mut cursor_rowid = 0;
     let mut scanned = 0u64;
     loop {
-        let rows = load_batch(tx, server_id, cursor_rowid, upper_rowid, super::MAX_BATCH_LIMIT)?;
+        let rows = load_batch(
+            tx,
+            server_id,
+            cursor_rowid,
+            upper_rowid,
+            super::MAX_BATCH_LIMIT,
+        )?;
         let Some(last_rowid) = rows.last().map(|row| row.rowid) else {
             break;
         };
@@ -77,11 +83,9 @@ pub(super) fn run_batch(
         let old_id = source.id.clone();
         let destination_id = canonical_id(&source.id);
         if source.id == destination_id {
-            let raw_json = canonical_payload(
-                source.raw_json.as_deref(),
-                NavidromePayloadKind::Artist,
-            )
-            .map_err(migration_error)?;
+            let raw_json =
+                canonical_payload(source.raw_json.as_deref(), NavidromePayloadKind::Artist)
+                    .map_err(migration_error)?;
             tx.execute(
                 "UPDATE artist SET raw_json = ?1 WHERE server_id = ?2 AND id = ?3",
                 params![raw_json, server_id, source.id],
@@ -196,11 +200,8 @@ fn canonicalize_owner(
     destination_id: String,
 ) -> rusqlite::Result<ArtistOwner> {
     source.id = destination_id;
-    source.raw_json = canonical_payload(
-        source.raw_json.as_deref(),
-        NavidromePayloadKind::Artist,
-    )
-    .map_err(migration_error)?;
+    source.raw_json = canonical_payload(source.raw_json.as_deref(), NavidromePayloadKind::Artist)
+        .map_err(migration_error)?;
     Ok(source)
 }
 
@@ -226,11 +227,7 @@ fn merge_owner(
     })
 }
 
-fn write_owner(
-    tx: &Transaction<'_>,
-    server_id: &str,
-    owner: &ArtistOwner,
-) -> rusqlite::Result<()> {
+fn write_owner(tx: &Transaction<'_>, server_id: &str, owner: &ArtistOwner) -> rusqlite::Result<()> {
     tx.execute(
         "INSERT INTO artist \
            (server_id, id, name, album_count, synced_at, raw_json, name_sort, name_fold) \

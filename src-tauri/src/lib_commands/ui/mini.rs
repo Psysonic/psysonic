@@ -25,7 +25,10 @@ pub(crate) struct MiniPlayerPosition {
 }
 
 pub(crate) fn mini_pos_file(app: &tauri::AppHandle) -> Option<std::path::PathBuf> {
-    app.path().app_config_dir().ok().map(|p| p.join("mini_player_pos.json"))
+    app.path()
+        .app_config_dir()
+        .ok()
+        .map(|p| p.join("mini_player_pos.json"))
 }
 
 pub(crate) fn read_mini_pos(app: &tauri::AppHandle) -> Option<MiniPlayerPosition> {
@@ -35,7 +38,9 @@ pub(crate) fn read_mini_pos(app: &tauri::AppHandle) -> Option<MiniPlayerPosition
 }
 
 pub(crate) fn write_mini_pos(app: &tauri::AppHandle, pos: MiniPlayerPosition) {
-    let Some(path) = mini_pos_file(app) else { return };
+    let Some(path) = mini_pos_file(app) else {
+        return;
+    };
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
@@ -58,8 +63,7 @@ pub(crate) fn mark_mini_pos_programmatic() {
 }
 
 pub(crate) fn is_mini_pos_programmatic() -> bool {
-    last_programmatic_pos_set().lock().unwrap().elapsed()
-        < std::time::Duration::from_millis(1000)
+    last_programmatic_pos_set().lock().unwrap().elapsed() < std::time::Duration::from_millis(1000)
 }
 
 /// Throttle disk writes during a drag — `WindowEvent::Moved` fires on
@@ -72,9 +76,8 @@ pub(crate) fn persist_mini_pos_throttled(app: &tauri::AppHandle, x: i32, y: i32)
         return;
     }
     static LAST_WRITE: OnceLock<Mutex<std::time::Instant>> = OnceLock::new();
-    let mu = LAST_WRITE.get_or_init(|| {
-        Mutex::new(std::time::Instant::now() - std::time::Duration::from_secs(10))
-    });
+    let mu = LAST_WRITE
+        .get_or_init(|| Mutex::new(std::time::Instant::now() - std::time::Duration::from_secs(10)));
     {
         let mut last = mu.lock().unwrap();
         if last.elapsed() < std::time::Duration::from_millis(250) {
@@ -110,7 +113,9 @@ pub(crate) fn mini_position_visible(app: &tauri::AppHandle, x: i32, y: i32) -> b
 /// the main window sits on (falls back to primary). A 24 px logical margin
 /// keeps it off the screen edge; +56 px on the bottom margin avoids most
 /// taskbars/docks since Tauri does not expose work-area rects.
-pub(crate) fn default_mini_position(app: &tauri::AppHandle) -> Option<tauri::PhysicalPosition<i32>> {
+pub(crate) fn default_mini_position(
+    app: &tauri::AppHandle,
+) -> Option<tauri::PhysicalPosition<i32>> {
     let monitor = app
         .get_webview_window("main")
         .and_then(|w| w.current_monitor().ok().flatten())
@@ -223,9 +228,13 @@ pub(crate) fn build_mini_player_window(
 ) -> Result<tauri::WebviewWindow, String> {
     let use_always_on_top = {
         #[cfg(target_os = "linux")]
-        { !is_tiling_wm() }
+        {
+            !is_tiling_wm()
+        }
         #[cfg(not(target_os = "linux"))]
-        { true }
+        {
+            true
+        }
     };
 
     // Tiling WMs manage window sizes themselves — enforcing a max width
@@ -233,9 +242,13 @@ pub(crate) fn build_mini_player_window(
     // a horizontal drag can't stretch the layout across a whole monitor.
     let cap_width = {
         #[cfg(target_os = "linux")]
-        { !is_tiling_wm() }
+        {
+            !is_tiling_wm()
+        }
         #[cfg(not(target_os = "linux"))]
-        { true }
+        {
+            true
+        }
     };
 
     // Resolve target position BEFORE building so the WM places the window
@@ -260,19 +273,16 @@ pub(crate) fn build_mini_player_window(
     // mini fits a tighter visual style across all WMs (incl. tiling).
     let use_decorations = !cfg!(target_os = "linux");
 
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        app,
-        "mini",
-        tauri::WebviewUrl::App("index.html".into()),
-    )
-    .title("Psysonic Mini")
-    .inner_size(340.0, 260.0)
-    .min_inner_size(320.0, 240.0)
-    .resizable(true)
-    .decorations(use_decorations)
-    .always_on_top(use_always_on_top)
-    .skip_taskbar(false)
-    .visible(visible);
+    let mut builder =
+        tauri::WebviewWindowBuilder::new(app, "mini", tauri::WebviewUrl::App("index.html".into()))
+            .title("Psysonic Mini")
+            .inner_size(340.0, 260.0)
+            .min_inner_size(320.0, 240.0)
+            .resizable(true)
+            .decorations(use_decorations)
+            .always_on_top(use_always_on_top)
+            .skip_taskbar(false)
+            .visible(visible);
 
     // Cap width so horizontal drag can't stretch the layout across a whole
     // monitor. Height is intentionally left effectively unlimited so users
@@ -430,7 +440,10 @@ pub(crate) fn resume_rendering(window: tauri::WebviewWindow) -> Result<(), Strin
 /// always force a `false → true` cycle so the WM re-evaluates the layer.
 #[tauri::command]
 #[specta::specta]
-pub(crate) fn set_mini_player_always_on_top(app: tauri::AppHandle, on_top: bool) -> Result<(), String> {
+pub(crate) fn set_mini_player_always_on_top(
+    app: tauri::AppHandle,
+    on_top: bool,
+) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("mini") {
         if on_top {
             let _ = win.set_always_on_top(false);
@@ -459,7 +472,8 @@ pub(crate) fn set_mini_player_decorations(
     decorations: bool,
 ) -> Result<(), String> {
     if let Some(win) = app.get_webview_window("mini") {
-        win.set_decorations(decorations).map_err(|e| e.to_string())?;
+        win.set_decorations(decorations)
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -485,7 +499,8 @@ pub(crate) fn resize_mini_player(
             win.set_min_size(Some(tauri::LogicalSize::new(mw, mh)))
                 .map_err(|e| e.to_string())?;
         }
-        win.set_size(tauri::LogicalSize::new(width, height)).map_err(|e| e.to_string())?;
+        win.set_size(tauri::LogicalSize::new(width, height))
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }

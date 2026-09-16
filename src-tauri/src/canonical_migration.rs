@@ -360,18 +360,18 @@ mod tests {
 
         // This models an in-flight filesystem operation that discovers it must
         // enqueue enrichment after migration begin has started.
-        let analysis_reader = tokio::time::timeout(
-            Duration::from_secs(1),
-            analysis.clone().read_owned(),
-        )
-        .await
-        .expect("filesystem holder must reach ordinary analysis admission");
+        let analysis_reader =
+            tokio::time::timeout(Duration::from_secs(1), analysis.clone().read_owned())
+                .await
+                .expect("filesystem holder must reach ordinary analysis admission");
         drop(filesystem_reader);
 
         tokio::pin!(migration);
-        assert!(tokio::time::timeout(Duration::from_millis(20), &mut migration)
-            .await
-            .is_err());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut migration)
+                .await
+                .is_err()
+        );
         drop(analysis_reader);
         let analysis_writer = migration.await.unwrap().unwrap();
         drop(analysis_writer);
@@ -380,7 +380,9 @@ mod tests {
 
     #[tokio::test]
     async fn filesystem_activation_failure_rolls_back_created_library_generation() {
-        let runtime = Arc::new(LibraryRuntime::new(Arc::new(LibraryStore::open_in_memory())));
+        let runtime = Arc::new(LibraryRuntime::new(
+            Arc::new(LibraryStore::open_in_memory()),
+        ));
         let runtime_for_rollback = Arc::clone(&runtime);
 
         let error = begin_migration_generation_serialized(

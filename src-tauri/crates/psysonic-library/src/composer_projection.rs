@@ -8,7 +8,9 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 
 use crate::artist_sort::{sort_key_for_display_name, DEFAULT_IGNORED_ARTICLES};
-use crate::browse_projection::{AlbumScope, ScopeBrowseProjectionInspectDto, ScopeBrowseProjectionProgressEvent};
+use crate::browse_projection::{
+    AlbumScope, ScopeBrowseProjectionInspectDto, ScopeBrowseProjectionProgressEvent,
+};
 use crate::store::LibraryStore;
 
 pub const MIGRATION_ID: &str = "scope_browse_composer_projection_v1";
@@ -102,7 +104,8 @@ fn reconcile_composer_metadata(
          WHERE server_id = ?1 AND composer_id = ?2",
     )?;
     for (server_id, composer_id) in composers {
-        let name: String = canonical.query_row(params![server_id, composer_id], |row| row.get(0))?;
+        let name: String =
+            canonical.query_row(params![server_id, composer_id], |row| row.get(0))?;
         update.execute(params![
             server_id,
             composer_id,
@@ -266,7 +269,13 @@ pub(crate) fn rebuild_scope(
 fn map_rebuild_track(
     row: &rusqlite::Row<'_>,
 ) -> rusqlite::Result<(String, String, String, i64, String)> {
-    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+    Ok((
+        row.get(0)?,
+        row.get(1)?,
+        row.get(2)?,
+        row.get(3)?,
+        row.get(4)?,
+    ))
 }
 
 fn migration_completed(conn: &Connection) -> rusqlite::Result<bool> {
@@ -293,11 +302,10 @@ fn cursor_rowid(conn: &Connection) -> rusqlite::Result<i64> {
 pub(crate) fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, String> {
     store
         .with_read_conn(|conn| {
-            let total: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM track WHERE deleted = 0",
-                [],
-                |row| row.get(0),
-            )?;
+            let total: i64 =
+                conn.query_row("SELECT COUNT(*) FROM track WHERE deleted = 0", [], |row| {
+                    row.get(0)
+                })?;
             if total == 0 || migration_completed(conn)? {
                 return Ok(ScopeBrowseProjectionInspectDto {
                     needed: false,

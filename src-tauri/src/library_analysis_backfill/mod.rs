@@ -6,10 +6,9 @@ use std::sync::Arc;
 
 use tauri::{AppHandle, Manager};
 use worker::{
-    spawn_coordinator, setup_library_sync_idle_listener, LibraryAnalysisBackfillSession,
+    setup_library_sync_idle_listener, spawn_coordinator, LibraryAnalysisBackfillSession,
     LibraryAnalysisBackfillWorker,
 };
-
 
 pub fn init_library_analysis_backfill(app: &AppHandle) -> Result<(), String> {
     let worker = Arc::new(LibraryAnalysisBackfillWorker::new());

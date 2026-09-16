@@ -148,19 +148,21 @@ pub(super) fn cli_action_registry_entries() -> &'static Vec<CliActionRegistryEnt
 }
 
 pub(super) fn cli_registry_entry_by_verb(verb: &str) -> Option<&'static CliActionRegistryEntry> {
-    cli_action_registry_entries().iter().find(|entry| entry.verb == verb)
+    cli_action_registry_entries()
+        .iter()
+        .find(|entry| entry.verb == verb)
 }
 
-pub(super) fn cli_registry_entry_by_command(command: &str) -> Option<&'static CliActionRegistryEntry> {
+pub(super) fn cli_registry_entry_by_command(
+    command: &str,
+) -> Option<&'static CliActionRegistryEntry> {
     cli_action_registry_entries()
         .iter()
         .find(|entry| entry.command == command)
 }
 
 pub fn wants_version(args: &[String]) -> bool {
-    args.iter()
-        .skip(1)
-        .any(|a| a == "--version" || a == "-V")
+    args.iter().skip(1).any(|a| a == "--version" || a == "-V")
 }
 
 pub fn wants_help(args: &[String]) -> bool {
@@ -222,9 +224,7 @@ pub fn logs_tail_lines(args: &[String]) -> Result<Option<usize>, String> {
 }
 
 pub fn wants_quiet(args: &[String]) -> bool {
-    args.iter()
-        .skip(1)
-        .any(|a| a == "--quiet" || a == "-q")
+    args.iter().skip(1).any(|a| a == "--quiet" || a == "-q")
 }
 
 /// Machine-readable output for `--json` with list/search commands (`audio-device`, `library`, `server`, `search`).
@@ -254,9 +254,7 @@ fn parse_volume_cli_arg(raw: &str) -> Option<PlayerCliCmd> {
     if !(0..=100).contains(&v) {
         return None;
     }
-    Some(PlayerCliCmd::Volume {
-        percent: v as u8,
-    })
+    Some(PlayerCliCmd::Volume { percent: v as u8 })
 }
 
 fn parse_player_cli_at(args: &[String], pos: usize) -> Option<PlayerCliCmd> {
@@ -454,7 +452,9 @@ mod tests {
     #[test]
     fn benchmark_run_defaults_and_options() {
         let defaults = vec!["psysonic", "benchmark", "run"]
-            .into_iter().map(String::from).collect::<Vec<_>>();
+            .into_iter()
+            .map(String::from)
+            .collect::<Vec<_>>();
         assert_eq!(
             parse_cli_command(&defaults),
             Some(CliCommand::BenchmarkRun(BenchmarkCliRequest {
@@ -464,9 +464,20 @@ mod tests {
             }))
         );
         let configured = vec![
-            "psysonic", "benchmark", "run", "--scenario", "core-pages",
-            "--runs", "3", "--profile", "isolated", "--json",
-        ].into_iter().map(String::from).collect::<Vec<_>>();
+            "psysonic",
+            "benchmark",
+            "run",
+            "--scenario",
+            "core-pages",
+            "--runs",
+            "3",
+            "--profile",
+            "isolated",
+            "--json",
+        ]
+        .into_iter()
+        .map(String::from)
+        .collect::<Vec<_>>();
         assert_eq!(
             parse_cli_command(&configured),
             Some(CliCommand::BenchmarkRun(BenchmarkCliRequest {

@@ -18,8 +18,8 @@ use std::sync::{Arc, Mutex};
 mod artwork;
 mod presence;
 
-pub use artwork::ArtworkCacheEntry;
 pub use artwork::search_itunes_artwork;
+pub use artwork::ArtworkCacheEntry;
 #[cfg(test)]
 use presence::apply_template;
 use presence::{
