@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { burnJobIsActive, burnJobIsCommitted, useBurnJobStore } from './burnJobStore';
 import type { BurnProgressEvent } from '@/lib/api/burn';
 
@@ -143,5 +143,95 @@ describe('burnJobStore — CD-TEXT request', () => {
   it('defaults to not asked, so existing callers are unchanged', () => {
     useBurnJobStore.getState().start('job-plain', 100_000, false);
     expect(useBurnJobStore.getState().cdTextRequested).toBe(false);
+  });
+});
+
+describe('burn job timing', () => {
+  const at = (iso: string) => vi.setSystemTime(new Date(iso));
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    useBurnJobStore.getState().reset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('starts the clock when the laser does, not when the job does', () => {
+    at('2026-01-01T00:00:00Z');
+    useBurnJobStore.getState().start('job-1', 100_000, false);
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'fetching' }));
+    // Fetching and rendering write nothing; timing them would describe the
+    // wrong thing entirely.
+    expect(useBurnJobStore.getState().writeStartedAt).toBeNull();
+
+    at('2026-01-01T00:00:40Z');
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'writing' }));
+    expect(useBurnJobStore.getState().writeStartedAt).toBe(Date.now());
+  });
+
+  it('leaves the start where it was as the write goes on', () => {
+    at('2026-01-01T00:00:00Z');
+    useBurnJobStore.getState().start('job-1', 100_000, false);
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'writing' }));
+    const startedAt = useBurnJobStore.getState().writeStartedAt;
+
+    at('2026-01-01T00:02:00Z');
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'writing', sectorsDone: 90_000 }));
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'closing' }));
+    expect(useBurnJobStore.getState().writeStartedAt).toBe(startedAt);
+  });
+
+  it('fixes how long the write took with no page involved', () => {
+    // The regression this exists for: the burner page can be left and returned
+    // to while a burn runs. The clock used to live in a component ref, so a
+    // two-and-a-half minute rehearsal reported the four seconds since the user
+    // came back. Nothing here is mounted, and the figure is still right.
+    at('2026-01-01T00:00:00Z');
+    useBurnJobStore.getState().start('job-1', 100_000, false);
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'writing' }));
+
+    at('2026-01-01T00:02:30Z');
+    useBurnJobStore.getState().finish({ tracksWritten: 11, sectorsWritten: 100_000 });
+    expect(useBurnJobStore.getState().elapsedSec).toBe(150);
+  });
+
+  it('records how long a burn ran before it failed or was stopped', () => {
+    at('2026-01-01T00:00:00Z');
+    useBurnJobStore.getState().start('job-1', 100_000, false);
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'writing' }));
+    at('2026-01-01T00:00:30Z');
+    useBurnJobStore.getState().fail('the drive refused the write address');
+    expect(useBurnJobStore.getState().elapsedSec).toBe(30);
+
+    useBurnJobStore.getState().reset();
+    at('2026-01-01T00:10:00Z');
+    useBurnJobStore.getState().start('job-2', 100_000, true);
+    useBurnJobStore.getState().applyProgress(progress({ jobId: 'job-2', phase: 'writing' }));
+    at('2026-01-01T00:10:45Z');
+    useBurnJobStore.getState().finishCancelled();
+    expect(useBurnJobStore.getState().elapsedSec).toBe(45);
+  });
+
+  it('says nothing about a burn that never reached the laser', () => {
+    at('2026-01-01T00:00:00Z');
+    useBurnJobStore.getState().start('job-1', 100_000, false);
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'fetching' }));
+    useBurnJobStore.getState().fail('“Burnout” could not be prepared');
+    expect(useBurnJobStore.getState().elapsedSec).toBeNull();
+  });
+
+  it('forgets the previous job clock when a new one starts', () => {
+    at('2026-01-01T00:00:00Z');
+    useBurnJobStore.getState().start('job-1', 100_000, false);
+    useBurnJobStore.getState().applyProgress(progress({ phase: 'writing' }));
+    at('2026-01-01T00:02:30Z');
+    useBurnJobStore.getState().finish({ tracksWritten: 11, sectorsWritten: 100_000 });
+
+    useBurnJobStore.getState().start('job-2', 100_000, false);
+    const state = useBurnJobStore.getState();
+    expect(state.writeStartedAt).toBeNull();
+    expect(state.elapsedSec).toBeNull();
   });
 });

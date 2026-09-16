@@ -37,8 +37,16 @@ export function useBurnTiming(args: {
   writing: boolean;
   sectorsDone: number;
   sectorsTotal: number;
+  /**
+   * When the laser started, as epoch milliseconds, from the job store.
+   *
+   * Passed in rather than taken from the first render that sees `writing`: the
+   * burner page can be left and returned to mid-burn, and a clock started on
+   * mount would then count from the moment the user came back.
+   */
+  writeStartedAt: number | null;
 }): BurnTiming {
-  const { writing, sectorsDone, sectorsTotal } = args;
+  const { writing, sectorsDone, sectorsTotal, writeStartedAt } = args;
 
   const samples = useRef<BurnSample[]>([]);
   const startedAt = useRef<number | null>(null);
@@ -55,12 +63,16 @@ export function useBurnTiming(args: {
       return;
     }
     const now = performance.now();
-    startedAt.current ??= now;
+    // Samples are measured on the monotonic clock, the store's timestamp is
+    // wall-clock, so the start is carried across rather than mixed: however
+    // long ago the write began, that is how far back the clock starts here.
+    startedAt.current ??=
+      writeStartedAt === null ? now : now - Math.max(0, Date.now() - writeStartedAt);
     const last = samples.current[samples.current.length - 1];
     if (!last || last.sectorsDone !== sectorsDone) {
       samples.current = trimSamples([...samples.current, { at: now, sectorsDone }], now);
     }
-  }, [writing, sectorsDone]);
+  }, [writing, sectorsDone, writeStartedAt]);
 
   // The clock has to move between progress events, which arrive every 250ms at
   // best and far less often on a slow drive.

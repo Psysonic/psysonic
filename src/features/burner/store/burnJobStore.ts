@@ -44,6 +44,17 @@ export interface BurnJobState {
    * disc and was redone without it — looks the same as one that never asked.
    */
   cdTextRequested: boolean;
+  /**
+   * When the laser started, as epoch milliseconds, or `null` before it did.
+   *
+   * Kept here rather than in the page because the burner page can be left and
+   * returned to while a burn runs: a timestamp in a component ref dies with it,
+   * and the clock then restarts from the moment the user came back. That is how
+   * a two-and-a-half minute rehearsal came to report four seconds.
+   */
+  writeStartedAt: number | null;
+  /** How long the write took, fixed when the job ended. */
+  elapsedSec: number | null;
 
   start: (jobId: string, sectorsTotal: number, testWrite: boolean, cdTextRequested?: boolean) => void;
   applyProgress: (event: BurnProgressEvent) => void;
@@ -68,7 +79,14 @@ const IDLE = {
   testWrite: false,
   tracksWritten: 0,
   cdTextRequested: false,
+  writeStartedAt: null,
+  elapsedSec: null,
 };
+
+/** Seconds since `startedAt`, or `null` when the laser never started. */
+function elapsedSince(startedAt: number | null): number | null {
+  return startedAt === null ? null : Math.max(0, (Date.now() - startedAt) / 1000);
+}
 
 export const useBurnJobStore = create<BurnJobState>()((set) => ({
   ...IDLE,
@@ -82,6 +100,12 @@ export const useBurnJobStore = create<BurnJobState>()((set) => ({
       if (state.jobId !== event.jobId) return state;
       return {
         phase: event.phase,
+        // The first event from a committed phase is the laser starting. Fetching
+        // and rendering come first and write nothing, so timing them would
+        // describe the wrong thing entirely.
+        writeStartedAt:
+          state.writeStartedAt ??
+          (burnJobIsCommitted(state.status, event.phase) ? Date.now() : null),
         trackIndex: event.trackIndex,
         sectorsDone: event.sectorsDone,
         // Rust knows the real total once rendering is done; trust it over the estimate.
@@ -96,12 +120,33 @@ export const useBurnJobStore = create<BurnJobState>()((set) => ({
   cancelRequestFailed: () =>
     set(state => (state.status === 'cancelling' ? { status: 'running' } : state)),
 
+  // How long it took is fixed here, where the job ends, rather than read off a
+  // clock the page owns: the page may not be mounted at this moment.
   finish: ({ tracksWritten, sectorsWritten }) =>
-    set({ status: 'done', phase: null, tracksWritten, sectorsDone: sectorsWritten, error: null }),
+    set(state => ({
+      status: 'done',
+      phase: null,
+      tracksWritten,
+      sectorsDone: sectorsWritten,
+      error: null,
+      elapsedSec: elapsedSince(state.writeStartedAt),
+    })),
 
-  fail: (error) => set({ status: 'failed', phase: null, error }),
+  fail: (error) =>
+    set(state => ({
+      status: 'failed',
+      phase: null,
+      error,
+      elapsedSec: elapsedSince(state.writeStartedAt),
+    })),
 
-  finishCancelled: () => set({ status: 'cancelled', phase: null, error: null }),
+  finishCancelled: () =>
+    set(state => ({
+      status: 'cancelled',
+      phase: null,
+      error: null,
+      elapsedSec: elapsedSince(state.writeStartedAt),
+    })),
 
   reset: () => set({ ...IDLE }),
 }));

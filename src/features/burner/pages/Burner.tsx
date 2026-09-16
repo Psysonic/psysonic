@@ -70,6 +70,7 @@ export default function Burner() {
     writing,
     sectorsDone: job.sectorsDone,
     sectorsTotal: job.sectorsTotal,
+    writeStartedAt: job.writeStartedAt,
   });
   // Kept across visits: these used to reset every time the page was left, which
   // switched CD-TEXT back on and turned a rehearsal back into a real burn.
@@ -132,19 +133,6 @@ export default function Burner() {
     const timer = setTimeout(() => setArmedFor(null), ABORT_ARM_MS);
     return () => clearTimeout(timer);
   }, [armedFor]);
-
-  // The timer is cleared the moment writing stops, so how long the burn took
-  // has to be caught on the way past or it is gone before it can be shown.
-  const elapsedRef = useRef<number | null>(null);
-  const [finalElapsed, setFinalElapsed] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (writing && timing.elapsedSec !== null) elapsedRef.current = timing.elapsedSec;
-  });
-
-  useEffect(() => {
-    if (stage === 'settled') setFinalElapsed(elapsedRef.current);
-  }, [stage]);
 
   const needsDownload = useMemo(() => tracksNeedingDownload(tracks), [tracks]);
   const downloadBytes = useMemo(() => estimatedDownloadBytes(tracks), [tracks]);
@@ -421,7 +409,7 @@ export default function Burner() {
             overSectors={Math.max(0, layout.totalSectors - layout.capacitySectors)}
             fetchBytes={downloadBytes}
             tracksWritten={job.tracksWritten}
-            finalElapsedSec={finalElapsed}
+            finalElapsedSec={job.elapsedSec}
           />
 
           {/* Options sit under the metrics: that column is otherwise dead space
@@ -559,7 +547,7 @@ export default function Burner() {
               blocker={blocker ? t(blocker.key, blocker.values) : null}
               pastRedBook74={layout.pastRedBook74}
               job={job}
-              finalElapsedSec={finalElapsed}
+              finalElapsedSec={job.elapsedSec}
               queueSeconds={sectorsToSeconds(layout.totalSectors)}
               warningId={COMMIT_WARNING_ID}
             />
