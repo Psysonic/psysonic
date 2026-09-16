@@ -7,6 +7,8 @@ import { previewInputFromSong, usePreviewStore } from '@/features/playback/store
 import { useOrbitSongRowBehavior } from '@/features/orbit';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { formatTrackTime } from '@/lib/format/formatDuration';
+import { useDragDrop } from '@/lib/dnd/DragDropContext';
+import { useDragPressHandle } from '@/lib/dnd/useDragPress';
 import ArtistTopTrackCover from '@/features/artist/components/ArtistTopTrackCover';
 import { topSongAlbumForCover } from '@/features/artist/components/topSongAlbumForCover';
 
@@ -31,6 +33,8 @@ export default function ArtistDetailTopTracks({
   const previewingId = usePreviewStore(s => s.previewingId);
   const previewAudioStarted = usePreviewStore(s => s.audioStarted);
   const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const psyDrag = useDragDrop();
+  const dragPress = useDragPressHandle();
 
   // The offline and local-index branches leave the ranking empty while the full
   // list still has tracks. Without this the tab would show a bare header row —
@@ -88,11 +92,20 @@ export default function ArtistDetailTopTracks({
                  if ((e.target as HTMLElement).closest('button, a, input')) return;
                   addTrackToOrbit(song.id, song.serverId);
                } : undefined}
-               onContextMenu={(e) => {
-                 e.preventDefault();
-                 openContextMenu(e.clientX, e.clientY, track, 'song');
-               }}
-             >
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  openContextMenu(e.clientX, e.clientY, track, 'song');
+                }}
+                onMouseDown={e => {
+                  dragPress.arm(e, {
+                    canStart: ev => !(ev.target as HTMLElement).closest('button, a, input'),
+                    onStart: me => psyDrag.startDrag(
+                      { data: JSON.stringify({ type: 'song', track }), label: song.title },
+                      me.clientX, me.clientY,
+                    ),
+                  });
+                }}
+              >
         <div className={`track-num${currentTrack?.id === song.id ? ' track-num-active' : ''}`}>
           {currentTrack?.id === song.id && isPlaying ? (
             <span className="track-num-eq"><AudioLines className="eq-bars" size={14} /></span>
