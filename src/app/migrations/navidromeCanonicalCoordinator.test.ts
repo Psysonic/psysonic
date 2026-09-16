@@ -418,6 +418,34 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
     });
   });
 
+  it('accepts a newly added canonical server with no local identity data without migration', async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 0;
+      if (command === 'library_migration_inventory') return undefined;
+      throw new Error(`Unexpected command ${command}`);
+    });
+
+    await expect(observeNavidromeCanonicalSuccessfulPing({
+      profile: {
+        id: 'profile', name: 'Music', url: 'https://music.test', username: 'user', password: 'password',
+      },
+      ping: { type: 'navidrome', serverVersion: '0.64.0' },
+    })).resolves.toBe(false);
+
+    expect(mocks.invoke).not.toHaveBeenCalledWith('library_migration_begin', expect.anything());
+    expect(localStorage.getItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY)).toBeNull();
+    const stored = JSON.parse(localStorage.getItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY) ?? '{}');
+    expect(stored.servers['music.test']).toMatchObject({
+      phase: 'ready',
+      sourceVersion: '0.64.0',
+      checkedVersion: '0.64.0',
+      step: null,
+      lastError: null,
+    });
+    expect(stored.servers['music.test'].localCompletedAt).toBeTypeOf('number');
+    expect(stored.servers['music.test'].syncCompletedAt).toBeTypeOf('number');
+  });
+
   it('serializes runtime observations so different server checkpoints cannot overwrite each other', async () => {
     const auth = JSON.parse(localStorage.getItem('psysonic-auth') ?? '{}');
     auth.state.servers.push({
@@ -444,6 +472,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
   it('finishes a generation admission when its profile is removed during begin', async () => {
     let resolveBegin!: (result: ReturnType<typeof beginResult>) => void;
     mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 1;
       if (command === 'library_migration_begin') {
         return new Promise<ReturnType<typeof beginResult>>(resolve => { resolveBegin = resolve; });
       }
@@ -479,6 +508,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
 
   it('clears a runtime bootstrap lock when admission fails without an active generation', async () => {
     mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 1;
       if (command === 'library_migration_begin') throw new Error('activation failed');
       if (command === 'library_migration_inspect') return { state: 'inactive', lastGeneration: 7 };
       throw new Error(`Unexpected command ${command}`);
@@ -496,6 +526,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
 
   it('does not clear a bootstrap lock replaced by another operation after admission failure', async () => {
     mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 1;
       if (command === 'library_migration_begin') throw new Error('activation failed');
       if (command === 'library_migration_inspect') {
         localStorage.setItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY, '1');
@@ -517,6 +548,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
   it('does not release a shared generation when a newly added admission becomes stale', async () => {
     let resolveBegin!: (result: ReturnType<typeof beginResult>) => void;
     mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 1;
       if (command === 'library_migration_begin') {
         return new Promise<ReturnType<typeof beginResult>>(resolve => { resolveBegin = resolve; });
       }
@@ -548,6 +580,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
 
   it('leaves an existing non-terminal server admission untouched when observation becomes stale', async () => {
     mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 1;
       if (command === 'library_migration_begin') {
         localStorage.removeItem('psysonic-auth');
         return beginResult(21, false, 'native');
@@ -568,6 +601,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
 
   it('restores a terminal server phase without releasing its shared generation', async () => {
     mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_count_live_tracks') return 1;
       if (command === 'library_migration_begin') {
         localStorage.removeItem('psysonic-auth');
         return beginResult(22, false, 'ready');
@@ -685,6 +719,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
     expect(onProgress).toHaveBeenCalledWith({
       reason: 'navidrome-canonical-ids',
       serverId: 'music.test',
+      serverName: 'Music',
       serverVersion: '0.64.0',
       phase: 'pending',
       step: null,

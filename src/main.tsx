@@ -69,7 +69,8 @@ function renderMigrationShell(
   const safeTitle = escapeHtml(error ? i18n.t('migration.failed') : phase);
   const safeDetail = escapeHtml(detail);
   const safeReason = escapeHtml(i18n.t('migration.canonicalIdReason'));
-  const safeServer = progress?.serverId ? escapeHtml(progress.serverId) : null;
+  const serverLabel = progress?.serverName?.trim() || progress?.serverId;
+  const safeServer = serverLabel ? escapeHtml(serverLabel) : null;
   const safeVersion = progress?.serverVersion ? escapeHtml(progress.serverVersion) : null;
   const progressPercent = progressText && progress
     ? Math.min(100, Math.max(0, Math.round((progress.completed / progress.total) * 100)))
@@ -122,6 +123,7 @@ function freezeApplication(): void {
   renderMigrationShell({
     reason: 'navidrome-canonical-ids',
     serverId: null,
+    serverName: null,
     serverVersion: null,
     phase: 'pending',
     step: null,
@@ -146,6 +148,7 @@ async function mountApplication(): Promise<void> {
   renderMigrationShell({
     reason: 'navidrome-canonical-ids',
     serverId: null,
+    serverName: null,
     serverVersion: null,
     phase: 'probing',
     step: null,
@@ -169,6 +172,7 @@ async function mountApplication(): Promise<void> {
     renderMigrationShell({
       reason: 'navidrome-canonical-ids',
       serverId: null,
+      serverName: null,
       serverVersion: null,
       phase: 'pending',
       step: null,

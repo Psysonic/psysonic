@@ -119,6 +119,7 @@ type DeviceSyncManifestSource = {
 export type NavidromeCanonicalMigrationProgress = {
   reason: 'navidrome-canonical-ids';
   serverId: string | null;
+  serverName: string | null;
   serverVersion: string | null;
   phase: NavidromeCanonicalMigrationPhase | 'probing' | 'idle';
   step: string | null;
@@ -673,6 +674,22 @@ async function verifyCanonicalInventory(args: {
   verifyNavidromeCanonicalFrontendState(storage, scope);
 }
 
+async function canAdmitCanonicalServerWithoutMigration(args: {
+  serverId: string;
+  scope: NavidromeCanonicalFrontendScope;
+  authState: Record<string, unknown>;
+  storage: Storage;
+}): Promise<boolean> {
+  const liveTracks = await invoke<number>('library_count_live_tracks', { serverId: args.serverId });
+  if (liveTracks !== 0) return false;
+  try {
+    await verifyCanonicalInventory(args);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function navidromeCanonicalCheckpointIsBlocking(storage: Storage = localStorage): boolean {
   if (storage.getItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY) !== null) return true;
   try {
@@ -791,6 +808,25 @@ async function observeNavidromeCanonicalSuccessfulPingNow(args: {
 
   if (saved?.phase === 'ready' && saved.checkedVersion === sourceVersion) return false;
 
+  if (!saved && await canAdmitCanonicalServerWithoutMigration({
+    serverId,
+    scope: frontendScope(group, groups),
+    authState: rawAuthState(storage),
+    storage,
+  })) {
+    if (!admissionIsCurrent()) throw staleAdmissionError();
+    const completedAt = now();
+    write.set(serverId, sourceVersion, {
+      phase: 'ready',
+      checkedVersion: sourceVersion,
+      step: null,
+      localCompletedAt: completedAt,
+      syncCompletedAt: completedAt,
+      lastError: null,
+    });
+    return false;
+  }
+
   const lockToken = setRuntimeBootstrapLock(storage, serverId);
   await args.beforeAdmission?.();
   const admission = await beginRuntimeMigrationAdmission(storage, [serverId], lockToken);
@@ -830,6 +866,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const storage = options.storage ?? localStorage;
   const emit = (
     serverId: string | null,
+    serverName: string | null,
     serverVersion: string | null,
     phase: NavidromeCanonicalMigrationProgress['phase'],
     step: string | null,
@@ -838,6 +875,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   ) => options.onProgress?.({
     reason: 'navidrome-canonical-ids',
     serverId,
+    serverName,
     serverVersion,
     phase,
     step,
@@ -894,7 +932,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const reachable: ReachableServer[] = [];
   for (let index = 0; index < groupsToProbe.length; index += 1) {
     const group = groupsToProbe[index];
-    emit(group.serverIndexKey, null, 'probing', null, index, groupsToProbe.length);
+    emit(group.serverIndexKey, group.profiles[0]?.name.trim() || null, null, 'probing', null, index, groupsToProbe.length);
     const server = await probeGroup(group);
     if (server) reachable.push(server);
   }
@@ -922,14 +960,27 @@ export async function runNavidromeCanonicalMigrationCoordinator(
           && saved.checkedVersion !== null
           && saved.localCompletedAt !== null
           && saved.syncCompletedAt !== null);
-      if (canInventoryWithoutFullSync) {
+      const pristinePendingAdmission = saved?.phase === 'pending'
+        && saved.step === null
+        && saved.localCompletedAt === null
+        && saved.syncCompletedAt === null;
+      const establishedWithoutMigration = (!saved || pristinePendingAdmission)
+        && await canAdmitCanonicalServerWithoutMigration({
+          serverId,
+          scope: frontendScope(server.group, groups),
+          authState,
+          storage,
+        });
+      if (canInventoryWithoutFullSync || establishedWithoutMigration) {
         try {
-          await verifyCanonicalInventory({
-            serverId,
-            scope: frontendScope(server.group, groups),
-            authState,
-            storage,
-          });
+          if (!establishedWithoutMigration) {
+            await verifyCanonicalInventory({
+              serverId,
+              scope: frontendScope(server.group, groups),
+              authState,
+              storage,
+            });
+          }
           if (backendAtStart.state === 'active'
             && backendAtStart.servers.some(candidate => candidate.serverId === serverId && candidate.phase !== 'ready')) {
             await invoke('library_migration_finish_server', {
@@ -939,9 +990,12 @@ export async function runNavidromeCanonicalMigrationCoordinator(
             });
             finishedBackendServerIds.add(serverId);
           }
+          const completedAt = now();
           write.set(serverId, sourceVersion, {
             phase: 'ready',
             checkedVersion: sourceVersion,
+            localCompletedAt: saved?.localCompletedAt ?? completedAt,
+            syncCompletedAt: saved?.syncCompletedAt ?? completedAt,
             lastError: null,
           });
           continue;
@@ -1011,13 +1065,14 @@ export async function runNavidromeCanonicalMigrationCoordinator(
       ))) {
       throw new Error('A canonical ID migration is active for a server that is currently unreachable');
     }
-    emit(null, null, 'idle', null, groups.length, groups.length);
+    emit(null, null, null, 'idle', null, groups.length, groups.length);
     await discardCommittedImportBackups();
     return complete({ blocked: false, migratedServers: 0 });
   }
 
   emit(
     migrationServers[0]?.group.serverIndexKey ?? null,
+    migrationServers[0]?.profile.name.trim() || null,
     migrationServers[0]?.ping.serverVersion ?? null,
     'pending',
     null,
@@ -1043,7 +1098,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
     const serverId = server.group.serverIndexKey;
     const sourceVersion = server.ping.serverVersion ?? null;
     const progress: ProgressReporter = (phase, step, completed = 0, total = 0) => {
-      emit(serverId, sourceVersion, phase, step, completed, total);
+      emit(serverId, server.profile.name.trim() || null, sourceVersion, phase, step, completed, total);
     };
     try {
       const active = await inspectBackend();
@@ -1138,6 +1193,6 @@ export async function runNavidromeCanonicalMigrationCoordinator(
 
   await invoke('library_migration_release', { generation });
   await discardCommittedImportBackups();
-  emit(null, null, 'idle', null, migrationServers.length, migrationServers.length);
+  emit(null, null, null, 'idle', null, migrationServers.length, migrationServers.length);
   return complete({ blocked: false, migratedServers });
 }
