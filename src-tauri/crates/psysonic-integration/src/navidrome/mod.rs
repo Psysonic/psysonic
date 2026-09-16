@@ -11,4 +11,6 @@ pub mod probe;
 pub mod queries;
 pub mod users;
 
-pub use client::{navidrome_token, navidrome_token_with_registry, nd_apply_request};
+pub use client::{
+    navidrome_token, navidrome_token_with_registry, nd_apply_request, nd_bulk_http_client,
+};
