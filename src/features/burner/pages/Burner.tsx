@@ -42,23 +42,9 @@ import BurnMetrics from '@/features/burner/components/BurnMetrics';
 import BurnModeSwitch from '@/features/burner/components/BurnModeSwitch';
 import BurnStageNote from '@/features/burner/components/BurnStageNote';
 import BurnTrackList from '@/features/burner/components/BurnTrackList';
-import BurnOptionsPanel, { type BurnSettings } from '@/features/burner/components/BurnOptionsPanel';
+import BurnOptionsPanel from '@/features/burner/components/BurnOptionsPanel';
+import { useBurnSettingsStore } from '@/features/burner/store/burnSettingsStore';
 import TrackListingModal from '@/features/burner/components/TrackListingModal';
-
-const DEFAULT_SETTINGS: BurnSettings = {
-  writeSpeed: null,
-  testWrite: false,
-  gapless: true,
-  normalize: false,
-  ejectWhenDone: true,
-  // On by default. It was off until a burn had been read back off real
-  // hardware; that has now happened on all three platforms, and a disc whose
-  // track names a player can show is simply the better disc. A drive that
-  // cannot write it turns this off on its own - the value sent to the backend
-  // is `settings.cdText && cdTextSupported` - so defaulting to on costs a
-  // user with an incapable drive nothing.
-  cdText: true,
-};
 
 export default function Burner() {
   const { t } = useTranslation();
@@ -85,7 +71,10 @@ export default function Burner() {
     sectorsDone: job.sectorsDone,
     sectorsTotal: job.sectorsTotal,
   });
-  const [settings, setSettings] = useState<BurnSettings>(DEFAULT_SETTINGS);
+  // Kept across visits: these used to reset every time the page was left, which
+  // switched CD-TEXT back on and turned a rehearsal back into a real burn.
+  const settings = useBurnSettingsStore(state => state.settings);
+  const patchSettings = useBurnSettingsStore(state => state.patch);
   const [listingOpen, setListingOpen] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
@@ -184,11 +173,6 @@ export default function Burner() {
 
     return () => { cancelled = true; };
   }, [tracks, setLocalPaths]);
-
-  const patchSettings = useCallback(
-    (patch: Partial<BurnSettings>) => setSettings(current => ({ ...current, ...patch })),
-    [],
-  );
 
   // What the selected drive says about CD-TEXT, and why, straight from its
   // MMC feature page rather than a guess about the model.
@@ -488,7 +472,7 @@ export default function Burner() {
             {stage === 'building' ? (
               <BurnModeSwitch
                 testWrite={settings.testWrite}
-                onChange={testWrite => setSettings(prev => ({ ...prev, testWrite }))}
+                onChange={testWrite => patchSettings({ testWrite })}
                 disabled={busy}
               />
             ) : (

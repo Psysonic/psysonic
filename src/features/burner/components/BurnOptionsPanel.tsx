@@ -1,15 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Info } from 'lucide-react';
 import type { BurnMediaInfo } from '@/lib/api/burn';
-
-export interface BurnSettings {
-  writeSpeed: number | null;
-  testWrite: boolean;
-  gapless: boolean;
-  normalize: boolean;
-  ejectWhenDone: boolean;
-  cdText: boolean;
-}
+import type { BurnSettings } from '@/features/burner/store/burnSettingsStore';
 
 export interface BurnOptionsPanelProps {
   settings: BurnSettings;
