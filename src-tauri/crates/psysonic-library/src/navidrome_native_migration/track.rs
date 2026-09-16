@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use rusqlite::{params, OptionalExtension, Transaction};
@@ -67,7 +68,10 @@ pub(super) fn run_batch(
     upper_rowid: i64,
     limit: u32,
 ) -> rusqlite::Result<BatchMutationStats> {
+    // Finalization rebuilds FTS, so avoid maintaining stale entries during the rewrite.
+    crate::track_fts::suspend_track_fts_triggers(tx)?;
     let rows = load_batch(tx, server_id, cursor_rowid, upper_rowid, limit)?;
+    prepare_fast_track_mapping(tx)?;
     for owner in &rows {
         record_mapping(
             tx,
@@ -76,19 +80,23 @@ pub(super) fn run_batch(
             &owner.row.id,
             &canonical_id(&owner.row.id),
         )?;
-        canonical_payload(
-            Some(owner.row.raw_json.as_str()),
-            NavidromePayloadKind::Track,
-        )
-        .map_err(migration_error)?;
     }
+    let preserved_reference_ids = load_preserved_reference_ids(tx, server_id)?;
+    let existing_destination_ids = load_existing_destination_ids(tx, server_id)?;
+    let remapped_at = now_unix_ms();
 
     let mut stats = BatchMutationStats::default();
     for selected in rows {
         stats.processed += 1;
         stats.last_rowid = selected.rowid;
-        let Some(source) = load_owner(tx, server_id, &selected.row.id)? else {
-            continue;
+        let requires_full_retarget = preserved_reference_ids.contains(&selected.row.id);
+        let source = if requires_full_retarget {
+            let Some(source) = load_owner(tx, server_id, &selected.row.id)? else {
+                continue;
+            };
+            source
+        } else {
+            selected
         };
         let old_id = source.row.id.clone();
         let destination_id = canonical_id(&source.row.id);
@@ -98,7 +106,11 @@ pub(super) fn run_batch(
             continue;
         }
 
-        let destination = load_owner(tx, server_id, &destination_id)?;
+        let destination = if existing_destination_ids.contains(&destination_id) {
+            load_owner(tx, server_id, &destination_id)?
+        } else {
+            None
+        };
         if let Some(destination) = destination.as_ref() {
             ensure_equivalent(&destination.row, &source.row)?;
         }
@@ -113,18 +125,160 @@ pub(super) fn run_batch(
             }
         };
         write_owner(tx, &row)?;
-        retarget_track_references(
-            tx,
-            server_id,
-            &old_id,
-            &destination_id,
-            row.content_hash.as_deref(),
-            row.server_path.as_deref(),
-            now_unix_ms(),
-        )?;
-        verify_retarget(tx, server_id, &old_id, &destination_id)?;
+        if requires_full_retarget {
+            retarget_track_references(
+                tx,
+                server_id,
+                &old_id,
+                &destination_id,
+                row.content_hash.as_deref(),
+                row.server_path.as_deref(),
+                remapped_at,
+            )?;
+            verify_retarget(tx, server_id, &old_id, &destination_id)?;
+        } else {
+            record_fast_track_mapping(
+                tx,
+                &old_id,
+                &destination_id,
+                row.content_hash.as_deref(),
+                row.server_path.as_deref(),
+                remapped_at,
+            )?;
+        }
     }
+    apply_fast_track_retargets(tx, server_id)?;
+    crate::track_fts::restore_track_fts_triggers(tx)?;
     Ok(stats)
+}
+
+fn prepare_fast_track_mapping(tx: &Transaction<'_>) -> rusqlite::Result<()> {
+    tx.execute_batch(
+        "CREATE TEMP TABLE IF NOT EXISTS navidrome_fast_track_mapping (
+           old_id TEXT PRIMARY KEY,
+           new_id TEXT NOT NULL,
+           content_hash TEXT,
+           server_path TEXT,
+           remapped_at INTEGER NOT NULL
+         ) WITHOUT ROWID;
+         DELETE FROM navidrome_fast_track_mapping;",
+    )
+}
+
+fn record_fast_track_mapping(
+    tx: &Transaction<'_>,
+    old_id: &str,
+    new_id: &str,
+    content_hash: Option<&str>,
+    server_path: Option<&str>,
+    remapped_at: i64,
+) -> rusqlite::Result<()> {
+    tx.prepare_cached(
+        "INSERT INTO navidrome_fast_track_mapping \
+         (old_id, new_id, content_hash, server_path, remapped_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5)",
+    )?
+    .execute(params![
+        old_id,
+        new_id,
+        content_hash,
+        server_path,
+        remapped_at
+    ])?;
+    Ok(())
+}
+
+fn apply_fast_track_retargets(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Result<()> {
+    tx.execute(
+        "DELETE FROM track_genre \
+         WHERE server_id = ?1 AND track_id IN \
+           (SELECT old_id FROM navidrome_fast_track_mapping)",
+        params![server_id],
+    )?;
+    tx.execute(
+        "INSERT INTO track_id_history \
+         (server_id, old_id, new_id, content_hash, server_path, remapped_at) \
+         SELECT ?1, old_id, new_id, content_hash, server_path, remapped_at \
+         FROM navidrome_fast_track_mapping WHERE 1 \
+         ON CONFLICT(server_id, old_id) DO UPDATE SET \
+           new_id = excluded.new_id, \
+           content_hash = COALESCE(NULLIF(excluded.content_hash, ''), track_id_history.content_hash), \
+           server_path = COALESCE(NULLIF(excluded.server_path, ''), track_id_history.server_path), \
+           remapped_at = MAX(track_id_history.remapped_at, excluded.remapped_at)",
+        params![server_id],
+    )?;
+    tx.execute(
+        "DELETE FROM track \
+         WHERE server_id = ?1 AND id IN \
+           (SELECT old_id FROM navidrome_fast_track_mapping)",
+        params![server_id],
+    )?;
+    Ok(())
+}
+
+fn load_preserved_reference_ids(
+    tx: &Transaction<'_>,
+    server_id: &str,
+) -> rusqlite::Result<HashSet<String>> {
+    let mut statement = tx.prepare(
+        "SELECT mapping.old_id \
+         FROM navidrome_id_batch_mapping AS mapping \
+         WHERE mapping.entity_kind = 'track' AND ( \
+           EXISTS(SELECT 1 FROM track_offline \
+             WHERE server_id = ?1 AND track_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM track_extension \
+             WHERE server_id = ?1 AND track_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM track_fact \
+             WHERE server_id = ?1 AND track_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM track_artifact \
+             WHERE server_id = ?1 AND track_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM track_canonical_link \
+             WHERE server_id = ?1 AND track_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM canonical_enrichment_link \
+             WHERE owner_server_id = ?1 AND owner_track_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM play_session \
+             WHERE server_id = ?1 AND track_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM entity_user_rating \
+             WHERE server_id = ?1 AND entity_kind = 'track' \
+               AND entity_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM track_id_history \
+             WHERE server_id = ?1 AND old_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM track_id_history \
+             WHERE server_id = ?1 AND new_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM navidrome_id_batch_mapping AS source \
+             WHERE source.entity_kind = 'track' AND source.old_id != mapping.old_id \
+               AND source.new_id = mapping.old_id) OR \
+           EXISTS(SELECT 1 FROM navidrome_id_batch_mapping AS destination \
+             WHERE destination.entity_kind = 'track' \
+               AND destination.old_id = mapping.new_id \
+               AND destination.old_id != destination.new_id) \
+         )",
+    )?;
+    let rows = statement
+        .query_map(params![server_id], |row| row.get(0))?
+        .collect();
+    rows
+}
+
+fn load_existing_destination_ids(
+    tx: &Transaction<'_>,
+    server_id: &str,
+) -> rusqlite::Result<HashSet<String>> {
+    let mut statement = tx.prepare(
+        "SELECT mapping.new_id \
+         FROM navidrome_id_batch_mapping AS mapping \
+         JOIN track AS destination \
+           ON destination.server_id = ?1 AND destination.id = mapping.new_id \
+         WHERE mapping.entity_kind = 'track' AND mapping.old_id != mapping.new_id \
+         UNION \
+         SELECT new_id FROM navidrome_id_batch_mapping \
+         WHERE entity_kind = 'track' AND old_id != new_id \
+         GROUP BY new_id HAVING COUNT(*) > 1",
+    )?;
+    let rows = statement
+        .query_map(params![server_id], |row| row.get(0))?
+        .collect();
+    rows
 }
 
 fn load_batch(
@@ -164,13 +318,14 @@ fn load_owner(
         "SELECT rowid, {} FROM track WHERE server_id = ?1 AND id = ?2",
         track_columns()
     );
-    tx.query_row(&sql, params![server_id, id], |row| {
-        Ok(TrackOwner {
-            rowid: row.get(0)?,
-            row: row_to_track_row_at(row, 1)?,
+    tx.prepare_cached(&sql)?
+        .query_row(params![server_id, id], |row| {
+            Ok(TrackOwner {
+                rowid: row.get(0)?,
+                row: row_to_track_row_at(row, 1)?,
+            })
         })
-    })
-    .optional()
+        .optional()
 }
 
 fn ensure_equivalent(destination: &TrackRow, source: &TrackRow) -> rusqlite::Result<()> {
@@ -300,48 +455,45 @@ fn merge_owner(
 }
 
 fn write_owner(tx: &Transaction<'_>, row: &TrackRow) -> rusqlite::Result<()> {
-    tx.execute(
-        UPSERT_SQL,
-        params![
-            row.server_id,
-            row.id,
-            row.title,
-            row.title_sort,
-            row.artist,
-            row.artist_id,
-            row.album,
-            row.album_id,
-            row.album_artist,
-            row.duration_sec,
-            row.track_number,
-            row.disc_number,
-            row.year,
-            row.genre,
-            row.suffix,
-            row.bit_rate,
-            row.size_bytes,
-            row.cover_art_id,
-            row.starred_at,
-            row.user_rating,
-            row.play_count,
-            row.played_at,
-            row.server_path,
-            row.library_id,
-            row.isrc,
-            row.mbid_recording,
-            row.bpm,
-            row.replay_gain_track_db,
-            row.replay_gain_album_db,
-            row.replay_gain_peak,
-            row.content_hash,
-            row.server_updated_at,
-            row.server_created_at,
-            if row.deleted { 1_i64 } else { 0_i64 },
-            row.synced_at,
-            row.raw_json,
-            0_i64,
-        ],
-    )?;
+    tx.prepare_cached(UPSERT_SQL)?.execute(params![
+        row.server_id,
+        row.id,
+        row.title,
+        row.title_sort,
+        row.artist,
+        row.artist_id,
+        row.album,
+        row.album_id,
+        row.album_artist,
+        row.duration_sec,
+        row.track_number,
+        row.disc_number,
+        row.year,
+        row.genre,
+        row.suffix,
+        row.bit_rate,
+        row.size_bytes,
+        row.cover_art_id,
+        row.starred_at,
+        row.user_rating,
+        row.play_count,
+        row.played_at,
+        row.server_path,
+        row.library_id,
+        row.isrc,
+        row.mbid_recording,
+        row.bpm,
+        row.replay_gain_track_db,
+        row.replay_gain_album_db,
+        row.replay_gain_peak,
+        row.content_hash,
+        row.server_updated_at,
+        row.server_created_at,
+        if row.deleted { 1_i64 } else { 0_i64 },
+        row.synced_at,
+        row.raw_json,
+        0_i64,
+    ])?;
     Ok(())
 }
 

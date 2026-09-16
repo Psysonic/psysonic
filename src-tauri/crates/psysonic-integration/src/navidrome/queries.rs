@@ -26,6 +26,34 @@ pub async fn nd_list_songs_internal(
     start: u32,
     end: u32,
 ) -> Result<serde_json::Value, String> {
+    nd_list_songs_internal_with_client(
+        &nd_http_client(),
+        registry,
+        server_ref,
+        server_url,
+        token,
+        sort,
+        order,
+        start,
+        end,
+    )
+    .await
+}
+
+/// Bulk-crawl variant that lets the caller retain one HTTP connection pool
+/// across all pages.
+#[allow(clippy::too_many_arguments)]
+pub async fn nd_list_songs_internal_with_client(
+    http: &reqwest::Client,
+    registry: Option<&ServerHttpRegistry>,
+    server_ref: Option<&str>,
+    server_url: &str,
+    token: &str,
+    sort: &str,
+    order: &str,
+    start: u32,
+    end: u32,
+) -> Result<serde_json::Value, String> {
     let filters = nd_build_filters(nd_song_list_filter_seed(), None);
     let start_s = start.to_string();
     let end_s = end.to_string();
@@ -42,8 +70,7 @@ pub async fn nd_list_songs_internal(
                 registry,
                 server_ref,
                 &url,
-                nd_http_client()
-                    .get(&url)
+                http.get(&url)
                     .query(&[
                         ("_filters", filters.as_str()),
                         ("_sort", sort),

@@ -115,6 +115,12 @@ export interface SubsonicSong {
     subRole?: string;
     artist: { id?: string; name: string };
   }>;
+  /**
+   * The file's comment tag, as the server reports it. Per track, even though
+   * people mostly use it to say something about the whole release ("Remaster
+   * 2024"); `deriveAlbumComment` decides when that is safe to show as one.
+   */
+  comment?: string;
 }
 
 export interface InternetRadioStation {

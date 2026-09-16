@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: 'Колони',
   resetColumns: 'Възстанови по подразбиране',
   notFound: 'Албумът не е намерен.',
+  notesShowMore: 'Прочети повече',
+  notesShowLess: 'Покажи по-малко',
   bioModal: 'Биография на изпълнителя',
   bioClose: 'Затвори',
   ratingLabel: 'Оценка',

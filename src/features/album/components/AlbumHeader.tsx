@@ -23,6 +23,8 @@ import { OpenArtistRefInline } from '@/ui/OpenArtistRefInline';
 import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
 import { deriveAlbumGenreTags } from '@/lib/library/genreTags';
+import { deriveAlbumComment } from '@/features/album/utils/albumComment';
+import AlbumNotes from '@/features/album/components/AlbumNotes';
 import { genreColor } from '@/lib/library/genreColor';
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import EntitySourcePicker from '@/ui/EntitySourcePicker';
@@ -167,6 +169,8 @@ interface AlbumHeaderProps {
   offlineProgress: { done: number; total: number } | null;
   bio: string | null;
   bioOpen: boolean;
+  /** The server's album description / review, or null when it has none. */
+  albumDescription: string | null;
   onToggleStar: () => void;
   onDownload: () => void;
   onCacheOffline: () => void;
@@ -200,6 +204,7 @@ export default function AlbumHeader({
   offlineProgress,
   bio,
   bioOpen,
+  albumDescription,
   onToggleStar,
   onDownload,
   onCacheOffline,
@@ -240,6 +245,10 @@ export default function AlbumHeader({
   const isNewAlbum = isAlbumRecentlyAdded(info.created);
   const showBioButton = !isVariousArtistsLabel(info.artist);
   const genreTags = deriveAlbumGenreTags(info, songs);
+  // The comment tag lives per track; this is the one text the whole release
+  // agrees on, or null. Memoized because the album track list is stable while
+  // the header re-renders on playback state.
+  const albumComment = useMemo(() => deriveAlbumComment(songs), [songs]);
   const [genreMenuPos, setGenreMenuPos] = useState<{ x: number; y: number } | null>(null);
   const genreMoreRef = useRef<HTMLButtonElement>(null);
   // §5 external album-chain context for the hero cover. Memoized on the
@@ -411,6 +420,7 @@ export default function AlbumHeader({
                   labelKey="entityRating.albumAriaLabel"
                 />
               </div>
+              <AlbumNotes comment={albumComment} description={albumDescription} />
               {isMobile ? (
                 <div className="album-detail-actions-mobile">
                   {/* Row 1 — Primary actions */}

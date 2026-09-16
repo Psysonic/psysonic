@@ -1,4 +1,5 @@
-use psysonic_integration::navidrome::queries::nd_list_songs_internal;
+use psysonic_integration::navidrome::nd_bulk_http_client;
+use psysonic_integration::navidrome::queries::nd_list_songs_internal_with_client;
 use serde_json::Value;
 
 use super::common::{retry_with_backoff, CURSOR_PERSIST_EVERY_BATCHES};
@@ -41,6 +42,7 @@ impl InitialSyncRunner<'_> {
 
         let budget = self.parallelism_budget();
         let prefetch = linear_prefetch_depth(&budget);
+        let http = nd_bulk_http_client();
         crate::app_eprintln!(
             "[library-sync] N1 ingest server `{}`: prefetch_depth={} max_concurrent={} batch_size={}",
             self.server_id,
@@ -55,7 +57,7 @@ impl InitialSyncRunner<'_> {
                     .await?;
                 self.check_cancellation()?;
                 sleep_request_gap(&budget, self.sleep_enabled).await;
-                let array = match self.fetch_n1_page(creds, offset).await {
+                let array = match self.fetch_n1_page(&http, creds, offset).await {
                     Err(e) if self.n1_hit_deep_offset_wall(&e, offset) => {
                         return self.fall_back_n1_to_s1(cursor, report, sync_state).await;
                     }
@@ -90,6 +92,7 @@ impl InitialSyncRunner<'_> {
         let sleep_enabled = self.sleep_enabled;
         let creds = creds.clone();
         let http_registry = self.http_registry.clone();
+        let bulk_http = http.clone();
         let server_id = self.server_id.clone();
         let mut queue = LinearPrefetchQueue::new(&budget, batch_size, offset);
 
@@ -104,6 +107,7 @@ impl InitialSyncRunner<'_> {
                     let creds = creds.clone();
                     let cancel = cancel.clone();
                     let http_registry = http_registry.clone();
+                    let bulk_http = bulk_http.clone();
                     let server_id = server_id.clone();
                     tokio::spawn(async move {
                         retry_fetch(
@@ -111,7 +115,8 @@ impl InitialSyncRunner<'_> {
                             || check_cancel_flag(&cancel),
                             || async {
                                 let end = off.saturating_add(batch_size);
-                                let response = nd_list_songs_internal(
+                                let response = nd_list_songs_internal_with_client(
+                                    &bulk_http,
                                     http_registry.as_deref(),
                                     Some(&server_id),
                                     &creds.server_url,
@@ -140,7 +145,7 @@ impl InitialSyncRunner<'_> {
                 Ok(Some(page)) => page,
                 Ok(None) => {
                     sleep_request_gap(&budget, self.sleep_enabled).await;
-                    match self.fetch_n1_page(&creds, offset).await {
+                    match self.fetch_n1_page(&http, &creds, offset).await {
                         Err(e) if self.n1_hit_deep_offset_wall(&e, offset) => {
                             return self.fall_back_n1_to_s1(cursor, report, sync_state).await;
                         }
@@ -178,6 +183,7 @@ impl InitialSyncRunner<'_> {
 
     async fn fetch_n1_page(
         &self,
+        http: &reqwest::Client,
         creds: &NavidromeProbeCredentials,
         offset: u32,
     ) -> Result<Vec<Value>, SyncError> {
@@ -185,7 +191,8 @@ impl InitialSyncRunner<'_> {
         let response = match retry_with_backoff(
             self,
             || {
-                nd_list_songs_internal(
+                nd_list_songs_internal_with_client(
+                    http,
                     self.http_registry.as_deref(),
                     Some(&self.server_id),
                     &creds.server_url,

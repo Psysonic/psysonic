@@ -44,6 +44,7 @@ function baseProps() {
     offlineStatus: 'none' as const,
     offlineProgress: null,
     bio: null,
+    albumDescription: null,
     bioOpen: false,
     onToggleStar: vi.fn(),
     onDownload: vi.fn(),

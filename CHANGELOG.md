@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 >
 
 
+## [1.55.0]
+
+## Added
+
+### Album descriptions and comment tags on the album page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1569](https://github.com/Psysonic/psysonic/pull/1569)**
+
+* The album page now shows the description your server holds for a release, under the genre tags. Long ones are trimmed to two lines with a link to read the rest in place.
+* It also shows the comment tag from your files — notes like "Remaster 2024" that had nowhere to appear before. Shown only when every tagged track on the release says the same thing, so a note about a single track is never presented as one about the album.
+
 ## [1.54.0]
 
 ## Added
@@ -36,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * On a wide window with a low column setting, each row of album, artist, playlist, radio and Offline Library cards was drawn over the row above it: titles were hidden and the bottom of every card was cut off. Rows are now as tall as the cards they hold, at any tile size.
 * The bigger the screen, the sooner it appeared — a 4K display overlapped at seven columns and fewer, while a narrower window or more columns looked correct. Both render the same now.
+
+### Navidrome 0.64 migrations start earlier and finish faster
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1570](https://github.com/Psysonic/psysonic/pull/1570)**
+
+* Upgrading an existing Navidrome server to 0.64 now starts the canonical-ID migration before library writers and unrelated background servers can hold it up. The startup screen shows responsive progress for each stage instead of appearing stuck during long operations.
+* Native ID rewrites, library projections and the final full sync do less repeated work and reuse authenticated bulk connections, substantially reducing the migration time on large libraries.
+* A clean Psysonic setup connected directly to Navidrome 0.64 skips the blocking migration pipeline entirely. When a migration is needed, its details identify the configured server by name.
 
 ## [1.53.0]
 

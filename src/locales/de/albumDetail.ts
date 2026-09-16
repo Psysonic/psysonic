@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: 'Spalten',
   resetColumns: 'Zurücksetzen',
   notFound: 'Album nicht gefunden.',
+  notesShowMore: 'Mehr lesen',
+  notesShowLess: 'Weniger anzeigen',
   bioModal: 'Künstler-Biografie',
   bioClose: 'Schließen',
   ratingLabel: 'Bewertung',

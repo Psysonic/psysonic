@@ -120,7 +120,7 @@ where
 /// keep-alive connections in the pool caused intermittent "tls handshake
 /// eof" errors on the second call to an admin endpoint when a server or
 /// proxy had already closed the TCP connection between calls.
-pub fn nd_http_client() -> reqwest::Client {
+fn nd_http_client_builder() -> reqwest::ClientBuilder {
     // TLS 1.2 only: rustls + nginx with TLS-1.3 session resumption caches
     // produces intermittent ECONNRESET mid-handshake when the upstream
     // starts churning keep-alive connections. Pinning TLS 1.2 matches what
@@ -132,8 +132,24 @@ pub fn nd_http_client() -> reqwest::Client {
         // client as the WebView instead of a second `[Psysonic]` session.
         .user_agent(psysonic_core::user_agent::subsonic_wire_user_agent())
         .http1_only()
-        .pool_max_idle_per_host(0)
         .max_tls_version(reqwest::tls::Version::TLS_1_2)
+}
+
+pub fn nd_http_client() -> reqwest::Client {
+    nd_http_client_builder()
+        .pool_max_idle_per_host(0)
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new())
+}
+
+/// Native song-list crawls issue many requests to the same endpoint in a
+/// short window. Reuse those connections so every page does not pay a fresh
+/// TCP/TLS handshake, while keeping the conservative no-pool client for
+/// infrequent admin endpoints that have encountered stale proxy connections.
+pub fn nd_bulk_http_client() -> reqwest::Client {
+    nd_http_client_builder()
+        .pool_max_idle_per_host(4)
+        .pool_idle_timeout(std::time::Duration::from_secs(15))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new())
 }
@@ -152,6 +168,101 @@ mod tests {
     fn nd_http_client_builds_without_panicking() {
         // Don't try to inspect — just verify the builder + fallback returns a Client.
         let _client = nd_http_client();
+    }
+
+    #[test]
+    fn nd_bulk_http_client_builds_without_panicking() {
+        let _client = nd_bulk_http_client();
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn nd_bulk_http_client_reuses_keep_alive_connection() {
+        use std::io::{ErrorKind, Read, Write};
+        use std::net::TcpListener;
+        use std::sync::atomic::AtomicUsize;
+        use std::thread;
+        use std::time::Duration;
+
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+        let address = listener.local_addr().expect("test server address");
+        listener
+            .set_nonblocking(true)
+            .expect("set listener nonblocking");
+        let served = Arc::new(AtomicUsize::new(0));
+        let accepted = Arc::new(AtomicUsize::new(0));
+        let served_for_server = Arc::clone(&served);
+        let accepted_for_server = Arc::clone(&accepted);
+        let server = thread::spawn(move || {
+            let mut handlers = Vec::new();
+            while served_for_server.load(Ordering::SeqCst) < 2 {
+                match listener.accept() {
+                    Ok((mut stream, _)) => {
+                        accepted_for_server.fetch_add(1, Ordering::SeqCst);
+                        let served = Arc::clone(&served_for_server);
+                        handlers.push(thread::spawn(move || {
+                            stream
+                                .set_read_timeout(Some(Duration::from_millis(100)))
+                                .expect("set stream timeout");
+                            let mut request = Vec::new();
+                            let mut buffer = [0_u8; 1024];
+                            while served.load(Ordering::SeqCst) < 2 {
+                                match stream.read(&mut buffer) {
+                                    Ok(0) => break,
+                                    Ok(read) => {
+                                        request.extend_from_slice(&buffer[..read]);
+                                        if !request.windows(4).any(|window| window == b"\r\n\r\n") {
+                                            continue;
+                                        }
+                                        stream
+                                            .write_all(
+                                                b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: keep-alive\r\n\r\n[]",
+                                            )
+                                            .expect("write test response");
+                                        stream.flush().expect("flush test response");
+                                        request.clear();
+                                        served.fetch_add(1, Ordering::SeqCst);
+                                    }
+                                    Err(error)
+                                        if matches!(
+                                            error.kind(),
+                                            ErrorKind::WouldBlock | ErrorKind::TimedOut
+                                        ) => {}
+                                    Err(error) => panic!("read test request: {error}"),
+                                }
+                            }
+                        }));
+                    }
+                    Err(error) if error.kind() == ErrorKind::WouldBlock => {
+                        thread::sleep(Duration::from_millis(5));
+                    }
+                    Err(error) => panic!("accept test connection: {error}"),
+                }
+            }
+            for handler in handlers {
+                handler.join().expect("join test connection handler");
+            }
+        });
+
+        let client = nd_bulk_http_client();
+        tokio::time::timeout(Duration::from_secs(3), async {
+            for _ in 0..2 {
+                let body = client
+                    .get(format!("http://{address}/api/song"))
+                    .send()
+                    .await
+                    .expect("send bulk request")
+                    .bytes()
+                    .await
+                    .expect("read bulk response");
+                assert_eq!(body.as_ref(), b"[]");
+            }
+        })
+        .await
+        .expect("bulk requests timed out");
+        server.join().expect("join test server");
+
+        assert_eq!(served.load(Ordering::SeqCst), 2);
+        assert_eq!(accepted.load(Ordering::SeqCst), 1);
     }
 
     // ── nd_err ────────────────────────────────────────────────────────────────

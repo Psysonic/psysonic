@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: '列',
   resetColumns: '重置为默认',
   notFound: '未找到专辑。',
+  notesShowMore: '阅读更多',
+  notesShowLess: '收起',
   bioModal: '艺术家简介',
   bioClose: '关闭',
   ratingLabel: '评分',

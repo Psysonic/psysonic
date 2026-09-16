@@ -200,6 +200,9 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                         runtime.current_job().as_ref(),
                         &session.server_id,
                     );
+                    if foreground_active {
+                        return;
+                    }
                     let scope = session.library_scope.clone().unwrap_or_default();
                     let flags_bits = psysonic_library::repos::SyncStateRepository::new(
                         &runtime.store,
@@ -236,9 +239,6 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                                 bearer_token: tok,
                             },
                         );
-                    }
-                    if foreground_active {
-                        sched = sched.with_foreground_sync_job_active(true);
                     }
                     match sched
                         .tick_with_timeout(now_ms, BACKGROUND_SCHEDULER_TICK_TIMEOUT)

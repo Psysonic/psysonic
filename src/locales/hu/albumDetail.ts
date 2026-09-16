@@ -47,6 +47,8 @@ export const albumDetail = {
   columns: 'Oszlopok',
   resetColumns: 'Visszaállítás alapértelmezettre',
   notFound: 'Az album nem található.',
+  notesShowMore: 'Tovább',
+  notesShowLess: 'Kevesebb',
   bioModal: 'Előadó életrajza',
   bioClose: 'Bezárás',
   ratingLabel: 'Értékelés',
