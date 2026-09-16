@@ -206,6 +206,7 @@ export const burner = {
   toastAdded_other: 'Added {{count}} tracks to the CD.',
   toastAddedSome_one: 'Added {{count}} track; skipped {{skipped}} already queued or over the limit.',
   toastAddedSome_other: 'Added {{count}} tracks; skipped {{skipped}} already queued or over the limit.',
+  toastNewDiscStarted: 'Started a new disc. The running order from the last burn was cleared.',
   toastAlreadyQueued: 'Already on the CD.',
   toastDiscFull: 'The disc already holds the maximum of {{max}} tracks.',
   // A running job took its track list when it started, so anything added

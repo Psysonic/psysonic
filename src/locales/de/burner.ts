@@ -181,6 +181,8 @@ export const burner = {
     '{{count}} Titel hinzugefügt; {{skipped}} übersprungen, weil bereits vorhanden oder über dem Limit.',
   toastAddedSome_other:
     '{{count}} Titel hinzugefügt; {{skipped}} übersprungen, weil bereits vorhanden oder über dem Limit.',
+  toastNewDiscStarted:
+    'Neue Disc begonnen. Die Reihenfolge des letzten Brennvorgangs wurde geleert.',
   toastAlreadyQueued: 'Bereits auf der CD.',
   toastDiscFull: 'Die Disc enthält bereits die maximalen {{max}} Titel.',
   toastBurnInProgress:

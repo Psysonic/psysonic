@@ -51,21 +51,36 @@ export function songToBurnTrack(song: BurnableTrack, serverId: string): BurnQueu
  * mid-burn leaves the running order on screen describing a disc that is not
  * the one in the drive. That is refused outright.
  *
- * A settled job (done / failed / cancelled) is the opposite case: the queue on
- * screen is a finished disc, and adding to it means "I am making a different
- * one now". That is what the page's "Burn another" button already does with
- * `reset()`, so take the same path — the queue itself is deliberately kept,
- * since Clear is right there for the user who wanted an empty one.
+ * A settled job means that disc is done, and adding now means "I am making a
+ * different one". What happens to the queue depends on what it currently is:
+ *
+ * * **After a real burn that finished**, those tracks are on a disc. Appending
+ *   to them builds a running order made of a disc that already exists plus a
+ *   new album, which usually overruns the capacity of anything it could be
+ *   burned to. So the queue is cleared and the new tracks start the next disc.
+ *   Burning a second copy does not come through here: "Burn another" is on the
+ *   page and never leaves it.
+ * * **After a rehearsal, a failure or a cancel**, no disc was made. The user is
+ *   still building this one and may be adding a track before burning it, so the
+ *   queue is kept and the tracks are appended.
  *
  * Returns false when nothing may be queued; the toast has already been shown.
  */
 function unlockQueueForAdd(): boolean {
-  const { status, reset } = useBurnJobStore.getState();
+  const { status, testWrite, reset } = useBurnJobStore.getState();
   if (burnJobIsActive(status)) {
     showToast(i18n.t('burner.toastBurnInProgress'), 4000, 'info');
     return false;
   }
+
+  const burned = status === 'done' && !testWrite;
   if (status !== 'idle') reset();
+  if (burned) {
+    useBurnListStore.getState().clear();
+    // Said out loud: a running order somebody arranged track by track must not
+    // vanish silently, even when replacing it is the right thing to do.
+    showToast(i18n.t('burner.toastNewDiscStarted'), 5000, 'info');
+  }
   return true;
 }
 

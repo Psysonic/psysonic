@@ -170,6 +170,7 @@ export const burner = {
     '已添加 {{count}} 首曲目；跳过 {{skipped}} 首，因为已在队列中或超出上限。',
   toastAddedSome_other:
     '已添加 {{count}} 首曲目；跳过 {{skipped}} 首，因为已在队列中或超出上限。',
+  toastNewDiscStarted: '已开始新光盘。上次刻录的曲目顺序已清空。',
   toastAlreadyQueued: '已在 CD 上。',
   toastDiscFull: '光盘已达到 {{max}} 首曲目的上限。',
   toastBurnInProgress: '正在刻录。请先停止，再修改队列。',

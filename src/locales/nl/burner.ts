@@ -179,6 +179,7 @@ export const burner = {
     '{{count}} nummer toegevoegd; {{skipped}} overgeslagen omdat ze al in de wachtrij stonden of boven de limiet vielen.',
   toastAddedSome_other:
     '{{count}} nummers toegevoegd; {{skipped}} overgeslagen omdat ze al in de wachtrij stonden of boven de limiet vielen.',
+  toastNewDiscStarted: 'Nieuwe disc gestart. De volgorde van de vorige brandsessie is gewist.',
   toastAlreadyQueued: 'Staat al op de cd.',
   toastDiscFull: 'De disc bevat al het maximum van {{max}} nummers.',
   toastBurnInProgress: 'Er wordt al gebrand. Stop dat voordat je de wachtrij wijzigt.',

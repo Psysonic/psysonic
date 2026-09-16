@@ -190,6 +190,8 @@ export const burner = {
     'S-au adăugat {{count}} melodii; s-au omis {{skipped}} deja în coadă sau peste limită.',
   toastAddedSome_other:
     'S-au adăugat {{count}} de melodii; s-au omis {{skipped}} deja în coadă sau peste limită.',
+  toastNewDiscStarted:
+    'A început un disc nou. Ordinea melodiilor de la inscripționarea anterioară a fost golită.',
   toastAlreadyQueued: 'Este deja pe CD.',
   toastDiscFull: 'Discul conține deja maximul de {{max}} melodii.',
   toastBurnInProgress: 'O inscripționare este în curs. Oprește-o înainte de a schimba coada.',

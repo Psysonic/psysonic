@@ -178,6 +178,8 @@ export const burner = {
     'Se añadió {{count}} pista; se omitieron {{skipped}} ya en cola o por encima del límite.',
   toastAddedSome_other:
     'Se añadieron {{count}} pistas; se omitieron {{skipped}} ya en cola o por encima del límite.',
+  toastNewDiscStarted:
+    'Nuevo disco iniciado. Se borró el orden de pistas de la grabación anterior.',
   toastAlreadyQueued: 'Ya está en el CD.',
   toastDiscFull: 'El disco ya contiene el máximo de {{max}} pistas.',
   toastBurnInProgress: 'Hay una grabación en curso. Detenla antes de cambiar la cola.',

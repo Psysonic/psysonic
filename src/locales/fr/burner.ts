@@ -181,6 +181,8 @@ export const burner = {
     '{{count}} titre ajouté ; {{skipped}} ignorés car déjà en file ou au-delà de la limite.',
   toastAddedSome_other:
     '{{count}} titres ajoutés ; {{skipped}} ignorés car déjà en file ou au-delà de la limite.',
+  toastNewDiscStarted:
+    'Nouveau disque commencé. L’ordre des titres de la gravure précédente a été effacé.',
   toastAlreadyQueued: 'Déjà sur le CD.',
   toastDiscFull: 'Le disque contient déjà le maximum de {{max}} titres.',
   toastBurnInProgress: 'Une gravure est en cours. Arrêtez-la avant de modifier la file.',

@@ -180,6 +180,8 @@ export const burner = {
     'Aggiunto {{count}} brano; {{skipped}} saltati perché già in coda o oltre il limite.',
   toastAddedSome_other:
     'Aggiunti {{count}} brani; {{skipped}} saltati perché già in coda o oltre il limite.',
+  toastNewDiscStarted:
+    'Nuovo disco iniziato. La scaletta della masterizzazione precedente è stata svuotata.',
   toastAlreadyQueued: 'Già sul CD.',
   toastDiscFull: 'Il disco contiene già il massimo di {{max}} brani.',
   toastBurnInProgress: 'È in corso una masterizzazione. Fermala prima di modificare la coda.',

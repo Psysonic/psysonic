@@ -195,6 +195,7 @@ export const burner = {
     'Додано {{count}} треків; пропущено {{skipped}} — уже в черзі або понад ліміт.',
   toastAddedSome_other:
     'Додано {{count}} трека; пропущено {{skipped}} — уже в черзі або понад ліміт.',
+  toastNewDiscStarted: 'Розпочато новий диск. Порядок треків із попереднього запису очищено.',
   toastAlreadyQueued: 'Уже на CD.',
   toastDiscFull: 'На диску вже максимум — {{max}} треків.',
   toastBurnInProgress: 'Триває запис. Зупиніть його, перш ніж змінювати чергу.',

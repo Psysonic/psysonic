@@ -176,6 +176,7 @@ export const burner = {
     '{{count}} 曲を追加しました。{{skipped}} 曲は既にキューにあるか上限を超えたためスキップしました。',
   toastAddedSome_other:
     '{{count}} 曲を追加しました。{{skipped}} 曲は既にキューにあるか上限を超えたためスキップしました。',
+  toastNewDiscStarted: '新しいディスクを開始しました。前回の書き込みの曲順は消去されました。',
   toastAlreadyQueued: 'すでに CD にあります。',
   toastDiscFull: 'ディスクはすでに上限の {{max}} 曲に達しています。',
   toastBurnInProgress: '書き込み中です。キューを変更する前に停止してください。',

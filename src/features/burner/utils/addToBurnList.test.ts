@@ -162,7 +162,10 @@ describe('adding while a burn job exists', () => {
     expect(vi.mocked(showToast).mock.calls[0][0]).toBe(REFUSAL);
   });
 
-  it('resets a finished job and appends, rather than growing the disc just burned', () => {
+  it('starts a new disc after a burn, rather than growing the one just made', () => {
+    // Those tracks are on a disc now. Appending an album to them builds a
+    // running order of a disc that already exists plus a new one, which
+    // overruns the capacity of anything it could be burned to.
     addSongsToBurnList([song('a')], 'srv');
     startJob();
     useBurnJobStore.getState().finish({ tracksWritten: 1, sectorsWritten: 100_000 });
@@ -173,11 +176,26 @@ describe('adding while a burn job exists', () => {
     // Same path "Burn another" takes: the page goes back to building.
     expect(useBurnJobStore.getState().status).toBe('idle');
     expect(useBurnJobStore.getState().jobId).toBeNull();
-    // And the queue is kept, not cleared — Clear is right there if that is what
-    // the user meant.
-    expect(useBurnListStore.getState().tracks.map(t => t.trackId)).toEqual(['a', 'b']);
+    expect(useBurnListStore.getState().tracks.map(t => t.trackId)).toEqual(['b']);
+
     const said = vi.mocked(showToast).mock.calls.map(call => call[0]);
     expect(said).not.toContain(REFUSAL);
+    // Never silently: a running order arranged track by track is worth a word.
+    expect(said).toContain('burner.toastNewDiscStarted:{}');
+  });
+
+  it('keeps the queue after a rehearsal — no disc was made', () => {
+    // A rehearsal leaves the disc blank, so this running order is still the one
+    // being built, and adding a track to it before the real burn is the point.
+    addSongsToBurnList([song('a')], 'srv');
+    useBurnJobStore.getState().start('job-rehearsal', 100_000, true);
+    useBurnJobStore.getState().finish({ tracksWritten: 1, sectorsWritten: 100_000 });
+
+    addSongsToBurnList([song('b')], 'srv');
+
+    expect(useBurnListStore.getState().tracks.map(t => t.trackId)).toEqual(['a', 'b']);
+    const said = vi.mocked(showToast).mock.calls.map(call => call[0]);
+    expect(said).not.toContain('burner.toastNewDiscStarted:{}');
   });
 
   it('resets a failed or cancelled job too — all three are just "that disc is done"', () => {

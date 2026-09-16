@@ -178,6 +178,7 @@ export const burner = {
     '{{count}} szám hozzáadva; {{skipped}} kihagyva, mert már a sorban volt vagy túllépte a korlátot.',
   toastAddedSome_other:
     '{{count}} szám hozzáadva; {{skipped}} kihagyva, mert már a sorban volt vagy túllépte a korlátot.',
+  toastNewDiscStarted: 'Új lemez indult. Az előző írás sorrendje törölve lett.',
   toastAlreadyQueued: 'Már rajta van a CD-n.',
   toastDiscFull: 'A lemezen már a maximális {{max}} szám van.',
   toastBurnInProgress: 'Írás van folyamatban. Állítsd le, mielőtt módosítod a sort.',

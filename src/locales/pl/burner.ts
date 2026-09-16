@@ -196,6 +196,8 @@ export const burner = {
     'Dodano {{count}} utworów; pominięto {{skipped}} już w kolejce lub ponad limit.',
   toastAddedSome_other:
     'Dodano {{count}} utworu; pominięto {{skipped}} już w kolejce lub ponad limit.',
+  toastNewDiscStarted:
+    'Rozpoczęto nową płytę. Kolejność utworów z poprzedniego nagrania została wyczyszczona.',
   toastAlreadyQueued: 'Już na płycie CD.',
   toastDiscFull: 'Płyta zawiera już maksymalnie {{max}} utworów.',
   toastBurnInProgress: 'Trwa nagrywanie. Zatrzymaj je przed zmianą kolejki.',

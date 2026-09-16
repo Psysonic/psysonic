@@ -178,6 +178,7 @@ export const burner = {
     'La til {{count}} spor; hoppet over {{skipped}} som allerede lå i køen eller var over grensen.',
   toastAddedSome_other:
     'La til {{count}} spor; hoppet over {{skipped}} som allerede lå i køen eller var over grensen.',
+  toastNewDiscStarted: 'Ny plate startet. Rekkefølgen fra forrige brenning ble tømt.',
   toastAlreadyQueued: 'Allerede på CD-en.',
   toastDiscFull: 'Platen inneholder allerede maksimalt {{max}} spor.',
   toastBurnInProgress: 'En brenning pågår. Stopp den før du endrer køen.',
