@@ -941,6 +941,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
     return complete({ blocked: false, migratedServers: 0 });
   }
 
+  emit(migrationServers[0]?.group.serverIndexKey ?? null, 'pending', null, 0, migrationServers.length);
   let generation: number;
   try {
     ({ generation } = await beginMigrationAdmission(

@@ -8,6 +8,7 @@ import {
   type NavidromeCanonicalMigrationProgress,
 } from './app/migrations/navidromeCanonicalCoordinator';
 import { installNavidromeCanonicalWindowGate } from './app/migrations/navidromeCanonicalWindowGate';
+import { dismissStartupSplash } from './app/startupSplash';
 import {
   installImportedBackupCoordinator,
 } from '@/features/settings/utils/backup';
@@ -46,10 +47,16 @@ function renderMigrationShell(
   progress?: NavidromeCanonicalMigrationProgress,
   error?: unknown,
 ): void {
+  if (error || (progress && progress.phase !== 'probing' && progress.phase !== 'idle')) {
+    dismissStartupSplash();
+  }
   const phase = progress?.phase === 'probing' ? i18n.t('migration.preparing') : i18n.t('migration.migrating');
   const detail = error
     ? String(error instanceof Error ? error.message : error).slice(0, 500)
     : progress?.step ?? i18n.t('migration.working');
+  const progressText = progress && progress.total > 0
+    ? `${progress.completed} / ${progress.total}`
+    : null;
   const safeTitle = escapeHtml(error ? i18n.t('migration.failed') : phase);
   const safeDetail = escapeHtml(detail);
   rootElement.innerHTML = `
@@ -57,6 +64,7 @@ function renderMigrationShell(
       <section role="${error ? 'alert' : 'status'}" aria-live="${error ? 'assertive' : 'polite'}" style="width:min(560px,92vw);padding:24px 28px;border-radius:14px;background:var(--bg-card);box-shadow:var(--shadow-lg)">
         <h2 style="margin:0 0 12px">${safeTitle}</h2>
         <p style="margin:0;color:var(--text-muted);overflow-wrap:anywhere">${safeDetail}</p>
+        ${progressText ? `<p style="margin:12px 0 0;color:var(--text-muted)">${escapeHtml(progressText)}</p>` : ''}
         ${error ? `
           <div style="display:flex;gap:8px;margin-top:16px">
             <button id="canonical-migration-retry" class="btn-primary">${escapeHtml(i18n.t('migration.retry'))}</button>

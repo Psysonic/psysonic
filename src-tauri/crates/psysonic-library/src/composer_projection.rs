@@ -330,6 +330,21 @@ pub(crate) fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspe
 
 pub(crate) fn run_backfill(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
     let inspect_result = inspect(store)?;
+    let progress_total = if inspect_result.needed {
+        inspect_result.total_tracks
+    } else {
+        0
+    };
+    run_backfill_with_progress(store, app, 0, progress_total)
+}
+
+pub(crate) fn run_backfill_with_progress(
+    store: &LibraryStore,
+    app: Option<&AppHandle>,
+    progress_offset: u64,
+    progress_total: u64,
+) -> Result<(), String> {
+    let inspect_result = inspect(store)?;
     if !inspect_result.needed {
         return Ok(());
     }
@@ -394,8 +409,8 @@ pub(crate) fn run_backfill(store: &LibraryStore, app: Option<&AppHandle>) -> Res
             app.emit(
                 "scope_browse_projection:progress",
                 ScopeBrowseProjectionProgressEvent {
-                    done,
-                    total: inspect_result.total_tracks,
+                    done: progress_offset.saturating_add(done),
+                    total: progress_total,
                 },
             )
             .map_err(|error| error.to_string())?;

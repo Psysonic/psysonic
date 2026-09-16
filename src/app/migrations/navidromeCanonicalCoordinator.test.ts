@@ -566,6 +566,7 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
   });
 
   it('runs all durable phases, full sync, final verification, and release', async () => {
+    const onProgress = vi.fn();
     localStorage.setItem('psysonic_device_sync', JSON.stringify({
       state: {
         targetDir: '/media/device',
@@ -597,8 +598,20 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
       return undefined;
     });
 
-    await expect(runNavidromeCanonicalMigrationCoordinator({ windowKind: 'main' }))
+    await expect(runNavidromeCanonicalMigrationCoordinator({ windowKind: 'main', onProgress }))
       .resolves.toEqual({ blocked: false, migratedServers: 1 });
+
+    expect(onProgress).toHaveBeenCalledWith({
+      serverId: 'music.test',
+      phase: 'pending',
+      step: null,
+      completed: 0,
+      total: 1,
+    });
+    const pendingProgressIndex = onProgress.mock.calls.findIndex(([progress]) => progress.phase === 'pending');
+    const nativeProgressIndex = onProgress.mock.calls.findIndex(([progress]) => progress.phase === 'native');
+    expect(pendingProgressIndex).toBeGreaterThanOrEqual(0);
+    expect(nativeProgressIndex).toBeGreaterThan(pendingProgressIndex);
 
     const commands = mocks.invoke.mock.calls.map(([command]) => command);
     expect(commands).toContain('library_migration_native_preflight');

@@ -143,6 +143,20 @@ pub fn run_backfill(store: &LibraryStore, app: &AppHandle) -> Result<(), String>
 }
 
 fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
+    let album_inspect = inspect_album(store)?;
+    let composer_inspect = crate::composer_projection::inspect(store)?;
+    let album_work = if album_inspect.needed {
+        album_inspect.total_tracks
+    } else {
+        0
+    };
+    let composer_work = if composer_inspect.needed {
+        composer_inspect.total_tracks
+    } else {
+        0
+    };
+    let total_work = album_work.saturating_add(composer_work);
+
     // Projection batches intentionally write physical fallback identities. Persist
     // a server rebuild request first so a crash can never leave a completed
     // projection marker without a later canonical reconcile.
@@ -160,13 +174,18 @@ fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<()
         crate::identity::mark_cluster_keys_dirty(&tx, server_ids.iter().map(String::as_str))?;
         tx.commit()
     })?;
-    run_album_backfill_impl(store, app)?;
-    crate::composer_projection::run_backfill(store, app)?;
+    run_album_backfill_impl(store, app, 0, total_work)?;
+    crate::composer_projection::run_backfill_with_progress(store, app, album_work, total_work)?;
     crate::identity::ensure_pending_cluster_keys(store)?;
     Ok(())
 }
 
-fn run_album_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
+fn run_album_backfill_impl(
+    store: &LibraryStore,
+    app: Option<&AppHandle>,
+    progress_offset: u64,
+    progress_total: u64,
+) -> Result<(), String> {
     let inspect_result = inspect_album(store)?;
     if !inspect_result.needed {
         return Ok(());
@@ -240,8 +259,8 @@ fn run_album_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Res
             app.emit(
                 "scope_browse_projection:progress",
                 ScopeBrowseProjectionProgressEvent {
-                    done,
-                    total: inspect_result.total_tracks,
+                    done: progress_offset.saturating_add(done),
+                    total: progress_total,
                 },
             )
             .map_err(|error| error.to_string())?;
