@@ -37,6 +37,12 @@ import {
 } from '@/features/playback/utils/playback/playbackServer';
 import { stampTrackServerId, stampTrackServerIds } from '@/lib/media/trackServerScope';
 import {
+  getShuffleOriginalOrder,
+  setShuffleOriginalOrder,
+  shuffled,
+} from '@/features/playback/store/shuffleModeActions';
+import { persistShuffleModeSnapshot } from '@/features/playback/store/shuffleModeStorage';
+import {
   findLocalPlaybackUrl,
   hasLocalPersistentPlaybackBytes,
 } from '@/store/localPlaybackResolve';
@@ -154,11 +160,14 @@ export function runPlayTrack(
   // to move the index; they are not bulk operations and must not
   // trigger the confirm dialog (#234 regression).
   if (!_orbitConfirmed && queue && queue.length > 1) {
+    // Bound once: the dialog resolves later, and shuffle may rewrite `queue`
+    // further down, so the callback has to carry the list the gate judged.
+    const gatedQueue = queue;
     const current = get().queueItems;
-    const sameAsCurrent = queue.length === current.length
-      && queue.every((queueTrack, index) => queueItemRefMatchesTrack(current[index], queueTrack));
+    const sameAsCurrent = gatedQueue.length === current.length
+      && gatedQueue.every((queueTrack, index) => queueItemRefMatchesTrack(current[index], queueTrack));
     if (!sameAsCurrent) {
-      void orbitBulkGuard(queue.length).then(ok => {
+      void orbitBulkGuard(gatedQueue.length).then(ok => {
         if (!ok) return;
         // Inside an Orbit session a bulk replace would discard guest
         // suggestions mid-listen. Append instead — the dialog's
@@ -166,9 +175,9 @@ export function runPlayTrack(
         // Orbit, proceed as a normal replace.
         const role = orbitSnapshot().role;
         if (role === 'host' || role === 'guest') {
-          get().enqueue(queue, true);
+          get().enqueue(gatedQueue, true);
         } else {
-          get().playTrack(track, queue, manual, true);
+          get().playTrack(track, gatedQueue, manual, true);
         }
       });
       return;
@@ -204,6 +213,42 @@ export function runPlayTrack(
         return;
       }
     }
+  }
+
+  // Shuffle is on and the caller hands over a *new* queue (double-click in a
+  // tracklist, "Play album", a playlist): mix it the way the shuffle button
+  // mixes the queue it finds, with the chosen track kept in front. Without
+  // this the button reads "shuffle" while the album plays in album order
+  // (#1572). Navigation calls pass no queue and are untouched.
+  //
+  // The order the list arrived in is remembered here, exactly as the toggle
+  // does, so switching shuffle off restores what the user actually picked.
+  // Both build their keys with the same function, so the two sides match.
+  //
+  // This sits *after* the Orbit gates on purpose: those compare the incoming
+  // queue against the current one and re-enter through `playTrack`, so mixing
+  // earlier would defeat the comparison and remember an already-mixed order.
+  if (queue && queue.length > 1 && get().shuffleMode) {
+    const chosenAt = (() => {
+      if (
+        typeof targetQueueIndex === 'number'
+        && targetQueueIndex >= 0
+        && targetQueueIndex < queue.length
+        && sameQueueTrack(queue[targetQueueIndex], track)
+      ) {
+        return targetQueueIndex;
+      }
+      return queue.findIndex(queueTrack => sameQueueTrack(queueTrack, track));
+    })();
+    setShuffleOriginalOrder(queue.map(t => queueTrackIdentityKey(t.id, t.serverId)));
+    persistShuffleModeSnapshot({ enabled: true, originalOrder: getShuffleOriginalOrder() });
+    // A track can sit in a list twice, so drop the chosen row by position
+    // rather than by identity — filtering by identity would delete its twin.
+    queue = [
+      chosenAt >= 0 ? queue[chosenAt] : track,
+      ...shuffled(queue.filter((_, index) => index !== chosenAt)),
+    ];
+    targetQueueIndex = 0;
   }
 
   // Ghost-command guard: if a gapless switch happened within 500 ms,
