@@ -16,9 +16,9 @@ Two source files and a smoke test. No new dependencies, no `build.rs`:
 
 | File | Lines | What |
 | --- | --- | --- |
-| `macos_ffi.rs` | 591 | `extern "C"` declarations + CF ownership helpers |
-| `macos.rs` | 1,369 + 306 tests | the four entry points, plus the track producer |
-| `tests/macos_smoke.rs` | 38 | enumeration against the live framework |
+| `macos_ffi.rs` | ~590 | `extern "C"` declarations + CF ownership helpers |
+| `macos.rs` | ~1,700 incl. tests | the four entry points, plus the track producer |
+| `tests/macos_smoke.rs` | ~40 | enumeration against the live framework |
 
 `platform.rs` gained a `#[cfg(target_os = "macos")]` arm per entry point.
 `cdtext/mod.rs` re-exports `to_latin1`. Nothing else in the shared layers

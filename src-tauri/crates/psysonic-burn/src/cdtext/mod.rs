@@ -18,11 +18,6 @@ mod encode;
 
 pub use encode::{encode_packs, to_latin1, CdTextError, PACK_BYTES};
 
-/// Does this 18-byte pack carry a correct CRC?
-///
-/// Used when reading CD-TEXT back off a burned disc: a drive that claims the
-/// capability and writes zeros scores nothing here instead of looking like a
-/// success.
 /// How many well-formed CD-TEXT packs are in `raw`.
 ///
 /// Counts only packs whose CRC checks out, so a drive returning a buffer of
@@ -39,6 +34,11 @@ pub fn count_valid_packs(raw: &[u8]) -> usize {
         .count()
 }
 
+/// Does this 18-byte pack carry a correct CRC?
+///
+/// Used when reading CD-TEXT back off a burned disc: a drive that claims the
+/// capability and writes zeros scores nothing here instead of looking like a
+/// success.
 pub fn pack_crc_matches(pack: &[u8]) -> bool {
     pack.len() >= PACK_BYTES && crc::pack_crc(&pack[..16]) == [pack[16], pack[17]]
 }

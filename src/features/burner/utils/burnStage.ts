@@ -43,11 +43,11 @@ export const KEY_STEP_COARSE_PX = 64;
 
 /**
  * Note: these three are documentation, not wiring. The CSS holds the real
- * values; nothing imports these. Keep them in step by hand.
+ * values — `burner.css` names `MORPH_MS` in a comment of its own — and nothing
+ * imports them. Keep them in step by hand.
  */
 export const DISC_SCALE_BUILDING = 0.85;
 export const DISC_SCALE_EXPANDED = 1;
-
 /** The single easing duration; the stylesheet transitions the disc over it. */
 export const MORPH_MS = 520;
 /** How long an armed abort stays armed before it disarms itself. */

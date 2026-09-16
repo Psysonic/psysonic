@@ -260,8 +260,9 @@ pub async fn fetch_track(
     // downloaded — up to the full fetch timeout on a slow link, with every other
     // worker stalled behind this one's slot on the fetch gate. The shared helper
     // signals it with the repo-wide "CANCELLED" sentinel; this crate keys
-    // cancellation off its own lowercase spelling (`commands.rs:194`), so the
-    // two have to be joined up or a cancel reads as a download failure.
+    // cancellation off its own lowercase spelling, which the job thread compares
+    // a worker's error against, so the two have to be joined up or a cancel
+    // reads as a download failure.
     finalize_streamed_download(response, &dest, &part, Some(cancel))
         .await
         .map_err(|e| {

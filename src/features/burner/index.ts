@@ -1,6 +1,6 @@
 /**
  * CD Burner feature — renders library tracks to Red Book PCM and writes them
- * to a CD-R (Windows / IMAPI2 today).
+ * to a CD-R on Windows, macOS and Linux.
  *
  * The `Burner` page is lazy-loaded by the router via its deep path, so it is
  * intentionally not re-exported here. Design notes, the CD-TEXT write and the

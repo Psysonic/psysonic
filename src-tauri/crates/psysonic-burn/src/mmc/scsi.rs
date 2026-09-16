@@ -493,8 +493,9 @@ pub fn mode_select_payload(page: &[u8]) -> Vec<u8> {
 
 /// Turn a sense key, ASC and ASCQ into something a person can act on.
 ///
-/// `win_sao.rs` has its own copy of this mapping against a fixed-format
-/// buffer; the two say the same things and should be changed together.
+/// Shared by every backend that reads sense — the Windows Session-At-Once write
+/// and the Linux SG_IO transport both call it — so the wording a user sees for a
+/// given refusal does not depend on the platform they are on.
 pub fn describe_sense(key: u8, asc: u8, ascq: u8) -> String {
     let meaning = match (key, asc, ascq) {
         (0x05, 0x24, _) => "the drive rejected a field in the command",

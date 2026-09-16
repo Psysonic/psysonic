@@ -114,6 +114,8 @@ src/
   model.rs         — Red Book constants + IPC DTOs
   fetch.rs         — downloads a track the cache does not hold, plus the free-space
                      arithmetic that has to promise the room before it starts
+  preflight.rs     — asks each server for a few kilobytes first, so a track it will
+                     not hand over stops the burn before anything is downloaded
   plan.rs          — disc layout and capacity arithmetic (pure)
   render.rs        — decode -> 44.1k/16-bit/stereo -> sector-aligned PCM on disk
   job.rs           — cancel registry + the two Tauri events
@@ -151,7 +153,6 @@ burn_plan(tracks, capacity_sectors, gapless) -> BurnPlan // sector counts, total
 burn_start(job_id, tracks, options)     -> ()       // watch the events for the rest
 burn_cancel(job_id)                     -> bool     // false: it had already finished
 burn_erase(recorder_id, quick)          -> ()       // CD-RW
-burn_verify_cd_text(recorder_id)        -> CdTextVerification
 ```
 
 Everything but `burn_is_supported` and `burn_cancel` returns `Result<_, String>`,
@@ -224,6 +225,8 @@ src/features/burner/
   hooks/useBurnListAutoscroll.ts — drag autoscroll for a 99-row list
   store/burnListStore.ts     — the queue and the disc title
   store/burnJobStore.ts      — the running job
+  store/burnRecorderStore.ts — the chosen drive, which has to outlive the page
+  store/burnSettingsStore.ts — the burn options, persisted
   store/burnSupportStore.ts  — whether this machine can burn, cached for the menu
   store/burnerLayoutStore.ts — the running order's width, persisted
   utils/capacity.ts       — sector/time math and what blocks a burn
@@ -231,6 +234,8 @@ src/features/burner/
   utils/burnStage.ts      — the four stages, and every layout constant
   utils/burnTiming.ts     — the measured write rate
   utils/burnOutcome.ts    — what happened, and what the disc is now
+  utils/discNotes.ts      — the notes the write head throws off, as arithmetic
+  utils/mediaBlocker.ts   — the backend's blocker code as a translation key
   utils/arcColor.ts       — the six accents the arcs and rows share
   utils/arcRgb.ts         — those same accents resolved to channels, for canvas
   utils/trackListing.ts   — the running order as text
@@ -554,8 +559,10 @@ best-documented pain point in CD burning:
    thing and is said differently: conflating the two is wrong turn #3 in
    section 12. Drives cache the table of contents they read at load time, so a
    count of zero straight after a burn is not proof of a blank lead-in. Only a
-   reload clears that cache, and the two are separate commands behind separate
-   buttons: `burn_reload_media`, then `burn_verify_cd_text` to ask again.
+   reload clears that cache, and `burn_reload_media` is what does it — but there
+   is no command to re-run the check on its own. The read-back happens inside
+   the burn on all three platforms, and the "check the disc" button it was once
+   reachable from no longer exists.
 
 `sp00nznet/futureburn` (MIT, C#) was the licence-compatible encoder reference
 while `cdtext/` was being written; it is worth a look only for cross-checking

@@ -13,8 +13,10 @@ use tauri::AppHandle;
 use crate::model::{BurnMediaInfo, BurnOptions, BurnOutcome, BurnRecorder};
 // Gated with its only user, `verify_cd_text`, which is macOS-only. An
 // unconditional import warns as unused on every other platform, and
-// deleting it outright to silence that is what broke the macOS build:
-// no CI job compiles for macOS, so the error was invisible here.
+// deleting it outright to silence that is what broke the macOS build: the only
+// macOS job is `macos-bundle-test.yml`, which is `workflow_dispatch` — manual —
+// so nothing on a push or a PR compiles for macOS and the error was invisible
+// here.
 #[cfg(target_os = "macos")]
 use crate::model::CdTextVerification;
 use crate::render::RenderedTrack;
