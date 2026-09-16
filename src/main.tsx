@@ -72,34 +72,33 @@ function renderMigrationShell(
   const serverLabel = progress?.serverName?.trim() || progress?.serverId;
   const safeServer = serverLabel ? escapeHtml(serverLabel) : null;
   const safeVersion = progress?.serverVersion ? escapeHtml(progress.serverVersion) : null;
-  const progressPercent = progressText && progress
-    ? Math.min(100, Math.max(0, Math.round((progress.completed / progress.total) * 100)))
+  const progressMax = progressText && progress ? progress.total : 1;
+  const progressValue = progressText && progress
+    ? Math.min(progressMax, Math.max(0, progress.completed))
     : 0;
   rootElement.innerHTML = `
-    <main style="min-height:100vh;display:grid;place-items:center;padding:24px;background:var(--bg);color:var(--text)">
-      <section role="${error ? 'alert' : 'status'}" aria-live="${error ? 'assertive' : 'polite'}" style="width:min(560px,92vw);padding:24px 28px;border-radius:14px;background:var(--bg-card);box-shadow:var(--shadow-lg)">
-        <h2 style="margin:0 0 12px">${safeTitle}</h2>
+    <main class="canonical-migration-shell">
+      <section class="canonical-migration-panel" role="${error ? 'alert' : 'status'}" aria-live="${error ? 'assertive' : 'polite'}">
+        <h2 class="canonical-migration-title">${safeTitle}</h2>
         ${showMigrationDetails ? `
-          <dl style="display:grid;grid-template-columns:max-content 1fr;gap:8px 14px;margin:0;color:var(--text-muted)">
-            <dt>${escapeHtml(i18n.t('migration.reasonLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeReason}</dd>
-            ${safeServer ? `<dt>${escapeHtml(i18n.t('migration.serverLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeServer}</dd>` : ''}
-            ${safeVersion ? `<dt>${escapeHtml(i18n.t('migration.versionLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeVersion}</dd>` : ''}
-            <dt>${escapeHtml(i18n.t('migration.stepLabel'))}</dt><dd style="margin:0;color:var(--text);overflow-wrap:anywhere">${safeDetail}</dd>
+          <dl class="canonical-migration-details">
+            <dt>${escapeHtml(i18n.t('migration.reasonLabel'))}</dt><dd>${safeReason}</dd>
+            ${safeServer ? `<dt>${escapeHtml(i18n.t('migration.serverLabel'))}</dt><dd>${safeServer}</dd>` : ''}
+            ${safeVersion ? `<dt>${escapeHtml(i18n.t('migration.versionLabel'))}</dt><dd>${safeVersion}</dd>` : ''}
+            <dt>${escapeHtml(i18n.t('migration.stepLabel'))}</dt><dd>${safeDetail}</dd>
           </dl>
-        ` : `<p style="margin:0;color:var(--text-muted);overflow-wrap:anywhere">${safeDetail}</p>`}
+        ` : `<p class="canonical-migration-detail">${safeDetail}</p>`}
         ${progressText ? `
-          <div style="margin-top:16px">
-            <div style="display:flex;justify-content:space-between;gap:16px;color:var(--text-muted)">
-              <span>${escapeHtml(i18n.t('migration.progressLabel'))}</span>
+          <div class="canonical-migration-progress">
+            <div class="canonical-migration-progress-label">
+              <span id="canonical-migration-progress-label">${escapeHtml(i18n.t('migration.progressLabel'))}</span>
               <span>${escapeHtml(progressText)}</span>
             </div>
-            <div role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progressPercent}" style="height:6px;margin-top:8px;border-radius:999px;overflow:hidden;background:color-mix(in srgb,var(--text-muted) 20%,transparent)">
-              <div style="width:${progressPercent}%;height:100%;background:var(--accent);transition:width 160ms ease"></div>
-            </div>
+            <progress class="canonical-migration-progress-bar" aria-labelledby="canonical-migration-progress-label" aria-valuetext="${escapeHtml(progressText)}" max="${progressMax}" value="${progressValue}">${escapeHtml(progressText)}</progress>
           </div>
         ` : ''}
         ${error ? `
-          <div style="display:flex;gap:8px;margin-top:16px">
+          <div class="canonical-migration-actions">
             <button id="canonical-migration-retry" class="btn-primary">${escapeHtml(i18n.t('migration.retry'))}</button>
             <button id="canonical-migration-copy" class="btn-surface">${escapeHtml(i18n.t('migration.copyDetails'))}</button>
           </div>
