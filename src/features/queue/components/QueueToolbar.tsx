@@ -149,6 +149,7 @@ export function QueueToolbar({
                 onTrigger={() => { void queueShare.handleCopy(); }}
                 onClose={queueShare.closeSharePicker}
                 onShare={queueShare.shareForServer}
+                requestForServer={navidromeSharingEnabled ? queueShare.requestForServer : undefined}
               />
             );
           case 'clear':

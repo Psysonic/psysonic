@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'Kolejka jest pusta — nie ma czego udostępnić.',
+  multiServerShareTitle: 'Kolejka z wielu serwerów',
+  multiServerShareHint: 'Wybierz serwer, aby udostępnić jego utwory.',
   emptyQueue: 'Kolejka jest pusta.',
   crossServerEnqueueBlocked: 'Nie można dodać do bieżącej kolejki utworów z innego serwera. Najpierw zakończ lub wyczyść kolejkę.',
   trackSingular: 'utwór',

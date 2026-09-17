@@ -28,6 +28,7 @@ export interface QueueShareController {
   sharePickerOpen: boolean;
   handleCopy: () => Promise<void>;
   shareForServer: (serverId: string) => Promise<void>;
+  requestForServer: (serverId: string) => OutboundShareRequest;
   closeSharePicker: () => void;
 }
 
@@ -118,6 +119,15 @@ export function useQueueShare({
     }
   };
 
+  const requestForServer = (serverId: string): OutboundShareRequest => {
+    const resourceIds = queueTrackIdsForServerProfile(queueItems, serverId);
+    return {
+      kind: 'queue',
+      resourceIds,
+      serverIds: resourceIds.map(() => serverId),
+    };
+  };
+
   return {
     request,
     serverOptions,
@@ -125,6 +135,7 @@ export function useQueueShare({
     sharePickerOpen,
     handleCopy,
     shareForServer,
+    requestForServer,
     closeSharePicker: () => setSharePickerOpen(false),
   };
 }

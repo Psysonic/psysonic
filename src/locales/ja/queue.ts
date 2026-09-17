@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'キューは空です。共有できるトラックはありません。',
+  multiServerShareTitle: '複数サーバーのキュー',
+  multiServerShareHint: 'サーバーを選んで、そのトラックを共有します。',
   emptyQueue: 'キューは空です。',
   crossServerEnqueueBlocked: '別サーバーのトラックは現在のキューへ追加できません。先にキューを再生し終えるかクリアしてください。',
   trackSingular: '曲',

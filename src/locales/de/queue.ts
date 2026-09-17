@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'Die Warteschlange ist leer — nichts zu teilen.',
+  multiServerShareTitle: 'Warteschlange von mehreren Servern',
+  multiServerShareHint: 'Wähle einen Server, um seine Titel zu teilen.',
   emptyQueue: 'Die Warteschlange ist leer.',
   crossServerEnqueueBlocked: 'Titel von einem anderen Server können der aktuellen Warteschlange nicht hinzugefügt werden. Beende oder leere die Warteschlange zuerst.',
   trackSingular: 'Titel',

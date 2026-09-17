@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'La file d’attente est vide — rien à partager.',
+  multiServerShareTitle: 'File d’attente multi-serveurs',
+  multiServerShareHint: 'Choisissez un serveur pour partager ses titres.',
   emptyQueue: 'La file d\'attente est vide.',
   crossServerEnqueueBlocked: 'Les titres d\'un autre serveur ne peuvent pas être ajoutés à la file en cours. Terminez ou videz la file d\'abord.',
   trackSingular: 'piste',

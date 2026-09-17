@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Копіювати публічне посилання Navidrome',
   shareNavidromePublicMissing: 'Публічне посилання Navidrome недоступне.',
   shareQueueEmpty: 'Черга порожня — нічим ділитися.',
+  multiServerShareTitle: 'Черга з кількох серверів',
+  multiServerShareHint: 'Виберіть сервер, щоб поділитися його треками.',
   emptyQueue: 'Черга порожня.',
   crossServerEnqueueBlocked: 'Треки з іншого сервера не можна додати до поточної черги. Завершіть або очистіть чергу.',
   trackSingular: 'трек',

@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'A sor üres — nincs mit megosztani.',
+  multiServerShareTitle: 'Több szerveres lejátszási sor',
+  multiServerShareHint: 'Válassz egy szervert a számainak megosztásához.',
   emptyQueue: 'A sor üres.',
   crossServerEnqueueBlocked: 'Másik szerverről származó számok nem adhatók a jelenlegi sorhoz. Előbb fejezd be vagy töröld a sort.',
   trackSingular: 'szám',

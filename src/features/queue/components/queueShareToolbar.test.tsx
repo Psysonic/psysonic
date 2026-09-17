@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import QueuePanel from '@/features/queue/components/QueuePanel';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
@@ -138,7 +139,7 @@ describe('QueuePanel share toolbar', () => {
     expect(copyTextToClipboardMock).toHaveBeenLastCalledWith('https://x.test/share/native-share');
   });
 
-  it('keeps the Psysonic server picker for a mixed-server queue when enabled', async () => {
+  it('offers both share methods for each server in a mixed-server queue', async () => {
     const firstServerId = useAuthStore.getState().activeServerId!;
     const secondServerId = useAuthStore.getState().addServer({
       name: 'Second', url: 'https://second.test', username: 'u2', password: 'p2',
@@ -151,7 +152,13 @@ describe('QueuePanel share toolbar', () => {
     const { getByLabelText, getByRole } = renderWithProviders(<QueuePanel />);
     fireEvent.click(getByLabelText('Copy queue share link'));
     const menu = getByRole('menu', { name: 'Copy queue share link' });
-    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Second' }));
+    expect(within(menu).getByRole('note')).toHaveTextContent(
+      'Multi-server queueChoose a server to share its tracks.',
+    );
+    const secondServer = within(menu).getByRole('menuitem', { name: 'Second' });
+    expect(secondServer).toHaveAttribute('aria-haspopup', 'menu');
+    fireEvent.click(secondServer);
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Psysonic' }));
 
     await waitFor(() => expect(copyTextToClipboardMock).toHaveBeenCalledOnce());
     expect(decodeSharePayloadFromText(copyTextToClipboardMock.mock.calls[0]![0])).toEqual({
@@ -159,7 +166,46 @@ describe('QueuePanel share toolbar', () => {
       k: 'queue',
       ids: ['second'],
     });
-    expect(createShareMock).not.toHaveBeenCalled();
+
+    fireEvent.click(getByLabelText('Copy queue share link'));
+    const reopenedMenu = getByRole('menu', { name: 'Copy queue share link' });
+    fireEvent.click(within(reopenedMenu).getByRole('menuitem', { name: 'Second' }));
+    fireEvent.click(within(reopenedMenu).getByRole('menuitem', { name: 'Navidrome' }));
+
+    await waitFor(() => expect(createShareMock).toHaveBeenCalledWith(
+      secondServerId,
+      ['second'],
+      'queue',
+    ));
+    expect(copyTextToClipboardMock).toHaveBeenLastCalledWith('https://x.test/share/native-share');
+  });
+
+  it('opens and closes a server method submenu with arrow keys', async () => {
+    const user = userEvent.setup();
+    const firstServerId = useAuthStore.getState().activeServerId!;
+    const secondServerId = useAuthStore.getState().addServer({
+      name: 'Second', url: 'https://second.test', username: 'u2', password: 'p2',
+    });
+    enableNavidromeSharing(secondServerId);
+    const first = makeTrack({ id: 'first', serverId: firstServerId });
+    seedQueue([
+      first,
+      makeTrack({ id: 'second', serverId: secondServerId }),
+    ], { currentTrack: first, serverId: firstServerId });
+
+    const { getByLabelText, getByRole } = renderWithProviders(<QueuePanel />);
+    await user.click(getByLabelText('Copy queue share link'));
+    const menu = getByRole('menu', { name: 'Copy queue share link' });
+    const secondServer = within(menu).getByRole('menuitem', { name: 'Second' });
+    secondServer.focus();
+
+    await user.keyboard('{ArrowRight}');
+    const psysonicMethod = within(menu).getByRole('menuitem', { name: 'Psysonic' });
+    await waitFor(() => expect(psysonicMethod).toHaveFocus());
+
+    await user.keyboard('{ArrowLeft}');
+    expect(secondServer).toHaveFocus();
+    expect(within(menu).queryByRole('menuitem', { name: 'Psysonic' })).not.toBeInTheDocument();
   });
 
   it('copies a single-server Psysonic queue directly when the integration is disabled', async () => {
