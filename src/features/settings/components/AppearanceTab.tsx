@@ -328,8 +328,11 @@ export function AppearanceTab() {
             {/* The artist photo behind every style is governed by the per-surface
                 backdrop switch, which lives on another tab — people look for it
                 here and conclude the photo can only be turned off in the
-                immersive style, where a second toggle happens to sit. */}
-            <SettingsField desc={t('settings.fsBackdropPointerDesc')}>
+                immersive style, where a second toggle happens to sit. A plain
+                description line sits too quietly between two full-width
+                controls, so this one carries the tab's info styling. */}
+            <div className="settings-hint settings-hint-info settings-hint-action">
+              <span>{t('settings.fsBackdropPointerDesc')}</span>
               <button
                 type="button"
                 className="btn btn-sm btn-surface"
@@ -339,7 +342,7 @@ export function AppearanceTab() {
               >
                 {t('settings.fsBackdropPointerAction')}
               </button>
-            </SettingsField>
+            </div>
           </SettingsGroup>
           {auth.fullscreenPlayerStyle === 'immersive' && (
             <SettingsGroup>
