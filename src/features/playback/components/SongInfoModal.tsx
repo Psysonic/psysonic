@@ -14,6 +14,7 @@ import { copyTextToClipboard } from '@/lib/server/serverMagicString';
 import { showToast } from '@/lib/dom/toast';
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
+import { genreTagsFor } from '@/lib/library/genreTags';
 import { libraryIsReady } from '@/lib/library/libraryReady';
 import {
   formatQueueMoodLabels,
@@ -173,6 +174,11 @@ export default function SongInfoModal() {
     : null;
   const displayMood = enrichment ? formatQueueMoodLabels(enrichment.moodLabels, t) : null;
 
+  // `genre` carries one name even where the file has several — servers put the
+  // full set in OpenSubsonic's `genres`, which is what the album chips and genre
+  // browse already read. Same separator as the mood row above.
+  const genreTags = song ? genreTagsFor(song) : [];
+
   return createPortal(
     <>
       <div className="song-info-backdrop" onClick={closeSongInfo} />
@@ -197,7 +203,10 @@ export default function SongInfoModal() {
                   <Row label={t('songInfo.albumArtist')} value={song.albumArtist} />
                 )}
                 <Row label={t('songInfo.year')} value={song.year} />
-                <Row label={t('songInfo.genre')} value={song.genre} />
+                <Row
+                  label={t(genreTags.length > 1 ? 'songInfo.genres' : 'songInfo.genre')}
+                  value={genreTags.join(' · ') || null}
+                />
                 <Row label={t('songInfo.duration')} value={formatTrackTime(song.duration)} />
                 <Row label={t('songInfo.track')} value={trackLabel} />
                 <Row label={t('songInfo.bpm')} value={displayBpm} />
