@@ -1,6 +1,17 @@
 import { useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-shell';
-import { AlertCircle, Copy, ExternalLink, Loader2, RefreshCw, Share2, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  ChevronDown,
+  Copy,
+  ExternalLink,
+  Link2,
+  Loader2,
+  RadioTower,
+  RefreshCw,
+  Share2,
+  Trash2,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SubsonicShare } from '@/lib/api/subsonicSharing';
 import { serverListDisplayLabel } from '@/lib/server/serverDisplayName';
@@ -9,9 +20,17 @@ import { useAuthStore } from '@/store/authStore';
 import { useConfirmModalStore } from '@/store/confirmModalStore';
 import { useShareStore, type ServerShareState } from '@/features/share/store/shareStore';
 import { selectAggregateShareCount } from '@/features/share/shareNavigation';
-import { shareResourceSummary } from '@/features/share/sharePresentation';
+import {
+  shareEntryIsAlbum,
+  shareEntryLabel,
+  shareResourceCount,
+  shareResourceSummary,
+} from '@/features/share/sharePresentation';
 import { outboundShareUnavailableHelp } from '@/features/share/outboundShare';
 import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
+import ShareContentsModal from '@/features/share/components/ShareContentsModal';
+import { AlbumCoverArtImage } from '@/cover/AlbumCoverArtImage';
+import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { copyTextToClipboard } from '@/lib/server/serverMagicString';
 import type { TFunction } from 'i18next';
 
@@ -52,6 +71,26 @@ function statusContent(
   return null;
 }
 
+function shareArtworkItems(share: SubsonicShare) {
+  const items = new Map<string, { albumId: string; coverArt?: string; label: string }>();
+  for (const entry of share.entry ?? []) {
+    const id = typeof entry.id === 'string' ? entry.id : '';
+    const albumId = shareEntryIsAlbum(entry)
+      ? id
+      : typeof entry.albumId === 'string' ? entry.albumId : id;
+    if (!albumId || items.has(albumId)) continue;
+    const coverArt = typeof entry.coverArt === 'string' ? entry.coverArt : undefined;
+    const entryLabel = shareEntryLabel(entry);
+    const label = shareEntryIsAlbum(entry) && entryLabel
+      ? entryLabel
+      : typeof entry.album === 'string' && entry.album.trim()
+        ? entry.album.trim()
+        : entryLabel ?? albumId;
+    items.set(albumId, { albumId, coverArt, label });
+  }
+  return [...items.values()];
+}
+
 export default function Shared() {
   const { t, i18n } = useTranslation();
   const servers = useAuthStore(state => state.servers);
@@ -61,10 +100,14 @@ export default function Shared() {
   const deleteShare = useShareStore(state => state.deleteShare);
   const totalShares = useShareStore(selectAggregateShareCount);
   const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
+  const collapsedServerIds = useShareSettingsStore(state => state.collapsedServerIds);
+  const toggleServerCollapsed = useShareSettingsStore(state => state.toggleServerCollapsed);
   const reachability = useServerReachabilitySnapshot();
   const [busyRows, setBusyRows] = useState<Set<string>>(() => new Set());
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
   const [copiedRow, setCopiedRow] = useState<string | null>(null);
+  const [selectedContents, setSelectedContents] = useState<{ serverId: string; share: SubsonicShare } | null>(null);
+  const anyLoading = Object.values(byServer).some(state => state.loading);
   useEffect(() => {
     if (navidromeSharingEnabled) void refreshAll();
   }, [navidromeSharingEnabled, refreshAll]);
@@ -124,21 +167,44 @@ export default function Shared() {
     }
   };
 
+  const pageHeader = (
+    <header className="shared-page__header">
+      <div className="shared-page__emblem" aria-hidden="true">
+        <Share2 size={28} />
+      </div>
+      <div className="shared-page__intro">
+        <div className="shared-page__title-row">
+          <h1>{t('sidebar.shared')}</h1>
+          {navidromeSharingEnabled && <span className="shared-page__count">{totalShares}</span>}
+        </div>
+        <p>{navidromeSharingEnabled ? t('shared.subtitle') : t('shared.navidromeSharingDesc')}</p>
+        {navidromeSharingEnabled && (
+          <div className="shared-page__stats">
+            <span><Link2 size={13} aria-hidden="true" />{t('shared.links', { count: totalShares })}</span>
+          </div>
+        )}
+      </div>
+      {navidromeSharingEnabled && (
+        <button type="button" className="btn btn-primary shared-page__refresh" onClick={() => void refreshAll()}>
+          <RefreshCw size={16} className={anyLoading ? 'spin' : undefined} aria-hidden="true" />
+          {t('shared.refreshAll')}
+        </button>
+      )}
+    </header>
+  );
+
   if (!navidromeSharingEnabled) {
     return (
       <section className="shared-page">
-        <header className="shared-page__header">
-          <div>
-            <div className="shared-page__title-row">
-              <Share2 size={24} aria-hidden="true" />
-              <h1>{t('shared.title')}</h1>
-            </div>
-            <p>{t('shared.navidromeSharingDesc')}</p>
+        {pageHeader}
+        <div className="shared-page__integration-state">
+          <div className="shared-page__integration-icon" aria-hidden="true">
+            <RadioTower size={24} />
           </div>
-        </header>
-        <div className="shared-server__state shared-server__state--disabled">
-          <AlertCircle size={18} />
-          <div><strong>{t('shared.navidromeSharingTitle')}</strong></div>
+          <div>
+            <strong>{t('shared.navidromeSharingTitle')}</strong>
+            <span>{t('shared.navidromeSharingDesc')}</span>
+          </div>
         </div>
       </section>
     );
@@ -147,115 +213,166 @@ export default function Shared() {
   return (
     <section
       className="shared-page"
-      data-benchmark-loading={Object.values(byServer).some(state => state.loading) ? 'true' : 'false'}
+      data-benchmark-loading={anyLoading ? 'true' : 'false'}
     >
-      <header className="shared-page__header">
-        <div>
-          <div className="shared-page__title-row">
-            <Share2 size={24} aria-hidden="true" />
-           <h1>{t('shared.title')}</h1>
-            <span className="shared-page__count">{totalShares}</span>
-          </div>
-          <p>{t('shared.subtitle')}</p>
-        </div>
-        <button type="button" className="btn btn-surface" onClick={() => void refreshAll()}>
-          <RefreshCw size={15} />
-          {t('shared.refreshAll')}
-        </button>
-      </header>
+      {pageHeader}
 
       <div className="shared-page__servers">
         {servers.map(server => {
           const state = byServer[server.id];
           const status = statusContent(state, reachability.get(server.id) === 'unavailable', t);
           const serverLabel = serverListDisplayLabel(server, servers);
+          const collapsed = Boolean(collapsedServerIds[server.id]);
+          const contentId = `shared-server-content-${server.id}`;
           return (
-            <section className="shared-server" key={server.id} aria-labelledby={`shared-server-${server.id}`}>
+            <section className={`shared-server${collapsed ? ' shared-server--collapsed' : ''}`} key={server.id} aria-labelledby={`shared-server-${server.id}`}>
               <header className="shared-server__header">
-                <div>
-                  <h2 id={`shared-server-${server.id}`}>{serverLabel}</h2>
-                  <span>{t('shared.links', { count: state?.shares.length ?? 0 })}</span>
+                <div className="shared-server__identity">
+                  <span className="shared-server__icon" aria-hidden="true"><RadioTower size={18} /></span>
+                  <div>
+                    <h2 id={`shared-server-${server.id}`}>{serverLabel}</h2>
+                    <span>{t('shared.links', { count: state?.shares.length ?? 0 })}</span>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-surface btn-sm"
-                  disabled={state?.loading}
-                  onClick={() => void refreshServer(server.id).catch(() => {})}
-                  aria-label={t('shared.refreshServerLabel', { server: serverLabel })}
-                >
-                  {state?.loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
-                  {t('shared.refresh')}
-                </button>
+                <div className="shared-server__controls">
+                  <button
+                    type="button"
+                    className="btn btn-surface btn-sm shared-server__refresh"
+                    disabled={state?.loading}
+                    onClick={() => void refreshServer(server.id).catch(() => {})}
+                    aria-label={t('shared.refreshServerLabel', { server: serverLabel })}
+                  >
+                    {state?.loading ? <Loader2 size={14} className="spin" /> : <RefreshCw size={14} />}
+                    {t('shared.refresh')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-surface btn-sm shared-server__collapse"
+                    aria-labelledby={`shared-server-${server.id}`}
+                    aria-expanded={!collapsed}
+                    aria-controls={contentId}
+                    onClick={() => toggleServerCollapsed(server.id)}
+                  >
+                    <ChevronDown size={16} aria-hidden="true" />
+                  </button>
+                </div>
               </header>
 
-              {status && (
-                <div className={`shared-server__state shared-server__state--${status.kind}`}>
-                  {status.kind === 'loading' ? <Loader2 size={18} className="spin" /> : <AlertCircle size={18} />}
-                  <div><strong>{status.title}</strong>{status.detail && <span>{status.detail}</span>}</div>
-                </div>
-              )}
-
-              {state && state.shares.length > 0 && (
-                <div className="shared-server__list">
-                  {state.error && state.availability === 'available' && (
-                    <div className="shared-server__inline-error" role="alert">{state.error}</div>
+              <div id={contentId} hidden={collapsed}>
+                  {status && (
+                    <div className={`shared-server__state shared-server__state--${status.kind}`}>
+                      {status.kind === 'loading' ? <Loader2 size={18} className="spin" /> : <AlertCircle size={18} />}
+                      <div><strong>{status.title}</strong>{status.detail && <span>{status.detail}</span>}</div>
+                    </div>
                   )}
-                  {state.shares.map(share => {
-                    const rowKey = `${server.id}:${share.id}`;
-                    const locale = i18n.resolvedLanguage ?? i18n.language;
-                    const created = formatDate(share.created, locale);
-                    const expires = formatDate(share.expires, locale);
-                    const lastVisited = formatDate(share.lastVisited, locale);
-                    return (
-                      <article className="shared-link" key={share.id}>
-                        <div className="shared-link__body">
-                          <div className="shared-link__summary">{shareResourceSummary(share, t)}</div>
-                          {share.description && <p className="shared-link__description">{share.description}</p>}
-                          <dl className="shared-link__meta">
-                            {share.username && <><dt>{t('shared.owner')}</dt><dd>{share.username}</dd></>}
-                            {created && <><dt>{t('shared.created')}</dt><dd>{created}</dd></>}
-                            {expires && <><dt>{t('shared.expires')}</dt><dd>{expires}</dd></>}
-                            {lastVisited && <><dt>{t('shared.lastOpened')}</dt><dd>{lastVisited}</dd></>}
-                            {typeof share.visitCount === 'number' && <><dt>{t('shared.visits')}</dt><dd>{share.visitCount}</dd></>}
-                            {typeof share.downloadable === 'boolean' && <><dt>{t('shared.downloads')}</dt><dd>{share.downloadable ? t('shared.allowed') : t('shared.blocked')}</dd></>}
-                          </dl>
-                          <span className="shared-link__url">{share.url}</span>
-                          {actionErrors[rowKey] && <div className="shared-link__error" role="alert">{actionErrors[rowKey]}</div>}
-                          {copiedRow === rowKey && <div className="shared-link__copied" role="status">{t('shared.copied')}</div>}
-                        </div>
-                        <div className="shared-link__actions">
-                          <button type="button" className="btn btn-surface btn-sm" onClick={() => void copyShare(server.id, share)}>
-                            <Copy size={14} /> {t('shared.copy')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-surface btn-sm"
-                            onClick={() => void open(share.url).catch(err => setActionErrors(current => ({
-                              ...current,
-                              [rowKey]: String(err),
-                            })))}
-                          >
-                            <ExternalLink size={14} /> {t('shared.openExternal')}
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-danger btn-sm"
-                            disabled={busyRows.has(rowKey)}
-                            onClick={() => void removeShare(server.id, share)}
-                          >
-                            {busyRows.has(rowKey) ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
-                            {t('common.delete')}
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
+
+                  {state && state.shares.length > 0 && (
+                    <div className="shared-server__list">
+                      {state.error && state.availability === 'available' && (
+                        <div className="shared-server__inline-error" role="alert">{state.error}</div>
+                      )}
+                      {state.shares.map(share => {
+                        const rowKey = `${server.id}:${share.id}`;
+                        const locale = i18n.resolvedLanguage ?? i18n.language;
+                        const created = formatDate(share.created, locale);
+                        const expires = formatDate(share.expires, locale);
+                        const lastVisited = formatDate(share.lastVisited, locale);
+                        const resourceCount = shareResourceCount(share);
+                        const artwork = shareArtworkItems(share);
+                        return (
+                          <article className="shared-link" key={share.id}>
+                            <div className="shared-link__mark" aria-hidden="true"><Link2 size={18} /></div>
+                            <div className="shared-link__body">
+                              {resourceCount > 0 ? (
+                                <button
+                                  type="button"
+                                  className="shared-link__summary"
+                                  onClick={() => setSelectedContents({ serverId: server.id, share })}
+                                >
+                                  {shareResourceSummary(share, t)}
+                                </button>
+                              ) : (
+                                <div className="shared-link__summary shared-link__summary--static">{shareResourceSummary(share, t)}</div>
+                              )}
+                              {share.description && <p className="shared-link__description">{share.description}</p>}
+                              <dl className="shared-link__meta">
+                                {share.username && <div><dt>{t('shared.owner')}</dt><dd>{share.username}</dd></div>}
+                                {created && <div><dt>{t('shared.created')}</dt><dd>{created}</dd></div>}
+                                {expires && <div><dt>{t('shared.expires')}</dt><dd>{expires}</dd></div>}
+                                {lastVisited && <div><dt>{t('shared.lastOpened')}</dt><dd>{lastVisited}</dd></div>}
+                                {typeof share.visitCount === 'number' && <div><dt>{t('shared.visits')}</dt><dd>{share.visitCount}</dd></div>}
+                                {typeof share.downloadable === 'boolean' && <div><dt>{t('shared.downloads')}</dt><dd>{share.downloadable ? t('shared.allowed') : t('shared.blocked')}</dd></div>}
+                              </dl>
+                              {artwork.length > 0 && (
+                                <div className="shared-link__artwork-rail">
+                                  {artwork.map(item => (
+                                    <button
+                                      type="button"
+                                      className="shared-link__artwork"
+                                      key={item.albumId}
+                                      aria-label={`${t('shared.contentsTitle')}: ${item.label}`}
+                                      title={item.label}
+                                      onClick={() => setSelectedContents({ serverId: server.id, share })}
+                                    >
+                                      <AlbumCoverArtImage
+                                        albumId={item.albumId}
+                                        coverArt={item.coverArt}
+                                        serverScope={coverServerScopeForServerId(server.id)}
+                                        displayCssPx={96}
+                                        surface="dense"
+                                        className="shared-link__artwork-image"
+                                        alt=""
+                                      />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {actionErrors[rowKey] && <div className="shared-link__error" role="alert">{actionErrors[rowKey]}</div>}
+                              {copiedRow === rowKey && <div className="shared-link__copied" role="status">{t('shared.copied')}</div>}
+                            </div>
+                            <div className="shared-link__actions">
+                              <button type="button" className="btn btn-surface btn-sm shared-link__action" onClick={() => void copyShare(server.id, share)}>
+                                <Copy size={14} /> {t('shared.copy')}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-surface btn-sm shared-link__action"
+                                onClick={() => void open(share.url).catch(err => setActionErrors(current => ({
+                                  ...current,
+                                  [rowKey]: String(err),
+                                })))}
+                              >
+                                <ExternalLink size={14} /> {t('shared.openExternal')}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-sm shared-link__action"
+                                disabled={busyRows.has(rowKey)}
+                                onClick={() => void removeShare(server.id, share)}
+                              >
+                                {busyRows.has(rowKey) ? <Loader2 size={14} className="spin" /> : <Trash2 size={14} />}
+                                {t('common.delete')}
+                              </button>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  )}
+              </div>
             </section>
           );
         })}
       </div>
+      {selectedContents && (
+        <ShareContentsModal
+          key={`${selectedContents.serverId}:${selectedContents.share.id}`}
+          open
+          serverId={selectedContents.serverId}
+          share={selectedContents.share}
+          onClose={() => setSelectedContents(null)}
+        />
+      )}
     </section>
   );
 }

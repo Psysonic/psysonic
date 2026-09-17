@@ -76,7 +76,8 @@ describe('Subsonic sharing API', () => {
       shares: { share: { id: 'share-1', url: 'https://music.test/share/share-1' } },
     });
 
-    await createShareForServer('srv-a', ['track-b', 'track-a'], { downloadable: true });
+    await expect(createShareForServer('srv-a', ['track-b', 'track-a'], { downloadable: true }))
+      .resolves.toMatchObject({ downloadable: true });
 
     expect(mocks.apiPostFormForServer).toHaveBeenCalledWith('srv-a', 'createShare.view', {
       id: ['track-b', 'track-a'],

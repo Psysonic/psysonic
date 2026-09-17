@@ -120,7 +120,11 @@ export async function createShareForServer(
 
   const share = parseShares(data)[0];
   if (!share) throw new Error('Invalid createShare response: missing share id or url');
-  return { ...share, url: rewriteConnectOriginUrl(serverId, share.url) };
+  return {
+    ...share,
+    url: rewriteConnectOriginUrl(serverId, share.url),
+    ...(options?.downloadable === undefined ? {} : { downloadable: options.downloadable }),
+  };
 }
 
 export async function deleteShareForServer(serverId: string, shareId: string): Promise<void> {

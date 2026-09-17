@@ -21,4 +21,26 @@ describe('shareSettingsStore', () => {
     expect(useShareSettingsStore.getState().navidromeSharesDownloadable).toBe(true);
     expect(localStorage.getItem('psysonic_share_settings')).toContain('navidromeSharingEnabled');
   });
+
+  it('persists collapsed servers and known download permissions', () => {
+    const store = useShareSettingsStore.getState();
+
+    store.toggleServerCollapsed('srv-a');
+    store.rememberShareDownloadable('srv-a', 'share-1', true);
+    store.rememberShareDownloadable('srv-a', 'share-2', false);
+
+    expect(useShareSettingsStore.getState()).toMatchObject({
+      collapsedServerIds: { 'srv-a': true },
+      shareDownloadableByServer: {
+        'srv-a': { 'share-1': true, 'share-2': false },
+      },
+    });
+    expect(localStorage.getItem('psysonic_share_settings')).toContain('collapsedServerIds');
+    expect(localStorage.getItem('psysonic_share_settings')).toContain('shareDownloadableByServer');
+
+    store.forgetShareDownloadable('srv-a', 'share-1');
+    expect(useShareSettingsStore.getState().shareDownloadableByServer).toEqual({
+      'srv-a': { 'share-2': false },
+    });
+  });
 });

@@ -83,6 +83,14 @@ function availabilityAfterError(err: unknown): ShareAvailabilityStatus {
   return isSharingDisabledError(err) ? 'sharing_disabled' : 'server_unavailable';
 }
 
+function withKnownDownloadability(serverId: string, shares: SubsonicShare[]): SubsonicShare[] {
+  const known = useShareSettingsStore.getState().shareDownloadableByServer[serverId];
+  if (!known) return shares;
+  return shares.map(share => (
+    typeof known[share.id] === 'boolean' ? { ...share, downloadable: known[share.id] } : share
+  ));
+}
+
 export const useShareStore = create<ShareStore>()((set, get) => ({
   byServer: {},
 
@@ -111,6 +119,7 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
       if (!liveIds.has(serverId)) {
         profileFingerprintByServer.delete(serverId);
       }
+      useShareSettingsStore.getState().forgetServerShareDownloadability(serverId);
     }
     set(state => ({
       byServer: Object.fromEntries(
@@ -170,7 +179,7 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
           byServer: {
             ...state.byServer,
             [serverId]: {
-              shares,
+              shares: withKnownDownloadability(serverId, shares),
               loading: false,
               lastSuccessfulRefresh: Date.now(),
               availability: 'available',
@@ -228,10 +237,12 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
     bumpMutationRevision(serverId);
 
     try {
-      const share = await createServerShare(serverId, resourceIds, {
-        downloadable: useShareSettingsStore.getState().navidromeSharesDownloadable,
-      });
+      const settings = useShareSettingsStore.getState();
+      const downloadable = settings.navidromeSharesDownloadable;
+      const share = await createServerShare(serverId, resourceIds, { downloadable });
+      const createdShare = { ...share, downloadable };
       if (profileRequestIsCurrent(serverId, fingerprint, requestGeneration)) {
+        settings.rememberShareDownloadable(serverId, share.id, downloadable);
         bumpMutationRevision(serverId);
         set(state => {
           const previous = state.byServer[serverId] ?? DEFAULT_SERVER_STATE;
@@ -240,7 +251,7 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
               ...state.byServer,
               [serverId]: {
                 ...previous,
-                shares: [share, ...previous.shares.filter(existing => existing.id !== share.id)],
+                shares: [createdShare, ...previous.shares.filter(existing => existing.id !== share.id)],
                 loading: false,
                 availability: 'available',
                 reason: undefined,
@@ -250,7 +261,7 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
           };
         });
       }
-      return share;
+      return createdShare;
     } catch (err) {
       if (profileRequestIsCurrent(serverId, fingerprint, requestGeneration)) {
         set(state => {
@@ -286,6 +297,7 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
 
     try {
       await deleteServerShare(serverId, shareId);
+      useShareSettingsStore.getState().forgetShareDownloadable(serverId, shareId);
       if (!profileRequestIsCurrent(serverId, fingerprint, requestGeneration)) return;
       bumpMutationRevision(serverId);
       set(state => {
@@ -327,5 +339,5 @@ export function _resetShareStoreForTest(): void {
   profileGenerationByServer.clear();
   mutationRevisionByServer.clear();
   refreshInFlight.clear();
-  useShareStore.setState({ byServer: {} });
+  useShareStore.setState(useShareStore.getInitialState(), true);
 }

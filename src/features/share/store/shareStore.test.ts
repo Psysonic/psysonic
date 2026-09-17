@@ -76,6 +76,30 @@ describe('shareStore', () => {
       ['track-1'],
       { downloadable: false },
     );
+    expect(useShareStore.getState().byServer['srv-a']?.shares[0]).toMatchObject({
+      id: 'share-1',
+      downloadable: false,
+    });
+    expect(useShareSettingsStore.getState().shareDownloadableByServer).toEqual({
+      'srv-a': { 'share-1': false },
+    });
+  });
+
+  it('restores known download permissions after a server refresh', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({
+      servers: [server],
+      subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome', serverVersion: '0.64.0' } },
+    });
+    useShareSettingsStore.getState().rememberShareDownloadable('srv-a', 'share-1', true);
+    api.getSharesForServer.mockResolvedValue([{ id: 'share-1', url: 'https://a.test/share/1' }]);
+
+    await useShareStore.getState().refreshServer('srv-a');
+
+    expect(useShareStore.getState().byServer['srv-a']?.shares[0]).toMatchObject({
+      id: 'share-1',
+      downloadable: true,
+    });
   });
 
   it('deduplicates refreshes for one profile', async () => {
@@ -148,6 +172,7 @@ describe('shareStore', () => {
 
     await useShareStore.getState().deleteShare('srv-a', 'share-1');
     expect(useShareStore.getState().byServer['srv-a']?.shares).toEqual([]);
+    expect(useShareSettingsStore.getState().shareDownloadableByServer).toEqual({});
   });
 
   it('drops stale refresh results after credentials change', async () => {
