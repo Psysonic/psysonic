@@ -16,6 +16,7 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 
 const api = vi.hoisted(() => ({
   getAlbumForServer: vi.fn(),
+  showToast: vi.fn(),
 }));
 
 vi.mock('@/lib/api/subsonicLibrary', async () => {
@@ -26,6 +27,8 @@ vi.mock('@/lib/api/subsonicLibrary', async () => {
 vi.mock('@/cover/AlbumCoverArtImage', () => ({
   AlbumCoverArtImage: ({ albumId }: { albumId: string }) => <span data-testid={`share-cover-${albumId}`} />,
 }));
+
+vi.mock('@/lib/dom/toast', () => ({ showToast: api.showToast }));
 
 const originalConfirmRequest = useConfirmModalStore.getState().request;
 
@@ -406,7 +409,7 @@ describe('Shared page', () => {
 
     fireEvent.click(within(row).getByRole('button', { name: 'Copy link' }));
     await waitFor(() => expect(navigator.clipboard.writeText).toHaveBeenCalledWith(share.url));
-    expect(await within(row).findByRole('status')).toHaveTextContent('Link copied.');
+    expect(api.showToast).toHaveBeenCalledWith('Link copied.', 2_500, 'success');
 
     fireEvent.click(within(row).getByRole('button', { name: 'Open externally' }));
     await waitFor(() => expect(open).toHaveBeenCalledWith(share.url));

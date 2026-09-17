@@ -209,7 +209,6 @@
   gap: 8px;
 }
 .shared-link__action { min-height: 36px; border-radius: 999px; }
-.shared-link__copied { margin-top: 6px; color: var(--positive, var(--accent)); font-size: 0.76rem; }
 .shared-link__error { margin-top: 6px; }
 .shared-page__integration-state {
   display: flex;

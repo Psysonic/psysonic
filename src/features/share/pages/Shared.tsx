@@ -37,6 +37,7 @@ import { usePlayerStore } from '@/features/playback';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { copyTextToClipboard } from '@/lib/server/serverMagicString';
 import { deriveLibraryBrowseServerIdsWithFallback } from '@/lib/library/libraryBrowseScope';
+import { showToast } from '@/lib/dom/toast';
 import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import type { TFunction } from 'i18next';
 
@@ -100,7 +101,6 @@ export default function Shared() {
   const reachability = useServerReachabilitySnapshot();
   const [busyRows, setBusyRows] = useState<Set<string>>(() => new Set());
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
-  const [copiedRow, setCopiedRow] = useState<string | null>(null);
   const [selectedContents, setSelectedContents] = useState<{
     serverId: string;
     share: SubsonicShare;
@@ -126,8 +126,7 @@ export default function Shared() {
     try {
       const copied = await copyTextToClipboard(share.url);
       if (!copied) throw new Error(t('contextMenu.shareCopyFailed'));
-      setCopiedRow(key);
-      window.setTimeout(() => setCopiedRow(current => current === key ? null : current), 1_500);
+      showToast(t('shared.copied'), 2_500, 'success');
     } catch (err) {
       setActionErrors(current => ({
         ...current,
@@ -349,7 +348,6 @@ export default function Shared() {
                                 })}
                               />
                               {actionErrors[rowKey] && <div className="shared-link__error" role="alert">{actionErrors[rowKey]}</div>}
-                              {copiedRow === rowKey && <div className="shared-link__copied" role="status">{t('shared.copied')}</div>}
                             </div>
                             <div className="shared-link__actions">
                               <button
