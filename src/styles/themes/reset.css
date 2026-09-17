@@ -29,6 +29,10 @@ body {
   user-select: none;
 }
 
+html[data-layout-state='alternate'] body {
+  transform: matrix(-1, 0, 0, 1, 0, 0);
+}
+
 /* Allow text selection in specific areas */
 input,
 textarea,
@@ -94,4 +98,3 @@ html[data-platform="linux"][data-linux-session="wayland"]:not(.no-compositing)
   :is(.album-card-play-overlay, .song-card-play-overlay) {
   transition: none;
 }
-
