@@ -689,7 +689,28 @@ html[data-track-previews-randommix="off"]   [data-preview-loc="randomMix"]   .pl
   color: var(--accent);
   text-decoration: underline;
 }
-.track-artist-sep {
+/* Artist-credit separator — a drawn dot, not a bullet character.
+   As text it sat wherever the font puts U+2022 relative to the baseline, which
+   read as bottom-aligned next to the names. As a box it is centred on the line
+   by `vertical-align: middle` and scales with the surrounding text, so it looks
+   the same in a dense track row and in the album header.
+   The spacing is here rather than as blanks in the markup: servers split a
+   tagged credit on its own separator and keep the surrounding spaces inside the
+   names, so text spaces would collapse against those. */
+.track-artist-sep,
+.open-artist-ref-sep {
+  display: inline-block;
+  width: 0.25em;
+  height: 0.25em;
+  margin: 0 0.45em;
+  border-radius: 50%;
+  background: currentColor;
+  /* Two layouts, two mechanisms: the track cell is a flex row (`align-items:
+     flex-start`), where `vertical-align` does nothing and the dot would stick to
+     the top edge; headers and the player render the credits inline, where
+     `align-self` does nothing. Setting both centres it in either. */
+  align-self: center;
+  vertical-align: middle;
   color: var(--text-muted);
   user-select: none;
 }
