@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/store/authStore';
 import { useShareStore } from '@/features/share/store/shareStore';
+import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 import {
   resolveNavidromeShareAvailability,
   type ShareAvailabilityReason,
@@ -115,6 +116,7 @@ export function useOutboundShareModel(
 ): OutboundShareModel {
   const identityByServer = useAuthStore(s => s.subsonicServerIdentityByServer);
   const shareStateByServer = useShareStore(s => s.byServer);
+  const navidromeSharingEnabled = useShareSettingsStore(s => s.navidromeSharingEnabled);
   const serverId = singleOwnerServerId(request);
   const normalizedServerIds = request.serverIds.map(
     ownerId => findServerByIdOrIndexKey(ownerId)?.id ?? ownerId,
@@ -137,14 +139,14 @@ export function useOutboundShareModel(
       reason: psysonicAvailability.available ? undefined : psysonicAvailability.reason,
     },
   ];
-  methods.push(
-    {
+  if (navidromeSharingEnabled) {
+    methods.push({
       id: 'navidrome',
       label: t('shared.methodNavidrome'),
       available: navidromeAvailability.available,
       reason: navidromeAvailability.available ? undefined : navidromeAvailability.reason,
-    },
-  );
+    });
+  }
 
   return {
     methods,

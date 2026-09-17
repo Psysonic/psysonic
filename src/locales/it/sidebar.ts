@@ -26,7 +26,7 @@ export const sidebar = {
   genres: 'Generi',
   tracks: 'Brani',
   playlists: 'Playlist',
-  shared: 'Condivisi',
+  shared: 'ND Condivisioni',
   smartPlaylists: 'Smart Playlist',
   mostPlayed: 'Più riprodotti',
   losslessAlbums: 'Lossless',

@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'The server that owns this item could not be determined.',
   reasonComposerUnsupported: 'Composer links cannot be shared with this method.',
   reasonNoResources: 'There is nothing to share.',
+  navidromeSharingTitle: 'Navidrome sharing',
+  navidromeSharingDesc: 'Adds Navidrome shared links as an optional sharing method and enables shared-link management. When off, sharing uses Psysonic links directly.',
+  allowDownloadsTitle: 'Allow downloads',
+  allowDownloadsDesc: 'New Navidrome shares let recipients download shared files when downloads are enabled on the server.',
 };

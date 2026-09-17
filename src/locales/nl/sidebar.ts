@@ -23,7 +23,7 @@ export const sidebar = {
   genres: 'Genres',
   tracks: 'Nummers',
   playlists: 'Playlists',
-  shared: 'Gedeeld',
+  shared: 'ND Delen',
   mostPlayed: 'Meest gespeeld',
   losslessAlbums: 'Lossless',
   radio: 'Internetradio',

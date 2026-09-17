@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Der Server, zu dem dieses Element gehört, konnte nicht ermittelt werden.',
   reasonComposerUnsupported: 'Komponisten-Links können mit dieser Methode nicht geteilt werden.',
   reasonNoResources: 'Es gibt nichts zu teilen.',
+  navidromeSharingTitle: 'Navidrome-Freigaben',
+  navidromeSharingDesc: 'Fügt Navidrome-Freigabelinks als optionale Methode hinzu und aktiviert deren Verwaltung. Wenn deaktiviert, werden direkt Psysonic-Links verwendet.',
+  allowDownloadsTitle: 'Downloads erlauben',
+  allowDownloadsDesc: 'Neue Navidrome-Freigaben erlauben Empfängern den Download der geteilten Dateien, wenn Downloads auf dem Server aktiviert sind.',
 };

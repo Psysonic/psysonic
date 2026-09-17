@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Не вдалося визначити сервер, якому належить цей об’єкт.',
   reasonComposerUnsupported: 'Цим способом не можна ділитися посиланнями на композиторів.',
   reasonNoResources: 'Немає чим поділитися.',
+  navidromeSharingTitle: 'Спільний доступ через Navidrome',
+  navidromeSharingDesc: 'Додає посилання Navidrome як додатковий спосіб поширення та вмикає керування ними. Коли налаштування вимкнено, одразу використовуються посилання Psysonic.',
+  allowDownloadsTitle: 'Дозволити завантаження',
+  allowDownloadsDesc: 'Нові посилання Navidrome дозволяють отримувачам завантажувати спільні файли, якщо завантаження дозволені на сервері.',
 };

@@ -11,6 +11,7 @@ import { useShareStore, type ServerShareState } from '@/features/share/store/sha
 import { selectAggregateShareCount } from '@/features/share/shareNavigation';
 import { shareResourceSummary } from '@/features/share/sharePresentation';
 import { outboundShareUnavailableHelp } from '@/features/share/outboundShare';
+import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 import { copyTextToClipboard } from '@/lib/server/serverMagicString';
 import type { TFunction } from 'i18next';
 
@@ -59,13 +60,14 @@ export default function Shared() {
   const refreshServer = useShareStore(state => state.refreshServer);
   const deleteShare = useShareStore(state => state.deleteShare);
   const totalShares = useShareStore(selectAggregateShareCount);
+  const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
   const reachability = useServerReachabilitySnapshot();
   const [busyRows, setBusyRows] = useState<Set<string>>(() => new Set());
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
   const [copiedRow, setCopiedRow] = useState<string | null>(null);
   useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
+    if (navidromeSharingEnabled) void refreshAll();
+  }, [navidromeSharingEnabled, refreshAll]);
 
   const setRowBusy = (key: string, busy: boolean) => {
     setBusyRows(current => {
@@ -121,6 +123,26 @@ export default function Shared() {
       setRowBusy(key, false);
     }
   };
+
+  if (!navidromeSharingEnabled) {
+    return (
+      <section className="shared-page">
+        <header className="shared-page__header">
+          <div>
+            <div className="shared-page__title-row">
+              <Share2 size={24} aria-hidden="true" />
+              <h1>{t('shared.title')}</h1>
+            </div>
+            <p>{t('shared.navidromeSharingDesc')}</p>
+          </div>
+        </header>
+        <div className="shared-server__state shared-server__state--disabled">
+          <AlertCircle size={18} />
+          <div><strong>{t('shared.navidromeSharingTitle')}</strong></div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section

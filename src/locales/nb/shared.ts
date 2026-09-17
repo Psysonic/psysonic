@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Kunne ikke fastslå hvilken server dette elementet tilhører.',
   reasonComposerUnsupported: 'Komponistlenker kan ikke deles med denne metoden.',
   reasonNoResources: 'Det er ingenting å dele.',
+  navidromeSharingTitle: 'Navidrome-deling',
+  navidromeSharingDesc: 'Legger til delte Navidrome-lenker som en valgfri delingsmetode og aktiverer administrasjon av dem. Når dette er av, brukes Psysonic-lenker direkte.',
+  allowDownloadsTitle: 'Tillat nedlastinger',
+  allowDownloadsDesc: 'Nye Navidrome-delinger lar mottakere laste ned delte filer når nedlastinger er aktivert på serveren.',
 };

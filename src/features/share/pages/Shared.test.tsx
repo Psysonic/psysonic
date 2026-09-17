@@ -11,18 +11,32 @@ import { _resetShareStoreForTest, useShareStore } from '@/features/share/store/s
 import Shared from '@/features/share/pages/Shared';
 import { shareResourceSummary } from '@/features/share/sharePresentation';
 import type { TFunction } from 'i18next';
+import { _resetShareSettingsStoreForTest, useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 const originalConfirmRequest = useConfirmModalStore.getState().request;
 
 beforeEach(() => {
   resetAuthStore();
   _resetShareStoreForTest();
+  _resetShareSettingsStoreForTest();
+  useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
   resetServerReachabilitySnapshot();
   useConfirmModalStore.setState({ request: originalConfirmRequest });
   vi.clearAllMocks();
 });
 
 describe('Shared page', () => {
+  it('does not refresh managed links while the integration is disabled', () => {
+    const refreshAll = vi.fn(async () => {});
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(false);
+    useShareStore.setState({ refreshAll });
+
+    renderWithProviders(<Shared />, { route: '/shared' });
+
+    expect(screen.getByText('Navidrome sharing')).toBeInTheDocument();
+    expect(refreshAll).not.toHaveBeenCalled();
+  });
+
   it('summarizes resource entries without depending on one server shape', () => {
     const t = ((key: string, options?: { count?: number }) => {
       if (key === 'shared.resources') return `${options?.count} resources`;

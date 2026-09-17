@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Nie udało się ustalić serwera, do którego należy ten element.',
   reasonComposerUnsupported: 'Ta metoda nie pozwala udostępniać linków do kompozytorów.',
   reasonNoResources: 'Nie ma nic do udostępnienia.',
+  navidromeSharingTitle: 'Udostępnianie przez Navidrome',
+  navidromeSharingDesc: 'Dodaje łącza udostępniane przez Navidrome jako opcjonalną metodę i włącza zarządzanie nimi. Po wyłączeniu używane są bezpośrednio łącza Psysonic.',
+  allowDownloadsTitle: 'Zezwalaj na pobieranie',
+  allowDownloadsDesc: 'Nowe udostępnienia Navidrome pozwalają odbiorcom pobierać udostępnione pliki, jeśli pobieranie jest włączone na serwerze.',
 };

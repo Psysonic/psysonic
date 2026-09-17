@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'この項目が属するサーバーを特定できませんでした。',
   reasonComposerUnsupported: 'この方法では作曲者のリンクを共有できません。',
   reasonNoResources: '共有する項目がありません。',
+  navidromeSharingTitle: 'Navidrome 共有',
+  navidromeSharingDesc: 'Navidrome の共有リンクを任意の共有方法として追加し、リンク管理を有効にします。オフの場合は Psysonic リンクを直接使用します。',
+  allowDownloadsTitle: 'ダウンロードを許可',
+  allowDownloadsDesc: 'サーバーでダウンロードが有効な場合、新しい Navidrome 共有から共有ファイルをダウンロードできるようにします。',
 };

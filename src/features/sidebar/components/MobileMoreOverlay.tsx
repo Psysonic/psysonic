@@ -9,7 +9,7 @@ import { useLuckyMixAvailable } from '@/features/randomMix';
 import { isOfflineSidebarNavAllowed } from '@/features/offline';
 import { useReactiveOfflineBrowseContext } from '@/features/sidebar/hooks/useReactiveOfflineBrowseContext';
 import { offlineBrowseNavFlags } from '@/features/offline';
-import { selectAggregateShareCount, useShareStore } from '@/features/share';
+import { selectAggregateShareCount, useShareSettingsStore, useShareStore } from '@/features/share';
 
 const BOTTOM_NAV_ROUTES = new Set(['/', '/albums', '/now-playing']);
 
@@ -24,6 +24,7 @@ export default function MobileMoreOverlay({ onClose }: { onClose: () => void }) 
   const luckyMixBase = useLuckyMixAvailable();
   const luckyMixAvailable = luckyMixBase && randomNavMode === 'separate';
   const shareCount = useShareStore(selectAggregateShareCount);
+  const navidromeSharingEnabled = useShareSettingsStore(s => s.navidromeSharingEnabled);
 
   const items = sidebarItems
     .filter(cfg => {
@@ -34,7 +35,7 @@ export default function MobileMoreOverlay({ onClose }: { onClose: () => void }) 
       if (randomNavMode === 'hub' && (cfg.id === 'randomMix' || cfg.id === 'randomAlbums')) return false;
       if (randomNavMode === 'separate' && cfg.id === 'randomPicker') return false;
       if (cfg.id === 'luckyMix' && !luckyMixAvailable) return false;
-      if (cfg.id === 'shared' && shareCount === 0) return false;
+      if (cfg.id === 'shared' && (!navidromeSharingEnabled || shareCount === 0)) return false;
       if (cfg.id === 'shared') return true;
       if (isServerOffline && !isOfflineSidebarNavAllowed(
         cfg.id,

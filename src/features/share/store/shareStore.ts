@@ -14,6 +14,7 @@ import {
   type ShareAvailabilityReason,
   type ShareAvailabilityStatus,
 } from '@/features/share/shareAvailability';
+import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 export interface ServerShareState {
   shares: SubsonicShare[];
@@ -92,6 +93,9 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
     for (const knownId of profileFingerprintByServer.keys()) {
       if (!liveIds.has(knownId)) staleIds.add(knownId);
     }
+    for (const knownId of Object.keys(get().byServer)) {
+      if (!liveIds.has(knownId)) staleIds.add(knownId);
+    }
     for (const profile of profiles) {
       const fingerprint = profileProbeFingerprint(profile);
       const previous = profileFingerprintByServer.get(profile.id);
@@ -116,6 +120,10 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
   },
 
   refreshServer: async serverId => {
+    if (!useShareSettingsStore.getState().navidromeSharingEnabled) {
+      get().reconcileProfiles([]);
+      return;
+    }
     get().reconcileProfiles();
     const profile = currentProfile(serverId);
     if (!profile) throw new Error(`Unknown server: ${serverId}`);
@@ -199,12 +207,19 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
   },
 
   refreshAll: async () => {
+    if (!useShareSettingsStore.getState().navidromeSharingEnabled) {
+      get().reconcileProfiles([]);
+      return;
+    }
     const profiles = useAuthStore.getState().servers;
     get().reconcileProfiles(profiles);
     await Promise.allSettled(profiles.map(profile => get().refreshServer(profile.id)));
   },
 
   createShare: async (serverId, resourceIds) => {
+    if (!useShareSettingsStore.getState().navidromeSharingEnabled) {
+      throw new Error('Navidrome sharing is disabled in settings');
+    }
     get().reconcileProfiles();
     const profile = currentProfile(serverId);
     if (!profile) throw new Error(`Unknown server: ${serverId}`);
@@ -213,7 +228,9 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
     bumpMutationRevision(serverId);
 
     try {
-      const share = await createServerShare(serverId, resourceIds);
+      const share = await createServerShare(serverId, resourceIds, {
+        downloadable: useShareSettingsStore.getState().navidromeSharesDownloadable,
+      });
       if (profileRequestIsCurrent(serverId, fingerprint, requestGeneration)) {
         bumpMutationRevision(serverId);
         set(state => {
@@ -257,6 +274,9 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
   },
 
   deleteShare: async (serverId, shareId) => {
+    if (!useShareSettingsStore.getState().navidromeSharingEnabled) {
+      throw new Error('Navidrome sharing is disabled in settings');
+    }
     get().reconcileProfiles();
     const profile = currentProfile(serverId);
     if (!profile) throw new Error(`Unknown server: ${serverId}`);

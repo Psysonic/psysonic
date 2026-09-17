@@ -26,7 +26,7 @@ export const sidebar = {
   genres: 'Жанри',
   tracks: 'Треки',
   playlists: 'Плейлісти',
-  shared: 'Спільні',
+  shared: 'ND Спільний доступ',
   smartPlaylists: 'Розумні плейлісти',
   mostPlayed: 'Найчастіше відтворювані',
   losslessAlbums: 'Без втрат якості',

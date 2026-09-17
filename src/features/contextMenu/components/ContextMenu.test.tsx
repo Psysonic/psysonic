@@ -63,6 +63,7 @@ import { fireEvent, waitFor } from '@testing-library/react';
 import { useSidebarStore } from '@/features/sidebar';
 import { useBurnJobStore, useBurnListStore, useBurnSupportStore } from '@/features/burner';
 import { _resetBurnSupportForTest } from '@/features/burner/store/burnSupportStore';
+import { useShareSettingsStore } from '@/features/share';
 
 function setUpActiveServer(): ServerProfile {
   const server = makeServer();
@@ -141,6 +142,7 @@ describe('ContextMenu — visibility', () => {
 
 describe('ContextMenu — generic submenus', () => {
   it('opens and returns from the Share submenu with the shared ArrowRight/ArrowLeft identity path', async () => {
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
     const serverId = useAuthStore.getState().activeServerId!;
     openMenuFor('song', makeTrack({ id: 'share-keyboard', serverId }));
     const { container, findByText, queryByText } = renderWithProviders(<ContextMenu />);

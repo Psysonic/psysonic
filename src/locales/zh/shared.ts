@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: '无法确定此项目所属的服务器。',
   reasonComposerUnsupported: '此方式不支持分享作曲家链接。',
   reasonNoResources: '没有可分享的内容。',
+  navidromeSharingTitle: 'Navidrome 分享',
+  navidromeSharingDesc: '将 Navidrome 共享链接添加为可选分享方式，并启用共享链接管理。关闭时会直接使用 Psysonic 链接。',
+  allowDownloadsTitle: '允许下载',
+  allowDownloadsDesc: '如果服务器已启用下载，新建的 Navidrome 分享将允许接收者下载共享文件。',
 };

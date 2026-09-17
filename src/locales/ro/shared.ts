@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Serverul căruia îi aparține acest element nu a putut fi determinat.',
   reasonComposerUnsupported: 'Linkurile către compozitori nu pot fi distribuite prin această metodă.',
   reasonNoResources: 'Nu există nimic de distribuit.',
+  navidromeSharingTitle: 'Distribuire prin Navidrome',
+  navidromeSharingDesc: 'Adaugă linkurile partajate Navidrome ca metodă opțională și permite administrarea lor. Când opțiunea este dezactivată, sunt folosite direct linkurile Psysonic.',
+  allowDownloadsTitle: 'Permite descărcările',
+  allowDownloadsDesc: 'Noile distribuiri Navidrome permit descărcarea fișierelor partajate dacă descărcările sunt activate pe server.',
 };

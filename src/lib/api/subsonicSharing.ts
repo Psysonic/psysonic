@@ -97,10 +97,14 @@ export async function getSharesForServer(serverId: string): Promise<SubsonicShar
 export async function createShareForServer(
   serverId: string,
   resourceIds: readonly string[],
+  options?: { downloadable?: boolean },
 ): Promise<SubsonicShare> {
   const ids = resourceIds.filter(id => id.length > 0);
   if (ids.length === 0) throw new Error('Share requires at least one resource id');
-  const params = { id: ids };
+  const params = {
+    id: ids,
+    ...(options?.downloadable === undefined ? {} : { downloadable: options.downloadable }),
+  };
 
   let data: SharesResponse;
   if (serverSupportsFormPost(serverId)) {

@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Сървърът, на който принадлежи този елемент, не можа да бъде определен.',
   reasonComposerUnsupported: 'Връзки към композитори не могат да се споделят по този начин.',
   reasonNoResources: 'Няма какво да бъде споделено.',
+  navidromeSharingTitle: 'Споделяне чрез Navidrome',
+  navidromeSharingDesc: 'Добавя споделените връзки на Navidrome като незадължителен метод и включва управлението им. Когато е изключено, споделянето използва директно връзки на Psysonic.',
+  allowDownloadsTitle: 'Разрешаване на изтегляния',
+  allowDownloadsDesc: 'Новите споделяния чрез Navidrome позволяват изтегляне на файловете, ако изтеглянията са разрешени на сървъра.',
 };

@@ -16,6 +16,7 @@ vi.mock('@/lib/api/subsonicSharing', async () => {
 
 import { useAuthStore } from '@/store/authStore';
 import { _resetShareStoreForTest, useShareStore } from '@/features/share/store/shareStore';
+import { _resetShareSettingsStoreForTest, useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -30,10 +31,53 @@ function deferred<T>() {
 beforeEach(() => {
   resetAuthStore();
   _resetShareStoreForTest();
+  _resetShareSettingsStoreForTest();
+  useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
   vi.clearAllMocks();
 });
 
 describe('shareStore', () => {
+  it('does not call Navidrome APIs while the integration is disabled', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({ servers: [server] });
+    useShareStore.setState({
+      byServer: {
+        'srv-a': {
+          shares: [{ id: 'stale', url: 'https://server.test/share/stale' }],
+          loading: false,
+          lastSuccessfulRefresh: 1,
+          availability: 'available',
+        },
+      },
+    });
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(false);
+
+    await useShareStore.getState().refreshAll();
+    await expect(useShareStore.getState().createShare('srv-a', ['track-1']))
+      .rejects.toThrow('disabled in settings');
+
+    expect(api.getSharesForServer).not.toHaveBeenCalled();
+    expect(api.createShareForServer).not.toHaveBeenCalled();
+    expect(useShareStore.getState().byServer).toEqual({});
+  });
+
+  it('explicitly disables downloads for new shares by default', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({
+      servers: [server],
+      subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome', serverVersion: '0.64.0' } },
+    });
+    api.createShareForServer.mockResolvedValue({ id: 'share-1', url: 'https://a.test/share/1' });
+
+    await useShareStore.getState().createShare('srv-a', ['track-1']);
+
+    expect(api.createShareForServer).toHaveBeenCalledWith(
+      'srv-a',
+      ['track-1'],
+      { downloadable: false },
+    );
+  });
+
   it('deduplicates refreshes for one profile', async () => {
     const server = makeServer({ id: 'srv-a' });
     useAuthStore.setState({
@@ -88,9 +132,14 @@ describe('shareStore', () => {
     });
     api.createShareForServer.mockResolvedValue({ id: 'share-1', url: 'https://a.test/share/1' });
     api.deleteShareForServer.mockResolvedValue(undefined);
+    useShareSettingsStore.getState().setNavidromeSharesDownloadable(true);
 
     await useShareStore.getState().createShare('srv-a', ['playlist-native-id']);
-    expect(api.createShareForServer).toHaveBeenCalledWith('srv-a', ['playlist-native-id']);
+    expect(api.createShareForServer).toHaveBeenCalledWith(
+      'srv-a',
+      ['playlist-native-id'],
+      { downloadable: true },
+    );
     expect(useShareStore.getState().byServer['srv-a']?.shares.map(share => share.id)).toEqual(['share-1']);
 
     api.deleteShareForServer.mockRejectedValueOnce(new Error('offline'));

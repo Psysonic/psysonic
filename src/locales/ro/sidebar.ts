@@ -24,7 +24,7 @@ export const sidebar = {
   genres: 'Genuri',
   tracks: 'Piese',
   playlists: 'Playlisturi',
-  shared: 'Distribuite',
+  shared: 'ND Distribuiri',
   smartPlaylists: 'Playlisturi Smart',
   mostPlayed: 'Cele mai Redate',
   losslessAlbums: 'Lossless',

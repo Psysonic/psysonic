@@ -26,7 +26,7 @@ export const sidebar = {
   genres: 'ジャンル',
   tracks: 'トラック',
   playlists: 'プレイリスト',
-  shared: '共有',
+  shared: 'ND 共有',
   smartPlaylists: 'スマートプレイリスト',
   mostPlayed: 'よく再生',
   losslessAlbums: 'ロスレス',

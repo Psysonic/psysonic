@@ -29,7 +29,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItemMeta> = {
   genres:       { icon: Tags,           labelKey: 'sidebar.genres',       to: '/genres',        section: 'library' },
   favorites:    { icon: Heart,          labelKey: 'sidebar.favorites',    to: '/favorites',     section: 'library' },
   playlists:    { icon: ListMusic,      labelKey: 'sidebar.playlists',    to: '/playlists',     section: 'library' },
-  shared:       { icon: Share2,         labelKey: 'sidebar.shared',       defaultLabel: 'Shared', to: '/shared',    section: 'library' },
+  shared:       { icon: Share2,         labelKey: 'sidebar.shared',       defaultLabel: 'ND Shares', to: '/shared', section: 'library' },
   mostPlayed:   { icon: TrendingUp,     labelKey: 'sidebar.mostPlayed',   to: '/most-played',   section: 'library' },
   losslessAlbums:{ icon: Gem,           labelKey: 'sidebar.losslessAlbums',to: '/lossless-albums',section: 'library' },
   radio:        { icon: Cast,           labelKey: 'sidebar.radio',        to: '/radio',         section: 'library' },

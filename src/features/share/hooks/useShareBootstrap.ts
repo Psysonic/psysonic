@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { profileProbeFingerprint } from '@/lib/server/serverProbeFingerprint';
 import { useAuthStore } from '@/store/authStore';
 import { useShareStore } from '@/features/share/store/shareStore';
+import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 const SHARE_BOOTSTRAP_IDLE_TIMEOUT_MS = 1_500;
 
@@ -10,6 +11,7 @@ export function useShareBootstrap(): void {
   const isLoggedIn = useAuthStore(state => state.isLoggedIn);
   const servers = useAuthStore(state => state.servers);
   const identities = useAuthStore(state => state.subsonicServerIdentityByServer);
+  const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
   const profileKey = useMemo(
     () => servers.map(server => {
       const identity = identities[server.id];
@@ -19,6 +21,10 @@ export function useShareBootstrap(): void {
   );
 
   useEffect(() => {
+    if (!navidromeSharingEnabled) {
+      useShareStore.getState().reconcileProfiles([]);
+      return;
+    }
     useShareStore.getState().reconcileProfiles(servers);
     if (!isLoggedIn || servers.length === 0) return;
 
@@ -34,5 +40,5 @@ export function useShareBootstrap(): void {
     return () => {
       cancelled = true;
     };
-  }, [isLoggedIn, profileKey, servers]);
+  }, [isLoggedIn, navidromeSharingEnabled, profileKey, servers]);
 }

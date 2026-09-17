@@ -24,7 +24,7 @@ export const sidebar = {
   genres: 'Géneros',
   tracks: 'Canciones',
   playlists: 'Listas de Reproducción',
-  shared: 'Compartidos',
+  shared: 'ND Compartidos',
   mostPlayed: 'Más Reproducidos',
   losslessAlbums: 'Sin Pérdidas',
   radio: 'Radio por Internet',

@@ -9,6 +9,7 @@ import { makeTrack, seedQueue } from '@/test/helpers/factories';
 import { onInvoke, registerDefaultCoverInvokeHandlers } from '@/test/mocks/tauri';
 import { decodeSharePayloadFromText } from '@/lib/share/shareLink';
 import { _resetShareStoreForTest, useShareStore } from '@/features/share/store/shareStore';
+import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 const copyTextToClipboardMock = vi.fn(async (_text: string) => true);
 const createShareMock = vi.fn(async (_serverId: string, _ids: readonly string[]) => ({
@@ -72,6 +73,7 @@ describe('QueuePanel share toolbar', () => {
   beforeEach(() => {
     resetAllStores();
     _resetShareStoreForTest();
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
     copyTextToClipboardMock.mockClear();
     createShareMock.mockClear();
     useShareStore.setState({ createShare: createShareMock });
@@ -153,5 +155,41 @@ describe('QueuePanel share toolbar', () => {
     expect(within(menu).getByRole('menuitem', { name: 'Navidrome' })).toHaveAttribute('aria-disabled', 'true');
     expect(copyTextToClipboardMock).not.toHaveBeenCalled();
     expect(createShareMock).not.toHaveBeenCalled();
+  });
+
+  it('copies a single-server Psysonic queue directly when the integration is disabled', async () => {
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(false);
+    const serverId = useAuthStore.getState().activeServerId!;
+    seedQueue([makeTrack({ id: 'track-1', serverId })], { serverId });
+
+    const { getByLabelText, queryByRole } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(getByLabelText('Copy queue share link'));
+
+    await waitFor(() => expect(copyTextToClipboardMock).toHaveBeenCalledOnce());
+    expect(queryByRole('menu', { name: 'Copy queue share link' })).not.toBeInTheDocument();
+  });
+
+  it('restores the server picker for a mixed-server Psysonic queue when disabled', async () => {
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(false);
+    const firstServerId = useAuthStore.getState().activeServerId!;
+    const secondServerId = useAuthStore.getState().addServer({
+      name: 'Second', url: 'https://second.test', username: 'u2', password: 'p2',
+    });
+    seedQueue([
+      makeTrack({ id: 'first', serverId: firstServerId }),
+      makeTrack({ id: 'second', serverId: secondServerId }),
+    ], { serverId: firstServerId });
+
+    const { getByLabelText, getByRole } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(getByLabelText('Copy queue share link'));
+    const menu = getByRole('menu', { name: 'Copy queue share link' });
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Second' }));
+
+    await waitFor(() => expect(copyTextToClipboardMock).toHaveBeenCalledOnce());
+    expect(decodeSharePayloadFromText(copyTextToClipboardMock.mock.calls[0]![0])).toEqual({
+      srv: 'https://second.test',
+      k: 'queue',
+      ids: ['second'],
+    });
   });
 });

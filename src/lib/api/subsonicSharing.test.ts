@@ -76,10 +76,11 @@ describe('Subsonic sharing API', () => {
       shares: { share: { id: 'share-1', url: 'https://music.test/share/share-1' } },
     });
 
-    await createShareForServer('srv-a', ['track-b', 'track-a']);
+    await createShareForServer('srv-a', ['track-b', 'track-a'], { downloadable: true });
 
     expect(mocks.apiPostFormForServer).toHaveBeenCalledWith('srv-a', 'createShare.view', {
       id: ['track-b', 'track-a'],
+      downloadable: true,
     });
     expect(mocks.apiForServer).not.toHaveBeenCalled();
   });
@@ -92,10 +93,11 @@ describe('Subsonic sharing API', () => {
       shares: { share: { id: 'share-1', url: 'https://music.test/share/share-1' } },
     });
 
-    await createShareForServer('srv-a', ['a', 'b']);
+    await createShareForServer('srv-a', ['a', 'b'], { downloadable: false });
 
-    expect(mocks.apiForServer).toHaveBeenCalledWith('srv-a', 'createShare.view', { id: ['a', 'b'] });
-    expect(mocks.apiPostFormForServer).toHaveBeenCalledWith('srv-a', 'createShare.view', { id: ['a', 'b'] });
+    const params = { id: ['a', 'b'], downloadable: false };
+    expect(mocks.apiForServer).toHaveBeenCalledWith('srv-a', 'createShare.view', params);
+    expect(mocks.apiPostFormForServer).toHaveBeenCalledWith('srv-a', 'createShare.view', params);
   });
 
   it('sends a native playlist id unchanged', async () => {

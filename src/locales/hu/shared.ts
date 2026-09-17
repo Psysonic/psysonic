@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Nem állapítható meg, melyik szerverhez tartozik ez az elem.',
   reasonComposerUnsupported: 'Ezzel a móddal nem oszthatók meg zeneszerzői linkek.',
   reasonNoResources: 'Nincs mit megosztani.',
+  navidromeSharingTitle: 'Navidrome-megosztás',
+  navidromeSharingDesc: 'Opcionális megosztási módszerként hozzáadja a Navidrome megosztott hivatkozásait, és engedélyezi a kezelésüket. Kikapcsolva a megosztás közvetlenül Psysonic-hivatkozásokat használ.',
+  allowDownloadsTitle: 'Letöltések engedélyezése',
+  allowDownloadsDesc: 'Az új Navidrome-megosztások engedélyezik a megosztott fájlok letöltését, ha a letöltés a szerveren is engedélyezve van.',
 };

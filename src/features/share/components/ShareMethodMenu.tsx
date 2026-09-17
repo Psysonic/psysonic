@@ -9,6 +9,7 @@ import {
   type OutboundShareRequest,
   type OutboundShareMethod,
 } from '@/features/share/outboundShare';
+import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 interface ContentProps {
   request: OutboundShareRequest;
@@ -178,6 +179,18 @@ export function ContextShareMenuItem({
   onSubmenuTriggerMouseLeave,
   onDone,
 }: ContextItemProps) {
+  const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
+  if (!navidromeSharingEnabled) {
+    return (
+      <DirectContextShareMenuItem
+        request={request}
+        label={label}
+        cancelSubmenuCloseTimer={cancelSubmenuCloseTimer}
+        setActiveSubmenuId={setActiveSubmenuId}
+        onDone={onDone}
+      />
+    );
+  }
   const open = activeSubmenuId === triggerId;
   return (
     <div
@@ -203,6 +216,41 @@ export function ContextShareMenuItem({
   );
 }
 
+function DirectContextShareMenuItem({
+  request,
+  label,
+  cancelSubmenuCloseTimer,
+  setActiveSubmenuId,
+  onDone,
+}: Pick<ContextItemProps, 'request' | 'label' | 'cancelSubmenuCloseTimer' | 'setActiveSubmenuId' | 'onDone'>) {
+  const { t } = useTranslation();
+  const model = useOutboundShareModel(request, t);
+  const [busy, setBusy] = useState(false);
+  const method = model.methods.find(candidate => candidate.id === 'psysonic');
+
+  return (
+    <div
+      className={`context-menu-item${method?.available ? '' : ' is-disabled'}`}
+      aria-disabled={!method?.available || busy || undefined}
+      aria-busy={busy || undefined}
+      onClick={event => {
+        event.stopPropagation();
+        if (!method?.available || busy) return;
+        setBusy(true);
+        void model.share('psysonic').then(copied => {
+          if (copied) onDone();
+        }).finally(() => setBusy(false));
+      }}
+      onMouseEnter={() => {
+        cancelSubmenuCloseTimer();
+        setActiveSubmenuId(null);
+      }}
+    >
+      {busy ? <Loader2 size={14} className="spin" /> : <Share2 size={14} />} {label}
+    </div>
+  );
+}
+
 interface ButtonProps {
   request: OutboundShareRequest;
   label: string;
@@ -210,7 +258,39 @@ interface ButtonProps {
   iconSize?: number;
 }
 
-export function ShareMethodMenuButton({ request, label, className, iconSize = 16 }: ButtonProps) {
+export function ShareMethodMenuButton(props: ButtonProps) {
+  const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
+  return navidromeSharingEnabled
+    ? <ShareMethodPickerButton {...props} />
+    : <DirectShareButton {...props} />;
+}
+
+function DirectShareButton({ request, label, className, iconSize = 16 }: ButtonProps) {
+  const { t } = useTranslation();
+  const model = useOutboundShareModel(request, t);
+  const [busy, setBusy] = useState(false);
+  const method = model.methods.find(candidate => candidate.id === 'psysonic');
+
+  return (
+    <button
+      type="button"
+      className={className}
+      disabled={!method?.available || busy}
+      aria-label={label}
+      aria-busy={busy || undefined}
+      data-tooltip={label}
+      onClick={() => {
+        if (!method?.available || busy) return;
+        setBusy(true);
+        void model.share('psysonic').finally(() => setBusy(false));
+      }}
+    >
+      {busy ? <Loader2 size={iconSize} className="spin" /> : <Share2 size={iconSize} />}
+    </button>
+  );
+}
+
+function ShareMethodPickerButton({ request, label, className, iconSize = 16 }: ButtonProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);

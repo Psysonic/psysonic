@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Check, Image as ImageIcon, Info, Sparkles, Wifi } from 'lucide-react';
+import { AlertTriangle, Check, Image as ImageIcon, Info, Share2, Sparkles, Wifi } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
@@ -15,11 +15,18 @@ import { CoverSourceList } from '@/features/settings/components/CoverSourceList'
 import type { CoverSource } from '@/cover/coverSources';
 import { MusicNetworkSection } from '@/features/settings/components/musicNetwork/MusicNetworkSection';
 import { purgeExternalArtworkAllServers } from '@/lib/api/coverCache';
+import { useShareSettingsStore } from '@/features/share';
 
 export function IntegrationsTab() {
   const { t } = useTranslation();
   const auth = useAuthStore();
   const theme = useThemeStore();
+  const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
+  const navidromeSharesDownloadable = useShareSettingsStore(state => state.navidromeSharesDownloadable);
+  const setNavidromeSharingEnabled = useShareSettingsStore(state => state.setNavidromeSharingEnabled);
+  const setNavidromeSharesDownloadable = useShareSettingsStore(
+    state => state.setNavidromeSharesDownloadable,
+  );
 
   const backdropSurfaces: { key: BackdropSurface; label: string }[] = [
     { key: 'mainstageHero', label: t('settings.backdropSurfaceMainstage') },
@@ -261,6 +268,32 @@ export function IntegrationsTab() {
               </SettingsSubCard>
             </SettingsGroup>
           )}
+        </div>
+      </SettingsSubSection>
+
+      {/* Native Navidrome shared-link creation and management */}
+      <SettingsSubSection
+        title={t('shared.navidromeSharingTitle')}
+        icon={<Share2 size={16} />}
+      >
+        <div className="settings-card">
+          <SettingsGroup>
+            <SettingsToggle
+              desc={t('shared.navidromeSharingDesc')}
+              ariaLabel={t('shared.navidromeSharingTitle')}
+              checked={navidromeSharingEnabled}
+              onChange={setNavidromeSharingEnabled}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t('shared.allowDownloadsTitle')}>
+            <SettingsToggle
+              desc={t('shared.allowDownloadsDesc')}
+              ariaLabel={t('shared.allowDownloadsTitle')}
+              checked={navidromeSharesDownloadable}
+              onChange={setNavidromeSharesDownloadable}
+              disabled={!navidromeSharingEnabled}
+            />
+          </SettingsGroup>
         </div>
       </SettingsSubSection>
 

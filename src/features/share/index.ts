@@ -13,4 +13,5 @@ export * from './hooks/useShareBootstrap';
 export * from './outboundShare';
 export * from './shareAvailability';
 export * from './shareNavigation';
+export * from './store/shareSettingsStore';
 export * from './store/shareStore';

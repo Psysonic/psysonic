@@ -184,7 +184,6 @@ describe('AlbumHeader genres', () => {
     });
 
     await user.click(screen.getByRole('button', { name: 'Share album' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Psysonic' }));
     await waitFor(() => expect(copyEntityShareLink).toHaveBeenCalledWith('album', 'al1', { serverId: 'srv-b' }));
   });
 

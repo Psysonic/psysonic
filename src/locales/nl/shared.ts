@@ -42,4 +42,8 @@ export const shared = {
   reasonServerOwnerUnknown: 'Er kon niet worden vastgesteld bij welke server dit item hoort.',
   reasonComposerUnsupported: 'Componistlinks kunnen niet met deze methode worden gedeeld.',
   reasonNoResources: 'Er is niets om te delen.',
+  navidromeSharingTitle: 'Delen via Navidrome',
+  navidromeSharingDesc: 'Voegt gedeelde Navidrome-links toe als optionele deelmethode en schakelt het beheer ervan in. Als dit uitstaat, worden Psysonic-links direct gebruikt.',
+  allowDownloadsTitle: 'Downloads toestaan',
+  allowDownloadsDesc: 'Nieuwe Navidrome-deellinks laten ontvangers gedeelde bestanden downloaden als downloads op de server zijn ingeschakeld.',
 };

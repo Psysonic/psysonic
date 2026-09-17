@@ -5,6 +5,7 @@ import { resetAuthStore } from '@/test/helpers/storeReset';
 import { _resetShareStoreForTest, useShareStore } from '@/features/share/store/shareStore';
 import { useSidebarStore } from '@/features/sidebar/store/sidebarStore';
 import MobileMoreOverlay from '@/features/sidebar/components/MobileMoreOverlay';
+import { _resetShareSettingsStoreForTest, useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 vi.mock('@/features/sidebar/hooks/useReactiveOfflineBrowseContext', () => ({
   useReactiveOfflineBrowseContext: () => ({
@@ -26,13 +27,15 @@ vi.mock('@/features/sidebar/hooks/useReactiveOfflineBrowseContext', () => ({
 beforeEach(() => {
   resetAuthStore();
   _resetShareStoreForTest();
+  _resetShareSettingsStoreForTest();
   useSidebarStore.getState().reset();
 });
 
 describe('MobileMoreOverlay shared navigation', () => {
   it('uses aggregate shares even when the active server is offline', () => {
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
     const { rerender } = renderWithProviders(<MobileMoreOverlay onClose={() => {}} />);
-    expect(screen.queryByRole('link', { name: 'Shared' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'ND Shares' })).not.toBeInTheDocument();
 
     useShareStore.setState({
       byServer: {
@@ -46,6 +49,23 @@ describe('MobileMoreOverlay shared navigation', () => {
     });
     rerender(<MobileMoreOverlay onClose={() => {}} />);
 
-    expect(screen.getByRole('link', { name: 'Shared' })).toHaveAttribute('href', '/shared');
+    expect(screen.getByRole('link', { name: 'ND Shares' })).toHaveAttribute('href', '/shared');
+  });
+
+  it('hides managed shares while the integration is disabled', () => {
+    useShareStore.setState({
+      byServer: {
+        'server-a': {
+          shares: [{ id: 'share-1', url: 'https://server.test/share/1' }],
+          loading: false,
+          lastSuccessfulRefresh: 1,
+          availability: 'available',
+        },
+      },
+    });
+
+    renderWithProviders(<MobileMoreOverlay onClose={() => {}} />);
+
+    expect(screen.queryByRole('link', { name: 'ND Shares' })).not.toBeInTheDocument();
   });
 });
