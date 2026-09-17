@@ -75,6 +75,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Hold a dragged track against the top or bottom of the queue and the list scrolls along, so a song can be moved further than one screenful in one go. Until now that meant dropping it, scrolling, picking it up again, and repeating. It speeds up the closer you get to the edge, and the mini player behaves the same way.
 
+### Keep the play queue local on one device
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1599](https://github.com/Psysonic/psysonic/pull/1599)**, closes [#1585](https://github.com/Psysonic/psysonic/issues/1585)
+
+* **Settings → Integrations → Navidrome → Play queue sync** can now stop this device from publishing or adopting the server queue, without changing local playback.
+* **Allow downloads** now appears as a nested option only when Navidrome sharing is enabled, making it clear which feature it belongs to.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
