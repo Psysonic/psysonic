@@ -23,6 +23,7 @@ export const shared = {
   copy: 'リンクをコピー',
   openExternal: '外部で開く',
   copied: 'リンクをコピーしました。',
+  createdCopyFailed: '共有は作成されましたが、リンクをコピーできませんでした。ND Shares を開いてコピーしてください。',
   deleteTitle: '共有リンクを削除しますか？',
   deleteMessage: 'このリンクを使用している全員がアクセスできなくなります。この操作は取り消せません。',
   noResourceDetails: 'リソースの詳細を利用できません',

@@ -131,7 +131,7 @@ export function QueueToolbar({
               </div>
             );
           case 'share':
-            return navidromeSharingEnabled ? (
+            return navidromeSharingEnabled && queueShare.serverOptions.length <= 1 ? (
               <ShareMethodMenuButton
                 key={btn.id}
                 label={publicShareQueueActive ? t('queue.shareNavidromePublic') : t('queue.shareQueue')}

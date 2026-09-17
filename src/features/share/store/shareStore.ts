@@ -107,6 +107,7 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
 
   reconcileProfiles: (profiles = useAuthStore.getState().servers) => {
     const liveIds = new Set(profiles.map(profile => profile.id));
+    const configuredIds = new Set(useAuthStore.getState().servers.map(profile => profile.id));
     const staleIds = new Set<string>();
 
     for (const knownId of profileFingerprintByServer.keys()) {
@@ -130,8 +131,10 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
       if (!liveIds.has(serverId)) {
         profileFingerprintByServer.delete(serverId);
       }
-      useShareSettingsStore.getState().forgetServerShareDownloadability(serverId);
-      useShareSettingsStore.getState().forgetServerShareKinds(serverId);
+      if (!configuredIds.has(serverId)) {
+        useShareSettingsStore.getState().forgetServerShareDownloadability(serverId);
+        useShareSettingsStore.getState().forgetServerShareKinds(serverId);
+      }
     }
     set(state => ({
       byServer: Object.fromEntries(

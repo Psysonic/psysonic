@@ -47,7 +47,7 @@ import {
   summarizeMultiServerProfiles,
   summarizeMusicFoldersByServer,
 } from '@/lib/library/multiServerDebug';
-import { selectAggregateShareCount, useShareSettingsStore, useShareStore } from '@/features/share';
+import { useShareSettingsStore } from '@/features/share';
 
 const EMPTY_LIBRARY_IDS: string[] = [];
 
@@ -120,7 +120,6 @@ export default function Sidebar({
   const setSidebarItems = useSidebarStore(s => s.setItems);
   const randomNavMode = useAuthStore(s => s.randomNavMode);
   const nowPlayingAtTop = useAuthStore(s => s.nowPlayingAtTop);
-  const shareCount = useShareStore(selectAggregateShareCount);
   const luckyMixBase = useLuckyMixAvailable();
   // Sidebar surfaces Lucky Mix as its own entry only in "separate" nav mode —
   // in hub mode it lives inside the Build-a-Mix landing page instead.
@@ -191,7 +190,7 @@ export default function Sidebar({
     () =>
       libraryItemsForReorder.filter(c => {
         if (!c.visible) return false;
-        if (c.id === 'shared' && (!navidromeSharingEnabled || shareCount === 0)) return false;
+        if (c.id === 'shared' && !navidromeSharingEnabled) return false;
         if (c.id === 'shared') return true;
         if (c.id === 'luckyMix' && !luckyMixAvailable) return false;
         if (isServerOffline && !isOfflineSidebarNavAllowed(
@@ -205,7 +204,7 @@ export default function Sidebar({
         }
         return true;
       }),
-    [libraryItemsForReorder, luckyMixAvailable, isServerOffline, navidromeSharingEnabled, offlineNav, shareCount],
+    [libraryItemsForReorder, luckyMixAvailable, isServerOffline, navidromeSharingEnabled, offlineNav],
   );
   const visibleSystemConfigs = useMemo(
     () => systemItemsForReorder.filter(c => {

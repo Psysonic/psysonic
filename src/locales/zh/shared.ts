@@ -23,6 +23,7 @@ export const shared = {
   copy: '复制链接',
   openExternal: '在外部打开',
   copied: '链接已复制。',
+  createdCopyFailed: '共享已创建，但无法复制链接。请打开 ND Shares 进行复制。',
   deleteTitle: '删除分享链接？',
   deleteMessage: '使用此链接的所有人都将失去访问权限。此操作无法撤销。',
   noResourceDetails: '没有可用的资源详情',

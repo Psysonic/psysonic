@@ -23,6 +23,7 @@ export const shared = {
   copy: 'Copy link',
   openExternal: 'Open externally',
   copied: 'Link copied.',
+  createdCopyFailed: 'Share created, but the link could not be copied. Open ND Shares to copy it.',
   deleteTitle: 'Delete shared link?',
   deleteMessage: 'Anyone using this link will lose access. This cannot be undone.',
   noResourceDetails: 'Resource details unavailable',

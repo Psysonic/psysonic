@@ -50,6 +50,8 @@ describe('shareStore', () => {
         },
       },
     });
+    useShareSettingsStore.getState().rememberShareDownloadable('srv-a', 'stale', true);
+    useShareSettingsStore.getState().rememberShareKind('srv-a', 'stale', 'artist');
     useShareSettingsStore.getState().setNavidromeSharingEnabled(false);
 
     await useShareStore.getState().refreshAll();
@@ -59,6 +61,12 @@ describe('shareStore', () => {
     expect(api.getSharesForServer).not.toHaveBeenCalled();
     expect(api.createShareForServer).not.toHaveBeenCalled();
     expect(useShareStore.getState().byServer).toEqual({});
+    expect(useShareSettingsStore.getState().shareDownloadableByServer).toEqual({
+      'srv-a': { stale: true },
+    });
+    expect(useShareSettingsStore.getState().shareKindByServer).toEqual({
+      'srv-a': { stale: 'artist' },
+    });
   });
 
   it('explicitly disables downloads for new shares by default', async () => {
@@ -235,11 +243,21 @@ describe('shareStore', () => {
       { id: `share-${serverId}`, url: `https://${serverId}.test/share/1` },
     ]));
     await useShareStore.getState().refreshAll();
+    useShareSettingsStore.getState().rememberShareDownloadable('srv-a', 'share-srv-a', true);
+    useShareSettingsStore.getState().rememberShareKind('srv-a', 'share-srv-a', 'queue');
+    useShareSettingsStore.getState().rememberShareDownloadable('srv-b', 'share-srv-b', false);
+    useShareSettingsStore.getState().rememberShareKind('srv-b', 'share-srv-b', 'playlist');
 
     useAuthStore.setState({ servers: [second] });
     useShareStore.getState().reconcileProfiles();
 
     expect(useShareStore.getState().byServer['srv-a']).toBeUndefined();
     expect(useShareStore.getState().byServer['srv-b']?.shares).toHaveLength(1);
+    expect(useShareSettingsStore.getState().shareDownloadableByServer).toEqual({
+      'srv-b': { 'share-srv-b': false },
+    });
+    expect(useShareSettingsStore.getState().shareKindByServer).toEqual({
+      'srv-b': { 'share-srv-b': 'playlist' },
+    });
   });
 });

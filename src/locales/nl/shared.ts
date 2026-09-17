@@ -23,6 +23,7 @@ export const shared = {
   copy: 'Link kopiëren',
   openExternal: 'Extern openen',
   copied: 'Link gekopieerd.',
+  createdCopyFailed: 'De share is gemaakt, maar de link kon niet worden gekopieerd. Open ND Shares om hem te kopiëren.',
   deleteTitle: 'Gedeelde link verwijderen?',
   deleteMessage: 'Iedereen die deze link gebruikt, verliest de toegang. Dit kan niet ongedaan worden gemaakt.',
   noResourceDetails: 'Geen brongegevens beschikbaar',

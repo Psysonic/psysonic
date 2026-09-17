@@ -13,6 +13,7 @@ import { _resetShareStoreForTest, useShareStore } from '@/features/share/store/s
 import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 const copyTextToClipboardMock = vi.fn(async (_text: string) => true);
+const showToastMock = vi.hoisted(() => vi.fn());
 const createShareMock = vi.fn(async (_serverId: string, _ids: readonly string[], _kind?: string) => ({
   id: 'share-1',
   url: 'https://music.test/share/share-1',
@@ -22,6 +23,8 @@ vi.mock('@/lib/server/serverMagicString', () => ({
   copyTextToClipboard: (text: string) => copyTextToClipboardMock(text),
 }));
 
+vi.mock('@/lib/dom/toast', () => ({ showToast: showToastMock }));
+
 describe('ShareMethodMenuContent', () => {
   let serverId: string;
 
@@ -30,6 +33,8 @@ describe('ShareMethodMenuContent', () => {
     _resetShareStoreForTest();
     useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
     copyTextToClipboardMock.mockClear();
+    copyTextToClipboardMock.mockResolvedValue(true);
+    showToastMock.mockClear();
     createShareMock.mockClear();
     serverId = useAuthStore.getState().addServer({
       name: 'Navidrome', url: 'https://music.test', username: 'u', password: 'p',
@@ -65,6 +70,28 @@ describe('ShareMethodMenuContent', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Navidrome' }));
     expect(createShareMock).toHaveBeenCalledWith(serverId, ['playlist-native-id'], 'playlist');
     expect(copyTextToClipboardMock).toHaveBeenCalledWith('https://music.test/share/share-1');
+  });
+
+  it('reports a retained server share when clipboard copy fails', async () => {
+    const user = userEvent.setup();
+    copyTextToClipboardMock.mockResolvedValue(false);
+    renderWithProviders(
+      <div role="menu">
+        <ShareMethodMenuContent
+          request={{ kind: 'playlist', resourceIds: ['playlist-native-id'], serverIds: [serverId] }}
+          onDone={vi.fn()}
+        />
+      </div>,
+    );
+
+    await user.click(screen.getByRole('menuitem', { name: 'Navidrome' }));
+
+    expect(createShareMock).toHaveBeenCalledOnce();
+    expect(showToastMock).toHaveBeenCalledWith(
+      'Share created, but the link could not be copied. Open ND Shares to copy it.',
+      6000,
+      'error',
+    );
   });
 
   it('keeps composer Navidrome sharing disabled with a separate accessible help popover', async () => {

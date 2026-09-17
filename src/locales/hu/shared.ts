@@ -23,6 +23,7 @@ export const shared = {
   copy: 'Link másolása',
   openExternal: 'Megnyitás külső alkalmazásban',
   copied: 'Link másolva.',
+  createdCopyFailed: 'A megosztás létrejött, de a hivatkozást nem sikerült másolni. A másoláshoz nyisd meg az ND Shares oldalt.',
   deleteTitle: 'Törlöd a megosztott linket?',
   deleteMessage: 'A link használói elveszítik a hozzáférést. Ez nem vonható vissza.',
   noResourceDetails: 'Nem érhetők el az elemek részletei',

@@ -23,6 +23,7 @@ export const shared = {
   copy: 'Kopier lenke',
   openExternal: 'Åpne eksternt',
   copied: 'Lenken er kopiert.',
+  createdCopyFailed: 'Delingen ble opprettet, men lenken kunne ikke kopieres. Åpne ND Shares for å kopiere den.',
   deleteTitle: 'Slette den delte lenken?',
   deleteMessage: 'Alle som bruker denne lenken, mister tilgangen. Dette kan ikke angres.',
   noResourceDetails: 'Ingen ressursdetaljer er tilgjengelige',

@@ -101,14 +101,15 @@ async function copyPsysonicShare(request: OutboundShareRequest): Promise<boolean
   }));
 }
 
-async function copyNavidromeShare(request: OutboundShareRequest): Promise<boolean> {
+async function copyNavidromeShare(
+  request: OutboundShareRequest,
+): Promise<{ copied: boolean; created: boolean }> {
   const originalUrl = request.originalUrl?.trim();
-  if (originalUrl) return copyTextToClipboard(originalUrl);
+  if (originalUrl) return { copied: await copyTextToClipboard(originalUrl), created: false };
   const serverId = singleOwnerServerId(request);
-  if (!serverId) return false;
-  if (request.kind === 'composer') return false;
+  if (!serverId || request.kind === 'composer') return { copied: false, created: false };
   const share = await useShareStore.getState().createShare(serverId, request.resourceIds, request.kind);
-  return copyTextToClipboard(share.url);
+  return { copied: await copyTextToClipboard(share.url), created: true };
 }
 
 export function useOutboundShareModel(
@@ -155,15 +156,19 @@ export function useOutboundShareModel(
       const selected = methods.find(candidate => candidate.id === method);
       if (!selected?.available) return false;
       try {
-        const copied = method === 'psysonic'
-          ? await copyPsysonicShare(request)
+        const result = method === 'psysonic'
+          ? { copied: await copyPsysonicShare(request), created: false }
           : await copyNavidromeShare(request);
+        if (result.created && !result.copied) {
+          showToast(t('shared.createdCopyFailed'), 6000, 'error');
+          return false;
+        }
         showToast(
-          copied ? t('contextMenu.shareCopied') : t('contextMenu.shareCopyFailed'),
-          copied ? 3000 : 4000,
-          copied ? 'info' : 'error',
+          result.copied ? t('contextMenu.shareCopied') : t('contextMenu.shareCopyFailed'),
+          result.copied ? 3000 : 4000,
+          result.copied ? 'info' : 'error',
         );
-        return copied;
+        return result.copied;
       } catch {
         showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
         return false;

@@ -32,22 +32,9 @@ beforeEach(() => {
 });
 
 describe('MobileMoreOverlay shared navigation', () => {
-  it('uses aggregate shares even when the active server is offline', () => {
+  it('keeps managed shares available with zero links while the active server is offline', () => {
     useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
-    const { rerender } = renderWithProviders(<MobileMoreOverlay onClose={() => {}} />);
-    expect(screen.queryByRole('link', { name: 'ND Shares' })).not.toBeInTheDocument();
-
-    useShareStore.setState({
-      byServer: {
-        'server-a': {
-          shares: [{ id: 'share-1', url: 'https://server.test/share/1' }],
-          loading: false,
-          lastSuccessfulRefresh: 1,
-          availability: 'available',
-        },
-      },
-    });
-    rerender(<MobileMoreOverlay onClose={() => {}} />);
+    renderWithProviders(<MobileMoreOverlay onClose={() => {}} />);
 
     expect(screen.getByRole('link', { name: 'ND Shares' })).toHaveAttribute('href', '/shared');
   });

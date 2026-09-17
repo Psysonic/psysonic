@@ -24,6 +24,7 @@ export const shared = {
   copy: 'Copiază linkul',
   openExternal: 'Deschide extern',
   copied: 'Link copiat.',
+  createdCopyFailed: 'Partajarea a fost creată, dar linkul nu a putut fi copiat. Deschide ND Shares pentru a-l copia.',
   deleteTitle: 'Ștergi linkul distribuit?',
   deleteMessage: 'Oricine folosește acest link va pierde accesul. Acțiunea nu poate fi anulată.',
   noResourceDetails: 'Detaliile resurselor nu sunt disponibile',

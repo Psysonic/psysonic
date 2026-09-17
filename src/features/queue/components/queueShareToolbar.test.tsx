@@ -138,7 +138,7 @@ describe('QueuePanel share toolbar', () => {
     expect(copyTextToClipboardMock).toHaveBeenLastCalledWith('https://x.test/share/native-share');
   });
 
-  it('offers neither method for a mixed-server whole queue and never server-slices', () => {
+  it('keeps the Psysonic server picker for a mixed-server queue when enabled', async () => {
     const firstServerId = useAuthStore.getState().activeServerId!;
     const secondServerId = useAuthStore.getState().addServer({
       name: 'Second', url: 'https://second.test', username: 'u2', password: 'p2',
@@ -151,9 +151,14 @@ describe('QueuePanel share toolbar', () => {
     const { getByLabelText, getByRole } = renderWithProviders(<QueuePanel />);
     fireEvent.click(getByLabelText('Copy queue share link'));
     const menu = getByRole('menu', { name: 'Copy queue share link' });
-    expect(within(menu).getByRole('menuitem', { name: 'Psysonic' })).toHaveAttribute('aria-disabled', 'true');
-    expect(within(menu).getByRole('menuitem', { name: 'Navidrome' })).toHaveAttribute('aria-disabled', 'true');
-    expect(copyTextToClipboardMock).not.toHaveBeenCalled();
+    fireEvent.click(within(menu).getByRole('menuitem', { name: 'Second' }));
+
+    await waitFor(() => expect(copyTextToClipboardMock).toHaveBeenCalledOnce());
+    expect(decodeSharePayloadFromText(copyTextToClipboardMock.mock.calls[0]![0])).toEqual({
+      srv: 'https://second.test',
+      k: 'queue',
+      ids: ['second'],
+    });
     expect(createShareMock).not.toHaveBeenCalled();
   });
 

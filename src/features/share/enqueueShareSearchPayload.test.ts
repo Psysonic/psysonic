@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   orbitBulkGuard: vi.fn(),
   showToast: vi.fn(),
   songToTrack: vi.fn(),
+  normalizeNavidromeExternalId: vi.fn((_serverId: string, id: string) => id),
 }));
 
 vi.mock('@/lib/api/subsonicLibrary', () => ({
@@ -59,6 +60,10 @@ vi.mock('@/features/orbit', () => ({
 
 vi.mock('@/lib/dom/toast', () => ({
   showToast: mocks.showToast,
+}));
+
+vi.mock('@/lib/server/navidromeCanonicalExternalId', () => ({
+  normalizeNavidromeExternalId: mocks.normalizeNavidromeExternalId,
 }));
 
 import {
@@ -133,6 +138,7 @@ describe('share search payload resolution', () => {
       serverId: song.serverId,
     }));
     mocks.orbitBulkGuard.mockResolvedValue(true);
+    mocks.normalizeNavidromeExternalId.mockImplementation((_serverId: string, id: string) => id);
   });
 
   it('resolves a shared track preview through its explicit server without switching active server', async () => {
@@ -198,6 +204,37 @@ describe('share search payload resolution', () => {
       playlist: { id: 'playlist-1', serverId: 'shared' },
     });
     expect(mocks.authState.current.setActiveServer).not.toHaveBeenCalled();
+  });
+
+  it('normalizes durable IDs before resolving every payload kind', async () => {
+    mocks.normalizeNavidromeExternalId.mockImplementation((_serverId: string, id: string) => `canonical-${id}`);
+
+    await resolveShareSearchPayload({
+      srv: 'https://shared.example.com',
+      k: 'queue',
+      ids: ['song-1', 'song-2'],
+    });
+    await resolveShareSearchAlbum({
+      srv: 'https://shared.example.com',
+      k: 'album',
+      id: 'album-1',
+    });
+    await resolveShareSearchArtist({
+      srv: 'https://shared.example.com',
+      k: 'composer',
+      id: 'composer-1',
+    });
+    await resolveShareSearchPlaylist({
+      srv: 'https://shared.example.com',
+      k: 'playlist',
+      id: 'playlist-1',
+    });
+
+    expect(mocks.getSongForServer).toHaveBeenNthCalledWith(1, 'shared', 'canonical-song-1');
+    expect(mocks.getSongForServer).toHaveBeenNthCalledWith(2, 'shared', 'canonical-song-2');
+    expect(mocks.resolveAlbum).toHaveBeenCalledWith('shared', 'canonical-album-1');
+    expect(mocks.resolveArtist).toHaveBeenCalledWith('shared', 'canonical-composer-1');
+    expect(mocks.resolvePlaylist).toHaveBeenCalledWith('shared', 'canonical-playlist-1');
   });
 
   it('returns not-logged-in without calling the API', async () => {

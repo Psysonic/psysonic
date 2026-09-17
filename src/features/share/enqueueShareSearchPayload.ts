@@ -19,6 +19,7 @@ import {
   lookupShareServer,
   type ShareServerLookupResult,
 } from '@/features/share/shareServerResolution';
+import { normalizeNavidromeExternalId } from '@/lib/server/navidromeCanonicalExternalId';
 
 const RESOLVE_QUEUE_CHUNK = 12;
 
@@ -84,7 +85,8 @@ export async function resolveShareSearchPayload(
   }
 
   try {
-    const ids = payload.k === 'track' ? [payload.id] : payload.ids;
+    const ids = (payload.k === 'track' ? [payload.id] : payload.ids)
+      .map(id => normalizeNavidromeExternalId(lookup.serverId, id));
     const resolved: SubsonicSong[] = [];
     for (let i = 0; i < ids.length; i += RESOLVE_QUEUE_CHUNK) {
       const chunk = ids.slice(i, i + RESOLVE_QUEUE_CHUNK);
@@ -117,7 +119,8 @@ export async function resolveShareSearchAlbum(
   }
 
   try {
-    const resolved = await resolveAlbum(lookup.serverId, payload.id);
+    const id = normalizeNavidromeExternalId(lookup.serverId, payload.id);
+    const resolved = await resolveAlbum(lookup.serverId, id);
     return resolved
       ? { type: 'ok', album: { ...resolved.album, serverId: lookup.serverId } }
       : { type: 'unavailable' };
@@ -138,7 +141,8 @@ export async function resolveShareSearchArtist(
   }
 
   try {
-    const resolved = await resolveArtist(lookup.serverId, payload.id);
+    const id = normalizeNavidromeExternalId(lookup.serverId, payload.id);
+    const resolved = await resolveArtist(lookup.serverId, id);
     return resolved
       ? { type: 'ok', artist: { ...resolved.artist, serverId: lookup.serverId } }
       : { type: 'unavailable' };
@@ -159,7 +163,8 @@ export async function resolveShareSearchPlaylist(
   }
 
   try {
-    const resolved = await resolvePlaylist(lookup.serverId, payload.id);
+    const id = normalizeNavidromeExternalId(lookup.serverId, payload.id);
+    const resolved = await resolvePlaylist(lookup.serverId, id);
     return resolved
       ? { type: 'ok', playlist: { ...resolved.playlist, serverId: lookup.serverId } }
       : { type: 'unavailable' };

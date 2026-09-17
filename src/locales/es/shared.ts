@@ -24,6 +24,7 @@ export const shared = {
   copy: 'Copiar enlace',
   openExternal: 'Abrir externamente',
   copied: 'Enlace copiado.',
+  createdCopyFailed: 'El enlace se creó, pero no se pudo copiar. Abre ND Shares para copiarlo.',
   deleteTitle: '¿Eliminar el enlace compartido?',
   deleteMessage: 'Quienes usen este enlace perderán el acceso. Esta acción no se puede deshacer.',
   noResourceDetails: 'No hay detalles de los recursos',
