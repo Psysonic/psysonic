@@ -47,6 +47,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Clicking **Albums** on the Favorites page now opens All Albums showing only your favourites, so hundreds of them can be browsed as a grid with sorting and filters instead of scrolling one long row.
 
+### Finding the switch for the artist photo in fullscreen
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1590](https://github.com/Psysonic/psysonic/pull/1590)**
+
+* The artist photo behind the fullscreen player can be turned off for every style — the switch just lives on another tab, under **Integrations → Backgrounds**. Settings → Appearance now says so next to the style picker and offers a button that opens that section directly.
+
 ## Fixed
 
 ### Artist top tracks can be dragged to the queue
