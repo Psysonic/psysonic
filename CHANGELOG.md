@@ -47,6 +47,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Clicking **Albums** on the Favorites page now opens All Albums showing only your favourites, so hundreds of them can be browsed as a grid with sorting and filters instead of scrolling one long row.
 
+### Create and manage Navidrome shares inside Psysonic
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1586](https://github.com/Psysonic/psysonic/pull/1586)**
+
+* Enable Navidrome sharing under **Settings -> Integrations**, then create public links from supported tracks, albums, artists, playlists, composers and the play queue without opening the server website.
+* The new **ND Shares** page collects links from the selected servers with artwork, type and item counts. Play a share, add it to the queue, inspect its exact contents, copy or edit the link, and remove it from the server in one place.
+* Pasting or searching a managed share opens the same preview flow, while mobile and desktop navigation keep the page available wherever sharing is enabled.
+
 ## Fixed
 
 ### Artist top tracks can be dragged to the queue
