@@ -27,6 +27,7 @@ import { playTimelineHistoryTrack } from '@/features/playback/utils/playTimeline
 import { OptionalQueueTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { useDragPressHandle } from '@/lib/dnd/useDragPress';
+import { useDragEdgeScroll } from '@/lib/dnd/useDragEdgeScroll';
 import { queueSongStar } from '@/features/playback';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 
@@ -74,6 +75,9 @@ export function QueueList({
   const starredOverrides = usePlayerStore(s => s.starredOverrides);
   // Rows are virtualised, so one can be recycled out from under a held button.
   const dragPress = useDragPressHandle();
+  // Holding a dragged row against either edge pulls the list along, so a track
+  // can be moved further than one screenful in one go (issue #1592).
+  useDragEdgeScroll(queueListRef, isQueueDrag);
 
   const usingTimeline = queueDisplayMode === 'timeline' && timelineRows != null;
   const rowCount = usingTimeline ? timelineRows.length : queue.length;
