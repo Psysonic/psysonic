@@ -483,6 +483,8 @@ export const settings = {
   searchNoResults: 'Ingen innstillinger samsvarer med søket ditt.',
   aboutMaintainersLabel: 'Ansvarlige',
   integrationsPrivacyTitle: 'Personvern-merknad',
+  playQueueSyncTitle: 'Synkroniser avspillingskø',
+  playQueueSyncDesc: 'Synkroniserer køen og avspillingsposisjonen på denne enheten med serveren, slik at du kan fortsette på en annen enhet. Slå av for å beholde køen lokalt.',
   integrationsPrivacyBody: 'Alle integrasjoner på denne fanen er <strong>frivillige</strong> og sender, når aktivert, data til eksterne tjenester eller til Navidrome-serveren din. Last.fm mottar lyttehistorikken din, Discord viser gjeldende spor i profilen din, Bandsintown spørres per artist for turnédatoer, og "Spilles nå"-delingen publiserer gjeldende spor til andre brukere av Navidrome-serveren din. Hvis du ikke ønsker noe av dette, la den aktuelle seksjonen stå deaktivert.',
   homeCustomizerTitle: 'Hovedscene',
   queueSettingsTitle: 'Køinnstillinger',

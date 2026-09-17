@@ -484,6 +484,8 @@ export const settings = {
   searchNoResults: 'Aucun réglage ne correspond à votre recherche.',
   aboutMaintainersLabel: 'Mainteneurs',
   integrationsPrivacyTitle: 'Avis de confidentialité',
+  playQueueSyncTitle: 'Synchronisation de la file de lecture',
+  playQueueSyncDesc: 'Synchronise la file et la position de lecture de cet appareil avec le serveur pour reprendre sur un autre appareil. Désactivez cette option pour garder la file locale.',
   integrationsPrivacyBody: 'Toutes les intégrations de cet onglet sont <strong>facultatives</strong> et, une fois activées, envoient des données à des services externes ou à votre serveur Navidrome. Last.fm reçoit votre historique d\'écoute, Discord affiche le morceau en cours dans votre profil, Bandsintown est interrogé par artiste pour récupérer les dates de tournée, et le partage « En cours de lecture » publie votre morceau actuel auprès des autres utilisateurs de votre serveur Navidrome. Si vous ne voulez rien de tout cela, laissez simplement la section correspondante désactivée.',
   homeCustomizerTitle: 'Scène principale',
   queueSettingsTitle: 'Paramètres de la file d\'attente',

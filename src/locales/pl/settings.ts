@@ -548,6 +548,8 @@ export const settings = {
   searchPlaceholder: 'Wyszukaj ustawienia…',
   searchNoResults: 'Żadne ustawienia nie pasują do wyszukiwania.',
   integrationsPrivacyTitle: 'Informacja o prywatności',
+  playQueueSyncTitle: 'Synchronizacja kolejki odtwarzania',
+  playQueueSyncDesc: 'Synchronizuje kolejkę i pozycję odtwarzania tego urządzenia z serwerem, aby można było kontynuować na innym urządzeniu. Wyłącz, aby kolejka pozostała lokalna.',
   integrationsPrivacyBody: 'Wszystkie integracje na tej karcie są <strong>opcjonalne</strong> i po włączeniu wysyłają dane do usług zewnętrznych albo do Twojego serwera Navidrome. Last.fm otrzymuje historię słuchania, Discord pokazuje aktualnie odtwarzany utwór w Twoim profilu, Bandsintown jest odpytywany dla każdego wykonawcy w celu pobrania dat koncertów, a udostępnianie "Teraz odtwarzane" publikuje bieżący utwór innym użytkownikom Twojego serwera Navidrome. Jeśli tego nie chcesz, po prostu zostaw odpowiednią sekcję wyłączoną.',
   homeCustomizerTitle: 'Scena główna',
   queueSettingsTitle: 'Ustawienia kolejki',

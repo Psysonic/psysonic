@@ -548,6 +548,8 @@ export const settings = {
   searchPlaceholder: 'Beállítások keresése…',
   searchNoResults: 'Nincs a keresésnek megfelelő beállítás.',
   integrationsPrivacyTitle: 'Adatvédelmi tájékoztató',
+  playQueueSyncTitle: 'Lejátszási sor szinkronizálása',
+  playQueueSyncDesc: 'Szinkronizálja az eszköz lejátszási sorát és pozícióját a szerverrel, hogy másik eszközön folytathasd. Kapcsold ki, ha a sort helyben szeretnéd tartani.',
   integrationsPrivacyBody: 'Az ezen a lapon lévő összes integráció <strong>opcionális</strong>, és bekapcsolva adatokat küld külső szolgáltatásoknak vagy a Navidrome szerverednek. A Last.fm megkapja a hallgatási előzményeidet, a Discord megjeleníti az éppen lejátszott számot a profilodon, a Bandsintown előadónként lekérdezésre kerül a turnédátumokért, a Most szól megosztás pedig közzéteszi az aktuális számodat a Navidrome szervered többi felhasználójának. Ha ezekből egyiket sem szeretnéd, egyszerűen hagyd letiltva a megfelelő szakaszt.',
   homeCustomizerTitle: 'Főszínpad',
   queueSettingsTitle: 'Lejátszási sor beállításai',

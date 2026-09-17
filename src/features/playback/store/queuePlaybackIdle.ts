@@ -90,6 +90,10 @@ export function clearQueuePushFailed(serverId = ''): void {
   if (serverId) queuePushFailedByServer.delete('');
 }
 
+export function clearAllQueuePushFailures(): void {
+  queuePushFailedByServer.clear();
+}
+
 export function isQueuePushFailed(serverId?: string): boolean {
   return serverId === undefined
     ? queuePushFailedByServer.size > 0

@@ -16,6 +16,7 @@ import type { CoverSource } from '@/cover/coverSources';
 import { MusicNetworkSection } from '@/features/settings/components/musicNetwork/MusicNetworkSection';
 import { purgeExternalArtworkAllServers } from '@/lib/api/coverCache';
 import { useShareSettingsStore } from '@/features/share';
+import { usePlayQueueSyncSettingsStore } from '@/features/playback';
 
 export function IntegrationsTab() {
   const { t } = useTranslation();
@@ -27,6 +28,8 @@ export function IntegrationsTab() {
   const setNavidromeSharesDownloadable = useShareSettingsStore(
     state => state.setNavidromeSharesDownloadable,
   );
+  const playQueueSyncEnabled = usePlayQueueSyncSettingsStore(state => state.enabled);
+  const setPlayQueueSyncEnabled = usePlayQueueSyncSettingsStore(state => state.setEnabled);
 
   const backdropSurfaces: { key: BackdropSurface; label: string }[] = [
     { key: 'mainstageHero', label: t('settings.backdropSurfaceMainstage') },
@@ -74,6 +77,14 @@ export function IntegrationsTab() {
         icon={<Wifi size={16} />}
       >
         <div className="settings-card">
+          <SettingsGroup title={t('settings.playQueueSyncTitle')}>
+            <SettingsToggle
+              desc={t('settings.playQueueSyncDesc')}
+              ariaLabel={t('settings.playQueueSyncTitle')}
+              checked={playQueueSyncEnabled}
+              onChange={setPlayQueueSyncEnabled}
+            />
+          </SettingsGroup>
           <SettingsGroup title={t('shared.navidromeSharingTitle')}>
             <SettingsToggle
               desc={t('shared.navidromeSharingDesc')}
@@ -81,15 +92,16 @@ export function IntegrationsTab() {
               checked={navidromeSharingEnabled}
               onChange={setNavidromeSharingEnabled}
             />
-          </SettingsGroup>
-          <SettingsGroup title={t('shared.allowDownloadsTitle')}>
-            <SettingsToggle
-              desc={t('shared.allowDownloadsDesc')}
-              ariaLabel={t('shared.allowDownloadsTitle')}
-              checked={navidromeSharesDownloadable}
-              onChange={setNavidromeSharesDownloadable}
-              disabled={!navidromeSharingEnabled}
-            />
+            {navidromeSharingEnabled && (
+              <SettingsSubCard style={{ marginTop: 'var(--space-3)' }}>
+                <SettingsToggle
+                  label={t('shared.allowDownloadsTitle')}
+                  desc={t('shared.allowDownloadsDesc')}
+                  checked={navidromeSharesDownloadable}
+                  onChange={setNavidromeSharesDownloadable}
+                />
+              </SettingsSubCard>
+            )}
           </SettingsGroup>
         </div>
       </SettingsSubSection>

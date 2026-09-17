@@ -548,6 +548,8 @@ export const settings = {
   searchPlaceholder: 'Cerca nelle impostazioni…',
   searchNoResults: 'Nessuna impostazione corrisponde alla tua ricerca.',
   integrationsPrivacyTitle: 'Informativa sulla privacy',
+  playQueueSyncTitle: 'Sincronizzazione coda di riproduzione',
+  playQueueSyncDesc: 'Sincronizza la coda e la posizione di riproduzione di questo dispositivo con il server per continuare su un altro dispositivo. Disattiva per mantenere la coda locale.',
   integrationsPrivacyBody: 'Tutte le integrazioni in questa scheda sono <strong>opzionali</strong> e inviano dati a servizi esterni o al tuo server Navidrome quando attivate. Last.fm riceve la tua cronologia di ascolto, Discord mostra il brano in riproduzione sul tuo profilo, Bandsintown viene interrogato per artista per recuperare le date dei concerti, e la condivisione In riproduzione pubblica il tuo brano attuale ad altri utenti del tuo server Navidrome. Se non desideri nulla di tutto ciò, lascia semplicemente disattivata la sezione corrispondente.',
   homeCustomizerTitle: 'Mainstage',
   queueSettingsTitle: 'Impostazioni coda',

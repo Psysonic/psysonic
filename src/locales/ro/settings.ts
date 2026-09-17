@@ -506,6 +506,8 @@ export const settings = {
   searchPlaceholder: 'Caută setări…',
   searchNoResults: 'Nicio setare nu corespunde cu ce ai căutat.',
   integrationsPrivacyTitle: 'Notificare de confidențialitate',
+  playQueueSyncTitle: 'Sincronizarea cozii de redare',
+  playQueueSyncDesc: 'Sincronizează coada și poziția de redare a acestui dispozitiv cu serverul pentru a continua pe alt dispozitiv. Dezactivează pentru a păstra coada locală.',
   integrationsPrivacyBody: 'Toate integrările din acest tab sunt <strong>opționale</strong> și trimit date către servicii externe sau server-ul tău Navidrome când sunt activate. Last.fm primește istoricul ascultărilor tale, Discord arată piesa redată curent în profilul tău, Bandsintown e interogat per artist pentru a aduce date de turnee, și distribuirea Now-Playing publică piesa curentă către alți useri din server-ul tău Navidrome. Dacă nu vrei vreo opțiune, doar lasă secțiunea corespunzătoare dezactivată',
   homeCustomizerTitle: 'Scena Principală',
   queueSettingsTitle: 'Setări coadă',
