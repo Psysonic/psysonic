@@ -72,6 +72,17 @@ describe('FullscreenPlayerImmersive', () => {
     expect(stopSpy).toHaveBeenCalledTimes(1);
   });
 
+  it('publishes the cluster height the lyrics fade is sized from', () => {
+    usePlayerStore.setState({ currentTrack: makeTrack() });
+    const { container } = renderWithProviders(<FullscreenPlayerImmersive onClose={() => {}} />);
+
+    // jsdom has no layout, so the value is 0px — what matters here is that the
+    // measurement is wired up at all. Without it the fade falls back to a window
+    // fraction that has nothing to do with how tall the cluster is.
+    const root = container.querySelector('.fs-player') as HTMLElement;
+    expect(root.style.getPropertyValue('--fs-cluster-h')).not.toBe('');
+  });
+
   it('announces before opening the lyrics settings popover', () => {
     usePlayerStore.setState({ currentTrack: makeTrack() });
     const onTransientOpen = vi.fn();

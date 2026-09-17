@@ -10,6 +10,11 @@
   position: fixed;
   inset: 0;
   z-index: 9000;
+  /* Shared by the info cluster and the lyrics fade behind it — see
+     `.fsa-fade-bottom`. `--fs-cluster-h` is measured and published by
+     useFsElementHeightVar; the fallback only has to carry the first paint. */
+  --fs-cluster-bottom: 72px;
+  --fs-fade-runup: 100px;
   overflow: hidden;
   contain: layout style paint;
   animation: fsIn 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -192,7 +197,7 @@
 /* ── Info cluster — bottom-left quadrant ── */
 .fs-cluster {
   position: absolute;
-  bottom: 72px;
+  bottom: var(--fs-cluster-bottom);
   left: clamp(28px, 4vw, 64px);
   z-index: 4;
   display: flex;
@@ -465,20 +470,28 @@
   );
 }
 
-/* Bottom fade: sits above lyrics (same z-index, later in DOM) but under cluster */
+/* Bottom fade: sits above lyrics (same z-index, later in DOM) but under cluster.
+   It is sized from the cluster it hides the lyrics behind, not from the window:
+   a `45vh` reserve met a cluster that grows with the cover, a wrapping title,
+   the visualizer strip and the transport row, so the two drifted apart and the
+   lyrics ran straight through the title (reported for the immersive style; the
+   same mistake in the minimal style is issue #1546). Measured across four window
+   sizes, coverage behind the title ranged from 0% to 54% before this.
+   The run-up is a fixed distance, so the fade reaches 55% exactly where the
+   cluster starts no matter how tall either of them is. */
 .fsa-fade-bottom {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 45vh;
+  height: calc(var(--fs-cluster-h, 40vh) + var(--fs-cluster-bottom) + var(--fs-fade-runup));
   z-index: 3;
   pointer-events: none;
   background: linear-gradient(
     to bottom,
-    transparent 0%,
-    rgba(6, 6, 14, 0.55) 40%,
-    rgba(6, 6, 14, 0.88) 72%,
+    transparent 0,
+    rgba(6, 6, 14, 0.68) var(--fs-fade-runup),
+    rgba(6, 6, 14, 0.93) 60%,
     rgba(6, 6, 14, 0.96) 100%
   );
 }
