@@ -6,6 +6,7 @@ export const songInfo = {
   albumArtist: 'Изпълнител на албума',
   year: 'Година',
   genre: 'Жанр',
+  genres: 'Жанрове',
   duration: 'Продължителност',
   track: 'Песен',
   bpm: 'BPM',

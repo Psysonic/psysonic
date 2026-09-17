@@ -6,6 +6,7 @@ export const songInfo = {
   albumArtist: '专辑艺术家',
   year: '年份',
   genre: '流派',
+  genres: '流派',
   duration: '时长',
   track: '曲目',
   bpm: 'BPM',

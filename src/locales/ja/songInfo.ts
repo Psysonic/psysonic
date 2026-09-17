@@ -6,6 +6,7 @@ export const songInfo = {
   albumArtist: 'アルバムアーティスト',
   year: '年',
   genre: 'ジャンル',
+  genres: 'ジャンル',
   duration: '長さ',
   track: 'トラック',
   bpm: 'BPM',
