@@ -87,7 +87,7 @@ describe('Shared page', () => {
     expect(screen.queryByText('Manage links shared from your servers.')).not.toBeInTheDocument();
   });
 
-  it('groups every configured server and renders independent states', () => {
+  it('groups selected cluster servers and renders independent states', () => {
     const servers = [
       makeServer({ id: 'loading', name: 'Loading server' }),
       makeServer({ id: 'disabled', name: 'Disabled server' }),
@@ -95,7 +95,7 @@ describe('Shared page', () => {
       makeServer({ id: 'error', name: 'Error server' }),
       makeServer({ id: 'empty', name: 'Empty server' }),
     ];
-    useAuthStore.setState({ servers });
+    useAuthStore.setState({ servers, libraryBrowseServerIds: servers.map(server => server.id) });
     useShareStore.setState(state => ({
       ...state,
       refreshAll: vi.fn(async () => {}),
@@ -116,6 +116,40 @@ describe('Shared page', () => {
     expect(screen.getByText('Server unreachable')).toBeInTheDocument();
     expect(screen.getByText('Could not load shared links')).toBeInTheDocument();
     expect(screen.getByText('No shared links on this server.')).toBeInTheDocument();
+  });
+
+  it('shows only the selected cluster servers and counts their shares', () => {
+    const first = makeServer({ id: 'server-a', name: 'Selected server' });
+    const second = makeServer({ id: 'server-b', name: 'Hidden server' });
+    useAuthStore.setState({
+      servers: [first, second],
+      activeServerId: 'server-a',
+      libraryBrowseServerIds: ['server-a'],
+    });
+    useShareStore.setState(state => ({
+      ...state,
+      refreshAll: vi.fn(async () => {}),
+      byServer: {
+        'server-a': {
+          shares: [{ id: 'share-a', url: 'https://a.test/share/a' }],
+          loading: false,
+          lastSuccessfulRefresh: 1,
+          availability: 'available',
+        },
+        'server-b': {
+          shares: [{ id: 'share-b', url: 'https://b.test/share/b' }],
+          loading: false,
+          lastSuccessfulRefresh: 1,
+          availability: 'available',
+        },
+      },
+    }));
+
+    renderWithProviders(<Shared />, { route: '/shared' });
+
+    expect(screen.getByRole('heading', { name: 'Selected server' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Hidden server' })).not.toBeInTheDocument();
+    expect(screen.getAllByText('1 link')).toHaveLength(2);
   });
 
   it('shows the required Navidrome version for an older server', async () => {
@@ -140,12 +174,21 @@ describe('Shared page', () => {
       refreshAll: vi.fn(async () => {}),
       byServer: {
         'server-a': {
-          shares: [{
-            id: 'share-1',
-            url: 'https://server.test/share/1',
-            downloadable: true,
-            entry: [{ id: 'track-1', title: 'First track' }],
-          }],
+          shares: [
+            {
+              id: 'share-1',
+              url: 'https://server.test/share/1',
+              downloadable: true,
+              visitCount: 3,
+              entry: [{ id: 'track-1', title: 'First track' }],
+            },
+            {
+              id: 'share-2',
+              url: 'https://server.test/share/2',
+              downloadable: false,
+              entry: [{ id: 'track-2', title: 'Second track' }],
+            },
+          ],
           loading: false,
           lastSuccessfulRefresh: 1,
           availability: 'available',
@@ -154,8 +197,15 @@ describe('Shared page', () => {
     }));
 
     const view = renderWithProviders(<Shared />, { route: '/shared' });
-    expect(screen.getByText('Downloads')).toBeInTheDocument();
-    expect(screen.getByText('Allowed')).toBeInTheDocument();
+    const downloadIndicator = screen.getByLabelText('Downloads: Allowed');
+    expect(downloadIndicator).toHaveAttribute('data-tooltip', 'Downloads: Allowed');
+    expect(within(downloadIndicator).queryByText('Downloads')).toHaveClass('visually-hidden');
+    expect(screen.queryByText('Allowed')).not.toBeInTheDocument();
+    expect(screen.queryByText('Blocked')).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText('Downloads: Allowed')).toHaveLength(1);
+    const visitIndicator = screen.getByLabelText('Visits: 3');
+    expect(visitIndicator).toHaveAttribute('data-tooltip', 'Visits: 3');
+    expect(within(visitIndicator).getByText('Visits')).toHaveClass('visually-hidden');
 
     fireEvent.click(screen.getByRole('button', { name: 'Home' }));
     expect(screen.queryByRole('article')).not.toBeInTheDocument();

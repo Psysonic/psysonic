@@ -139,6 +139,7 @@ describe('shareStore', () => {
     const second = makeServer({ id: 'srv-b' });
     useAuthStore.setState({
       servers: [first, second],
+      libraryBrowseServerIds: ['srv-a', 'srv-b'],
       subsonicServerIdentityByServer: {
         'srv-a': { type: 'navidrome', serverVersion: '0.64.0' },
         'srv-b': { type: 'navidrome', serverVersion: '0.64.0' },
@@ -156,6 +157,27 @@ describe('shareStore', () => {
 
     expect(useShareStore.getState().byServer['srv-a']?.shares).toHaveLength(1);
     expect(useShareStore.getState().byServer['srv-b']?.availability).toBe('sharing_disabled');
+  });
+
+  it('refreshes only servers selected in the library browse scope', async () => {
+    const first = makeServer({ id: 'srv-a' });
+    const second = makeServer({ id: 'srv-b' });
+    useAuthStore.setState({
+      servers: [first, second],
+      activeServerId: 'srv-a',
+      libraryBrowseServerIds: ['srv-b'],
+      subsonicServerIdentityByServer: {
+        'srv-a': { type: 'navidrome', serverVersion: '0.64.0' },
+        'srv-b': { type: 'navidrome', serverVersion: '0.64.0' },
+      },
+    });
+    api.getSharesForServer.mockResolvedValue([]);
+
+    await useShareStore.getState().refreshAll();
+
+    expect(api.getSharesForServer).toHaveBeenCalledOnce();
+    expect(api.getSharesForServer).toHaveBeenCalledWith('srv-b');
+    expect(useShareStore.getState().byServer['srv-a']).toBeUndefined();
   });
 
   it('inserts created shares and removes only after successful deletion', async () => {
@@ -234,6 +256,7 @@ describe('shareStore', () => {
     const second = makeServer({ id: 'srv-b' });
     useAuthStore.setState({
       servers: [first, second],
+      libraryBrowseServerIds: ['srv-a', 'srv-b'],
       subsonicServerIdentityByServer: {
         'srv-a': { type: 'navidrome', serverVersion: '0.64.0' },
         'srv-b': { type: 'navidrome', serverVersion: '0.64.0' },

@@ -8,6 +8,7 @@ import {
   type SubsonicShareKind,
 } from '@/lib/api/subsonicSharing';
 import { profileProbeFingerprint } from '@/lib/server/serverProbeFingerprint';
+import { deriveLibraryBrowseServerIdsWithFallback } from '@/lib/library/libraryBrowseScope';
 import { useAuthStore } from '@/store/authStore';
 import type { ServerProfile } from '@/store/authStoreTypes';
 import {
@@ -235,7 +236,9 @@ export const useShareStore = create<ShareStore>()((set, get) => ({
       get().reconcileProfiles([]);
       return;
     }
-    const profiles = useAuthStore.getState().servers;
+    const auth = useAuthStore.getState();
+    const selectedServerIds = new Set(deriveLibraryBrowseServerIdsWithFallback(auth));
+    const profiles = auth.servers.filter(profile => selectedServerIds.has(profile.id));
     get().reconcileProfiles(profiles);
     await Promise.allSettled(profiles.map(profile => get().refreshServer(profile.id)));
   },

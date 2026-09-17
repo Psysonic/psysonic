@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { selectAggregateShareCount } from '@/features/share/shareNavigation';
+import { aggregateShareCount } from '@/features/share/shareNavigation';
 
 describe('share navigation count', () => {
   it('counts shares across every server and ignores availability', () => {
-    expect(selectAggregateShareCount({
+    const state = {
       byServer: {
         available: {
           shares: [{ id: 'one', url: 'https://one.test' }],
@@ -24,6 +24,8 @@ describe('share navigation count', () => {
           availability: 'server_unavailable',
         },
       },
-    })).toBe(2);
+    } satisfies Parameters<typeof aggregateShareCount>[0];
+    expect(aggregateShareCount(state)).toBe(2);
+    expect(aggregateShareCount(state, ['available'])).toBe(1);
   });
 });

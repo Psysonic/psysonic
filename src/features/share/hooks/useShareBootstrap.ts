@@ -10,6 +10,8 @@ const SHARE_BOOTSTRAP_IDLE_TIMEOUT_MS = 1_500;
 export function useShareBootstrap(): void {
   const isLoggedIn = useAuthStore(state => state.isLoggedIn);
   const servers = useAuthStore(state => state.servers);
+  const activeServerId = useAuthStore(state => state.activeServerId);
+  const libraryBrowseServerIds = useAuthStore(state => state.libraryBrowseServerIds);
   const identities = useAuthStore(state => state.subsonicServerIdentityByServer);
   const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
   const profileKey = useMemo(
@@ -19,6 +21,7 @@ export function useShareBootstrap(): void {
     }).join('\u0001'),
     [identities, servers],
   );
+  const browseScopeKey = `${activeServerId ?? ''}\u0001${libraryBrowseServerIds.join('\u0001')}`;
 
   useEffect(() => {
     if (!navidromeSharingEnabled) {
@@ -40,5 +43,5 @@ export function useShareBootstrap(): void {
     return () => {
       cancelled = true;
     };
-  }, [isLoggedIn, navidromeSharingEnabled, profileKey, servers]);
+  }, [browseScopeKey, isLoggedIn, navidromeSharingEnabled, profileKey, servers]);
 }

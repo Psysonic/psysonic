@@ -4,6 +4,8 @@ import {
   AlertCircle,
   ChevronDown,
   Copy,
+  Download,
+  Eye,
   ExternalLink,
   Link2,
   ListPlus,
@@ -20,7 +22,7 @@ import { useServerReachabilitySnapshot } from '@/lib/network/serverReachability'
 import { useAuthStore } from '@/store/authStore';
 import { useConfirmModalStore } from '@/store/confirmModalStore';
 import { useShareStore, type ServerShareState } from '@/features/share/store/shareStore';
-import { selectAggregateShareCount } from '@/features/share/shareNavigation';
+import { aggregateShareCount } from '@/features/share/shareNavigation';
 import {
   shareResourceCount,
   shareResourceKindLabel,
@@ -34,6 +36,8 @@ import { loadShareSongs } from '@/features/share/loadShareSongs';
 import { usePlayerStore } from '@/features/playback';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { copyTextToClipboard } from '@/lib/server/serverMagicString';
+import { deriveLibraryBrowseServerIdsWithFallback } from '@/lib/library/libraryBrowseScope';
+import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import type { TFunction } from 'i18next';
 
 function formatDate(value: string | undefined, locale: string): string | null {
@@ -76,11 +80,20 @@ function statusContent(
 export default function Shared() {
   const { t, i18n } = useTranslation();
   const servers = useAuthStore(state => state.servers);
+  const activeServerId = useAuthStore(state => state.activeServerId);
+  const libraryBrowseServerIds = useAuthStore(state => state.libraryBrowseServerIds);
   const byServer = useShareStore(state => state.byServer);
   const refreshAll = useShareStore(state => state.refreshAll);
   const refreshServer = useShareStore(state => state.refreshServer);
   const deleteShare = useShareStore(state => state.deleteShare);
-  const totalShares = useShareStore(selectAggregateShareCount);
+  const visibleServerIds = deriveLibraryBrowseServerIdsWithFallback({
+    servers,
+    activeServerId,
+    libraryBrowseServerIds,
+  });
+  const visibleServerIdSet = new Set(visibleServerIds);
+  const visibleServers = servers.filter(server => visibleServerIdSet.has(server.id));
+  const totalShares = useShareStore(state => aggregateShareCount(state, visibleServerIds));
   const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
   const collapsedServerIds = useShareSettingsStore(state => state.collapsedServerIds);
   const toggleServerCollapsed = useShareSettingsStore(state => state.toggleServerCollapsed);
@@ -93,10 +106,11 @@ export default function Shared() {
     share: SubsonicShare;
     title?: string;
   } | null>(null);
-  const anyLoading = Object.values(byServer).some(state => state.loading);
+  const browseScopeKey = visibleServerIds.join('\u0001');
+  const anyLoading = visibleServerIds.some(serverId => byServer[serverId]?.loading);
   useEffect(() => {
     if (navidromeSharingEnabled) void refreshAll();
-  }, [navidromeSharingEnabled, refreshAll]);
+  }, [browseScopeKey, navidromeSharingEnabled, refreshAll]);
 
   const setRowBusy = (key: string, busy: boolean) => {
     setBusyRows(current => {
@@ -224,7 +238,7 @@ export default function Shared() {
       {pageHeader}
 
       <div className="shared-page__servers">
-        {servers.map(server => {
+        {visibleServers.map(server => {
           const state = byServer[server.id];
           const status = statusContent(state, reachability.get(server.id) === 'unavailable', t);
           const serverLabel = serverListDisplayLabel(server, servers);
@@ -309,8 +323,21 @@ export default function Shared() {
                                 {created && <div><dt>{t('shared.created')}</dt><dd>{created}</dd></div>}
                                 {expires && <div><dt>{t('shared.expires')}</dt><dd>{expires}</dd></div>}
                                 {lastVisited && <div><dt>{t('shared.lastOpened')}</dt><dd>{lastVisited}</dd></div>}
-                                {typeof share.visitCount === 'number' && <div><dt>{t('shared.visits')}</dt><dd>{share.visitCount}</dd></div>}
-                                {typeof share.downloadable === 'boolean' && <div><dt>{t('shared.downloads')}</dt><dd>{share.downloadable ? t('shared.allowed') : t('shared.blocked')}</dd></div>}
+                                {typeof share.visitCount === 'number' && (
+                                  <div {...tooltipAttrs(`${t('shared.visits')}: ${share.visitCount}`)}>
+                                    <dt className="visually-hidden">{t('shared.visits')}</dt>
+                                    <dd><Eye size={13} aria-hidden="true" />{share.visitCount}</dd>
+                                  </div>
+                                )}
+                                {share.downloadable === true && (
+                                  <div
+                                    className="shared-link__download-indicator"
+                                    {...tooltipAttrs(`${t('shared.downloads')}: ${t('shared.allowed')}`)}
+                                  >
+                                    <dt className="visually-hidden">{t('shared.downloads')}</dt>
+                                    <dd><Download size={13} aria-hidden="true" /></dd>
+                                  </div>
+                                )}
                               </dl>
                               <ShareArtworkRail
                                 serverId={server.id}

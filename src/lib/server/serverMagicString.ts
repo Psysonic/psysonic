@@ -1,3 +1,5 @@
+import { isTauri } from '@tauri-apps/api/core';
+import { writeText as writeClipboardText } from '@tauri-apps/plugin-clipboard-manager';
 import type { ServerProfile } from '@/store/authStoreTypes';
 import { normalizeServerBaseUrl, serverShareBaseUrl } from '@/lib/server/serverEndpoint';
 
@@ -174,6 +176,14 @@ export function magicPayloadAddressFields(
 }
 
 export async function copyTextToClipboard(text: string): Promise<boolean> {
+  if (isTauri()) {
+    try {
+      await writeClipboardText(text);
+      return true;
+    } catch {
+      // Keep the browser path for web builds and as a native fallback.
+    }
+  }
   try {
     await navigator.clipboard.writeText(text);
     return true;

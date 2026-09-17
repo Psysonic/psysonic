@@ -169,7 +169,8 @@
   background: var(--bg-hover);
 }
 .shared-link__meta dt { color: var(--text-muted); }
-.shared-link__meta dd { margin: 0; color: var(--text-secondary); font-weight: 600; }
+.shared-link__meta dd { display: flex; align-items: center; gap: 4px; margin: 0; color: var(--text-secondary); font-weight: 600; }
+.shared-link__download-indicator { cursor: help; }
 .shared-link__artwork-section { margin-top: 12px; }
 .shared-link__artwork-nav { justify-content: flex-end; margin-bottom: 8px; }
 .shared-link__artwork-rail {

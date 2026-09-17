@@ -81,6 +81,7 @@ dasp_sample = "0.11.0"
 zip = "8"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 webp = "0.3"
+tauri-plugin-clipboard-manager = "2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

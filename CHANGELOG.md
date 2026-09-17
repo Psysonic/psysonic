@@ -69,6 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Tracks in the artist page's **Top** tab now support the same drag-to-queue interaction as the **All** tab, without turning the Play or Preview buttons into drag handles.
 
+### Navidrome share links copy reliably after creation
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1586](https://github.com/Psysonic/psysonic/pull/1586)**
+
+* Creating a Navidrome share no longer loses clipboard access while waiting for the server. Psysonic now uses the desktop clipboard directly and keeps the existing browser fallback for web builds.
+
 ### Lyrics no longer sit on top of the track details in the fullscreen player
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1587](https://github.com/Psysonic/psysonic/pull/1587)**

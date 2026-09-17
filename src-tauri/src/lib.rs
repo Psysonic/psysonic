@@ -446,6 +446,7 @@ pub fn run() {
     let (audio_engine, _audio_thread) = audio::create_engine();
 
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .manage(audio_engine)
         .manage(Arc::new(
             psysonic_core::server_http::ServerHttpRegistry::new(),

@@ -47,6 +47,25 @@ describe('useShareBootstrap', () => {
     expect(shareActions.refreshAll).toHaveBeenCalledTimes(1);
   });
 
+  it('refreshes again when the selected server cluster changes', async () => {
+    useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
+    const first = makeServer({ id: 'srv-a' });
+    const second = makeServer({ id: 'srv-b' });
+    useAuthStore.setState({
+      servers: [first, second],
+      activeServerId: 'srv-a',
+      libraryBrowseServerIds: ['srv-a'],
+      isLoggedIn: true,
+    });
+    renderHook(() => useShareBootstrap());
+    await act(async () => vi.runAllTimersAsync());
+
+    act(() => useAuthStore.setState({ libraryBrowseServerIds: ['srv-b'] }));
+    await act(async () => vi.runAllTimersAsync());
+
+    expect(shareActions.refreshAll).toHaveBeenCalledTimes(2);
+  });
+
   it('clears managed-share state without refreshing while the integration is disabled', async () => {
     const server = makeServer({ id: 'srv-a' });
     useAuthStore.setState({ servers: [server], isLoggedIn: true });

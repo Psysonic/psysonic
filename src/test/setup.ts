@@ -84,6 +84,7 @@ installBrowserMocks();
 // ─────────────────────────────────────────────────────────────────────────────
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: vi.fn(),
+  isTauri: vi.fn(() => false),
   convertFileSrc: vi.fn((p: string) => `tauri://localhost/${p}`),
 }));
 
@@ -99,6 +100,10 @@ vi.mock('@tauri-apps/api/event', () => ({
 // Linker for Tauri shell / dialog / store plugins — same idea. Extend as needed.
 vi.mock('@tauri-apps/plugin-shell', () => ({
   open: vi.fn(async () => {}),
+}));
+
+vi.mock('@tauri-apps/plugin-clipboard-manager', () => ({
+  writeText: vi.fn(async () => {}),
 }));
 
 beforeEach(() => {
