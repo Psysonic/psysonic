@@ -6,10 +6,11 @@ import {
   Copy,
   ExternalLink,
   Link2,
+  ListPlus,
   Loader2,
+  Play,
   RadioTower,
   RefreshCw,
-  Share2,
   Trash2,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -21,16 +22,17 @@ import { useConfirmModalStore } from '@/store/confirmModalStore';
 import { useShareStore, type ServerShareState } from '@/features/share/store/shareStore';
 import { selectAggregateShareCount } from '@/features/share/shareNavigation';
 import {
-  shareEntryIsAlbum,
-  shareEntryLabel,
   shareResourceCount,
+  shareResourceKindLabel,
   shareResourceSummary,
 } from '@/features/share/sharePresentation';
 import { outboundShareUnavailableHelp } from '@/features/share/outboundShare';
 import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 import ShareContentsModal from '@/features/share/components/ShareContentsModal';
-import { AlbumCoverArtImage } from '@/cover/AlbumCoverArtImage';
-import { coverServerScopeForServerId } from '@/cover/serverScope';
+import ShareArtworkRail from '@/features/share/components/ShareArtworkRail';
+import { loadShareSongs } from '@/features/share/loadShareSongs';
+import { usePlayerStore } from '@/features/playback';
+import { songToTrack } from '@/lib/media/songToTrack';
 import { copyTextToClipboard } from '@/lib/server/serverMagicString';
 import type { TFunction } from 'i18next';
 
@@ -71,26 +73,6 @@ function statusContent(
   return null;
 }
 
-function shareArtworkItems(share: SubsonicShare) {
-  const items = new Map<string, { albumId: string; coverArt?: string; label: string }>();
-  for (const entry of share.entry ?? []) {
-    const id = typeof entry.id === 'string' ? entry.id : '';
-    const albumId = shareEntryIsAlbum(entry)
-      ? id
-      : typeof entry.albumId === 'string' ? entry.albumId : id;
-    if (!albumId || items.has(albumId)) continue;
-    const coverArt = typeof entry.coverArt === 'string' ? entry.coverArt : undefined;
-    const entryLabel = shareEntryLabel(entry);
-    const label = shareEntryIsAlbum(entry) && entryLabel
-      ? entryLabel
-      : typeof entry.album === 'string' && entry.album.trim()
-        ? entry.album.trim()
-        : entryLabel ?? albumId;
-    items.set(albumId, { albumId, coverArt, label });
-  }
-  return [...items.values()];
-}
-
 export default function Shared() {
   const { t, i18n } = useTranslation();
   const servers = useAuthStore(state => state.servers);
@@ -106,7 +88,11 @@ export default function Shared() {
   const [busyRows, setBusyRows] = useState<Set<string>>(() => new Set());
   const [actionErrors, setActionErrors] = useState<Record<string, string>>({});
   const [copiedRow, setCopiedRow] = useState<string | null>(null);
-  const [selectedContents, setSelectedContents] = useState<{ serverId: string; share: SubsonicShare } | null>(null);
+  const [selectedContents, setSelectedContents] = useState<{
+    serverId: string;
+    share: SubsonicShare;
+    title?: string;
+  } | null>(null);
   const anyLoading = Object.values(byServer).some(state => state.loading);
   useEffect(() => {
     if (navidromeSharingEnabled) void refreshAll();
@@ -167,21 +153,41 @@ export default function Shared() {
     }
   };
 
+  const runPlaybackAction = async (
+    serverId: string,
+    share: SubsonicShare,
+    action: 'play' | 'queue',
+  ) => {
+    const key = `${serverId}:${share.id}:${action}`;
+    setRowBusy(key, true);
+    setActionErrors(current => {
+      const next = { ...current };
+      delete next[`${serverId}:${share.id}`];
+      return next;
+    });
+    try {
+      const { songs } = await loadShareSongs(serverId, share);
+      if (songs.length === 0) throw new Error(t('shared.contentsEmpty'));
+      const tracks = songs.map(songToTrack);
+      if (action === 'play') usePlayerStore.getState().playTrack(tracks[0]!, tracks);
+      else usePlayerStore.getState().enqueue(tracks);
+    } catch (err) {
+      setActionErrors(current => ({
+        ...current,
+        [`${serverId}:${share.id}`]: err instanceof Error ? err.message : String(err),
+      }));
+    } finally {
+      setRowBusy(key, false);
+    }
+  };
+
   const pageHeader = (
     <header className="shared-page__header">
-      <div className="shared-page__emblem" aria-hidden="true">
-        <Share2 size={28} />
-      </div>
       <div className="shared-page__intro">
-        <div className="shared-page__title-row">
-          <h1>{t('sidebar.shared')}</h1>
-          {navidromeSharingEnabled && <span className="shared-page__count">{totalShares}</span>}
-        </div>
-        <p>{navidromeSharingEnabled ? t('shared.subtitle') : t('shared.navidromeSharingDesc')}</p>
+        <h1 className="page-title">{t('sidebar.shared')}</h1>
+        {!navidromeSharingEnabled && <p>{t('shared.navidromeSharingDesc')}</p>}
         {navidromeSharingEnabled && (
-          <div className="shared-page__stats">
-            <span><Link2 size={13} aria-hidden="true" />{t('shared.links', { count: totalShares })}</span>
-          </div>
+          <span className="shared-page__total"><Link2 size={13} aria-hidden="true" />{t('shared.links', { count: totalShares })}</span>
         )}
       </div>
       {navidromeSharingEnabled && (
@@ -278,7 +284,6 @@ export default function Shared() {
                         const expires = formatDate(share.expires, locale);
                         const lastVisited = formatDate(share.lastVisited, locale);
                         const resourceCount = shareResourceCount(share);
-                        const artwork = shareArtworkItems(share);
                         return (
                           <article className="shared-link" key={share.id}>
                             <div className="shared-link__mark" aria-hidden="true"><Link2 size={18} /></div>
@@ -287,14 +292,18 @@ export default function Shared() {
                                 <button
                                   type="button"
                                   className="shared-link__summary"
+                                  aria-label={`${shareResourceKindLabel(share, t)} ${shareResourceSummary(share, t)}`}
                                   onClick={() => setSelectedContents({ serverId: server.id, share })}
                                 >
-                                  {shareResourceSummary(share, t)}
+                                  <span className="shared-link__summary-type">{shareResourceKindLabel(share, t)}</span>
+                                  <span>{shareResourceSummary(share, t)}</span>
                                 </button>
                               ) : (
-                                <div className="shared-link__summary shared-link__summary--static">{shareResourceSummary(share, t)}</div>
+                                <div className="shared-link__summary shared-link__summary--static">
+                                  <span className="shared-link__summary-type">{shareResourceKindLabel(share, t)}</span>
+                                  <span>{shareResourceSummary(share, t)}</span>
+                                </div>
                               )}
-                              {share.description && <p className="shared-link__description">{share.description}</p>}
                               <dl className="shared-link__meta">
                                 {share.username && <div><dt>{t('shared.owner')}</dt><dd>{share.username}</dd></div>}
                                 {created && <div><dt>{t('shared.created')}</dt><dd>{created}</dd></div>}
@@ -303,34 +312,37 @@ export default function Shared() {
                                 {typeof share.visitCount === 'number' && <div><dt>{t('shared.visits')}</dt><dd>{share.visitCount}</dd></div>}
                                 {typeof share.downloadable === 'boolean' && <div><dt>{t('shared.downloads')}</dt><dd>{share.downloadable ? t('shared.allowed') : t('shared.blocked')}</dd></div>}
                               </dl>
-                              {artwork.length > 0 && (
-                                <div className="shared-link__artwork-rail">
-                                  {artwork.map(item => (
-                                    <button
-                                      type="button"
-                                      className="shared-link__artwork"
-                                      key={item.albumId}
-                                      aria-label={`${t('shared.contentsTitle')}: ${item.label}`}
-                                      title={item.label}
-                                      onClick={() => setSelectedContents({ serverId: server.id, share })}
-                                    >
-                                      <AlbumCoverArtImage
-                                        albumId={item.albumId}
-                                        coverArt={item.coverArt}
-                                        serverScope={coverServerScopeForServerId(server.id)}
-                                        displayCssPx={96}
-                                        surface="dense"
-                                        className="shared-link__artwork-image"
-                                        alt=""
-                                      />
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
+                              <ShareArtworkRail
+                                serverId={server.id}
+                                share={share}
+                                onOpen={(entries, title) => setSelectedContents({
+                                  serverId: server.id,
+                                  share: { ...share, resourceKind: undefined, entry: entries },
+                                  title,
+                                })}
+                              />
                               {actionErrors[rowKey] && <div className="shared-link__error" role="alert">{actionErrors[rowKey]}</div>}
                               {copiedRow === rowKey && <div className="shared-link__copied" role="status">{t('shared.copied')}</div>}
                             </div>
                             <div className="shared-link__actions">
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-sm shared-link__action"
+                                disabled={busyRows.has(`${rowKey}:play`)}
+                                onClick={() => void runPlaybackAction(server.id, share, 'play')}
+                              >
+                                {busyRows.has(`${rowKey}:play`) ? <Loader2 size={14} className="spin" /> : <Play size={14} fill="currentColor" />}
+                                {t('common.play')}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-surface btn-sm shared-link__action"
+                                disabled={busyRows.has(`${rowKey}:queue`)}
+                                onClick={() => void runPlaybackAction(server.id, share, 'queue')}
+                              >
+                                {busyRows.has(`${rowKey}:queue`) ? <Loader2 size={14} className="spin" /> : <ListPlus size={14} />}
+                                {t('common.addToQueue')}
+                              </button>
                               <button type="button" className="btn btn-surface btn-sm shared-link__action" onClick={() => void copyShare(server.id, share)}>
                                 <Copy size={14} /> {t('shared.copy')}
                               </button>
@@ -370,6 +382,7 @@ export default function Shared() {
           open
           serverId={selectedContents.serverId}
           share={selectedContents.share}
+          title={selectedContents.title}
           onClose={() => setSelectedContents(null)}
         />
       )}

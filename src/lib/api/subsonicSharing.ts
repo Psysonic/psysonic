@@ -12,6 +12,7 @@ import {
 } from '@/lib/server/serverEndpoint';
 
 export type SubsonicShareEntry = Record<string, unknown> & { id?: string };
+export type SubsonicShareKind = 'track' | 'album' | 'artist' | 'playlist' | 'queue';
 
 export type SubsonicShare = Record<string, unknown> & {
   id: string;
@@ -23,6 +24,7 @@ export type SubsonicShare = Record<string, unknown> & {
   lastVisited?: string;
   visitCount?: number;
   downloadable?: boolean;
+  resourceKind?: SubsonicShareKind;
   entry?: SubsonicShareEntry[];
 };
 

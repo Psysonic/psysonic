@@ -3,7 +3,7 @@ import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { open } from '@tauri-apps/plugin-shell';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { makeServer } from '@/test/helpers/factories';
-import { resetAuthStore } from '@/test/helpers/storeReset';
+import { resetAuthStore, resetPlayerStore } from '@/test/helpers/storeReset';
 import { resetServerReachabilitySnapshot } from '@/lib/network/serverReachability';
 import { useAuthStore } from '@/store/authStore';
 import { useConfirmModalStore } from '@/store/confirmModalStore';
@@ -12,6 +12,7 @@ import Shared from '@/features/share/pages/Shared';
 import { shareResourceSummary } from '@/features/share/sharePresentation';
 import type { TFunction } from 'i18next';
 import { _resetShareSettingsStoreForTest, useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
+import { usePlayerStore } from '@/features/playback/store/playerStore';
 
 const api = vi.hoisted(() => ({
   getAlbumForServer: vi.fn(),
@@ -23,13 +24,14 @@ vi.mock('@/lib/api/subsonicLibrary', async () => {
 });
 
 vi.mock('@/cover/AlbumCoverArtImage', () => ({
-  AlbumCoverArtImage: () => <span data-testid="share-cover" />,
+  AlbumCoverArtImage: ({ albumId }: { albumId: string }) => <span data-testid={`share-cover-${albumId}`} />,
 }));
 
 const originalConfirmRequest = useConfirmModalStore.getState().request;
 
 beforeEach(() => {
   resetAuthStore();
+  resetPlayerStore();
   _resetShareStoreForTest();
   _resetShareSettingsStoreForTest();
   useShareSettingsStore.getState().setNavidromeSharingEnabled(true);
@@ -75,6 +77,14 @@ describe('Shared page', () => {
     renderWithProviders(<Shared />, { route: '/shared', language: 'ru' });
 
     expect(screen.getByRole('heading', { name: 'ND Общий Доступ' })).toBeInTheDocument();
+  });
+
+  it('does not repeat the shared-page explanation while the integration is enabled', () => {
+    useShareStore.setState({ refreshAll: vi.fn(async () => {}) });
+
+    renderWithProviders(<Shared />, { route: '/shared' });
+
+    expect(screen.queryByText('Manage links shared from your servers.')).not.toBeInTheDocument();
   });
 
   it('groups every configured server and renders independent states', () => {
@@ -195,13 +205,77 @@ describe('Shared page', () => {
     renderWithProviders(<Shared />, { route: '/shared' });
 
     expect(screen.queryByText(share.url)).not.toBeInTheDocument();
-    expect(screen.getByTestId('share-cover')).toBeInTheDocument();
+    expect(screen.getByTestId('share-cover-album-1')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Album 2 items' })).toBeInTheDocument();
+    expect(screen.getByText('Album')).toBeInTheDocument();
+    expect(screen.queryByText('Road trip')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Shared contents: Album title' }));
 
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText('Road trip')).toBeInTheDocument();
+    expect(within(dialog).getByText('Album title')).toBeInTheDocument();
     expect(await within(dialog).findByText('First track')).toBeInTheDocument();
     expect(within(dialog).getByText('Second track')).toBeInTheDocument();
+    expect(api.getAlbumForServer).toHaveBeenCalledWith('server-a', 'album-1', { mirrorToIndex: false });
+
+    const playTrack = vi.fn();
+    const enqueue = vi.fn();
+    usePlayerStore.setState({ playTrack, enqueue });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Play' }));
+    expect(playTrack).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'track-1', serverId: 'server-a' }),
+      expect.arrayContaining([expect.objectContaining({ id: 'track-2', serverId: 'server-a' })]),
+    );
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Add to queue' }));
+    expect(enqueue).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ id: 'track-1', serverId: 'server-a' }),
+      expect.objectContaining({ id: 'track-2', serverId: 'server-a' }),
+    ]));
+  });
+
+  it('opens only the album associated with the clicked cover', async () => {
+    const server = makeServer({ id: 'server-a', name: 'Home' });
+    const share = {
+      id: 'share-1',
+      url: 'https://server.test/share/1',
+      resourceKind: 'playlist' as const,
+      entry: [
+        { id: 'album-1', title: 'First album', isDir: true, songCount: 1, coverArt: 'cover-1' },
+        { id: 'album-2', title: 'Second album', isDir: true, songCount: 1, coverArt: 'cover-2' },
+      ],
+    };
+    api.getAlbumForServer.mockImplementation(async (_serverId: string, albumId: string) => ({
+      album: { id: albumId, name: albumId },
+      songs: [{
+        id: `${albumId}-track`,
+        title: albumId === 'album-1' ? 'Only first album' : 'Only second album',
+        artist: 'Artist',
+        album: albumId,
+        albumId,
+        duration: 60,
+      }],
+    }));
+    useAuthStore.setState({ servers: [server] });
+    useShareStore.setState(state => ({
+      ...state,
+      refreshAll: vi.fn(async () => {}),
+      byServer: {
+        'server-a': {
+          shares: [share],
+          loading: false,
+          lastSuccessfulRefresh: 1,
+          availability: 'available',
+        },
+      },
+    }));
+
+    renderWithProviders(<Shared />, { route: '/shared' });
+    expect(screen.getByText('Playlist')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Shared contents: First album' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('Only first album')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Only second album')).not.toBeInTheDocument();
+    expect(api.getAlbumForServer).toHaveBeenCalledTimes(1);
     expect(api.getAlbumForServer).toHaveBeenCalledWith('server-a', 'album-1', { mirrorToIndex: false });
   });
 
@@ -229,8 +303,22 @@ describe('Shared page', () => {
       },
     }));
 
+    const playTrack = vi.fn();
+    const enqueue = vi.fn();
+    usePlayerStore.setState({ playTrack, enqueue });
     renderWithProviders(<Shared />, { route: '/shared' });
-    fireEvent.click(screen.getByRole('button', { name: '2 items' }));
+    const row = screen.getByRole('article');
+    fireEvent.click(within(row).getByRole('button', { name: 'Play' }));
+    await waitFor(() => expect(playTrack).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'track-2', serverId: 'server-a' }),
+      expect.arrayContaining([expect.objectContaining({ id: 'track-4', serverId: 'server-a' })]),
+    ));
+    fireEvent.click(within(row).getByRole('button', { name: 'Add to queue' }));
+    await waitFor(() => expect(enqueue).toHaveBeenCalledWith(expect.arrayContaining([
+      expect.objectContaining({ id: 'track-2', serverId: 'server-a' }),
+      expect.objectContaining({ id: 'track-4', serverId: 'server-a' }),
+    ])));
+    fireEvent.click(screen.getByRole('button', { name: 'Collection 2 items' }));
 
     const dialog = await screen.findByRole('dialog');
     expect(await within(dialog).findByText('Second track')).toBeInTheDocument();

@@ -1,4 +1,8 @@
-import type { SubsonicShare, SubsonicShareEntry } from '@/lib/api/subsonicSharing';
+import type {
+  SubsonicShare,
+  SubsonicShareEntry,
+  SubsonicShareKind,
+} from '@/lib/api/subsonicSharing';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import type { TFunction } from 'i18next';
 
@@ -31,7 +35,20 @@ export function shareResourceSummary(share: SubsonicShare, t: TFunction): string
   return count === 0 ? t('shared.noResourceDetails') : t('shared.resources', { count });
 }
 
-export function shareEntryAsSong(entry: SubsonicShareEntry): SubsonicSong | null {
+export type DisplayShareKind = SubsonicShareKind | 'collection';
+
+export function shareResourceKind(share: SubsonicShare): DisplayShareKind {
+  if (share.resourceKind) return share.resourceKind;
+  const entries = share.entry ?? [];
+  if (entries.length === 1) return shareEntryIsAlbum(entries[0]!) ? 'album' : 'track';
+  return 'collection';
+}
+
+export function shareResourceKindLabel(share: SubsonicShare, t: TFunction): string {
+  return t(`shared.shareType.${shareResourceKind(share)}`);
+}
+
+export function shareEntryAsSong(entry: SubsonicShareEntry, serverId?: string): SubsonicSong | null {
   if (shareEntryIsAlbum(entry) || typeof entry.id !== 'string' || typeof entry.title !== 'string') return null;
   return {
     ...entry,
@@ -41,5 +58,6 @@ export function shareEntryAsSong(entry: SubsonicShareEntry): SubsonicSong | null
     album: typeof entry.album === 'string' ? entry.album : '',
     albumId: typeof entry.albumId === 'string' ? entry.albumId : '',
     duration: typeof entry.duration === 'number' ? entry.duration : 0,
+    serverId,
   } as SubsonicSong;
 }

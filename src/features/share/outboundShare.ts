@@ -106,7 +106,8 @@ async function copyNavidromeShare(request: OutboundShareRequest): Promise<boolea
   if (originalUrl) return copyTextToClipboard(originalUrl);
   const serverId = singleOwnerServerId(request);
   if (!serverId) return false;
-  const share = await useShareStore.getState().createShare(serverId, request.resourceIds);
+  if (request.kind === 'composer') return false;
+  const share = await useShareStore.getState().createShare(serverId, request.resourceIds, request.kind);
   return copyTextToClipboard(share.url);
 }
 

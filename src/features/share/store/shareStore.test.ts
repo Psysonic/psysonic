@@ -85,13 +85,14 @@ describe('shareStore', () => {
     });
   });
 
-  it('restores known download permissions after a server refresh', async () => {
+  it('restores known metadata after a server refresh', async () => {
     const server = makeServer({ id: 'srv-a' });
     useAuthStore.setState({
       servers: [server],
       subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome', serverVersion: '0.64.0' } },
     });
     useShareSettingsStore.getState().rememberShareDownloadable('srv-a', 'share-1', true);
+    useShareSettingsStore.getState().rememberShareKind('srv-a', 'share-1', 'queue');
     api.getSharesForServer.mockResolvedValue([{ id: 'share-1', url: 'https://a.test/share/1' }]);
 
     await useShareStore.getState().refreshServer('srv-a');
@@ -99,6 +100,7 @@ describe('shareStore', () => {
     expect(useShareStore.getState().byServer['srv-a']?.shares[0]).toMatchObject({
       id: 'share-1',
       downloadable: true,
+      resourceKind: 'queue',
     });
   });
 
@@ -158,13 +160,17 @@ describe('shareStore', () => {
     api.deleteShareForServer.mockResolvedValue(undefined);
     useShareSettingsStore.getState().setNavidromeSharesDownloadable(true);
 
-    await useShareStore.getState().createShare('srv-a', ['playlist-native-id']);
+    await useShareStore.getState().createShare('srv-a', ['playlist-native-id'], 'playlist');
     expect(api.createShareForServer).toHaveBeenCalledWith(
       'srv-a',
       ['playlist-native-id'],
       { downloadable: true },
     );
     expect(useShareStore.getState().byServer['srv-a']?.shares.map(share => share.id)).toEqual(['share-1']);
+    expect(useShareStore.getState().byServer['srv-a']?.shares[0]?.resourceKind).toBe('playlist');
+    expect(useShareSettingsStore.getState().shareKindByServer).toEqual({
+      'srv-a': { 'share-1': 'playlist' },
+    });
 
     api.deleteShareForServer.mockRejectedValueOnce(new Error('offline'));
     await expect(useShareStore.getState().deleteShare('srv-a', 'share-1')).rejects.toThrow('offline');
@@ -173,6 +179,7 @@ describe('shareStore', () => {
     await useShareStore.getState().deleteShare('srv-a', 'share-1');
     expect(useShareStore.getState().byServer['srv-a']?.shares).toEqual([]);
     expect(useShareSettingsStore.getState().shareDownloadableByServer).toEqual({});
+    expect(useShareSettingsStore.getState().shareKindByServer).toEqual({});
   });
 
   it('drops stale refresh results after credentials change', async () => {

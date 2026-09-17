@@ -134,7 +134,7 @@ describe('QueuePanel share toolbar', () => {
     fireEvent.click(getByLabelText('Copy queue share link'));
     menu = getByRole('menu', { name: 'Copy queue share link' });
     fireEvent.click(within(menu).getByRole('menuitem', { name: 'Navidrome' }));
-    await waitFor(() => expect(createShareMock).toHaveBeenCalledWith(serverId, ['track-b', 'track-a']));
+    await waitFor(() => expect(createShareMock).toHaveBeenCalledWith(serverId, ['track-b', 'track-a'], 'queue'));
     expect(copyTextToClipboardMock).toHaveBeenLastCalledWith('https://x.test/share/native-share');
   });
 

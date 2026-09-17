@@ -13,7 +13,7 @@ import { _resetShareStoreForTest, useShareStore } from '@/features/share/store/s
 import { useShareSettingsStore } from '@/features/share/store/shareSettingsStore';
 
 const copyTextToClipboardMock = vi.fn(async (_text: string) => true);
-const createShareMock = vi.fn(async (_serverId: string, _ids: readonly string[]) => ({
+const createShareMock = vi.fn(async (_serverId: string, _ids: readonly string[], _kind?: string) => ({
   id: 'share-1',
   url: 'https://music.test/share/share-1',
 }));
@@ -63,7 +63,7 @@ describe('ShareMethodMenuContent', () => {
     );
 
     await user.click(screen.getByRole('menuitem', { name: 'Navidrome' }));
-    expect(createShareMock).toHaveBeenCalledWith(serverId, ['playlist-native-id']);
+    expect(createShareMock).toHaveBeenCalledWith(serverId, ['playlist-native-id'], 'playlist');
     expect(copyTextToClipboardMock).toHaveBeenCalledWith('https://music.test/share/share-1');
   });
 
