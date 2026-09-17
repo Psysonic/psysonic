@@ -13,17 +13,25 @@ vi.mock('./musicNetwork/MusicNetworkSection', () => ({
 describe('IntegrationsTab Navidrome sharing settings', () => {
   beforeEach(resetAllStores);
 
-  it('keeps download permission under Navidrome sharing and disabled until sharing is enabled', async () => {
+  it('groups Navidrome settings first and keeps downloads disabled until sharing is enabled', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<IntegrationsTab />);
+    const { container } = renderWithProviders(<IntegrationsTab />);
 
     const sharingToggle = screen.getByRole('checkbox', { name: 'Navidrome sharing' });
     const downloadsToggle = screen.getByRole('checkbox', { name: 'Allow downloads' });
-    const navidromeSection = screen.getByText('Navidrome sharing').closest('details');
+    const nowPlayingToggle = screen.getByRole('checkbox', { name: 'Show in Now Playing' });
+    const navidromeSection = screen.getByText('Navidrome').closest('details');
 
     expect(navidromeSection).not.toBeNull();
+    expect(container.querySelector('details')).toBe(navidromeSection);
+    expect(within(navidromeSection!).getByRole('checkbox', { name: 'Navidrome sharing' })).toBe(
+      sharingToggle,
+    );
     expect(within(navidromeSection!).getByRole('checkbox', { name: 'Allow downloads' })).toBe(
       downloadsToggle,
+    );
+    expect(within(navidromeSection!).getByRole('checkbox', { name: 'Show in Now Playing' })).toBe(
+      nowPlayingToggle,
     );
     expect(downloadsToggle).toBeDisabled();
 

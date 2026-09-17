@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Check, Image as ImageIcon, Info, Share2, Sparkles, Wifi } from 'lucide-react';
+import { AlertTriangle, Check, Image as ImageIcon, Info, Sparkles, Wifi } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
@@ -67,6 +67,41 @@ export function IntegrationsTab() {
           />
         </div>
       </div>
+
+      {/* Navidrome-native integrations */}
+      <SettingsSubSection
+        title="Navidrome"
+        icon={<Wifi size={16} />}
+      >
+        <div className="settings-card">
+          <SettingsGroup title={t('shared.navidromeSharingTitle')}>
+            <SettingsToggle
+              desc={t('shared.navidromeSharingDesc')}
+              ariaLabel={t('shared.navidromeSharingTitle')}
+              checked={navidromeSharingEnabled}
+              onChange={setNavidromeSharingEnabled}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t('shared.allowDownloadsTitle')}>
+            <SettingsToggle
+              desc={t('shared.allowDownloadsDesc')}
+              ariaLabel={t('shared.allowDownloadsTitle')}
+              checked={navidromeSharesDownloadable}
+              onChange={setNavidromeSharesDownloadable}
+              disabled={!navidromeSharingEnabled}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t('settings.nowPlayingEnabled')}>
+            <SettingsToggle
+              desc={t('settings.nowPlayingEnabledDesc')}
+              note={t('settings.nowPlayingPluginNote')}
+              ariaLabel={t('settings.nowPlayingEnabled')}
+              checked={auth.nowPlayingEnabled}
+              onChange={auth.setNowPlayingEnabled}
+            />
+          </SettingsGroup>
+        </div>
+      </SettingsSubSection>
 
       {/* Music Network — scrobbling + enrichment across multiple services */}
       <MusicNetworkSection />
@@ -271,49 +306,6 @@ export function IntegrationsTab() {
         </div>
       </SettingsSubSection>
 
-      {/* Native Navidrome shared-link creation and management */}
-      <SettingsSubSection
-        title={t('shared.navidromeSharingTitle')}
-        icon={<Share2 size={16} />}
-      >
-        <div className="settings-card">
-          <SettingsGroup>
-            <SettingsToggle
-              desc={t('shared.navidromeSharingDesc')}
-              ariaLabel={t('shared.navidromeSharingTitle')}
-              checked={navidromeSharingEnabled}
-              onChange={setNavidromeSharingEnabled}
-            />
-          </SettingsGroup>
-          <SettingsGroup title={t('shared.allowDownloadsTitle')}>
-            <SettingsToggle
-              desc={t('shared.allowDownloadsDesc')}
-              ariaLabel={t('shared.allowDownloadsTitle')}
-              checked={navidromeSharesDownloadable}
-              onChange={setNavidromeSharesDownloadable}
-              disabled={!navidromeSharingEnabled}
-            />
-          </SettingsGroup>
-        </div>
-      </SettingsSubSection>
-
-      {/* Now-Playing Share (Navidrome) */}
-      <SettingsSubSection
-        title={t('settings.nowPlayingEnabled')}
-        icon={<Wifi size={16} />}
-      >
-        <div className="settings-card">
-          <SettingsGroup>
-            <SettingsToggle
-              desc={t('settings.nowPlayingEnabledDesc')}
-              note={t('settings.nowPlayingPluginNote')}
-              ariaLabel={t('settings.nowPlayingEnabled')}
-              checked={auth.nowPlayingEnabled}
-              onChange={auth.setNowPlayingEnabled}
-            />
-          </SettingsGroup>
-        </div>
-      </SettingsSubSection>
     </>
   );
 }
