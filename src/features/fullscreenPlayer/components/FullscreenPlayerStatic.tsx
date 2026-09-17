@@ -11,6 +11,7 @@ import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import { usePlaybackCoverArt } from '@/cover/usePlaybackCoverArt';
 import { useCachedUrl } from '@/ui/CachedImage';
 import { useFsArtistBackdrop } from '@/features/fullscreenPlayer/hooks/useFsArtistBackdrop';
+import { useFsElementHeightVar } from '@/features/fullscreenPlayer/hooks/useFsElementHeightVar';
 import { useFsIdleFade } from '@/features/fullscreenPlayer/hooks/useFsIdleFade';
 import { useQueueTrackAt } from '@/features/queue';
 import { WaveformSeek } from '@/features/waveform';
@@ -122,6 +123,11 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
 
   const { isIdle, handleMouseMove } = useFsIdleFade(onClose);
   const controlsRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
+  // The lyrics overlay ends above this cluster, whose height moves with the
+  // cover, the waveform, the visualizer strip and the "Next" line.
+  useFsElementHeightVar(rootRef, footRef, '--fsp-foot-h');
   const [queueOpen, setQueueOpen] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
 
@@ -147,6 +153,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
   return (
     <div
       className="fsp"
+      ref={rootRef}
       role="dialog"
       aria-modal="true"
       aria-label={t('player.fullscreen')}
@@ -175,7 +182,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
       </button>
 
       {/* Bottom bar */}
-      <div className="fsp-foot">
+      <div className="fsp-foot" ref={footRef}>
         <div className="fsp-info-row">
           {/* Big cover — bottom-aligned with the text, top pokes above the bar */}
           <div className="fsp-cover">

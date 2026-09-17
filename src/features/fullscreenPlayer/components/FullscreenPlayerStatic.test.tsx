@@ -67,6 +67,17 @@ describe('FullscreenPlayerStatic', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('publishes the foot height the lyrics overlay ends above', () => {
+    usePlayerStore.setState({ currentTrack: makeTrack() });
+    const { container } = renderWithProviders(<FullscreenPlayerStatic onClose={() => {}} />);
+
+    // jsdom has no layout, so the value is 0px — what matters here is that the
+    // measurement is wired up at all. Without it the overlay falls back to the
+    // fixed reserve that made it sit on the title (issue #1546).
+    const root = container.querySelector('.fsp') as HTMLElement;
+    expect(root.style.getPropertyValue('--fsp-foot-h')).not.toBe('');
+  });
+
   it('announces before opening the queue overlay', () => {
     usePlayerStore.setState({ currentTrack: makeTrack() });
     const onTransientOpen = vi.fn();
