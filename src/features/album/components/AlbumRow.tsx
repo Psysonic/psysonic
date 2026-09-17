@@ -11,6 +11,12 @@ import { useRailScroll } from '@/lib/hooks/useRailScroll';
 interface Props {
   title: string;
   titleLink?: string;
+  /**
+   * Alternative to `titleLink` for targets that need preparing before the
+   * navigation — the Favorites rails set a browse filter first. Takes
+   * precedence over `titleLink` when both are given.
+   */
+  onTitleClick?: () => void;
   albums: SubsonicAlbum[];
   moreLink?: string;
   moreText?: string;
@@ -38,6 +44,7 @@ interface Props {
 export default function AlbumRow({
   title,
   titleLink,
+  onTitleClick,
   albums,
   moreLink,
   moreText,
@@ -207,7 +214,16 @@ export default function AlbumRow({
   return (
     <section className="album-row-section">
       <div className="album-row-header">
-        {titleLink ? (
+        {onTitleClick ? (
+          <button
+            type="button"
+            className="section-title-link"
+            style={{ marginBottom: 0 }}
+            onClick={onTitleClick}
+          >
+            {title}<ChevronRight size={18} className="section-title-chevron" />
+          </button>
+        ) : titleLink ? (
           <NavLink to={titleLink} className="section-title-link" style={{ marginBottom: 0 }}>
             {title}<ChevronRight size={18} className="section-title-chevron" />
           </NavLink>

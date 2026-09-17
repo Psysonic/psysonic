@@ -463,6 +463,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Windows — the mini player can drop the system title bar for its own slim one (PR #1528)',
       'Album page — shows the release description and the comment tag from your files (PR #1569)',
       'Shuffle applies to a list you start playing, beginning with the track you picked (PR #1576)',
+      'Favorites — the albums heading opens the full grid, filtered to your favourites (PR #1583)',
     ],
   },
   {

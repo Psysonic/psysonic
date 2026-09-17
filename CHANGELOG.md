@@ -41,6 +41,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Right-click the queue's **Clear** button to remove its history and upcoming tracks while the current track keeps playing from the same position.
 
+### Browse all your favourite albums as a grid
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1583](https://github.com/Psysonic/psysonic/pull/1583)**
+
+* Clicking **Albums** on the Favorites page now opens All Albums showing only your favourites, so hundreds of them can be browsed as a grid with sorting and filters instead of scrolling one long row.
+
 ## Fixed
 
 ### Artist top tracks can be dragged to the queue
