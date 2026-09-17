@@ -91,15 +91,6 @@ export function IntegrationsTab() {
               disabled={!navidromeSharingEnabled}
             />
           </SettingsGroup>
-          <SettingsGroup title={t('settings.nowPlayingEnabled')}>
-            <SettingsToggle
-              desc={t('settings.nowPlayingEnabledDesc')}
-              note={t('settings.nowPlayingPluginNote')}
-              ariaLabel={t('settings.nowPlayingEnabled')}
-              checked={auth.nowPlayingEnabled}
-              onChange={auth.setNowPlayingEnabled}
-            />
-          </SettingsGroup>
         </div>
       </SettingsSubSection>
 
@@ -303,6 +294,24 @@ export function IntegrationsTab() {
               </SettingsSubCard>
             </SettingsGroup>
           )}
+        </div>
+      </SettingsSubSection>
+
+      {/* Now-Playing Share (Subsonic / OpenSubsonic) */}
+      <SettingsSubSection
+        title={t('settings.nowPlayingEnabled')}
+        icon={<Wifi size={16} />}
+      >
+        <div className="settings-card">
+          <SettingsGroup>
+            <SettingsToggle
+              desc={t('settings.nowPlayingEnabledDesc')}
+              note={t('settings.nowPlayingPluginNote')}
+              ariaLabel={t('settings.nowPlayingEnabled')}
+              checked={auth.nowPlayingEnabled}
+              onChange={auth.setNowPlayingEnabled}
+            />
+          </SettingsGroup>
         </div>
       </SettingsSubSection>
 

@@ -51,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1586](https://github.com/Psysonic/psysonic/pull/1586)**
 
-* The new **Settings -> Integrations -> Navidrome** section keeps Navidrome sharing and **Show in Now Playing** together. Enable sharing there, then create public links from supported tracks, albums, artists, playlists, composers and the play queue without opening the server website.
+* Enable sharing in the new **Settings -> Integrations -> Navidrome** section, then create public links from supported tracks, albums, artists, playlists, composers and the play queue without opening the server website.
 * The new **ND Shares** page collects links from the selected servers with artwork, type and item counts. Play a share, add it to the queue, inspect its exact contents, copy or edit the link, and remove it from the server in one place.
 * Pasting or searching a managed share opens the same preview flow, while mobile and desktop navigation keep the page available wherever sharing is enabled.
 
