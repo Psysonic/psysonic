@@ -796,6 +796,8 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Show artist photo',
   fsShowArtistPortraitDesc: 'Display the artist photo (or album art) on the right side of the fullscreen player.',
+  fsBackdropPointerDesc: 'The artist photo behind the player is switched on and off under Integrations → Backgrounds, separately for each surface.',
+  fsBackdropPointerAction: 'Open Backgrounds',
   fsPortraitDim: 'Photo dimming',
   seekbarStyleDesc: 'Choose the look of the player seek bar',
   buttonSizeTitle: 'Compact buttons',

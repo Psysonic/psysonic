@@ -728,6 +728,8 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Mostrar foto del artista',
   fsShowArtistPortraitDesc: 'Muestra la foto del artista (o portada del álbum) en el lado derecho del reproductor pantalla completa.',
+  fsBackdropPointerDesc: 'La foto del artista detrás del reproductor se activa y desactiva en Integraciones → Fondos, por separado para cada superficie.',
+  fsBackdropPointerAction: 'Abrir Fondos',
   fsPortraitDim: 'Oscurecimiento de foto',
   seekbarStyleDesc: 'Elige la apariencia de la barra de progreso del reproductor',
   buttonSizeTitle: 'Botones compactos',

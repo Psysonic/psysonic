@@ -55,6 +55,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The new **ND Shares** page collects links from the selected servers with artwork, type and item counts. Play a share, add it to the queue, inspect its exact contents, copy or open the link, and remove it from the server in one place.
 * Pasting or searching a managed share opens the same preview flow, while mobile and desktop navigation keep the page available wherever sharing is enabled.
 
+### Finding the switch for the artist photo in fullscreen
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1590](https://github.com/Psysonic/psysonic/pull/1590)**
+
+* The artist photo behind the fullscreen player can be turned off for every style — the switch just lives on another tab, under **Integrations → Backgrounds**. Settings → Appearance now says so next to the style picker and offers a button that opens that section directly.
+
 ## Fixed
 
 ### Artist top tracks can be dragged to the queue

@@ -709,6 +709,8 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Afficher la photo de l\'artiste',
   fsShowArtistPortraitDesc: 'Afficher la photo de l\'artiste (ou la pochette) sur le côté droit du lecteur plein écran.',
+  fsBackdropPointerDesc: 'La photo de l’artiste derrière le lecteur s’active et se désactive dans Intégrations → Arrière-plans, séparément pour chaque surface.',
+  fsBackdropPointerAction: 'Ouvrir Arrière-plans',
   fsPortraitDim: 'Assombrissement de la photo',
   seekbarStyleDesc: 'Choisir l\'apparence de la barre de progression',
   buttonSizeTitle: 'Boutons compacts',

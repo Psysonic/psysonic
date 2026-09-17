@@ -818,6 +818,8 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Отображать фото артиста',
   fsShowArtistPortraitDesc: 'Показывать фото артиста (или обложку альбома) в правой части полноэкранного плеера.',
+  fsBackdropPointerDesc: 'Фото исполнителя за плеером включается и отключается в разделе Интеграции → Фоны, отдельно для каждой поверхности.',
+  fsBackdropPointerAction: 'Открыть «Фоны»',
   fsPortraitDim: 'Затемнение фото',
   seekbarStyleDesc: 'Выбор внешнего вида полосы воспроизведения',
   buttonSizeTitle: 'Компактные кнопки',

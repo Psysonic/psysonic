@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { isTilingWmCmd } from '@/lib/api/platformShell';
 import { LayoutGrid, Maximize2, Palette, Sliders, Type, ZoomIn } from 'lucide-react';
@@ -22,6 +23,7 @@ import { VisualizerSection } from '@/features/settings/components/VisualizerSect
 
 export function AppearanceTab() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const auth = useAuthStore();
   const theme = useThemeStore();
   const fontStore = useFontStore();
@@ -323,6 +325,24 @@ export function AppearanceTab() {
                 ariaLabel={t('settings.fullscreenPlayerStyle')}
               />
             </SettingsField>
+            {/* The artist photo behind every style is governed by the per-surface
+                backdrop switch, which lives on another tab — people look for it
+                here and conclude the photo can only be turned off in the
+                immersive style, where a second toggle happens to sit. A plain
+                description line sits too quietly between two full-width
+                controls, so this one carries the tab's info styling. */}
+            <div className="settings-hint settings-hint-info settings-hint-action">
+              <span>{t('settings.fsBackdropPointerDesc')}</span>
+              <button
+                type="button"
+                className="btn btn-sm btn-surface"
+                onClick={() => navigate('/settings', {
+                  state: { tab: 'integrations', focus: t('settings.backdropSourcesTitle') },
+                })}
+              >
+                {t('settings.fsBackdropPointerAction')}
+              </button>
+            </div>
           </SettingsGroup>
           {auth.fullscreenPlayerStyle === 'immersive' && (
             <SettingsGroup>
