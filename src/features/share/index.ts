@@ -9,6 +9,8 @@ export * from './applySharePaste';
 export * from './enqueueShareSearchPayload';
 export * from './playNavidromePublicShare';
 export * from './components/ShareMethodMenu';
+export { default as ShareTrackList } from './components/ShareTrackList';
+export type { ShareTrackListItem } from './components/ShareTrackList';
 export * from './hooks/useShareBootstrap';
 export * from './outboundShare';
 export * from './shareAvailability';

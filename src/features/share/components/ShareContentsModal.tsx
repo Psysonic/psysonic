@@ -1,17 +1,16 @@
 import { useEffect, useState } from 'react';
-import { ListMusic, ListPlus, Music, Play } from 'lucide-react';
+import { ListMusic, ListPlus, Play } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { AlbumCoverArtImage } from '@/cover/AlbumCoverArtImage';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import type { SubsonicShare } from '@/lib/api/subsonicSharing';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import { formatTrackTime } from '@/lib/format/formatDuration';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { usePlayerStore } from '@/features/playback';
 import { loadShareSongs } from '@/features/share/loadShareSongs';
 import { shareResourceKindLabel, shareResourceSummary } from '@/features/share/sharePresentation';
+import ShareTrackList from '@/features/share/components/ShareTrackList';
 import Modal from '@/ui/Modal';
-import OverlayScrollArea from '@/ui/OverlayScrollArea';
 
 interface ShareContentsModalProps {
   open: boolean;
@@ -105,38 +104,25 @@ export default function ShareContentsModal({
           <div className="shared-contents-modal__state">{t('shared.contentsEmpty')}</div>
         )}
         {!contents.loading && contents.songs.length > 0 && (
-          <OverlayScrollArea
-            className="shared-contents-modal__list-wrap"
-            viewportClassName="shared-contents-modal__list-viewport"
-            measureDeps={[contents.songs.length]}
-            railInset="panel"
-          >
-            <ol className="shared-contents-modal__list">
-              {contents.songs.map((song, index) => (
-                <li className="shared-contents-modal__track" key={song.id}>
-                  {song.coverArt || song.albumId ? (
-                    <AlbumCoverArtImage
-                      albumId={song.albumId || song.id}
-                      coverArt={song.coverArt}
-                      serverScope={coverServerScopeForServerId(serverId)}
-                      displayCssPx={48}
-                      surface="dense"
-                      className="shared-contents-modal__cover"
-                      alt=""
-                    />
-                  ) : (
-                    <span className="shared-contents-modal__fallback" aria-hidden="true"><Music size={16} /></span>
-                  )}
-                  <span className="shared-contents-modal__number">{song.track ?? index + 1}</span>
-                  <span className="shared-contents-modal__meta">
-                    <strong>{song.title}</strong>
-                    <span>{[song.artist, song.album].filter(Boolean).join(' · ')}</span>
-                  </span>
-                  <span className="shared-contents-modal__duration">{formatTrackTime(song.duration)}</span>
-                </li>
-              ))}
-            </ol>
-          </OverlayScrollArea>
+          <ShareTrackList items={contents.songs.map((song, index) => ({
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            duration: song.duration,
+            number: song.track ?? index + 1,
+            cover: song.coverArt || song.albumId ? (
+              <AlbumCoverArtImage
+                albumId={song.albumId || song.id}
+                coverArt={song.coverArt}
+                serverScope={coverServerScopeForServerId(serverId)}
+                displayCssPx={48}
+                surface="dense"
+                className="shared-contents-modal__cover"
+                alt=""
+              />
+            ) : undefined,
+          }))} />
         )}
       </div>
     </Modal>
