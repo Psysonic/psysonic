@@ -1,0 +1,164 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AxiosError } from 'axios';
+import { makeServer } from '@/test/helpers/factories';
+import { resetAuthStore } from '@/test/helpers/storeReset';
+
+const api = vi.hoisted(() => ({
+  getSharesForServer: vi.fn(),
+  createShareForServer: vi.fn(),
+  deleteShareForServer: vi.fn(),
+}));
+
+vi.mock('@/lib/api/subsonicSharing', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/api/subsonicSharing')>('@/lib/api/subsonicSharing');
+  return { ...actual, ...api };
+});
+
+import { useAuthStore } from '@/store/authStore';
+import { _resetShareStoreForTest, useShareStore } from '@/features/share/store/shareStore';
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+beforeEach(() => {
+  resetAuthStore();
+  _resetShareStoreForTest();
+  vi.clearAllMocks();
+});
+
+describe('shareStore', () => {
+  it('deduplicates refreshes for one profile', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({
+      servers: [server],
+      subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome', serverVersion: '0.64.0' } },
+    });
+    const request = deferred<Array<{ id: string; url: string }>>();
+    api.getSharesForServer.mockReturnValue(request.promise);
+
+    const first = useShareStore.getState().refreshServer('srv-a');
+    const second = useShareStore.getState().refreshServer('srv-a');
+    expect(api.getSharesForServer).toHaveBeenCalledTimes(1);
+
+    request.resolve([{ id: 'share-1', url: 'https://server.test/share/1' }]);
+    await Promise.all([first, second]);
+    expect(useShareStore.getState().byServer['srv-a']).toMatchObject({
+      availability: 'available',
+      loading: false,
+      shares: [{ id: 'share-1', url: 'https://server.test/share/1' }],
+    });
+  });
+
+  it('keeps successful servers when another refresh fails with HTTP 501', async () => {
+    const first = makeServer({ id: 'srv-a' });
+    const second = makeServer({ id: 'srv-b' });
+    useAuthStore.setState({
+      servers: [first, second],
+      subsonicServerIdentityByServer: {
+        'srv-a': { type: 'navidrome', serverVersion: '0.64.0' },
+        'srv-b': { type: 'navidrome', serverVersion: '0.64.0' },
+      },
+    });
+    const disabled = new AxiosError('Not implemented');
+    disabled.response = { status: 501, data: '', statusText: 'Not Implemented', headers: {}, config: {} as never };
+    api.getSharesForServer.mockImplementation((serverId: string) => (
+      serverId === 'srv-a'
+        ? Promise.resolve([{ id: 'share-1', url: 'https://a.test/share/1' }])
+        : Promise.reject(disabled)
+    ));
+
+    await useShareStore.getState().refreshAll();
+
+    expect(useShareStore.getState().byServer['srv-a']?.shares).toHaveLength(1);
+    expect(useShareStore.getState().byServer['srv-b']?.availability).toBe('sharing_disabled');
+  });
+
+  it('inserts created shares and removes only after successful deletion', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({
+      servers: [server],
+      subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome', serverVersion: '0.64.0' } },
+    });
+    api.createShareForServer.mockResolvedValue({ id: 'share-1', url: 'https://a.test/share/1' });
+    api.deleteShareForServer.mockResolvedValue(undefined);
+
+    await useShareStore.getState().createShare('srv-a', ['playlist-native-id']);
+    expect(api.createShareForServer).toHaveBeenCalledWith('srv-a', ['playlist-native-id']);
+    expect(useShareStore.getState().byServer['srv-a']?.shares.map(share => share.id)).toEqual(['share-1']);
+
+    api.deleteShareForServer.mockRejectedValueOnce(new Error('offline'));
+    await expect(useShareStore.getState().deleteShare('srv-a', 'share-1')).rejects.toThrow('offline');
+    expect(useShareStore.getState().byServer['srv-a']?.shares).toHaveLength(1);
+
+    await useShareStore.getState().deleteShare('srv-a', 'share-1');
+    expect(useShareStore.getState().byServer['srv-a']?.shares).toEqual([]);
+  });
+
+  it('drops stale refresh results after credentials change', async () => {
+    const server = makeServer({ id: 'srv-a', password: 'old' });
+    useAuthStore.setState({
+      servers: [server],
+      subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome', serverVersion: '0.64.0' } },
+    });
+    const request = deferred<Array<{ id: string; url: string }>>();
+    api.getSharesForServer.mockReturnValue(request.promise);
+    const refresh = useShareStore.getState().refreshServer('srv-a');
+
+    useAuthStore.setState({ servers: [{ ...server, password: 'new' }] });
+    useShareStore.getState().reconcileProfiles();
+    request.resolve([{ id: 'stale', url: 'https://a.test/share/stale' }]);
+    await refresh;
+
+    expect(useShareStore.getState().byServer['srv-a']).toBeUndefined();
+  });
+
+  it('does not let an older refresh overwrite a newly created share', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({
+      servers: [server],
+      subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome', serverVersion: '0.64.0' } },
+    });
+    const request = deferred<Array<{ id: string; url: string }>>();
+    api.getSharesForServer.mockReturnValue(request.promise);
+    api.createShareForServer.mockResolvedValue({ id: 'created', url: 'https://a.test/share/created' });
+    const refresh = useShareStore.getState().refreshServer('srv-a');
+
+    await useShareStore.getState().createShare('srv-a', ['track-1']);
+    request.resolve([{ id: 'old', url: 'https://a.test/share/old' }]);
+    await refresh;
+
+    expect(useShareStore.getState().byServer['srv-a']).toMatchObject({
+      loading: false,
+      shares: [{ id: 'created', url: 'https://a.test/share/created' }],
+    });
+  });
+
+  it('clears removed server state without touching another server', async () => {
+    const first = makeServer({ id: 'srv-a' });
+    const second = makeServer({ id: 'srv-b' });
+    useAuthStore.setState({
+      servers: [first, second],
+      subsonicServerIdentityByServer: {
+        'srv-a': { type: 'navidrome', serverVersion: '0.64.0' },
+        'srv-b': { type: 'navidrome', serverVersion: '0.64.0' },
+      },
+    });
+    api.getSharesForServer.mockImplementation((serverId: string) => Promise.resolve([
+      { id: `share-${serverId}`, url: `https://${serverId}.test/share/1` },
+    ]));
+    await useShareStore.getState().refreshAll();
+
+    useAuthStore.setState({ servers: [second] });
+    useShareStore.getState().reconcileProfiles();
+
+    expect(useShareStore.getState().byServer['srv-a']).toBeUndefined();
+    expect(useShareStore.getState().byServer['srv-b']?.shares).toHaveLength(1);
+  });
+});

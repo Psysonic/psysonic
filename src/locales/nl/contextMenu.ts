@@ -28,7 +28,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} nummers geselecteerd',
   selectedArtists: '{{count}} artiesten geselecteerd',
   songInfo: 'Nummerinfo',
-  shareLink: 'Deellink kopiëren',
+  shareLink: 'Link delen',
   shareCopied: 'Deellink gekopieerd naar het klembord.',
   shareCopyFailed: 'Kopiëren naar het klembord is mislukt.',
 };

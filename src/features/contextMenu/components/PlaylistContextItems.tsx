@@ -16,13 +16,13 @@ import { MultiPlaylistToPlaylistSubmenu, SinglePlaylistToPlaylistSubmenu } from 
 import MoveToFolderSubmenu from '@/features/contextMenu/components/MoveToFolderSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { ContextShareMenuItem } from '@/features/share';
 
 export default function PlaylistContextItems(props: ContextMenuItemsProps) {
   const {
     type, item, closeContextMenu,
     playTrack, playNext, enqueue,
-    playlistSubmenuOpen, setPlaylistSubmenuOpen, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
-    playlistSongIds, setPlaylistSongIds,
+    activeSubmenuId, setActiveSubmenuId, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
     handleAction,
     offlinePolicy,
   } = props;
@@ -62,29 +62,29 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
               <div className="context-menu-divider" />
               {offlinePolicy.canAddToPlaylist && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `playlist:${playlist.id}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`playlist:${playlist.id}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`playlist:${playlist.id}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `playlist:${playlist.id}` ? 'active' : ''}`}
+                  data-submenu-id={`playlist:${playlist.id}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`playlist:${playlist.id}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `playlist:${playlist.id}` && (
-                    <SinglePlaylistToPlaylistSubmenu playlist={playlist} triggerId={`playlist:${playlist.id}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `playlist:${playlist.id}` && (
+                    <SinglePlaylistToPlaylistSubmenu playlist={playlist} triggerId={`playlist:${playlist.id}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}
               {/* Folder assignment is local-only state, so it stays available offline. */}
               {playlist.serverId && <div
-                className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `folder:${playlist.id}` ? 'active' : ''}`}
-                data-playlist-trigger-id={`folder:${playlist.id}`}
-                onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`folder:${playlist.id}`]); setPlaylistSubmenuOpen(true); }}
+                className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `folder:${playlist.id}` ? 'active' : ''}`}
+                data-submenu-id={`folder:${playlist.id}`}
+                onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`folder:${playlist.id}`); }}
                 onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
               >
                 <FolderTree size={14} /> {t('playlists.folders.moveToFolder')}
                 <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                {playlistSubmenuOpen && playlistSongIds[0] === `folder:${playlist.id}` && (
-                  <MoveToFolderSubmenu playlistId={playlist.id} serverId={playlist.serverId} triggerId={`folder:${playlist.id}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                {activeSubmenuId === `folder:${playlist.id}` && (
+                  <MoveToFolderSubmenu playlistId={playlist.id} serverId={playlist.serverId} triggerId={`folder:${playlist.id}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                 )}
               </div>}
               {offlinePolicy.canEditPlaylist && isSmartPlaylist(playlist) && (
@@ -124,6 +124,16 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
                   <Flame size={14} /> {t('burner.addToCd')}
                 </div>
               )}
+              <ContextShareMenuItem
+                request={{ kind: 'playlist', resourceIds: [playlist.id], serverIds: playlist.serverId ? [playlist.serverId] : [] }}
+                triggerId={`share:playlist:${playlist.id}`}
+                label={t('contextMenu.shareLink')}
+                activeSubmenuId={activeSubmenuId}
+                setActiveSubmenuId={setActiveSubmenuId}
+                cancelSubmenuCloseTimer={cancelPlaylistSubmenuCloseTimer}
+                onSubmenuTriggerMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
+                onDone={closeContextMenu}
+              />
               {offlinePolicy.canEditPlaylist && (
                 <>
               <div className="context-menu-divider" />
@@ -165,15 +175,15 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
               <div className="context-menu-divider" />
               {offlinePolicy.canAddToPlaylist && oneServerSelection && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `multi-playlist:${playlistIds.join(',')}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`multi-playlist:${playlistIds.join(',')}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`multi-playlist:${playlistIds.join(',')}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `multi-playlist:${playlistIds.join(',')}` ? 'active' : ''}`}
+                  data-submenu-id={`multi-playlist:${playlistIds.join(',')}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`multi-playlist:${playlistIds.join(',')}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `multi-playlist:${playlistIds.join(',')}` && (
-                    <MultiPlaylistToPlaylistSubmenu playlists={selectedPlaylists} triggerId={`multi-playlist:${playlistIds.join(',')}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `multi-playlist:${playlistIds.join(',')}` && (
+                    <MultiPlaylistToPlaylistSubmenu playlists={selectedPlaylists} triggerId={`multi-playlist:${playlistIds.join(',')}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Disc3, Eye, Link2, ListPlus, Music, Users } from 'lucide-react';
+import { Disc3, Eye, Link2, ListMusic, ListPlus, Music, Users } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { SubsonicArtist } from '@/lib/api/subsonicTypes';
@@ -31,6 +31,7 @@ type ShareSearchResultsProps = {
   onOpenAlbum: () => void;
   onOpenArtist: () => void;
   onOpenComposer: () => void;
+  onOpenPlaylist: () => void;
   onContextMenu?: (e: React.MouseEvent, item: unknown, type: 'song' | 'album' | 'artist') => void;
 } & ShareSearchPreviewState & NavidromePublicSharePreviewState;
 
@@ -144,6 +145,7 @@ export default function ShareSearchResults(props: ShareSearchResultsProps) {
     onOpenAlbum,
     onOpenArtist,
     onOpenComposer,
+    onOpenPlaylist,
     onContextMenu,
     shareTrackSong,
     shareTrackResolving,
@@ -157,6 +159,9 @@ export default function ShareSearchResults(props: ShareSearchResultsProps) {
     shareComposer,
     shareComposerResolving,
     shareComposerUnavailable,
+    sharePlaylist,
+    sharePlaylistResolving,
+    sharePlaylistUnavailable,
     navidromeShareInfo,
     navidromeShareResolving,
     navidromeShareError,
@@ -435,6 +440,48 @@ export default function ShareSearchResults(props: ShareSearchResultsProps) {
             {shareAlbumUnavailable ? t('sharePaste.albumUnavailable') : t('sharePaste.genericError')}
           </div>
           <div className={subCls}>{t('search.shareUnsupportedSub')}</div>
+        </div>
+      </div>,
+    );
+  }
+
+  if (shareMatch.type === 'playlist') {
+    if (sharePlaylistResolving) {
+      return wrap(
+        <div className={mutedCls}>
+          <StaticIcon className={iconCls}><ListMusic size={desktop ? 14 : 20} /></StaticIcon>
+          <div className={infoWrap}>
+            <div className={nameCls}>{t('common.loading')}</div>
+            <div className={subCls}>{sub(t('sidebar.playlists'))}</div>
+          </div>
+        </div>,
+      );
+    }
+    if (sharePlaylist) {
+      return wrap(
+        <button
+          type="button"
+          className={itemCls(activeIndex === 0)}
+          onClick={onOpenPlaylist}
+          role={desktop ? 'option' : undefined}
+          aria-selected={desktop ? activeIndex === 0 : undefined}
+        >
+          <StaticIcon className={iconCls}><ListMusic size={desktop ? 14 : 20} /></StaticIcon>
+          <div className={infoWrap}>
+            <div className={nameCls}>{sharePlaylist.name}</div>
+            <div className={subCls}>{sub(`${sharePlaylist.songCount} ${t('search.songs')}`)}</div>
+          </div>
+        </button>,
+      );
+    }
+    return wrap(
+      <div className={mutedCls}>
+        <StaticIcon className={iconCls}><Link2 size={desktop ? 14 : 20} /></StaticIcon>
+        <div className={infoWrap}>
+          <div className={nameCls}>
+            {sharePlaylistUnavailable ? t('sharePaste.genericError') : t('common.loading')}
+          </div>
+          <div className={subCls}>{t('sidebar.playlists')}</div>
         </div>
       </div>,
     );

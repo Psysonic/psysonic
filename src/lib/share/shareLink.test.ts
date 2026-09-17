@@ -117,6 +117,15 @@ describe('encodeSharePayload — entity kinds', () => {
     });
   });
 
+  it('round-trips a playlist share', () => {
+    const encoded = encodeSharePayload({ srv: 'https://x.example', k: 'playlist', id: 'pl-1' });
+    expect(decodeSharePayloadFromText(encoded)).toEqual({
+      srv: 'https://x.example',
+      k: 'playlist',
+      id: 'pl-1',
+    });
+  });
+
   it('trims whitespace in queue ids and drops empty ones', () => {
     const encoded = encodeSharePayload({
       srv: 'https://x.example',
@@ -153,7 +162,7 @@ describe('decodeSharePayloadFromText — rejection paths', () => {
   });
 
   it('rejects an unknown entity kind', () => {
-    const body = JSON.stringify({ v: 1, srv: 'https://x.example', k: 'playlist', id: 'pl-1' });
+    const body = JSON.stringify({ v: 1, srv: 'https://x.example', k: 'genre', id: 'g-1' });
     const b64 = btoa(body).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
     expect(decodeSharePayloadFromText(PSYSONIC_SHARE_PREFIX + b64)).toBeNull();
   });

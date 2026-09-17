@@ -29,7 +29,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} szám kiválasztva',
   selectedArtists: '{{count}} előadó kijelölve',
   songInfo: 'Száminfó',
-  shareLink: 'Megosztási link másolása',
+  shareLink: 'Link megosztása',
   shareCopied: 'A megosztási link a vágólapra másolva.',
   shareCopyFailed: 'A vágólapra másolás nem sikerült.',
 };

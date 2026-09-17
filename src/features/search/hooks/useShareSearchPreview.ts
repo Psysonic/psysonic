@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import type { SubsonicAlbum, SubsonicArtist, SubsonicSong } from '@/lib/api/subsonicTypes';
+import type { SubsonicAlbum, SubsonicArtist, SubsonicPlaylist, SubsonicSong } from '@/lib/api/subsonicTypes';
 import {
   resolveShareSearchAlbum,
   resolveShareSearchArtist,
   resolveShareSearchPayload,
+  resolveShareSearchPlaylist,
 } from '@/features/share/enqueueShareSearchPayload';
 import type { ShareSearchMatch } from '@/lib/share/shareSearch';
 
@@ -20,6 +21,9 @@ export interface ShareSearchPreviewState {
   shareComposer: SubsonicArtist | null;
   shareComposerResolving: boolean;
   shareComposerUnavailable: boolean;
+  sharePlaylist: SubsonicPlaylist | null;
+  sharePlaylistResolving: boolean;
+  sharePlaylistUnavailable: boolean;
 }
 
 const EMPTY_PREVIEW: ShareSearchPreviewState = {
@@ -35,6 +39,9 @@ const EMPTY_PREVIEW: ShareSearchPreviewState = {
   shareComposer: null,
   shareComposerResolving: false,
   shareComposerUnavailable: false,
+  sharePlaylist: null,
+  sharePlaylistResolving: false,
+  sharePlaylistUnavailable: false,
 };
 
 export function useShareSearchPreview(shareMatch: ShareSearchMatch | null): ShareSearchPreviewState {
@@ -123,6 +130,27 @@ export function useShareSearchPreview(shareMatch: ShareSearchMatch | null): Shar
         .finally(() => {
           if (!cancelled) {
             setPreview(current => ({ ...current, shareAlbumResolving: false }));
+          }
+        });
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (shareMatch?.type === 'playlist') {
+      setPreview({ ...EMPTY_PREVIEW, sharePlaylistResolving: true });
+      void resolveShareSearchPlaylist(shareMatch.payload)
+        .then(result => {
+          if (cancelled) return;
+          setPreview({
+            ...EMPTY_PREVIEW,
+            sharePlaylist: result.type === 'ok' ? result.playlist : null,
+            sharePlaylistUnavailable: result.type !== 'ok',
+          });
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setPreview(current => ({ ...current, sharePlaylistResolving: false }));
           }
         });
       return () => {

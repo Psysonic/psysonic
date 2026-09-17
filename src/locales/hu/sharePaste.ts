@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'Ez az album nem található a szerveren.',
   artistUnavailable: 'Ez az előadó nem található a szerveren.',
   composerUnavailable: 'Ez a zeneszerző nem található a szerveren.',
+  playlistUnavailable: 'Ez a lejátszási lista nem található a szerveren.',
   openedTrack: 'Megosztott szám lejátszása.',
   openedAlbum: 'Megosztott album megnyitása.',
   openedArtist: 'Megosztott előadó megnyitása.',
   openedComposer: 'Megosztott zeneszerző megnyitása.',
+  openedPlaylist: 'Megosztott lejátszási lista megnyitása.',
   openedQueue_one: '{{count}} szám lejátszása a megosztási linkről.',
   openedQueue_other: '{{count}} szám lejátszása a megosztási linkről.',
   openedQueuePartial:

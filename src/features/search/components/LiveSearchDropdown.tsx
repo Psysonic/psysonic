@@ -114,6 +114,7 @@ export default function LiveSearchDropdown({
           onOpenAlbum={share.openShareAlbum}
           onOpenArtist={share.openShareArtist}
           onOpenComposer={share.openShareComposer}
+          onOpenPlaylist={share.openSharePlaylist}
           onContextMenu={(e, item, type) => openContextMenu(e.clientX, e.clientY, item, type)}
           shareTrackSong={share.shareTrackSong}
           shareTrackResolving={share.shareTrackResolving}
@@ -127,6 +128,9 @@ export default function LiveSearchDropdown({
           shareComposer={share.shareComposer}
           shareComposerResolving={share.shareComposerResolving}
           shareComposerUnavailable={share.shareComposerUnavailable}
+          sharePlaylist={share.sharePlaylist}
+          sharePlaylistResolving={share.sharePlaylistResolving}
+          sharePlaylistUnavailable={share.sharePlaylistUnavailable}
           navidromeShareInfo={share.navidromeShareInfo}
           navidromeShareResolving={share.navidromeShareResolving}
           navidromeShareError={share.navidromeShareError}

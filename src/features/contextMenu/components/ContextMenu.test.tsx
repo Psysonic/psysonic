@@ -139,6 +139,30 @@ describe('ContextMenu — visibility', () => {
   });
 });
 
+describe('ContextMenu — generic submenus', () => {
+  it('opens and returns from the Share submenu with the shared ArrowRight/ArrowLeft identity path', async () => {
+    const serverId = useAuthStore.getState().activeServerId!;
+    openMenuFor('song', makeTrack({ id: 'share-keyboard', serverId }));
+    const { container, findByText, queryByText } = renderWithProviders(<ContextMenu />);
+    const menu = container.querySelector('.context-menu') as HTMLElement;
+    const trigger = (await findByText('Share link')).closest('.context-menu-item') as HTMLElement;
+    trigger.tabIndex = -1;
+    trigger.focus();
+
+    fireEvent.keyDown(menu, { key: 'ArrowRight' });
+    const psysonic = await findByText('Psysonic');
+    expect(await findByText('Navidrome')).toBeInTheDocument();
+
+    const submenuItem = psysonic.closest('.context-menu-item') as HTMLElement;
+    submenuItem.tabIndex = -1;
+    submenuItem.focus();
+    fireEvent.keyDown(menu, { key: 'ArrowLeft' });
+
+    expect(queryByText('Psysonic')).not.toBeInTheDocument();
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+});
+
 describe('ContextMenu — type=song', () => {
   it('shows Play Now / Play Next / Add to Queue items', () => {
     openMenuFor('song', makeTrack({ id: 'tr-1' }));
@@ -406,7 +430,7 @@ describe('ContextMenu — "Add to CD" gating', () => {
     expect(queryByText('Add to CD')).toBeNull();
   });
 
-  it('sits directly above "Copy share link" in the album menu', async () => {
+  it('sits directly above "Share link" in the album menu', async () => {
     onInvoke('burn_is_supported', () => true);
     showBurnerInSidebar();
     openMenuFor('album', burnableAlbum());
@@ -419,7 +443,7 @@ describe('ContextMenu — "Add to CD" gating', () => {
     const labels = [...container.querySelectorAll('.context-menu-item')]
       .map(item => item.textContent?.trim());
     expect(labels).toContain('Add to CD');
-    expect(labels.indexOf('Add to CD')).toBe(labels.indexOf('Copy share link') - 1);
+    expect(labels.indexOf('Add to CD')).toBe(labels.indexOf('Share link') - 1);
   });
 
   it('renders disabled while a burn is running, and clicking it queues nothing', async () => {

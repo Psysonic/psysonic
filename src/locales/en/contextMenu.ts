@@ -29,7 +29,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} tracks selected',
   selectedArtists: '{{count}} artists selected',
   songInfo: 'Song Info',
-  shareLink: 'Copy share link',
+  shareLink: 'Share link',
   shareCopied: 'Share link copied to the clipboard.',
   shareCopyFailed: 'Could not copy to the clipboard.',
 };

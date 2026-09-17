@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'Dit album is niet op de server gevonden.',
   artistUnavailable: 'Deze artiest is niet op de server gevonden.',
   composerUnavailable: 'Deze componist is niet op de server gevonden.',
+  playlistUnavailable: 'Deze afspeellijst is niet op de server gevonden.',
   openedTrack: 'Gedeeld nummer wordt afgespeeld.',
   openedAlbum: 'Gedeeld album wordt geopend.',
   openedArtist: 'Gedeelde artiest wordt geopend.',
   openedComposer: 'Gedeelde componist wordt geopend.',
+  openedPlaylist: 'Gedeelde afspeellijst wordt geopend.',
   openedQueue_one: '{{count}} nummer van deellink wordt afgespeeld.',
   openedQueue_other: '{{count}} nummers van deellink worden afgespeeld.',
   openedQueuePartial:

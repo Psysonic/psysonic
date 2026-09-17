@@ -2,7 +2,7 @@ import type { EntityRatingSupportLevel, SubsonicItemGenre, SubsonicOpenArtistRef
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
-import { Play, Heart, X, ChevronLeft, Download, ListPlus, HardDriveDownload, Share2, Highlighter, Loader2, Shuffle } from 'lucide-react';
+import { Play, Heart, X, ChevronLeft, Download, ListPlus, HardDriveDownload, Highlighter, Loader2, Shuffle } from 'lucide-react';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { useCoverLightboxSrc } from '@/cover/lightbox';
 import type { CoverArtRef } from '@/cover/types';
@@ -13,8 +13,6 @@ import { useResolvedArtistRefs } from '@/lib/hooks/useResolvedArtistRefs';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import StarRating from '@/ui/StarRating';
-import { copyEntityShareLink } from '@/lib/share/copyEntityShareLink';
-import { showToast } from '@/lib/dom/toast';
 import { isAlbumRecentlyAdded } from '@/features/album/utils/albumRecency';
 import { formatLongDuration } from '@/lib/format/formatDuration';
 import { formatMb } from '@/lib/format/formatBytes';
@@ -30,6 +28,7 @@ import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/de
 import EntitySourcePicker from '@/ui/EntitySourcePicker';
 import type { LibraryScopePair } from '@/lib/api/library';
 import type { MusicFolder, ServerProfile } from '@/store/authStoreTypes';
+import { ShareMethodMenuButton } from '@/features/share';
 
 /** True when the album artist label means "no single artist" — `getArtistInfo`
  *  has nothing meaningful to return for these, so the Artist Bio entry is hidden.
@@ -267,16 +266,6 @@ export default function AlbumHeader({
     });
   };
 
-  const handleShareAlbum = async () => {
-    try {
-      const ok = await copyEntityShareLink('album', info.id, { serverId });
-      if (ok) showToast(t('contextMenu.shareCopied'));
-      else showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
-    } catch {
-      showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
-    }
-  };
-
   return (
     <>
       {bioOpen && bio && <BioModal bio={bio} onClose={onCloseBio} />}
@@ -456,15 +445,11 @@ export default function AlbumHeader({
                       </button>
                     )}
 
-                    <button
+                    <ShareMethodMenuButton
+                      request={{ kind: 'album', resourceIds: [info.id], serverIds: serverId ? [serverId] : [] }}
                       className="album-icon-btn album-icon-btn--sm"
-                      type="button"
-                      onClick={handleShareAlbum}
-                      aria-label={t('albumDetail.shareAlbum')}
-                      data-tooltip={t('albumDetail.shareAlbum')}
-                    >
-                      <Share2 size={16} />
-                    </button>
+                      label={t('albumDetail.shareAlbum')}
+                    />
 
                     {showBioButton && policy.canShowBio && (
                       <button
@@ -567,15 +552,11 @@ export default function AlbumHeader({
                         <Heart size={16} fill={isStarred ? 'currentColor' : 'none'} />
                       </button>
                     )}
-                    <button
-                      type="button"
+                    <ShareMethodMenuButton
+                      request={{ kind: 'album', resourceIds: [info.id], serverIds: serverId ? [serverId] : [] }}
                       className="btn btn-surface"
-                      onClick={handleShareAlbum}
-                      aria-label={t('albumDetail.shareAlbum')}
-                      data-tooltip={t('albumDetail.shareAlbum')}
-                    >
-                      <Share2 size={16} />
-                    </button>
+                      label={t('albumDetail.shareAlbum')}
+                    />
                   </div>
 
                   {showBioButton && policy.canShowBio && (

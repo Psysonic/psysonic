@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import AlbumHeader from '@/features/album/components/AlbumHeader';
 import { libraryResolveEntitySources } from '@/lib/api/library';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
+import { useAuthStore } from '@/store/authStore';
 
 const navigate = vi.fn();
 const copyEntityShareLink = vi.fn();
@@ -163,6 +164,11 @@ describe('AlbumHeader genres', () => {
   it('preserves the album owner in genre return and share actions', async () => {
     navigate.mockClear();
     copyEntityShareLink.mockReset().mockResolvedValue(true);
+    useAuthStore.setState(state => ({
+      servers: [...state.servers, {
+        id: 'srv-b', name: 'Owner', url: 'https://owner.test', username: 'u', password: 'p',
+      }],
+    }));
     const user = userEvent.setup();
     renderWithProviders(
       <AlbumHeader
@@ -178,7 +184,8 @@ describe('AlbumHeader genres', () => {
     });
 
     await user.click(screen.getByRole('button', { name: 'Share album' }));
-    expect(copyEntityShareLink).toHaveBeenCalledWith('album', 'al1', { serverId: 'srv-b' });
+    await user.click(screen.getByRole('menuitem', { name: 'Psysonic' }));
+    await waitFor(() => expect(copyEntityShareLink).toHaveBeenCalledWith('album', 'al1', { serverId: 'srv-b' }));
   });
 
   it('opens a selected concrete source while preserving detail filters', async () => {

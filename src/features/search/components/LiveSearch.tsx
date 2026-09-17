@@ -150,6 +150,7 @@ export default function LiveSearch() {
         else if (share.canOpenShareAlbum) share.openShareAlbum();
         else if (share.canOpenShareArtist) share.openShareArtist();
         else if (share.canOpenShareComposer) share.openShareComposer();
+        else if (share.canOpenSharePlaylist) share.openSharePlaylist();
       },
     },
   ] : results ? [
@@ -183,6 +184,7 @@ export default function LiveSearch() {
         else if (share.canOpenShareAlbum) share.openShareAlbum();
         else if (share.canOpenShareArtist) share.openShareArtist();
         else if (share.canOpenShareComposer) share.openShareComposer();
+        else if (share.canOpenSharePlaylist) share.openSharePlaylist();
       } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         setActiveIndex(share.hasShareKeyboardTarget ? 0 : -1);

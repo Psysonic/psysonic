@@ -1,4 +1,5 @@
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
+import { buildPlaylistDetailPath } from '@/lib/navigation/detailServerScope';
 import { useAuthStore } from '@/store/authStore';
 
 let playlistServerIntentGeneration = 0;
@@ -15,6 +16,5 @@ export async function runLatestPlaylistServerIntent(
 }
 
 export function playlistDetailPath(playlist: SubsonicPlaylist): string {
-  const query = playlist.serverId ? `?server=${encodeURIComponent(playlist.serverId)}` : '';
-  return `/playlists/${playlist.id}${query}`;
+  return buildPlaylistDetailPath(playlist.id, { serverId: playlist.serverId });
 }

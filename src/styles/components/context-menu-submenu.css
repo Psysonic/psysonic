@@ -81,7 +81,67 @@
   opacity: 0.85;
 }
 
+.share-method-menu {
+  min-width: 180px;
+  overflow: visible;
+}
+
+.share-method-menu--anchored {
+  z-index: 10050;
+}
+
+.share-method-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.share-method-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.share-method-item.is-disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.share-method-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.share-method-help:hover,
+.share-method-help:focus-visible {
+  background: var(--menu-item-hover);
+  color: var(--text-primary);
+}
+
+.share-method-help-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 4px;
+  z-index: 2;
+  width: min(260px, calc(100vw - 24px));
+  padding: 9px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated, var(--menu-bg));
+  color: var(--text-secondary);
+  box-shadow: var(--shadow-lg);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    MOBILE COMPONENT OVERRIDES  (< 800px)
    ═══════════════════════════════════════════════════════════════════════════ */
-

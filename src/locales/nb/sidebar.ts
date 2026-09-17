@@ -23,6 +23,7 @@ export const sidebar = {
   genres: 'Sjangere',
   tracks: 'Spor',
   playlists: 'Spillelister',
+  shared: 'Delt',
   mostPlayed: 'Mest spilt',
   losslessAlbums: 'Lossless',
   radio: 'Internettradio',

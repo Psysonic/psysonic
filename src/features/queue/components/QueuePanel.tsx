@@ -33,6 +33,9 @@ import { useTimelineBootstrapOnMode, useTimelineHistoryResolver, useTimelinePlay
 import { buildTimelineDisplayRows } from '@/features/playback/utils/buildTimelineDisplayRows';
 import { queueTrackIdsForServerProfile } from '@/features/playback';
 import { isActivePublicShareQueue } from '@/lib/share/navidromePublicSharePlayback';
+import { serverListDisplayLabel } from '@/lib/server/serverDisplayName';
+import { useUnavailableServerIds } from '@/lib/network/serverReachability';
+import type { ServerChoiceOption } from '@/ui/ServerChoiceList';
 
 export default function QueuePanel() {
   const orbitRole = useOrbitStore(s => s.role);
@@ -79,6 +82,7 @@ function QueuePanelHostOrSolo() {
   const queueItems = usePlayerStore(s => s.queueItems);
   const servers = useAuthStore(s => s.servers);
   const activeServerId = useAuthStore(s => s.activeServerId);
+  const unavailableServerIds = useUnavailableServerIds();
   const queueServerId = usePlayerStore(s => s.queueServerId);
   const navidromePublicSharePageUrl = usePlayerStore(s => s.navidromePublicSharePageUrl);
   const publicShareQueueActive = isActivePublicShareQueue(queueServerId, queueItems);
@@ -180,20 +184,26 @@ function QueuePanelHostOrSolo() {
     suppressNextAutoScrollRef,
   });
 
-  const {
-    serverOptions: queueServerOptions,
-    defaultServerId: defaultQueueServerId,
-    sharePickerOpen,
-    handleCopy: handleCopyQueueShare,
-    shareForServer,
-    closeSharePicker,
-  } = useQueueShare({
+  const queueShareRequest = useQueueShare({
     queueItems,
-    servers,
-    activeServerId,
     publicShareQueueActive,
     navidromePublicSharePageUrl,
   });
+  const queueServerOptions = useMemo<ServerChoiceOption[]>(() => servers
+    .filter(server => queueTrackIdsForServerProfile(queueItems, server.id).length > 0)
+    .map(server => {
+      const label = serverListDisplayLabel(server, servers);
+      return {
+        id: server.id,
+        label,
+        warning: unavailableServerIds.has(server.id)
+          ? t('connection.offlineSubtitle', { server: label })
+          : undefined,
+      };
+    }), [queueItems, servers, t, unavailableServerIds]);
+  const defaultQueueServerId = activeServerId && queueServerOptions.some(server => server.id === activeServerId)
+    ? activeServerId
+    : queueServerOptions[0]?.id ?? '';
   const [activePlaylist, setActivePlaylist] = useState<{
     id: string;
     name: string;
@@ -248,7 +258,6 @@ function QueuePanelHostOrSolo() {
     setSaveState('idle');
     setActivePlaylist(null);
     setSaveModalOpen(false);
-    closeSharePicker();
   };
   const handleClear = () => { clearQueue(); finishQueueClear(); };
   const handleClearExceptCurrent = () => { clearQueueExceptCurrent(); finishQueueClear(); };
@@ -369,12 +378,7 @@ function QueuePanelHostOrSolo() {
             shuffleQueue={shuffleQueue}
             handleSave={handleSave}
             handleLoad={handleLoad}
-            handleCopyQueueShare={handleCopyQueueShare}
-            sharePickerOpen={sharePickerOpen}
-            queueServerOptions={queueServerOptions}
-            defaultQueueServerId={defaultQueueServerId}
-            shareForServer={shareForServer}
-            closeSharePicker={closeSharePicker}
+            queueShareRequest={queueShareRequest}
             handleClear={handleClear}
             handleClearExceptCurrent={handleClearExceptCurrent}
             publicShareQueueActive={publicShareQueueActive}

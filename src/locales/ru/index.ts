@@ -5,6 +5,7 @@ import { search } from './search';
 import { nowPlaying } from './nowPlaying';
 import { contextMenu } from './contextMenu';
 import { sharePaste } from './sharePaste';
+import { shared } from './shared';
 import { albumDetail } from './albumDetail';
 import { entityRating } from './entityRating';
 import { artistDetail } from './artistDetail';
@@ -56,6 +57,7 @@ export const ruTranslation = {
   nowPlaying,
   contextMenu,
   sharePaste,
+  shared,
   albumDetail,
   entityRating,
   artistDetail,

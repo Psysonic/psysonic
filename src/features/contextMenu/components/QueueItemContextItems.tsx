@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Play, Radio, Heart, ChevronRight, User, Disc3, ListMusic, Info, Sparkles, Star, Trash2, Share2 } from 'lucide-react';
+import { Play, Radio, Heart, ChevronRight, User, Disc3, ListMusic, Info, Sparkles, Star, Trash2 } from 'lucide-react';
 import { queueSongStar } from '@/features/playback/store/pendingStarSync';
 import { getMusicNetworkRuntime } from '@/music-network';
 import type { Track } from '@/lib/media/trackTypes';
@@ -11,6 +11,7 @@ import type { ContextMenuItemsProps } from '@/features/contextMenu/components/co
 import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { buildAlbumDetailPath } from '@/lib/navigation/detailServerScope';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { ContextShareMenuItem } from '@/features/share';
 
 export default function QueueItemContextItems(props: ContextMenuItemsProps) {
   const {
@@ -18,11 +19,10 @@ export default function QueueItemContextItems(props: ContextMenuItemsProps) {
     playTrack, removeTrack, closeContextMenu,
     networkLovedCache, setNetworkLovedForSong,
     openSongInfo, userRatingOverrides, setKeyboardRating, keyboardRating,
-    playlistSubmenuOpen, setPlaylistSubmenuOpen, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
-    playlistSongIds, setPlaylistSongIds,
+    activeSubmenuId, setActiveSubmenuId, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
     audiomuseNavidromeEnabled,
     applySongRating,
-    handleAction, startRadio, startInstantMix, copyShareLink, isStarred,
+    handleAction, startRadio, startInstantMix, isStarred,
     navigateLibrary,
   } = props;
   const { t } = useTranslation();
@@ -46,15 +46,15 @@ export default function QueueItemContextItems(props: ContextMenuItemsProps) {
                 <Trash2 size={14} /> {t('contextMenu.removeFromQueue')}
               </div>
               <div
-                className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === song.id ? 'active' : ''}`}
-                data-playlist-trigger-id={song.id}
-                onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([song.id]); setPlaylistSubmenuOpen(true); }}
+                className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === song.id ? 'active' : ''}`}
+                data-submenu-id={song.id}
+                onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(song.id); }}
                 onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
               >
                 <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                 <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                {playlistSubmenuOpen && playlistSongIds[0] === song.id && (
-                  <AddToPlaylistSubmenu songIds={[song.id]} serverId={song.serverId} triggerId={song.id} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                {activeSubmenuId === song.id && (
+                  <AddToPlaylistSubmenu songIds={[song.id]} serverId={song.serverId} triggerId={song.id} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                 )}
               </div>
               <div className="context-menu-divider" />
@@ -117,9 +117,16 @@ export default function QueueItemContextItems(props: ContextMenuItemsProps) {
                 />
               </div>
               <div className="context-menu-divider" />
-              <div className="context-menu-item" onClick={() => handleAction(() => copyShareLink('track', song.id, song.serverId))}>
-                <Share2 size={14} /> {t('contextMenu.shareLink')}
-              </div>
+              <ContextShareMenuItem
+                request={{ kind: 'track', resourceIds: [song.id], serverIds: song.serverId ? [song.serverId] : [] }}
+                triggerId={`share:track:${song.id}`}
+                label={t('contextMenu.shareLink')}
+                activeSubmenuId={activeSubmenuId}
+                setActiveSubmenuId={setActiveSubmenuId}
+                cancelSubmenuCloseTimer={cancelPlaylistSubmenuCloseTimer}
+                onSubmenuTriggerMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
+                onDone={closeContextMenu}
+              />
               <div className="context-menu-item" onClick={() => handleAction(() => openSongInfo(song.id, song.serverId))}>
                 <Info size={14} /> {t('contextMenu.songInfo')}
               </div>

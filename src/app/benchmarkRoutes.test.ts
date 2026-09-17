@@ -18,6 +18,7 @@ describe('benchmark routes', () => {
       '/player-stats',
       '/now-playing',
       '/device-sync',
+      '/shared',
     ]));
   });
 

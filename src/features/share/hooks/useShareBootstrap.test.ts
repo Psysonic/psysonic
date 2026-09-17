@@ -1,0 +1,45 @@
+import { act, renderHook } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { makeServer } from '@/test/helpers/factories';
+import { resetAuthStore } from '@/test/helpers/storeReset';
+
+const shareActions = vi.hoisted(() => ({
+  reconcileProfiles: vi.fn(),
+  refreshAll: vi.fn(async () => {}),
+}));
+
+vi.mock('@/features/share/store/shareStore', () => ({
+  useShareStore: { getState: () => shareActions },
+}));
+
+import { useAuthStore } from '@/store/authStore';
+import { useShareBootstrap } from '@/features/share/hooks/useShareBootstrap';
+
+beforeEach(() => {
+  resetAuthStore();
+  vi.clearAllMocks();
+  vi.useFakeTimers();
+  vi.stubGlobal('requestIdleCallback', undefined);
+});
+
+describe('useShareBootstrap', () => {
+  it('reconciles profiles but waits for authentication before refreshing', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({ servers: [server], isLoggedIn: false });
+    renderHook(() => useShareBootstrap());
+
+    expect(shareActions.reconcileProfiles).toHaveBeenCalledWith([server]);
+    await act(async () => vi.runAllTimersAsync());
+    expect(shareActions.refreshAll).not.toHaveBeenCalled();
+  });
+
+  it('defers refresh until after the authenticated mount effect', async () => {
+    const server = makeServer({ id: 'srv-a' });
+    useAuthStore.setState({ servers: [server], isLoggedIn: true });
+    renderHook(() => useShareBootstrap());
+
+    expect(shareActions.refreshAll).not.toHaveBeenCalled();
+    await act(async () => vi.runAllTimersAsync());
+    expect(shareActions.refreshAll).toHaveBeenCalledTimes(1);
+  });
+});

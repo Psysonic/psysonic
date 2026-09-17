@@ -25,7 +25,7 @@ import {
 import { useOfflineBrowseContext } from '@/features/offline';
 import { offlineActionPolicy } from '@/features/offline';
 import {
-  runArtistEntityRating, runArtistToggleStar, runArtistShare, runArtistImageUpload,
+  runArtistEntityRating, runArtistToggleStar, runArtistImageUpload,
 } from '@/features/artist/utils/runArtistDetailActions';
 import ArtistDetailHero from '@/features/artist/components/ArtistDetailHero';
 import ArtistDetailTracksSection from '@/features/artist/components/ArtistDetailTracksSection';
@@ -155,11 +155,6 @@ export default function ArtistDetail() {
   const handleStartRadio = () => {
     if (!artist) return;
     return runArtistDetailStartRadio({ artist, t, setRadioLoading, playTrack, enqueue });
-  };
-
-  const handleShareArtist = () => {
-    if (!id || !artist) return;
-    return runArtistShare({ artist, serverId: artistOwnerServerId, t });
   };
 
   const playTopSongWithContinuation = (startIndex: number) => runArtistDetailPlayTopSong({
@@ -328,7 +323,6 @@ export default function ArtistDetail() {
         handleShuffle={handleShuffle}
         handleEnqueueAll={handleEnqueueAll}
         handleStartRadio={handleStartRadio}
-        handleShareArtist={handleShareArtist}
         handleImageUpload={handleImageUpload}
         playAllLoading={playAllLoading}
         radioLoading={radioLoading}

@@ -202,43 +202,6 @@
   cursor: default;
 }
 
-.queue-share-popover {
-  width: max-content;
-  min-width: 150px;
-  max-width: calc(100vw - 16px);
-  padding: var(--space-1);
-  z-index: 10050;
-}
-
-.queue-share-server-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  width: 100%;
-  padding: var(--space-2) var(--space-3);
-  border: none;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: 13px;
-  font-weight: 500;
-  text-align: left;
-  cursor: pointer;
-}
-
-.queue-share-server-item:hover,
-.queue-share-server-item:focus-visible {
-  background: var(--menu-item-hover);
-}
-
-.queue-share-server-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .queue-toolbar-sep {
   width: 1px;
   height: 18px;

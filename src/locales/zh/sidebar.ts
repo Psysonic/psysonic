@@ -23,6 +23,7 @@ export const sidebar = {
   genres: '流派',
   tracks: '曲目',
   playlists: '播放列表',
+  shared: '分享',
   mostPlayed: '最常播放',
   losslessAlbums: '无损',
   radio: '网络电台',

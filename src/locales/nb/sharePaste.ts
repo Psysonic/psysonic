@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'Fant ikke dette albumet på serveren.',
   artistUnavailable: 'Fant ikke denne artisten på serveren.',
   composerUnavailable: 'Fant ikke denne komponisten på serveren.',
+  playlistUnavailable: 'Fant ikke denne spillelisten på serveren.',
   openedTrack: 'Spiller delt spor.',
   openedAlbum: 'Åpner delt album.',
   openedArtist: 'Åpner delt artist.',
   openedComposer: 'Åpner delt komponist.',
+  openedPlaylist: 'Åpner delt spilleliste.',
   openedQueue_one: 'Spiller {{count}} spor fra delingslenken.',
   openedQueue_other: 'Spiller {{count}} spor fra delingslenken.',
   openedQueuePartial:

@@ -29,7 +29,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} 曲を選択中',
   selectedArtists: '{{count}} 人のアーティストを選択中',
   songInfo: '曲情報',
-  shareLink: '共有リンクをコピー',
+  shareLink: 'リンクを共有',
   shareCopied: '共有リンクをクリップボードにコピーしました。',
   shareCopyFailed: 'クリップボードにコピーできませんでした。',
 };

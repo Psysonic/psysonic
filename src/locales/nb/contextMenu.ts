@@ -29,7 +29,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} spor valgt',
   selectedArtists: '{{count}} artister valgt',
   songInfo: 'Sanginfo',
-  shareLink: 'Kopiér delingslenke',
+  shareLink: 'Del lenke',
   shareCopied: 'Delingslenke kopiert til utklippstavlen.',
   shareCopyFailed: 'Kunne ikke kopiere til utklippstavlen.',
 };

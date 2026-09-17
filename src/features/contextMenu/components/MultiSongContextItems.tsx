@@ -22,8 +22,8 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
   const {
     item, playTrack, playNext, enqueue, closeContextMenu,
     userRatingOverrides, setKeyboardRating, keyboardRating, applySongRating,
-    playlistSubmenuOpen, setPlaylistSubmenuOpen, cancelPlaylistSubmenuCloseTimer,
-    onPlaylistSubmenuTriggerMouseLeave, playlistSongIds, setPlaylistSongIds,
+    activeSubmenuId, setActiveSubmenuId, cancelPlaylistSubmenuCloseTimer,
+    onPlaylistSubmenuTriggerMouseLeave,
     handleAction, isStarred, offlinePolicy,
   } = props;
   const { t } = useTranslation();
@@ -52,19 +52,19 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
       </div>
       {offlinePolicy.canAddToPlaylist && ownerServerIds.size <= 1 && (
         <div
-          className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === playlistTriggerId ? 'active' : ''}`}
-          data-playlist-trigger-id={playlistTriggerId}
-          onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([playlistTriggerId]); setPlaylistSubmenuOpen(true); }}
+          className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === playlistTriggerId ? 'active' : ''}`}
+          data-submenu-id={playlistTriggerId}
+          onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(playlistTriggerId); }}
           onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
         >
           <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
           <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-          {playlistSubmenuOpen && playlistSongIds[0] === playlistTriggerId && (
+          {activeSubmenuId === playlistTriggerId && (
             <AddToPlaylistSubmenu
               songIds={songs.map(song => song.id)}
               serverId={playlistOwner}
               triggerId={playlistTriggerId}
-              onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }}
+              onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }}
             />
           )}
         </div>

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   resolveAlbum: vi.fn(),
   getArtist: vi.fn(),
   resolveArtist: vi.fn(),
+  resolvePlaylist: vi.fn(),
   getSongForServer: vi.fn(),
   orbitBulkGuard: vi.fn(),
   showToast: vi.fn(),
@@ -33,6 +34,7 @@ vi.mock('@/lib/api/subsonicArtists', () => ({
 vi.mock('@/store/mediaResolver', () => ({
   resolveAlbum: mocks.resolveAlbum,
   resolveArtist: mocks.resolveArtist,
+  resolvePlaylist: mocks.resolvePlaylist,
 }));
 
 vi.mock('@/store/authStore', () => ({
@@ -65,6 +67,7 @@ import {
   resolveShareSearchAlbum,
   resolveShareSearchArtist,
   resolveShareSearchPayload,
+  resolveShareSearchPlaylist,
 } from '@/features/share/enqueueShareSearchPayload';
 
 const sharedServer = {
@@ -112,6 +115,17 @@ describe('share search payload resolution', () => {
     mocks.resolveArtist.mockResolvedValue({
       artist: { id: 'artist-1', name: 'Shared Artist' },
       albums: [],
+    });
+    mocks.resolvePlaylist.mockResolvedValue({
+      playlist: {
+        id: 'playlist-1',
+        name: 'Shared Playlist',
+        songCount: 1,
+        duration: 180,
+        created: '',
+        changed: '',
+      },
+      songs: [],
     });
     mocks.songToTrack.mockImplementation(song => ({
       id: song.id,
@@ -168,6 +182,21 @@ describe('share search payload resolution', () => {
 
     expect(result.type).toBe('ok');
     expect(mocks.resolveArtist).toHaveBeenCalledWith('shared', 'composer-1');
+    expect(mocks.authState.current.setActiveServer).not.toHaveBeenCalled();
+  });
+
+  it('resolves playlist previews without switching active server', async () => {
+    const result = await resolveShareSearchPlaylist({
+      srv: 'https://shared.example.com',
+      k: 'playlist',
+      id: 'playlist-1',
+    });
+
+    expect(mocks.resolvePlaylist).toHaveBeenCalledWith('shared', 'playlist-1');
+    expect(result).toMatchObject({
+      type: 'ok',
+      playlist: { id: 'playlist-1', serverId: 'shared' },
+    });
     expect(mocks.authState.current.setActiveServer).not.toHaveBeenCalled();
   });
 

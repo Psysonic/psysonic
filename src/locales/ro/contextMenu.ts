@@ -29,7 +29,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} piese selectate',
   selectedArtists: '{{count}} artiști selectați',
   songInfo: 'Informații despre Piesă',
-  shareLink: 'Copiază link-ul',
+  shareLink: 'Distribuie linkul',
   shareCopied: 'Link copiat în clipboard.',
   shareCopyFailed: 'Nu s-a putut copia în clipboard.',
 };

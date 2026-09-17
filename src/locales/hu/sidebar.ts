@@ -26,6 +26,7 @@ export const sidebar = {
   genres: 'Műfajok',
   tracks: 'Számok',
   playlists: 'Lejátszási listák',
+  shared: 'Megosztott',
   smartPlaylists: 'Okos lejátszási listák',
   mostPlayed: 'Legtöbbet játszott',
   losslessAlbums: 'Veszteségmentes',

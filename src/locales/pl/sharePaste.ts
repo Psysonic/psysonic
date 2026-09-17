@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'Nie znaleziono tego albumu na serwerze.',
   artistUnavailable: 'Nie znaleziono tego wykonawcy na serwerze.',
   composerUnavailable: 'Nie znaleziono tego kompozytora na serwerze.',
+  playlistUnavailable: 'Nie znaleziono tej playlisty na serwerze.',
   openedTrack: 'Odtwarzanie udostępnionego utworu.',
   openedAlbum: 'Otwieranie udostępnionego albumu.',
   openedArtist: 'Otwieranie udostępnionego wykonawcy.',
   openedComposer: 'Otwieranie udostępnionego kompozytora.',
+  openedPlaylist: 'Otwieranie udostępnionej playlisty.',
   openedQueue_one: 'Odtwarzanie {{count}} utworu z linku udostępniania.',
   openedQueue_other: 'Odtwarzanie {{count}} utworów z linku udostępniania.',
   openedQueuePartial:

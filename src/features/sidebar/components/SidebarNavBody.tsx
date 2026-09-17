@@ -135,7 +135,7 @@ export default function SidebarNavBody(props: Props) {
                   className={({ isActive }) => `nav-link sidebar-playlists-main-link ${isActive ? 'active' : ''}`}
                 >
                   <item.icon size={18} />
-                  <span>{t(item.labelKey)}</span>
+                  <span>{t(item.labelKey, { defaultValue: item.defaultLabel })}</span>
                 </NavLink>
                 {playlistsExpanded && (
                   <span className="sidebar-playlists-sort">
@@ -174,7 +174,7 @@ export default function SidebarNavBody(props: Props) {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-              data-tooltip={isCollapsed ? t(item.labelKey) : undefined}
+              data-tooltip={isCollapsed ? t(item.labelKey, { defaultValue: item.defaultLabel }) : undefined}
               data-tooltip-pos="bottom"
               {...mainstageBrowseNavHandlers(item.to)}
             >
@@ -184,7 +184,7 @@ export default function SidebarNavBody(props: Props) {
                   {newReleasesUnreadCount > 99 ? '99+' : newReleasesUnreadCount}
                 </span>
               )}
-              {!isCollapsed && <span>{t(item.labelKey)}</span>}
+              {!isCollapsed && <span>{t(item.labelKey, { defaultValue: item.defaultLabel })}</span>}
             </NavLink>
           ) : (
             <div
@@ -197,12 +197,12 @@ export default function SidebarNavBody(props: Props) {
                 to={item.to}
                 end={item.to === '/'}
                 className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                data-tooltip={isCollapsed ? t(item.labelKey) : undefined}
+                data-tooltip={isCollapsed ? t(item.labelKey, { defaultValue: item.defaultLabel }) : undefined}
                 data-tooltip-pos="bottom"
                 {...mainstageBrowseNavHandlers(item.to)}
               >
                 <item.icon size={isCollapsed ? 22 : 18} />
-                {!isCollapsed && <span>{t(item.labelKey)}</span>}
+                {!isCollapsed && <span>{t(item.labelKey, { defaultValue: item.defaultLabel })}</span>}
                 {item.to === '/new-releases' && newReleasesUnreadCount > 0 && (
                   <span className="sidebar-nav-unread-badge" aria-hidden>
                     {newReleasesUnreadCount > 99 ? '99+' : newReleasesUnreadCount}
@@ -258,11 +258,11 @@ export default function SidebarNavBody(props: Props) {
               key={item.to}
               to={item.to}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-              data-tooltip={isCollapsed ? t(item.labelKey) : undefined}
+              data-tooltip={isCollapsed ? t(item.labelKey, { defaultValue: item.defaultLabel }) : undefined}
               data-tooltip-pos="bottom"
             >
               <item.icon size={isCollapsed ? 22 : 18} />
-              {!isCollapsed && <span>{t(item.labelKey)}</span>}
+              {!isCollapsed && <span>{t(item.labelKey, { defaultValue: item.defaultLabel })}</span>}
             </NavLink>
           ) : (
             <div
@@ -274,11 +274,11 @@ export default function SidebarNavBody(props: Props) {
               <NavLink
                 to={item.to}
                 className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
-                data-tooltip={isCollapsed ? t(item.labelKey) : undefined}
+                data-tooltip={isCollapsed ? t(item.labelKey, { defaultValue: item.defaultLabel }) : undefined}
                 data-tooltip-pos="bottom"
               >
                 <item.icon size={isCollapsed ? 22 : 18} />
-                {!isCollapsed && <span>{t(item.labelKey)}</span>}
+                {!isCollapsed && <span>{t(item.labelKey, { defaultValue: item.defaultLabel })}</span>}
               </NavLink>
             </div>
           );

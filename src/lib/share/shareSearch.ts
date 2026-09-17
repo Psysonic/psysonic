@@ -14,6 +14,7 @@ export type QueueableShareSearchPayload =
 export type AlbumShareSearchPayload = { srv: string; k: 'album'; id: string };
 export type ArtistShareSearchPayload = { srv: string; k: 'artist'; id: string };
 export type ComposerShareSearchPayload = { srv: string; k: 'composer'; id: string };
+export type PlaylistShareSearchPayload = { srv: string; k: 'playlist'; id: string };
 
 export type ShareSearchMatch =
   | { type: 'navidrome-public'; publicShareRef: NavidromePublicShareRef }
@@ -21,6 +22,7 @@ export type ShareSearchMatch =
   | { type: 'album'; payload: AlbumShareSearchPayload }
   | { type: 'artist'; payload: ArtistShareSearchPayload }
   | { type: 'composer'; payload: ComposerShareSearchPayload }
+  | { type: 'playlist'; payload: PlaylistShareSearchPayload }
   | { type: 'unsupported' };
 
 export function parseShareSearchText(text: string): ShareSearchMatch | null {
@@ -62,6 +64,12 @@ export function parseShareSearchText(text: string): ShareSearchMatch | null {
     return {
       type: 'composer',
       payload: { srv: payload.srv, k: 'composer', id: payload.id },
+    };
+  }
+  if (payload.k === 'playlist') {
+    return {
+      type: 'playlist',
+      payload: { srv: payload.srv, k: 'playlist', id: payload.id },
     };
   }
 

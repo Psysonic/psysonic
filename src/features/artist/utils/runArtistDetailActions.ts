@@ -4,7 +4,6 @@ import { uploadArtistImageForServer } from '@/lib/api/subsonicArtists';
 import { setRating, star, unstar } from '@/lib/api/subsonicStarRating';
 import type { SubsonicArtist } from '@/lib/api/subsonicTypes';
 import { useAuthStore } from '@/store/authStore';
-import { copyEntityShareLink } from '@/lib/share/copyEntityShareLink';
 import { invalidateCoverArt } from '@/cover';
 import { showToast } from '@/lib/dom/toast';
 
@@ -66,25 +65,6 @@ export async function runArtistToggleStar(deps: RunArtistToggleStarDeps): Promis
   } catch (e) {
     console.error('Failed to toggle star', e);
     setIsStarred(currentlyStarred);
-  }
-}
-
-export interface RunArtistShareDeps {
-  artist: SubsonicArtist;
-  serverId: string;
-  t: TFunction;
-}
-
-export async function runArtistShare(deps: RunArtistShareDeps): Promise<void> {
-  const { artist, serverId, t } = deps;
-  try {
-    const ok = await copyEntityShareLink('artist', artist.id, {
-      serverId: artist.serverId ?? serverId,
-    });
-    if (ok) showToast(t('contextMenu.shareCopied'));
-    else showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
-  } catch {
-    showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
   }
 }
 

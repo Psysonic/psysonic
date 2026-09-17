@@ -4,10 +4,8 @@ import type React from 'react';
 import {
   runArtistEntityRating,
   runArtistImageUpload,
-  runArtistShare,
 } from '@/features/artist/utils/runArtistDetailActions';
 import { uploadArtistImageForServer } from '@/lib/api/subsonicArtists';
-import { copyEntityShareLink } from '@/lib/share/copyEntityShareLink';
 import { invalidateCoverArt } from '@/cover';
 import { setRating } from '@/lib/api/subsonicStarRating';
 import { useAuthStore } from '@/store/authStore';
@@ -15,9 +13,6 @@ import { resetAuthStore } from '@/test/helpers/storeReset';
 
 vi.mock('@/lib/api/subsonicArtists', () => ({
   uploadArtistImageForServer: vi.fn(async () => undefined),
-}));
-vi.mock('@/lib/share/copyEntityShareLink', () => ({
-  copyEntityShareLink: vi.fn(async () => true),
 }));
 vi.mock('@/cover', () => ({
   invalidateCoverArt: vi.fn(async () => undefined),
@@ -61,18 +56,6 @@ describe('artist detail explicit-server actions', () => {
     expect(useAuthStore.getState().entityRatingSupportByServer).toEqual({
       'srv-active': 'full',
       'srv-owner': 'track_only',
-    });
-  });
-
-  it('shares through the artist owner instead of the active server', async () => {
-    await runArtistShare({
-      artist: { id: 'artist-1', name: 'Artist', serverId: 'srv-owner' },
-      serverId: 'srv-detail',
-      t,
-    });
-
-    expect(copyEntityShareLink).toHaveBeenCalledWith('artist', 'artist-1', {
-      serverId: 'srv-owner',
     });
   });
 

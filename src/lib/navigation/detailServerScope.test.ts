@@ -5,6 +5,7 @@ import {
   buildAlbumDetailPath,
   buildArtistDetailPath,
   buildComposerDetailPath,
+  buildPlaylistDetailPath,
   readDetailServerId,
 } from '@/lib/navigation/detailServerScope';
 import { serverIndexKeyFromUrl } from '@/lib/server/serverIndexKey';
@@ -56,6 +57,13 @@ describe('detailServerScope', () => {
       serverId: 'srv-b',
       search: 'tab=works',
     })).toBe('/composer/composer-1?tab=works&server=srv-b');
+  });
+
+  it('buildPlaylistDetailPath preserves search and owning server', () => {
+    expect(buildPlaylistDetailPath('playlist-1', {
+      serverId: 'srv-b',
+      search: 'view=compact&server=old',
+    })).toBe('/playlists/playlist-1?view=compact&server=srv-b');
   });
 
   it('buildArtistDetailPath preserves an existing server when no owner is supplied', () => {

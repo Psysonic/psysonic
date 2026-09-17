@@ -31,7 +31,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} треків вибрано',
   selectedArtists: 'Обрано {{count}} виконавців',
   songInfo: 'Інформація про пісню',
-  shareLink: 'Копіювати посилання на поширення',
+  shareLink: 'Поділитися посиланням',
   shareCopied: 'Посилання скопійовано в буфер обміну.',
   shareCopyFailed: 'Не вдалося скопіювати в буфер обміну.',
 };

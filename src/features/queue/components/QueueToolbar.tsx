@@ -10,8 +10,7 @@ import type {
 } from '@/store/queueToolbarStore';
 import { getTransitionMode, setTransitionMode } from '@/features/playback/utils/playback/playbackTransition';
 import { useOrbitStore } from '@/features/orbit';
-import { QueueShareButton } from '@/features/queue/components/QueueShareButton';
-import type { ServerChoiceOption } from '@/ui/ServerChoiceList';
+import { ShareMethodMenuButton, type OutboundShareRequest } from '@/features/share';
 
 interface Props {
   queue: QueueItemRef[];
@@ -21,12 +20,7 @@ interface Props {
   shuffleQueue: () => void;
   handleSave: () => void;
   handleLoad: () => void;
-  handleCopyQueueShare: () => void;
-  sharePickerOpen: boolean;
-  queueServerOptions: ServerChoiceOption[];
-  defaultQueueServerId: string;
-  shareForServer: (serverId: string) => Promise<void>;
-  closeSharePicker: () => void;
+  queueShareRequest: OutboundShareRequest;
   handleClear: () => void;
   handleClearExceptCurrent: () => void;
   publicShareQueueActive: boolean;
@@ -42,8 +36,7 @@ interface Props {
 
 export function QueueToolbar({
   queue, activePlaylist, saveState, toolbarButtons, shuffleQueue,
-  handleSave, handleLoad, handleCopyQueueShare,
-  sharePickerOpen, queueServerOptions, defaultQueueServerId, shareForServer, closeSharePicker,
+  handleSave, handleLoad, queueShareRequest,
   handleClear, handleClearExceptCurrent,
   publicShareQueueActive,
   gaplessEnabled, crossfadeEnabled, crossfadeTrimSilence,
@@ -136,19 +129,12 @@ export function QueueToolbar({
             );
           case 'share':
             return (
-              <QueueShareButton
+              <ShareMethodMenuButton
                 key={btn.id}
                 label={publicShareQueueActive ? t('queue.shareNavidromePublic') : t('queue.shareQueue')}
-                open={sharePickerOpen}
-                options={queueServerOptions}
-                initialServerId={defaultQueueServerId}
-                onTrigger={() => {
-                  setShowCrossfadePopover(false);
-                  setShowPlaylistMenu(false);
-                  handleCopyQueueShare();
-                }}
-                onClose={closeSharePicker}
-                onShare={shareForServer}
+                request={queueShareRequest}
+                className="queue-round-btn"
+                iconSize={13}
               />
             );
           case 'clear':

@@ -2,9 +2,15 @@
  * Share feature — applying pasted entity/queue shares (server switch + resolve +
  * play/navigate) and enqueueing share-search results. The pure encode/decode/parse
  * and origin-label helpers live in `@/lib/share` (feature-free); these orchestrators
- * runtime-import offline/playback/orbit, so they are feature-scoped. Consumers import
- * deep paths (`@/features/share/...`); this barrel is documentation.
+ * runtime-import offline/playback/orbit, so they are feature-scoped. Cross-feature
+ * consumers use this barrel to preserve the dependency-cruiser boundary.
  */
 export * from './applySharePaste';
 export * from './enqueueShareSearchPayload';
 export * from './playNavidromePublicShare';
+export * from './components/ShareMethodMenu';
+export * from './hooks/useShareBootstrap';
+export * from './outboundShare';
+export * from './shareAvailability';
+export * from './shareNavigation';
+export * from './store/shareStore';

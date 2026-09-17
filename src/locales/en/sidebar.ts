@@ -26,6 +26,7 @@ export const sidebar = {
   genres: 'Genres',
   tracks: 'Tracks',
   playlists: 'Playlists',
+  shared: 'Shared',
   smartPlaylists: 'Smart Playlists',
   mostPlayed: 'Most Played',
   losslessAlbums: 'Lossless',

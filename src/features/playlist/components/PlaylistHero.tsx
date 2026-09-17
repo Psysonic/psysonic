@@ -21,6 +21,7 @@ import { PLAYLIST_MAIN_COVER_CSS_PX } from '@/features/playlist/hooks/usePlaylis
 import { PlaylistSmartCoverCell } from '@/features/playlist/components/PlaylistCoverImages';
 import type { OfflineActionPolicy } from '@/features/offline';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
+import { ShareMethodMenuButton } from '@/features/share';
 
 interface Props {
   playlist: SubsonicPlaylist;
@@ -194,6 +195,15 @@ export default function PlaylistHero({
                 >
                   <ListPlus size={16} />
                 </button>
+                <ShareMethodMenuButton
+                  request={{
+                    kind: 'playlist',
+                    resourceIds: [playlist.id],
+                    serverIds: [playlist.serverId ?? activeServerId].filter(Boolean),
+                  }}
+                  className="btn btn-ghost"
+                  label={t('contextMenu.shareLink')}
+                />
               </div>
               {actionPolicy.canEditPlaylist && controls.showRefreshTracks && isLayoutVisible('refreshSmart') && (
                 <button

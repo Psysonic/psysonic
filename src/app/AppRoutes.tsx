@@ -44,6 +44,7 @@ const FolderBrowser = lazy(() => import('@/features/folderBrowser/pages/FolderBr
 const InternetRadio = lazy(() => import('@/features/radio/pages/InternetRadio'));
 const Genres = lazy(() => import('@/features/genre/pages/Genres'));
 const GenreDetail = lazy(() => import('@/features/genre/pages/GenreDetail'));
+const Shared = lazy(() => import('@/features/share/pages/Shared'));
 
 /**
  * Index route ("/") = Mainstage. When the user has hidden Mainstage from the
@@ -120,6 +121,7 @@ export default function AppRoutes() {
       <Route path="/genres/:name" element={<GenreDetail />} />
       <Route path="/playlists" element={<Playlists />} />
       <Route path="/playlists/:id" element={<PlaylistDetail />} />
+      <Route path="/shared" element={<Shared />} />
       <Route path="/radio" element={<InternetRadio />} />
       <Route path="/folders" element={<FolderBrowser />} />
       <Route path="/device-sync" element={<DeviceSync />} />

@@ -29,7 +29,7 @@ export const contextMenu = {
   selectedSongs: 'Wybrano {{count}} utworów',
   selectedArtists: 'Wybrano {{count}} wykonawców',
   songInfo: 'Informacje o utworze',
-  shareLink: 'Skopiuj link udostępniania',
+  shareLink: 'Udostępnij link',
   shareCopied: 'Link udostępniania skopiowany do schowka.',
   shareCopyFailed: 'Nie można było skopiować linku do schowka.',
 };

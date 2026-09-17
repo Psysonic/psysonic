@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'Acest album nu a fost găsit în server.',
   artistUnavailable: 'Acest artist nu a fost găsit în server.',
   composerUnavailable: 'Acest compozitor nu a fost găsit pe server.',
+  playlistUnavailable: 'Această listă de redare nu a fost găsită pe server.',
   openedTrack: 'Se redă piesa distribuită.',
   openedAlbum: 'Se deschide albumul distribuit.',
   openedArtist: 'Se deschide artistul distribuit.',
   openedComposer: 'Se deschide compozitorul distribuit.',
+  openedPlaylist: 'Se deschide lista de redare distribuită.',
   openedQueue_one: 'Se redă {{count}} piesă din link-ul distribuit.',
   openedQueue_other: 'Se redau {{count}} piese din link-ul distribuit.',
   openedQueuePartial:

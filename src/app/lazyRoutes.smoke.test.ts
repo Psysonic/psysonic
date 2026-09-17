@@ -46,6 +46,7 @@ const ROUTE_LOADERS: Array<[string, () => Promise<{ default: unknown }>]> = [
   ['@/features/radio/pages/InternetRadio', () => import('@/features/radio/pages/InternetRadio')],
   ['@/features/genre/pages/Genres', () => import('@/features/genre/pages/Genres')],
   ['@/features/genre/pages/GenreDetail', () => import('@/features/genre/pages/GenreDetail')],
+  ['@/features/share/pages/Shared', () => import('@/features/share/pages/Shared')],
   ['@/features/auth/pages/Login', () => import('@/features/auth/pages/Login')],
 ];
 
