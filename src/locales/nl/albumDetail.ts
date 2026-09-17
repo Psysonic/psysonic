@@ -35,6 +35,7 @@ export const albumDetail = {
   trackAlbum: 'Album',
   trackArtist: 'Artiest',
   trackGenre: 'Genre',
+  trackGenres: 'Genres',
   trackPlayCount: 'Weergaven',
   trackLastPlayed: 'Laatst afgespeeld',
   trackBpm: 'BPM',

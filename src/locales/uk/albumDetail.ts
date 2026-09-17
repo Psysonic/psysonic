@@ -35,6 +35,7 @@ export const albumDetail = {
   trackAlbum: 'Альбом',
   trackArtist: 'Виконавець',
   trackGenre: 'Жанр',
+  trackGenres: 'Жанри',
   trackPlayCount: 'Відтворення',
   trackLastPlayed: 'Востаннє грало',
   trackBpm: 'BPM',

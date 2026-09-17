@@ -35,6 +35,7 @@ export const albumDetail = {
   trackAlbum: 'Album',
   trackArtist: 'Artist',
   trackGenre: 'Genre',
+  trackGenres: 'Genres',
   trackPlayCount: 'Plays',
   trackLastPlayed: 'Last played',
   trackBpm: 'BPM',
