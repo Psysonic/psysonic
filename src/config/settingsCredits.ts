@@ -465,6 +465,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Shuffle applies to a list you start playing, beginning with the track you picked (PR #1576)',
       'Favorites — the albums heading opens the full grid, filtered to your favourites (PR #1583)',
       'Appearance — the fullscreen style picker points at the switch for the artist photo behind it (PR #1590)',
+      'Tracklists and Song Info show every genre a track carries, plus its mood tags, as optional columns (PR #1591)',
     ],
   },
   {

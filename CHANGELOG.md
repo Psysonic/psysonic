@@ -53,6 +53,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The artist photo behind the fullscreen player can be turned off for every style — the switch just lives on another tab, under **Integrations → Backgrounds**. Settings → Appearance now says so next to the style picker and offers a button that opens that section directly.
 
+### Every genre a track carries, and its mood tags
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1591](https://github.com/Psysonic/psysonic/pull/1591)**
+
+* **Song Info** now lists all of a track's genres instead of the first one. Files are often tagged with several, and the album header showed them while the dialog did not.
+* Two new tracklist columns, both **off until you pick them** in the column menu: **Genres** shows the complete set next to the existing single-genre column, and **Mood** shows the mood tags stored in the file (MOOD / TMOO).
+* Song Info also shows those mood tags now. Its mood row used to appear only for tracks the app had analysed, so a tagged file showed nothing.
+
 ## Fixed
 
 ### Artist top tracks can be dragged to the queue
