@@ -796,6 +796,8 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Pokaż zdjęcie artysty',
   fsShowArtistPortraitDesc: 'Wyświetlaj zdjęcie artysty (lub okładkę albumu) po prawej stronie odtwarzacza pełnoekranowego.',
+  fsBackdropPointerDesc: 'Zdjęcie wykonawcy w tle odtwarzacza włącza się i wyłącza w Integracje → Tła, osobno dla każdej powierzchni.',
+  fsBackdropPointerAction: 'Otwórz Tła',
   fsPortraitDim: 'Przyciemnienie zdjęcia',
   seekbarStyleDesc: 'Wybierz wygląd paska postępu utworu',
   buttonSizeTitle: 'Kompaktowe przyciski',

@@ -799,6 +799,8 @@ export const settings = {
   fullscreenPlayerPrism: 'Призма',
   fsShowArtistPortrait: 'Показувати фото виконавця',
   fsShowArtistPortraitDesc: 'Відображати фото виконавця (або обкладинку) у правій частині повноекранного плеєра.',
+  fsBackdropPointerDesc: 'Фото виконавця за плеєром вмикається та вимикається в розділі Інтеграції → Фонові зображення, окремо для кожної поверхні.',
+  fsBackdropPointerAction: 'Відкрити фонові зображення',
   fsPortraitDim: 'Затемнення фото',
   seekbarStyleDesc: 'Оберіть вигляд смуги прогресу треку',
   buttonSizeTitle: 'Компактні кнопки',

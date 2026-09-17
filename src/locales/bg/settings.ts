@@ -796,6 +796,8 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Показвай снимка на изпълнителя',
   fsShowArtistPortraitDesc: 'Показвай снимката на изпълнителя (или обложката на албума) от дясната страна на плейъра на цял екран.',
+  fsBackdropPointerDesc: 'Снимката на изпълнителя зад плейъра се включва и изключва от Интеграции → Фонове, поотделно за всяка повърхност.',
+  fsBackdropPointerAction: 'Отваряне на „Фонове“',
   fsPortraitDim: 'Затъмняване на снимката',
   seekbarStyleDesc: 'Избери вида на лентата за превъртане на плейъра',
   buttonSizeTitle: 'Компактни бутони',
