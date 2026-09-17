@@ -90,6 +90,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * In the **Minimal** style the lyrics panel could cover the track title, the artist and the "Next" line. It reserved a fixed amount of room for the block underneath, which is taller whenever the visualizer strip is shown — so with the strip on, the panel reached into the text. It now ends above however much room that block actually takes, and its lower edge fades out instead of cutting a line in half.
 * In the **Immersive** style the scrolling lyrics stayed visible behind the cover art and the title instead of fading away behind them. How much they showed through depended on the window size and on whether the visualizer was on; now it is the same everywhere.
 
+### The dot between two artists sits straight again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1595](https://github.com/Psysonic/psysonic/pull/1595)**
+
+* On a track credited to more than one artist, the dot between the names hung below them and stuck to the name in front of it. It is now drawn centred, with even spacing on both sides, and looks the same in a track row as in an album header.
+
 ## [1.54.0]
 
 ## Fixed
