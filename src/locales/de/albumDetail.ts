@@ -36,6 +36,7 @@ export const albumDetail = {
   trackArtist: 'Interpret',
   trackGenre: 'Genre',
   trackGenres: 'Genres',
+  trackMood: 'Stimmung',
   trackPlayCount: 'Wiedergaben',
   trackLastPlayed: 'Zuletzt gespielt',
   trackBpm: 'BPM',
