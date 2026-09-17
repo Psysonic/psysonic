@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { AudioLines, ChevronRight, Play, Square, X } from 'lucide-react';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import { codecLabel, genresLabel } from '@/lib/format/playlistDetailHelpers';
+import { codecLabel, genresLabel, moodsLabel } from '@/lib/format/playlistDetailHelpers';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
 import i18n from '@/lib/i18n';
 import { formatTrackTime } from '@/lib/format/formatDuration';
@@ -131,6 +131,9 @@ function FavoriteSongRow({
           );
           case 'genres': return (
             <div key="genres" className="track-genre">{genresLabel(song) || '—'}</div>
+          );
+          case 'mood': return (
+            <div key="mood" className="track-genre">{moodsLabel(song) || '—'}</div>
           );
           case 'format': return (
             <div key="format" className="track-meta">

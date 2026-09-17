@@ -15,6 +15,7 @@ import { showToast } from '@/lib/dom/toast';
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
 import { genreTagsFor } from '@/lib/library/genreTags';
+import { moodsLabel } from '@/lib/format/playlistDetailHelpers';
 import { libraryIsReady } from '@/lib/library/libraryReady';
 import {
   formatQueueMoodLabels,
@@ -172,7 +173,12 @@ export default function SongInfoModal() {
       },
     )
     : null;
-  const displayMood = enrichment ? formatQueueMoodLabels(enrichment.moodLabels, t) : null;
+  // The file's own MOOD/TMOO tags win over the ones the analysis derives: they
+  // are what the tagger wrote, while the analysis labels come from a fixed
+  // vocabulary the app translates. Tracks with neither keep the row hidden.
+  const fileMoods = song ? moodsLabel(song) : '';
+  const displayMood = fileMoods
+    || (enrichment ? formatQueueMoodLabels(enrichment.moodLabels, t) : null);
 
   // `genre` carries one name even where the file has several — servers put the
   // full set in OpenSubsonic's `genres`, which is what the album chips and genre

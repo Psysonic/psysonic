@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { genresLabel } from './playlistDetailHelpers';
+import { genresLabel, moodsLabel } from './playlistDetailHelpers';
 import { COLUMNS } from '@/features/album/utils/albumTrackListHelpers';
 import { ARTIST_ALL_TRACKS_COLUMNS } from '@/features/artist/utils/artistAllTracksColumns';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
@@ -37,6 +37,25 @@ describe('genresLabel', () => {
   });
 });
 
+describe('moodsLabel', () => {
+  /**
+   * Measured against a Navidrome library: mood tags arrive as plain strings,
+   * unlike `genres`, which arrives as `{ name }` objects.
+   */
+  it('lists the mood tags the file carries', () => {
+    expect(moodsLabel(song({ moods: ['Love', 'Emotional', 'Romantic'] })))
+      .toBe('Love · Emotional · Romantic');
+  });
+
+  it('drops blanks and case-insensitive repeats', () => {
+    expect(moodsLabel(song({ moods: ['Dark', ' ', 'dark', 'Sport'] }))).toBe('Dark · Sport');
+  });
+
+  it('is empty for an untagged track', () => {
+    expect(moodsLabel(song({}))).toBe('');
+  });
+});
+
 describe('the genres column', () => {
   // Asked for as an extra column rather than a replacement, so the narrow
   // single-genre column stays available — hence off until someone picks it.
@@ -46,6 +65,16 @@ describe('the genres column', () => {
       expect(col).toBeDefined();
       expect(col?.defaultHidden).toBe(true);
       expect(columns.find(c => c.key === 'genre')).toBeDefined();
+    }
+  });
+
+  // Most libraries have no mood tags at all, so an always-on column would be a
+  // column of dashes for nearly everyone.
+  it('offers the mood column off by default too', () => {
+    for (const columns of [COLUMNS, ARTIST_ALL_TRACKS_COLUMNS]) {
+      const col = columns.find(c => c.key === 'mood');
+      expect(col).toBeDefined();
+      expect(col?.defaultHidden).toBe(true);
     }
   });
 });

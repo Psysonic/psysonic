@@ -85,6 +85,11 @@ export interface SubsonicSong {
   genre?: string;
   /** OpenSubsonic atomic genres — preferred over splitting `genre`. */
   genres?: SubsonicItemGenre[];
+  /**
+   * OpenSubsonic mood tags read from the file (MOOD / TMOO). Flat strings, not
+   * the `{ name }` objects `genres` uses — measured against Navidrome 0.58+.
+   */
+  moods?: string[];
   path?: string;
   albumArtist?: string;
   /** OpenSubsonic: single-string album-artist for display (mirrors `albumArtists` joined). */

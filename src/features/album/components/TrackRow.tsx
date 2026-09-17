@@ -12,7 +12,7 @@ import { useThemeStore } from '@/store/themeStore';
 import { previewInputFromSong, usePreviewStore } from '@/features/playback/store/previewStore';
 import StarRating from '@/ui/StarRating';
 import { codecLabel, type ColKey } from '@/features/album/utils/albumTrackListHelpers';
-import { genresLabel } from '@/lib/format/playlistDetailHelpers';
+import { genresLabel, moodsLabel } from '@/lib/format/playlistDetailHelpers';
 import { formatLongDuration } from '@/lib/format/formatDuration';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
 import i18n from '@/lib/i18n';
@@ -226,6 +226,12 @@ export const TrackRow = React.memo(function TrackRow({
         return (
           <div key="genres" className="track-genre">
             {genresLabel(song) || '—'}
+          </div>
+        );
+      case 'mood':
+        return (
+          <div key="mood" className="track-genre">
+            {moodsLabel(song) || '—'}
           </div>
         );
       case 'playCount':
