@@ -194,8 +194,8 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
   // gate (`discordCoverSource`), resolving the effective legacy value through
   // the two prior migrations (enableAppleMusicCoversDiscord boolean; PR
   // #1246/#1299 'server' revival guard). The in-app `coverSources` chain is
-  // NOT touched: it keeps its enabled-by-default default (DEFAULT_COVER_SOURCES)
-  // for every install — the chain is app artwork, not a Discord disclosure.
+  // NOT derived from it — the chain is app artwork, not a Discord disclosure
+  // (its own one-time reset follows further down).
   let effectiveDiscordCover: unknown =
     (state as { discordCoverSource?: unknown }).discordCoverSource;
   const legacyAppleCovers = (state as { enableAppleMusicCoversDiscord?: unknown }).enableAppleMusicCoversDiscord;
@@ -250,6 +250,27 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
     if (!localStorage.getItem(maxCacheMbMigrationKey)) {
       maxCacheMbMigrated = { maxCacheMb: 0 };
       localStorage.setItem(maxCacheMbMigrationKey, '1');
+    }
+  } catch { /* ignore */ }
+
+  // One-time: the Apple Music / Last.fm album-cover fallbacks shipped switched
+  // on, and while they could not yet tell a server placeholder from real art
+  // they replaced the art of albums that had their own. Nobody chose that
+  // state, so both go back to off once; the covers they wrote are dropped on
+  // the Rust side (`purge_misattributed_external_album_art_once`).
+  const coverSourcesResetKey = 'psysonic-cover-sources-external-off-v1';
+  let coverSourcesReset: Pick<Partial<AuthState>, 'coverSources'> = {};
+  try {
+    if (!localStorage.getItem(coverSourcesResetKey)) {
+      const persisted = (state as { coverSources?: unknown }).coverSources;
+      if (Array.isArray(persisted)) {
+        coverSourcesReset = {
+          coverSources: (persisted as AuthState['coverSources']).map(pref =>
+            pref.source === 'server' ? pref : { ...pref, enabled: false },
+          ),
+        };
+      }
+      localStorage.setItem(coverSourcesResetKey, '1');
     }
   } catch { /* ignore */ }
 
@@ -429,6 +450,7 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
     ...artistBrowseCreditModeMigrated,
     ...linuxWaylandTextRenderProfileMigrated,
     ...discordCoverSourceMigrated,
+    ...coverSourcesReset,
     ...maxCacheMbMigrated,
     ...mintedServerProfileIdsSeeded,
   };

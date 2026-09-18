@@ -39,11 +39,12 @@ export const DEFAULT_LYRICS_SOURCES: LyricsSourceConfig[] = [
   { id: 'netease', enabled: false },
 ];
 
-/** Fresh installs: local server first, then apple, lastfm. */
+/** Server art only. Apple Music and Last.fm are opt-in fallbacks for albums
+ *  the server has no cover for — they send album and artist names out. */
 export const DEFAULT_COVER_SOURCES: CoverSourcePref[] = [
   { source: 'server', enabled: true },
-  { source: 'apple',  enabled: true },
-  { source: 'lastfm', enabled: true },
+  { source: 'apple',  enabled: false },
+  { source: 'lastfm', enabled: false },
 ];
 
 /** Discord publishing opt-in default: app icon only (#1299 — server URLs are published to Discord's image proxy, so this stays off until the user opts in). */
