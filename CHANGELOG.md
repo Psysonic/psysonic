@@ -148,6 +148,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The Psysonic logo on the login screen could be picked up and dragged away like a loose image. It now stays where it is.
 * In **Settings → Offline & Cache → Cover art cache**, a server listed by its bare address or as `user@server` could run into the column next to it. Long names now wrap inside their own column.
 
+### Album covers from Apple Music and Last.fm no longer replace your own
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1608](https://github.com/Psysonic/psysonic/pull/1608)**
+
+* The album artwork fallbacks under **Settings → Integrations → Album artwork** were meant for albums your server has no cover for, but they also replaced covers that were there — embedded in the files or as a `cover.jpg` — often with art from a different album of the same name. They now step in only when the server has no cover at all, and your own art is never replaced.
+* Covers they had already put in place are removed on the first start after the update, and the albums show your server's art again.
+* Apple Music and Last.fm are now off unless you switch them on, and they are switched off once for everyone who had them on by default. Switching one off later also removes the covers it supplied.
+
 ## [1.54.0]
 
 ## Fixed
