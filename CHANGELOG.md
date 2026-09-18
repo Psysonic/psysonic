@@ -89,6 +89,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Ctrl+click** (Cmd on macOS) picks several tracks in the queue, **Shift+click** picks everything between two of them. **Delete** (Backspace on macOS) removes the picked tracks, and Ctrl+Z brings them back.
 * Drag one of the picked tracks and all of them move together, in their order; drag them out of the queue and they are removed. A normal click still plays a track and lets go of the selection.
 
+### See the visualizer while you set it up
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1606](https://github.com/Psysonic/psysonic/pull/1606)**
+
+* **Settings → Appearance → Visualizer** now shows a preview above its controls, so the mode, colours, peak caps, sensitivity, responsiveness and frame rate can be judged right where they are changed.
+* It follows whatever is playing. While nothing is, it runs a short built-in demo track instead — beats, a bassline and a quieter break — and a line underneath says which of the two you are looking at.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
