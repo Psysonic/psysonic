@@ -1,4 +1,4 @@
-import React, { useEffect, useSyncExternalStore } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Heart, Play } from 'lucide-react';
 import type { TFunction } from 'i18next';
@@ -30,6 +30,8 @@ import { useDragPressHandle } from '@/lib/dnd/useDragPress';
 import { useDragEdgeScroll } from '@/lib/dnd/useDragEdgeScroll';
 import { queueSongStar } from '@/features/playback';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
+import { useQueueSelection } from '@/features/queue/hooks/useQueueSelection';
+import { buildQueueReorderData } from '@/features/queue/utils/queueReorderPayload';
 
 type StartDrag = (
   payload: { data: string; label: string },
@@ -81,6 +83,27 @@ export function QueueList({
 
   const usingTimeline = queueDisplayMode === 'timeline' && timelineRows != null;
   const rowCount = usingTimeline ? timelineRows.length : queue.length;
+
+  const removeQueueItems = usePlayerStore(s => s.removeQueueItems);
+  const selectableRefs = useMemo(
+    () => (usingTimeline && timelineRows
+      ? timelineRows.flatMap(row => (row.kind === 'upcoming' ? [row.ref] : []))
+      : queue.filter((_, idx) => displayBaseIndex + idx !== queueIndex)),
+    [usingTimeline, timelineRows, queue, displayBaseIndex, queueIndex],
+  );
+  const removeSelected = useCallback((refs: QueueItemRef[]) => {
+    // Keep the list where the user was working instead of re-pinning it.
+    suppressNextAutoScrollRef.current = true;
+    removeQueueItems(refs);
+  }, [removeQueueItems, suppressNextAutoScrollRef]);
+  const selection = useQueueSelection({
+    selectable: selectableRefs,
+    listRef: queueListRef,
+    dragging: isQueueDrag,
+    onRemove: removeSelected,
+  });
+  // Whether the running drag carries the whole selection (read while rendering the drag).
+  const blockDragRef = useRef(false);
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const rowVirtualizer = useVirtualizer({
@@ -193,8 +216,9 @@ export function QueueList({
         data-timeline-local-idx={localIndex}
         {...(isHistory ? { 'data-timeline-kind': 'history' } : {})}
         {...(absIdx != null ? { 'data-queue-idx': absIdx } : {})}
-        className={`queue-item${showCovers ? ' queue-item--with-cover' : ''} ${isPlaying ? 'active' : ''} ${contextMenu.isOpen && contextMenu.type === (isHistory || absIdx == null ? 'song' : 'queue-item') && (isHistory || absIdx == null ? contextMenu.item === track : contextMenu.queueIndex === absIdx) ? 'context-active' : ''}`}
-        onClick={() => {
+        className={`queue-item${showCovers ? ' queue-item--with-cover' : ''} ${isPlaying ? 'active' : ''} ${contextMenu.isOpen && contextMenu.type === (isHistory || absIdx == null ? 'song' : 'queue-item') && (isHistory || absIdx == null ? contextMenu.item === track : contextMenu.queueIndex === absIdx) ? 'context-active' : ''}${!isHistory && base && selection.isSelected(base) ? ' bulk-selected' : ''}`}
+        onClick={(e) => {
+          if (selection.handleRowClick(isHistory ? undefined : base, e)) return;
           if (isHistory) {
             playHistoryRow(base?.serverId ?? track.serverId ?? '', track.id);
             return;
@@ -231,12 +255,21 @@ export function QueueList({
           if (isHistory || absIdx == null) return;
           dragPress.arm(e, {
             onStart: (me) => {
+              const block = base ? selection.dragBlock(base) : null;
+              blockDragRef.current = block !== null;
               psyDragFromIdxRef.current = absIdx;
-              startDrag({ data: JSON.stringify({ type: 'queue_reorder', index: absIdx }), label: track.title }, me.clientX, me.clientY);
+              startDrag({
+                data: buildQueueReorderData(absIdx, block, usePlayerStore.getState().queueItems),
+                label: block ? `${block.length} ${t('queue.trackPlural')}` : track.title,
+              }, me.clientX, me.clientY);
             },
           });
         }}
-        style={{ ...(isPast && !isPlaying ? { opacity: 0.5 } : null), ...dragStyle }}
+        style={{
+          ...(isPast && !isPlaying ? { opacity: 0.5 } : null),
+          ...(isQueueDrag && blockDragRef.current && !isHistory && base && selection.isSelected(base) ? { opacity: 0.4 } : null),
+          ...dragStyle,
+        }}
       >
         {showCovers && (
           <OptionalQueueTrackRowCoverThumb

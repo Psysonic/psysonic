@@ -38,10 +38,12 @@
   background-repeat: no-repeat;
   background-position: center;
 }
-.track-row.bulk-selected {
+.track-row.bulk-selected,
+.queue-item.bulk-selected {
   background: color-mix(in srgb, var(--accent) 10%, transparent) !important;
 }
-.track-row.bulk-selected:hover {
+.track-row.bulk-selected:hover,
+.queue-item.bulk-selected:hover {
   background: color-mix(in srgb, var(--accent) 16%, transparent) !important;
 }
 
