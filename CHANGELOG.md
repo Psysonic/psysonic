@@ -134,6 +134,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Moving a track further down the queue put it one place below the line shown while dragging. It now lands exactly there; moving a track up was not affected.
 
+### The login logo stays put, and long names fit the cover cache table
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1604](https://github.com/Psysonic/psysonic/pull/1604)**
+
+* The Psysonic logo on the login screen could be picked up and dragged away like a loose image. It now stays where it is.
+* In **Settings → Offline & Cache → Cover art cache**, a server listed by its bare address or as `user@server` could run into the column next to it. Long names now wrap inside their own column.
+
 ## [1.54.0]
 
 ## Fixed
