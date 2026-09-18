@@ -71,7 +71,7 @@ export default defineConfig({
   // `vite dev` needs this explicit alias or `@/` imports fail to resolve.
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
   clearScreen: false,
