@@ -386,6 +386,22 @@ fn completed_backfill_reconciles_physical_projection_keys_before_readiness() {
 }
 
 #[test]
+fn completed_projection_ignores_later_identity_maintenance() {
+    let store = LibraryStore::open_in_memory();
+    TrackRepository::new(&store)
+        .upsert_batch(&[track("t1", "a1", "Album One", "lib")])
+        .unwrap();
+    run_backfill_impl(&store, None).unwrap();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[track("t2", "a2", "Album Two", "lib")])
+        .unwrap();
+
+    assert!(crate::identity::identity_maintenance_needed(&store).unwrap());
+    assert!(!inspect(&store).unwrap().needed);
+}
+
+#[test]
 fn ordinary_browse_keeps_ambiguous_physical_albums_separate() {
     let store = LibraryStore::open_in_memory();
     for (server, artist_id, name) in [

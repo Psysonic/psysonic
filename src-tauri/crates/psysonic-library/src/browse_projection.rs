@@ -108,12 +108,11 @@ fn inspect_album(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto
 pub fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, String> {
     let album = inspect_album(store)?;
     let composer = crate::composer_projection::inspect(store)?;
-    let identity_needed = crate::identity::identity_maintenance_needed(store)?;
     let pending = [album.clone(), composer.clone()]
         .into_iter()
         .filter(|item| item.needed)
         .collect::<Vec<_>>();
-    if pending.is_empty() && !identity_needed {
+    if pending.is_empty() {
         return Ok(ScopeBrowseProjectionInspectDto {
             needed: false,
             total_tracks: album.total_tracks.max(composer.total_tracks),
@@ -127,15 +126,11 @@ pub fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, 
             .map(|item| item.total_tracks)
             .max()
             .unwrap_or_else(|| album.total_tracks.max(composer.total_tracks)),
-        done_tracks: if identity_needed {
-            0
-        } else {
-            pending
-                .iter()
-                .map(|item| item.done_tracks)
-                .min()
-                .unwrap_or(0)
-        },
+        done_tracks: pending
+            .iter()
+            .map(|item| item.done_tracks)
+            .min()
+            .unwrap_or(0),
     })
 }
 

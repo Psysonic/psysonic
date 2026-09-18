@@ -7,7 +7,7 @@ use super::{
     canonical_optional_artwork, canonical_optional_id, migration_error, record_mapping,
     BatchMutationStats,
 };
-use crate::navidrome_id_codec::{canonical_id, is_lossless_legacy_id};
+use crate::navidrome_id_codec::canonical_id;
 use crate::navidrome_payload_codec::{
     canonical_payload, merge_canonical_payloads, NavidromePayloadKind,
 };
@@ -45,12 +45,6 @@ pub(super) fn preflight(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Resu
                 NavidromePayloadKind::Track,
             )
             .map_err(migration_error)?;
-            let destination_id = canonical_id(&source.row.id);
-            if source.row.id != destination_id {
-                if let Some(destination) = load_owner(tx, server_id, &destination_id)? {
-                    ensure_equivalent(&destination.row, &source.row)?;
-                }
-            }
         }
         scanned = scanned.saturating_add(rows.len() as u64);
         cursor_rowid = last_rowid;
@@ -99,7 +93,7 @@ pub(super) fn run_batch(
             selected
         };
         let old_id = source.row.id.clone();
-        let destination_id = canonical_id(&source.row.id);
+        let destination_id = migration_destination_id(tx, server_id, &source.row.id)?;
         if old_id == destination_id {
             let row = canonicalize_owner(source.row, destination_id)?;
             write_owner(tx, &row)?;
@@ -111,9 +105,8 @@ pub(super) fn run_batch(
         } else {
             None
         };
-        if let Some(destination) = destination.as_ref() {
-            ensure_equivalent(&destination.row, &source.row)?;
-        }
+        // The canonical row owns the migrated ID. Keep it and retarget legacy
+        // references even when mutable server metadata has changed.
         let row = match destination {
             Some(destination) => {
                 stats.merged += 1;
@@ -273,12 +266,37 @@ fn load_existing_destination_ids(
          UNION \
          SELECT new_id FROM navidrome_id_batch_mapping \
          WHERE entity_kind = 'track' AND old_id != new_id \
-         GROUP BY new_id HAVING COUNT(*) > 1",
+         GROUP BY new_id HAVING COUNT(*) > 1 \
+         UNION \
+         SELECT history.new_id FROM track_id_history AS history \
+         JOIN track AS destination \
+           ON destination.server_id = history.server_id \
+          AND destination.id = history.new_id \
+         WHERE history.server_id = ?1",
     )?;
     let rows = statement
         .query_map(params![server_id], |row| row.get(0))?
         .collect();
     rows
+}
+
+fn migration_destination_id(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    old_id: &str,
+) -> rusqlite::Result<String> {
+    let existing_owner = tx
+        .query_row(
+            "SELECT history.new_id FROM track_id_history AS history \
+             JOIN track AS destination \
+               ON destination.server_id = history.server_id \
+              AND destination.id = history.new_id \
+             WHERE history.server_id = ?1 AND history.old_id = ?2",
+            params![server_id, old_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(existing_owner.unwrap_or_else(|| canonical_id(old_id)))
 }
 
 fn load_batch(
@@ -326,52 +344,6 @@ fn load_owner(
             })
         })
         .optional()
-}
-
-fn ensure_equivalent(destination: &TrackRow, source: &TrackRow) -> rusqlite::Result<()> {
-    if is_lossless_legacy_id(&source.id) {
-        return Ok(());
-    }
-    let mut matched = false;
-    for (label, destination_value, source_value) in [
-        (
-            "content_hash",
-            destination.content_hash.as_deref(),
-            source.content_hash.as_deref(),
-        ),
-        (
-            "server_path",
-            destination.server_path.as_deref(),
-            source.server_path.as_deref(),
-        ),
-        ("isrc", destination.isrc.as_deref(), source.isrc.as_deref()),
-        (
-            "mbid_recording",
-            destination.mbid_recording.as_deref(),
-            source.mbid_recording.as_deref(),
-        ),
-    ] {
-        if let (Some(destination_value), Some(source_value)) = (
-            destination_value.filter(|value| !value.is_empty()),
-            source_value.filter(|value| !value.is_empty()),
-        ) {
-            if destination_value != source_value {
-                return Err(migration_error(format!(
-                    "contradictory Navidrome track collision field `{label}` for `{}` -> `{}`",
-                    source.id, destination.id
-                )));
-            }
-            matched = true;
-        }
-    }
-    if matched {
-        Ok(())
-    } else {
-        Err(migration_error(format!(
-            "unproven Navidrome track collision `{}` -> `{}`",
-            source.id, destination.id
-        )))
-    }
 }
 
 fn canonicalize_owner(mut row: TrackRow, destination_id: String) -> rusqlite::Result<TrackRow> {
