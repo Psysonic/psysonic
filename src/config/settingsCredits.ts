@@ -467,6 +467,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Favorites — the albums heading opens the full grid, filtered to your favourites (PR #1583)',
       'Appearance — the fullscreen style picker points at the switch for the artist photo behind it (PR #1590)',
       'Tracklists and Song Info show every genre a track carries, plus its mood tags, as optional columns (PR #1591)',
+      'Queue — pick several tracks with Ctrl/Shift+click, then move them as one block or remove them with Delete (PR #1602)',
     ],
   },
   {

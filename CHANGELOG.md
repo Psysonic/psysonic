@@ -82,6 +82,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Integrations → Navidrome → Play queue sync** can now stop this device from publishing or adopting the server queue, without changing local playback.
 * **Allow downloads** now appears as a nested option only when Navidrome sharing is enabled, making it clear which feature it belongs to.
 
+### Select several tracks in the queue and move or remove them together
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1602](https://github.com/Psysonic/psysonic/pull/1602)**
+
+* **Ctrl+click** (Cmd on macOS) picks several tracks in the queue, **Shift+click** picks everything between two of them. **Delete** (Backspace on macOS) removes the picked tracks, and Ctrl+Z brings them back.
+* Drag one of the picked tracks and all of them move together, in their order; drag them out of the queue and they are removed. A normal click still plays a track and lets go of the selection.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
@@ -120,6 +127,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1600](https://github.com/Psysonic/psysonic/pull/1600)**
 
 * A canonical-ID migration could leave startup blocked after a restart when completed browse data looked unfinished or old track-ID history formed a stale loop. Retrying now keeps the live track owner, repairs obsolete aliases and completes the migration instead of failing again.
+
+### Tracks dragged down the queue land where the line shows
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1602](https://github.com/Psysonic/psysonic/pull/1602)**
+
+* Moving a track further down the queue put it one place below the line shown while dragging. It now lands exactly there; moving a track up was not affected.
 
 ## [1.54.0]
 
