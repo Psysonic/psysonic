@@ -134,6 +134,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Moving a track further down the queue put it one place below the line shown while dragging. It now lands exactly there; moving a track up was not affected.
 
+### Favourite artists and analysed BPM appear wherever you browse
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1605](https://github.com/Psysonic/psysonic/pull/1605)**, closes [#1582](https://github.com/Psysonic/psysonic/issues/1582)
+
+* The favourite filter on **Artists** now finds artists saved through any credit, instead of showing no results. The Favorites page follows the active server group and updates as soon as a favourite is changed.
+* Tracklists now use an analysed BPM when the file has no BPM tag, so Favorites and other lists agree with Song Info.
+
 ## [1.54.0]
 
 ## Fixed
