@@ -15,6 +15,7 @@ import { LibraryTab } from '@/features/settings/components/LibraryTab';
 import { LyricsTab } from '@/features/settings/components/LyricsTab';
 import { PersonalisationTab } from '@/features/settings/components/PersonalisationTab';
 import { ServersTab } from '@/features/settings/components/ServersTab';
+import { SettingsBottomSpacer } from '@/features/settings/components/SettingsBottomSpacer';
 import { StorageTab } from '@/features/settings/components/StorageTab';
 import { SystemTab } from '@/features/settings/components/SystemTab';
 import { searchSettings, type SettingsSearchHit } from '@/features/settings/components/settingsSearch';
@@ -350,6 +351,8 @@ export default function Settings() {
       {activeTab === 'system' && <SystemTab />}
 
       </>}
+
+      <SettingsBottomSpacer />
     </div>
   );
 }
