@@ -96,6 +96,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Appearance → Visualizer** now shows a preview above its controls, so the mode, colours, peak caps, sensitivity, responsiveness and frame rate can be judged right where they are changed.
 * It follows whatever is playing. While nothing is, it runs a short built-in demo track instead — beats, a bassline and a quieter break — and a line underneath says which of the two you are looking at.
 
+### Device Sync can put every track in one folder
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1611](https://github.com/Psysonic/psysonic/pull/1611)**
+
+* **Device Sync** has a third choice under **Layout**: **All files in one folder**. Every track goes straight into the main folder of the device, named `Album Artist - Album - Track number - Title`, for players that cannot browse folders.
+* Playlists are `.m3u8` files in the same folder that point at those tracks, so nothing is stored twice. On a device synced with folders before, the old copies are removed once the new ones are in place.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
