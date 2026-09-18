@@ -119,6 +119,7 @@ pub(super) fn run_batch(
         };
         write_owner(tx, &row)?;
         if requires_full_retarget {
+            discard_stale_source_alias(tx, server_id, &old_id, &destination_id)?;
             retarget_track_references(
                 tx,
                 server_id,
@@ -297,6 +298,26 @@ fn migration_destination_id(
         )
         .optional()?;
     Ok(existing_owner.unwrap_or_else(|| canonical_id(old_id)))
+}
+
+fn discard_stale_source_alias(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    old_id: &str,
+    destination_id: &str,
+) -> rusqlite::Result<()> {
+    tx.execute(
+        "DELETE FROM track_id_history AS history \
+         WHERE history.server_id = ?1 AND history.old_id = ?2 \
+           AND history.new_id != ?3 \
+           AND NOT EXISTS( \
+             SELECT 1 FROM track AS destination \
+             WHERE destination.server_id = history.server_id \
+               AND destination.id = history.new_id \
+           )",
+        params![server_id, old_id, destination_id],
+    )?;
+    Ok(())
 }
 
 fn load_batch(

@@ -348,6 +348,73 @@ fn overflow_track_collision_keeps_an_existing_alias_owner() {
 }
 
 #[test]
+fn overflow_track_migration_collapses_a_stale_alias_cycle() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "XNMKOIuyafuxBspGhlKfWq";
+    let stale_alias = "hAvxWe5AT4DBwzdmOdTiAd";
+    let canonical_track = canonical_id(legacy_track);
+    assert_eq!(canonical_track, "5whr2E9RjWewxrq0CNMaJC");
+    store
+        .with_conn_mut("test.seed_stale_track_alias_cycle", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, server_path, deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Birth of the Blues', 'Chet Lag', \
+                         'Tommy Emmanuel/Chet Lag/01-08 - Birth of the Blues.mp3', 0, 2, ?2)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_id_history \
+                   (server_id, old_id, new_id, server_path, remapped_at) \
+                 VALUES ('s1', ?1, ?2, 'Tommy Emmanuel/Chet Lag/01-08 - Birth of the Blues.mp3', 1), \
+                        ('s1', ?2, ?1, 'Tommy Emmanuel/Chet Lag/01-08 - Birth of the Blues.mp3', 2)",
+                params![legacy_track, stale_alias],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let upper = upper_rowid(&store, "s1", NavidromeNativeMigrationStep::Track).unwrap();
+    let result = run_batch(
+        &store,
+        "s1",
+        NavidromeNativeMigrationStep::Track,
+        0,
+        upper,
+        20,
+    )
+    .unwrap();
+    assert_eq!(result.moved, 1);
+
+    let state: (bool, bool, i64, i64) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?1), \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?2), \
+                   (SELECT COUNT(*) FROM track_id_history \
+                    WHERE server_id = 's1' AND old_id IN (?1, ?3) AND new_id = ?2), \
+                   (SELECT COUNT(*) FROM play_session \
+                    WHERE server_id = 's1' AND track_id = ?2)",
+                params![legacy_track, canonical_track, stale_alias],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(state, (false, true, 2, 1));
+}
+
+#[test]
 fn track_without_preserved_references_uses_alias_history_and_drops_genres() {
     let store = LibraryStore::open_in_memory();
     let canonical_track = canonical_id(LEGACY_TRACK);
