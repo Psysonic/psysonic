@@ -108,6 +108,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * On a track credited to more than one artist, the dot between the names hung below them and stuck to the name in front of it. It is now drawn centred, with even spacing on both sides, and looks the same in a track row as in an album header.
 
+### Navidrome library migrations recover after a failed reload
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1600](https://github.com/Psysonic/psysonic/pull/1600)**
+
+* A canonical-ID migration could leave startup blocked after a restart when completed browse data looked unfinished or old track-ID history formed a stale loop. Retrying now keeps the live track owner, repairs obsolete aliases and completes the migration instead of failing again.
+
 ## [1.54.0]
 
 ## Fixed
