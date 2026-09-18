@@ -161,6 +161,18 @@ export interface PlayerState {
 
   reorderQueue: (startIndex: number, endIndex: number) => void;
   removeTrack: (index: number) => void;
+  /**
+   * Remove several queue entries as one edit: one undo step, one server sync.
+   * Entries are matched by object identity, so two copies of the same track
+   * are told apart. The playing entry is never removed.
+   */
+  removeQueueItems: (refs: readonly QueueItemRef[]) => void;
+  /**
+   * Move the entries at `indices` as one block, keeping their order, so they
+   * land in the gap before `gapIndex` (both counted in the queue as it is now;
+   * `gapIndex === queueItems.length` means the end). One undo step.
+   */
+  moveQueueItems: (indices: readonly number[], gapIndex: number) => void;
   /** Replace one frozen queue slot only when its concrete owner/id still match. */
   replaceQueueItemSource: (
     index: number,

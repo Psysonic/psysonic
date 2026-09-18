@@ -518,6 +518,122 @@ describe('removeTrack', () => {
   });
 });
 
+describe('removeQueueItems', () => {
+  it('removes several entries in one edit and keeps the rest in order', () => {
+    const tracks = makeTracks(5);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const refs = usePlayerStore.getState().queueItems;
+
+    usePlayerStore.getState().removeQueueItems([refs[3]!, refs[1]!]);
+
+    expect(usePlayerStore.getState().queueItems.map(r => r.trackId)).toEqual([
+      tracks[0].id, tracks[2].id, tracks[4].id,
+    ]);
+  });
+
+  it('tells two copies of the same track apart', () => {
+    const dup = makeTrack({ id: 'dup' });
+    const other = makeTrack({ id: 'other' });
+    seedQueue([dup, other, dup], { index: 1, currentTrack: other });
+    const [first, second, copy] = usePlayerStore.getState().queueItems;
+
+    usePlayerStore.getState().removeQueueItems([copy!]);
+
+    const after = usePlayerStore.getState().queueItems;
+    expect(after).toHaveLength(2);
+    expect(after[0]).toBe(first);
+    expect(after[1]).toBe(second);
+  });
+
+  it('never removes the playing entry and follows it to its new slot', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 2, currentTrack: tracks[2] });
+    const refs = usePlayerStore.getState().queueItems;
+
+    usePlayerStore.getState().removeQueueItems([...refs]);
+
+    const state = usePlayerStore.getState();
+    expect(state.queueItems.map(r => r.trackId)).toEqual([tracks[2].id]);
+    expect(state.queueIndex).toBe(0);
+  });
+
+  it('keeps the cursor on the playing entry when rows above it go', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 2, currentTrack: tracks[2] });
+    const refs = usePlayerStore.getState().queueItems;
+
+    usePlayerStore.getState().removeQueueItems([refs[0]!, refs[1]!]);
+
+    const state = usePlayerStore.getState();
+    expect(state.queueItems.map(r => r.trackId)).toEqual([tracks[2].id, tracks[3].id]);
+    expect(state.queueIndex).toBe(0);
+  });
+
+  it('lands on the next survivor when nothing plays and the cursor entry goes', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 1, currentTrack: null });
+    const refs = usePlayerStore.getState().queueItems;
+
+    usePlayerStore.getState().removeQueueItems([refs[1]!]);
+
+    const state = usePlayerStore.getState();
+    expect(state.queueItems.map(r => r.trackId)).toEqual([tracks[0].id, tracks[2].id, tracks[3].id]);
+    expect(state.queueItems[state.queueIndex]?.trackId).toBe(tracks[2].id);
+  });
+
+  it('is undone as one step', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const refs = usePlayerStore.getState().queueItems;
+
+    usePlayerStore.getState().removeQueueItems([refs[1]!, refs[2]!]);
+    expect(usePlayerStore.getState().undoLastQueueEdit()).toBe(true);
+
+    expect(usePlayerStore.getState().queueItems.map(r => r.trackId)).toEqual(tracks.map(t => t.id));
+    expect(usePlayerStore.getState().undoLastQueueEdit()).toBe(false);
+  });
+
+  it('leaves the queue and the undo history alone when nothing matches', () => {
+    const tracks = makeTracks(2);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const before = usePlayerStore.getState().queueItems;
+
+    usePlayerStore.getState().removeQueueItems([{ serverId: '', trackId: tracks[1].id }]);
+
+    expect(usePlayerStore.getState().queueItems).toBe(before);
+    expect(usePlayerStore.getState().undoLastQueueEdit()).toBe(false);
+  });
+});
+
+describe('moveQueueItems', () => {
+  it('moves a block as one undo step and keeps the cursor on the playing entry', () => {
+    const tracks = makeTracks(5);
+    seedQueue(tracks, { index: 1, currentTrack: tracks[1] });
+    const playingRef = usePlayerStore.getState().queueItems[1];
+
+    usePlayerStore.getState().moveQueueItems([3, 4], 0);
+
+    const state = usePlayerStore.getState();
+    expect(state.queueItems.map(r => r.trackId)).toEqual([
+      tracks[3].id, tracks[4].id, tracks[0].id, tracks[1].id, tracks[2].id,
+    ]);
+    expect(state.queueItems[state.queueIndex]).toBe(playingRef);
+
+    expect(usePlayerStore.getState().undoLastQueueEdit()).toBe(true);
+    expect(usePlayerStore.getState().queueItems.map(r => r.trackId)).toEqual(tracks.map(t => t.id));
+    expect(usePlayerStore.getState().undoLastQueueEdit()).toBe(false);
+  });
+
+  it('records no undo step when the block stays put', () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+
+    usePlayerStore.getState().moveQueueItems([1], 2);
+
+    expect(usePlayerStore.getState().undoLastQueueEdit()).toBe(false);
+  });
+});
+
 describe('undo / redo', () => {
   it('returns false on undo when the history is empty', () => {
     expect(usePlayerStore.getState().undoLastQueueEdit()).toBe(false);

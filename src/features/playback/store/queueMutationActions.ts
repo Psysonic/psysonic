@@ -43,6 +43,10 @@ import {
   queueItemRefMatchesTrack,
   sameQueueItemRef,
 } from '@/features/playback/utils/playback/queueIdentity';
+import {
+  planQueueItemsMove,
+  planQueueItemsRemoval,
+} from '@/features/playback/utils/playback/queueBlockEdits';
 import { canonicalQueueServerKey } from '@/lib/server/serverIndexKey';
 import i18n from '@/lib/i18n';
 import { showToast } from '@/lib/dom/toast';
@@ -93,6 +97,8 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
   | 'shuffleUpcomingQueue'
   | 'toggleShuffleMode'
   | 'removeTrack'
+  | 'removeQueueItems'
+  | 'moveQueueItems'
   | 'replaceQueueItemSource'
 > {
   return {
@@ -522,6 +528,26 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
         queueIndex: Math.min(queueIndex, newItems.length - 1),
       });
       syncUserQueueMutationToServer(previousItems, newItems, get().currentTrack, get().currentTime);
+    },
+
+    removeQueueItems: (refs) => {
+      const state = get();
+      const previousItems = itemsOf(state);
+      const edit = planQueueItemsRemoval(previousItems, state.queueIndex, state.currentTrack, refs);
+      if (!edit) return;
+      pushQueueUndoFromGetter(get);
+      set({ queueItems: edit.items, queueIndex: edit.queueIndex });
+      syncUserQueueMutationToServer(previousItems, edit.items, state.currentTrack, get().currentTime);
+    },
+
+    moveQueueItems: (indices, gapIndex) => {
+      const state = get();
+      const previousItems = itemsOf(state);
+      const edit = planQueueItemsMove(previousItems, state.queueIndex, state.currentTrack, indices, gapIndex);
+      if (!edit) return;
+      pushQueueUndoFromGetter(get);
+      set({ queueItems: edit.items, queueIndex: edit.queueIndex });
+      syncUserQueueMutationToServer(previousItems, edit.items, state.currentTrack, get().currentTime);
     },
   };
 }
