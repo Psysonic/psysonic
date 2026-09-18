@@ -3,6 +3,7 @@ import { putLocalEntityUserRatings, type EntityRatingKind } from '@/lib/api/subs
 import { useAuthStore } from '@/store/authStore';
 import { patchLibraryAlbumOnUse, patchLibraryTrackOnUse, type StarPatchMeta } from '@/lib/library/patchOnUse';
 import { useLibraryIndexStore } from '@/store/libraryIndexStore';
+import { notifyFavoritesChanged } from '@/lib/library/favoritesRevision';
 import {
   invalidateStarredAlbumBrowse,
   refreshStarredAlbumIndexFromServer,
@@ -86,6 +87,7 @@ export async function star(
     const indexEnabled = useLibraryIndexStore.getState().isIndexEnabled(serverId);
     void refreshStarredAlbumIndexFromServer(serverId, indexEnabled).catch(() => {});
   }
+  notifyFavoritesChanged();
   void import('@/features/offline')
     .then(m => m.onFavoritesOfflineStarChange(id, type, true, serverId ?? undefined))
     .catch(() => {});
@@ -110,6 +112,7 @@ export async function unstar(
     const indexEnabled = useLibraryIndexStore.getState().isIndexEnabled(serverId);
     void refreshStarredAlbumIndexFromServer(serverId, indexEnabled).catch(() => {});
   }
+  notifyFavoritesChanged();
   void import('@/features/offline')
     .then(m => m.onFavoritesOfflineStarChange(id, type, false, serverId ?? undefined))
     .catch(() => {});

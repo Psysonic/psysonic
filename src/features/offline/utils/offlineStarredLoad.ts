@@ -136,8 +136,8 @@ const libraryIndexLoads = new Map<string, Promise<StarredResults>>();
 
 export async function loadStarredFromAllLibraryIndexes(
   preferLocalBytes = isOfflineBrowseActive(),
+  serverIds = favoritesServerIds(),
 ): Promise<StarredResults> {
-  const serverIds = favoritesServerIds();
   const cacheKey = `${preferLocalBytes}:${serverIds.join('\u001f')}`;
   const inFlight = libraryIndexLoads.get(cacheKey);
   if (inFlight) return inFlight;
@@ -164,11 +164,12 @@ export async function loadStarredFromAllLibraryIndexes(
 }
 
 /** Online starred merge with per-server local index fallback. */
-export async function loadStarredFromAllServersOnline(): Promise<StarredResults> {
+export async function loadStarredFromAllServersOnline(
+  serverIds = favoritesServerIds(),
+): Promise<StarredResults> {
   if (!isActiveServerReachable()) {
-    return loadStarredFromAllLibraryIndexes();
+    return loadStarredFromAllLibraryIndexes(false, serverIds);
   }
-  const serverIds = favoritesServerIds();
   const entries = await Promise.all(
     serverIds.map(async serverId => {
       try {
