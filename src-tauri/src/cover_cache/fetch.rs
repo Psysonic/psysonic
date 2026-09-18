@@ -100,9 +100,9 @@ pub(crate) fn is_navidrome_album_placeholder(bytes: &[u8]) -> bool {
 
 /// Length first, so real covers of other sizes are never hashed.
 fn matches_known_file(bytes: &[u8], known: &[(usize, &str)]) -> bool {
-    known.iter().any(|(len, digest)| {
-        bytes.len() == *len && format!("{:x}", md5::compute(bytes)) == *digest
-    })
+    known
+        .iter()
+        .any(|(len, digest)| bytes.len() == *len && format!("{:x}", md5::compute(bytes)) == *digest)
 }
 
 /// Outcome of a single fetch attempt: transient errors are worth retrying,

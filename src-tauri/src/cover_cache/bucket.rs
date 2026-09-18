@@ -198,9 +198,8 @@ pub(super) fn merge_cover_bucket(old_dir: &Path, new_dir: &Path) -> Result<(), S
 #[cfg(test)]
 mod tests {
     use super::{
-        external_album_art_dirs, is_safe_index_key, merge_cover_bucket,
-        purge_external_album_art, purge_external_files,
-        purge_misattributed_external_album_art_once, rename_bucket_inner,
+        external_album_art_dirs, is_safe_index_key, merge_cover_bucket, purge_external_album_art,
+        purge_external_files, purge_misattributed_external_album_art_once, rename_bucket_inner,
     };
     use crate::cover_cache::test_support::fresh_tmpdir;
     use std::fs;
@@ -248,7 +247,10 @@ mod tests {
             sorted(vec![apple, legacy.clone()])
         );
         assert_eq!(
-            sorted(external_album_art_dirs(&root, Some(&["lastfm".to_string()]))),
+            sorted(external_album_art_dirs(
+                &root,
+                Some(&["lastfm".to_string()])
+            )),
             sorted(vec![lastfm, legacy])
         );
 
@@ -262,7 +264,10 @@ mod tests {
         let lastfm = album_dir(&root, "srv", "al-2", Some("lastfm"));
         let server_art = album_dir(&root, "srv", "al-3", None);
 
-        assert_eq!(purge_external_album_art(&root, Some(&["apple".to_string()])), 1);
+        assert_eq!(
+            purge_external_album_art(&root, Some(&["apple".to_string()])),
+            1
+        );
         assert!(!apple.exists());
         assert!(lastfm.join("128.webp").exists());
         assert!(server_art.join("128.webp").exists());
