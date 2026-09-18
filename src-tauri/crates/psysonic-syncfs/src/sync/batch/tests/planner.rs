@@ -665,3 +665,110 @@ fn planner_rejects_a_missing_track_path_behind_a_symlink() {
         Err(error) if error == "DEVICE_SYNC_PLANNED_PATH_ESCAPES_ROOT"
     ));
 }
+
+#[test]
+fn flat_layout_plans_root_files_and_a_root_playlist() {
+    let device = tempfile::tempdir().unwrap();
+    let shared = track("track-1", "Song");
+    let fetched = vec![
+        FetchedDeviceSyncSource {
+            source: source("album", "album-1", "Album"),
+            tracks: vec![shared.clone()],
+        },
+        FetchedDeviceSyncSource {
+            source: source("playlist", "playlist-1", "Mix"),
+            tracks: vec![shared],
+        },
+    ];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::Flat,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.add_count, 1);
+    assert_eq!(plan.manifest_files.len(), 1);
+    assert_eq!(
+        plan.manifest_files[0].relative_path,
+        "Album Artist - Album - 01 - Song.flac"
+    );
+    assert_eq!(plan.manifest_files[0].source_keys.len(), 2);
+    assert_eq!(plan.playlists[0].relative_path, "Mix.m3u8");
+    assert_eq!(
+        plan.playlists[0].references,
+        vec!["Album Artist - Album - 01 - Song.flac"]
+    );
+    // The track handed to the batch writer carries the layout, so the path it
+    // builds matches the one recorded above.
+    assert_eq!(plan.tracks[0]["_flatLayout"], serde_json::json!(true));
+    assert!(plan.tracks[0].get("_playlistName").is_none());
+}
+
+#[test]
+fn flat_layout_can_reference_from_the_device_root() {
+    let device = tempfile::tempdir().unwrap();
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: source("playlist", "playlist-1", "Mix"),
+        tracks: vec![track("track-1", "Song")],
+    }];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::Flat,
+        DeviceSyncPlaylistPathMode::DeviceRooted,
+    )
+    .unwrap();
+
+    assert_eq!(
+        plan.playlists[0].references,
+        vec!["/Album Artist - Album - 01 - Song.flac"]
+    );
+}
+
+#[test]
+fn switching_to_flat_replaces_the_album_tree_copy() {
+    let device = tempfile::tempdir().unwrap();
+    let album = source("album", "album-1", "Album");
+    let tree_path = "Album Artist/Album/01 - Song.flac";
+    std::fs::create_dir_all(device.path().join("Album Artist/Album")).unwrap();
+    std::fs::write(device.path().join(tree_path), b"audio").unwrap();
+    write_manifest(
+        &device,
+        std::slice::from_ref(&album),
+        DeviceSyncLayoutMode::SharedAlbumTree,
+        &[DeviceSyncManifestFile {
+            track_id: "track-1".to_string(),
+            relative_path: tree_path.to_string(),
+            source_keys: vec![device_sync_source_key(&album)],
+            size_bytes: 100,
+        }],
+        &[],
+    );
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: album,
+        tracks: vec![track("track-1", "Song")],
+    }];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::Flat,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.add_count, 1);
+    assert!(plan.delete_paths.is_empty());
+    // The tree copy goes only once its flat replacement is on the device.
+    assert_eq!(plan.deferred_delete_paths.len(), 1);
+    assert!(plan.deferred_delete_paths[0]
+        .replace('\\', "/")
+        .ends_with(tree_path));
+}

@@ -162,6 +162,40 @@ describe('deviceSyncStore ownership', () => {
     }));
   });
 
+  it('imports the flat layout from v4', () => {
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'flat',
+      playlistPathMode: 'playlist-relative',
+      files: [],
+      playlists: [],
+    })).toEqual(expect.objectContaining({ layoutMode: 'flat', declaresConfiguration: true }));
+  });
+
+  it('rejects a manifest with a layout it does not know', () => {
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'nested-by-genre' as never,
+      files: [],
+      playlists: [],
+    })).toBeNull();
+  });
+
+  it('keeps a persisted flat layout across the store migration', () => {
+    const migrated = migrateDeviceSyncPersistedState({
+      layoutMode: 'flat',
+      syncedLayoutMode: 'flat',
+    });
+    expect(migrated.layoutMode).toBe('flat');
+    expect(migrated.syncedLayoutMode).toBe('flat');
+  });
+
   it('keeps the chosen layout when a manifest states none of its own', () => {
     useDeviceSyncStore.getState().setLayoutMode('shared-album-tree');
     useDeviceSyncStore.getState().setPlaylistPathMode('device-rooted');

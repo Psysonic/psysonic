@@ -197,7 +197,12 @@ pub(super) fn write_device_manifest_payload(input: DeviceManifestWrite) -> Resul
                 .map(str::to_string)
         })
         .unwrap_or_else(|| "self-contained".to_string());
-    if layout_mode != "self-contained" && layout_mode != "shared-album-tree" {
+    // Validated against the enum itself, so a new layout cannot be missed here.
+    if serde_json::from_value::<crate::sync::batch::DeviceSyncLayoutMode>(
+        serde_json::Value::String(layout_mode.clone()),
+    )
+    .is_err()
+    {
         return Err("DEVICE_SYNC_LAYOUT_MODE_INVALID".to_string());
     }
     let playlist_path_mode = playlist_path_mode

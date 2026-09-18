@@ -2253,6 +2253,11 @@ export type TrackSyncInfo = {
 	/**  Stable source identity used to disambiguate playlists with the same display name. */
 	playlistId?: string | null,
 	playlistIndex?: number | null,
+	/**
+	 *  Flat layout: the track goes straight into the device root, whatever
+	 *  source it came from (see `build_track_path`).
+	 */
+	flatLayout?: boolean,
 };
 
 export type WaveformCachePayload = {

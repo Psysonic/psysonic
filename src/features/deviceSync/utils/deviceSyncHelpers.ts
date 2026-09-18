@@ -19,11 +19,13 @@ export function formatBytes(bytes: number): string {
 
 /** Tracks that came from `calculate_sync_payload` may carry embedded playlist
  *  context so the follow-up `sync_batch_to_device` call knows to place them
- *  under `Playlists/{Name}/` instead of the album tree. */
+ *  under `Playlists/{Name}/` instead of the album tree — or the flat-layout
+ *  mark that puts them straight into the device root. */
 export type SyncTrackMaybePlaylist = SubsonicSong & {
   _playlistName?: string;
   _playlistId?: string;
   _playlistIndex?: number;
+  _flatLayout?: boolean;
 };
 
 type PlaylistSourceIdentity = { type: string; id: string; name: string; pathId?: string };
@@ -59,6 +61,7 @@ export function trackToSyncInfo(
   track: SyncTrackMaybePlaylist,
   url: string,
   playlistCtx?: { id?: string; name: string; index: number },
+  flatLayout?: boolean,
 ): TrackSyncInfo {
   // Fall back to track artist when the file has no albumArtist tag — not every
   // library is tagged with it. Treat empty strings as missing (some Subsonic
@@ -76,5 +79,6 @@ export function trackToSyncInfo(
     playlistName: playlistCtx?.name ?? track._playlistName,
     playlistId: playlistCtx?.id ?? track._playlistId,
     playlistIndex: playlistCtx?.index ?? track._playlistIndex,
+    flatLayout: flatLayout ?? track._flatLayout === true,
   };
 }

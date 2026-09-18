@@ -14,6 +14,7 @@ fn track(builder: impl FnOnce(&mut TrackSyncInfo)) -> TrackSyncInfo {
         playlist_name: None,
         playlist_id: None,
         playlist_index: None,
+        flat_layout: false,
     };
     builder(&mut track);
     track
