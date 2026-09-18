@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { LibraryTrackDto } from '@/lib/api/library';
+import type { LibraryArtistDto, LibraryTrackDto } from '@/lib/api/library';
 import { useAuthStore } from '@/store/authStore';
 import { useLibraryIndexStore } from '@/store/libraryIndexStore';
 import { useLocalPlaybackStore } from '@/store/localPlaybackStore';
@@ -27,6 +27,7 @@ const {
   libraryGetTracksBatchChunkedMock,
   libraryGetTracksByAlbumMock,
   libraryAdvancedSearchMock,
+  libraryListStarredMock,
 } = vi.hoisted(() => ({
   libraryGetTracksBatchChunkedMock: vi.fn(async (): Promise<LibraryTrackDto[]> => []),
   libraryGetTracksByAlbumMock: vi.fn(async (): Promise<LibraryTrackDto[]> => []),
@@ -40,12 +41,18 @@ const {
     totals: { tracks: 0, albums: 0, artists: 1 },
     appliedFilters: [],
   })),
+  libraryListStarredMock: vi.fn(async (): Promise<{
+    artists: LibraryArtistDto[];
+    albums: [];
+    tracks: [];
+  }> => ({ artists: [], albums: [], tracks: [] })),
 }));
 
 vi.mock('@/lib/api/library', () => ({
   libraryGetTracksBatchChunked: libraryGetTracksBatchChunkedMock,
   libraryGetTracksByAlbum: libraryGetTracksByAlbumMock,
   libraryAdvancedSearch: libraryAdvancedSearchMock,
+  libraryListStarred: libraryListStarredMock,
   subscribeLibrarySyncIdle: vi.fn(async () => () => {}),
 }));
 
@@ -64,6 +71,7 @@ describe('offlineLocalBrowse', () => {
     libraryGetTracksByAlbumMock.mockReset();
     libraryGetTracksByAlbumMock.mockResolvedValue([]);
     libraryAdvancedSearchMock.mockClear();
+    libraryListStarredMock.mockReset().mockResolvedValue({ artists: [], albums: [], tracks: [] });
   });
 
   it('offlineLocalBrowseEnabled requires index and local bytes', () => {
@@ -483,7 +491,7 @@ describe('offlineLocalBrowse', () => {
     expect(bucketT?.artists).toEqual([]);
   });
 
-  it('fetchOfflineLocalStarredArtists respects album credit mode', async () => {
+  it('fetchOfflineLocalStarredArtists intersects real artist stars with local album credits', async () => {
     useLocalPlaybackStore.setState({
       entries: {
         'a.test:t1': {
@@ -511,24 +519,38 @@ describe('offlineLocalBrowse', () => {
     libraryGetTracksBatchChunkedMock.mockResolvedValue([
       {
         id: 't1', title: 'Feat', artist: 'Guest', artistId: 'art-guest',
-        albumArtist: 'Headliner', album: 'Al', albumId: 'al-1', starredAt: 1,
+        albumArtist: 'Headliner', album: 'Al', albumId: 'al-1', starredAt: null,
         durationSec: 1, serverId: 'srv-a', syncedAt: 1, rawJson: {},
       },
       {
         id: 't2', title: 'Title', artist: 'Headliner', artistId: 'art-head',
-        albumArtist: 'Headliner', album: 'Al', albumId: 'al-1', starredAt: 1,
+        albumArtist: 'Headliner', album: 'Al', albumId: 'al-1', starredAt: null,
         durationSec: 1, serverId: 'srv-a', syncedAt: 1, rawJson: {},
       },
     ]);
+    libraryListStarredMock.mockResolvedValue({
+      artists: [
+        {
+          id: 'art-head', name: 'Headliner', serverId: 'srv-a', starredAt: 1,
+          albumCount: 1, syncedAt: 1, rawJson: {},
+        },
+        {
+          id: 'art-remote', name: 'Remote only', serverId: 'srv-a', starredAt: 1,
+          albumCount: 1, syncedAt: 1, rawJson: {},
+        },
+      ],
+      albums: [],
+      tracks: [],
+    });
 
     await expect(fetchOfflineLocalStarredArtists('srv-a', 'album')).resolves.toEqual([
-      {
+      expect.objectContaining({
         id: 'art-head',
         name: 'Headliner',
         albumCount: 1,
         serverId: 'srv-a',
-        starred: expect.any(String),
-      },
+        starred: '1970-01-01T00:00:00.001Z',
+      }),
     ]);
   });
 

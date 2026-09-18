@@ -33,6 +33,7 @@ import {
   storeArtistBrowseCatalogCache,
 } from '@/lib/library/artistBrowseInflight';
 import type { LibraryScopePair } from '@/lib/api/library/scopeReads';
+import { refreshStarredArtistIndexes } from '@/lib/library/starredArtistIndexSync';
 
 /** Local-index artist catalog buffer grows by this many rows per background SQL chunk. */
 export const ARTIST_CATALOG_CHUNK_SIZE = 200;
@@ -298,24 +299,68 @@ export function useArtistsBrowseCatalog({
         if (starredOnly) {
           emitArtistsBrowseDebug('load_branch', { mode: 'starred' });
           if (!cancelled && generation === loadGenerationRef.current) {
-            const starred = multiServer && indexEnabled && serverId
-              ? (await artistBrowseTimed(
-                'starred_catalog_local',
-                () => fetchLocalArtistCatalogChunk(
-                  serverId,
-                  0,
-                  10_000,
-                  creditMode,
-                  undefined,
-                  { libraryScopes: libraryScopesRef.current, starredOnly: true },
-                ),
-              ))?.artists ?? []
-              : await artistBrowseTimed(
-                'starred_catalog',
-                () => fetchStarredArtistsForBrowse(creditMode, serverId, indexEnabled),
+            if (indexEnabled && serverId) {
+              const loadLocalStars = () => fetchLocalArtistCatalogChunk(
+                serverId,
+                0,
+                10_000,
+                creditMode,
+                undefined,
+                { libraryScopes: libraryScopesRef.current, starredOnly: true },
               );
+              const initial = await artistBrowseTimed('starred_catalog_local', loadLocalStars);
+              if (cancelled || generation !== loadGenerationRef.current) return;
+              if (initial != null) {
+                setCatalogArtists(initial.artists);
+                catalogOffsetRef.current = initial.artists.length;
+                setBrowseMode('slice');
+                setCatalogHasMore(false);
+                setLoading(false);
+                emitArtistsBrowseDebug('load_effect_done', {
+                  browseMode: 'slice',
+                  artistCount: initial.artists.length,
+                  starredOnly: true,
+                });
+
+                const scopedServerIds = libraryScopesRef.current.map(scope => scope.serverId);
+                const refreshServerIds = [...new Set(
+                  scopedServerIds.length > 0 ? scopedServerIds : [serverId],
+                )];
+                void (async () => {
+                  await artistBrowseTimed(
+                    'starred_catalog_refresh',
+                    () => refreshStarredArtistIndexes(refreshServerIds),
+                    { serverCount: refreshServerIds.length },
+                  );
+                  if (cancelled || generation !== loadGenerationRef.current) return;
+                  const refreshed = await artistBrowseTimed(
+                    'starred_catalog_local_refreshed',
+                    loadLocalStars,
+                  );
+                  if (cancelled || generation !== loadGenerationRef.current || refreshed == null) {
+                    return;
+                  }
+                  setCatalogArtists(refreshed.artists);
+                  catalogOffsetRef.current = refreshed.artists.length;
+                  setBrowseMode('slice');
+                  setCatalogHasMore(false);
+                  emitArtistsBrowseDebug('starred_catalog_refreshed', {
+                    artistCount: refreshed.artists.length,
+                  });
+                })().catch(() => {
+                  emitArtistsBrowseDebug('starred_catalog_refresh_error', {});
+                });
+                return;
+              }
+            }
+
+            const starred = await artistBrowseTimed(
+              'starred_catalog',
+              () => fetchStarredArtistsForBrowse(creditMode, serverId, indexEnabled),
+            );
             setCatalogArtists(starred);
-            setBrowseMode(multiServer ? 'slice' : 'network');
+            catalogOffsetRef.current = starred.length;
+            setBrowseMode('network');
             setCatalogHasMore(false);
             emitArtistsBrowseDebug('load_effect_done', {
               browseMode: 'network',

@@ -7,7 +7,7 @@ use crate::store::LibraryStore;
 use super::{
     apply_album_patch, catalog_year_bounds_for_server, genre_album_counts_for_server,
     overlay_album_artist_links, overlay_album_level_starred_at, reconcile_album_stars,
-    StarredAlbumReconcileItem,
+    reconcile_artist_stars, StarredAlbumReconcileItem, StarredArtistReconcileItem,
 };
 use crate::dto::LibraryAlbumDto;
 
@@ -405,6 +405,88 @@ fn reconcile_album_stars_clears_all_when_server_list_empty() {
                 "SELECT starred_at FROM album WHERE server_id = 's1' AND id = 'al1'",
                 [],
                 |r| r.get(0),
+            )
+        })
+        .unwrap();
+    assert!(starred_at.is_none());
+}
+
+#[test]
+fn reconcile_artist_stars_updates_only_known_rows_and_preserves_server_isolation() {
+    let store = Arc::new(LibraryStore::open_in_memory());
+    store
+        .with_conn("test.seed_artist_stars", |conn| {
+            conn.execute_batch(
+                "INSERT INTO artist (server_id, id, name, name_sort, starred_at, synced_at) VALUES
+                   ('s1', 'old', 'Old', 'old', 1, 1),
+                   ('s1', 'keep', 'Keep', 'keep', 2, 1),
+                   ('s1', 'new', 'New', 'new', NULL, 1),
+                   ('s2', 'old', 'Other Old', 'other old', 8, 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    reconcile_artist_stars(
+        &runtime(store.clone()),
+        "s1",
+        &[
+            StarredArtistReconcileItem {
+                id: "keep".into(),
+                starred_at: 20,
+            },
+            StarredArtistReconcileItem {
+                id: "new".into(),
+                starred_at: 30,
+            },
+            StarredArtistReconcileItem {
+                id: "unknown".into(),
+                starred_at: 40,
+            },
+        ],
+    )
+    .unwrap();
+
+    let rows: Vec<(String, String, Option<i64>)> = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn
+                .prepare("SELECT server_id, id, starred_at FROM artist ORDER BY server_id, id")?;
+            let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+            rows.collect()
+        })
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            ("s1".into(), "keep".into(), Some(20)),
+            ("s1".into(), "new".into(), Some(30)),
+            ("s1".into(), "old".into(), None),
+            ("s2".into(), "old".into(), Some(8)),
+        ]
+    );
+}
+
+#[test]
+fn reconcile_artist_stars_clears_server_when_list_is_empty() {
+    let store = Arc::new(LibraryStore::open_in_memory());
+    store
+        .with_conn("test.seed_artist_star", |conn| {
+            conn.execute(
+                "INSERT INTO artist (server_id, id, name, starred_at, synced_at) \
+                 VALUES ('s1', 'ar1', 'Artist', 5, 1)",
+                [],
+            )
+        })
+        .unwrap();
+
+    reconcile_artist_stars(&runtime(store.clone()), "s1", &[]).unwrap();
+
+    let starred_at: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT starred_at FROM artist WHERE server_id = 's1' AND id = 'ar1'",
+                [],
+                |row| row.get(0),
             )
         })
         .unwrap();

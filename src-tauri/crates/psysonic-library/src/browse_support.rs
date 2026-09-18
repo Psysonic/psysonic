@@ -23,6 +23,13 @@ pub struct StarredAlbumReconcileItem {
     pub starred_at: i64,
 }
 
+#[derive(Debug, Clone, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct StarredArtistReconcileItem {
+    pub id: String,
+    pub starred_at: i64,
+}
+
 /// Align `album.starred_at` with server favorites: UPDATE existing rows only
 /// (no INSERT / stub rows). Clears local stars absent from `starred_albums`.
 #[tauri::command]
@@ -33,6 +40,17 @@ pub fn library_reconcile_album_stars(
     starred_albums: Vec<StarredAlbumReconcileItem>,
 ) -> Result<(), String> {
     reconcile_album_stars(&runtime, &server_id, &starred_albums)
+}
+
+/// Align `artist.starred_at` with server favorites without creating artist stubs.
+#[tauri::command]
+#[specta::specta]
+pub fn library_reconcile_artist_stars(
+    runtime: State<'_, LibraryRuntime>,
+    server_id: String,
+    starred_artists: Vec<StarredArtistReconcileItem>,
+) -> Result<(), String> {
+    reconcile_artist_stars(&runtime, &server_id, &starred_artists)
 }
 
 /// Read album-level favorite timestamp (`album.starred_at`), not track stars.
@@ -340,6 +358,48 @@ pub(crate) fn reconcile_album_stars(
             for item in starred {
                 conn.execute(
                     "UPDATE album SET starred_at = ?3 \
+                     WHERE server_id = ?1 AND id = ?2",
+                    params![server_id, item.id, item.starred_at],
+                )?;
+            }
+            Ok(())
+        })
+        .map_err(|e| e.to_string())
+}
+
+pub(crate) fn reconcile_artist_stars(
+    runtime: &LibraryRuntime,
+    server_id: &str,
+    starred: &[StarredArtistReconcileItem],
+) -> Result<(), String> {
+    runtime
+        .store
+        .with_conn("browse.reconcile_artist_stars", |conn| {
+            if starred.is_empty() {
+                conn.execute(
+                    "UPDATE artist SET starred_at = NULL \
+                     WHERE server_id = ?1 AND starred_at IS NOT NULL",
+                    params![server_id],
+                )?;
+                return Ok(());
+            }
+            let placeholders = std::iter::repeat_n("?", starred.len())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let clear_sql = format!(
+                "UPDATE artist SET starred_at = NULL \
+                 WHERE server_id = ?1 AND starred_at IS NOT NULL \
+                   AND id NOT IN ({placeholders})"
+            );
+            let mut clear_params: Vec<rusqlite::types::Value> =
+                vec![rusqlite::types::Value::Text(server_id.to_string())];
+            for item in starred {
+                clear_params.push(rusqlite::types::Value::Text(item.id.clone()));
+            }
+            conn.execute(&clear_sql, rusqlite::params_from_iter(clear_params.iter()))?;
+            for item in starred {
+                conn.execute(
+                    "UPDATE artist SET starred_at = ?3 \
                      WHERE server_id = ?1 AND id = ?2",
                     params![server_id, item.id, item.starred_at],
                 )?;

@@ -14,6 +14,8 @@ export const commands = {
 	 *  (no INSERT / stub rows). Clears local stars absent from `starred_albums`.
 	 */
 	libraryReconcileAlbumStars: (serverId: string, starredAlbums: StarredAlbumReconcileItem[]) => typedError<null, string>(__TAURI_INVOKE("library_reconcile_album_stars", { serverId, starredAlbums })),
+	/**  Align `artist.starred_at` with server favorites without creating artist stubs. */
+	libraryReconcileArtistStars: (serverId: string, starredArtists: StarredArtistReconcileItem[]) => typedError<null, string>(__TAURI_INVOKE("library_reconcile_artist_stars", { serverId, starredArtists })),
 	/**  Resolve cover disk + fetch ids from the local library (`album` | `artist` | `track`). */
 	libraryResolveCoverEntry: (serverId: string, entity: string, entityId: string) => typedError<{
 	cacheKind: string,
@@ -2122,6 +2124,11 @@ export type ServerProbeResult = {
 };
 
 export type StarredAlbumReconcileItem = {
+	id: string,
+	starredAt: number,
+};
+
+export type StarredArtistReconcileItem = {
 	id: string,
 	starredAt: number,
 };

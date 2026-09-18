@@ -53,8 +53,8 @@ fn artist_batches_resume_against_the_original_upper_rowid() {
         .with_conn_mut("test.seed_native_artists", |conn| {
             conn.execute(
                 "INSERT INTO artist \
-                   (server_id, id, name, album_count, synced_at, raw_json) \
-                 VALUES ('s1', ?1, 'Artist One', 1, 10, ?2)",
+                   (server_id, id, name, album_count, starred_at, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Artist One', 1, 15, 10, ?2)",
                 params![
                     LEGACY_ARTIST,
                     serde_json::json!({ "id": LEGACY_ARTIST, "name": "Artist One" }).to_string()
@@ -113,6 +113,70 @@ fn artist_batches_resume_against_the_original_upper_rowid() {
         assert!(!old_exists);
         assert!(new_exists);
     }
+    let moved_star: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT starred_at FROM artist WHERE server_id = 's1' AND id = ?1",
+                params![canonical_id(LEGACY_ARTIST)],
+                |row| row.get(0),
+            )
+        })
+        .unwrap();
+    assert_eq!(moved_star, Some(15));
+}
+
+#[test]
+fn artist_collision_merge_preserves_the_newest_star() {
+    let store = LibraryStore::open_in_memory();
+    let canonical_artist = canonical_id(LEGACY_ARTIST);
+    store
+        .with_conn_mut("test.seed_native_artist_star_merge", |conn| {
+            conn.execute(
+                "INSERT INTO artist \
+                   (server_id, id, name, album_count, starred_at, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Legacy Artist', 1, 20, 2, ?2), \
+                        ('s1', ?3, 'Canonical Artist', 2, 10, 1, ?4)",
+                params![
+                    LEGACY_ARTIST,
+                    serde_json::json!({
+                        "id": LEGACY_ARTIST,
+                        "musicBrainzId": "shared-artist"
+                    })
+                    .to_string(),
+                    canonical_artist,
+                    serde_json::json!({
+                        "id": canonical_artist,
+                        "musicBrainzId": "shared-artist"
+                    })
+                    .to_string(),
+                ],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let upper = upper_rowid(&store, "s1", NavidromeNativeMigrationStep::Artist).unwrap();
+    let result = run_batch(
+        &store,
+        "s1",
+        NavidromeNativeMigrationStep::Artist,
+        0,
+        upper,
+        20,
+    )
+    .unwrap();
+    assert_eq!(result.merged, 1);
+
+    let starred_at: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT starred_at FROM artist WHERE server_id = 's1' AND id = ?1",
+                params![canonical_artist],
+                |row| row.get(0),
+            )
+        })
+        .unwrap();
+    assert_eq!(starred_at, Some(20));
 }
 
 #[test]

@@ -28,7 +28,8 @@ pub(crate) use album_browse::list_albums_layer1_filtered;
 #[allow(unused_imports)]
 pub(crate) use artist_browse::{
     list_artists_layer1_filtered, list_index_artists_layer1_filtered,
-    list_index_artists_multi_scope_album_filtered, LAYER1_ARTIST_CREDIT_JOIN_SQL,
+    list_index_artists_multi_scope_album_filtered, list_index_starred_artists_filtered,
+    LAYER1_ARTIST_CREDIT_JOIN_SQL,
 };
 #[allow(unused_imports)]
 pub(crate) use artist_candidates::{album_artist_id_expr, AlbumSplitMeta};

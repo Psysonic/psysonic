@@ -1,5 +1,6 @@
 use rusqlite::params_from_iter;
 use rusqlite::types::Value as SqlValue;
+use std::collections::HashSet;
 
 use super::browse_lists::{artist_row_to_dto, map_artist_list_row};
 use super::common::{
@@ -8,6 +9,94 @@ use super::common::{
 };
 use crate::dto::{LibraryArtistDto, LibraryScopePair};
 use crate::store::LibraryStore;
+
+/// Star reconciliation is already filtered to the active libraries by the
+/// server. Read those artist rows directly: role artists can be valid favorites
+/// without an exact `track.artist_id` or `album.artist_id` edge in the index.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn list_index_starred_artists_filtered(
+    store: &LibraryStore,
+    scopes: &[LibraryScopePair],
+    extra_where: &str,
+    extra_params: &[SqlValue],
+    order_sql: &str,
+    limit: u32,
+    offset: u32,
+    skip_totals: bool,
+) -> Result<(Vec<LibraryArtistDto>, u32), String> {
+    let scopes = non_empty_scopes(scopes)?;
+    let mut seen = HashSet::new();
+    let servers: Vec<(&str, usize)> = scopes
+        .iter()
+        .enumerate()
+        .filter_map(|(priority, scope)| {
+            seen.insert(scope.server_id.as_str())
+                .then_some((scope.server_id.as_str(), priority))
+        })
+        .collect();
+    let values = servers
+        .iter()
+        .map(|(_, priority)| format!("(?, {priority})"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let dedup_key = if servers.len() == 1 {
+        "ar.server_id || ':' || ar.id"
+    } else {
+        "COALESCE(NULLIF(ar.name_fold, ''), 'null:' || ar.server_id || ':' || ar.id)"
+    };
+    let where_sql = if extra_where.trim().is_empty() {
+        "ar.starred_at IS NOT NULL".to_string()
+    } else {
+        format!("ar.starred_at IS NOT NULL AND {extra_where}")
+    };
+    let cte = format!(
+        "WITH server_scope(server_id, pr) AS (VALUES {values}), \
+         candidates AS ( \
+           SELECT ar.server_id, ar.id AS artist_id, ar.name AS artist, \
+                  COALESCE(ar.album_count, 0) AS album_count, ar.starred_at, ar.synced_at, \
+                  {dedup_key} AS artist_dedup, \
+                  printf('%08d|%s|%s', s.pr, ar.server_id, ar.id) AS _pick \
+           FROM server_scope s \
+           CROSS JOIN artist ar ON ar.server_id = s.server_id \
+           WHERE {where_sql} \
+         ), \
+         deduped AS ( \
+           SELECT server_id, artist_id, artist, album_count, starred_at, synced_at, \
+                  MIN(_pick) AS _pick \
+           FROM candidates GROUP BY artist_dedup \
+         )"
+    );
+    let count_sql = format!("{cte} SELECT COUNT(*) FROM deduped");
+    let select_sql = format!(
+        "{cte} SELECT server_id, artist_id, artist, album_count, starred_at, synced_at \
+         FROM deduped {order_sql} LIMIT ? OFFSET ?"
+    );
+    let mut binds = servers
+        .iter()
+        .map(|(server_id, _)| SqlValue::Text((*server_id).to_string()))
+        .collect::<Vec<_>>();
+    binds.extend_from_slice(extra_params);
+
+    let total = if skip_totals {
+        0
+    } else {
+        store.with_read_conn(|conn| {
+            let count: i64 =
+                conn.query_row(&count_sql, params_from_iter(binds.iter()), |row| row.get(0))?;
+            Ok(count.max(0) as u32)
+        })?
+    };
+    binds.push(SqlValue::Integer(i64::from(limit)));
+    binds.push(SqlValue::Integer(i64::from(offset)));
+    let artists = store.with_read_conn(|conn| {
+        let mut stmt = conn.prepare(&select_sql)?;
+        let rows = stmt
+            .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows.into_iter().map(artist_row_to_dto).collect())
+    })?;
+    Ok((artists, total))
+}
 
 /// Layer-1 scoped artist browse — sargable scope join; two-stage merge when `scopes.len() > 1`.
 #[allow(clippy::too_many_arguments)]
@@ -40,7 +129,10 @@ pub(crate) fn list_artists_layer1_filtered(
             format!("{cte} SELECT COUNT(DISTINCT t.artist_id) {base_where}"),
             format!(
                 "{cte} \
-                 SELECT t.server_id, t.artist_id, MAX(t.artist), COUNT(DISTINCT t.album_id), MAX(t.synced_at) \
+                 SELECT t.server_id, t.artist_id, MAX(t.artist), COUNT(DISTINCT t.album_id), \
+                        MAX((SELECT ar.starred_at FROM artist ar \
+                             WHERE ar.server_id = t.server_id AND ar.id = t.artist_id)), \
+                        MAX(t.synced_at) \
                  {base_where} \
                  GROUP BY t.artist_id \
                  {order_sql} \
@@ -62,14 +154,17 @@ pub(crate) fn list_artists_layer1_filtered(
             format!(
                 "{cte}, \
                  per_lib AS ( \
-                   SELECT t.server_id, t.artist_id, t.artist, t.album_id, t.synced_at, s.pr, \
+                    SELECT t.server_id, t.artist_id, t.artist, t.album_id, \
+                           (SELECT ar.starred_at FROM artist ar \
+                            WHERE ar.server_id = t.server_id AND ar.id = t.artist_id) AS starred_at, \
+                           t.synced_at, s.pr, \
                           {ARTIST_DEDUP_KEY} AS artist_dedup, MIN({ARTIST_PICK_KEY}) AS _pick \
                    {base_where} \
                    GROUP BY artist_dedup, t.server_id, t.artist_id, s.pr \
                  ) \
-                 SELECT server_id, artist_id, artist, album_count, synced_at \
+                 SELECT server_id, artist_id, artist, album_count, starred_at, synced_at \
                  FROM ( \
-                   SELECT server_id, artist_id, artist, synced_at, \
+                   SELECT server_id, artist_id, artist, starred_at, synced_at, \
                           COUNT(DISTINCT album_id) AS album_count, MIN(_pick) AS _pick \
                    FROM per_lib GROUP BY artist_dedup \
                  ) \
@@ -186,7 +281,7 @@ pub(crate) fn list_index_artists_layer1_filtered(
 
     let count_sql = format!("{credited_cte} SELECT COUNT(*) {ar_where}");
     let select_sql = format!(
-        "{credited_cte} SELECT ar.server_id, ar.id, ar.name, ar.album_count, ar.synced_at \
+        "{credited_cte} SELECT ar.server_id, ar.id, ar.name, ar.album_count, ar.starred_at, ar.synced_at \
          {ar_where} {order_sql} LIMIT ? OFFSET ?"
     );
 
@@ -252,15 +347,15 @@ pub(crate) fn list_index_artists_multi_scope_album_filtered(
            GROUP BY t.server_id, t.album_id, s.pr \
          ), \
          matched AS ( \
-           SELECT ar.server_id, ar.id AS artist_id, ar.name AS artist, ar.name_fold, \
-                  ac.album_id, ac.pr, ar.synced_at \
+            SELECT ar.server_id, ar.id AS artist_id, ar.name AS artist, ar.name_fold, \
+                   ac.album_id, ac.pr, ar.starred_at, ar.synced_at \
            FROM album_credits ac \
            INNER JOIN artist ar ON ar.server_id = ac.server_id \
              AND ar.name_fold = psysonic_lower_name(ac.credit_name) \
            WHERE {artist_where} \
          ), \
          deduped AS ( \
-           SELECT server_id, artist_id, artist, synced_at, \
+            SELECT server_id, artist_id, artist, starred_at, synced_at, \
                   COUNT(DISTINCT server_id || ':' || album_id) AS album_count, \
                   MIN(printf('%08d|%s|%s', pr, server_id, artist_id)) AS _pick \
            FROM matched GROUP BY name_fold \
@@ -268,7 +363,7 @@ pub(crate) fn list_index_artists_multi_scope_album_filtered(
     );
     let count_sql = format!("{credits_cte} SELECT COUNT(*) FROM deduped");
     let select_sql = format!(
-        "{credits_cte} SELECT server_id, artist_id, artist, album_count, synced_at \
+        "{credits_cte} SELECT server_id, artist_id, artist, album_count, starred_at, synced_at \
          FROM deduped {order_sql} LIMIT ? OFFSET ?"
     );
     let mut binds = merge_binds(scope_binds, extra_params);

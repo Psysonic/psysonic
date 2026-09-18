@@ -273,6 +273,48 @@ mod tests {
         assert_eq!(name_sort, "beatles");
     }
 
+    #[test]
+    fn upsert_index_preserves_existing_artist_star() {
+        let store = LibraryStore::open_in_memory();
+        seed_artist(&store, "s1", "ar_1", "Old Name", Some(1));
+        store
+            .with_conn("test.star_artist", |conn| {
+                conn.execute(
+                    "UPDATE artist SET starred_at = 123 WHERE server_id = 's1' AND id = 'ar_1'",
+                    [],
+                )
+            })
+            .unwrap();
+        let index = ArtistIndex {
+            last_modified_ms: Some(2),
+            ignored_articles: None,
+            index: vec![IndexBucket {
+                name: "N".into(),
+                artist: vec![ArtistRef {
+                    id: "ar_1".into(),
+                    name: "New Name".into(),
+                    album_count: Some(2),
+                    cover_art: None,
+                }],
+            }],
+        };
+
+        ArtistRepository::new(&store)
+            .upsert_index("s1", &index, 2)
+            .unwrap();
+
+        let starred_at: Option<i64> = store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT starred_at FROM artist WHERE server_id = 's1' AND id = 'ar_1'",
+                    [],
+                    |row| row.get(0),
+                )
+            })
+            .unwrap();
+        assert_eq!(starred_at, Some(123));
+    }
+
     fn seed_artist(store: &LibraryStore, server: &str, id: &str, name: &str, albums: Option<i64>) {
         store
             .with_conn_mut("test.seed_artist", |conn| {

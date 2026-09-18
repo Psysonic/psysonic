@@ -51,6 +51,47 @@ fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
 }
 
 #[test]
+fn migration_027_adds_artist_star_and_sparse_browse_index_idempotently() {
+    let conn = Connection::open_in_memory().unwrap();
+    run_migrations_with(
+        &conn,
+        &MIGRATIONS[..MIGRATIONS.len() - 1],
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        super::migration_runner::no_op_hook,
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO artist (server_id, id, name, name_sort, synced_at) \
+         VALUES ('s1', 'ar1', 'Existing Artist', 'existing artist', 1)",
+        [],
+    )
+    .unwrap();
+
+    run_migrations(&conn).unwrap();
+    run_migrations(&conn).unwrap();
+
+    let (name, starred_at): (String, Option<i64>) = conn
+        .query_row(
+            "SELECT name, starred_at FROM artist WHERE server_id = 's1' AND id = 'ar1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(name, "Existing Artist");
+    assert!(starred_at.is_none());
+
+    let index_sql: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_artist_starred_name'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(index_sql.contains("artist(server_id, name_sort, id)"));
+    assert!(index_sql.contains("WHERE starred_at IS NOT NULL"));
+}
+
+#[test]
 fn fresh_database_marks_projection_backfills_complete() {
     let store = LibraryStore::open_in_memory();
     let completed: i64 = store

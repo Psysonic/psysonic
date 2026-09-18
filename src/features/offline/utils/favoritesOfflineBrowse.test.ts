@@ -52,7 +52,7 @@ describe('favoritesOfflineBrowse', () => {
     getAlbumForServerMock.mockReset();
     libraryGetTracksByAlbumMock.mockReset();
     libraryAdvancedSearchMock.mockReset();
-    libraryListStarredMock.mockReset();
+    libraryListStarredMock.mockReset().mockResolvedValue({ artists: [], albums: [], tracks: [] });
     libraryGetTracksBatchChunkedMock.mockReset();
     useLibraryIndexStore.setState({ masterEnabled: true });
     useAuthStore.setState({
@@ -127,6 +127,7 @@ describe('favoritesOfflineBrowse', () => {
 
   it('loadStarredFromLibraryIndex uses the narrow starred read when not offline-bytes', async () => {
     libraryListStarredMock.mockResolvedValue({
+      artists: [{ id: 'art-1', name: 'X', serverId: 'srv-1', starredAt: 1, syncedAt: 0, rawJson: {} }],
       albums: [{ id: 'alb-1', name: 'A', artist: 'X', artistId: 'art-1', serverId: 'srv-1' }],
       tracks: [{ id: 't-1', title: 'S', artist: 'X', album: 'A', albumId: 'alb-1', durationSec: 1, serverId: 'srv-1' }],
     });
@@ -134,19 +135,21 @@ describe('favoritesOfflineBrowse', () => {
     const starred = await loadStarredFromLibraryIndex('srv-1');
     expect(libraryListStarredMock).toHaveBeenCalledWith('srv-1');
     expect(libraryGetTracksBatchChunkedMock).not.toHaveBeenCalled();
-    expect(starred.artists).toEqual([]);
+    expect(starred.artists).toEqual([
+      expect.objectContaining({ id: 'art-1', starred: '1970-01-01T00:00:00.001Z' }),
+    ]);
     expect(starred.songs).toHaveLength(1);
   });
 
   it('shares an in-flight index snapshot across duplicate Favorites mounts', async () => {
-    let resolveStarred!: (value: { albums: []; tracks: [] }) => void;
+    let resolveStarred!: (value: { artists: []; albums: []; tracks: [] }) => void;
     libraryListStarredMock.mockReturnValue(new Promise(resolve => {
       resolveStarred = resolve;
     }));
 
     const first = loadStarredFromAllLibraryIndexes(false);
     const second = loadStarredFromAllLibraryIndexes(false);
-    resolveStarred({ albums: [], tracks: [] });
+    resolveStarred({ artists: [], albums: [], tracks: [] });
 
     await expect(Promise.all([first, second])).resolves.toEqual([
       { artists: [], albums: [], songs: [] },

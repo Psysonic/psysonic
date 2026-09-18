@@ -1,5 +1,6 @@
-use super::support::{clause, insert_album, req, track};
+use super::support::{clause, insert_album, insert_artist, req, scope_pair, track};
 use crate::advanced_search::run_advanced_search;
+use crate::dto::ArtistCreditMode;
 use crate::filter::{EntityKind, FilterOp};
 use crate::repos::{TrackRepository, TrackRow};
 use crate::store::LibraryStore;
@@ -98,6 +99,77 @@ fn starred_only_filters_tracks() {
     let resp = run_advanced_search(&store, &r).unwrap();
     assert_eq!(resp.tracks.len(), 1);
     assert_eq!(resp.tracks[0].id, "t1");
+}
+
+#[test]
+fn starred_only_artist_uses_artist_star_not_track_star_before_pagination() {
+    let store = LibraryStore::open_in_memory();
+    insert_artist(&store, "s1", "ar_Alpha", "Alpha");
+    insert_artist(&store, "s1", "ar_Beta", "Beta");
+    store
+        .with_conn("test.star_artist", |conn| {
+            conn.execute(
+                "UPDATE artist SET starred_at = 100 WHERE server_id = 's1' AND id = 'ar_Beta'",
+                [],
+            )
+        })
+        .unwrap();
+    let mut alpha = track("s1", "t-alpha", "A", "Alpha", "Alpha Album");
+    alpha.artist_id = Some("ar_Alpha".into());
+    alpha.starred_at = Some(999);
+    let mut beta = track("s1", "t-beta", "B", "Beta", "Beta Album");
+    beta.artist_id = Some("ar_Beta".into());
+    TrackRepository::new(&store)
+        .upsert_batch(&[alpha, beta])
+        .unwrap();
+
+    for credit_mode in [ArtistCreditMode::Album, ArtistCreditMode::Track] {
+        let mut r = req("s1", &[EntityKind::Artist]);
+        r.artist_credit_mode = Some(credit_mode);
+        r.starred_only = Some(true);
+        r.limit = 1;
+        let resp = run_advanced_search(&store, &r).unwrap();
+        assert_eq!(resp.totals.artists, 1);
+        assert_eq!(resp.artists[0].id, "ar_Beta");
+        assert_eq!(resp.artists[0].starred_at, Some(100));
+    }
+}
+
+#[test]
+fn scoped_starred_artist_does_not_require_an_exact_track_or_album_artist_edge() {
+    let store = LibraryStore::open_in_memory();
+    insert_artist(
+        &store,
+        "s1",
+        "ar_role",
+        "The Phantom Of The Opera Original London Cast",
+    );
+    store
+        .with_conn("test.star_role_artist", |conn| {
+            conn.execute(
+                "UPDATE artist SET starred_at = 100 WHERE server_id = 's1' AND id = 'ar_role'",
+                [],
+            )
+        })
+        .unwrap();
+    let mut credited_track = track("s1", "t1", "Masquerade", "Andrew Lloyd Webber", "Phantom");
+    credited_track.library_id = Some("lib-a".into());
+    credited_track.album_artist =
+        Some("Andrew Lloyd Webber; The Phantom Of The Opera Original London Cast".into());
+    TrackRepository::new(&store)
+        .upsert_batch(&[credited_track])
+        .unwrap();
+
+    for credit_mode in [ArtistCreditMode::Album, ArtistCreditMode::Track] {
+        let mut r = req("s1", &[EntityKind::Artist]);
+        r.library_scopes = Some(vec![scope_pair("s1", "lib-a")]);
+        r.artist_credit_mode = Some(credit_mode);
+        r.starred_only = Some(true);
+        let resp = run_advanced_search(&store, &r).unwrap();
+        assert_eq!(resp.artists.len(), 1);
+        assert_eq!(resp.artists[0].id, "ar_role");
+        assert_eq!(resp.artists[0].starred_at, Some(100));
+    }
 }
 
 #[test]

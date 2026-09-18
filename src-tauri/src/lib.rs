@@ -113,6 +113,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             // carry LibraryTrack/Album/ArtistDto (each has `raw_json: Value`, dto.rs) +
             // library_upsert_songs_from_api / library_patch_track (serde_json::Value args).
             psysonic_library::browse_support::library_reconcile_album_stars,
+            psysonic_library::browse_support::library_reconcile_artist_stars,
             psysonic_library::commands::library_resolve_cover_entry,
             psysonic_library::commands::library_album_disc_count,
             psysonic_library::commands::library_resolve_artist_ids,
@@ -784,6 +785,7 @@ pub fn run() {
             psysonic_library::commands::library_patch_track,
             psysonic_library::browse_support::library_patch_album,
             psysonic_library::browse_support::library_reconcile_album_stars,
+            psysonic_library::browse_support::library_reconcile_artist_stars,
             psysonic_library::browse_support::library_get_catalog_year_bounds,
             psysonic_library::browse_support::library_get_genre_album_counts,
             psysonic_library::commands::library_put_artifact,

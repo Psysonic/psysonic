@@ -91,11 +91,11 @@ pub(super) fn lookup_artist_row(
     artist_id: &str,
 ) -> rusqlite::Result<Option<LibraryArtistDto>> {
     conn.query_row(
-        "SELECT server_id, id, name, album_count, synced_at, raw_json \
+        "SELECT server_id, id, name, album_count, starred_at, synced_at, raw_json \
          FROM artist WHERE server_id = ? AND id = ? LIMIT 1",
         rusqlite::params![server_id, artist_id],
         |r| {
-            let raw: Option<String> = r.get(5)?;
+            let raw: Option<String> = r.get(6)?;
             let name: String = r.get(2)?;
             Ok(LibraryArtistDto {
                 server_id: r.get(0)?,
@@ -106,7 +106,8 @@ pub(super) fn lookup_artist_row(
                 name_sort: Some(sort_key_for_display_name(&name, DEFAULT_IGNORED_ARTICLES)),
                 name,
                 album_count: r.get(3)?,
-                synced_at: r.get(4)?,
+                starred_at: r.get(4)?,
+                synced_at: r.get(5)?,
                 raw_json: raw
                     .and_then(|s| serde_json::from_str::<Value>(&s).ok())
                     .unwrap_or(Value::Null),

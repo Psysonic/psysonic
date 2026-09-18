@@ -221,13 +221,16 @@ pub(crate) fn list_artists_filtered(
     let sql = format!(
         "{cte}, \
          base AS ( \
-           SELECT t.server_id, t.artist_id, t.artist, t.album_id, t.synced_at, s.pr, \
+            SELECT t.server_id, t.artist_id, t.artist, t.album_id, \
+                   (SELECT ar.starred_at FROM artist ar \
+                    WHERE ar.server_id = t.server_id AND ar.id = t.artist_id) AS starred_at, \
+                   t.synced_at, s.pr, \
                   {ARTIST_DEDUP_KEY} AS artist_dedup \
            {base_where} \
          ) \
-         SELECT server_id, artist_id, artist, album_count, synced_at \
+         SELECT server_id, artist_id, artist, album_count, starred_at, synced_at \
          FROM ( \
-           SELECT server_id, artist_id, artist, synced_at, \
+            SELECT server_id, artist_id, artist, starred_at, synced_at, \
                   COUNT(DISTINCT album_id) AS album_count, \
                   MIN({ARTIST_PICK_KEY}) AS _pick \
            FROM base GROUP BY artist_dedup \

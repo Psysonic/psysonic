@@ -29,6 +29,7 @@ import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { sameRadioStation } from '@/features/radio';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
+import { useAuthStore } from '@/store/authStore';
 
 const FAV_COLUMNS: readonly ColDef[] = [
   { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true  },
@@ -83,9 +84,11 @@ export default function Favorites() {
     startResize, startFlexColumnResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
   } = useTracklistColumns(FAV_COLUMNS, 'psysonic_favorites_columns');
+  const activeServerId = useAuthStore(s => s.activeServerId);
   const resolvedBpmSongs = useResolvedTracklistBpm(
     songs,
     colVisible.has('bpm') || sortKey === 'bpm',
+    activeServerId ?? undefined,
   );
 
   const [ratings, setRatings] = useState<Record<string, number>>({});
