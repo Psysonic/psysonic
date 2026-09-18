@@ -90,8 +90,9 @@ function QueuePanelHostOrSolo() {
   const clearQueue = usePlayerStore(s => s.clearQueue);
   const clearQueueExceptCurrent = usePlayerStore(s => s.clearQueueExceptCurrent);
 
-  const reorderQueue = usePlayerStore(s => s.reorderQueue);
+  const moveQueueItems = usePlayerStore(s => s.moveQueueItems);
   const removeTrack = usePlayerStore(s => s.removeTrack);
+  const removeQueueItems = usePlayerStore(s => s.removeQueueItems);
   const shuffleQueue = usePlayerStore(s => s.shuffleQueue);
   const enqueue = usePlayerStore(s => s.enqueue);
   const enqueueAt = usePlayerStore(s => s.enqueueAt);
@@ -167,9 +168,10 @@ function QueuePanelHostOrSolo() {
   } = useQueuePanelDrag({
     asideRef,
     isQueueVisible,
-    reorderQueue,
+    moveQueueItems,
     enqueueAt,
     removeTrack,
+    removeQueueItems,
   });
 
   useQueueAutoScroll({
