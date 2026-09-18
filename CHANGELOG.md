@@ -156,6 +156,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Covers they had already put in place are removed on the first start after the update, and the albums show your server's art again.
 * Apple Music and Last.fm are now off unless you switch them on, and they are switched off once for everyone who had them on by default. Switching one off later also removes the covers it supplied.
 
+### The Last.fm button on the artist page opens Last.fm
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1609](https://github.com/Psysonic/psysonic/pull/1609)**
+
+* Depending on how the server looks up artist information, the button could open the artist's own website instead of their Last.fm page. It now always leads to Last.fm, and it shows for every artist, also when the server sends no link.
+
 ## [1.54.0]
 
 ## Fixed
