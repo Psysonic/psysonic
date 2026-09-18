@@ -89,6 +89,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Ctrl+click** (Cmd on macOS) picks several tracks in the queue, **Shift+click** picks everything between two of them. **Delete** (Backspace on macOS) removes the picked tracks, and Ctrl+Z brings them back.
 * Drag one of the picked tracks and all of them move together, in their order; drag them out of the queue and they are removed. A normal click still plays a track and lets go of the selection.
 
+### See the visualizer while you set it up
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1606](https://github.com/Psysonic/psysonic/pull/1606)**
+
+* **Settings → Appearance → Visualizer** now shows a preview above its controls, so the mode, colours, peak caps, sensitivity, responsiveness and frame rate can be judged right where they are changed.
+* It follows whatever is playing. While nothing is, it runs a short built-in demo track instead — beats, a bassline and a quieter break — and a line underneath says which of the two you are looking at.
+
+### Device Sync can put every track in one folder
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1611](https://github.com/Psysonic/psysonic/pull/1611)**
+
+* **Device Sync** has a third choice under **Layout**: **All files in one folder**. Every track goes straight into the main folder of the device, named `Album Artist - Album - Track number - Title`, for players that cannot browse folders.
+* Playlists are `.m3u8` files in the same folder that point at those tracks, so nothing is stored twice. On a device synced with folders before, the old copies are removed once the new ones are in place.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
@@ -134,12 +148,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Moving a track further down the queue put it one place below the line shown while dragging. It now lands exactly there; moving a track up was not affected.
 
+### The login logo stays put, and long names fit the cover cache table
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1604](https://github.com/Psysonic/psysonic/pull/1604)**
+
+* The Psysonic logo on the login screen could be picked up and dragged away like a loose image. It now stays where it is.
+* In **Settings → Offline & Cache → Cover art cache**, a server listed by its bare address or as `user@server` could run into the column next to it. Long names now wrap inside their own column.
+
 ### Favourite artists and analysed BPM appear wherever you browse
 
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1605](https://github.com/Psysonic/psysonic/pull/1605)**, closes [#1582](https://github.com/Psysonic/psysonic/issues/1582)
 
 * The favourite filter on **Artists** now finds artists saved through any credit, instead of showing no results. The Favorites page follows the active server group and updates as soon as a favourite is changed.
 * Tracklists now use an analysed BPM when the file has no BPM tag, so Favorites and other lists agree with Song Info.
+
+### Album covers from Apple Music and Last.fm no longer replace your own
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1608](https://github.com/Psysonic/psysonic/pull/1608)**
+
+* The album artwork fallbacks under **Settings → Integrations → Album artwork** were meant for albums your server has no cover for, but they also replaced covers that were there — embedded in the files or as a `cover.jpg` — often with art from a different album of the same name. They now step in only when the server has no cover at all, and your own art is never replaced.
+* Covers they had already put in place are removed on the first start after the update, and the albums show your server's art again.
+* Apple Music and Last.fm are now off unless you switch them on, and they are switched off once for everyone who had them on by default. Switching one off later also removes the covers it supplied.
+
+### The Last.fm button on the artist page opens Last.fm
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1609](https://github.com/Psysonic/psysonic/pull/1609)**
+
+* Depending on how the server looks up artist information, the button could open the artist's own website instead of their Last.fm page. It now always leads to Last.fm, and it shows for every artist, also when the server sends no link.
 
 ## [1.54.0]
 

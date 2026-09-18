@@ -61,7 +61,9 @@ export function useDeviceSyncSourceStatuses(
       await Promise.all(fetched.map(async ({ source, tracks }) => {
         if (cancelled) return;
         try {
-          const pathTracks = layoutMode === 'shared-album-tree'
+          // Shared and flat layouts keep one copy per track, named after the
+          // album/artist metadata even when a playlist also lists it.
+          const pathTracks = layoutMode !== 'self-contained'
             ? tracks.map(track => preferredSharedTracks.get(track.id) ?? track)
             : tracks;
           const paths = await computeSyncPaths({
@@ -74,6 +76,7 @@ export function useDeviceSyncSourceStatuses(
                   index: idx + 1,
                 }
                 : undefined,
+              layoutMode === 'flat',
             )),
             destDir: targetDir,
           });

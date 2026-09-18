@@ -32,8 +32,14 @@ export interface DeviceSyncSource {
   artist?: string;
 }
 
-export type DeviceSyncLayoutMode = 'self-contained' | 'shared-album-tree';
+export type DeviceSyncLayoutMode = 'self-contained' | 'shared-album-tree' | 'flat';
 export type DeviceSyncPlaylistPathMode = 'playlist-relative' | 'device-rooted';
+
+const DEVICE_SYNC_LAYOUT_MODES: readonly DeviceSyncLayoutMode[] = ['self-contained', 'shared-album-tree', 'flat'];
+
+function isDeviceSyncLayoutMode(value: unknown): value is DeviceSyncLayoutMode {
+  return DEVICE_SYNC_LAYOUT_MODES.includes(value as DeviceSyncLayoutMode);
+}
 
 export interface DeviceSyncManifestFile {
   trackId: string;
@@ -167,9 +173,7 @@ function isSupportedDeviceSyncManifest(manifest: DeviceSyncManifest): boolean {
   if (manifest.version === 3 && manifest.schema !== 'fixed-v1') return false;
   if (manifest.version === 4 && manifest.schema !== 'fixed-v2') return false;
   if (manifest.canonicalIdVersion !== undefined && manifest.canonicalIdVersion !== 1) return false;
-  if (manifest.layoutMode !== undefined
-    && manifest.layoutMode !== 'self-contained'
-    && manifest.layoutMode !== 'shared-album-tree') return false;
+  if (manifest.layoutMode !== undefined && !isDeviceSyncLayoutMode(manifest.layoutMode)) return false;
   if (manifest.playlistPathMode !== undefined
     && manifest.playlistPathMode !== 'playlist-relative'
     && manifest.playlistPathMode !== 'device-rooted') return false;
@@ -332,6 +336,8 @@ export function deviceSyncLegacySourcesFromManifest(
 
 export function migrateDeviceSyncPersistedState(persisted: unknown): Partial<DeviceSyncState> {
   const state = persisted as Partial<DeviceSyncState> | undefined;
+  const persistedLayout: unknown = state?.layoutMode;
+  const persistedSyncedLayout: unknown = state?.syncedLayoutMode;
   const persistedSources = Array.isArray(state?.sources) ? state.sources : [];
   const persistedLegacySources = Array.isArray(state?.legacySources) ? state.legacySources : [];
   const legacySources = [
@@ -340,9 +346,9 @@ export function migrateDeviceSyncPersistedState(persisted: unknown): Partial<Dev
   ];
   return {
     ...state,
-    layoutMode: state?.layoutMode === 'shared-album-tree' ? 'shared-album-tree' : 'self-contained',
+    layoutMode: isDeviceSyncLayoutMode(persistedLayout) ? persistedLayout : 'self-contained',
     playlistPathMode: state?.playlistPathMode === 'device-rooted' ? 'device-rooted' : 'playlist-relative',
-    syncedLayoutMode: state?.syncedLayoutMode === 'shared-album-tree' ? 'shared-album-tree' : 'self-contained',
+    syncedLayoutMode: isDeviceSyncLayoutMode(persistedSyncedLayout) ? persistedSyncedLayout : 'self-contained',
     syncedPlaylistPathMode: state?.syncedPlaylistPathMode === 'device-rooted' ? 'device-rooted' : 'playlist-relative',
     sources: withPlaylistPathIds(persistedSources.filter(isDeviceSyncSource)),
     legacySources,

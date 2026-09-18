@@ -211,3 +211,32 @@ fn unix_path_uses_forward_slash_separator() {
     assert!(!build_track_path(&track).contains('\\'));
     assert!(build_track_path(&track).contains('/'));
 }
+
+#[test]
+fn flat_layout_puts_every_track_in_the_root() {
+    let album = track(|track| track.flat_layout = true);
+    assert_eq!(build_track_path(&album), "AlbumArtist - Album - 01 - Title");
+
+    // Playlist context does not move a flat track into a playlist folder.
+    let from_playlist = track(|track| {
+        track.flat_layout = true;
+        track.playlist_name = Some("Road Trip".to_string());
+        track.playlist_index = Some(7);
+    });
+    assert_eq!(
+        build_track_path(&from_playlist),
+        "AlbumArtist - Album - 01 - Title"
+    );
+}
+
+#[test]
+fn flat_layout_sanitizes_and_falls_back_like_the_tree() {
+    let path = build_track_path(&track(|track| {
+        track.flat_layout = true;
+        track.album_artist = "Left/Right".to_string();
+        track.album = String::new();
+        track.track_number = None;
+    }));
+    assert_eq!(path, "Left_Right - Unknown Album - 00 - Title");
+    assert!(!path.contains('/') && !path.contains('\\'));
+}

@@ -237,6 +237,9 @@ describe('computeAuthStoreRehydration — discordCoverSource → Discord gate (P
   beforeEach(() => {
     resetAuthStore();
     localStorage.clear();
+    // The in-app chain's own one-time reset is covered below; keep it out of
+    // these cases so they see only what the Discord migration writes.
+    localStorage.setItem('psysonic-cover-sources-external-off-v1', '1');
   });
 
   it('coerces a stale pre-#1246 "server" value to the Discord gate off, exactly once', () => {
@@ -270,11 +273,9 @@ describe('computeAuthStoreRehydration — discordCoverSource → Discord gate (P
     expect('coverSources' in none).toBe(false);
   });
 
-  it('never writes coverSources (the chain stays enabled-by-default for every install)', () => {
-    // The maintainer-required fix: the old migration shipped the chain disabled
-    // for every existing install (legacy 'none' mapped to all-sources-off while
-    // fresh installs got all three enabled). The chain is app artwork, not a
-    // Discord disclosure, so the migration must not touch it at all.
+  it('never derives coverSources from the legacy Discord value', () => {
+    // The chain is app artwork, not a Discord disclosure: whatever the legacy
+    // Discord value was, this migration must not write the chain.
     const base = useAuthStore.getState();
     for (const legacy of ['server', 'apple', 'none', 'garbage']) {
       const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: legacy } as unknown as AuthState);
@@ -293,6 +294,46 @@ describe('computeAuthStoreRehydration — discordCoverSource → Discord gate (P
     } as unknown as AuthState);
     expect('discordCoverSource' in patch).toBe(false);
     expect('coverSources' in patch).toBe(false);
+  });
+});
+
+describe('computeAuthStoreRehydration — album-cover fallbacks reset to off once', () => {
+  const RESET_KEY = 'psysonic-cover-sources-external-off-v1';
+  const allOn = [
+    { source: 'lastfm', enabled: true },
+    { source: 'server', enabled: true },
+    { source: 'apple', enabled: true },
+  ] as const;
+
+  beforeEach(() => {
+    resetAuthStore();
+    localStorage.clear();
+  });
+
+  it('switches Apple Music and Last.fm off and keeps the order and the server row', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({ ...base, coverSources: [...allOn] } as AuthState);
+    expect(patch.coverSources).toEqual([
+      { source: 'lastfm', enabled: false },
+      { source: 'server', enabled: true },
+      { source: 'apple', enabled: false },
+    ]);
+    expect(localStorage.getItem(RESET_KEY)).toBe('1');
+  });
+
+  it('runs only once, so a later opt-in survives restarts', () => {
+    const base = useAuthStore.getState();
+    computeAuthStoreRehydration({ ...base, coverSources: [...allOn] } as AuthState);
+    const later = computeAuthStoreRehydration({ ...base, coverSources: [...allOn] } as AuthState);
+    expect('coverSources' in later).toBe(false);
+  });
+
+  it('leaves a missing chain to the defaults, which have both fallbacks off', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({ ...base, coverSources: undefined } as unknown as AuthState);
+    expect('coverSources' in patch).toBe(false);
+    expect(localStorage.getItem(RESET_KEY)).toBe('1');
+    expect(base.coverSources.filter(s => s.source !== 'server').every(s => !s.enabled)).toBe(true);
   });
 });
 

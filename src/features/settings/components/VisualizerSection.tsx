@@ -5,7 +5,13 @@ import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
 import { SettingsSubCard, SettingsField, SettingsValue } from '@/features/settings/components/SettingsSubCard';
 import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
-import { useVisualizerStore, VISUALIZER_FPS_OPTIONS, MAX_SENSITIVITY, MIN_SENSITIVITY } from '@/features/visualizer';
+import {
+  useVisualizerStore,
+  VisualizerPreview,
+  VISUALIZER_FPS_OPTIONS,
+  MAX_SENSITIVITY,
+  MIN_SENSITIVITY,
+} from '@/features/visualizer';
 import type { VisualizerColorSource, VisualizerMode } from '@/features/visualizer';
 
 interface Props {
@@ -75,6 +81,8 @@ export function VisualizerSection({ t }: Props) {
 
           {anySurfaceEnabled && (
             <>
+              <VisualizerPreview />
+
               {/* Two sub-cards, not one per control: what the visualizer looks
                   like, then what it costs to run. */}
               <SettingsSubCard>

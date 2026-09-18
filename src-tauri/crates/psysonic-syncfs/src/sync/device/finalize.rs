@@ -6,7 +6,7 @@ use super::manifest::{
     DeviceManifestWrite,
 };
 use super::{
-    path_contains_symlink, planned_path_stays_within, playlist_directory_name, resolve_within_root,
+    path_contains_symlink, planned_path_stays_within, playlist_file_path, resolve_within_root,
     validate_device_identity, write_playlist_m3u8_within_root, TrackSyncInfo,
 };
 use crate::sync::batch::{
@@ -64,11 +64,12 @@ pub struct DeviceSyncFinalizeResult {
     cleanup_failed: bool,
 }
 
-fn playlist_path(root: &Path, playlist: &DeviceSyncFinalizePlaylist) -> PathBuf {
-    let directory = playlist_directory_name(&playlist.name, playlist.path_id.as_deref());
-    root.join("Playlists")
-        .join(&directory)
-        .join(format!("{directory}.m3u8"))
+fn playlist_path(root: &Path, playlist: &DeviceSyncFinalizePlaylist, flat: bool) -> PathBuf {
+    playlist_file_path(root, &playlist.name, playlist.path_id.as_deref(), flat)
+}
+
+fn payload_is_flat(payload: &DeviceSyncFinalizePayload) -> Result<bool, String> {
+    Ok(parse_layout_mode(&payload.layout_mode)? == DeviceSyncLayoutMode::Flat)
 }
 
 fn restore_playlist(root: &Path, path: &Path, previous: Option<&[u8]>) -> Result<(), String> {
@@ -159,10 +160,11 @@ fn source_keys(sources: &[DeviceSyncFinalizeSource]) -> Vec<String> {
 fn planned_playlists(
     root: &Path,
     playlists: &[DeviceSyncFinalizePlaylist],
+    flat: bool,
 ) -> Result<Vec<DeviceSyncPlanPlaylist>, String> {
     let mut planned = Vec::with_capacity(playlists.len());
     for playlist in playlists {
-        let path = playlist_path(root, playlist);
+        let path = playlist_path(root, playlist, flat);
         let relative_path = path
             .strip_prefix(root)
             .map_err(|_| "DEVICE_SYNC_PLAYLIST_PATH_INVALID".to_string())?
@@ -195,7 +197,12 @@ fn verify_plan(
         || plan.playlist_path_mode != playlist_path_mode
         || plan.manifest_files != normalized_manifest_files(&payload.files)
         || plan.manifest_playlists != normalized_manifest_playlists(&payload.manifest_playlists)
-        || plan.playlists != planned_playlists(root, &payload.playlists)?
+        || plan.playlists
+            != planned_playlists(
+                root,
+                &payload.playlists,
+                layout_mode == DeviceSyncLayoutMode::Flat,
+            )?
         || plan.delete_paths
             != relative_delete_paths(root, payload.deferred_delete_paths.iter().cloned())?
     {
@@ -233,8 +240,9 @@ fn preflight_files_and_references(
         files.insert(portable_path_identity(&file.relative_path), canonical);
     }
 
+    let flat = payload_is_flat(payload)?;
     for playlist in &payload.playlists {
-        let playlist_file = playlist_path(root, playlist);
+        let playlist_file = playlist_path(root, playlist, flat);
         if path_contains_symlink(root, &playlist_file)? {
             return Err("DEVICE_SYNC_PLAYLIST_PATH_INVALID".to_string());
         }
@@ -278,11 +286,12 @@ fn finalize_device_sync_with_validator(
     verify_plan(root, &payload, &plan)?;
     let desired_files = preflight_files_and_references(root, &payload)?;
 
+    let flat = payload_is_flat(&payload)?;
     let mut written_playlists = Vec::new();
     let operation = (|| -> Result<(), String> {
         for playlist in &payload.playlists {
             validate(root, &expected_device_id)?;
-            let path = playlist_path(root, playlist);
+            let path = playlist_path(root, playlist, flat);
             let previous = match std::fs::read(&path) {
                 Ok(contents) => Some(contents),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
@@ -294,6 +303,7 @@ fn finalize_device_sync_with_validator(
                 playlist.path_id.as_deref(),
                 &playlist.tracks,
                 Some(&playlist.references),
+                flat,
             )?;
             written_playlists.push((path, previous));
         }

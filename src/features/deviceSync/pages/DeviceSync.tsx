@@ -105,8 +105,9 @@ export default function DeviceSync() {
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
 
   const isRunning = deviceSyncJobIsActive(jobStatus);
+  // The M3U path style only matters where playlists point at shared tracks.
   const configurationDirty = layoutMode !== syncedLayoutMode
-    || (layoutMode === 'shared-album-tree' && playlistPathMode !== syncedPlaylistPathMode);
+    || (layoutMode !== 'self-contained' && playlistPathMode !== syncedPlaylistPathMode);
 
   // Browser (playlists / albums / artists tabs + their loaders + debounced search)
   const {

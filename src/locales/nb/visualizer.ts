@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Lavere verdier bruker mindre prosessor. Animasjonen forblir jevn.',
     radioNote:
       'Nettradio kan visualiseres etter at stasjonen er koblet til equalizerens lydgraf. Enkelte strømmer støtter ikke denne ruten.',
+    preview: 'Forhåndsvisning',
+    previewDemo: 'Viser et demosignal så lenge ingenting spilles av.',
+    previewLive: 'Viser avspillingen som pågår.',
   },
 };

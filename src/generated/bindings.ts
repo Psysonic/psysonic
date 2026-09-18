@@ -464,6 +464,14 @@ export const commands = {
 	 */
 	coverCachePurgeExternal: (serverIndexKey: string) => typedError<null, string>(__TAURI_INVOKE("cover_cache_purge_external", { serverIndexKey })),
 	/**
+	 *  Drop the album covers the external chain (Apple Music / Last.fm) wrote, so
+	 *  those albums load the server's art again. Fired when the user switches a
+	 *  source off: `sources` names the switched-off ones (`None` = every chain
+	 *  cover). Works across all server buckets and takes each album's flight lock
+	 *  before removing it, so no ensure is mid-write. Returns the number removed.
+	 */
+	coverCachePurgeExternalAlbumArt: (sources: string[] | null) => typedError<number, string>(__TAURI_INVOKE("cover_cache_purge_external_album_art", { sources })),
+	/**
 	 *  Rename a server's cover-cache bucket on disk after the user edits the
 	 *  primary URL (and the derived index key changes). Used by the URL-change
 	 *  remigration pipeline (dual-server-address spec §8.3) so cached covers
@@ -2252,6 +2260,11 @@ export type TrackSyncInfo = {
 	/**  Stable source identity used to disambiguate playlists with the same display name. */
 	playlistId?: string | null,
 	playlistIndex?: number | null,
+	/**
+	 *  Flat layout: the track goes straight into the device root, whatever
+	 *  source it came from (see `build_track_path`).
+	 */
+	flatLayout?: boolean,
 };
 
 export type WaveformCachePayload = {

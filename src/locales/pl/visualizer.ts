@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Niższe wartości zużywają mniej procesora, zachowując płynną animację.',
     radioNote:
       'Radio internetowe można wizualizować po połączeniu stacji z grafem audio korektora. Niektóre strumienie nie obsługują tej ścieżki.',
+    preview: 'Podgląd',
+    previewDemo: 'Pokazuje sygnał demonstracyjny, dopóki nic nie jest odtwarzane.',
+    previewLive: 'Pokazuje bieżące odtwarzanie.',
   },
 };

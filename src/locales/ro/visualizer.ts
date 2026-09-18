@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Valorile mai mici folosesc mai puțin procesor, iar animația rămâne fluidă.',
     radioNote:
       'Radioul prin internet poate fi vizualizat după conectarea postului la graful audio al egalizatorului. Unele fluxuri nu acceptă această rută.',
+    preview: 'Previzualizare',
+    previewDemo: 'Afișează un semnal demonstrativ cât timp nu se redă nimic.',
+    previewLive: 'Afișează redarea curentă.',
   },
 };

@@ -1,4 +1,6 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+use super::external_ensure::ALBUM_EXT_HIT_MARKER;
 
 const COVER_CACHE_LAYOUT_STAMP: &str = psysonic_core::cover_cache_layout::LAYOUT_STAMP;
 
@@ -62,6 +64,63 @@ pub(super) fn purge_external_files(server_dir: &Path) -> usize {
     let mut count = 0;
     walk(server_dir, &mut count);
     count
+}
+
+/// Album cover dirs whose art the external chain wrote in place of the
+/// server's (`.album-ext-hit`), across every server bucket
+/// (`{root}/{server}/album/{entity}`). With `sources` given, only the dirs
+/// whose marker names one of them — plus markers from before the source was
+/// recorded, which could have come from either provider.
+pub(super) fn external_album_art_dirs(root: &Path, sources: Option<&[String]>) -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    let Ok(servers) = std::fs::read_dir(root) else {
+        return dirs;
+    };
+    for server in servers.flatten() {
+        let Ok(albums) = std::fs::read_dir(server.path().join("album")) else {
+            continue;
+        };
+        for album in albums.flatten() {
+            let dir = album.path();
+            let Ok(marker) = std::fs::read_to_string(dir.join(ALBUM_EXT_HIT_MARKER)) else {
+                continue;
+            };
+            let origin = marker.trim();
+            let recorded = matches!(origin, "apple" | "lastfm");
+            let selected = match sources {
+                None => true,
+                Some(list) => !recorded || list.iter().any(|s| s == origin),
+            };
+            if selected {
+                dirs.push(dir);
+            }
+        }
+    }
+    dirs
+}
+
+/// Remove the album dirs `external_album_art_dirs` selects, so those albums
+/// load the server's own art again. Returns how many were removed. Callers
+/// with ensures in flight go through the command, which takes each dir's
+/// flight lock first.
+pub(super) fn purge_external_album_art(root: &Path, sources: Option<&[String]>) -> usize {
+    external_album_art_dirs(root, sources)
+        .iter()
+        .filter(|dir| std::fs::remove_dir_all(dir).is_ok())
+        .count()
+}
+
+/// One-time cleanup for the album covers the external chain wrote before it
+/// could tell a server placeholder from real art: it replaced the art of
+/// albums that had their own. Runs once per cache root, before any ensure.
+pub(super) fn purge_misattributed_external_album_art_once(root: &Path) -> usize {
+    let stamp = root.join(".external-album-art-reset-v1");
+    if stamp.is_file() {
+        return 0;
+    }
+    let removed = purge_external_album_art(root, None);
+    let _ = std::fs::write(&stamp, b"1");
+    removed
 }
 
 /// FS-only worker for `cover_cache_rename_server_bucket`.
@@ -138,9 +197,101 @@ pub(super) fn merge_cover_bucket(old_dir: &Path, new_dir: &Path) -> Result<(), S
 
 #[cfg(test)]
 mod tests {
-    use super::{is_safe_index_key, merge_cover_bucket, purge_external_files, rename_bucket_inner};
+    use super::{
+        external_album_art_dirs, is_safe_index_key, merge_cover_bucket, purge_external_album_art,
+        purge_external_files, purge_misattributed_external_album_art_once, rename_bucket_inner,
+    };
     use crate::cover_cache::test_support::fresh_tmpdir;
     use std::fs;
+    use std::path::{Path, PathBuf};
+
+    /// `{root}/{server}/album/{id}` with a `128.webp`, and the chain marker
+    /// holding `marker` when given.
+    fn album_dir(root: &Path, server: &str, id: &str, marker: Option<&str>) -> PathBuf {
+        let dir = root.join(server).join("album").join(id);
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("128.webp"), b"art").unwrap();
+        if let Some(m) = marker {
+            fs::write(dir.join(".album-ext-hit"), m).unwrap();
+        }
+        dir
+    }
+
+    fn sorted(mut dirs: Vec<PathBuf>) -> Vec<PathBuf> {
+        dirs.sort();
+        dirs
+    }
+
+    #[test]
+    fn external_album_art_selects_by_recorded_source() {
+        let root = fresh_tmpdir("ext-album-select");
+        let apple = album_dir(&root, "srv-a", "al-1", Some("apple"));
+        let lastfm = album_dir(&root, "srv-a", "al-2", Some("lastfm"));
+        let legacy = album_dir(&root, "srv-b", "al-3", Some("1"));
+        let _server_art = album_dir(&root, "srv-b", "al-4", None);
+        let _artist = {
+            let dir = root.join("srv-a").join("artist").join("ar-1");
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(dir.join(".album-ext-hit"), b"apple").unwrap();
+            dir
+        };
+
+        assert_eq!(
+            sorted(external_album_art_dirs(&root, None)),
+            sorted(vec![apple.clone(), lastfm.clone(), legacy.clone()])
+        );
+        // Switching Apple Music off takes its own covers and the unrecorded
+        // ones, never Last.fm's.
+        assert_eq!(
+            sorted(external_album_art_dirs(&root, Some(&["apple".to_string()]))),
+            sorted(vec![apple, legacy.clone()])
+        );
+        assert_eq!(
+            sorted(external_album_art_dirs(
+                &root,
+                Some(&["lastfm".to_string()])
+            )),
+            sorted(vec![lastfm, legacy])
+        );
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn purge_external_album_art_leaves_server_art() {
+        let root = fresh_tmpdir("ext-album-purge");
+        let apple = album_dir(&root, "srv", "al-1", Some("apple"));
+        let lastfm = album_dir(&root, "srv", "al-2", Some("lastfm"));
+        let server_art = album_dir(&root, "srv", "al-3", None);
+
+        assert_eq!(
+            purge_external_album_art(&root, Some(&["apple".to_string()])),
+            1
+        );
+        assert!(!apple.exists());
+        assert!(lastfm.join("128.webp").exists());
+        assert!(server_art.join("128.webp").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn misattributed_external_album_art_is_purged_once() {
+        let root = fresh_tmpdir("ext-album-once");
+        let first = album_dir(&root, "srv", "al-1", Some("1"));
+        let server_art = album_dir(&root, "srv", "al-2", None);
+
+        assert_eq!(purge_misattributed_external_album_art_once(&root), 1);
+        assert!(!first.exists());
+        assert!(server_art.join("128.webp").exists());
+
+        // A cover the fixed chain resolves later survives restarts.
+        let later = album_dir(&root, "srv", "al-5", Some("apple"));
+        assert_eq!(purge_misattributed_external_album_art_once(&root), 0);
+        assert!(later.join("128.webp").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
 
     #[test]
     fn safe_index_key_accepts_real_keys() {

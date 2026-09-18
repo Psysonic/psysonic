@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Az alacsonyabb érték kevesebb processzort használ, miközben az animáció folyamatos marad.',
     radioNote:
       'Az internetes rádió azután jeleníthető meg, hogy az állomás csatlakozott a hangszínszabályzó hanggráfjához. Egyes streamek nem támogatják ezt az útvonalat.',
+    preview: 'Előnézet',
+    previewDemo: 'Bemutató jelet mutat, amíg semmi sem szól.',
+    previewLive: 'Az aktuális lejátszást mutatja.',
   },
 };

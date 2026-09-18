@@ -8,10 +8,12 @@
  * Internet radio, which plays through an `HTMLAudioElement`, is read from a
  * Web Audio `AnalyserNode` instead — both feeds land in the same frame shape.
  *
- * Cross-feature consumers mount `VisualizerPanel` and nothing else; the canvas,
- * feed hook and renderers are internal.
+ * Cross-feature consumers mount `VisualizerPanel` (a player surface) or
+ * `VisualizerPreview` (the settings page) and nothing else; the canvas, feed
+ * hook and renderers are internal.
  */
 export { default as VisualizerPanel } from './components/VisualizerPanel';
+export { default as VisualizerPreview } from './components/VisualizerPreview';
 export {
   useVisualizerStore,
   VISUALIZER_FPS_OPTIONS,

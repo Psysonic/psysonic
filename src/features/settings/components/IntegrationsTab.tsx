@@ -12,9 +12,9 @@ import type { DiscordCoverSource } from '@/store/authStoreTypes';
 import type { BackdropSurface } from '@/store/themeStore';
 import type { BackdropSource } from '@/cover/artistBackdrop';
 import { CoverSourceList } from '@/features/settings/components/CoverSourceList';
-import type { CoverSource } from '@/cover/coverSources';
+import { externalSourcesSwitchedOff, type CoverSource } from '@/cover/coverSources';
 import { MusicNetworkSection } from '@/features/settings/components/musicNetwork/MusicNetworkSection';
-import { purgeExternalArtworkAllServers } from '@/lib/api/coverCache';
+import { purgeExternalAlbumArt, purgeExternalArtworkAllServers } from '@/lib/api/coverCache';
 import { useShareSettingsStore } from '@/features/share';
 import { usePlayQueueSyncSettingsStore } from '@/features/playback';
 
@@ -198,7 +198,13 @@ export function IntegrationsTab() {
             <CoverSourceList
               sources={auth.coverSources}
               labelFor={coverSourceLabel}
-              onChange={auth.setCoverSources}
+              onChange={next => {
+                // Switching a provider off also takes back the covers it put in
+                // place — they would otherwise stay until the cache is cleared.
+                const switchedOff = externalSourcesSwitchedOff(auth.coverSources, next);
+                auth.setCoverSources(next);
+                void purgeExternalAlbumArt(switchedOff);
+              }}
               moveUpLabel={t('settings.backdropMoveUp')}
               moveDownLabel={t('settings.backdropMoveDown')}
             />

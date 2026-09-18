@@ -34,6 +34,9 @@ pub enum DeviceSyncLayoutMode {
     #[default]
     SelfContained,
     SharedAlbumTree,
+    /// Every track straight in the device root, playlists as `.m3u8` next to
+    /// them — for players that cannot browse folders.
+    Flat,
 }
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -177,6 +180,16 @@ pub(crate) fn track_sync_info_from_subsonic_json(
         playlist_name: playlist_name.map(str::to_string),
         playlist_id: playlist_id.map(str::to_string),
         playlist_index,
+        flat_layout: false,
+    }
+}
+
+/// Marks a planned track for the flat layout, so the `TrackSyncInfo` the
+/// frontend hands back to `sync_batch_to_device` builds the same path the
+/// plan recorded.
+pub(crate) fn inject_flat_layout(track: &mut serde_json::Value) {
+    if let Some(object) = track.as_object_mut() {
+        object.insert("_flatLayout".to_string(), serde_json::Value::Bool(true));
     }
 }
 
