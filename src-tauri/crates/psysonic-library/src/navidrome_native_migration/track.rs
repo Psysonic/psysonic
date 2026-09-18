@@ -116,13 +116,15 @@ pub(super) fn run_batch(
 
         let destination = if existing_destination_ids.contains(&destination_id) {
             load_owner(tx, server_id, &destination_id)?
-                .filter(|destination| !destination.row.deleted)
         } else {
             None
         };
+        let replaces_deleted_owner = destination
+            .as_ref()
+            .is_some_and(|destination| destination.row.deleted);
         // The canonical row owns the migrated ID. Keep it and retarget legacy
         // references even when mutable server metadata has changed.
-        let row = match destination {
+        let row = match destination.filter(|destination| !destination.row.deleted) {
             Some(destination) => {
                 ensure_merge_safe(
                     tx,
@@ -139,6 +141,9 @@ pub(super) fn run_batch(
                 canonicalize_owner(source.row, destination_id.clone())?
             }
         };
+        if replaces_deleted_owner {
+            clear_deleted_owner_preserved_fields(tx, server_id, &destination_id)?;
+        }
         write_owner(tx, &row)?;
         if requires_full_retarget {
             discard_stale_source_alias(tx, server_id, &old_id, &destination_id)?;
@@ -575,6 +580,21 @@ fn write_owner(tx: &Transaction<'_>, row: &TrackRow) -> rusqlite::Result<()> {
         row.raw_json,
         0_i64,
     ])?;
+    Ok(())
+}
+
+fn clear_deleted_owner_preserved_fields(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    id: &str,
+) -> rusqlite::Result<()> {
+    tx.execute(
+        "UPDATE track SET \
+           title_sort = NULL, play_count = NULL, played_at = NULL, library_id = NULL, \
+           content_hash = NULL, server_updated_at = NULL, server_created_at = NULL \
+         WHERE server_id = ?1 AND id = ?2 AND deleted = 1",
+        params![server_id, id],
+    )?;
     Ok(())
 }
 

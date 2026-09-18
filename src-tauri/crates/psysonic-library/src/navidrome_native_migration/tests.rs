@@ -556,14 +556,18 @@ fn overflow_track_migration_replaces_a_deleted_canonical_owner() {
         .with_conn_mut("test.seed_deleted_canonical_track_owner", |conn| {
             conn.execute(
                 "INSERT INTO track \
-                   (server_id, id, title, album, duration_sec, size_bytes, deleted, synced_at, raw_json) \
-                 VALUES ('s1', ?1, 'Birth of the Blues', 'Chet Lag', 351, 14168871, 0, 2, ?2), \
-                        ('s1', ?3, 'Old tombstone', 'Old album', 0, 1, 1, 1, ?4)",
+                   (server_id, id, title, title_sort, album, duration_sec, size_bytes, play_count, \
+                    played_at, library_id, content_hash, server_updated_at, server_created_at, \
+                    deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Birth of the Blues', NULL, 'Chet Lag', 351, 14168871, \
+                         NULL, NULL, NULL, NULL, NULL, NULL, 0, 2, ?2), \
+                        ('s1', ?3, 'Old tombstone', 'Stale sort', 'Old album', 0, 1, 99, \
+                         98, 'stale-library', 'stale-hash', 97, 96, 1, 1, ?4)",
                 params![
                     legacy_track,
                     serde_json::json!({ "id": legacy_track }).to_string(),
                     canonical_track,
-                    serde_json::json!({ "id": canonical_track }).to_string(),
+                    serde_json::json!({ "id": canonical_track, "staleOnly": true }).to_string(),
                 ],
             )?;
             conn.execute(
@@ -578,32 +582,58 @@ fn overflow_track_migration_replaces_a_deleted_canonical_owner() {
                  VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
                 params![legacy_track],
             )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 2, 20, 20, 'full', 'ended')",
+                params![canonical_track],
+            )?;
             Ok(())
         })
         .unwrap();
 
-    let (moved, merged) = run_track_batches(&store, 1);
+    let (moved, merged) = run_track_batches(&store, 20);
     assert_eq!((moved, merged), (1, 0));
-    let state: (i64, String, String, String) = store
+    let state: (i64, String, bool, String, String, i64) = store
         .with_read_conn(|conn| {
             conn.query_row(
                 "SELECT \
                    (SELECT COUNT(*) FROM track WHERE server_id = 's1'), \
-                   (SELECT title FROM track WHERE server_id = 's1' AND id = ?1 AND deleted = 0), \
+                   title, \
+                   title_sort IS NULL AND play_count IS NULL AND played_at IS NULL \
+                     AND library_id IS NULL AND content_hash IS NULL \
+                     AND server_updated_at IS NULL AND server_created_at IS NULL, \
+                   raw_json, \
                    (SELECT new_id FROM track_id_history WHERE server_id = 's1' AND old_id = ?2), \
-                   (SELECT track_id FROM play_session)",
+                   (SELECT COUNT(*) FROM play_session \
+                    WHERE server_id = 's1' AND track_id = ?1) \
+                 FROM track WHERE server_id = 's1' AND id = ?1 AND deleted = 0",
                 params![canonical_track, legacy_track],
-                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                },
             )
         })
         .unwrap();
+    let payload: serde_json::Value = serde_json::from_str(&state.3).unwrap();
+    assert_eq!(payload["id"], state.4);
+    assert_eq!(payload["staleOnly"], serde_json::Value::Null);
     assert_eq!(
-        state,
+        (state.0, state.1, state.2, state.4, state.5),
         (
             1,
             "Birth of the Blues".to_string(),
+            true,
             canonical_track.clone(),
-            canonical_track,
+            2,
         )
     );
 }
