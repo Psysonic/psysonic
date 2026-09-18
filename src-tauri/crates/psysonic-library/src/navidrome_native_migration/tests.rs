@@ -141,7 +141,7 @@ fn track_collision_keeps_canonical_owner_and_retargets_history() {
                 "INSERT INTO track \
                    (server_id, id, title, album, starred_at, play_count, server_updated_at, \
                     deleted, synced_at, raw_json) \
-                 VALUES ('s1', ?1, 'Canonical title', 'Album', NULL, 2, 100, 1, 100, ?2)",
+                 VALUES ('s1', ?1, 'Canonical title', 'Album', NULL, 2, 100, 0, 100, ?2)",
                 params![
                     canonical_track,
                     serde_json::json!({ "id": canonical_track, "title": "Canonical title" })
@@ -543,6 +543,67 @@ fn overflow_track_migration_ignores_a_deleted_alias_owner() {
             true,
             canonical_track.to_string(),
             canonical_track.to_string(),
+        )
+    );
+}
+
+#[test]
+fn overflow_track_migration_replaces_a_deleted_canonical_owner() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "XNMKOIuyafuxBspGhlKfWq";
+    let canonical_track = canonical_id(legacy_track);
+    store
+        .with_conn_mut("test.seed_deleted_canonical_track_owner", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, duration_sec, size_bytes, deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Birth of the Blues', 'Chet Lag', 351, 14168871, 0, 2, ?2), \
+                        ('s1', ?3, 'Old tombstone', 'Old album', 0, 1, 1, 1, ?4)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                    canonical_track,
+                    serde_json::json!({ "id": canonical_track }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_id_history (server_id, old_id, new_id, remapped_at) \
+                 VALUES ('s1', ?1, ?2, 1)",
+                params![legacy_track, canonical_track],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let (moved, merged) = run_track_batches(&store, 1);
+    assert_eq!((moved, merged), (1, 0));
+    let state: (i64, String, String, String) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   (SELECT COUNT(*) FROM track WHERE server_id = 's1'), \
+                   (SELECT title FROM track WHERE server_id = 's1' AND id = ?1 AND deleted = 0), \
+                   (SELECT new_id FROM track_id_history WHERE server_id = 's1' AND old_id = ?2), \
+                   (SELECT track_id FROM play_session)",
+                params![canonical_track, legacy_track],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        state,
+        (
+            1,
+            "Birth of the Blues".to_string(),
+            canonical_track.clone(),
+            canonical_track,
         )
     );
 }

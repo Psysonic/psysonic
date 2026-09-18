@@ -47,7 +47,9 @@ pub(super) fn preflight(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Resu
             .map_err(migration_error)?;
             let destination_id = migration_destination_id(tx, server_id, &source.row.id)?;
             if source.row.id != destination_id {
-                if let Some(destination) = load_owner(tx, server_id, &destination_id)? {
+                if let Some(destination) = load_owner(tx, server_id, &destination_id)?
+                    .filter(|destination| !destination.row.deleted)
+                {
                     ensure_merge_safe(
                         tx,
                         server_id,
@@ -114,6 +116,7 @@ pub(super) fn run_batch(
 
         let destination = if existing_destination_ids.contains(&destination_id) {
             load_owner(tx, server_id, &destination_id)?
+                .filter(|destination| !destination.row.deleted)
         } else {
             None
         };
@@ -425,12 +428,13 @@ fn ensure_merge_safe(
         }
     }
 
-    let historical_owner: bool = tx.query_row(
-        "SELECT EXISTS(SELECT 1 FROM track_id_history \
+    let historical_owner: bool = !destination.deleted
+        && tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM track_id_history \
          WHERE server_id = ?1 AND old_id = ?2 AND new_id = ?3)",
-        params![server_id, source.id, destination_id],
-        |row| row.get(0),
-    )?;
+            params![server_id, source.id, destination_id],
+            |row| row.get(0),
+        )?;
     let stable_metadata_matches = source.duration_sec > 0
         && destination.duration_sec == source.duration_sec
         && matches!(
