@@ -4,6 +4,11 @@ import { useSpectrumFeed } from '@/features/visualizer/hooks/useSpectrumFeed';
 import { useVisualizerPalette } from '@/features/visualizer/hooks/useVisualizerPalette';
 import { useVisualizerStore } from '@/features/visualizer/store/visualizerStore';
 import {
+  createDemoSpectrum,
+  sampleDemoSpectrum,
+  type DemoSpectrum,
+} from '@/features/visualizer/utils/demoSpectrum';
+import {
   createRendererState,
   renderFrame,
   resetRendererState,
@@ -21,12 +26,18 @@ interface VisualizerCanvasProps {
   className?: string;
   /** Mode override; defaults to the stored preference. */
   mode?: VisualizerMode;
+  /** Animate a synthetic signal while the feed has none (settings preview). */
+  demoWhenIdle?: boolean;
+  /** Called when the drawn source switches between playback (true) and the demo. */
+  onLiveChange?: (live: boolean) => void;
 }
 
 /**
  * Canvas rendering stays outside React state. React only tracks low-rate
  * activity changes so inactive surfaces release their feed lease;
  * fresh audio wakes the otherwise quiescent RAF loop through `feed.subscribe`.
+ * With `demoWhenIdle` the loop keeps drawing a synthetic signal instead of
+ * going quiet, and hands over to the feed as soon as it carries audio.
  */
 export default function VisualizerCanvas({
   artUrl,
@@ -34,6 +45,8 @@ export default function VisualizerCanvas({
   paused = false,
   className,
   mode,
+  demoWhenIdle = false,
+  onLiveChange,
 }: VisualizerCanvasProps): React.ReactElement {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [documentVisible, setDocumentVisible] = useState(
@@ -60,6 +73,16 @@ export default function VisualizerCanvas({
     && !windowHidden
     && (!pauseWhenUnfocused || !windowBlurred);
   const feedRef = useSpectrumFeed(feedActive, feedParams);
+
+  // The render loop must not restart when a slider moves or the callback
+  // changes identity, so the demo reads both through refs.
+  const demoRef = useRef<DemoSpectrum | null>(null);
+  const demoParamsRef = useRef(feedParams);
+  const onLiveChangeRef = useRef(onLiveChange);
+  useEffect(() => {
+    demoParamsRef.current = feedParams;
+    onLiveChangeRef.current = onLiveChange;
+  }, [feedParams, onLiveChange]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -134,6 +157,8 @@ export default function VisualizerCanvas({
 
     let disposed = false;
     let raf: number | null = null;
+    const demo = demoWhenIdle ? (demoRef.current ??= createDemoSpectrum()) : null;
+    let lastLive: boolean | null = null;
 
     const schedule = (): void => {
       if (disposed || raf !== null) return;
@@ -147,6 +172,20 @@ export default function VisualizerCanvas({
 
       const feed = feedRef.current;
       feed.sample(now);
+      let frame = feed.frame;
+      let animate = feed.shouldAnimate;
+      if (demo) {
+        if (feed.hasSignal !== lastLive) {
+          lastLive = feed.hasSignal;
+          onLiveChangeRef.current?.(feed.hasSignal);
+        }
+        if (!feed.hasSignal) {
+          sampleDemoSpectrum(demo, now, demoParamsRef.current);
+          frame = demo.frame;
+          animate = true;
+        }
+      }
+
       const surface = setupCanvas(canvasElement);
       if (surface) {
         const o = optionsRef.current;
@@ -154,7 +193,7 @@ export default function VisualizerCanvas({
           surface.ctx,
           surface.width,
           surface.height,
-          feed.frame,
+          frame,
           o.activeMode,
           {
             palette: o.palette,
@@ -166,7 +205,7 @@ export default function VisualizerCanvas({
         );
       }
 
-      if (feed.shouldAnimate) schedule();
+      if (animate) schedule();
     }
 
     const unsubscribeFeed = feedRef.current.subscribe(schedule);
@@ -181,7 +220,7 @@ export default function VisualizerCanvas({
       const ctx = canvasElement.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     };
-  }, [feedActive, feedRef]);
+  }, [feedActive, feedRef, demoWhenIdle]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
