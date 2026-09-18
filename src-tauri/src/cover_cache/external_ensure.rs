@@ -70,10 +70,14 @@ fn marker_recent(path: &Path, max_age: Duration) -> bool {
 }
 
 fn write_marker(path: &Path) {
+    write_marker_with(path, b"1");
+}
+
+fn write_marker_with(path: &Path, content: &[u8]) {
     if let Some(parent) = path.parent() {
         let _ = std::fs::create_dir_all(parent);
     }
-    let _ = std::fs::write(path, b"1");
+    let _ = std::fs::write(path, content);
 }
 
 /// Permanent "external chain already found real art for this album" sentinel.
@@ -82,11 +86,35 @@ fn write_marker(path: &Path) {
 /// re-ensure once real art is on disk — the normal peek then finds it. Unlike
 /// `.miss-album-ext` (30-min cooldown), a HIT is never re-checked: the album now
 /// has art, so the chain has nothing more to do until the cache is cleared.
-const ALBUM_EXT_HIT_MARKER: &str = ".album-ext-hit";
+///
+/// Holds the name of the source that supplied the art (`apple` / `lastfm`), so
+/// switching one source off can drop exactly its images. Markers written before
+/// that carry `1`.
+pub(super) const ALBUM_EXT_HIT_MARKER: &str = ".album-ext-hit";
 
 /// True when this album has already been resolved by the external chain (HIT).
 pub(super) fn album_ext_hit(dir: &Path) -> bool {
     dir.join(ALBUM_EXT_HIT_MARKER).is_file()
+}
+
+/// The server answered this album's cover with its "no artwork" placeholder
+/// (see `fetch::is_navidrome_album_placeholder`). Only such an album may be
+/// handed to the external chain; everything else keeps the server's art.
+const SERVER_PLACEHOLDER_MARKER: &str = ".server-placeholder";
+
+pub(super) fn server_placeholder_seen(dir: &Path) -> bool {
+    dir.join(SERVER_PLACEHOLDER_MARKER).is_file()
+}
+
+/// Record what the latest server download for this album was: its placeholder
+/// or real art (which also retires a marker from before the album got art).
+pub(super) fn note_server_placeholder(dir: &Path, placeholder: bool) {
+    let marker = dir.join(SERVER_PLACEHOLDER_MARKER);
+    if placeholder {
+        write_marker(&marker);
+    } else if marker.is_file() {
+        let _ = std::fs::remove_file(marker);
+    }
 }
 
 /// §11: do these pixel dimensions satisfy the fanart (16:9) surface?
@@ -472,7 +500,7 @@ pub(super) async fn try_external_album_cover(
     // fallback can never starve Navidrome cover / getArtistInfo2 fetches (§26).
     let _permit = sem.clone().acquire_owned().await.ok()?;
 
-    let mut img_url: Option<String> = None;
+    let mut img_url: Option<(String, &str)> = None;
     let mut had_definitive_miss = false;
     for source in sources {
         let outcome = match source.as_str() {
@@ -525,7 +553,7 @@ pub(super) async fn try_external_album_cover(
         };
         match outcome {
             Ok(Some(u)) => {
-                img_url = Some(u);
+                img_url = Some((u, source.as_str()));
                 break;
             }
             Ok(None) => {
@@ -535,8 +563,8 @@ pub(super) async fn try_external_album_cover(
         }
     }
 
-    let url = match img_url {
-        Some(u) => u,
+    let (url, hit_source) = match img_url {
+        Some(hit) => hit,
         None => {
             // Negative-cache only definitive misses; a pure transient error
             // (429 / network) must not poison the chain for 30 min.
@@ -583,7 +611,7 @@ pub(super) async fn try_external_album_cover(
     // re-running the provider chain on every re-ensure (a HIT writes no
     // `.miss-album-ext` cooldown, so without this the chain would re-query
     // apple/lastfm on each mount). The normal peek finds the written tier.
-    write_marker(&dir.join(ALBUM_EXT_HIT_MARKER));
+    write_marker_with(&dir.join(ALBUM_EXT_HIT_MARKER), hit_source.as_bytes());
 
     Some(disk::tier_path(dir, requested))
 }

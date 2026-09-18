@@ -51,7 +51,6 @@ pub(super) fn chain_hit_fullres_redirect(
     if args.library_bulk
         || args.surface_kind.is_some()
         || args.cache_kind != "album"
-        || !args.cover_art_id.ends_with("_0")
         || args.tier < 2000
         || !external_ensure::album_ext_hit(dir)
     {
@@ -96,7 +95,7 @@ fn ext_album_chain_armed(args: &CoverCacheEnsureArgs) -> bool {
 /// but that is content-harmless: derive only runs on marker-absent dirs and
 /// its writes are `tier_exists`-guarded, so the two writers produce the same
 /// bytes.
-fn inflight_dir_flight(
+pub(super) fn inflight_dir_flight(
     map: &std::sync::Mutex<HashMap<PathBuf, std::sync::Weak<Mutex<()>>>>,
     dir: &Path,
 ) -> Arc<Mutex<()>> {
@@ -129,14 +128,14 @@ pub(super) enum VinylGuardDecision {
 /// `.album-ext-hit` marker; then the best existing tier is served, or a miss
 /// is returned. Never deletes the marker and never re-runs the chain (hard
 /// rule) — a wiped-tiers-but-marker dir is a pathological manual state and a
-/// miss is safe.
+/// miss is safe. The marker alone decides, whatever id the request carries:
+/// the chain only ever runs for an album the server answered with its
+/// placeholder, so there is no server art under that marker to protect.
 pub(super) fn chain_ladder_vinyl_guard(
     args: &CoverCacheEnsureArgs,
     dir: &Path,
 ) -> VinylGuardDecision {
-    let protected = args.cache_kind == "album"
-        && args.cover_art_id.ends_with("_0")
-        && external_ensure::album_ext_hit(dir);
+    let protected = args.cache_kind == "album" && external_ensure::album_ext_hit(dir);
     if !protected {
         return VinylGuardDecision::Proceed;
     }
@@ -221,17 +220,24 @@ impl CoverCacheState {
             FullresRedirect::None => {}
         }
 
-        // §5 cover provider chain, coverless-album path. An album `cover_art_id`
-        // ending in `_0` is Navidrome's "no cover" sentinel — the server has no
-        // real art, and a placeholder `.webp` is often already on disk (written
-        // by an earlier request). Without this guard both `ensure_peek` (below)
-        // and `load_image_from_disk` would return that placeholder as a hit and
-        // silently bypass the external chain. So when the chain is armed AND the
-        // album is coverless, skip the cached-placeholder peek and let the
-        // external chain run first (below). OFF during `library_bulk`.
+        // §5 cover provider chain, coverless-album path. An album counts as
+        // coverless only once a server download returned the server's own
+        // placeholder (`.server-placeholder`, see the download branch below).
+        // The cover id says nothing about it: `al-<id>_0` is what Psysonic
+        // builds for every album it has no server id for, and it names albums
+        // with real art just as well. The placeholder `.webp` is then on disk,
+        // and without this guard both `ensure_peek` (below) and
+        // `load_image_from_disk` would return it as a hit and silently bypass
+        // the external chain. So when the chain is armed AND the album is
+        // coverless, skip the cached-placeholder peek and let the external
+        // chain run first (below). OFF during `library_bulk`.
         let ext_gate_ok = ext_album_chain_armed(args);
-        let album_is_coverless = args.cache_kind == "album" && args.cover_art_id.ends_with("_0");
+        let album_is_coverless =
+            args.cache_kind == "album" && external_ensure::server_placeholder_seen(&dir);
         let album_already_hit = args.cache_kind == "album" && external_ensure::album_ext_hit(&dir);
+        // One provider round per flight: the pre-download run below and the
+        // download branches must not ask the same providers twice.
+        let mut chain_tried = false;
 
         if !(ext_gate_ok && album_is_coverless && !album_already_hit) {
             if let Some(path) = ensure_peek(&dir, args.tier, args) {
@@ -275,6 +281,7 @@ impl CoverCacheState {
         // writes real art and wins; a definitive miss records `.miss-album-ext`
         // (30 min) and falls through to the cached placeholder below.
         if ext_gate_ok && album_is_coverless && !album_already_hit {
+            chain_tried = true;
             if let Some(path) = external_ensure::try_external_album_cover(
                 args, &dir, &client, &album_sem, args.tier,
             )
@@ -345,14 +352,33 @@ impl CoverCacheState {
                 .try_state::<Arc<psysonic_core::server_http::ServerHttpRegistry>>()
                 .map(|s| Arc::clone(&*s));
             match download_cover_payload(&client, &http_sem, args, http_registry).await {
-                Ok(bytes) => CoverSource::Bytes(bytes),
+                Ok(bytes) => {
+                    if args.cache_kind == "album" {
+                        let placeholder = fetch::is_navidrome_album_placeholder(&bytes);
+                        external_ensure::note_server_placeholder(&dir, placeholder);
+                        // The server has no art for this album — the one case
+                        // the external chain is for. Real server art is never
+                        // replaced. A miss keeps the placeholder, as before.
+                        if placeholder && ext_gate_ok && !chain_tried {
+                            if let Some(path) = external_ensure::try_external_album_cover(
+                                args, &dir, &client, &album_sem, args.tier,
+                            )
+                            .await
+                            {
+                                emit_tier_ready(app, args, args.tier, &path);
+                                return Ok(CoverCacheEnsureResult::hit_at(args.tier, &path));
+                            }
+                        }
+                    }
+                    CoverSource::Bytes(bytes)
+                }
                 Err(err) => {
                     super::ensure_migration_write_allowed(app)?;
                     log_cover_fetch_failure(app, args, &err);
                     // Album external fallback (§5): the server had no art but an
                     // external album chain is armed — try apple/lastfm before
                     // recording a miss (OFF during library_bulk).
-                    if ext_album_chain_armed(args) {
+                    if ext_album_chain_armed(args) && !chain_tried {
                         if let Some(path) = external_ensure::try_external_album_cover(
                             args, &dir, &client, &album_sem, args.tier,
                         )
@@ -724,10 +750,9 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// Display tiers and non-coverless albums never take the redirect — a
-    /// non-`_0` album's real `2000.webp` is genuine full-res from Navidrome.
+    /// Display tiers, bulk and external surfaces never take the redirect.
     #[test]
-    fn fullres_redirect_skips_display_tiers_and_non_coverless() {
+    fn fullres_redirect_skips_display_tiers_bulk_and_surfaces() {
         let root = fresh_tmpdir("fullres-redirect-scope");
         let dir = root.join("album").join("al-1");
         fs::create_dir_all(&dir).unwrap();
@@ -738,11 +763,6 @@ mod tests {
         // Display tier: no redirect.
         assert!(matches!(
             chain_hit_fullres_redirect(&fullres_args("al-1_0", 800, false), &dir),
-            FullresRedirect::None
-        ));
-        // Non-coverless album: no redirect (2000 is genuine server art).
-        assert!(matches!(
-            chain_hit_fullres_redirect(&fullres_args("al-1", 2000, false), &dir),
             FullresRedirect::None
         ));
         // Library bulk: no redirect.
@@ -757,6 +777,28 @@ mod tests {
             chain_hit_fullres_redirect(&surface_args, &dir),
             FullresRedirect::None
         ));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    /// The marker decides, not the shape of the cover id: `al-<id>_0` is not a
+    /// "no art" sign (Psysonic builds it for every album it has no server id
+    /// for), so an id without `_0` must be redirected all the same.
+    #[test]
+    fn fullres_redirect_ignores_cover_id_shape() {
+        let root = fresh_tmpdir("fullres-redirect-id-shape");
+        let dir = root.join("album").join("al-1");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(tier_path(&dir, 800), b"chain-art-800").unwrap();
+        fs::write(dir.join(".album-ext-hit"), b"apple").unwrap();
+
+        for id in ["al-1_0", "al-1_6aad634b", "al-1"] {
+            assert_eq!(
+                chain_hit_fullres_redirect(&fullres_args(id, 2000, false), &dir),
+                FullresRedirect::Serve(tier_path(&dir, 800)),
+                "{id}"
+            );
+        }
 
         let _ = fs::remove_dir_all(&root);
     }
@@ -867,11 +909,11 @@ mod tests {
         let _ = fs::remove_dir_all(&root);
     }
 
-    /// Fix B: the guard only protects marker-present coverless ALBUMS — other
-    /// kinds and non-coverless ids take the normal path, while library_bulk is
-    /// still protected (the backfill worker is the observed quiet writer).
+    /// Fix B: the guard only protects marker-present ALBUMS — other kinds take
+    /// the normal path, whatever the id looks like, while library_bulk is still
+    /// protected (the backfill worker is the observed quiet writer).
     #[test]
-    fn vinyl_guard_scopes_to_marker_present_coverless_albums() {
+    fn vinyl_guard_scopes_to_marker_present_albums() {
         let root = fresh_tmpdir("vinyl-guard-scope");
         let dir = root.join("album").join("al-1");
         fs::create_dir_all(&dir).unwrap();
@@ -887,11 +929,14 @@ mod tests {
             VinylGuardDecision::Proceed
         ));
 
-        // Non-coverless id with a marker → Proceed (a `_1` 800 is genuine server art).
-        assert!(matches!(
-            chain_ladder_vinyl_guard(&fullres_args("al-1", 400, false), &dir),
-            VinylGuardDecision::Proceed
-        ));
+        // A marker protects whatever the id looks like: the chain only runs
+        // for albums the server answered with its placeholder.
+        for id in ["al-1", "al-1_6aad634b"] {
+            assert!(matches!(
+                chain_ladder_vinyl_guard(&fullres_args(id, 400, false), &dir),
+                VinylGuardDecision::Serve(path) if path == tier_path(&dir, 800)
+            ));
+        }
 
         // Artist kind with a marker → Proceed.
         let mut artist_args = fullres_args("al-1_0", 400, false);
