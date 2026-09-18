@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Lagere waarden gebruiken minder CPU. De animatie blijft vloeiend.',
     radioNote:
       'Internetradio kan worden gevisualiseerd nadat het station met de audiografiek van de equalizer is verbonden. Sommige streams ondersteunen deze route niet.',
+    preview: 'Voorbeeld',
+    previewDemo: 'Toont een demosignaal zolang er niets wordt afgespeeld.',
+    previewLive: 'Toont de huidige weergave.',
   },
 };

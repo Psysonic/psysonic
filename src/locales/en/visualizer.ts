@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Lower rates cost less CPU. The animation stays smooth either way.',
     radioNote:
       'Internet radio can be visualized after the station connects to the equalizer audio graph. Some streams do not support that route.',
+    preview: 'Preview',
+    previewDemo: 'Showing a demo signal while nothing is playing.',
+    previewLive: 'Showing the current playback.',
   },
 };

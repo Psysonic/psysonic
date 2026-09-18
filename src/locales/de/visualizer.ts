@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Niedrigere Werte benötigen weniger CPU. Die Animation bleibt dennoch flüssig.',
     radioNote:
       'Internetradio kann visualisiert werden, sobald der Sender mit dem Audio-Graphen des Equalizers verbunden ist. Einige Streams unterstützen diesen Pfad nicht.',
+    preview: 'Vorschau',
+    previewDemo: 'Zeigt ein Demo-Signal, solange nichts abgespielt wird.',
+    previewLive: 'Zeigt die laufende Wiedergabe.',
   },
 };

@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Une fréquence plus basse sollicite moins le processeur tout en gardant une animation fluide.',
     radioNote:
       'La radio Internet peut être visualisée après la connexion de la station au graphe audio de l’égaliseur. Certains flux ne prennent pas en charge ce chemin.',
+    preview: 'Aperçu',
+    previewDemo: 'Affiche un signal de démonstration tant que rien n’est en lecture.',
+    previewLive: 'Affiche la lecture en cours.',
   },
 };

@@ -1,10 +1,18 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from '@/lib/i18n';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { useVisualizerStore } from '@/features/visualizer';
 import { VisualizerSection } from './VisualizerSection';
+
+// The preview's canvas runs the audio feed; this suite is about the controls.
+vi.mock('@/features/visualizer/components/VisualizerCanvas', () => ({
+  default: () => <canvas data-testid="visualizer-preview-canvas" />,
+}));
+vi.mock('@/features/visualizer/hooks/useVisualizerCoverArt', () => ({
+  useVisualizerCoverArt: () => ({ artUrl: '', artKey: '' }),
+}));
 
 beforeEach(() => {
   useVisualizerStore.setState({
@@ -81,6 +89,23 @@ describe('VisualizerSection accessibility', () => {
     renderWithProviders(<VisualizerSection t={i18n.t} />);
 
     expect(screen.queryByRole('radiogroup', { name: 'Default mode' })).toBeNull();
+  });
+
+  it('shows a preview above the controls while a surface is on', () => {
+    useVisualizerStore.setState({ enabledNowPlaying: false, enabledFullscreen: true });
+    renderWithProviders(<VisualizerSection t={i18n.t} />);
+
+    const preview = screen.getByRole('group', { name: 'Preview' });
+    const modes = screen.getByRole('radiogroup', { name: 'Default mode' });
+    expect(preview.compareDocumentPosition(modes) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('drops the preview once both surfaces are off', () => {
+    useVisualizerStore.setState({ enabledNowPlaying: false, enabledFullscreen: false });
+    renderWithProviders(<VisualizerSection t={i18n.t} />);
+
+    expect(screen.queryByRole('group', { name: 'Preview' })).toBeNull();
+    expect(screen.queryByTestId('visualizer-preview-canvas')).toBeNull();
   });
 
   it('leaves range semantics to the native input', () => {

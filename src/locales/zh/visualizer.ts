@@ -34,5 +34,8 @@ export const visualizer = {
     frameRate: '帧率',
     frameRateHint: '较低的帧率会减少 CPU 占用，同时保持动画流畅。',
     radioNote: '电台连接到均衡器音频图后即可显示网络电台可视化。部分音频流不支持此路径。',
+    preview: '预览',
+    previewDemo: '未播放时显示演示信号。',
+    previewLive: '正在显示当前播放内容。',
   },
 };

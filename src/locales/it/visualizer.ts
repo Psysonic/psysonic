@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Valori più bassi usano meno CPU mantenendo comunque fluida l’animazione.',
     radioNote:
       'La radio Internet può essere visualizzata dopo il collegamento della stazione al grafo audio dell’equalizzatore. Alcuni flussi non supportano questo percorso.',
+    preview: 'Anteprima',
+    previewDemo: 'Mostra un segnale dimostrativo finché non è in riproduzione nulla.',
+    previewLive: 'Mostra la riproduzione in corso.',
   },
 };
