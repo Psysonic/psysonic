@@ -614,6 +614,8 @@ export const settings = {
   ratingsMixMinArtist: 'Artiesten',
   ratingsMixMinThresholdAria: 'Minimum sterren: {{label}}',
   backupTitle: 'Back-up & Herstel',
+  backupCredentialsNoticeTitle: 'Back-ups bevatten wachtwoorden',
+  backupCredentialsNoticeBody: 'Instellingen-back-ups en volledige back-ups slaan serverwachtwoorden en scrobbler-sleutels op als leesbare tekst — daardoor kan een herstel de aanmeldingen terugbrengen. Iedereen die het bestand opent kan ze lezen, bewaar het dus op een veilige plek en deel het niet.',
   backupExport: 'Instellingen exporteren',
   backupExportDesc: 'Slaat alle instellingen, serverprofielen, Last.fm-configuratie, thema, EQ en sneltoetsen op in een .psybkp-bestand. Wachtwoorden worden opgeslagen als leesbare tekst — bewaar het bestand veilig.',
   backupImport: 'Instellingen importeren',

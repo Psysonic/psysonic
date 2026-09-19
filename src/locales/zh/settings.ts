@@ -584,6 +584,8 @@ export const settings = {
   ratingsMixMinArtist: '艺人',
   ratingsMixMinThresholdAria: '最低星数：{{label}}',
   backupTitle: '备份与恢复',
+  backupCredentialsNoticeTitle: '备份包含密码',
+  backupCredentialsNoticeBody: '设置备份和完整备份会以可读文本保存服务器密码和 scrobbler 密钥，这正是恢复时能找回登录信息的原因。任何打开该文件的人都能读取它们，因此请妥善保管，不要分享。',
   backupExport: '导出设置',
   backupExportDesc: '将所有设置、服务器配置、Last.fm 配置、主题、均衡器和快捷键保存到 .psybkp 文件。密码以明文存储——请妥善保管该文件。',
   backupImport: '导入设置',

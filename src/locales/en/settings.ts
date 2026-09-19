@@ -649,6 +649,8 @@ export const settings = {
   ratingsMixMinArtist: 'Artists',
   ratingsMixMinThresholdAria: 'Minimum stars: {{label}}',
   backupTitle: 'Backup & Restore',
+  backupCredentialsNoticeTitle: 'Backups contain passwords',
+  backupCredentialsNoticeBody: 'Settings and full backups store server passwords and scrobbler keys as readable text — that is what lets a restore bring the logins back. Anyone who opens the file can read them, so keep it somewhere safe and do not share it.',
   backupExport: 'Export settings',
   backupExportDesc: 'Saves all settings, server profiles, Last.fm config, theme, EQ and keybindings to a .psybkp file. Passwords are stored in plaintext — keep the file secure.',
   backupImport: 'Import settings',

@@ -584,6 +584,8 @@ export const settings = {
   ratingsMixMinArtist: 'Artister',
   ratingsMixMinThresholdAria: 'Minimum stjerner: {{label}}',
   backupTitle: 'Sikkerhetskopiering og gjenoppretting',
+  backupCredentialsNoticeTitle: 'Sikkerhetskopier inneholder passord',
+  backupCredentialsNoticeBody: 'Innstillings- og fullstendige sikkerhetskopier lagrer tjenerpassord og scrobbler-nøkler som lesbar tekst — det er dette som lar en gjenoppretting hente tilbake innloggingene. Alle som åpner filen kan lese dem, så den bør oppbevares trygt og ikke deles.',
   backupExport: 'Eksporter innstillinger',
   backupExportDesc: 'Lagrer alle innstillinger, tjenerprofiler, Last.fm-konfigurasjon, tema, jevnstiller og tastebindinger til en .psybkp-fil. Passordet lagres i klartekst – hold filen sikker.',
   backupImport: 'Importer innstillinger',

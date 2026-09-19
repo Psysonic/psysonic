@@ -649,6 +649,8 @@ export const settings = {
   ratingsMixMinArtist: 'Előadók',
   ratingsMixMinThresholdAria: 'Minimális csillagok: {{label}}',
   backupTitle: 'Mentés és visszaállítás',
+  backupCredentialsNoticeTitle: 'A mentések jelszavakat tartalmaznak',
+  backupCredentialsNoticeBody: 'A beállításmentések és a teljes mentések olvasható szövegként tárolják a szerverjelszavakat és a scrobbler-kulcsokat — így tudja a visszaállítás helyreállítani a bejelentkezéseket. Aki megnyitja a fájlt, el tudja olvasni őket, ezért biztonságos helyen érdemes tartani és nem szabad megosztani.',
   backupExport: 'Beállítások exportálása',
   backupExportDesc: 'Elmenti az összes beállítást, szerverprofilt, Last.fm-konfigurációt, témát, EQ-t és billentyűparancsot egy .psybkp fájlba. A jelszavak titkosítatlanul tárolódnak — tartsd biztonságban a fájlt.',
   backupImport: 'Beállítások importálása',
