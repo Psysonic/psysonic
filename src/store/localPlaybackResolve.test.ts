@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { useAuthStore } from '@/store/authStore';
 import { useLocalPlaybackStore, type LocalPlaybackTier } from '@/store/localPlaybackStore';
 import { serverIndexKeyForProfile } from '@/lib/server/serverIndexKey';
-import { hasLocalPlaybackUrl } from '@/store/localPlaybackResolve';
+import {
+  hasLocalPlaybackUrl,
+  localPlaybackOriginalVerifiedForUrl,
+} from '@/store/localPlaybackResolve';
 import { resolvePlaybackUrl } from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { makeServer } from '@/test/helpers/factories';
 import { resetAllStores } from '@/test/helpers/storeReset';
@@ -16,7 +19,7 @@ const server = makeServer({ id: 'srv-1', url: 'https://demo.example' });
 const INDEX_KEY = serverIndexKeyForProfile(server); // url-derived key ('demo.example')
 const TRACK = 't1';
 
-function seedLocal(tier: LocalPlaybackTier): void {
+function seedLocal(tier: LocalPlaybackTier, originalBytesVerified?: boolean): void {
   useLocalPlaybackStore.getState().upsertEntry({
     serverIndexKey: INDEX_KEY,
     trackId: TRACK,
@@ -25,6 +28,7 @@ function seedLocal(tier: LocalPlaybackTier): void {
     sizeBytes: 1,
     suffix: 'opus',
     tier,
+    originalBytesVerified,
   });
 }
 
@@ -32,6 +36,32 @@ beforeEach(() => {
   resetAllStores();
   useAuthStore.setState({ servers: [server], activeServerId: server.id });
   useLocalPlaybackStore.setState({ entries: {} });
+});
+
+describe('localPlaybackOriginalVerifiedForUrl', () => {
+  it('returns true for a selected entry with positive provenance', () => {
+    seedLocal('library', true);
+    expect(localPlaybackOriginalVerifiedForUrl(
+      TRACK,
+      server.id,
+      `psysonic-local:///disk/${TRACK}.opus`,
+    )).toBe(true);
+  });
+
+  it('keeps legacy local bytes playable but unverified for analysis', () => {
+    seedLocal('library');
+    const url = `psysonic-local:///disk/${TRACK}.opus`;
+    expect(localPlaybackOriginalVerifiedForUrl(TRACK, server.id, url)).toBe(false);
+    expect(resolvePlaybackUrl(TRACK, server.id)).toBe(url);
+  });
+
+  it('returns null for a remote stream', () => {
+    expect(localPlaybackOriginalVerifiedForUrl(
+      TRACK,
+      server.id,
+      'https://demo.example/rest/stream.view?id=t1',
+    )).toBeNull();
+  });
 });
 
 describe('hasLocalPlaybackUrl', () => {

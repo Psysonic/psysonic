@@ -117,6 +117,75 @@ describe('onFavoritesOfflineStarChange', () => {
       .toBe(true);
   });
 
+  it('revalidates an unverified legacy-key favorite entry in place', async () => {
+    useLocalPlaybackStore.getState().upsertEntry({
+      serverIndexKey: 'srv-b',
+      trackId: 't1',
+      localPath: '/media/favorites/t1.mp3',
+      sizeBytes: 100,
+      layoutFingerprint: 'legacy',
+      tier: 'favorite-auto',
+      suffix: 'mp3',
+      originalBytesVerified: false,
+    });
+    invokeMock.mockImplementation(async (cmd: string) => cmd === 'download_track_local'
+      ? {
+        path: '/media/favorites/t1.mp3',
+        size: 123,
+        layoutFingerprint: 'verified',
+        originalBytesVerified: true,
+      }
+      : {});
+
+    onFavoritesOfflineStarChange('t1', 'song', true, 'srv-b');
+    await vi.advanceTimersByTimeAsync(700);
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      'download_track_local',
+      expect.objectContaining({ tier: 'favorite-auto', serverIndexKey: 'srv-b', trackId: 't1' }),
+    );
+    expect(useLocalPlaybackStore.getState().getEntry('t1', 'srv-b')?.originalBytesVerified)
+      .toBe(true);
+    expect(useLocalPlaybackStore.getState().getEntry('t1', 'b.test')).toBeNull();
+  });
+
+  it('revalidates an unverified library entry without replacing its pin ownership', async () => {
+    useLocalPlaybackStore.getState().upsertEntry({
+      serverIndexKey: 'b.test',
+      trackId: 't1',
+      localPath: '/media/library/t1.mp3',
+      sizeBytes: 100,
+      layoutFingerprint: 'legacy',
+      tier: 'library',
+      pinSource: { kind: 'album', sourceId: 'album-1' },
+      suffix: 'mp3',
+      originalBytesVerified: false,
+    });
+    invokeMock.mockImplementation(async (cmd: string) => cmd === 'download_track_local'
+      ? {
+        path: '/media/library/t1.mp3',
+        size: 123,
+        layoutFingerprint: 'verified',
+        originalBytesVerified: true,
+      }
+      : {});
+
+    onFavoritesOfflineStarChange('t1', 'song', true, 'srv-b');
+    await vi.advanceTimersByTimeAsync(700);
+
+    expect(invokeMock).toHaveBeenCalledWith(
+      'download_track_local',
+      expect.objectContaining({ tier: 'library', serverIndexKey: 'b.test', trackId: 't1' }),
+    );
+    expect(useLocalPlaybackStore.getState().getEntry('t1', 'b.test')).toEqual(
+      expect.objectContaining({
+        tier: 'library',
+        pinSource: { kind: 'album', sourceId: 'album-1' },
+        originalBytesVerified: true,
+      }),
+    );
+  });
+
   it('aborts in-flight favorites Rust downloads when a star change reschedules sync', async () => {
     useOfflineJobStore.setState({
       jobs: [{

@@ -2,9 +2,14 @@ import { audioPreload } from '@/lib/api/audio';
 import { useAuthStore } from '@/store/authStore';
 import { autodjMaxOverlapCapSec } from '@/lib/audio/autodjOverlapCap';
 import { computeWaveformSilence, planCrossfadeTransition } from '@/lib/waveform/waveformSilence';
-import { findLocalPlaybackUrl } from '@/store/localPlaybackResolve';
+import {
+  findLocalPlaybackUrl,
+} from '@/store/localPlaybackResolve';
 import { playbackCacheKeyForRef } from '@/features/playback/utils/playback/playbackServer';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
 import type { Track } from '@/lib/media/trackTypes';
 import {
@@ -97,6 +102,7 @@ export function kickEagerCrossfadePreload(
     durationHint: track.duration,
     analysisTrackId: track.id,
     serverId: serverId || null,
+    localOriginalVerified: localPlaybackOriginalVerifiedForUrl(track.id, serverId ?? '', url),
     eager: true,
   }).catch(() => {});
 }
@@ -185,6 +191,7 @@ export function maybeCrossfadeBytePreload(currentTime: number, dur: number): voi
       durationHint: nextTrack.duration,
       analysisTrackId: nextTrack.id,
       serverId: serverId || null,
+      localOriginalVerified: localPlaybackOriginalVerifiedForUrl(nextTrack.id, serverId, nextUrl),
       // Crossfade/AutoDJ pre-buffer: skip the 8 s throttle so the RAM slot
       // fills before the fade — without the hot cache this is the only source
       // of B's bytes, and a late slot means no fade (or an audible jump).

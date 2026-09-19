@@ -165,7 +165,7 @@ export const commands = {
 	autoeqEntries: () => typedError<string, string>(__TAURI_INVOKE("autoeq_entries")),
 	/**  Fetches the AutoEQ FixedBandEQ profile for a specific headphone from GitHub raw content. */
 	autoeqFetchProfile: (name: string, source: string, rig: string | null, form: string) => typedError<string, string>(__TAURI_INVOKE("autoeq_fetch_profile", { name, source, rig, form })),
-	audioPreload: (url: string, durationHint: number | null, analysisTrackId: string | null, serverId: string | null, eager: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_preload", { url, durationHint, analysisTrackId, serverId, eager })),
+	audioPreload: (url: string, durationHint: number | null, analysisTrackId: string | null, serverId: string | null, localOriginalVerified: boolean | null, eager: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_preload", { url, durationHint, analysisTrackId, serverId, localOriginalVerified, eager })),
 	/**
 	 *  Drop byte and gapless successor preloads after their URL-affecting inputs
 	 *  change. The main playback generation and currently audible source stay live.

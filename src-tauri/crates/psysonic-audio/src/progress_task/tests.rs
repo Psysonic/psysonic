@@ -214,6 +214,7 @@ async fn done_with_chained_info_swaps_to_chain_and_emits_track_switched() {
         url: chain_url.clone(),
         analysis_track_id: Some("next-track".into()),
         server_id: Some("srv-1".into()),
+        local_original_verified: None,
         generation: 1,
         raw_bytes: Arc::new(Vec::new()),
         resolved_format: Some(crate::decode::ResolvedCodecInfo {

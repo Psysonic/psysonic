@@ -77,7 +77,7 @@ function downloadResult(trackId: string) {
     path: `/media/library/a.test/${trackId}.flac`,
     size: 456,
     layoutFingerprint: 'layout',
-    originalBytesVerified: false,
+    originalBytesVerified: true,
   };
 }
 
@@ -107,7 +107,7 @@ beforeEach(() => {
     path: '/media/library/a.test/track-1.flac',
     size: 456,
     layoutFingerprint: 'layout',
-    originalBytesVerified: false,
+    originalBytesVerified: true,
   }));
   onInvoke('clear_offline_cancel', () => undefined);
   onInvoke('cancel_offline_downloads', () => undefined);
@@ -178,18 +178,22 @@ describe('offlineStore download producer', () => {
     }));
   });
 
-  it('refreshes an unverified legacy Navidrome pin and persists native verification', async () => {
+  it('refreshes an unverified legacy-key pin without losing its ownership', async () => {
     useAuthStore.setState({
       subsonicServerIdentityByServer: { 'srv-a': { type: 'navidrome' } },
     });
     useLocalPlaybackStore.getState().upsertEntry({
-      serverIndexKey: 'a.test',
+      serverIndexKey: 'srv-a',
       trackId: 'track-1',
       localPath: '/media/library/a.test/track-1.flac',
       sizeBytes: 123,
       layoutFingerprint: 'legacy',
       tier: 'library',
       pinSource: { kind: 'album', sourceId: 'album-1' },
+      pinSources: [
+        { kind: 'album', sourceId: 'album-1' },
+        { kind: 'artist', sourceId: 'artist-1' },
+      ],
       suffix: 'flac',
       originalBytesVerified: false,
     });
@@ -212,11 +216,15 @@ describe('offlineStore download producer', () => {
 
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith(
       'download_track_local',
-      expect.any(Object),
+      expect.objectContaining({ serverIndexKey: 'srv-a' }),
     ));
-    await waitFor(() => expect(
-      useLocalPlaybackStore.getState().getEntry('track-1', 'a.test')?.originalBytesVerified,
-    ).toBe(true));
+    const refreshed = useLocalPlaybackStore.getState().getEntry('track-1', 'srv-a');
+    expect(refreshed?.originalBytesVerified).toBe(true);
+    expect(refreshed ? localPlaybackPinSources(refreshed) : []).toEqual([
+      { kind: 'artist', sourceId: 'artist-1' },
+      { kind: 'album', sourceId: 'album-1', displayName: 'Album' },
+    ]);
+    expect(useLocalPlaybackStore.getState().getEntry('track-1', 'a.test')).toBeNull();
   });
 
   it('does not reassign existing local tracks when cancelled during library preflight', async () => {

@@ -6,7 +6,10 @@ import {
   getPlaybackIndexKey,
   playbackCacheKeyForTrack,
 } from '@/features/playback/utils/playback/playbackServer';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { resolveReplayGainDb } from '@/features/playback/utils/audio/resolveReplayGainDb';
 import { audioPlayHiResBlendArgs } from '@/lib/audio/hiResCrossfadeResample';
 import { useAuthStore } from '@/store/authStore';
@@ -67,6 +70,11 @@ export function engineLoadTrackAtPosition(opts: {
     ...audioPlayHiResBlendArgs(authState),
     analysisTrackId: track.id,
     serverId: playbackIndexKey || null,
+    localOriginalVerified: localPlaybackOriginalVerifiedForUrl(
+      track.id,
+      playbackCacheSid,
+      url,
+    ),
     streamFormatSuffix: track.suffix ?? null,
     startPaused,
   })

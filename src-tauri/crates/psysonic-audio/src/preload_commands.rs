@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, State};
 use psysonic_analysis::analysis_runtime::AnalysisBackfillPriority;
 
 use super::analysis_dispatch::{
-    prepare_playback_analysis, spawn_track_analysis_bytes, spawn_track_analysis_file,
-    TrackAnalysisOrigin,
+    prepare_playback_analysis, source_analysis_allowed, spawn_track_analysis_bytes,
+    spawn_track_analysis_file, TrackAnalysisOrigin,
 };
 use super::engine::AudioEngine;
 use super::helpers::{analysis_cache_track_id, same_playback_target};
@@ -189,11 +189,13 @@ pub fn audio_invalidate_preloads(state: State<'_, AudioEngine>) {
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn audio_preload(
     url: String,
     duration_hint: f64,
     analysis_track_id: Option<String>,
     server_id: Option<String>,
+    local_original_verified: Option<bool>,
     eager: Option<bool>,
     app: AppHandle,
     state: State<'_, AudioEngine>,
@@ -223,14 +225,16 @@ pub async fn audio_preload(
             emit_preload_cancelled(&app, url, track_id_for_events);
             return Ok(());
         }
-        seed_preload_analysis_file(
-            &app,
-            &state,
-            &url,
-            path,
-            logical_trim.as_deref(),
-            server_id.as_deref(),
-        );
+        if source_analysis_allowed(&url, local_original_verified) {
+            seed_preload_analysis_file(
+                &app,
+                &state,
+                &url,
+                path,
+                logical_trim.as_deref(),
+                server_id.as_deref(),
+            );
+        }
         if !snapshot.is_current(&state) {
             emit_preload_cancelled(&app, url, track_id_for_events);
             return Ok(());
@@ -310,6 +314,7 @@ pub async fn audio_preload(
         PreloadedTrack {
             url: url.clone(),
             data,
+            local_original_verified: None,
         },
         || emit_preload_ready(&app, ready_url, ready_track_id),
         || {
@@ -355,6 +360,7 @@ mod tests {
             PreloadedTrack {
                 url: "https://example.test/stream".to_string(),
                 data: vec![1, 2, 3],
+                local_original_verified: None,
             },
             || {
                 assert!(preloaded.lock().unwrap().is_some());
@@ -390,6 +396,7 @@ mod tests {
             PreloadedTrack {
                 url: "https://example.test/stale".to_string(),
                 data: vec![9, 9, 9],
+                local_original_verified: None,
             },
             || ready_emitted.store(true, Ordering::SeqCst),
             || analysis_started.store(true, Ordering::SeqCst),
@@ -418,6 +425,7 @@ mod tests {
             PreloadedTrack {
                 url: "https://example.test/stale-epoch".to_string(),
                 data: vec![1],
+                local_original_verified: None,
             },
         );
 
@@ -433,12 +441,14 @@ mod tests {
         let preloaded = Mutex::new(Some(PreloadedTrack {
             url: "https://example.test/preloaded".into(),
             data: vec![1, 2, 3],
+            local_original_verified: None,
         }));
         let cancel = std::sync::Arc::new(AtomicBool::new(false));
         let chained = Mutex::new(Some(ChainedInfo {
             url: "https://example.test/chained".into(),
             analysis_track_id: Some("next".into()),
             server_id: Some("server".into()),
+            local_original_verified: None,
             generation: 8,
             raw_bytes: std::sync::Arc::new(vec![4, 5, 6]),
             resolved_format: None,
