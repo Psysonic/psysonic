@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListPlus, Play, SlidersHorizontal, X } from 'lucide-react';
+import { ListPlus, Play, Shuffle, SlidersHorizontal, X } from 'lucide-react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
+import { shuffleArray } from '@/lib/util/shuffleArray';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useSelectionStore } from '@/store/selectionStore';
 import { songToTrack } from '@/lib/media/songToTrack';
@@ -95,6 +96,20 @@ export default function FavoritesSongsSectionHeader({
         >
           <Play size={15} />
           <span className="compact-btn-label">{inSelectMode ? t('favorites.playSelected') : t('favorites.playAll')}</span>
+        </button>
+        <button
+          className="btn btn-surface"
+          disabled={targetSongs.length === 0}
+          aria-label={inSelectMode ? t('favorites.shuffleSelected') : t('favorites.shuffleAll')}
+          data-tooltip={inSelectMode ? t('favorites.shuffleSelected') : t('favorites.shuffleAll')}
+          onClick={() => {
+            if (targetSongs.length === 0) return;
+            const tracks = shuffleArray(targetSongs.map(songToTrack));
+            playTrack(tracks[0], tracks);
+          }}
+        >
+          <Shuffle size={15} />
+          <span className="compact-btn-label">{inSelectMode ? t('favorites.shuffleSelected') : t('favorites.shuffleAll')}</span>
         </button>
         <button
           className="btn btn-surface"

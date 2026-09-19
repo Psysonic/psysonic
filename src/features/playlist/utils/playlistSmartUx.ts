@@ -2,7 +2,7 @@ import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import { classifyPlaylistSmartness } from '@/lib/format/playlistClassification';
 
 type ClassifiablePlaylist = Pick<SubsonicPlaylist, 'name'>
-  & Pick<Partial<SubsonicPlaylist>, 'smart' | 'smartMetadataUnavailable'>;
+  & Pick<Partial<SubsonicPlaylist>, 'smart' | 'smartMetadataUnavailable' | 'readonly'>;
 
 /** Smart playlist tracks are server-evaluated — clients must not mutate membership. */
 export function playlistTracksAreReadOnly(playlist: ClassifiablePlaylist): boolean {

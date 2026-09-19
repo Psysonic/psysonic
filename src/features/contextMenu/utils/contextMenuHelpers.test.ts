@@ -20,4 +20,15 @@ describe('manualPlaylistTargetsForServer', () => {
       .toEqual(['B']);
     expect(manualPlaylistTargetsForServer(playlists, undefined)).toEqual([]);
   });
+
+  it('offers playlists the server reports as editable when native metadata failed', () => {
+    const unavailable = { smartMetadataUnavailable: true, songCount: 0, duration: 0, created: '', changed: '', serverId: 'server-a' };
+    const playlists = [
+      { id: 'own', name: 'Own', readonly: false, ...unavailable },
+      { id: 'foreign-or-smart', name: 'Locked', readonly: true, ...unavailable },
+      { id: 'plain-subsonic', name: 'No flag', ...unavailable },
+    ];
+
+    expect(manualPlaylistTargetsForServer(playlists, 'server-a').map(p => p.name)).toEqual(['Own']);
+  });
 });

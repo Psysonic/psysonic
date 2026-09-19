@@ -118,6 +118,36 @@ describe('CustomSelect keyboard operation', () => {
     expect(input).toHaveFocus();
   });
 
+  it('leaves a list that fits at its natural height', async () => {
+    // Capping it at scrollHeight left out the border: the box came out 2px short and the
+    // list scrolled by that much whenever the highlight moved between first and last option.
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(80);
+    try {
+      const user = userEvent.setup();
+      const { trigger } = renderSelect();
+      await user.click(trigger);
+      const listbox = screen.getByRole('listbox');
+      expect(listbox.style.maxHeight).toBe('');
+      expect(listbox.style.overflowY).toBe('hidden');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
+  it('still caps and scrolls a list that is taller than the room below it', async () => {
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(900);
+    try {
+      const user = userEvent.setup();
+      const { trigger } = renderSelect();
+      await user.click(trigger);
+      const listbox = screen.getByRole('listbox');
+      expect(listbox.style.maxHeight).toBe('320px');
+      expect(listbox.style.overflowY).toBe('auto');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
   it('keeps focus on a searchable combobox when Escape closes its list', async () => {
     const user = userEvent.setup();
     render(

@@ -39,4 +39,16 @@ describe('playlist smart UX policy', () => {
       canPinNewOfflineCache: false,
     });
   });
+
+  it('allows reordering and removing when the server reports the playlist as editable', () => {
+    const controls = playlistDetailControls({
+      name: 'Own mix',
+      smartMetadataUnavailable: true,
+      readonly: false,
+    });
+    expect(controls.canReorderTracks).toBe(true);
+    expect(controls.canRemoveTracks).toBe(true);
+    expect(controls.canAddTracks).toBe(true);
+    expect(controls.showEditRules).toBe(false);
+  });
 });

@@ -40,6 +40,7 @@ export const albumDetail = {
   trackPlayCount: 'Відтворення',
   trackLastPlayed: 'Востаннє грало',
   trackBpm: 'BPM',
+  trackRowNumber: 'Номер рядка (#)',
   trackFormat: 'Формат',
   trackYear: 'Рік',
   trackFavorite: 'Улюблене',

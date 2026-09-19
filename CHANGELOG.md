@@ -109,6 +109,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Clicking **Artists** on the Favorites page now opens the Artists page showing only your favourites, just as **Albums** opens All Albums. Your view, credit mode and artist-image setting stay as they are.
 
+### Similar artists from your server when Music Network has none
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@strecke](https://github.com/strecke), PR [#1617](https://github.com/Psysonic/psysonic/pull/1617)**
+
+* The artist page now lists the similar artists your server supplies whenever the service chosen under **Settings → Integrations → Music Network** finds none of its suggestions in your library, or when no service is set up there. Before, the section stayed empty in that case.
+* The service you picked still comes first, and servers with AudioMuse keep leading with their own list as before.
+
+### Arrange the Favorites page your way
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Padparadscha on Discord, PR [#1624](https://github.com/Psysonic/psysonic/pull/1624)**
+
+* **Settings → Personalisation → Favorites page sections** lets you reorder the sections of the Favorites page by dragging them and hide the ones you don't need, for example Top Artists by Favorites.
+* The **#** column of the favourite songs can be switched off in the column menu of the list, like the other columns. In narrow windows it stays visible.
+* **Shuffle all** sits next to **Play all** and plays the songs in the list in random order, filters included, or only the selected ones while a selection is active.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
@@ -188,6 +203,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Other Subsonic servers could play normally but never kept waveform or loudness analysis, so the same work was repeated on every play. Psysonic now uses their standard original-file download and stores analysis only after verifying that the response matches the file the server advertised.
 * Existing Offline Library and Hot Cache files remain playable, but old files with no proof of origin do not write canonical analysis until they are revalidated or replaced. Navidrome still uses its raw-stream contract and never falls back to a potentially transcoded response.
+
+### Dropdown lists no longer shift when you move the mouse over them
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* On macOS, a short dropdown list could shift by a couple of pixels whenever the mouse moved between its first and last entry. The list was sized two pixels too short for its own frame, which let it scroll by that much. It now takes exactly the room it needs.
+
+### Player bar buttons stay put after hovering
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* On macOS, the icons in the player bar could jump slightly a moment after the mouse left them, once their hover animation had finished.
+
+### Rating stars keep their size with JetBrains Mono
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* With **JetBrains Mono** selected under **Settings → Appearance**, rating stars were drawn much smaller on macOS. The font has no star of its own, and the stand-in came from a different source than for every other font. The stars now match the other fonts.
+
+### Your playlists show up under Add to Playlist again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@bcorporaal](https://github.com/bcorporaal), PR [#1619](https://github.com/Psysonic/psysonic/pull/1619)**
+
+* On some Navidrome setups, **Add to Playlist** said "No playlists yet" although the sidebar listed them all, and tracks inside a playlist could not be moved or removed. Psysonic could not ask Navidrome which playlists are smart playlists and, to be safe, treated all of them as read-only. It now falls back to what the server already reports for each playlist, so your own playlists can be edited again while smart playlists stay read-only.
+
+### The Orbit button's label stays put when you hover it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical) and [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622), PR [#1623](https://github.com/Psysonic/psysonic/pull/1623)**
+
+* On macOS, the "Orbit" lettering in the top bar moved slightly to the left while the icon next to it turned on hover, and moved back when the mouse left.
+
+### The Last.fm button's hover circle is no longer cut off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622)**
+
+* Hovering the Last.fm button next to the track title could cut off the right edge of its highlight circle, because the button sat right at the edge of its area. It now keeps a little room on that side.
 
 ## [1.54.0]
 

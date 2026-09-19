@@ -8,7 +8,7 @@ import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 
 interface Props {
   marginTop: string;
-  showAudiomuseSimilar: boolean;
+  showServerSimilar: boolean;
   showNetworkSimilar: boolean;
   similarLoading: boolean;
   similarArtists: SubsonicArtist[];
@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function ArtistDetailSimilarArtists({
-  marginTop, showAudiomuseSimilar, showNetworkSimilar,
+  marginTop, showServerSimilar, showNetworkSimilar,
   similarLoading, similarArtists, serverSimilarArtists,
   similarCollapsed, setSimilarCollapsed, serverId,
 }: Props) {
@@ -34,7 +34,7 @@ export default function ArtistDetailSimilarArtists({
           {t('artistDetail.similarArtists')}
         </h2>
         {isMobile && (() => {
-          const list = showAudiomuseSimilar ? serverSimilarArtists : similarArtists;
+          const list = showServerSimilar ? serverSimilarArtists : similarArtists;
           return list.length > 5 ? (
             <button className="btn btn-ghost" style={{ fontSize: 12, padding: '2px 8px' }} onClick={() => setSimilarCollapsed(v => !v)}>
               {similarCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
@@ -50,7 +50,7 @@ export default function ArtistDetailSimilarArtists({
         </div>
       ) : (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-          {(showAudiomuseSimilar ? serverSimilarArtists : similarArtists)
+          {(showServerSimilar ? serverSimilarArtists : similarArtists)
             .slice(0, isMobile && similarCollapsed ? 5 : undefined)
             .map((a, i) => (
               <button

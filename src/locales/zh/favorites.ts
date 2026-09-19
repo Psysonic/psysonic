@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: '所选加入队列',
   playAll: '全部播放',
   playSelected: '播放所选',
+  shuffleAll: '全部随机播放',
+  shuffleSelected: '随机播放所选',
   removeSong: '从收藏中移除',
   stations: '广播电台',
   showingFiltered: '显示 {{filtered}} / {{total}} ({{artist}})',

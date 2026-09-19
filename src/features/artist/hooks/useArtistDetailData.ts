@@ -40,7 +40,10 @@ export interface ArtistDetailDataResult {
    * them has to carry it — the active server is a different entity under a browse scope.
    */
   infoServerId: string | null;
-  /** True when *that* server has AudioMuse-Navidrome, i.e. when `info.similarArtist` is meant to be shown. */
+  /**
+   * True when *that* server has AudioMuse-Navidrome, i.e. when `info.similarArtist` is shown
+   * ahead of the Music Network lookup instead of only as its fallback.
+   */
   audiomuseNavidromeEnabled: boolean;
   featuredAlbums: SubsonicAlbum[];
   loading: boolean;
@@ -51,6 +54,15 @@ export interface ArtistDetailDataResult {
   setIsStarred: React.Dispatch<React.SetStateAction<boolean>>;
   losslessOnly: boolean;
 }
+
+/**
+ * Similar artists requested with the artist info. The page shows the server's list either
+ * first (AudioMuse) or as the fallback for the Music Network lookup, so it is always asked
+ * for in full. The count costs the server nothing: Navidrome asks its agents for up to 100
+ * either way (`maxSimilarArtists`, core/external/provider.go) and only cuts the list of
+ * library matches to it.
+ */
+const ARTIST_PAGE_SIMILAR_ARTIST_COUNT = 24;
 
 function filterNetworkArtistToLossless(
   albums: SubsonicAlbum[],
@@ -332,9 +344,9 @@ export function useArtistDetailData(
   const infoArtistId = infoTarget?.artistId ?? null;
   // Read the AudioMuse flag for the server this page's identity actually resolved to,
   // not for the active one. They differ whenever the artist is owned elsewhere, and the
-  // flag both parameterises the request below (`similarArtistCount`) and decides in the
-  // page whether the server-provided similar artists are shown at all — keyed on the
-  // wrong server it would ask for a set it then refuses to render.
+  // flag decides in the page whether the server-provided similar artists come before the
+  // Music Network lookup — keyed on the wrong server the order would follow a server that
+  // never answered.
   const audiomuseNavidromeEnabled = useAuthStore(
     s => !!(infoServerId && s.audiomuseNavidromeByServer[infoServerId]),
   );
@@ -349,7 +361,7 @@ export function useArtistDetailData(
     }
     let cancelled = false;
     setArtistInfoLoading(true);
-    const infoOptions = { similarArtistCount: audiomuseNavidromeEnabled ? 24 : undefined };
+    const infoOptions = { similarArtistCount: ARTIST_PAGE_SIMILAR_ARTIST_COUNT };
     (infoServerId
       ? getArtistInfoForServer(infoServerId, infoArtistId, infoOptions)
       : getArtistInfo(infoArtistId, infoOptions))
@@ -363,7 +375,7 @@ export function useArtistDetailData(
         if (!cancelled) setArtistInfoLoading(false);
       });
     return () => { cancelled = true; };
-  }, [id, infoServerId, infoArtistId, audiomuseNavidromeEnabled, preferLocalArtist]);
+  }, [id, infoServerId, infoArtistId, preferLocalArtist]);
 
   useEffect(() => {
     // When the local index is authoritative (any selected library scope), the
