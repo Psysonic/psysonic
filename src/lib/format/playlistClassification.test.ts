@@ -24,6 +24,15 @@ describe('playlist classification', () => {
     expect(classifyPlaylistSmartness({ name: 'psy-smart-Legacy mix' })).toBe('smart');
   });
 
+  it('treats a playlist the server reports as editable as manual when native metadata failed', () => {
+    // Navidrome marks every smart playlist readonly, so an editable one cannot be smart.
+    expect(classifyPlaylistSmartness({ name: 'Regular mix', smartMetadataUnavailable: true, readonly: false }))
+      .toBe('manual');
+    expect(classifyPlaylistSmartness({ name: 'Regular mix', smartMetadataUnavailable: true, readonly: true }))
+      .toBe('unknown');
+    expect(classifyPlaylistSmartness({ name: 'Regular mix', smart: true, readonly: false })).toBe('smart');
+  });
+
   it('keeps legacy display names unchanged without hiding native names', () => {
     expect(playlistDisplayName({ name: 'psy-smart-Legacy mix' })).toBe('Legacy mix');
     expect(playlistDisplayName({ name: 'Feishin mix' })).toBe('Feishin mix');
