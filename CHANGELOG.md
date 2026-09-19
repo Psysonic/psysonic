@@ -215,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### The Orbit button's label stays put when you hover it
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622)**
+**By [@Psychotoxical](https://github.com/Psychotoxical) and [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622), PR [#1623](https://github.com/Psysonic/psysonic/pull/1623)**
 
 * On macOS, the "Orbit" lettering in the top bar moved slightly to the left while the icon next to it turned on hover, and moved back when the mouse left.
 
