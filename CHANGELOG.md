@@ -109,6 +109,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Clicking **Artists** on the Favorites page now opens the Artists page showing only your favourites, just as **Albums** opens All Albums. Your view, credit mode and artist-image setting stay as they are.
 
+### Similar artists from your server when Music Network has none
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@strecke](https://github.com/strecke), PR [#1617](https://github.com/Psysonic/psysonic/pull/1617)**
+
+* The artist page now lists the similar artists your server supplies whenever the service chosen under **Settings → Integrations → Music Network** finds none of its suggestions in your library, or when no service is set up there. Before, the section stayed empty in that case.
+* The service you picked still comes first, and servers with AudioMuse keep leading with their own list as before.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
