@@ -242,6 +242,11 @@ html[data-platform="windows"] .player-bar.floating {
   color: var(--player-control);
   transition: all var(--transition-fast);
   flex-shrink: 0;
+  /* The hover grows the button with a transform. On macOS the icon was seen snapping half a
+     pixel sideways about 80 ms after that transition ended. `will-change` keeps the button
+     on its own compositing layer throughout, so the end of the transition does not change
+     how it is drawn. */
+  will-change: transform;
 }
 
 .player-btn:hover {
