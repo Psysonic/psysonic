@@ -30,9 +30,13 @@ import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { sameRadioStation } from '@/features/radio';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 import { useAuthStore } from '@/store/authStore';
+import { useIsMobile } from '@/lib/hooks/useIsMobile';
+import { useFavoritesLayoutStore, type FavoritesSectionId } from '@/features/favorites/store/favoritesLayoutStore';
+
+const FAV_NUM_COLUMN: ColDef = { key: 'num', i18nKey: 'trackRowNumber', minWidth: 60, defaultWidth: 60, required: false };
 
 const FAV_COLUMNS: readonly ColDef[] = [
-  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true  },
+  FAV_NUM_COLUMN,
   { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_FLEX_COL, required: true },
   { key: 'artist',     i18nKey: 'trackArtist',     minWidth: 80,  defaultWidth: 180, required: false },
   { key: 'album',      i18nKey: 'trackAlbum',      minWidth: 80,  defaultWidth: 180, required: false },
@@ -84,6 +88,14 @@ export default function Favorites() {
     startResize, startFlexColumnResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
   } = useTracklistColumns(FAV_COLUMNS, 'psysonic_favorites_columns');
+  const isMobile = useIsMobile();
+  // The compact (<800px) tracklist grid places cells by position and expects
+  // the number cell first; without it the title would land in the narrow slot.
+  const tracklistCols = useMemo(
+    () => (isMobile && !colVisible.has('num') ? [FAV_NUM_COLUMN, ...visibleCols] : visibleCols),
+    [isMobile, colVisible, visibleCols],
+  );
+  const sectionConfig = useFavoritesLayoutStore(s => s.sections);
   const activeServerId = useAuthStore(s => s.activeServerId);
   const resolvedBpmSongs = useResolvedTracklistBpm(
     songs,
@@ -190,6 +202,23 @@ export default function Favorites() {
   }
   // Check if user has any favorites (using original unfiltered lists)
   const hasAnyFavorites = albums.length > 0 || artists.length > 0 || songs.length > 0 || radioStations.length > 0;
+  const hasSongFilters = !!(selectedArtist || selectedGenres.length > 0 || yearRange[0] !== MIN_YEAR || yearRange[1] !== CURRENT_YEAR);
+
+  const sectionHasData = (id: FavoritesSectionId): boolean => {
+    switch (id) {
+      case 'artists':    return artists.length > 0;
+      case 'albums':     return albums.length > 0;
+      case 'stations':   return radioStations.length > 0;
+      case 'topArtists': return topFavoriteArtists.length >= 2;
+      // Stays up while a filter empties the list, so the filter can be cleared.
+      case 'songs':      return visibleSongs.length > 0 || hasSongFilters;
+    }
+  };
+  // Order and visibility come from Settings → Personalisation.
+  const renderableSectionIds = sectionConfig
+    .filter(s => s.visible)
+    .map(s => s.id)
+    .filter(sectionHasData);
 
   return (
     <div className="content-body animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
@@ -218,101 +247,109 @@ export default function Favorites() {
               six is fine as a glance; for hundreds of favourites the page
               there is the place to browse, with its sorting, filters and
               paging. */}
-          {artists.length > 0 && (
-            <ArtistRow
-              title={t('favorites.artists')}
-              onTitleClick={() => openFavoriteArtists(navigate)}
-              artists={artists}
-            />
-          )}
+          {renderableSectionIds.map(sectionId => {
+            switch (sectionId) {
+              case 'artists': return (
+                <ArtistRow
+                  key="artists"
+                  title={t('favorites.artists')}
+                  onTitleClick={() => openFavoriteArtists(navigate)}
+                  artists={artists}
+                />
+              );
 
-          {albums.length > 0 && (
-            <AlbumRow
-              title={t('favorites.albums')}
-              onTitleClick={() => openFavoriteAlbums(navigate)}
-              albums={albums}
-            />
-          )}
+              case 'albums': return (
+                <AlbumRow
+                  key="albums"
+                  title={t('favorites.albums')}
+                  onTitleClick={() => openFavoriteAlbums(navigate)}
+                  albums={albums}
+                />
+              );
 
-          {radioStations.length > 0 && (
-            <RadioStationRow
-              title={t('favorites.stations')}
-              stations={radioStations}
-              currentRadio={currentRadio}
-              isPlaying={isPlaying}
-              onPlay={s => {
-                if (sameRadioStation(currentRadio, s) && isPlaying) stop();
-                else playRadio(s);
-              }}
-              onUnfavorite={unfavoriteStation}
-            />
-          )}
+              case 'stations': return (
+                <RadioStationRow
+                  key="stations"
+                  title={t('favorites.stations')}
+                  stations={radioStations}
+                  currentRadio={currentRadio}
+                  isPlaying={isPlaying}
+                  onPlay={s => {
+                    if (sameRadioStation(currentRadio, s) && isPlaying) stop();
+                    else playRadio(s);
+                  }}
+                  onUnfavorite={unfavoriteStation}
+                />
+              );
 
-          {topFavoriteArtists.length >= 2 && (
-            <TopFavoriteArtistsRow
-              title={t('favorites.topArtists')}
-              artists={topFavoriteArtists}
-              selectedKey={selectedArtist}
-              onToggle={key => setSelectedArtist(prev => prev === key ? null : key)}
-            />
-          )}
+              case 'topArtists': return (
+                <TopFavoriteArtistsRow
+                  key="topArtists"
+                  title={t('favorites.topArtists')}
+                  artists={topFavoriteArtists}
+                  selectedKey={selectedArtist}
+                  onToggle={key => setSelectedArtist(prev => prev === key ? null : key)}
+                />
+              );
 
-          {(visibleSongs.length > 0 || selectedArtist || selectedGenres.length > 0 || yearRange[0] !== MIN_YEAR || yearRange[1] !== CURRENT_YEAR) && (
-            <section className="album-row-section">
-              <FavoritesSongsSectionHeader
-                visibleSongs={visibleSongs}
-                songs={songs}
-                selectedArtist={selectedArtist}
-                selectedArtistName={selectedArtistName}
-                setSelectedArtist={setSelectedArtist}
-                selectedGenres={selectedGenres}
-                setSelectedGenres={setSelectedGenres}
-                yearRange={yearRange}
-                setYearRange={setYearRange}
-                showFilters={showFilters}
-                setShowFilters={setShowFilters}
-                setSortKey={setSortKey}
-                setSortClickCount={setSortClickCount}
-                playTrack={playTrack}
-                enqueue={enqueue}
-                starredOverrides={starredOverrides}
-                minYear={MIN_YEAR}
-                currentYear={CURRENT_YEAR}
-                inSelectMode={inSelectMode}
-                selectedCount={selectedCount}
-                selectedIds={selectedIds}
-                showPlPicker={showPlPicker}
-                setShowPlPicker={setShowPlPicker}
-                ratings={ratings}
-                onRate={handleRate}
-              />
-              <FavoritesSongsTracklist
-                visibleSongs={visibleSongs}
-                selectedIds={selectedIds}
-                selectedCount={selectedCount}
-                inSelectMode={inSelectMode}
-                toggleSelect={toggleSelect}
-                allColumns={FAV_COLUMNS}
-                visibleCols={visibleCols}
-                gridStyle={gridStyle}
-                colVisible={colVisible}
-                toggleColumn={toggleColumn}
-                resetColumns={resetColumns}
-                pickerOpen={pickerOpen}
-                setPickerOpen={setPickerOpen}
-                pickerRef={pickerRef}
-                tracklistRef={tracklistRef}
-                startResize={startResize}
-                startFlexColumnResize={startFlexColumnResize}
-                handleSortClick={handleSortClick}
-                getSortIndicator={getSortIndicator}
-                ratings={ratings}
-                handleRate={handleRate}
-                removeSong={removeSong}
-                hasFilters={!!(selectedArtist || selectedGenres.length > 0 || yearRange[0] !== MIN_YEAR || yearRange[1] !== CURRENT_YEAR)}
-              />
-            </section>
-          )}
+              case 'songs': return (
+                <section key="songs" className="album-row-section">
+                  <FavoritesSongsSectionHeader
+                    visibleSongs={visibleSongs}
+                    songs={songs}
+                    selectedArtist={selectedArtist}
+                    selectedArtistName={selectedArtistName}
+                    setSelectedArtist={setSelectedArtist}
+                    selectedGenres={selectedGenres}
+                    setSelectedGenres={setSelectedGenres}
+                    yearRange={yearRange}
+                    setYearRange={setYearRange}
+                    showFilters={showFilters}
+                    setShowFilters={setShowFilters}
+                    setSortKey={setSortKey}
+                    setSortClickCount={setSortClickCount}
+                    playTrack={playTrack}
+                    enqueue={enqueue}
+                    starredOverrides={starredOverrides}
+                    minYear={MIN_YEAR}
+                    currentYear={CURRENT_YEAR}
+                    inSelectMode={inSelectMode}
+                    selectedCount={selectedCount}
+                    selectedIds={selectedIds}
+                    showPlPicker={showPlPicker}
+                    setShowPlPicker={setShowPlPicker}
+                    ratings={ratings}
+                    onRate={handleRate}
+                  />
+                  <FavoritesSongsTracklist
+                    visibleSongs={visibleSongs}
+                    selectedIds={selectedIds}
+                    selectedCount={selectedCount}
+                    inSelectMode={inSelectMode}
+                    toggleSelect={toggleSelect}
+                    allColumns={FAV_COLUMNS}
+                    visibleCols={tracklistCols}
+                    gridStyle={gridStyle}
+                    colVisible={colVisible}
+                    toggleColumn={toggleColumn}
+                    resetColumns={resetColumns}
+                    pickerOpen={pickerOpen}
+                    setPickerOpen={setPickerOpen}
+                    pickerRef={pickerRef}
+                    tracklistRef={tracklistRef}
+                    startResize={startResize}
+                    startFlexColumnResize={startFlexColumnResize}
+                    handleSortClick={handleSortClick}
+                    getSortIndicator={getSortIndicator}
+                    ratings={ratings}
+                    handleRate={handleRate}
+                    removeSong={removeSong}
+                    hasFilters={hasSongFilters}
+                  />
+                </section>
+              );
+            }
+          })}
         </>
       )}
     </div>

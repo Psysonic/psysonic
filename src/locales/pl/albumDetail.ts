@@ -40,6 +40,7 @@ export const albumDetail = {
   trackPlayCount: 'Powtórzenia',
   trackLastPlayed: 'Ostatnio odtworzono',
   trackBpm: 'BPM',
+  trackRowNumber: 'Numer wiersza (#)',
   trackFormat: 'Format',
   trackYear: 'Rok',
   trackFavorite: 'Ulubione',

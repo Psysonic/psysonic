@@ -41,6 +41,7 @@ export const albumDetail = {
   trackPlayCount: 'Прослушивания',
   trackLastPlayed: 'Последнее воспроизведение',
   trackBpm: 'BPM',
+  trackRowNumber: 'Номер строки (#)',
   trackFormat: 'Формат',
   trackYear: 'Год',
   trackFavorite: 'Избранное',

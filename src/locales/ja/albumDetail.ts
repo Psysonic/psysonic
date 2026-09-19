@@ -40,6 +40,7 @@ export const albumDetail = {
   trackPlayCount: '再生数',
   trackLastPlayed: '最終再生',
   trackBpm: 'BPM',
+  trackRowNumber: '行番号 (#)',
   trackFormat: '形式',
   trackYear: '年',
   trackFavorite: 'お気に入り',
