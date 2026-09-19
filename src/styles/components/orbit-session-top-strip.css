@@ -408,7 +408,10 @@
   border-color: color-mix(in srgb, var(--accent) 45%, var(--bg-hover));
   transition: color 150ms ease, border-color 150ms ease, background 150ms ease, box-shadow 200ms ease;
 }
-.orbit-start-trigger__spin { transition: transform 260ms ease; }
+/* On macOS the wordmark next to the icon was seen sitting half a pixel further left for as
+   long as the icon was turned. `will-change` keeps the icon on its own compositing layer
+   in both states, the same cure as for the player-bar buttons. */
+.orbit-start-trigger__spin { transition: transform 260ms ease; will-change: transform; }
 .orbit-start-trigger:hover {
   color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 70%, transparent);

@@ -267,6 +267,12 @@ html[data-platform="windows"] .player-bar.floating {
   transition: color var(--transition-fast);
 }
 
+/* The Last.fm button is the last item in `.player-track-info`, whose overflow is hidden.
+   Growing by 12% on hover pushed its circle 1.7px past that edge, where it was cut off. */
+.player-love-btn {
+  margin-right: var(--space-1);
+}
+
 .player-star-btn:hover,
 .player-star-btn.is-starred {
   color: var(--color-star-active, var(--accent));
