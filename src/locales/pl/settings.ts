@@ -649,6 +649,8 @@ export const settings = {
   ratingsMixMinArtist: 'Wykonawcy',
   ratingsMixMinThresholdAria: 'Minimalna ilość gwiazdek: {{label}}',
   backupTitle: 'Kopia zapasowa i przywracanie',
+  backupCredentialsNoticeTitle: 'Kopie zapasowe zawierają hasła',
+  backupCredentialsNoticeBody: 'Kopie ustawień i kopie pełne zapisują hasła serwera oraz klucze scrobblera jako czytelny tekst — dzięki temu przywracanie może odtworzyć logowania. Każdy, kto otworzy plik, może je odczytać, więc należy przechowywać go bezpiecznie i nie udostępniać.',
   backupExport: 'Eksportuj ustawienia',
   backupExportDesc: 'Saves all settings, server profiles, Last.fm config, theme, EQ and keybindings to a .psybkp file. Passwords are stored in plaintext — keep the file secure.',
   backupImport: 'Importuj ustawienia',

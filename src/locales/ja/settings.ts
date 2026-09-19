@@ -643,6 +643,8 @@ export const settings = {
   ratingsMixMinArtist: 'アーティスト',
   ratingsMixMinThresholdAria: '最小星数: {{label}}',
   backupTitle: 'バックアップと復元',
+  backupCredentialsNoticeTitle: 'バックアップにはパスワードが含まれます',
+  backupCredentialsNoticeBody: '設定バックアップと完全バックアップは、サーバーのパスワードと scrobbler のキーを読み取り可能なテキストとして保存します。復元でログインを戻せるのはこのためです。ファイルを開いた人は誰でも読めるため、安全な場所に保管し、共有しないでください。',
   backupExport: '設定をエクスポート',
   backupExportDesc: 'すべての設定、サーバープロファイル、Last.fm 設定、テーマ、EQ、キーバインドを .psybkp ファイルへ保存します。パスワードは平文で保存されます。ファイルを安全に保管してください。',
   backupImport: '設定をインポート',

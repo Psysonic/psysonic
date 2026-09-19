@@ -25,7 +25,11 @@ export type ImportedBackupCoordinator = {
   };
 };
 
-const BACKUP_KEYS = [
+/**
+ * The keys every backup has carried. A backup without one of them was taken
+ * while that setting was still at its default, so the restore clears it.
+ */
+const LEGACY_BACKUP_KEYS = [
   'psysonic-auth',
   'psysonic_theme',
   'psysonic_font',
@@ -42,7 +46,45 @@ const BACKUP_KEYS = [
   'psysonic_visualizer',
   'psysonic_np_layout',
 ] as const;
+/**
+ * Keys added to the backup later. The export writes each of them, `null` when
+ * the setting was never changed, so a restore can tell "default at backup time"
+ * (clear it) from "backup older than this key" (leave the current value alone —
+ * clearing it would throw away playlist folders or radio favourites that an
+ * older backup simply knew nothing about).
+ */
+const ADDED_BACKUP_KEYS = [
+  'psysonic_artist_layout',
+  'psysonic_favorites_layout',
+  'psysonic_playlist_layout',
+  'psysonic_player_bar_layout',
+  'psysonic_queue_toolbar',
+  'psysonic_burner_layout',
+  'psysonic_album_view_mode',
+  'psysonic_artist_view_mode',
+  'psysonic_tracklist_columns',
+  'psysonic_favorites_columns',
+  'psysonic_playlist_columns',
+  'psysonic_artist_all_tracks_columns',
+  'psysonic_installed_themes',
+  'psysonic_share_settings',
+  'psysonic_play_queue_sync_settings',
+  'psysonic-playback-rate',
+  'psysonic-analytics-strategy',
+  'psysonic-cover-cache-strategy',
+  'psysonic_burn_settings',
+  'psysonic_radio_favorites',
+  'psysonic_radio_order',
+  'psysonic_playlist_folders',
+  'psysonic_shuffle_mode',
+  'psysonic_sidebar_collapsed',
+  'psysonic_mini_expanded_h',
+  'psysonic_mini_queue_open',
+  'psysonic_network_loved_cache',
+] as const;
+export const BACKUP_KEYS = [...LEGACY_BACKUP_KEYS, ...ADDED_BACKUP_KEYS] as const;
 const BACKUP_KEY_SET = new Set<string>(BACKUP_KEYS);
+const LEGACY_BACKUP_KEY_SET = new Set<string>(LEGACY_BACKUP_KEYS);
 /**
  * Keys holding a bare string rather than a serialized store. `collectStores`
  * cannot JSON-parse those, so it carries the raw string — and the restore has
@@ -90,12 +132,16 @@ function collectStores(): Record<string, unknown> {
   const stores: Record<string, unknown> = {};
   for (const key of BACKUP_KEYS) {
     const val = localStorage.getItem(key);
-    if (val !== null) {
-      try {
-        stores[key] = JSON.parse(val);
-      } catch {
-        stores[key] = val;
-      }
+    if (val === null) {
+      // Legacy keys stay out, exactly as older builds wrote them: an older build
+      // restoring this backup would otherwise write the literal `null`.
+      if (!LEGACY_BACKUP_KEY_SET.has(key)) stores[key] = null;
+      continue;
+    }
+    try {
+      stores[key] = JSON.parse(val);
+    } catch {
+      stores[key] = val;
     }
   }
   return stores;
@@ -114,8 +160,14 @@ export function restoreBackupStores(stores: Record<string, unknown>): void {
   const filtered = filterBackupStores(stores);
   const previous = new Map(BACKUP_KEYS.map(key => [key, localStorage.getItem(key)] as const));
   try {
-    for (const key of BACKUP_KEYS) localStorage.removeItem(key);
-    for (const [key, value] of Object.entries(filtered)) {
+    for (const key of BACKUP_KEYS) {
+      const inBackup = Object.prototype.hasOwnProperty.call(filtered, key);
+      if (!inBackup && !LEGACY_BACKUP_KEY_SET.has(key)) continue;
+      const value = inBackup ? filtered[key] : null;
+      if (value === null) {
+        localStorage.removeItem(key);
+        continue;
+      }
       const serialized = serializedStore(value, key);
       localStorage.setItem(key, serialized);
       if (localStorage.getItem(key) !== serialized) throw new Error(`backup_store_readback_failed:${key}`);
@@ -139,13 +191,16 @@ function captureBackupStoreSnapshot(): Record<string, string | null> {
 }
 
 function restoreBackupStoreSnapshot(snapshot: Record<string, string | null>): void {
-  for (const key of BACKUP_KEYS) localStorage.removeItem(key);
-  for (const key of BACKUP_KEYS) {
+  // A journal written by an older build has no entry for keys added since; its
+  // import never touched them, so the rollback leaves them as they are.
+  const keys = BACKUP_KEYS.filter(key => Object.prototype.hasOwnProperty.call(snapshot, key));
+  for (const key of keys) localStorage.removeItem(key);
+  for (const key of keys) {
     const value = snapshot[key] ?? null;
     if (value === null) continue;
     localStorage.setItem(key, value);
   }
-  for (const key of BACKUP_KEYS) {
+  for (const key of keys) {
     const expected = snapshot[key] ?? null;
     if (localStorage.getItem(key) !== expected) throw new Error(`backup_store_rollback_failed:${key}`);
   }
@@ -181,7 +236,7 @@ function readFullBackupImportJournal(): FullBackupImportJournal | null {
   }
   for (const key of BACKUP_KEYS) {
     const value = journal.previousStores[key];
-    if (value !== null && typeof value !== 'string') {
+    if (value !== undefined && value !== null && typeof value !== 'string') {
       throw new Error(`full_backup_import_journal_invalid:${key}`);
     }
   }

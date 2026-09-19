@@ -604,6 +604,8 @@ export const settings = {
   ratingsMixMinArtist: 'Artistas',
   ratingsMixMinThresholdAria: 'Estrellas mínimas: {{label}}',
   backupTitle: 'Respaldo y Restauración',
+  backupCredentialsNoticeTitle: 'Las copias de seguridad contienen contraseñas',
+  backupCredentialsNoticeBody: 'Las copias de configuración y las completas guardan las contraseñas del servidor y las claves de scrobbler como texto legible: así una restauración puede devolver los inicios de sesión. Cualquiera que abra el archivo puede leerlas, conviene guardarlo en un lugar seguro y no compartirlo.',
   backupExport: 'Exportar configuración',
   backupExportDesc: 'Guarda toda la configuración, perfiles de servidor, configuración Last.fm, tema, EQ y atajos de teclado a un archivo .psybkp. Las contraseñas se almacenan en texto plano — mantén el archivo seguro.',
   backupImport: 'Importar configuración',
