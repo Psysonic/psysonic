@@ -189,6 +189,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Depending on how the server looks up artist information, the button could open the artist's own website instead of their Last.fm page. It now always leads to Last.fm, and it shows for every artist, also when the server sends no link.
 
+### Dropdown lists no longer shift when you move the mouse over them
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* On macOS, a short dropdown list could shift by a couple of pixels whenever the mouse moved between its first and last entry. The list was sized two pixels too short for its own frame, which let it scroll by that much. It now takes exactly the room it needs.
+
+### Player bar buttons stay put after hovering
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* On macOS, the icons in the player bar could jump slightly a moment after the mouse left them, once their hover animation had finished.
+
+### Rating stars keep their size with JetBrains Mono
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* With **JetBrains Mono** selected under **Settings → Appearance**, rating stars were drawn much smaller on macOS. The font has no star of its own, and the stand-in came from a different source than for every other font. The stars now match the other fonts.
+
 ## [1.54.0]
 
 ## Fixed
