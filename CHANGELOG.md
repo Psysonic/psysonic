@@ -207,6 +207,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * With **JetBrains Mono** selected under **Settings → Appearance**, rating stars were drawn much smaller on macOS. The font has no star of its own, and the stand-in came from a different source than for every other font. The stars now match the other fonts.
 
+### Your playlists show up under Add to Playlist again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@bcorporaal](https://github.com/bcorporaal), PR [#1619](https://github.com/Psysonic/psysonic/pull/1619)**
+
+* On some Navidrome setups, **Add to Playlist** said "No playlists yet" although the sidebar listed them all, and tracks inside a playlist could not be moved or removed. Psysonic could not ask Navidrome which playlists are smart playlists and, to be safe, treated all of them as read-only. It now falls back to what the server already reports for each playlist, so your own playlists can be edited again while smart playlists stay read-only.
+
 ## [1.54.0]
 
 ## Fixed

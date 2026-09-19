@@ -156,6 +156,8 @@ export interface SubsonicPlaylist {
   smartMetadataUnavailable?: boolean;
   /** Native smart rules retained for editor validation; absent when metadata was unavailable. */
   smartRules?: Record<string, unknown>;
+  /** OpenSubsonic: the current user cannot edit this playlist. Absent on plain Subsonic servers. */
+  readonly?: boolean;
   name: string;
   songCount: number;
   duration: number;

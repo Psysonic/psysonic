@@ -8,6 +8,7 @@ import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
 import { connectBaseUrlForServer } from '@/lib/server/serverEndpoint';
 import { isNavidromeServer } from '@/lib/server/subsonicServerIdentity';
 import { hasNavidromeSmartRules } from '@/lib/format/playlistClassification';
+import { frontendDebugLog } from '@/lib/api/debugLog';
 
 /** Max song-id params per Subsonic GET call (auth + ~8 KiB URL ceiling). */
 export const PLAYLIST_SONG_ID_GET_BATCH = 150;
@@ -91,8 +92,16 @@ async function addNativePlaylistSmartMetadata(
 ): Promise<SubsonicPlaylist[]> {
   if (!shouldFetchNativePlaylistMetadata(serverId)) return playlists;
   try {
-    return applyNativePlaylistSmartMetadata(playlists, await ndListPlaylists(serverId));
-  } catch {
+    const classified = applyNativePlaylistSmartMetadata(playlists, await ndListPlaylists(serverId));
+    const missing = classified.filter(playlist => playlist.smartMetadataUnavailable).length;
+    if (missing > 0) {
+      frontendDebugLog('playlists', `native playlist list is missing ${missing} of ${classified.length} playlists`);
+    }
+    return classified;
+  } catch (err) {
+    // Every playlist falls back to the Subsonic `readonly` flag now; the reason the native
+    // lookup failed is otherwise invisible, and it is the only lead on why it fails.
+    frontendDebugLog('playlists', `native playlist metadata unavailable: ${err instanceof Error ? err.message : String(err)}`);
     return playlists.map(playlist => ({ ...playlist, smartMetadataUnavailable: true }));
   }
 }
