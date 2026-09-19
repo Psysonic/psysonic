@@ -221,6 +221,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * On some Navidrome setups, **Add to Playlist** said "No playlists yet" although the sidebar listed them all, and tracks inside a playlist could not be moved or removed. Psysonic could not ask Navidrome which playlists are smart playlists and, to be safe, treated all of them as read-only. It now falls back to what the server already reports for each playlist, so your own playlists can be edited again while smart playlists stay read-only.
 
+### The Orbit button's label stays put when you hover it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical) and [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622), PR [#1623](https://github.com/Psysonic/psysonic/pull/1623)**
+
+* On macOS, the "Orbit" lettering in the top bar moved slightly to the left while the icon next to it turned on hover, and moved back when the mouse left.
+
+### The Last.fm button's hover circle is no longer cut off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622)**
+
+* Hovering the Last.fm button next to the track title could cut off the right edge of its highlight circle, because the button sat right at the edge of its area. It now keeps a little room on that side.
+
 ## [1.54.0]
 
 ## Fixed
