@@ -239,6 +239,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Exporting a backup only carried part of your settings, so importing it left page layouts, tracklist columns, radio favourites, playlist folders, installed themes and the player bar at their defaults. Backups now carry all of them, and a backup taken before this release still restores what it holds instead of clearing the settings it never knew about.
 
+### Backups say up front that they hold your passwords
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1626](https://github.com/Psysonic/psysonic/pull/1626)**
+
+* A backup keeps your server passwords and scrobbler keys in readable form — that is what lets importing it put your logins back. So far that was only noted in the fine print of one of the three export modes, and not in the full export at all. **Settings → Backup & Restore** now shows it as a warning right next to the export buttons, for the modes that carry settings.
+
 ## [1.54.0]
 
 ## Fixed
