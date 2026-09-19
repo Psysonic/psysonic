@@ -189,6 +189,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Depending on how the server looks up artist information, the button could open the artist's own website instead of their Last.fm page. It now always leads to Last.fm, and it shows for every artist, also when the server sends no link.
 
+### Your playlists show up under Add to Playlist again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@bcorporaal](https://github.com/bcorporaal), PR [#1619](https://github.com/Psysonic/psysonic/pull/1619)**
+
+* On some Navidrome setups, **Add to Playlist** said "No playlists yet" although the sidebar listed them all, and tracks inside a playlist could not be moved or removed. Psysonic could not ask Navidrome which playlists are smart playlists and, to be safe, treated all of them as read-only. It now falls back to what the server already reports for each playlist, so your own playlists can be edited again while smart playlists stay read-only.
+
 ## [1.54.0]
 
 ## Fixed
