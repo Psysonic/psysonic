@@ -242,6 +242,7 @@ pub(crate) async fn ranged_download_task(
                 *slot = Some(PreloadedTrack {
                     url: url.clone(),
                     data,
+                    local_original_verified: None,
                 });
             }
             crate::app_deprintln!("[stream] promoted to stream_completed_cache for replay");

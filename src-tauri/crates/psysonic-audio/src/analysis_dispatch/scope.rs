@@ -7,7 +7,7 @@ use crate::engine::{analysis_track_id_is_current_playback, AudioEngine};
 use crate::helpers::{analysis_cache_track_id, current_playback_server_id_str};
 use crate::state::ChainedInfo;
 
-use super::{spawn_track_analysis_bytes, TrackAnalysisOrigin};
+use super::{source_analysis_allowed, spawn_track_analysis_bytes, TrackAnalysisOrigin};
 
 /// Playback server scope: explicit IPC value, else pinned engine scope.
 pub(crate) fn resolve_analysis_server_id(
@@ -120,6 +120,9 @@ pub(crate) fn analysis_priority_for_app(
 
 /// Gapless boundary: chained track became audible — run unified analysis if needed.
 pub(crate) fn spawn_gapless_transition_analysis(app: &AppHandle, info: &ChainedInfo) {
+    if !source_analysis_allowed(&info.url, info.local_original_verified) {
+        return;
+    }
     let track_id = analysis_cache_track_id(info.analysis_track_id.as_deref(), &info.url);
     let Some(track_id) = track_id else {
         return;

@@ -10,35 +10,47 @@ use super::support::*;
 async fn non_navidrome_backfill_uses_standard_original_download() {
     use tauri::Manager;
     use wiremock::matchers::{method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{Mock, MockServer};
 
     let server = MockServer::start().await;
-    let original = vec![0x33; 12 * 1024];
+    let mut original = vec![0x33; 24 * 1024];
+    original[..4].copy_from_slice(b"fLaC");
     Mock::given(method("GET"))
         .and(path("/rest/download.view"))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(original.clone()))
+        .respond_with(RawOriginalResponder {
+            body: original.clone(),
+        })
         .mount(&server)
         .await;
 
-    let app = tauri::test::mock_app();
-    app.handle()
-        .manage(Arc::new(analysis_registry(&server.uri(), false)));
-    app.handle()
-        .manage(analysis_cache::AnalysisCache::open_in_memory());
     let stream_url = format!(
         "{}/rest/stream.view?id=t1&format=mp3&maxBitRate=64",
         server.uri()
     );
+    let registry = Arc::new(analysis_registry(&server.uri(), false));
+    assert!(registry
+        .resolve_context(Some("canonical-server"), &stream_url)
+        .is_some());
+    let app = tauri::test::mock_app();
+    app.handle().manage(registry);
+    app.handle()
+        .manage(analysis_cache::AnalysisCache::open_in_memory());
 
-    let download = analysis_backfill_download(
+    let download_result = analysis_backfill_download(
         app.handle(),
         "canonical-server",
         "t1",
         &stream_url,
         ANALYSIS_BACKFILL_DOWNLOAD_MAX_BYTES,
     )
-    .await
-    .unwrap();
+    .await;
+    let download = match download_result {
+        Ok(download) => download,
+        Err(error) => panic!(
+            "backfill failed: {error:?}; requests={:?}",
+            server.received_requests().await.unwrap()
+        ),
+    };
 
     assert_eq!(download.bytes, original);
     let trusted = download.trusted_revision.unwrap();
@@ -48,8 +60,10 @@ async fn non_navidrome_backfill_uses_standard_original_download() {
     );
     assert!(!trusted.analysis_bytes_transcoded);
     let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0].url.path(), "/rest/download.view");
+    assert_eq!(requests.len(), 2, "probe then full original fetch");
+    assert!(requests
+        .iter()
+        .all(|request| request.url.path() == "/rest/download.view"));
 
     let oversized = analysis_backfill_download(
         app.handle(),
@@ -62,7 +76,7 @@ async fn non_navidrome_backfill_uses_standard_original_download() {
     assert_eq!(
         oversized.unwrap_err(),
         AnalysisBackfillJobError::Terminal(
-            "original download exceeds analysis cap of 8192 bytes".to_string()
+            "trusted original exceeds analysis cap of 8192 bytes".to_string()
         )
     );
     let cache = app.handle().state::<analysis_cache::AnalysisCache>();
@@ -76,7 +90,7 @@ async fn non_navidrome_backfill_uses_standard_original_download() {
 }
 
 #[tokio::test]
-async fn permanent_original_download_http_failure_is_terminal() {
+async fn original_probe_http_failure_is_retryable() {
     use tauri::Manager;
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -103,8 +117,41 @@ async fn permanent_original_download_http_failure_is_terminal() {
         )
         .await
         .unwrap_err(),
-        AnalysisBackfillJobError::Terminal("original download unavailable: HTTP 404".to_string())
+        AnalysisBackfillJobError::Retryable(
+            "trusted original identity unavailable for analysis backfill".to_string()
+        )
     );
+}
+
+#[tokio::test]
+async fn unregistered_endpoint_fails_closed_without_requesting_bytes() {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/rest/download.view"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![0x33; 1024]))
+        .mount(&server)
+        .await;
+    let app = tauri::test::mock_app();
+    let stream_url = format!("{}/rest/stream.view?id=t1", server.uri());
+
+    assert_eq!(
+        analysis_backfill_download(
+            app.handle(),
+            "unknown-server",
+            "t1",
+            &stream_url,
+            ANALYSIS_BACKFILL_DOWNLOAD_MAX_BYTES,
+        )
+        .await
+        .unwrap_err(),
+        AnalysisBackfillJobError::Retryable(
+            "trusted original identity unavailable for analysis backfill".to_string()
+        )
+    );
+    assert!(server.received_requests().await.unwrap().is_empty());
 }
 
 #[tokio::test]

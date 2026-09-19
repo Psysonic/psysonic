@@ -7,8 +7,7 @@
  *
  * This only governs the *live playback* stream. Original-byte producers use
  * the shared original-stream URL path: confirmed Navidrome profiles request
- * `format=raw`; unknown and non-Navidrome profiles keep the ordinary uncapped
- * stream request.
+ * `format=raw`; other Subsonic profiles use `download.view`.
  */
 export const STREAM_MAX_BITRATE_OPTIONS = [0, 320, 256, 192, 128, 96, 64] as const;
 

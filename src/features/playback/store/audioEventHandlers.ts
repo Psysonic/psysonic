@@ -25,7 +25,10 @@ import {
   playbackProfileIdForRef,
   playbackProfileIdForTrack,
 } from '@/features/playback/utils/playback/playbackServer';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { requestGaplessChainPreload } from '@/features/playback/store/gaplessChainPreload';
 import {
   applyGaplessQueueAdvance,
@@ -543,6 +546,11 @@ export function handleAudioProgress(
           durationHint: nextTrack.duration,
           analysisTrackId: nextTrack.id,
           serverId: analysisServerId || null,
+          localOriginalVerified: localPlaybackOriginalVerifiedForUrl(
+            nextTrack.id,
+            serverId,
+            nextUrl,
+          ),
         }).catch(() => {});
       }
 

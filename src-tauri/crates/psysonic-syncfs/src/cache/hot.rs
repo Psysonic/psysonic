@@ -7,6 +7,9 @@ use tauri::Manager;
 
 use super::downloads::{resolve_hot_cache_root, HotCacheDownloadResult};
 use super::offline::enqueue_analysis_seed_from_file;
+use super::provenance::{
+    file_matches_trusted_original, read_original_prefix, resolve_trusted_original,
+};
 use crate::file_transfer::{apply_server_http_get, stream_to_file};
 
 #[tauri::command]
@@ -30,45 +33,6 @@ pub async fn download_track_hot_cache(
     let file_path = cache_dir.join(format!("{}.{}", track_id, suffix));
     let path_str = file_path.to_string_lossy().to_string();
 
-    if file_path.exists() {
-        let size = tokio::fs::metadata(&file_path)
-            .await
-            .map(|m| m.len())
-            .unwrap_or(0);
-        crate::app_deprintln!(
-            "[hot-cache] download disk_hit track_id={} server_id={} bytes={}",
-            track_id,
-            server_id,
-            size
-        );
-        // Disk hit: still seed analysis, but do not block the command (full-file read); the
-        // prefetch worker runs invokes sequentially.
-        let app_seed = app.clone();
-        let tid = track_id.clone();
-        let sid = server_id.clone();
-        let fp = file_path.clone();
-        tokio::spawn(async move {
-            enqueue_analysis_seed_from_file(
-                &app_seed,
-                &sid,
-                &tid,
-                &fp,
-                Some(AnalysisBackfillPriority::Middle),
-            )
-            .await;
-        });
-        return Ok(HotCacheDownloadResult {
-            path: path_str,
-            size,
-        });
-    }
-
-    crate::app_deprintln!(
-        "[hot-cache] download http_start track_id={} server_id={}",
-        track_id,
-        server_id
-    );
-
     let client = reqwest::Client::builder()
         .user_agent(subsonic_wire_user_agent())
         .timeout(std::time::Duration::from_secs(120))
@@ -78,6 +42,59 @@ pub async fn download_track_hot_cache(
     let http_registry = app
         .try_state::<Arc<psysonic_core::server_http::ServerHttpRegistry>>()
         .map(|s| Arc::clone(&*s));
+    if !psysonic_analysis::raw_probe::is_verified_original_request(
+        http_registry.as_deref(),
+        Some(&server_id),
+        &url,
+    ) {
+        return Err("trusted original request unavailable for hot-cache download".to_string());
+    }
+    let trusted_original =
+        resolve_trusted_original(&client, http_registry.as_deref(), Some(&server_id), &url).await?;
+
+    if file_path.exists() {
+        if file_matches_trusted_original(&file_path, &trusted_original).await? {
+            let size = tokio::fs::metadata(&file_path)
+                .await
+                .map(|m| m.len())
+                .unwrap_or(0);
+            crate::app_deprintln!(
+                "[hot-cache] download disk_hit track_id={} server_id={} bytes={}",
+                track_id,
+                server_id,
+                size
+            );
+            // Disk hit: still seed analysis, but do not block the command (full-file read); the
+            // prefetch worker runs invokes sequentially.
+            let app_seed = app.clone();
+            let tid = track_id.clone();
+            let sid = server_id.clone();
+            let fp = file_path.clone();
+            tokio::spawn(async move {
+                enqueue_analysis_seed_from_file(
+                    &app_seed,
+                    &sid,
+                    &tid,
+                    &fp,
+                    Some(AnalysisBackfillPriority::Middle),
+                )
+                .await;
+            });
+            return Ok(HotCacheDownloadResult {
+                path: path_str,
+                size,
+            });
+        }
+        tokio::fs::remove_file(&file_path)
+            .await
+            .map_err(|error| format!("remove stale unverified hot-cache file: {error}"))?;
+    }
+
+    crate::app_deprintln!(
+        "[hot-cache] download http_start track_id={} server_id={}",
+        track_id,
+        server_id
+    );
 
     let response = apply_server_http_get(&client, http_registry.as_deref(), Some(&server_id), &url)
         .send()
@@ -96,6 +113,10 @@ pub async fn download_track_hot_cache(
     tokio::fs::rename(&part_path, &file_path)
         .await
         .map_err(|e| e.to_string())?;
+    if !file_matches_trusted_original(&file_path, &trusted_original).await? {
+        let _ = tokio::fs::remove_file(&file_path).await;
+        return Err("trusted original changed or did not match the downloaded bytes".to_string());
+    }
 
     let app_seed = app.clone();
     let tid = track_id.clone();
@@ -151,31 +172,50 @@ pub async fn promote_stream_cache_to_hot_cache(
     let file_path = cache_dir.join(format!("{}.{}", track_id, suffix));
     let path_str = file_path.to_string_lossy().to_string();
 
+    let http_registry = app
+        .try_state::<Arc<psysonic_core::server_http::ServerHttpRegistry>>()
+        .map(|s| Arc::clone(&*s));
+    let trusted_original = resolve_trusted_original(
+        &reqwest::Client::new(),
+        http_registry.as_deref(),
+        Some(&server_id),
+        &url,
+    )
+    .await?;
+
     if file_path.exists() {
-        let size = tokio::fs::metadata(&file_path)
+        if file_matches_trusted_original(&file_path, &trusted_original).await? {
+            let size = tokio::fs::metadata(&file_path)
+                .await
+                .map(|m| m.len())
+                .unwrap_or(0);
+            crate::app_deprintln!(
+                "[hot-cache] promote disk_hit track_id={} server_id={} bytes={}",
+                track_id,
+                server_id,
+                size
+            );
+            let app_seed = app.clone();
+            let tid = track_id.clone();
+            let sid = server_id.clone();
+            let fp = file_path.clone();
+            tokio::spawn(async move {
+                enqueue_analysis_seed_from_file(&app_seed, &sid, &tid, &fp, None).await;
+            });
+            return Ok(Some(HotCacheDownloadResult {
+                path: path_str,
+                size,
+            }));
+        }
+        tokio::fs::remove_file(&file_path)
             .await
-            .map(|m| m.len())
-            .unwrap_or(0);
-        crate::app_deprintln!(
-            "[hot-cache] promote disk_hit track_id={} server_id={} bytes={}",
-            track_id,
-            server_id,
-            size
-        );
-        let app_seed = app.clone();
-        let tid = track_id.clone();
-        let sid = server_id.clone();
-        let fp = file_path.clone();
-        tokio::spawn(async move {
-            enqueue_analysis_seed_from_file(&app_seed, &sid, &tid, &fp, None).await;
-        });
-        return Ok(Some(HotCacheDownloadResult {
-            path: path_str,
-            size,
-        }));
+            .map_err(|error| format!("remove stale unverified hot-cache file: {error}"))?;
     }
 
     if let Some(bytes) = audio::take_stream_completed_for_url(&state, &url) {
+        if !psysonic_analysis::raw_probe::bytes_match_trusted(&bytes, &trusted_original) {
+            return Ok(None);
+        }
         let part_path = file_path.with_extension(format!("{suffix}.part"));
         if let Err(e) = tokio::fs::write(&part_path, &bytes).await {
             let _ = tokio::fs::remove_file(&part_path).await;
@@ -216,6 +256,13 @@ pub async fn promote_stream_cache_to_hot_cache(
     }
 
     if let Some(spill_path) = audio::take_stream_completed_spill_for_url(&state, &url) {
+        let prefix = read_original_prefix(&spill_path).await;
+        if !prefix.as_ref().is_ok_and(|bytes| {
+            psysonic_analysis::raw_probe::bytes_match_trusted(bytes, &trusted_original)
+        }) {
+            let _ = tokio::fs::remove_file(&spill_path).await;
+            return Ok(None);
+        }
         if let Err(e) = tokio::fs::rename(&spill_path, &file_path).await {
             if let Err(copy_err) = tokio::fs::copy(&spill_path, &file_path).await {
                 let _ = tokio::fs::remove_file(&spill_path).await;

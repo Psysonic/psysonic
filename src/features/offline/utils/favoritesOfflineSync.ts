@@ -7,7 +7,7 @@ import { buildOriginalStreamUrlForServer } from '@/lib/api/subsonicStreamUrl';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { invoke } from '@tauri-apps/api/core';
 import i18n from '@/lib/i18n';
-import { serverSupportsRawStream, useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/store/authStore';
 import {
   cancelledDownloads,
   markOfflineDownloadCancelled,
@@ -31,7 +31,6 @@ import {
   entryBelongsToServer,
   findFavoriteAutoEntry,
   findLocalPlaybackEntry,
-  hasLocalLibraryBytes,
 } from '@/store/localPlaybackResolve';
 import {
   beginOfflineServerOperation,
@@ -185,10 +184,11 @@ export async function collectStarredSongs(serverId: string): Promise<SubsonicSon
 
 function pendingFavoriteAutoSongs(songs: SubsonicSong[], serverId: string): SubsonicSong[] {
   return songs.filter((song) => {
-    if (hasLocalLibraryBytes(song.id, serverId)) return false;
+    const libraryEntry = findLocalPlaybackEntry(song.id, serverId);
+    if (libraryEntry?.localPath) return libraryEntry.originalBytesVerified !== true;
     const existing = findFavoriteAutoEntry(song.id, serverId);
     if (!existing?.localPath) return true;
-    return serverSupportsRawStream(serverId) && existing.originalBytesVerified !== true;
+    return existing.originalBytesVerified !== true;
   });
 }
 
@@ -413,22 +413,26 @@ async function runFavoritesOfflineSyncOneServerWithLease(
           if (cancelledDownloads.has(FAVORITES_OFFLINE_JOB_ID)) {
             return { song, error: 'CANCELLED' };
           }
+          const existingLibrary = findLocalPlaybackEntry(song.id, serverId);
           const existingFavorite = findFavoriteAutoEntry(song.id, serverId);
           if (
-            hasLocalLibraryBytes(song.id, serverId)
-            || (
-              existingFavorite?.localPath
-              && (!serverSupportsRawStream(serverId) || existingFavorite.originalBytesVerified === true)
-            )
+            (existingLibrary?.localPath && existingLibrary.originalBytesVerified === true)
+            || (existingFavorite?.localPath && existingFavorite.originalBytesVerified === true)
           ) {
             return { song, error: null };
           }
+          const targetTier = existingLibrary?.localPath ? 'library' : 'favorite-auto';
+          const targetServerIndexKey = existingLibrary?.serverIndexKey
+            ?? existingFavorite?.serverIndexKey
+            ?? serverIndexKey;
           const finishTrackTransfer = await beginOfflineTrackTransfer(
             serverIndexKey,
             song.id,
             serverLease,
           );
           try {
+            const originalUrl = buildOriginalStreamUrlForServer(serverId, song.id);
+            if (!originalUrl) return { song, error: 'SERVER_NOT_FOUND' };
             const res = await invoke<{
               path: string;
               size: number;
@@ -437,11 +441,11 @@ async function runFavoritesOfflineSyncOneServerWithLease(
             }>(
               'download_track_local',
               {
-                tier: 'favorite-auto',
+                tier: targetTier,
                 trackId: song.id,
-                serverIndexKey,
+                serverIndexKey: targetServerIndexKey,
                 libraryServerId,
-                url: buildOriginalStreamUrlForServer(serverId, song.id),
+                url: originalUrl,
                 suffix,
                 mediaDir,
                 downloadId: currentDownloadId,
@@ -460,12 +464,13 @@ async function runFavoritesOfflineSyncOneServerWithLease(
               return { song, error: 'CANCELLED' };
             }
             useLocalPlaybackStore.getState().upsertEntry({
-              serverIndexKey,
+              ...(targetTier === 'library' ? existingLibrary : existingFavorite),
+              serverIndexKey: targetServerIndexKey,
               trackId: song.id,
               localPath: res.path,
               sizeBytes: res.size,
               layoutFingerprint: res.layoutFingerprint,
-              tier: 'favorite-auto',
+              tier: targetTier,
               suffix,
               originalBytesVerified: res.originalBytesVerified,
             });

@@ -173,6 +173,7 @@ pub(super) fn publish_validated_fallback_bytes(
         *cache = Some(PreloadedTrack {
             url: url.to_string(),
             data: data.to_vec(),
+            local_original_verified: None,
         });
         PublishedFallbackLocation::Memory
     };

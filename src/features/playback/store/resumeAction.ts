@@ -10,7 +10,10 @@ import {
   playbackProfileIdForTrack,
 } from '@/features/playback/utils/playback/playbackServer';
 import { findQueueItemRefForTrack } from '@/features/playback/utils/playback/queueIdentity';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { resolveReplayGainDb } from '@/features/playback/utils/audio/resolveReplayGainDb';
 import { audioPlayHiResBlendArgs } from '@/lib/audio/hiResCrossfadeResample';
 import { songToTrack } from '@/lib/media/songToTrack';
@@ -216,6 +219,11 @@ export function runResume(set: SetState, get: GetState): void {
         ...audioPlayHiResBlendArgs(useAuthStore.getState()),
         analysisTrackId: trackToPlay.id,
         serverId: coldIndexKey || null,
+        localOriginalVerified: localPlaybackOriginalVerifiedForUrl(
+          trackToPlay.id,
+          coldIndexKey,
+          coldUrl,
+        ),
         streamFormatSuffix: trackToPlay.suffix ?? null,
         startPaused: false,
       }).then(() => {

@@ -46,7 +46,10 @@ import {
   findLocalPlaybackUrl,
   hasLocalPersistentPlaybackBytes,
 } from '@/store/localPlaybackResolve';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { resolveReplayGainDb } from '@/features/playback/utils/audio/resolveReplayGainDb';
 import { enrichTrackPlaybackMetadata } from '@/features/playback/utils/audio/enrichTrackReplayGainMetadata';
 import { audioPlayHiResBlendArgs } from '@/lib/audio/hiResCrossfadeResample';
@@ -614,6 +617,11 @@ export function runPlayTrack(
         ...audioPlayHiResBlendArgs(authStateNow),
         analysisTrackId: trackForPlay.id,
         serverId: getPlaybackIndexKey() || null,
+        localOriginalVerified: localPlaybackOriginalVerifiedForUrl(
+          trackForPlay.id,
+          playbackSid || playbackCacheSid,
+          url,
+        ),
         streamFormatSuffix: trackForPlay.suffix ?? null,
         startPaused: false,
         startSecs: crossfadeStartSecs > 0.05 ? crossfadeStartSecs : null,
