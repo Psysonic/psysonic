@@ -177,7 +177,11 @@ export default function CustomSelect({
         ...(useAbove
           ? { bottom: window.innerHeight - rect.top + MARGIN }
           : { top: rect.bottom + MARGIN }),
-        maxHeight: needsScroll ? viewportCap : contentH || viewportCap,
+        // A list that fits keeps its natural height. Capping it at `scrollHeight` leaves
+        // out the border, so the box came out 2px short: the list could scroll by exactly
+        // that much, and the scrollIntoView below moved every option up and down by it
+        // whenever the pointer crossed from the first option to the last.
+        maxHeight: needsScroll || contentH === 0 ? viewportCap : undefined,
         overflowY: needsScroll ? 'auto' : 'hidden',
         zIndex: 99998,
       });
