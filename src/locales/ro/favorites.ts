@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Selecția la coadă',
   playAll: 'Redă tot',
   playSelected: 'Redă selecția',
+  shuffleAll: 'Amestecă tot',
+  shuffleSelected: 'Amestecă selecția',
   removeSong: 'Șterge de la favorite',
   stations: 'Stații Radio',
   showingFiltered: 'Se afișează {{filtered}} din {{total}} ({{artist}})',

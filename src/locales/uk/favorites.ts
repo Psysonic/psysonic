@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Додати вибране в чергу',
   playAll: 'Грати все',
   playSelected: 'Грати вибране',
+  shuffleAll: 'Перемішати все',
+  shuffleSelected: 'Перемішати вибране',
   removeSong: 'Видалити з улюблених',
   stations: 'Радіостанції',
   showingFiltered: 'Показано {{filtered}} з {{total}} ({{artist}})',
