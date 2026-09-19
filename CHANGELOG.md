@@ -233,6 +233,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Hovering the Last.fm button next to the track title could cut off the right edge of its highlight circle, because the button sat right at the edge of its area. It now keeps a little room on that side.
 
+### A backup now restores all of your settings
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@bcorporaal](https://github.com/bcorporaal), PR [#1625](https://github.com/Psysonic/psysonic/pull/1625)**
+
+* Exporting a backup only carried part of your settings, so importing it left page layouts, tracklist columns, radio favourites, playlist folders, installed themes and the player bar at their defaults. Backups now carry all of them, and a backup taken before this release still restores what it holds instead of clearing the settings it never knew about.
+
 ## [1.54.0]
 
 ## Fixed
