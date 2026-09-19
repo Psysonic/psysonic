@@ -116,6 +116,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The artist page now lists the similar artists your server supplies whenever the service chosen under **Settings → Integrations → Music Network** finds none of its suggestions in your library, or when no service is set up there. Before, the section stayed empty in that case.
 * The service you picked still comes first, and servers with AudioMuse keep leading with their own list as before.
 
+### Arrange the Favorites page your way
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Padparadscha on Discord, PR [#1624](https://github.com/Psysonic/psysonic/pull/1624)**
+
+* **Settings → Personalisation → Favorites page sections** lets you reorder the sections of the Favorites page by dragging them and hide the ones you don't need, for example Top Artists by Favorites.
+* The **#** column of the favourite songs can be switched off in the column menu of the list, like the other columns. In narrow windows it stays visible.
+* **Shuffle all** sits next to **Play all** and plays the songs in the list in random order, filters included, or only the selected ones while a selection is active.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it

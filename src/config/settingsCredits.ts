@@ -472,6 +472,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Device Sync — a flat layout that puts every track and playlist in the main folder of the device (PR #1611)',
       'Favorites — the artists heading opens the Artists page, filtered to your favourites (PR #1613)',
       'Artist page — similar artists from your server fill in when Music Network finds none in your library (PR #1617)',
+      'Favorites — reorder and hide the page sections, hide the # column, shuffle all songs (PR #1624)',
     ],
   },
   {
