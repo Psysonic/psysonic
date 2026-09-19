@@ -7,6 +7,8 @@ import { useRailScroll } from '@/lib/hooks/useRailScroll';
 
 interface Props {
   title: string;
+  /** Turns the heading into a button, as on `AlbumRow`. */
+  onTitleClick?: () => void;
   artists: SubsonicArtist[];
   moreLink?: string;
   moreText?: string;
@@ -20,7 +22,7 @@ interface Props {
 }
 
 export default function ArtistRow({
-  title, artists, moreLink, moreText, artistLinkQuery, libraryResolve = false,
+  title, onTitleClick, artists, moreLink, moreText, artistLinkQuery, libraryResolve = false,
   restoreScrollLeft,
   onScrollLeftSnapshot,
 }: Props) {
@@ -96,7 +98,18 @@ export default function ArtistRow({
   return (
     <section className="album-row-section">
       <div className="album-row-header">
-        <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
+        {onTitleClick ? (
+          <button
+            type="button"
+            className="section-title-link"
+            style={{ marginBottom: 0 }}
+            onClick={onTitleClick}
+          >
+            {title}<ChevronRight size={18} className="section-title-chevron" />
+          </button>
+        ) : (
+          <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
+        )}
         <div className="album-row-nav">
           <button className={`nav-btn ${!showLeft ? 'disabled' : ''}`} onClick={() => scrollByPage('left')} disabled={!showLeft}>
             <ChevronLeft size={20} />

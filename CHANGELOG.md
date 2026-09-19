@@ -103,6 +103,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Device Sync** has a third choice under **Layout**: **All files in one folder**. Every track goes straight into the main folder of the device, named `Album Artist - Album - Track number - Title`, for players that cannot browse folders.
 * Playlists are `.m3u8` files in the same folder that point at those tracks, so nothing is stored twice. On a device synced with folders before, the old copies are removed once the new ones are in place.
 
+### Browse all your favourite artists on the Artists page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@untitled-operator](https://github.com/untitled-operator), PR [#1613](https://github.com/Psysonic/psysonic/pull/1613)**
+
+* Clicking **Artists** on the Favorites page now opens the Artists page showing only your favourites, just as **Albums** opens All Albums. Your view, credit mode and artist-image setting stay as they are.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it

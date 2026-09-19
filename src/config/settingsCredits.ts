@@ -470,6 +470,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Queue — pick several tracks with Ctrl/Shift+click, then move them as one block or remove them with Delete (PR #1602)',
       'Visualizer settings — a live preview above the controls, with a demo signal while nothing plays (PR #1606)',
       'Device Sync — a flat layout that puts every track and playlist in the main folder of the device (PR #1611)',
+      'Favorites — the artists heading opens the Artists page, filtered to your favourites (PR #1613)',
     ],
   },
   {

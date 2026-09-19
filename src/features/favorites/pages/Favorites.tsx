@@ -10,7 +10,7 @@ import { useFavoritesSongFiltering } from '@/features/favorites/hooks/useFavorit
 import { useFavoritesSelection } from '@/features/favorites/hooks/useFavoritesSelection';
 import { useBulkPlPickerOutsideClick } from '@/features/playlist/hooks/useBulkPlPickerOutsideClick';
 import { AlbumRow } from '@/features/album';
-import { ArtistRow } from '@/features/artist';
+import { ArtistRow, openFavoriteArtists } from '@/features/artist';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useTranslation } from 'react-i18next';
 import { useSelectionStore } from '@/store/selectionStore';
@@ -214,15 +214,16 @@ export default function Favorites() {
       ) : (
         <>
           {/* The albums heading opens All Albums with its favourites filter on
-              (#1556). A row of six is fine as a glance; for hundreds of
-              favourites the grid there is the place to browse, with its
-              sorting, filters and paging.
-
-              The artists row has no such link yet: the artists page cannot
-              filter by favourites at all (#1582), so it would lead to an empty
-              list. It follows once that is fixed. */}
+              (#1556), the artists heading opens Artists the same way. A row of
+              six is fine as a glance; for hundreds of favourites the page
+              there is the place to browse, with its sorting, filters and
+              paging. */}
           {artists.length > 0 && (
-            <ArtistRow title={t('favorites.artists')} artists={artists} />
+            <ArtistRow
+              title={t('favorites.artists')}
+              onTitleClick={() => openFavoriteArtists(navigate)}
+              artists={artists}
+            />
           )}
 
           {albums.length > 0 && (
