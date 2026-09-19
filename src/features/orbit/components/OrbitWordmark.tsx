@@ -5,12 +5,13 @@ interface Props {
 
 export default function OrbitWordmark({ height = 14, className }: Props) {
   const aspect = 196.08815 / 57.845078;
+  const width = Math.round(height * aspect);
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 196.08815 57.845078"
       height={height}
-      width={height * aspect}
+      width={width}
       role="img"
       aria-hidden="true"
       focusable="false"
