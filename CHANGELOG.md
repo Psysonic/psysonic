@@ -182,6 +182,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Depending on how the server looks up artist information, the button could open the artist's own website instead of their Last.fm page. It now always leads to Last.fm, and it shows for every artist, also when the server sends no link.
 
+### Waveforms and loudness analysis now work beyond Navidrome
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1614](https://github.com/Psysonic/psysonic/pull/1614)**, closes [#1517](https://github.com/Psysonic/psysonic/issues/1517)
+
+* Other Subsonic servers could play normally but never kept waveform or loudness analysis, so the same work was repeated on every play. Psysonic now uses their standard original-file download and stores analysis only after verifying that the response matches the file the server advertised.
+* Existing Offline Library and Hot Cache files remain playable, but old files with no proof of origin do not write canonical analysis until they are revalidated or replaced. Navidrome still uses its raw-stream contract and never falls back to a potentially transcoded response.
+
 ## [1.54.0]
 
 ## Fixed
