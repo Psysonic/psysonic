@@ -617,7 +617,7 @@ export const settings = {
   backupCredentialsNoticeTitle: 'Les sauvegardes contiennent des mots de passe',
   backupCredentialsNoticeBody: 'Les sauvegardes des paramètres et les sauvegardes complètes enregistrent les mots de passe du serveur et les clés de scrobbler en texte lisible — c’est ce qui permet à une restauration de rétablir les connexions. Toute personne qui ouvre le fichier peut les lire : à conserver en lieu sûr et à ne pas partager.',
   backupExport: 'Exporter les paramètres',
-  backupExportDesc: 'Enregistre tous les paramètres, profils serveur, configuration Last.fm, thème, EQ et raccourcis dans un fichier .psybkp. Les mots de passe sont stockés en clair — conservez le fichier en sécurité.',
+  backupExportDesc: 'Enregistre tous les paramètres, profils serveur, configuration Last.fm, thème, EQ et raccourcis dans un fichier .psybkp. Les mots de passe sont stockés en clair — conservez le fichier en sécurité. La musique téléchargée, les caches et un appareil de synchronisation connecté ne sont pas inclus.',
   backupImport: 'Importer les paramètres',
   backupImportDesc: 'Restaure les paramètres depuis un fichier .psybkp. L\'application sera rechargée après l\'import.',
   backupImportConfirm: 'Tous les paramètres actuels seront écrasés. Continuer ?',

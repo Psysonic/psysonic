@@ -587,7 +587,7 @@ export const settings = {
   backupCredentialsNoticeTitle: 'Sikkerhetskopier inneholder passord',
   backupCredentialsNoticeBody: 'Innstillings- og fullstendige sikkerhetskopier lagrer tjenerpassord og scrobbler-nøkler som lesbar tekst — det er dette som lar en gjenoppretting hente tilbake innloggingene. Alle som åpner filen kan lese dem, så den bør oppbevares trygt og ikke deles.',
   backupExport: 'Eksporter innstillinger',
-  backupExportDesc: 'Lagrer alle innstillinger, tjenerprofiler, Last.fm-konfigurasjon, tema, jevnstiller og tastebindinger til en .psybkp-fil. Passordet lagres i klartekst – hold filen sikker.',
+  backupExportDesc: 'Lagrer alle innstillinger, tjenerprofiler, Last.fm-konfigurasjon, tema, jevnstiller og tastebindinger til en .psybkp-fil. Passordet lagres i klartekst – hold filen sikker. Nedlastet musikk, hurtiglagre og en tilkoblet synkroniseringsenhet er ikke inkludert.',
   backupImport: 'Importer innstillinger',
   backupImportDesc: 'Gjenoppretter innstillinger fra en .psybkp-fil. Applikasjonen starter på nytt etter import.',
   backupImportConfirm: 'Dette vil overskrive alle gjeldende innstillinger. Vil du fortsette?',

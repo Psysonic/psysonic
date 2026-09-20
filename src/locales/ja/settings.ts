@@ -646,7 +646,7 @@ export const settings = {
   backupCredentialsNoticeTitle: 'バックアップにはパスワードが含まれます',
   backupCredentialsNoticeBody: '設定バックアップと完全バックアップは、サーバーのパスワードと scrobbler のキーを読み取り可能なテキストとして保存します。復元でログインを戻せるのはこのためです。ファイルを開いた人は誰でも読めるため、安全な場所に保管し、共有しないでください。',
   backupExport: '設定をエクスポート',
-  backupExportDesc: 'すべての設定、サーバープロファイル、Last.fm 設定、テーマ、EQ、キーバインドを .psybkp ファイルへ保存します。パスワードは平文で保存されます。ファイルを安全に保管してください。',
+  backupExportDesc: 'すべての設定、サーバープロファイル、Last.fm 設定、テーマ、EQ、キーバインドを .psybkp ファイルへ保存します。パスワードは平文で保存されます。ファイルを安全に保管してください。ダウンロード済みの音楽、キャッシュ、接続中の同期デバイスは含まれません。',
   backupImport: '設定をインポート',
   backupImportDesc: '.psybkp ファイルから設定を復元します。インポート後にアプリはリロードされます。',
   backupImportConfirm: '現在のすべての設定を上書きします。続行しますか？',

@@ -587,7 +587,7 @@ export const settings = {
   backupCredentialsNoticeTitle: '备份包含密码',
   backupCredentialsNoticeBody: '设置备份和完整备份会以可读文本保存服务器密码和 scrobbler 密钥，这正是恢复时能找回登录信息的原因。任何打开该文件的人都能读取它们，因此请妥善保管，不要分享。',
   backupExport: '导出设置',
-  backupExportDesc: '将所有设置、服务器配置、Last.fm 配置、主题、均衡器和快捷键保存到 .psybkp 文件。密码以明文存储——请妥善保管该文件。',
+  backupExportDesc: '将所有设置、服务器配置、Last.fm 配置、主题、均衡器和快捷键保存到 .psybkp 文件。密码以明文存储——请妥善保管该文件。已下载的音乐、缓存和已连接的同步设备不会包含在内。',
   backupImport: '导入设置',
   backupImportDesc: '从 .psybkp 文件恢复设置。导入后应用将重新加载。',
   backupImportConfirm: '所有当前设置将被覆盖。是否继续？',

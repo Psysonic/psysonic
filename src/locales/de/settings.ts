@@ -637,7 +637,7 @@ export const settings = {
   backupCredentialsNoticeTitle: 'Backups enthalten Passwörter',
   backupCredentialsNoticeBody: 'Einstellungs- und Komplett-Backups speichern Serverpasswörter und Scrobbler-Schlüssel als lesbaren Text — nur so kann eine Wiederherstellung die Anmeldungen zurückbringen. Wer die Datei öffnet, kann sie lesen: sicher aufbewahren und nicht weitergeben.',
   backupExport: 'Einstellungen exportieren',
-  backupExportDesc: 'Speichert alle Einstellungen, Serverprofile, Last.fm-Konfiguration, Theme, EQ und Tastenkürzel in eine .psybkp-Datei. Passwörter werden im Klartext gespeichert — Datei sicher aufbewahren.',
+  backupExportDesc: 'Speichert alle Einstellungen, Serverprofile, Last.fm-Konfiguration, Theme, EQ und Tastenkürzel in eine .psybkp-Datei. Passwörter werden im Klartext gespeichert — Datei sicher aufbewahren. Heruntergeladene Musik, Zwischenspeicher und ein angeschlossenes Sync-Gerät sind nicht enthalten.',
   backupImport: 'Einstellungen importieren',
   backupImportDesc: 'Stellt Einstellungen aus einer .psybkp-Datei wieder her. Die App wird nach dem Import neu geladen.',
   backupImportConfirm: 'Alle aktuellen Einstellungen werden überschrieben. Fortfahren?',

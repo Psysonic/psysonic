@@ -610,7 +610,7 @@ export const settings = {
   backupCredentialsNoticeTitle: 'Backupurile conțin parole',
   backupCredentialsNoticeBody: 'Backupurile de setări și cele complete salvează parolele serverului și cheile de scrobbler ca text lizibil — astfel o restaurare poate readuce autentificările. Oricine deschide fișierul le poate citi, deci ar trebui păstrat într-un loc sigur și nu ar trebui distribuit.',
   backupExport: 'Setări de export',
-  backupExportDesc: 'Salvează toate setările, profilele de server, configurări Last.fm, teme, EQ și combinații de taste către un fișier .psybkp. Parolele sunt stocate ca text — păstrează fișierul în siguranță.',
+  backupExportDesc: 'Salvează toate setările, profilele de server, configurări Last.fm, teme, EQ și combinații de taste către un fișier .psybkp. Parolele sunt stocate ca text — păstrează fișierul în siguranță. Muzica descărcată, memoriile cache și un dispozitiv de sincronizare conectat nu sunt incluse.',
   backupImport: 'Setări de Import',
   backupImportDesc: 'Restaurează setări dintr-in fișier .psybkp. Aplicația se va reîncărca după import.',
   backupImportConfirm: 'Aceasta va suprascrie toate setările curente. Continuați?',

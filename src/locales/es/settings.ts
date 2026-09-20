@@ -607,7 +607,7 @@ export const settings = {
   backupCredentialsNoticeTitle: 'Las copias de seguridad contienen contraseñas',
   backupCredentialsNoticeBody: 'Las copias de configuración y las completas guardan las contraseñas del servidor y las claves de scrobbler como texto legible: así una restauración puede devolver los inicios de sesión. Cualquiera que abra el archivo puede leerlas, conviene guardarlo en un lugar seguro y no compartirlo.',
   backupExport: 'Exportar configuración',
-  backupExportDesc: 'Guarda toda la configuración, perfiles de servidor, configuración Last.fm, tema, EQ y atajos de teclado a un archivo .psybkp. Las contraseñas se almacenan en texto plano — mantén el archivo seguro.',
+  backupExportDesc: 'Guarda toda la configuración, perfiles de servidor, configuración Last.fm, tema, EQ y atajos de teclado a un archivo .psybkp. Las contraseñas se almacenan en texto plano — mantén el archivo seguro. La música descargada, las cachés y un dispositivo de sincronización conectado no se incluyen.',
   backupImport: 'Importar configuración',
   backupImportDesc: 'Restaura configuración desde un archivo .psybkp. La app se recargará después de importar.',
   backupImportConfirm: 'Esto sobrescribirá toda la configuración actual. ¿Continuar?',

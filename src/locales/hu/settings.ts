@@ -652,7 +652,7 @@ export const settings = {
   backupCredentialsNoticeTitle: 'A mentések jelszavakat tartalmaznak',
   backupCredentialsNoticeBody: 'A beállításmentések és a teljes mentések olvasható szövegként tárolják a szerverjelszavakat és a scrobbler-kulcsokat — így tudja a visszaállítás helyreállítani a bejelentkezéseket. Aki megnyitja a fájlt, el tudja olvasni őket, ezért biztonságos helyen érdemes tartani és nem szabad megosztani.',
   backupExport: 'Beállítások exportálása',
-  backupExportDesc: 'Elmenti az összes beállítást, szerverprofilt, Last.fm-konfigurációt, témát, EQ-t és billentyűparancsot egy .psybkp fájlba. A jelszavak titkosítatlanul tárolódnak — tartsd biztonságban a fájlt.',
+  backupExportDesc: 'Elmenti az összes beállítást, szerverprofilt, Last.fm-konfigurációt, témát, EQ-t és billentyűparancsot egy .psybkp fájlba. A jelszavak titkosítatlanul tárolódnak — tartsd biztonságban a fájlt. A letöltött zene, a gyorsítótárak és a csatlakoztatott szinkronizálási eszköz nem szerepel benne.',
   backupImport: 'Beállítások importálása',
   backupImportDesc: 'Visszaállítja a beállításokat egy .psybkp fájlból. Az alkalmazás importálás után újratöltődik.',
   backupImportConfirm: 'Ez felülír minden jelenlegi beállítást. Folytatod?',
