@@ -9,6 +9,7 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { usePreviewStore } from '@/features/playback/store/previewStore';
 import { useLyricsStore } from '../store/lyricsStore';
 import { showToast } from '@/lib/dom/toast';
+import { requestOpenSearch } from '@/lib/dom/openSearch';
 import type { ActionContext, ShortcutSlot, ShortcutActionMeta } from '@/config/shortcutTypes';
 
 let cliPremuteVolume: number | null = null;
@@ -25,14 +26,6 @@ const withPreviewPolicy = (
   }
   fn();
 };
-
-function focusLiveSearchInput(): boolean {
-  const input = document.getElementById('live-search-input') as HTMLInputElement | null;
-  if (!input) return false;
-  input.focus();
-  input.select();
-  return true;
-}
 
 function rateCurrentTrack(rating: number): void {
   const track = usePlayerStore.getState().currentTrack;
@@ -188,10 +181,10 @@ export const SHORTCUT_ACTION_REGISTRY = {
     inApp: { defaultBinding: null },
     runInMiniWindow: false,
     run: ({ navigate }) => {
-      if (focusLiveSearchInput()) return;
+      if (requestOpenSearch()) return;
       navigate('/');
       requestAnimationFrame(() => {
-        window.setTimeout(() => { focusLiveSearchInput(); }, 80);
+        window.setTimeout(() => { requestOpenSearch(); }, 80);
       });
     },
   },

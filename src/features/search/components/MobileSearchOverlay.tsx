@@ -213,7 +213,15 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
   const showEmpty = !query && !scope;
 
   return createPortal(
-    <div className="mobile-search-overlay">
+    <div
+      className="mobile-search-overlay"
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}
+    >
       {/* ── Search bar ── */}
       <div className="mobile-search-bar">
         <div className={`mobile-search-field${scope ? ' mobile-search-field--scoped' : ''}`}>
