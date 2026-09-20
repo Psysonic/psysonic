@@ -252,6 +252,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * A backup keeps your server passwords and scrobbler keys in readable form — that is what lets importing it put your logins back. So far that was only noted in the fine print of one of the three export modes, and not in the full export at all. **Settings → Backup & Restore** now shows it as a warning right next to the export buttons, for the modes that carry settings.
 
+### Device Sync settings survive a backup
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1628](https://github.com/Psysonic/psysonic/pull/1628)**
+
+* Restoring a backup brought your servers and preferences back but left Device Sync empty. The albums, playlists and artists you had picked, and the folder layout chosen for them, were never part of a backup and had to be set up again on every restore. They travel now.
+* The device itself deliberately stays behind: the folder a sync writes to, the drive it was attached to and anything queued for deletion describe the machine the backup came from, so a restore never points Device Sync at a drive the new machine has never seen. You pick the target again, the selection is already there.
+* **Settings → Backup & Restore** and the help entry now say what a backup does not include — downloaded music, caches and a connected sync device — instead of promising everything.
+
 ## [1.54.0]
 
 ## Fixed
