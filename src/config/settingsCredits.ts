@@ -227,6 +227,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Smooth word-synced lyrics highlighting in sidebar and fullscreen views (PR #1548)',
       'Navidrome share creation, management, preview and playback workflow (PR #1586)',
       'Favorites scoped search and reliable collapsed search entry (PR #1629)',
+      'Artist credits — scoped browse and detail support for guest and participant artists (PR #1631)',
     ],
   },
   {

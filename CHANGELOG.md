@@ -272,6 +272,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The search shortcut could focus a hidden desktop field while the header search was collapsed, leaving no visible place to type. It now opens the available desktop or mobile search control first.
 
+### Participant-only artists open correctly from track credits
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@Psychotoxical](https://github.com/Psychotoxical), PR [#1631](https://github.com/Psysonic/psysonic/pull/1631)**
+
+* Opening a guest performer, orchestra, choir or other artist credited alongside the primary artist could lead to **Artist not found** when library filtering was active. Their credited albums and tracks now appear within the selected library scope, with complete album counts and working artist links.
+
 ## [1.54.0]
 
 ## Fixed
