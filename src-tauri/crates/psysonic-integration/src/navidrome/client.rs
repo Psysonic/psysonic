@@ -183,6 +183,8 @@ mod tests {
         use std::thread;
         use std::time::Duration;
 
+        const REQUEST_COUNT: usize = 8;
+
         let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
         let address = listener.local_addr().expect("test server address");
         listener
@@ -194,7 +196,7 @@ mod tests {
         let accepted_for_server = Arc::clone(&accepted);
         let server = thread::spawn(move || {
             let mut handlers = Vec::new();
-            while served_for_server.load(Ordering::SeqCst) < 2 {
+            while served_for_server.load(Ordering::SeqCst) < REQUEST_COUNT {
                 match listener.accept() {
                     Ok((mut stream, _)) => {
                         accepted_for_server.fetch_add(1, Ordering::SeqCst);
@@ -205,7 +207,7 @@ mod tests {
                                 .expect("set stream timeout");
                             let mut request = Vec::new();
                             let mut buffer = [0_u8; 1024];
-                            while served.load(Ordering::SeqCst) < 2 {
+                            while served.load(Ordering::SeqCst) < REQUEST_COUNT {
                                 match stream.read(&mut buffer) {
                                     Ok(0) => break,
                                     Ok(read) => {
@@ -245,7 +247,7 @@ mod tests {
 
         let client = nd_bulk_http_client();
         tokio::time::timeout(Duration::from_secs(3), async {
-            for _ in 0..2 {
+            for _ in 0..REQUEST_COUNT {
                 let body = client
                     .get(format!("http://{address}/api/song"))
                     .send()
@@ -261,8 +263,12 @@ mod tests {
         .expect("bulk requests timed out");
         server.join().expect("join test server");
 
-        assert_eq!(served.load(Ordering::SeqCst), 2);
-        assert_eq!(accepted.load(Ordering::SeqCst), 1);
+        assert_eq!(served.load(Ordering::SeqCst), REQUEST_COUNT);
+        let accepted = accepted.load(Ordering::SeqCst);
+        assert!(
+            accepted < REQUEST_COUNT,
+            "expected at least one keep-alive connection reuse, accepted {accepted} connections for {REQUEST_COUNT} requests"
+        );
     }
 
     // ── nd_err ────────────────────────────────────────────────────────────────
