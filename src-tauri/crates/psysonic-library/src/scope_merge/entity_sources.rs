@@ -61,6 +61,56 @@ pub(super) fn lookup_artist_key(
     .map(Option::flatten)
 }
 
+/// Resolve a participant-only duplicate to the same-name primary artist that the
+/// browse list selects. IDs with any primary credit remain authoritative; only an
+/// alias that is exclusively a secondary credit may inherit a sibling's track key.
+pub(super) fn resolve_artist_detail_anchor(
+    conn: &rusqlite::Connection,
+    server_id: &str,
+    artist_id: &str,
+) -> rusqlite::Result<(String, Option<String>)> {
+    let exact_key = lookup_artist_key(conn, server_id, artist_id)?;
+    if exact_key.is_some() {
+        return Ok((artist_id.to_string(), exact_key));
+    }
+    let has_primary_track: bool = conn.query_row(
+        "SELECT EXISTS ( \
+           SELECT 1 FROM track \
+           WHERE server_id = ?1 AND artist_id = ?2 AND deleted = 0 \
+         )",
+        rusqlite::params![server_id, artist_id],
+        |row| row.get(0),
+    )?;
+    if has_primary_track {
+        return Ok((artist_id.to_string(), None));
+    }
+    let primary = conn
+        .query_row(
+            "SELECT sibling.id, ck.artist_key \
+             FROM artist anchor \
+             INNER JOIN artist sibling \
+               ON sibling.server_id = anchor.server_id \
+              AND sibling.name_fold = anchor.name_fold \
+              AND sibling.id != anchor.id \
+             INNER JOIN track t \
+               ON t.server_id = sibling.server_id AND t.artist_id = sibling.id AND t.deleted = 0 \
+             INNER JOIN cluster.track_cluster_key ck \
+               ON ck.server_id = t.server_id AND ck.track_id = t.id \
+             WHERE anchor.server_id = ?1 AND anchor.id = ?2 \
+               AND anchor.name_fold IS NOT NULL AND anchor.name_fold != '' \
+               AND ck.artist_key IS NOT NULL \
+             GROUP BY sibling.id, ck.artist_key, sibling.album_count \
+             ORDER BY COALESCE(sibling.album_count, 0) DESC, sibling.id ASC \
+             LIMIT 1",
+            rusqlite::params![server_id, artist_id],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)),
+        )
+        .optional()?;
+    Ok(primary
+        .map(|(id, key)| (id, Some(key)))
+        .unwrap_or_else(|| (artist_id.to_string(), None)))
+}
+
 /// Canonical name of an artist entity from the `artist` table (the same source the
 /// browse list and header use). Independent of whether any track is tagged with the
 /// id — needed to detect the "Various Artists" entity even when its compilations

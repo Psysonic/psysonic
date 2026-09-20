@@ -1,6 +1,7 @@
 use rusqlite::params_from_iter;
 use rusqlite::types::Value as SqlValue;
 
+use super::artist_album_counts::overlay_artist_album_counts;
 use super::browse_lists::{artist_row_to_dto, map_artist_list_row};
 use super::common::{
     album_row_to_dto, append_extra_where, ensure_cluster_keys_for_all_scopes,
@@ -241,13 +242,14 @@ pub(crate) fn list_artists_filtered(
     binds.push(SqlValue::Integer(i64::from(limit)));
     binds.push(SqlValue::Integer(i64::from(offset)));
 
-    let artists = store.with_read_conn(|conn| {
+    let mut artists: Vec<LibraryArtistDto> = store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows.into_iter().map(artist_row_to_dto).collect())
     })?;
+    overlay_artist_album_counts(store, scopes, &mut artists)?;
     Ok((artists, total))
 }
 

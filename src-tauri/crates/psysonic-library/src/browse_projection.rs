@@ -108,15 +108,22 @@ fn inspect_album(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto
 pub fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, String> {
     let album = inspect_album(store)?;
     let composer = crate::composer_projection::inspect(store)?;
-    let pending = [album.clone(), composer.clone()]
+    let artist_credit = crate::artist_credit_projection::inspect(store)?;
+    let pending = [album.clone(), composer.clone(), artist_credit.clone()]
         .into_iter()
         .filter(|item| item.needed)
         .collect::<Vec<_>>();
     if pending.is_empty() {
         return Ok(ScopeBrowseProjectionInspectDto {
             needed: false,
-            total_tracks: album.total_tracks.max(composer.total_tracks),
-            done_tracks: album.done_tracks.max(composer.done_tracks),
+            total_tracks: album
+                .total_tracks
+                .max(composer.total_tracks)
+                .max(artist_credit.total_tracks),
+            done_tracks: album
+                .done_tracks
+                .max(composer.done_tracks)
+                .max(artist_credit.done_tracks),
         });
     }
     Ok(ScopeBrowseProjectionInspectDto {
@@ -125,7 +132,12 @@ pub fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, 
             .iter()
             .map(|item| item.total_tracks)
             .max()
-            .unwrap_or_else(|| album.total_tracks.max(composer.total_tracks)),
+            .unwrap_or_else(|| {
+                album
+                    .total_tracks
+                    .max(composer.total_tracks)
+                    .max(artist_credit.total_tracks)
+            }),
         done_tracks: pending
             .iter()
             .map(|item| item.done_tracks)
@@ -135,18 +147,7 @@ pub fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, 
 }
 
 pub fn is_ready(store: &LibraryStore) -> Result<bool, String> {
-    store
-        .with_read_conn(|conn| {
-            if migration_completed(conn)? {
-                return Ok(true);
-            }
-            conn.query_row(
-                "SELECT NOT EXISTS(SELECT 1 FROM track WHERE deleted = 0)",
-                [],
-                |r| r.get(0),
-            )
-        })
-        .map_err(|error| error.to_string())
+    inspect(store).map(|state| !state.needed)
 }
 
 pub fn run_backfill(store: &LibraryStore, app: &AppHandle) -> Result<(), String> {
@@ -156,6 +157,7 @@ pub fn run_backfill(store: &LibraryStore, app: &AppHandle) -> Result<(), String>
 fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
     let album_inspect = inspect_album(store)?;
     let composer_inspect = crate::composer_projection::inspect(store)?;
+    let artist_credit_inspect = crate::artist_credit_projection::inspect(store)?;
     let album_work = if album_inspect.needed {
         album_inspect.total_tracks
     } else {
@@ -166,8 +168,15 @@ fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<()
     } else {
         0
     };
-    let total_work = album_work.saturating_add(composer_work);
-    let total_tracks = album_work.max(composer_work);
+    let artist_credit_work = if artist_credit_inspect.needed {
+        artist_credit_inspect.total_tracks
+    } else {
+        0
+    };
+    let total_work = album_work
+        .saturating_add(composer_work)
+        .saturating_add(artist_credit_work);
+    let total_tracks = album_work.max(composer_work).max(artist_credit_work);
 
     // Projection batches intentionally write physical fallback identities. Persist
     // a server rebuild request first so a crash can never leave a completed
@@ -191,6 +200,13 @@ fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<()
         store,
         app,
         album_work,
+        total_work,
+        total_tracks,
+    )?;
+    crate::artist_credit_projection::run_backfill_with_progress(
+        store,
+        app,
+        album_work.saturating_add(composer_work),
         total_work,
         total_tracks,
     )?;

@@ -88,6 +88,10 @@ pub(super) fn purge_server_data(
                 params![server_id],
             )?;
             tx.execute(
+                "DELETE FROM artist_credit_projection WHERE server_id = ?1",
+                params![server_id],
+            )?;
+            tx.execute(
                 "DELETE FROM artist_artwork_lookup WHERE server_id = ?1",
                 params![server_id],
             )?;

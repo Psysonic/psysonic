@@ -2,6 +2,7 @@ use rusqlite::params_from_iter;
 use rusqlite::types::Value as SqlValue;
 use std::collections::HashSet;
 
+use super::artist_album_counts::overlay_artist_album_counts;
 use super::browse_lists::{artist_row_to_dto, map_artist_list_row};
 use super::common::{
     append_extra_where, ensure_cluster_keys_for_scopes, merge_binds, non_empty_scopes,
@@ -187,13 +188,14 @@ pub(crate) fn list_artists_layer1_filtered(
     binds.push(SqlValue::Integer(i64::from(limit)));
     binds.push(SqlValue::Integer(i64::from(offset)));
 
-    let artists = store.with_read_conn(|conn| {
+    let mut artists: Vec<LibraryArtistDto> = store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows.into_iter().map(artist_row_to_dto).collect())
     })?;
+    overlay_artist_album_counts(store, scopes, &mut artists)?;
     Ok((artists, total))
 }
 
@@ -241,22 +243,43 @@ pub(crate) fn list_index_artists_layer1_filtered(
     let scoped_from = "FROM scope s \
          CROSS JOIN track t ON t.server_id = s.server_id AND t.library_id = s.library_id";
     let credited_cte = if album_artists_only {
-        // #1209: album credit = one row per album-level credit in scope, not every
-        // track performer with a server-wide `album_count` index row.
+        // Structured albumArtists ids are authoritative. Use the flat-name path only
+        // for physical albums that carry no structured album credit; otherwise two
+        // distinct server ids with the same folded name would both match one credit.
         format!(
             "{cte}, \
-             album_scoped AS ( \
-                 SELECT t.album_id, \
-                        COALESCE(NULLIF(MAX(trim(t.album_artist)), ''), MIN(t.artist)) AS credit_name \
-               {scoped_from} \
-               WHERE t.deleted = 0 AND t.album_id IS NOT NULL AND t.album_id != '' \
-               GROUP BY t.album_id \
-             ), \
-             scoped_ids AS ( \
-               SELECT DISTINCT ar.id \
-               FROM album_scoped ac \
-                {LAYER1_ARTIST_CREDIT_JOIN_SQL} \
-             )"
+              album_scoped AS ( \
+                 SELECT t.library_id, t.album_id, \
+                         COALESCE(NULLIF(MAX(trim(t.album_artist)), ''), MIN(t.artist)) AS credit_name \
+                {scoped_from} \
+                 WHERE t.deleted = 0 AND t.album_id IS NOT NULL AND t.album_id != '' \
+                 GROUP BY t.library_id, t.album_id \
+               ), \
+              structured_ids AS ( \
+                 SELECT DISTINCT ac.artist_id AS id \
+                 FROM scope s \
+                 CROSS JOIN artist_credit_projection ac \
+                   ON ac.server_id = s.server_id AND ac.library_id = s.library_id \
+                 WHERE ac.credit_kind = 'album' \
+              ), \
+              legacy_ranked AS ( \
+                 SELECT ar.id, ROW_NUMBER() OVER ( \
+                          PARTITION BY COALESCE(NULLIF(ar.name_fold, ''), 'null:' || ar.id) \
+                          ORDER BY COALESCE(ar.album_count, 0) DESC, ar.id ASC \
+                        ) AS rn \
+                 FROM album_scoped ac \
+                  {LAYER1_ARTIST_CREDIT_JOIN_SQL} \
+                 WHERE NOT EXISTS ( \
+                   SELECT 1 FROM artist_credit_projection p \
+                   WHERE p.server_id = ar.server_id AND p.library_id = ac.library_id \
+                     AND p.album_id = ac.album_id AND p.credit_kind = 'album' \
+                 ) \
+               ), \
+              scoped_ids AS ( \
+                SELECT id FROM structured_ids \
+                UNION \
+                SELECT id FROM legacy_ranked WHERE rn = 1 \
+              )"
         )
     } else {
         format!(
@@ -305,13 +328,14 @@ pub(crate) fn list_index_artists_layer1_filtered(
     binds.push(SqlValue::Integer(i64::from(limit)));
     binds.push(SqlValue::Integer(i64::from(offset)));
 
-    let artists = store.with_read_conn(|conn| {
+    let mut artists: Vec<LibraryArtistDto> = store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(&select_sql)?;
         let rows = stmt
             .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows.into_iter().map(artist_row_to_dto).collect())
     })?;
+    overlay_artist_album_counts(store, scopes, &mut artists)?;
     Ok((artists, total))
 }
 
@@ -338,28 +362,46 @@ pub(crate) fn list_index_artists_multi_scope_album_filtered(
     };
     let credits_cte = format!(
         "{cte}, \
-         album_credits AS ( \
-           SELECT t.server_id, t.album_id, s.pr, \
-                  COALESCE(NULLIF(MAX(trim(t.album_artist)), ''), MIN(t.artist)) AS credit_name \
-           FROM scope s \
-           CROSS JOIN track t ON t.server_id = s.server_id AND t.library_id = s.library_id \
-           WHERE t.deleted = 0 AND t.album_id IS NOT NULL AND t.album_id != '' \
-           GROUP BY t.server_id, t.album_id, s.pr \
-         ), \
-         matched AS ( \
-            SELECT ar.server_id, ar.id AS artist_id, ar.name AS artist, ar.name_fold, \
-                   ac.album_id, ac.pr, ar.starred_at, ar.synced_at \
-           FROM album_credits ac \
-           INNER JOIN artist ar ON ar.server_id = ac.server_id \
-             AND ar.name_fold = psysonic_lower_name(ac.credit_name) \
-           WHERE {artist_where} \
-         ), \
-         deduped AS ( \
+          album_credits AS ( \
+            SELECT t.server_id, t.library_id, t.album_id, s.pr, \
+                   COALESCE(NULLIF(MAX(trim(t.album_artist)), ''), MIN(t.artist)) AS credit_name \
+            FROM scope s \
+            CROSS JOIN track t ON t.server_id = s.server_id AND t.library_id = s.library_id \
+             WHERE t.deleted = 0 AND t.album_id IS NOT NULL AND t.album_id != '' \
+             GROUP BY t.server_id, t.library_id, t.album_id, s.pr \
+          ), \
+          credit_candidates AS ( \
+            SELECT ac.server_id, ac.artist_id, ac.album_id, s.pr \
+            FROM scope s \
+            CROSS JOIN artist_credit_projection ac \
+              ON ac.server_id = s.server_id AND ac.library_id = s.library_id \
+            WHERE ac.credit_kind = 'album' \
+            UNION \
+            SELECT ar.server_id, ar.id AS artist_id, ac.album_id, ac.pr \
+            FROM album_credits ac \
+            INNER JOIN artist ar ON ar.server_id = ac.server_id \
+              AND ar.name_fold = psysonic_lower_name(ac.credit_name) \
+            WHERE NOT EXISTS ( \
+              SELECT 1 FROM artist_credit_projection p \
+              WHERE p.server_id = ac.server_id AND p.library_id = ac.library_id \
+                AND p.album_id = ac.album_id AND p.credit_kind = 'album' \
+            ) \
+          ), \
+          matched AS ( \
+             SELECT ar.server_id, ar.id AS artist_id, ar.name AS artist, ar.name_fold, \
+                    cc.album_id, cc.pr, ar.album_count AS indexed_album_count, \
+                    ar.starred_at, ar.synced_at \
+             FROM credit_candidates cc \
+             INNER JOIN artist ar ON ar.server_id = cc.server_id AND ar.id = cc.artist_id \
+             WHERE {artist_where} \
+          ), \
+          deduped AS ( \
             SELECT server_id, artist_id, artist, starred_at, synced_at, \
-                  COUNT(DISTINCT server_id || ':' || album_id) AS album_count, \
-                  MIN(printf('%08d|%s|%s', pr, server_id, artist_id)) AS _pick \
-           FROM matched GROUP BY name_fold \
-         )"
+                   COUNT(DISTINCT server_id || ':' || album_id) AS album_count, \
+                   MIN(printf('%08d|%012d|%s|%s', pr, \
+                        999999999999 - COALESCE(indexed_album_count, 0), server_id, artist_id)) AS _pick \
+            FROM matched GROUP BY name_fold \
+          )"
     );
     let count_sql = format!("{credits_cte} SELECT COUNT(*) FROM deduped");
     let select_sql = format!(
@@ -378,12 +420,13 @@ pub(crate) fn list_index_artists_multi_scope_album_filtered(
     };
     binds.push(SqlValue::Integer(i64::from(limit)));
     binds.push(SqlValue::Integer(i64::from(offset)));
-    let artists = store.with_read_conn(|conn| {
+    let mut artists: Vec<LibraryArtistDto> = store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(&select_sql)?;
         let rows = stmt
             .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows.into_iter().map(artist_row_to_dto).collect())
     })?;
+    overlay_artist_album_counts(store, scopes, &mut artists)?;
     Ok((artists, total))
 }

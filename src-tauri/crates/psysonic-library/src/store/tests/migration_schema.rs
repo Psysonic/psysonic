@@ -13,9 +13,14 @@ use super::migration_runner::no_op_hook;
 #[test]
 fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
     let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_25 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 25)
+        .collect::<Vec<_>>();
     run_migrations_with(
         &conn,
-        &MIGRATIONS[..MIGRATIONS.len() - 1],
+        &migrations_through_25,
         LIBRARY_DB_MIN_COMPATIBLE_VERSION,
         super::migration_runner::no_op_hook,
     )
@@ -53,9 +58,14 @@ fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
 #[test]
 fn migration_027_adds_artist_star_and_sparse_browse_index_idempotently() {
     let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_26 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 26)
+        .collect::<Vec<_>>();
     run_migrations_with(
         &conn,
-        &MIGRATIONS[..MIGRATIONS.len() - 1],
+        &migrations_through_26,
         LIBRARY_DB_MIN_COMPATIBLE_VERSION,
         super::migration_runner::no_op_hook,
     )
@@ -92,22 +102,71 @@ fn migration_027_adds_artist_star_and_sparse_browse_index_idempotently() {
 }
 
 #[test]
+fn migrations_028_and_029_add_artist_credit_projection_and_lookup_index() {
+    let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_27 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 27)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &migrations_through_27,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        super::migration_runner::no_op_hook,
+    )
+    .unwrap();
+
+    run_migrations(&conn).unwrap();
+    run_migrations(&conn).unwrap();
+
+    let table_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master \
+             WHERE type = 'table' AND name = 'artist_credit_projection'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(table_count, 1);
+    let index_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master \
+             WHERE type = 'index' AND name = 'idx_artist_credit_projection_artist_key'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(index_count, 1);
+    let completed: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM library_data_migration \
+             WHERE id = ?1 AND completed_at IS NOT NULL",
+            params![crate::artist_credit_projection::MIGRATION_ID],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(completed, 1);
+}
+
+#[test]
 fn fresh_database_marks_projection_backfills_complete() {
     let store = LibraryStore::open_in_memory();
     let completed: i64 = store
         .with_conn("test", |conn| {
             conn.query_row(
                 "SELECT COUNT(*) FROM library_data_migration \
-                 WHERE id IN (?1, ?2) AND completed_at IS NOT NULL",
+                  WHERE id IN (?1, ?2, ?3) AND completed_at IS NOT NULL",
                 params![
                     crate::browse_projection::MIGRATION_ID,
                     crate::composer_projection::MIGRATION_ID,
+                    crate::artist_credit_projection::MIGRATION_ID,
                 ],
                 |row| row.get(0),
             )
         })
         .unwrap();
-    assert_eq!(completed, 2);
+    assert_eq!(completed, 3);
 }
 
 #[test]

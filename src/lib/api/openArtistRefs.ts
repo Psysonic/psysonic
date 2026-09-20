@@ -1,12 +1,22 @@
 import type { SubsonicOpenArtistRef } from '@/lib/api/subsonicTypes';
 
+function trimRef(ref: SubsonicOpenArtistRef): SubsonicOpenArtistRef {
+  const id = ref.id?.trim() || undefined;
+  const name = ref.name?.trim() || undefined;
+  if (id === ref.id && name === ref.name) return ref;
+  return { ...ref, id, name };
+}
+
 /** Subsonic JSON may return one ref object instead of a one-element array. */
 export function coerceOpenArtistRefs(
   refs: SubsonicOpenArtistRef[] | SubsonicOpenArtistRef | undefined | null,
 ): SubsonicOpenArtistRef[] {
   if (refs == null) return [];
-  if (Array.isArray(refs)) return refs;
-  if (typeof refs === 'object') return [refs];
+  if (Array.isArray(refs)) {
+    const normalized = refs.map(trimRef);
+    return normalized.every((ref, index) => ref === refs[index]) ? refs : normalized;
+  }
+  if (typeof refs === 'object') return [trimRef(refs)];
   return [];
 }
 

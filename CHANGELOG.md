@@ -278,6 +278,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Two Navidrome libraries can contain different tracks at the same relative file path. Background sync no longer mistakes those tracks for an ID change, repeatedly fails with an alias conflict or tries to fold one library's track into the other.
 
+### Participant-only artists open correctly from track credits
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@Psychotoxical](https://github.com/Psychotoxical), PR [#1631](https://github.com/Psysonic/psysonic/pull/1631)**
+
+* Opening a guest performer, orchestra, choir or other artist credited alongside the primary artist could lead to **Artist not found** when library filtering was active. Their credited albums and tracks now appear within the selected library scope, with complete album counts and working artist links.
+
 ## [1.54.0]
 
 ## Fixed

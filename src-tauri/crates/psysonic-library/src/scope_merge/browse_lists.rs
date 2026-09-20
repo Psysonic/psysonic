@@ -3,6 +3,7 @@ use rusqlite::types::Value as SqlValue;
 use serde_json::Value;
 
 use super::album_browse::list_albums_layer1_filtered;
+use super::artist_album_counts::overlay_artist_album_counts;
 use super::common::{
     album_order_sql, album_row_to_dto, artist_order_sql, clamp_limit, clamp_offset,
     ensure_cluster_keys_for_all_scopes, ensure_cluster_keys_for_scopes, map_album_list_row,
@@ -143,11 +144,13 @@ pub fn list_artists(
     binds.push(SqlValue::Integer(i64::from(limit)));
     binds.push(SqlValue::Integer(i64::from(offset)));
 
-    store.with_read_conn(|conn| {
+    let mut artists: Vec<LibraryArtistDto> = store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows.into_iter().map(artist_row_to_dto).collect())
-    })
+    })?;
+    overlay_artist_album_counts(store, scopes, &mut artists)?;
+    Ok(artists)
 }

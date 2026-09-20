@@ -124,6 +124,7 @@ pub(crate) fn refresh_album_scopes(
         update_identity.execute(params![server_id, library_id, album_id, identity_key])?;
     }
     crate::composer_projection::refresh_album_scopes(tx, &scopes)?;
+    crate::artist_credit_projection::refresh_album_scopes(tx, &scopes)?;
     Ok(())
 }
 
@@ -165,6 +166,7 @@ pub(crate) fn rebuild_server(tx: &Transaction<'_>, server_id: &str) -> rusqlite:
         update.execute(params![server_id, library_id, album_id, identity_key])?;
     }
     crate::composer_projection::rebuild_scope(tx, server_id, "")?;
+    crate::artist_credit_projection::rebuild_scope(tx, server_id, "")?;
     Ok(())
 }
 
