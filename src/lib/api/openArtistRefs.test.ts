@@ -20,6 +20,16 @@ describe('coerceOpenArtistRefs', () => {
     const ref = { id: 'a1', name: 'Solo' };
     expect(coerceOpenArtistRefs(ref)).toEqual([ref]);
   });
+
+  it('trims server whitespace from structured artist names and ids', () => {
+    expect(coerceOpenArtistRefs([
+      { id: ' lead ', name: 'Saltatio Mortis ' },
+      { id: ' guest ', name: ' Blind Guardian' },
+    ])).toEqual([
+      { id: 'lead', name: 'Saltatio Mortis' },
+      { id: 'guest', name: 'Blind Guardian' },
+    ]);
+  });
 });
 
 describe('splitDisplayArtistName', () => {

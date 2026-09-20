@@ -33,18 +33,22 @@ impl<'a> ArtistRepository<'a> {
                 tx.prepare_cached("SELECT name FROM artist WHERE server_id = ?1 AND id = ?2")?;
             for bucket in &index.index {
                 for artist in &bucket.artist {
+                    let name = artist.name.trim();
+                    if name.is_empty() {
+                        continue;
+                    }
                     let previous = previous_name
                         .query_row(params![server_id, artist.id], |row| row.get::<_, String>(0))
                         .optional()?;
-                    if previous.as_deref() != Some(artist.name.as_str()) {
+                    if previous.as_deref() != Some(name) {
                         changed_identity.insert(artist.id.as_str());
                     }
-                    let name_sort = sort_key_for_display_name(&artist.name, ignored);
+                    let name_sort = sort_key_for_display_name(name, ignored);
                     upsert_artist_row(
                         &tx,
                         server_id,
                         &artist.id,
-                        &artist.name,
+                        name,
                         &name_sort,
                         artist.album_count,
                         synced_at,
@@ -100,6 +104,10 @@ impl<'a> ArtistRepository<'a> {
             .with_conn_mut("artist.backfill_from_tracks", |conn| {
                 let tx = conn.transaction()?;
                 for (id, name) in &rows {
+                    let name = name.trim();
+                    if name.is_empty() {
+                        continue;
+                    }
                     let name_sort = sort_key_for_display_name(name, ignored_articles);
                     upsert_artist_row(&tx, server_id, id, name, &name_sort, None, synced_at)?;
                     count += 1;
@@ -215,6 +223,7 @@ fn upsert_artist_row(
     album_count: Option<i64>,
     synced_at: i64,
 ) -> rusqlite::Result<()> {
+    let name = name.trim();
     tx.execute(
         "INSERT INTO artist (server_id, id, name, name_sort, name_fold, album_count, synced_at) \
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
@@ -229,7 +238,7 @@ fn upsert_artist_row(
             id,
             name,
             name_sort,
-            name.trim().to_lowercase(),
+            name.to_lowercase(),
             album_count,
             synced_at
         ],
@@ -254,22 +263,23 @@ mod tests {
                 name: "B".into(),
                 artist: vec![ArtistRef {
                     id: "ar_1".into(),
-                    name: "The Beatles".into(),
+                    name: " The Beatles ".into(),
                     album_count: Some(3),
                     cover_art: None,
                 }],
             }],
         };
         repo.upsert_index("s1", &index, 1000).unwrap();
-        let name_sort: String = store
+        let (name, name_sort): (String, String) = store
             .with_conn("misc", |c| {
                 c.query_row(
-                    "SELECT name_sort FROM artist WHERE server_id = 's1' AND id = 'ar_1'",
+                    "SELECT name, name_sort FROM artist WHERE server_id = 's1' AND id = 'ar_1'",
                     [],
-                    |r| r.get(0),
+                    |r| Ok((r.get(0)?, r.get(1)?)),
                 )
             })
             .unwrap();
+        assert_eq!(name, "The Beatles");
         assert_eq!(name_sort, "beatles");
     }
 

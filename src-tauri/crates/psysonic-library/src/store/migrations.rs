@@ -10,7 +10,7 @@ use super::reconciles::{
 ///
 /// Migration checklist (wiring, data backfill, open/swap path):
 /// psysonic-workdocs `ai/agent-rules/08-library-db-migrations.md`.
-pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 27;
+pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 29;
 
 /// Lowest applied schema version the current code can advance from purely
 /// additively. If a DB carries a version below this, the breaking-bump hook
@@ -70,6 +70,12 @@ pub(crate) const MIGRATION_026_LIBRARY_TAG_CURSOR: &str =
 /// Version 27: persisted artist favorites and sparse alphabetical browse index.
 pub(crate) const MIGRATION_027_ARTIST_STARRED: &str =
     include_str!("../../migrations/027_artist_starred.sql");
+/// Version 28: indexed OpenSubsonic track/album artist credits.
+pub(crate) const MIGRATION_028_ARTIST_CREDIT_PROJECTION: &str =
+    include_str!("../../migrations/028_artist_credit_projection.sql");
+/// Version 29: candidate-first structured-credit lookup by normalized artist key.
+pub(crate) const MIGRATION_029_ARTIST_CREDIT_KEY_INDEX: &str =
+    include_str!("../../migrations/029_artist_credit_key_index.sql");
 
 /// Embedded migrations. Ordered ascending by `version`; the runner sorts
 /// defensively before applying so the source order can stay readable.
@@ -91,6 +97,8 @@ pub(super) const MIGRATIONS: &[(i64, &str)] = &[
     (25, MIGRATION_025_IDENTITY_INVALIDATION),
     (26, MIGRATION_026_LIBRARY_TAG_CURSOR),
     (27, MIGRATION_027_ARTIST_STARRED),
+    (28, MIGRATION_028_ARTIST_CREDIT_PROJECTION),
+    (29, MIGRATION_029_ARTIST_CREDIT_KEY_INDEX),
 ];
 
 /// Idempotent repair — also runs after the migration runner on every open so
@@ -229,6 +237,10 @@ pub(crate) fn run_migrations_with(
             24 => mark_projection_migration_complete_if_empty(
                 conn,
                 crate::composer_projection::MIGRATION_ID,
+            )?,
+            28 => mark_projection_migration_complete_if_empty(
+                conn,
+                crate::artist_credit_projection::MIGRATION_ID,
             )?,
             _ => {}
         }

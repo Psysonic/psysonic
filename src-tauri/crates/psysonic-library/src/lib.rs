@@ -14,6 +14,7 @@ pub mod album_overlay;
 pub mod analysis_backfill;
 pub mod analysis_backfill_policy;
 pub mod artist_artwork;
+pub mod artist_credit_projection;
 pub mod artist_lossless_browse;
 pub mod artist_sort;
 pub mod browse_projection;

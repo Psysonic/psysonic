@@ -171,6 +171,10 @@ pub(crate) fn album_artist_id_expr(json_col: &str) -> String {
 /// releases (main discography) from appears-on entries.
 pub(crate) struct AlbumSplitMeta {
     pub is_compilation: bool,
+    /// The album entered the result through a structured participant credit rather
+    /// than `track.artist_id`. An untagged participant album belongs in appears-on,
+    /// not in the participant's own discography.
+    pub participant_only: bool,
     /// The album's own `album_artist` tag, read across **all** of the album's scoped
     /// tracks — not just the ones by the artist being viewed. The artist's single
     /// guest track is often the untagged row, so reading the tag off that row alone

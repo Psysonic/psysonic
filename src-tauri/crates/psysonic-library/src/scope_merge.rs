@@ -4,6 +4,7 @@
 
 mod album_browse;
 mod album_detail;
+mod artist_album_counts;
 mod artist_albums;
 mod artist_browse;
 mod artist_candidates;

@@ -28,6 +28,46 @@ pub(super) fn fetch_albums_for_artist_key(
         artist_key.map(|_| "artist_key"),
         "AND t.server_id = ? AND t.artist_id = ? AND ck.artist_key IS NULL",
     );
+    let cte = format!(
+        "{cte}, \
+         anchor_target(server_id, artist_id) AS (VALUES (?, ?)), \
+         participant_target(server_id, artist_id) AS ( \
+           SELECT server_id, artist_id FROM anchor_target \
+           UNION \
+           SELECT sibling.server_id, sibling.id \
+           FROM anchor_target target \
+           INNER JOIN artist canonical \
+             ON canonical.server_id = target.server_id AND canonical.id = target.artist_id \
+           INNER JOIN artist sibling \
+             ON sibling.server_id = canonical.server_id \
+             AND sibling.name_fold = canonical.name_fold \
+            AND sibling.id != canonical.id \
+           WHERE canonical.name_fold IS NOT NULL AND canonical.name_fold != '' \
+             AND NOT EXISTS ( \
+               SELECT 1 FROM track primary_track \
+               WHERE primary_track.server_id = sibling.server_id \
+                 AND primary_track.artist_id = sibling.id \
+                 AND primary_track.deleted = 0 \
+             ) \
+         ), \
+         participant_tracks AS MATERIALIZED ( \
+            SELECT DISTINCT ac.server_id, ac.track_id, s.pr \
+           FROM exact_scope s \
+           CROSS JOIN participant_target target \
+           CROSS JOIN artist_credit_projection ac INDEXED BY idx_artist_credit_projection_owner \
+             ON ac.server_id = s.server_id AND ac.library_id = s.library_id \
+            AND ac.server_id = target.server_id AND ac.artist_id = target.artist_id \
+            AND ac.is_primary = 0 \
+           UNION ALL \
+           SELECT DISTINCT ac.server_id, ac.track_id, s.pr \
+           FROM whole_scope s \
+           CROSS JOIN participant_target target \
+           CROSS JOIN artist_credit_projection ac INDEXED BY idx_artist_credit_projection_owner \
+             ON ac.server_id = s.server_id \
+            AND ac.server_id = target.server_id AND ac.artist_id = target.artist_id \
+            AND ac.is_primary = 0 \
+         )"
+    );
     // "Various Artists" is not a real performer: its compilations are linked to the
     // VA entity only through the `album_artist` string, while each track keeps its
     // own performer `artist_id`. The `artist_key` source therefore finds only the
@@ -47,7 +87,7 @@ pub(super) fn fetch_albums_for_artist_key(
             " UNION ALL \
              SELECT t.server_id, t.album_id, t.album, t.artist, t.artist_id, t.album_artist, \
                     t.year, t.genre, t.cover_art_id, t.starred_at, t.synced_at, t.duration_sec, t.id, \
-                    ck.album_key, s.pr AS pr, {TRACK_DEDUP_KEY} AS track_dedup \
+                     ck.album_key, s.pr AS pr, {TRACK_DEDUP_KEY} AS track_dedup, 0 AS participant_only \
              {va_scoped} AND t.album_id IS NOT NULL AND t.album_id != '' AND {va_pred}",
             va_scoped = scoped_track_join(),
             va_pred = various_artists_like_sql("t.album_artist"),
@@ -55,6 +95,18 @@ pub(super) fn fetch_albums_for_artist_key(
     } else {
         String::new()
     };
+    let participant_arm = format!(
+        " UNION ALL \
+          SELECT t.server_id, t.album_id, t.album, t.artist, t.artist_id, t.album_artist, \
+                 t.year, t.genre, t.cover_art_id, t.starred_at, t.synced_at, t.duration_sec, t.id, \
+                 ck.album_key, p.pr AS pr, {TRACK_DEDUP_KEY} AS track_dedup, 1 AS participant_only \
+          FROM participant_tracks p \
+          CROSS JOIN track t INDEXED BY sqlite_autoindex_track_1 \
+            ON t.server_id = p.server_id AND t.id = p.track_id \
+          LEFT JOIN cluster.track_cluster_key ck \
+            ON ck.server_id = t.server_id AND ck.track_id = t.id \
+          WHERE t.deleted = 0 AND t.album_id IS NOT NULL AND t.album_id != ''"
+    );
     // Compilation signal (compilation / isCompilation / releaseTypes / a Various
     // Artists credit in the flat columns or raw_json displayArtist). Only used to
     // route to appears-on when the album has *no* album-artist tag — a real
@@ -154,9 +206,10 @@ pub(super) fn fetch_albums_for_artist_key(
          base AS ( \
             SELECT t.server_id, t.album_id, t.album, t.artist, t.artist_id, t.album_artist, \
                    t.year, t.genre, t.cover_art_id, t.starred_at, t.synced_at, t.duration_sec, t.id, \
-                   ck.album_key, {priority} AS pr, {TRACK_DEDUP_KEY} AS track_dedup \
-            {scoped} AND t.album_id IS NOT NULL AND t.album_id != '' {key_filter} \
-            {va_arm} \
+                    ck.album_key, {priority} AS pr, {TRACK_DEDUP_KEY} AS track_dedup, 0 AS participant_only \
+             {scoped} AND t.album_id IS NOT NULL AND t.album_id != '' {key_filter} \
+             {va_arm} \
+             {participant_arm} \
           ), \
           physical_albums AS ( \
             SELECT server_id, album_id, \
@@ -180,9 +233,10 @@ pub(super) fn fetch_albums_for_artist_key(
            FROM deduped_tracks WHERE trn = 1 GROUP BY album_dedup \
          ), \
          album_pick AS ( \
-           SELECT b.server_id, b.album_id, b.album, b.artist, b.artist_id, b.album_artist, \
-                  b.year, b.genre, b.cover_art_id, b.starred_at, b.synced_at, b.album_dedup, \
-                  ROW_NUMBER() OVER (PARTITION BY b.album_dedup ORDER BY b.pr ASC, b.album_id ASC, b.id ASC) AS rn \
+            SELECT b.server_id, b.album_id, b.album, b.artist, b.artist_id, b.album_artist, \
+                   b.year, b.genre, b.cover_art_id, b.starred_at, b.synced_at, b.album_dedup, \
+                   b.participant_only, \
+                   ROW_NUMBER() OVER (PARTITION BY b.album_dedup ORDER BY b.pr ASC, b.album_id ASC, b.id ASC) AS rn \
             FROM physical_tracks b \
          ) \
          SELECT p.server_id, p.album_id, p.album, p.artist, p.artist_id, \
@@ -195,7 +249,7 @@ pub(super) fn fetch_albums_for_artist_key(
                   ORDER BY tt.id ASC \
                   LIMIT 1) AS release_types, \
                 {album_artist_col} AS album_album_artist, \
-                {comp_col} AS is_compilation \
+                 {comp_col} AS is_compilation, p.participant_only \
          FROM album_pick p \
          INNER JOIN album_stats st ON p.album_dedup = st.album_dedup \
          WHERE p.rn = 1 \
@@ -209,6 +263,8 @@ pub(super) fn fetch_albums_for_artist_key(
         binds.push(SqlValue::Text(anchor_server.to_string()));
         binds.push(SqlValue::Text(anchor_artist_id.to_string()));
     }
+    binds.push(SqlValue::Text(anchor_server.to_string()));
+    binds.push(SqlValue::Text(anchor_artist_id.to_string()));
     // The bulk album pipeline keeps album `raw_json` NULL and the standalone album
     // table is unused, so the DTO would otherwise carry no `releaseTypes` and the
     // artist page could no longer group releases (Albums / Singles / EPs / Live /
@@ -251,6 +307,7 @@ pub(super) fn fetch_albums_for_artist_key(
                     // short-circuit in SQL and "untagged" for the partition in Rust.
                     album_artist: r.get::<_, Option<String>>(14)?,
                     is_compilation: r.get::<_, bool>(15)?,
+                    participant_only: r.get::<_, bool>(16)?,
                 },
             ))
         })?

@@ -163,6 +163,7 @@ pub fn finalize(
             ("track_genre", "server_id"),
             ("album_browse_projection", "server_id"),
             ("composer_album_projection", "server_id"),
+            ("artist_credit_projection", "server_id"),
             ("artist_artwork_lookup", "server_id"),
             ("identity_invalidation", "server_id"),
             ("library_tag_state", "server_id"),
@@ -189,11 +190,12 @@ pub fn finalize(
             params![server_id],
         )?;
         tx.execute(
-            "DELETE FROM library_data_migration WHERE id IN (?1, ?2, ?3)",
+            "DELETE FROM library_data_migration WHERE id IN (?1, ?2, ?3, ?4)",
             params![
                 crate::genre_tags_backfill::GENRE_TAGS_MIGRATION_ID,
                 crate::browse_projection::MIGRATION_ID,
-                crate::composer_projection::MIGRATION_ID
+                crate::composer_projection::MIGRATION_ID,
+                crate::artist_credit_projection::MIGRATION_ID,
             ],
         )?;
         verify_no_legacy_library_ids(&tx, server_id)?;
