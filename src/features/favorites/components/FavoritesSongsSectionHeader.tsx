@@ -16,6 +16,7 @@ import { useAuthStore } from '@/store/authStore';
 interface Props {
   visibleSongs: SubsonicSong[];
   songs: SubsonicSong[];
+  titleCount?: number;
   selectedArtist: string | null;
   selectedArtistName: string | null;
   setSelectedArtist: React.Dispatch<React.SetStateAction<string | null>>;
@@ -42,7 +43,7 @@ interface Props {
 }
 
 export default function FavoritesSongsSectionHeader({
-  visibleSongs, songs, selectedArtist, selectedArtistName, setSelectedArtist,
+  visibleSongs, songs, titleCount, selectedArtist, selectedArtistName, setSelectedArtist,
   selectedGenres, setSelectedGenres, yearRange, setYearRange,
   showFilters, setShowFilters, setSortKey, setSortClickCount,
   playTrack, enqueue, starredOverrides, minYear, currentYear,
@@ -71,7 +72,9 @@ export default function FavoritesSongsSectionHeader({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.75rem' }}>
       {/* Title Row with showing X of Y indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h2 className="section-title" style={{ margin: 0 }}>{t('favorites.songs')}</h2>
+        <h2 className="section-title" style={{ margin: 0 }}>
+          {t('favorites.songs')}{titleCount == null ? '' : ` (${titleCount})`}
+        </h2>
         {(selectedArtist || selectedGenres.length > 0 || yearRange[0] !== minYear || yearRange[1] !== currentYear) && (
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
             {selectedArtist

@@ -6,6 +6,7 @@ import { isTracksBrowsePath } from '@/store/advancedSearchSessionStore';
 import { isComposersBrowsePath } from '@/features/composers';
 import { isPlaylistsBrowsePath } from '@/features/playlist';
 import { useLiveSearchScopeStore } from '@/store/liveSearchScopeStore';
+import { ALL_NAV_ITEMS } from '@/config/navItems';
 
 /** Keep scope badge in sync with browse routes; clear field text when leaving browse. */
 export function syncLiveSearchRouteScope(pathname: string): void {
@@ -21,6 +22,8 @@ export function syncLiveSearchRouteScope(pathname: string): void {
     store.setScope('tracks');
   } else if (isComposersBrowsePath(pathname)) {
     store.setScope('composers');
+  } else if (pathname === ALL_NAV_ITEMS.favorites.to) {
+    store.setScope('favorites');
   } else if (isPlaylistsBrowsePath(pathname)) {
     store.setScope('playlists');
   } else {

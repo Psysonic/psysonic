@@ -1,5 +1,6 @@
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
-import React, { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
+import { useRef, useState, useEffect, useLayoutEffect, useMemo } from 'react';
 import AlbumCard from '@/features/album/components/AlbumCard';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router';
@@ -29,7 +30,9 @@ interface Props {
   onScrollRestoreComplete?: () => void;
   showRating?: boolean;
   /** Optional content rendered in the row header, left of the scroll-nav. */
-  headerExtra?: React.ReactNode;
+  headerExtra?: ReactNode;
+  /** Hide the title when an external compact control labels this rail. */
+  hideTitle?: boolean;
   disableArtwork?: boolean;
   disableInteractivity?: boolean;
   artworkSize?: number;
@@ -51,6 +54,7 @@ export default function AlbumRow({
   onLoadMore,
   showRating,
   headerExtra,
+  hideTitle = false,
   disableArtwork = false,
   disableInteractivity = false,
   artworkSize,
@@ -214,7 +218,7 @@ export default function AlbumRow({
   return (
     <section className="album-row-section">
       <div className="album-row-header">
-        {onTitleClick ? (
+        {!hideTitle && (onTitleClick ? (
           <button
             type="button"
             className="section-title-link"
@@ -229,8 +233,8 @@ export default function AlbumRow({
           </NavLink>
         ) : (
           <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
-        )}
-        <div className="album-row-nav">
+        ))}
+        <div className="album-row-nav" style={hideTitle ? { marginLeft: 'auto' } : undefined}>
           {headerExtra}
           {!interactivityDisabled && (
             <>

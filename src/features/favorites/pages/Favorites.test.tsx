@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { resetAuthStore, resetPlayerStore } from '@/test/helpers/storeReset';
 import { makeSubsonicSong } from '@/test/helpers/factories';
@@ -17,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   },
   isMobile: false,
   tracklistCols: [] as string[][],
+  visibleSongTitles: [] as string[][],
 }));
 
 vi.mock('@/features/favorites/hooks/useFavoritesData', () => ({
@@ -34,31 +36,69 @@ vi.mock('@/lib/hooks/useResolvedTracklistBpm', () => ({
 }));
 vi.mock('@/features/favorites/components/FavoritesOfflineHeader', () => ({ default: () => null }));
 vi.mock('@/features/artist', () => ({
-  ArtistRow: ({ title }: { title: string }) => <section data-testid="fav-section">{title}</section>,
+  ArtistRow: ({ title, artists, hideTitle, onTitleClick }: {
+    title: string;
+    artists: SubsonicArtist[];
+    hideTitle?: boolean;
+    onTitleClick?: () => void;
+  }) => (
+    <section data-testid="fav-section" data-section="artists" data-items={artists.map(a => a.name).join('|')}>
+      {!hideTitle && (onTitleClick ? <button type="button" onClick={onTitleClick}>{title}</button> : title)}
+    </section>
+  ),
   openFavoriteArtists: vi.fn(),
 }));
 vi.mock('@/features/album', () => ({
-  AlbumRow: ({ title }: { title: string }) => <section data-testid="fav-section">{title}</section>,
+  AlbumRow: ({ title, albums, hideTitle, onTitleClick }: {
+    title: string;
+    albums: SubsonicAlbum[];
+    hideTitle?: boolean;
+    onTitleClick?: () => void;
+  }) => (
+    <section data-testid="fav-section" data-section="albums" data-items={albums.map(a => a.name).join('|')}>
+      {!hideTitle && (onTitleClick ? <button type="button" onClick={onTitleClick}>{title}</button> : title)}
+    </section>
+  ),
   openFavoriteAlbums: vi.fn(),
 }));
 vi.mock('@/features/favorites/components/RadioFavorites', () => ({
-  RadioStationRow: ({ title }: { title: string }) => <section data-testid="fav-section">{title}</section>,
+  RadioStationRow: ({ title, stations, hideTitle }: {
+    title: string;
+    stations: InternetRadioStation[];
+    hideTitle?: boolean;
+  }) => (
+    <section data-testid="fav-section" data-section="stations" data-items={stations.map(s => s.name).join('|')}>
+      {!hideTitle && title}
+    </section>
+  ),
 }));
 vi.mock('@/features/favorites/components/TopFavoriteArtists', () => ({
-  TopFavoriteArtistsRow: ({ title }: { title: string }) => <section data-testid="fav-section">{title}</section>,
+  TopFavoriteArtistsRow: ({ title, artists, hideTitle }: {
+    title: string;
+    artists: TopFavoriteArtist[];
+    hideTitle?: boolean;
+  }) => (
+    <section data-testid="fav-section" data-section="topArtists" data-items={artists.map(a => a.name).join('|')}>
+      {!hideTitle && title}
+    </section>
+  ),
 }));
 vi.mock('@/features/favorites/components/FavoritesSongsSectionHeader', () => ({
-  default: () => <h2 data-testid="fav-section">Songs</h2>,
+  default: ({ titleCount }: { titleCount?: number }) => (
+    <h2 data-testid="fav-section">Songs{titleCount == null ? '' : ` (${titleCount})`}</h2>
+  ),
 }));
 vi.mock('@/features/favorites/components/FavoritesSongsTracklist', () => ({
-  default: ({ visibleCols }: { visibleCols: ColDef[] }) => {
+  default: ({ visibleCols, visibleSongs }: { visibleCols: ColDef[]; visibleSongs: SubsonicSong[] }) => {
     mocks.tracklistCols.push(visibleCols.map(c => c.key));
+    mocks.visibleSongTitles.push(visibleSongs.map(song => song.title));
     return null;
   },
 }));
 
 import Favorites from './Favorites';
 import { DEFAULT_FAVORITES_SECTIONS, useFavoritesLayoutStore } from '@/features/favorites/store/favoritesLayoutStore';
+import { useLiveSearchScopeStore } from '@/store/liveSearchScopeStore';
 
 function sectionTitles(): string[] {
   return screen.getAllByTestId('fav-section').map(el => el.textContent ?? '');
@@ -68,6 +108,14 @@ function lastTracklistCols(): string[] {
   return mocks.tracklistCols[mocks.tracklistCols.length - 1] ?? [];
 }
 
+function section(id: string): HTMLElement {
+  return document.querySelector(`[data-section="${id}"]`) as HTMLElement;
+}
+
+function querySection(id: string): HTMLElement | null {
+  return document.querySelector(`[data-section="${id}"]`);
+}
+
 describe('Favorites page layout', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -75,7 +123,9 @@ describe('Favorites page layout', () => {
     resetPlayerStore();
     mocks.isMobile = false;
     mocks.tracklistCols = [];
+    mocks.visibleSongTitles = [];
     useFavoritesLayoutStore.setState({ sections: DEFAULT_FAVORITES_SECTIONS });
+    useLiveSearchScopeStore.setState({ query: '', scope: null, undoStack: [] });
     mocks.data = {
       albums: [{ id: 'al-1', name: 'Album' } as SubsonicAlbum],
       artists: [{ id: 'ar-1', name: 'Artist' } as SubsonicArtist],
@@ -142,5 +192,107 @@ describe('Favorites page layout', () => {
     renderWithProviders(<Favorites />);
 
     expect(lastTracklistCols()).toEqual(['num', 'title', 'artist', 'remove']);
+  });
+
+  it('filters every section and auto-collapses non-track rows', () => {
+    mocks.data = {
+      albums: [
+        { id: 'al-blue', name: 'Blue Album', artist: 'Blue Artist' } as SubsonicAlbum,
+        { id: 'al-red', name: 'Red Album', artist: 'Red Artist' } as SubsonicAlbum,
+      ],
+      artists: [
+        { id: 'ar-blue', name: 'Blue Artist' } as SubsonicArtist,
+        { id: 'ar-red', name: 'Red Artist' } as SubsonicArtist,
+      ],
+      songs: [
+        makeSubsonicSong({ title: 'Blue Song', artist: 'Blue Artist' }),
+        makeSubsonicSong({ title: 'Red Song', artist: 'Red Artist' }),
+      ],
+      radioStations: [
+        { id: 'st-blue', name: 'Blue Radio', streamUrl: 'https://radio.test/blue' },
+        { id: 'st-red', name: 'Red Radio', streamUrl: 'https://radio.test/red' },
+      ],
+      topFavoriteArtists: [
+        { id: 'top-blue', name: 'Blue Artist', count: 3, coverArtId: 'blue' },
+        { id: 'top-red', name: 'Red Artist', count: 2, coverArtId: 'red' },
+      ],
+    };
+    useLiveSearchScopeStore.setState({ query: 'blue', scope: 'favorites', undoStack: [] });
+
+    renderWithProviders(<Favorites />);
+
+    const categoryGroup = screen.getByRole('group', { name: 'Search favorites…' });
+    for (const label of ['Artists', 'Albums', 'Radio Stations', 'Top Artists by Favorites']) {
+      expect(within(categoryGroup).getByRole('button', { name: `${label} (1)` })).toHaveAttribute('aria-expanded', 'false');
+    }
+    expect(querySection('artists')).toBeNull();
+    expect(querySection('albums')).toBeNull();
+    expect(mocks.visibleSongTitles[mocks.visibleSongTitles.length - 1]).toEqual(['Blue Song']);
+    expect(sectionTitles()).toContain('Songs (1)');
+  });
+
+  it('keeps zero-match categories visible with their result count', () => {
+    useLiveSearchScopeStore.setState({ query: 'song', scope: 'favorites', undoStack: [] });
+
+    renderWithProviders(<Favorites />);
+
+    const categoryGroup = screen.getByRole('group', { name: 'Search favorites…' });
+    for (const label of ['Artists', 'Albums', 'Radio Stations', 'Top Artists by Favorites']) {
+      expect(within(categoryGroup).getByRole('button', { name: `${label} (0)` })).toBeDisabled();
+    }
+  });
+
+  it('keeps a manually expanded searched section open as the query changes', async () => {
+    const user = userEvent.setup();
+    mocks.data.albums = [
+      { id: 'al-blue', name: 'Blue Album' } as SubsonicAlbum,
+      { id: 'al-night', name: 'Night Album' } as SubsonicAlbum,
+    ];
+    useLiveSearchScopeStore.setState({ query: 'blue', scope: 'favorites', undoStack: [] });
+    renderWithProviders(<Favorites />);
+
+    const albumsToggle = screen.getByRole('button', { name: 'Albums (1)' });
+    expect(albumsToggle).toHaveAttribute('aria-expanded', 'false');
+    await user.click(albumsToggle);
+    expect(section('albums')).toHaveAttribute('data-items', 'Blue Album');
+    expect(albumsToggle).toHaveAttribute('aria-expanded', 'true');
+
+    act(() => useLiveSearchScopeStore.setState({ query: 'night' }));
+
+    expect(section('albums')).toHaveAttribute('data-items', 'Night Album');
+  });
+
+  it('shows at most one searched category rail and collapses the selected one', async () => {
+    const user = userEvent.setup();
+    useLiveSearchScopeStore.setState({ query: 'a', scope: 'favorites', undoStack: [] });
+    renderWithProviders(<Favorites />);
+
+    await user.click(screen.getByRole('button', { name: 'Artists (1)' }));
+    expect(section('artists')).toBeInTheDocument();
+    expect(querySection('albums')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: 'Albums (1)' }));
+    expect(querySection('artists')).toBeNull();
+    expect(section('albums')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Albums (1)' }));
+    expect(querySection('albums')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Albums (1)' })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('starts a new auto-collapse session after the query is cleared', async () => {
+    const user = userEvent.setup();
+    mocks.data.albums = [{ id: 'al-blue', name: 'Blue Album' } as SubsonicAlbum];
+    useLiveSearchScopeStore.setState({ query: 'blue', scope: 'favorites', undoStack: [] });
+    renderWithProviders(<Favorites />);
+
+    await user.click(screen.getByRole('button', { name: 'Albums (1)' }));
+    expect(section('albums')).toBeInTheDocument();
+
+    act(() => useLiveSearchScopeStore.setState({ query: '' }));
+    act(() => useLiveSearchScopeStore.setState({ query: 'blue' }));
+
+    expect(querySection('albums')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Albums (1)' })).toHaveAttribute('aria-expanded', 'false');
   });
 });

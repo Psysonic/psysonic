@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { matchesFavoritesSearch, normalizeFavoritesSearchQuery } from '@/features/favorites/utils/favoritesSearch';
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1950;
@@ -27,6 +28,7 @@ export interface FavoritesSongFilteringDeps {
   selectedGenres: string[];
   yearRange: [number, number];
   ratings: Record<string, number>;
+  searchQuery: string;
 }
 
 export interface FavoritesSongFilteringResult {
@@ -39,7 +41,7 @@ export interface FavoritesSongFilteringResult {
 export function useFavoritesSongFiltering(deps: FavoritesSongFilteringDeps): FavoritesSongFilteringResult {
   const {
     songs, sortKey, setSortKey, sortDir, setSortDir, sortClickCount, setSortClickCount,
-    selectedArtist, selectedGenres, yearRange, ratings,
+    selectedArtist, selectedGenres, yearRange, ratings, searchQuery,
   } = deps;
   const starredOverrides = usePlayerStore(s => s.starredOverrides);
   const userRatingOverrides = usePlayerStore(s => s.userRatingOverrides);
@@ -75,6 +77,7 @@ export function useFavoritesSongFiltering(deps: FavoritesSongFilteringDeps): Fav
 
   // ── Filter logic ─────────────────────────────────────────────────────────
   const filteredSongs = useMemo(() => {
+    const searchNeedle = normalizeFavoritesSearchQuery(searchQuery);
     return songs.filter(s => {
       // Remove unfavorited
       if ((starredOverrides[ownedEntityKey(s)] ?? starredOverrides[s.id]) === false) return false;
@@ -105,9 +108,11 @@ export function useFavoritesSongFiltering(deps: FavoritesSongFilteringDeps): Fav
         if (s.year === undefined || s.year < yearRange[0] || s.year > yearRange[1]) return false;
       }
 
+      if (!matchesFavoritesSearch(searchNeedle, s.title, s.artist, s.album, s.genre)) return false;
+
       return true;
     });
-  }, [songs, starredOverrides, selectedArtist, selectedGenres, yearRange]);
+  }, [songs, starredOverrides, selectedArtist, selectedGenres, yearRange, searchQuery]);
 
   // ── Sort logic ───────────────────────────────────────────────────────────
   const visibleSongs = useMemo(() => {
