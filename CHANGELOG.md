@@ -272,6 +272,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The search shortcut could focus a hidden desktop field while the header search was collapsed, leaving no visible place to type. It now opens the available desktop or mobile search control first.
 
+### Separate Navidrome libraries no longer collide during background sync
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1630](https://github.com/Psysonic/psysonic/pull/1630)**
+
+* Two Navidrome libraries can contain different tracks at the same relative file path. Background sync no longer mistakes those tracks for an ID change, repeatedly fails with an alias conflict or tries to fold one library's track into the other.
+
 ## [1.54.0]
 
 ## Fixed
