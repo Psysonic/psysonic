@@ -47,6 +47,7 @@ import {
   reconcileFullBackupImportRecovery,
   restoreBackupStores,
 } from './backup';
+import { BACKUP_EXCLUSIONS } from './backupRegistry';
 
 beforeEach(() => {
   mocks.writeFile.mockReset();
@@ -589,56 +590,113 @@ describe('settings backup covers every setting', () => {
   });
 });
 
+describe('device sync travels as a projection', () => {
+  const storedDeviceSync = {
+    state: {
+      sources: [{
+        type: 'album',
+        id: 'al-1',
+        name: 'A record',
+        serverIndexKey: 'music.test',
+        serverProfileId: 'profile-1',
+      }],
+      layoutMode: 'flat',
+      playlistPathMode: 'device-rooted',
+      targetDir: 'E:/Music',
+      targetDeviceId: 'usb-stick-42',
+      legacyTargetDir: 'E:/Old',
+      legacySources: [{ type: 'album', id: 'al-9', name: 'Gone' }],
+      pendingDeletion: ['some-key'],
+      syncedLayoutMode: 'self-contained',
+      syncedPlaylistPathMode: 'playlist-relative',
+    },
+    version: 4,
+  };
+
+  async function exportedStores(): Promise<Record<string, unknown>> {
+    await exportBackupToPath('config', '/tmp/settings.psybkp');
+    const bytes = mocks.writeFile.mock.calls[0]?.[1] as Uint8Array;
+    return (JSON.parse(new TextDecoder().decode(bytes)) as {
+      stores: Record<string, unknown>;
+    }).stores;
+  }
+
+  it('carries the selection and layout but never the attached device', async () => {
+    localStorage.setItem('psysonic_device_sync', JSON.stringify(storedDeviceSync));
+
+    const stores = await exportedStores();
+
+    expect(stores.psysonic_device_sync).toEqual({
+      state: {
+        sources: storedDeviceSync.state.sources,
+        layoutMode: 'flat',
+        playlistPathMode: 'device-rooted',
+      },
+      version: 0,
+    });
+    // Everything naming the drive this backup was taken on stays behind.
+    const serialized = JSON.stringify(stores.psysonic_device_sync);
+    for (const machineBound of ['E:/Music', 'usb-stick-42', 'E:/Old', 'some-key', 'syncedLayoutMode']) {
+      expect(serialized).not.toContain(machineBound);
+    }
+  });
+
+  it('keeps the target this machine is attached to when restoring', async () => {
+    localStorage.setItem('psysonic_device_sync', JSON.stringify(storedDeviceSync));
+    const stores = await exportedStores();
+
+    // A different machine with its own drive attached and nothing selected.
+    localStorage.setItem('psysonic_device_sync', JSON.stringify({
+      state: { targetDir: 'F:/Player', targetDeviceId: 'other-device', sources: [] },
+      version: 4,
+    }));
+    restoreBackupStores(stores);
+
+    const restored = JSON.parse(localStorage.getItem('psysonic_device_sync') ?? 'null');
+    expect(restored.state.sources).toEqual(storedDeviceSync.state.sources);
+    expect(restored.state.layoutMode).toBe('flat');
+    expect(restored.state.targetDir).toBe('F:/Player');
+    expect(restored.state.targetDeviceId).toBe('other-device');
+    // Version 0 makes Zustand run the store's own migrate on rehydrate, which
+    // validates the sources and clears the transient selections.
+    expect(restored.version).toBe(0);
+  });
+
+  it('leaves a clean profile without a target device', async () => {
+    localStorage.setItem('psysonic_device_sync', JSON.stringify(storedDeviceSync));
+    const stores = await exportedStores();
+
+    localStorage.clear();
+    restoreBackupStores(stores);
+
+    const restored = JSON.parse(localStorage.getItem('psysonic_device_sync') ?? 'null');
+    expect(restored.state.sources).toEqual(storedDeviceSync.state.sources);
+    expect(restored.state.targetDir).toBeUndefined();
+    expect(restored.state.targetDeviceId).toBeUndefined();
+  });
+
+  it('clears a selection the backup did not carry, without touching the drive', async () => {
+    // Nothing selected when the backup was taken.
+    localStorage.setItem('psysonic_device_sync', JSON.stringify({ state: {}, version: 4 }));
+    const stores = await exportedStores();
+
+    localStorage.setItem('psysonic_device_sync', JSON.stringify({
+      state: { sources: [{ type: 'album', id: 'al-5', name: 'Local pick', serverIndexKey: 'music.test' }], targetDir: 'F:/Player' },
+      version: 4,
+    }));
+    restoreBackupStores(stores);
+
+    const restored = JSON.parse(localStorage.getItem('psysonic_device_sync') ?? 'null');
+    expect(restored.state.sources).toBeUndefined();
+    expect(restored.state.targetDir).toBe('F:/Player');
+  });
+});
+
 /**
- * Stored keys that deliberately stay out of the backup, with the reason. Every
- * `psysonic_` / `psysonic-` storage key in the source has to be either backed up
- * or listed here, so a new setting cannot quietly go missing from backups again.
+ * The exclusion list lives in the registry beside the backed-up entries, so a
+ * new setting cannot be classified in one place and forgotten in the other.
  */
-const NOT_BACKED_UP = new Set<string>([
-  // Mirrors files on disk, an attached device or the library databases.
-  'psysonic-offline',
-  'psysonic-local-playback',
-  'psysonic-hot-cache',
-  'psysonic-library-index',
-  'psysonic_device_sync',
-  'psysonic_burn_list',
-  // Histories and caches that rebuild themselves.
-  'psysonic_playlists_recent',
-  'psysonic_recent_searches',
-  'psysonic_theme_registry_cache',
-  'psysonic-img-cache',
-  'psysonic-lyrics-cache',
-  'psysonic_because_anchor:',
-  'psysonic_because_anchor_history:',
-  'psysonic_because_picks:',
-  // One-time migration markers, migration checkpoints and the import journal.
-  'psysonic-cover-sources-external-off-v1',
-  'psysonic-discord-server-cover-revival-v1',
-  'psysonic-full-backup-import-journal-v1',
-  'psysonic-linux-webkit-smooth-v1',
-  'psysonic-local-playback-migrated-v1',
-  'psysonic-max-cache-mb-removed-v1',
-  'psysonic-music-network-migrated-v1',
-  'psysonic-navidrome-canonical-bootstrap-active-v1',
-  'psysonic-navidrome-canonical-id-migration-v1',
-  'psysonic-server-key-migration-v1',
-  'psysonic_advanced_mode_migrated',
-  'psysonic_cover_tier_idb_cleared_v1',
-  // Update prompts and panel state.
-  'psysonic_skipped_update_version',
-  'psysonic_theme_migration_notice',
-  'psysonic_personalisation_advanced_open',
-  // Developer diagnostics.
-  'psysonic_perf_live_poll_ms_v1',
-  'psysonic_perf_live_thread_groups_v1',
-  'psysonic_perf_overlay_appearance_v1',
-  'psysonic_perf_overlay_mode_v1',
-  'psysonic_perf_overlay_pins_v1',
-  'psysonic_perf_probe_flags_v1',
-  'psysonic_psylab_debug_traces_v1',
-  // Not a storage key.
-  'psysonic-toast',
-]);
+const NOT_BACKED_UP = new Set<string>(Object.keys(BACKUP_EXCLUSIONS));
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

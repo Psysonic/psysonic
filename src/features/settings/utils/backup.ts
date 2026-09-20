@@ -8,6 +8,15 @@ import {
   type MigrationGenerationSnapshotDto,
 } from '@/generated/bindings';
 import { version as appVersion } from '@/../package.json';
+import {
+  BACKUP_KEYS,
+  clearsWhenAbsent,
+  isBackupKey,
+  isRawStringKey,
+  projectionFor,
+} from './backupRegistry';
+
+export { BACKUP_KEYS } from './backupRegistry';
 
 const BACKUP_VERSION = 1;
 export type ImportedBackupKind = 'config' | 'databases' | 'full';
@@ -25,76 +34,6 @@ export type ImportedBackupCoordinator = {
   };
 };
 
-/**
- * The keys every backup has carried. A backup without one of them was taken
- * while that setting was still at its default, so the restore clears it.
- */
-const LEGACY_BACKUP_KEYS = [
-  'psysonic-auth',
-  'psysonic_theme',
-  'psysonic_font',
-  'psysonic_language',
-  'psysonic_keybindings',
-  'psysonic_sidebar',
-  'psysonic-eq',
-  'psysonic_global_shortcuts',
-  'psysonic-player',
-  'psysonic_player_prefs',
-  'psysonic_queue_visible',
-  'psysonic_lastfm_loved_cache',
-  'psysonic_home',
-  'psysonic_visualizer',
-  'psysonic_np_layout',
-] as const;
-/**
- * Keys added to the backup later. The export writes each of them, `null` when
- * the setting was never changed, so a restore can tell "default at backup time"
- * (clear it) from "backup older than this key" (leave the current value alone —
- * clearing it would throw away playlist folders or radio favourites that an
- * older backup simply knew nothing about).
- */
-const ADDED_BACKUP_KEYS = [
-  'psysonic_artist_layout',
-  'psysonic_favorites_layout',
-  'psysonic_playlist_layout',
-  'psysonic_player_bar_layout',
-  'psysonic_queue_toolbar',
-  'psysonic_burner_layout',
-  'psysonic_album_view_mode',
-  'psysonic_artist_view_mode',
-  'psysonic_tracklist_columns',
-  'psysonic_favorites_columns',
-  'psysonic_playlist_columns',
-  'psysonic_artist_all_tracks_columns',
-  'psysonic_installed_themes',
-  'psysonic_share_settings',
-  'psysonic_play_queue_sync_settings',
-  'psysonic-playback-rate',
-  'psysonic-analytics-strategy',
-  'psysonic-cover-cache-strategy',
-  'psysonic_burn_settings',
-  'psysonic_radio_favorites',
-  'psysonic_radio_order',
-  'psysonic_playlist_folders',
-  'psysonic_shuffle_mode',
-  'psysonic_sidebar_collapsed',
-  'psysonic_mini_expanded_h',
-  'psysonic_mini_queue_open',
-  'psysonic_network_loved_cache',
-] as const;
-export const BACKUP_KEYS = [...LEGACY_BACKUP_KEYS, ...ADDED_BACKUP_KEYS] as const;
-const BACKUP_KEY_SET = new Set<string>(BACKUP_KEYS);
-const LEGACY_BACKUP_KEY_SET = new Set<string>(LEGACY_BACKUP_KEYS);
-/**
- * Keys holding a bare string rather than a serialized store. `collectStores`
- * cannot JSON-parse those, so it carries the raw string — and the restore has
- * to write it back raw as well. Sending them through `JSON.stringify` on the
- * way in adds literal quotes to the stored value, which is how a language of
- * `en` used to come back as `"en"` and make every `Intl` call built from it
- * throw. A backup taken from an already-quoted value parses cleanly on export,
- * so restoring raw also repairs the older backups.
- */
-const RAW_STRING_BACKUP_KEYS = new Set<string>(['psysonic_language']);
 export const FULL_BACKUP_IMPORT_JOURNAL_KEY = 'psysonic-full-backup-import-journal-v1';
 
 type FullBackupImportJournal = {
@@ -118,14 +57,24 @@ export function installImportedBackupCoordinator(
 }
 
 function filterBackupStores(stores: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(stores).filter(([key]) => BACKUP_KEY_SET.has(key)));
+  return Object.fromEntries(Object.entries(stores).filter(([key]) => isBackupKey(key)));
 }
 
 function serializedStore(value: unknown, key: string): string {
-  if (RAW_STRING_BACKUP_KEYS.has(key) && typeof value === 'string') return value;
+  if (isRawStringKey(key) && typeof value === 'string') return value;
   const serialized = JSON.stringify(value);
   if (serialized === undefined) throw new Error(`invalid_backup_store:${key}`);
   return serialized;
+}
+
+function parsedStoredValue(key: string): unknown {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
 }
 
 function collectStores(): Record<string, unknown> {
@@ -135,14 +84,17 @@ function collectStores(): Record<string, unknown> {
     if (val === null) {
       // Legacy keys stay out, exactly as older builds wrote them: an older build
       // restoring this backup would otherwise write the literal `null`.
-      if (!LEGACY_BACKUP_KEY_SET.has(key)) stores[key] = null;
+      if (!clearsWhenAbsent(key)) stores[key] = null;
       continue;
     }
+    let parsed: unknown;
     try {
-      stores[key] = JSON.parse(val);
+      parsed = JSON.parse(val);
     } catch {
-      stores[key] = val;
+      parsed = val;
     }
+    const projection = projectionFor(key);
+    stores[key] = projection ? projection.export(parsed) : parsed;
   }
   return stores;
 }
@@ -162,8 +114,15 @@ export function restoreBackupStores(stores: Record<string, unknown>): void {
   try {
     for (const key of BACKUP_KEYS) {
       const inBackup = Object.prototype.hasOwnProperty.call(filtered, key);
-      if (!inBackup && !LEGACY_BACKUP_KEY_SET.has(key)) continue;
-      const value = inBackup ? filtered[key] : null;
+      if (!inBackup && !clearsWhenAbsent(key)) continue;
+      const backedUp = inBackup ? filtered[key] : null;
+      // A projected store only ever owns part of what is stored here, so it is
+      // folded into the current value instead of replacing it — the fields that
+      // describe this machine's attached device are not the backup's to write.
+      const projection = projectionFor(key);
+      const value = projection
+        ? projection.merge(backedUp, parsedStoredValue(key))
+        : backedUp;
       if (value === null) {
         localStorage.removeItem(key);
         continue;
