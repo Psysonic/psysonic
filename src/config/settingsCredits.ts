@@ -226,6 +226,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Lyrics pronunciation and offline Japanese Hepburn romaji (PR #1541)',
       'Smooth word-synced lyrics highlighting in sidebar and fullscreen views (PR #1548)',
       'Navidrome share creation, management, preview and playback workflow (PR #1586)',
+      'Favorites scoped search and reliable collapsed search entry (PR #1629)',
     ],
   },
   {

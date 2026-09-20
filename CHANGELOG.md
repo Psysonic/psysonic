@@ -124,6 +124,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The **#** column of the favourite songs can be switched off in the column menu of the list, like the other columns. In narrow windows it stays visible.
 * **Shuffle all** sits next to **Play all** and plays the songs in the list in random order, filters included, or only the selected ones while a selection is active.
 
+### Search all of your Favorites without leaving the page
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1629](https://github.com/Psysonic/psysonic/pull/1629)**
+
+* The search box on **Favorites** now filters favourite artists, albums, radio stations, top artists and songs together. Compact result counts keep every category visible, and each non-song category can be expanded in place without navigating away.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
@@ -259,6 +265,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Restoring a backup brought your servers and preferences back but left Device Sync empty. The albums, playlists and artists you had picked, and the folder layout chosen for them, were never part of a backup and had to be set up again on every restore. They travel now.
 * The device itself deliberately stays behind: the folder a sync writes to, the drive it was attached to and anything queued for deletion describe the machine the backup came from, so a restore never points Device Sync at a drive the new machine has never seen. You pick the target again, the selection is already there.
 * **Settings → Backup & Restore** and the help entry now say what a backup does not include — downloaded music, caches and a connected sync device — instead of promising everything.
+
+### The search shortcut opens a collapsed search box again
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1629](https://github.com/Psysonic/psysonic/pull/1629)**
+
+* The search shortcut could focus a hidden desktop field while the header search was collapsed, leaving no visible place to type. It now opens the available desktop or mobile search control first.
 
 ## [1.54.0]
 
