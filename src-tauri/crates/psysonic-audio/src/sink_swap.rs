@@ -85,6 +85,7 @@ pub(super) fn spawn_legacy_stream_start_when_armed(args: LegacyStreamStartWhenAr
 
 /// State + decisions audio_play computed before the sink swap.
 pub(crate) struct SinkSwapInputs {
+    pub(crate) generation: u64,
     pub(crate) sink: Arc<rodio::Player>,
     pub(crate) duration_secs: f64,
     pub(crate) volume: f32,
@@ -143,6 +144,7 @@ fn handoff_old_sink_fade_out(
 /// task that drops the old sink ~`actual_fade_secs + 0.5 s` later.
 pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapInputs) {
     let SinkSwapInputs {
+        generation,
         sink,
         duration_secs,
         volume,
@@ -177,6 +179,9 @@ pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapI
         cur.fadeout_trigger = Some(new_fadeout_trigger);
         cur.fadeout_samples = Some(new_fadeout_samples);
         cur.streaming_seek = streaming_seek;
+        state
+            .current_generation
+            .store(generation, Ordering::Release);
         (old, old_fo_trigger, old_fo_samples)
     };
 

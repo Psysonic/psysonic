@@ -318,6 +318,7 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
     if state.generation.load(Ordering::SeqCst) != gen {
         return Ok(());
     }
+    state.pending_seek.lock().unwrap().clear_generation(gen);
     sink.play();
 
     {

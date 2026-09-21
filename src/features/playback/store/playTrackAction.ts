@@ -92,9 +92,8 @@ import { stopRadio } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
-  clearSeekFallbackRetry,
   getSeekFallbackVisualTarget,
-  setSeekFallbackRestartAt,
+  resetSeekStateForPlaybackChange,
   setSeekFallbackTrackId,
   setSeekFallbackVisualTarget,
 } from '@/features/playback/store/seekFallbackState';
@@ -309,8 +308,7 @@ export function runPlayTrack(
   setIsAudioPaused(false);
   clearPreloadingIds(); // new track — allow fresh preload for next
   clearSeekDebounce(); clearSeekTarget();
-  clearSeekFallbackRetry();
-  setSeekFallbackRestartAt(0);
+  resetSeekStateForPlaybackChange();
 
   // If a radio stream is active, stop it before the new track starts so
   // the PlayerBar clears radio mode immediately and the stream is released.

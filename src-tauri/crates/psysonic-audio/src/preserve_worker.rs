@@ -26,6 +26,8 @@ const RB_TARGET_FILL: f32 = 0.6;
 const RB_FILL_HIGH: f32 = 0.88;
 const FORWARD_BATCH: usize = 4096;
 const WORKER_IDLE_SLEEP: Duration = Duration::from_millis(1);
+// The fresh ring prevents stale PCM from escaping after a seek. Keep the
+// commit gate short; the worker continues filling the ring after handoff.
 const SEEK_PREFILL_MILLIS: usize = 20;
 const PREPARED_DRAIN_PER_POLL: usize = 8;
 

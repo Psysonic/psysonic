@@ -31,6 +31,7 @@ pub(crate) async fn ranged_download_task(
     initial_response: reqwest::Response,
     buf: Arc<Mutex<Vec<u8>>>,
     downloaded_to: Arc<AtomicUsize>,
+    priority_fetches: Option<Arc<AtomicUsize>>,
     download_control: Arc<StreamDownloadControl>,
     promote_cache_slot: Arc<Mutex<Option<PreloadedTrack>>>,
     spill_cache_slot: Arc<Mutex<Option<StreamCompletedSpill>>>,
@@ -151,6 +152,7 @@ pub(crate) async fn ranged_download_task(
         &http_headers,
         on_partial,
         linear_arm,
+        priority_fetches.as_deref(),
     )
     .await;
 

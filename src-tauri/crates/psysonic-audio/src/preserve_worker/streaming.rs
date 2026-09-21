@@ -30,6 +30,11 @@ enum SeekPrefill {
     Stopped,
 }
 
+pub(super) fn seek_prefill_samples(sample_rate: u32, channels: u16) -> usize {
+    ((sample_rate as usize * channels.max(1) as usize) * SEEK_PREFILL_MILLIS / 1000)
+        .max(channels.max(1) as usize)
+}
+
 fn prefill_after_seek<S: Source<Item = f32>>(
     inner: &mut S,
     prod: &mut HeapProd<f32>,
@@ -37,9 +42,7 @@ fn prefill_after_seek<S: Source<Item = f32>>(
     env: &PreserveWorkerEnv,
     seek_id: u64,
 ) -> SeekPrefill {
-    let target = ((env.sample_rate as usize * env.channels.max(1) as usize) * SEEK_PREFILL_MILLIS
-        / 1000)
-        .max(env.channels.max(1) as usize);
+    let target = seek_prefill_samples(env.sample_rate, env.channels);
     let ch_count = env.channels.max(1) as usize;
     let sample_rate = env.sample_rate as f32;
 

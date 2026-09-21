@@ -21,7 +21,7 @@ import {
   setCurrentRadioArtistId,
 } from '@/features/playback/store/radioSessionState';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
-import { clearSeekFallbackRetry } from '@/features/playback/store/seekFallbackState';
+import { resetSeekStateForPlaybackChange } from '@/features/playback/store/seekFallbackState';
 import { clearSeekTarget } from '@/features/playback/store/seekTargetState';
 import { playListenSessionFinalize } from '@/features/playback/store/playListenSession';
 import {
@@ -408,7 +408,7 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
       // `stop()` owns the actual lifecycle close; this remains a harmless no-op
       // after it and preserves the established playback-store dependency shape.
       void playListenSessionFinalize('stop');
-      clearSeekFallbackRetry();
+      resetSeekStateForPlaybackChange();
       clearSeekDebounce(); clearSeekTarget();
       clearRadioSessionSeenIds();
       setCurrentRadioArtistId(null);

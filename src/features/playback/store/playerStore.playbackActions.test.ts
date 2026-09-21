@@ -80,6 +80,11 @@ import { resetPlayerStore, resetAuthStore } from '@/test/helpers/storeReset';
 import { makeServer, makeTrack, makeTracks, seedQueue } from '@/test/helpers/factories';
 import { useAuthStore } from '@/store/authStore';
 import { usePlaybackAlternativeStore } from '@/features/playback/store/playbackAlternativeStore';
+import { _resetSeekFallbackStateForTest } from '@/features/playback/store/seekFallbackState';
+import {
+  _resetSeekTargetStateForTest,
+  getSeekTarget,
+} from '@/features/playback/store/seekTargetState';
 import {
   _resetScrobblePlaySessionForTest,
   beginScrobblePlay,
@@ -113,6 +118,8 @@ beforeEach(() => {
   orbitMocks.showToast.mockReset();
   playbackMocks.refreshLoudnessForTrack.mockClear();
   _resetScrobblePlaySessionForTest();
+  _resetSeekFallbackStateForTest();
+  _resetSeekTargetStateForTest();
   stubPlaybackInvokes();
 });
 
@@ -325,6 +332,78 @@ describe('seek', () => {
     usePlayerStore.setState({ currentTrack: makeTrack({ duration: 0 }) });
     usePlayerStore.getState().seek(0.5);
     expect(usePlayerStore.getState().currentTime).toBe(0);
+  });
+
+  it('rolls a paused optimistic seek back when the engine rejects it', async () => {
+    const track = makeTrack({ duration: 120 });
+    usePlayerStore.setState({
+      currentTrack: track,
+      currentTime: 24,
+      progress: 0.2,
+      isPlaying: false,
+    });
+    onInvoke('audio_seek', () => {
+      throw new Error('decoder seek failed');
+    });
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    usePlayerStore.getState().seek(0.75);
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(usePlayerStore.getState().currentTime).toBe(24);
+    expect(usePlayerStore.getState().progress).toBe(0.2);
+    consoleSpy.mockRestore();
+  });
+
+  it('rolls a failed rapid-seek burst back to its confirmed starting position', async () => {
+    const track = makeTrack({ duration: 120 });
+    usePlayerStore.setState({
+      currentTrack: track,
+      currentTime: 24,
+      progress: 0.2,
+      isPlaying: false,
+    });
+    onInvoke('audio_seek', () => {
+      throw new Error('decoder seek failed');
+    });
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    usePlayerStore.getState().seek(0.25);
+    usePlayerStore.getState().seek(0.75);
+    await vi.advanceTimersByTimeAsync(100);
+
+    expect(usePlayerStore.getState().currentTime).toBe(24);
+    expect(usePlayerStore.getState().progress).toBe(0.2);
+    consoleSpy.mockRestore();
+  });
+
+  it('ignores a stale seek rejection after a newer seek succeeds', async () => {
+    const track = makeTrack({ duration: 120 });
+    let rejectFirst!: (reason: unknown) => void;
+    let callCount = 0;
+    onInvoke('audio_seek', () => {
+      callCount += 1;
+      if (callCount === 1) {
+        return new Promise((_, reject) => {
+          rejectFirst = reject;
+        });
+      }
+      return undefined;
+    });
+    usePlayerStore.setState({ currentTrack: track, isPlaying: false });
+
+    usePlayerStore.getState().seek(0.25);
+    await vi.advanceTimersByTimeAsync(100);
+    usePlayerStore.getState().seek(0.75);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(getSeekTarget()).toBe(90);
+
+    rejectFirst(new Error('stale decoder failure'));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(usePlayerStore.getState().currentTime).toBe(90);
+    expect(getSeekTarget()).toBe(90);
   });
 });
 

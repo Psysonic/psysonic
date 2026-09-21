@@ -41,7 +41,9 @@ pub async fn audio_play_radio(
 ) -> Result<(), String> {
     let gen = {
         let _commit_guard = state.playback_commit_lock.lock().unwrap();
-        state.generation.fetch_add(1, Ordering::SeqCst) + 1
+        let gen = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        state.invalidate_pending_seek();
+        gen
     };
 
     // Cancel any active preview so it doesn't keep playing alongside radio.
@@ -207,6 +209,7 @@ pub async fn audio_play_radio(
         cur.fadeout_trigger = Some(fadeout_trigger);
         cur.fadeout_samples = Some(fadeout_samples);
         cur.streaming_seek = None;
+        state.current_generation.store(gen, Ordering::Release);
     }
     drop(stream_attach);
     drop(commit_guard);
@@ -248,6 +251,8 @@ pub async fn audio_play_radio(
         state.gapless_switch_at.clone(),
         state.current_playback_url.clone(),
         state.stream_playback_armed.clone(),
+        state.pending_seek.clone(),
+        state.source_transition_lock.clone(),
         PlaybackRateAtomics::default(),
     );
 

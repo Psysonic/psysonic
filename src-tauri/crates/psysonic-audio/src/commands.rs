@@ -161,7 +161,9 @@ pub async fn audio_play(
     // chained_info (avoids a race where it sees current_done + empty chain).
     let gen = {
         let _commit_guard = state.playback_commit_lock.lock().unwrap();
-        state.generation.fetch_add(1, Ordering::SeqCst) + 1
+        let gen = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        state.invalidate_pending_seek();
+        gen
     };
     // Ranged/legacy HTTP paths reset this to false in `select_play_input`.
     state.stream_playback_armed.store(true, Ordering::SeqCst);
@@ -622,6 +624,7 @@ pub async fn audio_play(
     swap_in_new_sink(
         &state,
         SinkSwapInputs {
+            generation: gen,
             sink,
             duration_secs,
             volume,
@@ -704,6 +707,8 @@ pub async fn audio_play(
         state.gapless_switch_at.clone(),
         state.current_playback_url.clone(),
         state.stream_playback_armed.clone(),
+        state.pending_seek.clone(),
+        state.source_transition_lock.clone(),
         state.playback_rate.clone(),
     );
 
@@ -912,6 +917,10 @@ pub async fn audio_chain_preload(
     let requested_stream_rate = state.stream_requested_rate.load(Ordering::Relaxed);
     if let Some(br) = blend_rate {
         if super::engine::stream_rate_needs_switch(br, requested_stream_rate) {
+            let _source_transition = state.source_transition_lock.write().await;
+            if !snapshot.is_current(&state) {
+                return Ok(());
+            }
             if let Some(snap) = hi_res_blend::capture_outgoing_blend_snapshot(&state, 0.0, 0.0) {
                 hi_res_blend::detach_current_sink_for_blend_reopen(&state);
                 let dev = state.selected_device.lock().unwrap().clone();

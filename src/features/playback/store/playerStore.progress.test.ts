@@ -253,6 +253,62 @@ describe('audio:progress buffering flag', () => {
     expect(usePlayerStore.getState().isPlaybackBuffering).toBe(false);
   });
 
+  it('keeps a nonzero pending-seek target visible while buffering', () => {
+    const track = makeTrack({ duration: 200 });
+    usePlayerStore.setState({
+      currentTrack: track,
+      isPlaying: true,
+      currentTime: 20,
+      progress: 0.1,
+    });
+
+    emitTauriEvent('audio:progress', {
+      current_time: 150,
+      duration: 200,
+      buffering: true,
+    });
+
+    expect(getPlaybackProgressSnapshot()).toMatchObject({
+      currentTime: 150,
+      progress: 0.75,
+      buffering: true,
+    });
+    expect(usePlayerStore.getState()).toMatchObject({
+      currentTime: 150,
+      progress: 0.75,
+      isPlaybackBuffering: true,
+      scrobbled: false,
+    });
+  });
+
+  it('commits a small seek rollback when buffering clears', () => {
+    const track = makeTrack({ duration: 200 });
+    usePlayerStore.setState({ currentTrack: track, isPlaying: true });
+    const calls: PlaybackProgressSnapshot[] = [];
+    const unsub = subscribePlaybackProgress(next => calls.push(next));
+
+    emitTauriEvent('audio:progress', {
+      current_time: 150,
+      duration: 200,
+      buffering: true,
+    });
+    vi.advanceTimersByTime(50);
+    emitTauriEvent('audio:progress', {
+      current_time: 149.5,
+      duration: 200,
+      buffering: false,
+    });
+
+    expect(calls).toHaveLength(2);
+    expect(calls.map(call => call.buffering)).toEqual([true, false]);
+    expect(usePlayerStore.getState()).toMatchObject({
+      currentTime: 149.5,
+      progress: 0.7475,
+      isPlaybackBuffering: false,
+    });
+    unsub();
+  });
+
   it('does not rewrite isPlaybackBuffering when the flag is unchanged', () => {
     const track = makeTrack({ duration: 100 });
     usePlayerStore.setState({

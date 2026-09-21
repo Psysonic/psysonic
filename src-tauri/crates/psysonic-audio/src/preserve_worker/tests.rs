@@ -311,6 +311,12 @@ fn permanent_seek_prefills_through_preserve_pitch_dsp() {
 }
 
 #[test]
+fn permanent_seek_prefill_stays_bounded_at_high_sample_rates() {
+    assert_eq!(streaming::seek_prefill_samples(96_000, 2), 3_840);
+    assert_eq!(streaming::seek_prefill_samples(44_100, 2), 1_764);
+}
+
+#[test]
 fn permanent_offload_keeps_only_the_latest_seek() {
     let control = Arc::new((
         Mutex::new(ControlledState {

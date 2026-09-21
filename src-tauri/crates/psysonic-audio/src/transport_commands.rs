@@ -21,6 +21,66 @@ use super::playback_rate::{
 use super::preview::preview_clear_for_new_main_playback;
 use super::stream::{radio_download_task, RADIO_BUF_CAPACITY};
 
+pub(crate) async fn seek_player_with_timeout(
+    sink: Arc<rodio::Player>,
+    position: Duration,
+    timeout: Duration,
+) -> Result<(), String> {
+    let seek_task = tokio::task::spawn_blocking(move || {
+        sink.try_seek(position).map_err(|error| error.to_string())
+    });
+    match tokio::time::timeout(timeout, seek_task).await {
+        Ok(Ok(result)) => result,
+        Ok(Err(error)) => Err(format!("audio seek worker join failed: {error}")),
+        Err(_) => Err("audio seek timeout".to_string()),
+    }
+}
+
+fn finish_failed_seek(
+    state: &AudioEngine,
+    sink: &Arc<rodio::Player>,
+    request_id: u64,
+    generation: u64,
+    error: String,
+) -> Result<(), String> {
+    let _commit_guard = state.playback_commit_lock.lock().unwrap();
+    let mut pending_seek = state.pending_seek.lock().unwrap();
+    if !pending_seek.is_current(request_id, generation) {
+        return Ok(());
+    }
+
+    if error.contains("audio seek timeout")
+        && state.generation.load(Ordering::SeqCst) == generation
+        && state.current_generation.load(Ordering::Acquire) == generation
+    {
+        let mut current = state.current.lock().unwrap();
+        if current
+            .sink
+            .as_ref()
+            .is_some_and(|current_sink| Arc::ptr_eq(current_sink, sink))
+        {
+            // A timed-out blocking task cannot be cancelled. Remove and stop
+            // the exact player before returning so fallback cannot seek a
+            // silent, stopped sink that is still published as current.
+            current.sink = None;
+            current.streaming_seek = None;
+            current.play_started = None;
+            current.paused_at = None;
+            state.current_generation.store(0, Ordering::Release);
+            sink.stop();
+            let _ = state.generation.compare_exchange(
+                generation,
+                generation + 1,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            );
+        }
+    }
+
+    pending_seek.finish(request_id, generation);
+    Err(error)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn audio_pause(fade_secs: Option<f32>, state: State<'_, AudioEngine>) {
@@ -228,6 +288,7 @@ pub fn audio_stop(state: State<'_, AudioEngine>, app: AppHandle) {
     let stop_generation = {
         let _commit_guard = state.playback_commit_lock.lock().unwrap();
         let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        state.invalidate_pending_seek();
         *state.current_playback_url.lock().unwrap() = None;
         *state.current_analysis_track_id.lock().unwrap() = None;
         *state.current_playback_server_id.lock().unwrap() = None;
@@ -258,6 +319,11 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
     let state = state.inner();
     const AUDIO_SEEK_TIMEOUT_MS: u64 = 700;
     const AUDIO_SEEK_LOCK_TIMEOUT_MS: u64 = 40;
+    // Multiple user seeks may overlap so Rodio's latest-wins control slot can
+    // supersede stale requests. Same-generation source replacement must wait
+    // before the ghost/source checks and through final commit.
+    let _source_transition = state.source_transition_lock.read().await;
+
     // Ghost-command guard: reject seeks within 500 ms of a gapless auto-advance.
     {
         let switch_ms = state.gapless_switch_at.load(Ordering::SeqCst);
@@ -272,13 +338,6 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
         }
     }
 
-    // Reject seek up-front for non-seekable streaming sources so the frontend's
-    // restart-fallback engages instead of rolling the dice on the format reader
-    // (which can consume the ring buffer to EOF for forward seeks → next song).
-    if !state.current_is_seekable.load(Ordering::SeqCst) {
-        crate::app_deprintln!("[seek] rejected → not-seekable source (legacy stream)");
-        return Err("source is not seekable".into());
-    }
     crate::app_deprintln!("[seek] target={:.2}s", seconds);
 
     let lock_current_with_timeout = |timeout_ms: u64| {
@@ -316,15 +375,39 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
     let seek_generation = state.generation.load(Ordering::SeqCst);
     let (sink, streaming_seek) = {
         let cur = lock_current_with_timeout(AUDIO_SEEK_LOCK_TIMEOUT_MS)?;
+        if state.current_generation.load(Ordering::Acquire) != seek_generation {
+            return Err("audio sink not ready".to_string());
+        }
         match cur.sink.as_ref() {
             Some(sink) => (Arc::clone(sink), cur.streaming_seek.clone()),
-            None => return Ok(()),
+            None => return Err("audio sink not ready".to_string()),
         }
     };
+    // Only consult seekability after proving the sink belongs to this playback
+    // generation. During async startup the flag may still describe the outgoing
+    // source; that case must retry as "sink not ready", not restart playback.
+    if !state.current_is_seekable.load(Ordering::SeqCst) {
+        crate::app_deprintln!("[seek] rejected → not-seekable source (legacy stream)");
+        return Err("source is not seekable".into());
+    }
+    let sample_rate = state.current_sample_rate.load(Ordering::Relaxed);
+    let channels = state.current_channels.load(Ordering::Relaxed);
+    let target_samples = raw_counter_samples_for_content_position(
+        seek_seconds,
+        sample_rate,
+        channels,
+        &state.playback_rate,
+    );
+    let seek_request_id = state.begin_pending_seek(seek_generation, target_samples);
+    let finish_progress = || state.finish_pending_seek(seek_request_id, seek_generation);
+    if state.generation.load(Ordering::SeqCst) != seek_generation {
+        finish_progress();
+        return Ok(());
+    }
 
     let seek_ticket = if let Some(handle) = streaming_seek.as_ref() {
         let prepare_handle = handle.clone();
-        let prepared = tokio::task::spawn_blocking(move || {
+        let prepared = match tokio::task::spawn_blocking(move || {
             prepare_handle.prepare_seek(
                 seek_duration,
                 rollback_duration,
@@ -332,10 +415,23 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
             )
         })
         .await
-        .map_err(|error| format!("audio seek worker join failed: {error}"))??;
+        {
+            Ok(Ok(prepared)) => prepared,
+            Ok(Err(error)) => {
+                finish_progress();
+                return Err(error);
+            }
+            Err(error) => {
+                finish_progress();
+                return Err(format!("audio seek worker join failed: {error}"));
+            }
+        };
         match prepared {
             Some(ticket) => Some(ticket),
-            None => return Ok(()),
+            None => {
+                finish_progress();
+                return Ok(());
+            }
         }
     } else {
         None
@@ -343,60 +439,109 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
     let commit_duration = seek_ticket
         .as_ref()
         .map_or(seek_duration, |ticket| ticket.commit_position());
+    if !state.pending_seek_is_current(seek_request_id, seek_generation)
+        || state.generation.load(Ordering::SeqCst) != seek_generation
+        || state.current_generation.load(Ordering::Acquire) != seek_generation
+    {
+        finish_progress();
+        return Ok(());
+    }
+    let sink_is_current = {
+        let cur = lock_current_with_timeout(AUDIO_SEEK_LOCK_TIMEOUT_MS)?;
+        cur.sink
+            .as_ref()
+            .is_some_and(|current_sink| Arc::ptr_eq(current_sink, &sink))
+    };
+    if !sink_is_current {
+        finish_progress();
+        return Ok(());
+    }
     if let Some((handle, ticket)) = streaming_seek.as_ref().zip(seek_ticket.as_ref()) {
         loop {
-            let commit_sink = Arc::clone(&sink);
-            let seek_result = tokio::task::spawn_blocking(move || {
-                commit_sink
-                    .try_seek(commit_duration)
-                    .map_err(|error| error.to_string())
-            })
-            .await
-            .map_err(|error| format!("audio seek worker join failed: {error}"))?;
+            if !state.pending_seek_is_current(seek_request_id, seek_generation)
+                || state.generation.load(Ordering::SeqCst) != seek_generation
+                || !handle.is_current(ticket)
+            {
+                finish_progress();
+                return Ok(());
+            }
+            let seek_result = seek_player_with_timeout(
+                Arc::clone(&sink),
+                commit_duration,
+                Duration::from_millis(AUDIO_SEEK_TIMEOUT_MS),
+            )
+            .await;
             if let Err(error) = seek_result {
                 if !handle.is_current(ticket) {
+                    finish_progress();
                     return Ok(());
                 }
-                return Err(error);
+                return finish_failed_seek(state, &sink, seek_request_id, seek_generation, error);
             }
             if !handle.is_current(ticket) {
+                finish_progress();
                 return Ok(());
             }
             if handle.is_active(ticket) {
                 break;
             }
             if state.generation.load(Ordering::SeqCst) != seek_generation {
+                finish_progress();
                 return Ok(());
             }
             // Rodio replaces an unprocessed seek order when another command
             // wins the controls slot. Retry while this ticket is still latest.
         }
     } else {
-        let seek_task = tokio::task::spawn_blocking(move || {
-            sink.try_seek(commit_duration)
-                .map_err(|error| error.to_string())
-        });
-        let seek_result =
-            tokio::time::timeout(Duration::from_millis(AUDIO_SEEK_TIMEOUT_MS), seek_task)
-                .await
-                .map_err(|_| "audio seek timeout".to_string())?
-                .map_err(|error| format!("audio seek worker join failed: {error}"))?;
-        seek_result?;
+        if !state.pending_seek_is_current(seek_request_id, seek_generation)
+            || state.generation.load(Ordering::SeqCst) != seek_generation
+        {
+            finish_progress();
+            return Ok(());
+        }
+        let seek_result = seek_player_with_timeout(
+            Arc::clone(&sink),
+            commit_duration,
+            Duration::from_millis(AUDIO_SEEK_TIMEOUT_MS),
+        )
+        .await;
+        if let Err(error) = seek_result {
+            return finish_failed_seek(state, &sink, seek_request_id, seek_generation, error);
+        }
     }
     if let Some(error) = seek_ticket
         .as_ref()
         .and_then(|ticket| ticket.target_error())
     {
+        finish_progress();
         return Err(error.to_string());
     }
 
-    // If playback switched while seek was in flight, skip timestamp updates.
-    if state.generation.load(Ordering::SeqCst) != seek_generation {
+    // Commit progress and timestamps under the same lifecycle lock used by
+    // play/stop generation changes. Holding pending_seek through the writes
+    // prevents a newer request from publishing between validation and commit.
+    let _commit_guard = state.playback_commit_lock.lock().unwrap();
+    let mut pending_seek = state.pending_seek.lock().unwrap();
+    if state.generation.load(Ordering::SeqCst) != seek_generation
+        || !pending_seek.is_current(seek_request_id, seek_generation)
+    {
+        pending_seek.finish(seek_request_id, seek_generation);
         return Ok(());
     }
-
-    let mut cur = lock_current_with_timeout(AUDIO_SEEK_LOCK_TIMEOUT_MS)?;
-    if cur.sink.is_none() {
+    let mut cur = match lock_current_with_timeout(AUDIO_SEEK_LOCK_TIMEOUT_MS) {
+        Ok(cur) => cur,
+        Err(error) => {
+            pending_seek.finish(seek_request_id, seek_generation);
+            return Err(error);
+        }
+    };
+    if !cur
+        .sink
+        .as_ref()
+        .is_some_and(|current_sink| Arc::ptr_eq(current_sink, &sink))
+        || state.current_generation.load(Ordering::Acquire) != seek_generation
+    {
+        pending_seek.finish(seek_request_id, seek_generation);
         return Ok(());
     }
 
@@ -406,14 +551,34 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
         cur.seek_offset = seek_seconds;
         cur.play_started = Some(Instant::now());
     }
-    state.samples_played.store(
-        raw_counter_samples_for_content_position(
-            seek_seconds,
-            state.current_sample_rate.load(Ordering::Relaxed),
-            state.current_channels.load(Ordering::Relaxed),
-            &state.playback_rate,
-        ),
-        Ordering::Relaxed,
-    );
+    state
+        .samples_played
+        .store(target_samples, Ordering::Relaxed);
+    pending_seek.finish(seek_request_id, seek_generation);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::engine::PendingSeekState;
+
+    #[test]
+    fn latest_seek_can_finish_its_pending_state() {
+        let mut pending = PendingSeekState::default();
+        let request_id = pending.begin(7, 900);
+
+        assert!(pending.finish(request_id, 7));
+        assert_eq!(pending.target_samples(), None);
+    }
+
+    #[test]
+    fn superseded_seek_cannot_finish_newer_pending_state() {
+        let mut pending = PendingSeekState::default();
+        let old_request_id = pending.begin(7, 300);
+        let new_request_id = pending.begin(7, 1_200);
+
+        assert!(!pending.finish(old_request_id, 7));
+        assert!(pending.is_current(new_request_id, 7));
+        assert_eq!(pending.target_samples(), Some(1_200));
+    }
 }

@@ -7,6 +7,8 @@ use futures_util::StreamExt;
 use crate::engine::PlaybackHttpHeaders;
 use crate::stream::TRACK_STREAM_MAX_RECONNECTS;
 
+const PRIORITY_SETTLE_MS: u64 = 25;
+
 /// Outcome of [`ranged_http_download_loop`] — total bytes written to the buffer
 /// plus the reason the loop stopped. The wrapper task uses this to decide
 /// whether to promote the buffer to the stream-complete cache.
@@ -36,6 +38,7 @@ pub(super) async fn ranged_http_download_loop<F>(
     http_headers: &PlaybackHttpHeaders,
     mut on_partial: F,
     playback_armed: Option<&AtomicBool>,
+    priority_fetches: Option<&AtomicUsize>,
 ) -> (usize, RangedHttpLoopOutcome)
 where
     F: FnMut(usize, usize),
@@ -85,7 +88,29 @@ where
         }
 
         let mut byte_stream = response.bytes_stream();
-        while let Some(chunk) = byte_stream.next().await {
+        let mut yielded_to_priority = false;
+        'response: loop {
+            if priority_fetches.is_some_and(|active| active.load(Ordering::Acquire) > 0) {
+                yielded_to_priority = true;
+                break;
+            }
+            let next_chunk = if let Some(active) = priority_fetches {
+                tokio::select! {
+                    chunk = byte_stream.next() => chunk,
+                    _ = tokio::time::sleep(Duration::from_millis(5)) => {
+                        if active.load(Ordering::Acquire) > 0 {
+                            yielded_to_priority = true;
+                            break 'response;
+                        }
+                        continue 'response;
+                    }
+                }
+            } else {
+                byte_stream.next().await
+            };
+            let Some(chunk) = next_chunk else {
+                break;
+            };
             if gen_arc.load(Ordering::SeqCst) != gen {
                 crate::app_deprintln!(
                     "[stream] ranged dl superseded by skip: gen={}→{} downloaded={}/{} bytes",
@@ -153,6 +178,23 @@ where
                 break;
             }
         }
+        drop(byte_stream);
+        if yielded_to_priority {
+            loop {
+                while priority_fetches.is_some_and(|active| active.load(Ordering::Acquire) > 0) {
+                    if gen_arc.load(Ordering::SeqCst) != gen {
+                        return (downloaded, RangedHttpLoopOutcome::Superseded);
+                    }
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                }
+                tokio::time::sleep(Duration::from_millis(PRIORITY_SETTLE_MS)).await;
+                if !priority_fetches.is_some_and(|active| active.load(Ordering::Acquire) > 0) {
+                    break;
+                }
+            }
+            next_response = None;
+            continue 'outer;
+        }
         // Stream ended cleanly (or we wrote total_size).
         if downloaded >= total_size {
             return (downloaded, RangedHttpLoopOutcome::Completed);
@@ -173,6 +215,35 @@ pub(super) async fn ranged_write_http_range(
     gen_arc: &Arc<AtomicU64>,
     http_headers: &PlaybackHttpHeaders,
 ) -> Result<usize, ()> {
+    ranged_write_http_range_with_progress(
+        http_client,
+        url,
+        buf,
+        start,
+        end_inclusive,
+        gen,
+        gen_arc,
+        http_headers,
+        |_| {},
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) async fn ranged_write_http_range_with_progress<F>(
+    http_client: &reqwest::Client,
+    url: &str,
+    buf: &Arc<Mutex<Vec<u8>>>,
+    start: u64,
+    end_inclusive: u64,
+    gen: u64,
+    gen_arc: &Arc<AtomicU64>,
+    http_headers: &PlaybackHttpHeaders,
+    mut on_progress: F,
+) -> Result<usize, ()>
+where
+    F: FnMut(usize),
+{
     if gen_arc.load(Ordering::SeqCst) != gen {
         return Err(());
     }
@@ -211,11 +282,15 @@ pub(super) async fn ranged_write_http_range(
         if chunk.is_empty() {
             continue;
         }
-        let mut b = buf.lock().unwrap();
-        let end = (start_usize + written + chunk.len()).min(b.len());
-        let n = end.saturating_sub(start_usize + written);
-        b[start_usize + written..start_usize + written + n].copy_from_slice(&chunk[..n]);
+        let n = {
+            let mut b = buf.lock().unwrap();
+            let end = (start_usize + written + chunk.len()).min(b.len());
+            let n = end.saturating_sub(start_usize + written);
+            b[start_usize + written..start_usize + written + n].copy_from_slice(&chunk[..n]);
+            n
+        };
         written += n;
+        on_progress(written);
         if start_usize + written > end_inclusive as usize {
             break;
         }

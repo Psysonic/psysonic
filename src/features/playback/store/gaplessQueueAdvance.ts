@@ -43,6 +43,7 @@ import {
   noteEngineProgressForGapless,
   resetGaplessProgressTracking,
 } from '@/features/playback/store/gaplessProgressTracking';
+import { resetSeekRequestForPlaybackChange } from '@/features/playback/store/seekRequestState';
 import { isSeekDebouncePending } from '@/features/playback/store/seekDebounce';
 import { getSeekTarget } from '@/features/playback/store/seekTargetState';
 import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
@@ -120,6 +121,7 @@ function applyGaplessSuccessorUi(
 
   resetProgressEmitThrottles();
   resetGaplessProgressTracking();
+  resetSeekRequestForPlaybackChange();
   usePlayerStore.setState({
     currentTrack: nextTrack,
     // The predecessor's resolved stream format must not carry over to the

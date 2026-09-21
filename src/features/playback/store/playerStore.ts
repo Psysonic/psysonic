@@ -243,5 +243,6 @@ usePlayerStore.subscribe((state, prev) => {
     currentTime: state.currentTime,
     progress: state.progress,
     buffered: state.buffered,
+    buffering: state.isPlaybackBuffering,
   });
 });

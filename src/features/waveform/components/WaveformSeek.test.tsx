@@ -197,4 +197,21 @@ describe('WaveformSeek — background rendering', () => {
 
     expect(mocks.drawSeekbar).not.toHaveBeenCalled();
   });
+
+  it('keeps a nonzero pending seek visible through buffering commit', () => {
+    const track = makeTrack({ id: 't1', duration: 200 });
+    usePlayerStore.setState({ currentTrack: track, isPlaying: true });
+    renderWithProviders(<WaveformSeek trackId="t1" />);
+
+    act(() => emitPlaybackProgress({
+      currentTime: 150,
+      progress: 0.75,
+      buffered: 0,
+      buffering: true,
+    }));
+    mocks.drawSeekbar.mockClear();
+    act(() => vi.advanceTimersByTime(20));
+
+    expect(mocks.drawSeekbar.mock.calls.some(call => Number(call[3]) > 0.7)).toBe(true);
+  });
 });

@@ -12,7 +12,7 @@ export type PlaybackProgressSnapshot = {
   currentTime: number;
   progress: number;
   buffered: number;
-  /** Legacy HTTP stream still filling — do not extrapolate the seekbar. */
+  /** Stream startup, refill, or seek preparation is waiting for decoded PCM. */
   buffering?: boolean;
 };
 

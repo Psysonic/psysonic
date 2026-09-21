@@ -111,6 +111,7 @@ async fn reopen_output_stream(
                 });
             }
             engine.generation.fetch_add(1, Ordering::SeqCst);
+            engine.invalidate_pending_seek();
             super::stream_idle::teardown_playback_sinks_for_idle_release(&engine);
             engine.current.lock().unwrap().paused_at = Some(snapshot.current_time_secs);
             return Err(error);
@@ -133,6 +134,7 @@ async fn reopen_output_stream(
 
         if !snapshot.is_playing {
             engine.generation.fetch_add(1, Ordering::SeqCst);
+            engine.invalidate_pending_seek();
         }
         {
             let mut current = engine.current.lock().unwrap();
