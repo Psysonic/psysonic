@@ -284,6 +284,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Opening a guest performer, orchestra, choir or other artist credited alongside the primary artist could lead to **Artist not found** when library filtering was active. Their credited albums and tracks now appear within the selected library scope, with complete album counts and working artist links.
 
+### Seeking in streamed lossless tracks stays responsive
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1633](https://github.com/Psysonic/psysonic/pull/1633)**
+
+* Jumping through a streamed FLAC track could freeze playback while the audio thread waited for remote data. Seeks now prepare and buffer away from that thread, then switch over once audio is ready.
+* Rapid timeline scrubbing keeps only the latest request and no longer lets an older seek, timeout or track transition overwrite the final position.
+
 ## [1.54.0]
 
 ## Fixed
