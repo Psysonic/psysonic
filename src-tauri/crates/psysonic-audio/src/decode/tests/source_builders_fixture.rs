@@ -73,10 +73,50 @@ fn build_streaming_source_succeeds_for_synthetic_wav() {
         0,
         0, // no device channel count in tests: leave the source as it is
         None,
+        false,
     )
     .expect("build_streaming_source must succeed for a valid WAV decoder");
     assert_eq!(built.output_channels, 1);
     assert!(built.output_rate > 0);
+}
+
+#[test]
+fn offloaded_streaming_source_prepares_seek_before_callback_commit() {
+    let _globals = crate::spectrum::tests::lock_globals();
+    let (eq_gains, eq_enabled, eq_pre_gain, playback_rate, done_flag, sample_counter) =
+        default_source_args();
+    let wav = synthetic_wav_bytes(0.4);
+    let decoder = SizedDecoder::new(wav, Some("wav"), false).unwrap();
+    let mut built = build_streaming_source(
+        decoder,
+        0.4,
+        eq_gains,
+        eq_enabled,
+        eq_pre_gain,
+        playback_rate,
+        done_flag,
+        Duration::ZERO,
+        sample_counter,
+        0,
+        0,
+        None,
+        true,
+    )
+    .expect("offloaded streaming source must build");
+    let seek = built
+        .streaming_seek
+        .clone()
+        .expect("offloaded source must expose its seek coordinator");
+    let target = Duration::from_millis(200);
+
+    assert!(seek
+        .prepare_seek(target, Duration::ZERO, Duration::from_secs(1))
+        .unwrap()
+        .is_some());
+    built
+        .source
+        .try_seek(target)
+        .expect("callback commit must only swap the prepared PCM ring");
 }
 
 #[test]

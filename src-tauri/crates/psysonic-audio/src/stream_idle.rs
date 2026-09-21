@@ -60,6 +60,7 @@ pub(crate) fn teardown_playback_sinks_for_idle_release(engine: &AudioEngine) {
         s.stop();
     }
     cur.play_started = None;
+    cur.streaming_seek = None;
 }
 
 fn close_output_device_handle_locked(engine: &AudioEngine, app: &AppHandle) -> Result<(), String> {
@@ -219,6 +220,7 @@ mod tests {
                 base_volume: 0.8,
                 fadeout_trigger: None,
                 fadeout_samples: None,
+                streaming_seek: None,
             })),
             generation: Arc::new(AtomicU64::new(0)),
             preload_epoch: Arc::new(AtomicU64::new(0)),

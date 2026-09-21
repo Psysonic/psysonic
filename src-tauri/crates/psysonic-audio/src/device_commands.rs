@@ -167,6 +167,7 @@ pub async fn audio_set_device(
         if let Some(s) = cur.sink.take() {
             s.stop();
         }
+        cur.streaming_seek = None;
         (pos, generation)
     };
     if let Some(s) = state.fading_out_sink.lock().unwrap().take() {

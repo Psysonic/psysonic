@@ -72,6 +72,7 @@ impl TaskHarness {
             base_volume: 1.0,
             fadeout_trigger: None,
             fadeout_samples: None,
+            streaming_seek: None,
         };
         Self {
             gen: 1,

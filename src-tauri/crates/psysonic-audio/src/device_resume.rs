@@ -260,6 +260,7 @@ pub(crate) async fn try_resume_after_device_change(
             actual_fade_secs: 0.0,
             outgoing_fade_secs: 0.0,
             start_paused: false,
+            streaming_seek: None,
         },
     );
     drop(stream_attach);

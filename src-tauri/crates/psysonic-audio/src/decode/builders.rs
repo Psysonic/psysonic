@@ -6,6 +6,7 @@ use rodio::source::UniformSourceIterator;
 use rodio::Source;
 
 use crate::playback_rate::{PlaybackRateAtomics, PlaybackRateSource};
+use crate::preserve_worker::StreamingSeekHandle;
 use crate::sources::*;
 use crate::spectrum::SpectrumTapSource;
 
@@ -32,6 +33,9 @@ pub(crate) struct BuiltSource {
     pub(crate) fadeout_trigger: Arc<AtomicBool>,
     /// Total samples for the fade-out (set before triggering).
     pub(crate) fadeout_samples: Arc<AtomicU64>,
+    /// Present only for ranged HTTP playback whose decoder permanently lives on
+    /// the background worker.
+    pub(crate) streaming_seek: Option<StreamingSeekHandle>,
 }
 
 /// Duration the built source will actually deliver.
@@ -205,6 +209,7 @@ pub(crate) fn build_source(
         resolved_format,
         fadeout_trigger,
         fadeout_samples,
+        streaming_seek: None,
     })
 }
 
@@ -251,6 +256,7 @@ pub(crate) fn build_streaming_source(
     // Channels the output device takes; 0 when that is not known yet.
     target_channels: u16,
     count_gate: Option<Arc<AtomicBool>>,
+    offload_decode: bool,
 ) -> Result<BuiltSource, String> {
     let sample_rate = decoder.sample_rate();
     let channels = decoder.channels();
@@ -282,7 +288,17 @@ pub(crate) fn build_streaming_source(
     let fadeout_trigger = Arc::new(AtomicBool::new(false));
     let fadeout_samples = Arc::new(AtomicU64::new(0));
 
-    let rate_src = PlaybackRateSource::new(dyn_src, playback_rate.clone());
+    let (rate_src, streaming_seek, delivery_gate) = if offload_decode {
+        let (source, handle, delivery_gate) =
+            PlaybackRateSource::new_permanent_offload(dyn_src, playback_rate.clone());
+        (source, Some(handle), Some(delivery_gate))
+    } else {
+        (
+            PlaybackRateSource::new(dyn_src, playback_rate.clone()),
+            None,
+            None,
+        )
+    };
     let rate_dyn = DynSource::new(rate_src);
     let eq_src = EqSource::new(rate_dyn, eq_gains, eq_enabled, eq_pre_gain);
     let fade_in = EqualPowerFadeIn::new(eq_src, fade_in_dur);
@@ -290,7 +306,7 @@ pub(crate) fn build_streaming_source(
     // Same per-track/incoming-lease semantics as `build_source` above.
     let tapped = SpectrumTapSource::new(fade_out);
     let notifying = NotifyingSource::new(tapped, done_flag);
-    let counting = match count_gate {
+    let counting = match delivery_gate.or(count_gate) {
         Some(gate) => CountingSource::new_gated(notifying, sample_counter, gate),
         None => CountingSource::new(notifying, sample_counter),
     };
@@ -304,5 +320,6 @@ pub(crate) fn build_streaming_source(
         resolved_format,
         fadeout_trigger,
         fadeout_samples,
+        streaming_seek,
     })
 }

@@ -53,6 +53,7 @@ pub async fn audio_play_radio(
     *state.chained_info.lock().unwrap() = None;
     {
         let mut cur = state.current.lock().unwrap();
+        cur.streaming_seek = None;
         if let Some(old) = cur.sink.take() {
             old.stop();
         }
@@ -205,6 +206,7 @@ pub async fn audio_play_radio(
         cur.base_volume = volume.clamp(0.0, 1.0);
         cur.fadeout_trigger = Some(fadeout_trigger);
         cur.fadeout_samples = Some(fadeout_samples);
+        cur.streaming_seek = None;
     }
     drop(stream_attach);
     drop(commit_guard);

@@ -174,6 +174,8 @@ pub struct AudioCurrent {
     pub fadeout_trigger: Option<Arc<AtomicBool>>,
     /// Crossfade: total fade samples (set before triggering).
     pub fadeout_samples: Option<Arc<AtomicU64>>,
+    /// Off-thread seek coordinator for the active ranged HTTP source.
+    pub(crate) streaming_seek: Option<crate::preserve_worker::StreamingSeekHandle>,
 }
 
 impl AudioCurrent {
@@ -316,6 +318,7 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
             base_volume: 0.8,
             fadeout_trigger: None,
             fadeout_samples: None,
+            streaming_seek: None,
         })),
         generation: Arc::new(AtomicU64::new(0)),
         preload_epoch: Arc::new(AtomicU64::new(0)),
@@ -461,6 +464,7 @@ pub fn stop_audio_engine(app: &tauri::AppHandle) {
     if let Some(sink) = cur.sink.take() {
         sink.stop();
     }
+    cur.streaming_seek = None;
 }
 
 /// Subsonic id pinned for the playing source (`audio_play`). Used to prioritize

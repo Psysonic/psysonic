@@ -246,6 +246,7 @@ pub fn audio_stop(state: State<'_, AudioEngine>, app: AppHandle) {
         cur.seek_offset = 0.0;
         cur.play_started = None;
         cur.paused_at = None;
+        cur.streaming_seek = None;
         generation
     };
     let _ = super::stream_idle::release_output_stream_on_stop(state.inner(), &app, stop_generation);
@@ -253,7 +254,7 @@ pub fn audio_stop(state: State<'_, AudioEngine>, app: AppHandle) {
 
 #[tauri::command]
 #[specta::specta]
-pub fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(), String> {
+pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(), String> {
     let state = state.inner();
     const AUDIO_SEEK_TIMEOUT_MS: u64 = 700;
     const AUDIO_SEEK_LOCK_TIMEOUT_MS: u64 = 40;
@@ -311,30 +312,82 @@ pub fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(), Str
 
     let seek_seconds = seconds.max(0.0);
     let seek_duration = Duration::from_secs_f64(seek_seconds);
+    let rollback_duration = Duration::from_secs_f64(cur_pos.max(0.0));
     let seek_generation = state.generation.load(Ordering::SeqCst);
-    let sink = {
+    let (sink, streaming_seek) = {
         let cur = lock_current_with_timeout(AUDIO_SEEK_LOCK_TIMEOUT_MS)?;
         match cur.sink.as_ref() {
-            Some(sink) => Arc::clone(sink),
+            Some(sink) => (Arc::clone(sink), cur.streaming_seek.clone()),
             None => return Ok(()),
         }
     };
 
-    let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
-    std::thread::spawn(move || {
-        let result = sink.try_seek(seek_duration).map_err(|e| e.to_string());
-        let _ = tx.send(result);
-    });
-
-    match rx.recv_timeout(Duration::from_millis(AUDIO_SEEK_TIMEOUT_MS)) {
-        Ok(Ok(())) => {}
-        Ok(Err(e)) => return Err(e),
-        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-            return Err("audio seek timeout".into());
+    let seek_ticket = if let Some(handle) = streaming_seek.as_ref() {
+        let prepare_handle = handle.clone();
+        let prepared = tokio::task::spawn_blocking(move || {
+            prepare_handle.prepare_seek(
+                seek_duration,
+                rollback_duration,
+                Duration::from_millis(AUDIO_SEEK_TIMEOUT_MS),
+            )
+        })
+        .await
+        .map_err(|error| format!("audio seek worker join failed: {error}"))??;
+        match prepared {
+            Some(ticket) => Some(ticket),
+            None => return Ok(()),
         }
-        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-            return Err("audio seek worker disconnected".into());
+    } else {
+        None
+    };
+    let commit_duration = seek_ticket
+        .as_ref()
+        .map_or(seek_duration, |ticket| ticket.commit_position());
+    if let Some((handle, ticket)) = streaming_seek.as_ref().zip(seek_ticket.as_ref()) {
+        loop {
+            let commit_sink = Arc::clone(&sink);
+            let seek_result = tokio::task::spawn_blocking(move || {
+                commit_sink
+                    .try_seek(commit_duration)
+                    .map_err(|error| error.to_string())
+            })
+            .await
+            .map_err(|error| format!("audio seek worker join failed: {error}"))?;
+            if let Err(error) = seek_result {
+                if !handle.is_current(ticket) {
+                    return Ok(());
+                }
+                return Err(error);
+            }
+            if !handle.is_current(ticket) {
+                return Ok(());
+            }
+            if handle.is_active(ticket) {
+                break;
+            }
+            if state.generation.load(Ordering::SeqCst) != seek_generation {
+                return Ok(());
+            }
+            // Rodio replaces an unprocessed seek order when another command
+            // wins the controls slot. Retry while this ticket is still latest.
         }
+    } else {
+        let seek_task = tokio::task::spawn_blocking(move || {
+            sink.try_seek(commit_duration)
+                .map_err(|error| error.to_string())
+        });
+        let seek_result =
+            tokio::time::timeout(Duration::from_millis(AUDIO_SEEK_TIMEOUT_MS), seek_task)
+                .await
+                .map_err(|_| "audio seek timeout".to_string())?
+                .map_err(|error| format!("audio seek worker join failed: {error}"))?;
+        seek_result?;
+    }
+    if let Some(error) = seek_ticket
+        .as_ref()
+        .and_then(|ticket| ticket.target_error())
+    {
+        return Err(error.to_string());
     }
 
     // If playback switched while seek was in flight, skip timestamp updates.

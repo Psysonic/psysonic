@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
 
 use super::engine::{AudioCurrent, AudioEngine};
+use super::preserve_worker::StreamingSeekHandle;
 
 /// Args for [`spawn_legacy_stream_start_when_armed`].
 pub(super) struct LegacyStreamStartWhenArmed {
@@ -96,6 +97,7 @@ pub(crate) struct SinkSwapInputs {
     /// `0` ⇒ don't fade A — it rides its own recorded fade-out (scenario A).
     pub(crate) outgoing_fade_secs: f32,
     pub(crate) start_paused: bool,
+    pub(crate) streaming_seek: Option<StreamingSeekHandle>,
 }
 
 /// Hand off the outgoing sink to a sample-level fade-out, then stop it after
@@ -151,6 +153,7 @@ pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapI
         actual_fade_secs,
         outgoing_fade_secs,
         start_paused,
+        streaming_seek,
     } = inputs;
 
     let (old_sink, old_fadeout_trigger, old_fadeout_samples) = {
@@ -173,6 +176,7 @@ pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapI
         cur.base_volume = volume.clamp(0.0, 1.0);
         cur.fadeout_trigger = Some(new_fadeout_trigger);
         cur.fadeout_samples = Some(new_fadeout_samples);
+        cur.streaming_seek = streaming_seek;
         (old, old_fo_trigger, old_fo_samples)
     };
 

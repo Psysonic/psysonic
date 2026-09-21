@@ -399,6 +399,7 @@ pub async fn audio_play(
     let output_rate = built.output_rate;
     let output_channels = built.output_channels;
     let resolved_format = built.resolved_format;
+    let streaming_seek = built.streaming_seek.clone();
 
     // Store the actual output rate/channels for position calculation.
     state
@@ -568,7 +569,34 @@ pub async fn audio_play(
     // re-seed `samples_played` + `seek_offset` explicitly after the swap (below)
     // so the seekbar and the crossfade-remaining math are content-relative.
     let did_start_seek = if start_secs > 0.05 && source_seekable {
-        source.try_seek(Duration::from_secs_f64(start_secs)).is_ok()
+        let target = Duration::from_secs_f64(start_secs);
+        let prepared = if let Some(handle) = streaming_seek.clone() {
+            match tokio::task::spawn_blocking(move || {
+                handle.prepare_seek(target, Duration::ZERO, Duration::from_millis(700))
+            })
+            .await
+            {
+                Ok(Ok(ticket)) => ticket,
+                Ok(Err(error)) => {
+                    crate::app_deprintln!("[seek] B-head prepare skipped: {error}");
+                    None
+                }
+                Err(error) => {
+                    crate::app_deprintln!("[seek] B-head worker join failed: {error}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        if let Some(ticket) = prepared {
+            let target_reached = ticket.target_error().is_none();
+            source.try_seek(ticket.commit_position()).is_ok() && target_reached
+        } else if streaming_seek.is_none() {
+            source.try_seek(target).is_ok()
+        } else {
+            false
+        }
     } else {
         false
     };
@@ -604,6 +632,7 @@ pub async fn audio_play(
             actual_fade_secs,
             outgoing_fade_secs,
             start_paused,
+            streaming_seek,
         },
     );
     drop(stream_attach);

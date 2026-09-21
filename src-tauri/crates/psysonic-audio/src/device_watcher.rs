@@ -134,8 +134,12 @@ async fn reopen_output_stream(
         if !snapshot.is_playing {
             engine.generation.fetch_add(1, Ordering::SeqCst);
         }
-        if let Some(sink) = engine.current.lock().unwrap().sink.take() {
-            sink.stop();
+        {
+            let mut current = engine.current.lock().unwrap();
+            current.streaming_seek = None;
+            if let Some(sink) = current.sink.take() {
+                sink.stop();
+            }
         }
         if let Some(sink) = engine.fading_out_sink.lock().unwrap().take() {
             sink.stop();
