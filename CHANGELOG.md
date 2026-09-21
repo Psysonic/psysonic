@@ -132,6 +132,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Fixed
 
+### Cover buffering spinner no longer flickers on fast seeks
+
+**By [@strecke](https://github.com/strecke), PR [#1634](https://github.com/Psysonic/psysonic/pull/1634)**
+
+* Seeking or scrubbing through buffered audio no longer flashes the buffering spinner over the cover art in the player bar and queue panel. The overlay now uses a short 150 ms delay before showing, and clears immediately once playback data is ready.
+
 ### Dropping a track in the queue no longer starts it
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1598](https://github.com/Psysonic/psysonic/pull/1598)**

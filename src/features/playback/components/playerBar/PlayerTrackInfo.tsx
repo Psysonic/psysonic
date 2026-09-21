@@ -16,6 +16,7 @@ import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
 import StarRating from '@/ui/StarRating';
 import { PlaybackBufferingOverlay } from '@/features/playback/components/PlaybackBufferingOverlay';
+import { useDebouncedBuffering } from '@/features/playback/hooks/useDebouncedBuffering';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { renderPresetIcon, useEnrichmentPrimaryIcon, useEnrichmentPrimaryLabel } from '@/music-network/ui';
 import {
@@ -61,7 +62,8 @@ export function PlayerTrackInfo({
   userRatingOverrides, toggleFullscreen,
   navigate, openContextMenu, t,
 }: Props) {
-  const showBufferingOverlay = usePlayerStore(s => s.isPlaybackBuffering);
+  const isPlaybackBuffering = usePlayerStore(s => s.isPlaybackBuffering);
+  const showBufferingOverlay = useDebouncedBuffering(isPlaybackBuffering);
   // `track.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
   const networkLabel = useEnrichmentPrimaryLabel() ?? '';
