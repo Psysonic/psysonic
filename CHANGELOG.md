@@ -297,6 +297,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Seeking or scrubbing through buffered audio no longer flashes the buffering spinner over the cover art in the player bar and queue panel. The overlay now uses a short 150 ms delay before showing, and clears immediately once playback data is ready.
 
+### Background library sync no longer fails while assigning music folders
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1637](https://github.com/Psysonic/psysonic/pull/1637)**
+
+* Assigning newly indexed tracks to their Navidrome music folder could occasionally abort a background sync with a duplicate artist-credit database key. Artist-credit partitions are now cleared together before they are rebuilt, so folder tagging completes regardless of processing order.
+
 ## [1.54.0]
 
 ## Fixed
