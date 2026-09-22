@@ -598,6 +598,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Audio CD burning with CD-TEXT on Windows, macOS and Linux (PR #1538)',
     ],
   },
+  {
+    github: 'strecke',
+    since: '1.55.0',
+    contributions: [
+      'Seek buffering indicator polish for player and queue cover art (PR #1634)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the
