@@ -173,7 +173,7 @@ async fn pending_seek_holds_optimistic_target_and_reports_buffering() {
         .pending_seek
         .lock()
         .unwrap()
-        .begin(1, (30.0 * 44_100.0 * 2.0) as u64);
+        .begin(1, (30.0 * 44_100.0 * 2.0) as u64, 30.0);
     let emitter = Arc::new(MockEmitter::default());
     h.spawn_with(emitter.clone());
 
@@ -232,7 +232,7 @@ async fn stale_end_waiter_cannot_clear_a_new_generation_seek() {
     // transition lock, then replace playback before it can commit audio:ended.
     tokio::time::sleep(Duration::from_millis(150)).await;
     h.gen_counter.store(2, Ordering::SeqCst);
-    h.pending_seek.lock().unwrap().begin(2, 1234);
+    h.pending_seek.lock().unwrap().begin(2, 1234, 12.34);
     drop(transition_guard);
     tokio::time::sleep(Duration::from_millis(150)).await;
 
