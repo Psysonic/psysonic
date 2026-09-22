@@ -40,6 +40,7 @@ export const albumDetail = {
   trackPlayCount: 'Lejátszások',
   trackLastPlayed: 'Utoljára játszva',
   trackBpm: 'BPM',
+  trackRowNumber: 'Sorszám (#)',
   trackFormat: 'Formátum',
   trackYear: 'Év',
   trackFavorite: 'Kedvenc',

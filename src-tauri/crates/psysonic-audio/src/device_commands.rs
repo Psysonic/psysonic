@@ -164,9 +164,11 @@ pub async fn audio_set_device(
         let mut cur = state.current.lock().unwrap();
         let pos = cur.position();
         let generation = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        state.invalidate_pending_seek();
         if let Some(s) = cur.sink.take() {
             s.stop();
         }
+        cur.streaming_seek = None;
         (pos, generation)
     };
     if let Some(s) = state.fading_out_sink.lock().unwrap().take() {

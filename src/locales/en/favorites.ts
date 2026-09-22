@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Add selected to queue',
   playAll: 'Play all',
   playSelected: 'Play selected',
+  shuffleAll: 'Shuffle all',
+  shuffleSelected: 'Shuffle selected',
   removeSong: 'Remove from favorites',
   stations: 'Radio Stations',
   showingFiltered: 'Showing {{filtered}} of {{total}} ({{artist}})',

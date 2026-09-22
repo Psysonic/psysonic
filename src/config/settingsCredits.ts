@@ -226,6 +226,9 @@ const CONTRIBUTOR_ENTRIES = [
       'Lyrics pronunciation and offline Japanese Hepburn romaji (PR #1541)',
       'Smooth word-synced lyrics highlighting in sidebar and fullscreen views (PR #1548)',
       'Navidrome share creation, management, preview and playback workflow (PR #1586)',
+      'Favorites scoped search and reliable collapsed search entry (PR #1629)',
+      'Artist credits — scoped browse and detail support for guest and participant artists (PR #1631)',
+      'Responsive off-thread seeking for streamed lossless audio (PR #1633)',
     ],
   },
   {
@@ -467,6 +470,12 @@ const CONTRIBUTOR_ENTRIES = [
       'Favorites — the albums heading opens the full grid, filtered to your favourites (PR #1583)',
       'Appearance — the fullscreen style picker points at the switch for the artist photo behind it (PR #1590)',
       'Tracklists and Song Info show every genre a track carries, plus its mood tags, as optional columns (PR #1591)',
+      'Queue — pick several tracks with Ctrl/Shift+click, then move them as one block or remove them with Delete (PR #1602)',
+      'Visualizer settings — a live preview above the controls, with a demo signal while nothing plays (PR #1606)',
+      'Device Sync — a flat layout that puts every track and playlist in the main folder of the device (PR #1611)',
+      'Favorites — the artists heading opens the Artists page, filtered to your favourites (PR #1613)',
+      'Artist page — similar artists from your server fill in when Music Network finds none in your library (PR #1617)',
+      'Favorites — reorder and hide the page sections, hide the # column, shuffle all songs (PR #1624)',
     ],
   },
   {
@@ -587,6 +596,13 @@ const CONTRIBUTOR_ENTRIES = [
     contributions: [
       'Navidrome song-list filter fix that unblocked native library sync (PR #1514)',
       'Audio CD burning with CD-TEXT on Windows, macOS and Linux (PR #1538)',
+    ],
+  },
+  {
+    github: 'strecke',
+    since: '1.55.0',
+    contributions: [
+      'Seek buffering indicator polish for player and queue cover art (PR #1634)',
     ],
   },
 ] as const;

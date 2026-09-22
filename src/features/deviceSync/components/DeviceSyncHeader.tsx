@@ -50,29 +50,34 @@ export default function DeviceSyncHeader({
         <div className="device-sync-schema-section">
           <span className="device-sync-label-inline">{t('deviceSync.schemaLabel', { defaultValue: 'Naming scheme' })}</span>
           <code className="device-sync-schema-code">
-            {'{AlbumArtist}/{Album}/{TrackNum} - {Title}.{ext}'}
+            {layoutMode === 'flat'
+              ? '{AlbumArtist} - {Album} - {TrackNum} - {Title}.{ext}'
+              : '{AlbumArtist}/{Album}/{TrackNum} - {Title}.{ext}'}
           </code>
           <span className="device-sync-schema-hint">
-            {layoutMode === 'shared-album-tree'
-              ? t('deviceSync.sharedLayoutHint')
-              : t('deviceSync.selfContainedLayoutHint')}
+            {layoutMode === 'flat'
+              ? t('deviceSync.flatLayoutHint')
+              : layoutMode === 'shared-album-tree'
+                ? t('deviceSync.sharedLayoutHint')
+                : t('deviceSync.selfContainedLayoutHint')}
           </span>
           <div className="device-sync-playlist-options">
             <label>
-              <span className="device-sync-label-inline">{t('deviceSync.playlistStorage')}</span>
+              <span className="device-sync-label-inline">{t('deviceSync.layout')}</span>
               <CustomSelect
                 className="input device-sync-layout-select"
                 value={layoutMode}
                 onChange={value => setLayoutMode(value as DeviceSyncLayoutMode)}
                 disabled={isRunning}
-                ariaLabel={t('deviceSync.playlistStorage')}
+                ariaLabel={t('deviceSync.layout')}
                 options={[
                   { value: 'self-contained', label: t('deviceSync.playlistStorageSelfContained') },
                   { value: 'shared-album-tree', label: t('deviceSync.playlistStorageShared') },
+                  { value: 'flat', label: t('deviceSync.layoutFlat') },
                 ]}
               />
             </label>
-            {layoutMode === 'shared-album-tree' && (
+            {layoutMode !== 'self-contained' && (
               <label>
                 <span className="device-sync-label-inline">{t('deviceSync.playlistPathStyle')}</span>
                 <CustomSelect

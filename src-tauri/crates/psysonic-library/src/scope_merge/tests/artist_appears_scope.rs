@@ -311,3 +311,158 @@ fn artist_detail_bounds_top_tracks_and_selects_broadest_server() {
         Some(fingerprint.as_str())
     );
 }
+
+#[test]
+fn participant_only_artist_uses_structured_credit_inside_selected_scope() {
+    let store = LibraryStore::open_in_memory();
+    let mut selected = track(
+        "s1",
+        "selected-track",
+        "The Dragonborn Comes",
+        Some("Saltatio Mortis"),
+        "Finsterwacht",
+        "selected-album",
+        Some("saltatio"),
+        240,
+        "lib-a",
+        Some(2024),
+        Some("Folk Metal"),
+        None,
+    );
+    selected.raw_json = serde_json::json!({
+        "artists": [
+            { "id": "saltatio", "name": "Saltatio Mortis" },
+            { "id": "blind-guest", "name": " Blind Guardian" }
+        ],
+        "albumArtists": [
+            { "id": "saltatio", "name": "Saltatio Mortis" }
+        ]
+    })
+    .to_string();
+    let mut outside = track(
+        "s1",
+        "outside-track",
+        "Outside",
+        Some("Other Headliner"),
+        "Outside Album",
+        "outside-album",
+        Some("other"),
+        180,
+        "lib-b",
+        None,
+        None,
+        None,
+    );
+    outside.raw_json = serde_json::json!({
+        "artists": [
+            { "id": "other", "name": "Other Headliner" },
+            { "id": "blind-guest", "name": "Blind Guardian" }
+        ]
+    })
+    .to_string();
+    seed_and_rebuild(&store, &[selected, outside]);
+    store
+        .with_conn_mut("test.participant_artist", |conn| {
+            conn.execute(
+                "INSERT INTO artist (server_id, id, name, name_sort, name_fold, album_count, synced_at) \
+                 VALUES ('s1', 'blind-guest', 'Blind Guardian', 'blind guardian', 'blind guardian', 0, 1)",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let response = artist_detail(
+        &store,
+        &LibraryScopeArtistDetailRequest {
+            scopes: vec![scope_pair("s1", "lib-a")],
+            server_id: "s1".into(),
+            artist_id: "blind-guest".into(),
+            include_tracks: true,
+            top_tracks_limit: Some(20),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(response.artist.id, "blind-guest");
+    assert_eq!(response.artist.name, "Blind Guardian");
+    assert!(response.albums.is_empty());
+    assert_eq!(response.appears_on_albums.len(), 1);
+    assert_eq!(response.appears_on_albums[0].id, "selected-album");
+    assert_eq!(response.artist.album_count, Some(1));
+    assert!(response.tracks.is_empty());
+}
+
+#[test]
+fn participant_only_same_name_alias_resolves_to_primary_artist_and_unique_album_count() {
+    let store = LibraryStore::open_in_memory();
+    let primary = track(
+        "s1",
+        "primary-track",
+        "Mirror Mirror",
+        Some("Blind Guardian"),
+        "Nightfall in Middle-Earth",
+        "primary-album",
+        Some("blind-primary"),
+        240,
+        "lib-a",
+        Some(1998),
+        Some("Power Metal"),
+        None,
+    );
+    let mut guest = track(
+        "s1",
+        "guest-track",
+        "The Dragonborn Comes",
+        Some("Saltatio Mortis"),
+        "Finsterwacht",
+        "guest-album",
+        Some("saltatio"),
+        240,
+        "lib-a",
+        Some(2024),
+        Some("Folk Metal"),
+        None,
+    );
+    guest.raw_json = serde_json::json!({
+        "artists": [
+            { "id": "saltatio", "name": "Saltatio Mortis" },
+            { "id": "blind-guest", "name": " Blind Guardian" }
+        ]
+    })
+    .to_string();
+    seed_and_rebuild(&store, &[primary, guest]);
+    store
+        .with_conn_mut("test.participant_alias", |conn| {
+            conn.execute_batch(
+                "UPDATE artist SET name_sort = 'blind guardian', name_fold = 'blind guardian', album_count = 1 \
+                 WHERE server_id = 's1' AND id = 'blind-primary'; \
+                 INSERT INTO artist (server_id, id, name, name_sort, name_fold, album_count, synced_at) \
+                 VALUES ('s1', 'blind-guest', ' Blind Guardian', 'blind guardian', 'blind guardian', 1, 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    for anchor_id in ["blind-primary", "blind-guest"] {
+        let response = artist_detail(
+            &store,
+            &LibraryScopeArtistDetailRequest {
+                scopes: vec![scope_pair("s1", "lib-a")],
+                server_id: "s1".into(),
+                artist_id: anchor_id.into(),
+                include_tracks: false,
+                top_tracks_limit: None,
+            },
+        )
+        .unwrap();
+
+        assert_eq!(response.artist.id, "blind-primary");
+        assert_eq!(response.artist.name, "Blind Guardian");
+        assert_eq!(response.albums.len(), 1);
+        assert_eq!(response.albums[0].id, "primary-album");
+        assert_eq!(response.appears_on_albums.len(), 1);
+        assert_eq!(response.appears_on_albums[0].id, "guest-album");
+        assert_eq!(response.artist.album_count, Some(2));
+    }
+}

@@ -20,6 +20,7 @@ import { useCoverLightboxSrc } from '@/cover/lightbox';
 import type { CoverArtRef } from '@/cover/types';
 import LastfmIcon from '@/ui/LastfmIcon';
 import WikipediaIcon from '@/ui/WikipediaIcon';
+import { lastFmArtistUrl } from '@/features/artist/utils/lastFmArtistUrl';
 import StarRating from '@/ui/StarRating';
 import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
@@ -174,6 +175,7 @@ export default function ArtistDetailHero({
   const showHeaderBackdrop = artistDetailBackdrop.enabled;
 
   const wikiUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(artist.name)}`;
+  const lastFmUrl = lastFmArtistUrl(info?.lastFmUrl, artist.name);
 
   return (
     <>
@@ -268,12 +270,12 @@ export default function ArtistDetailHero({
           </div>
 
           <div className="compact-action-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(info?.lastFmUrl || artist.name) && (
+            {(lastFmUrl || artist.name) && (
               <div className="artist-detail-links">
-                {info?.lastFmUrl && (
+                {lastFmUrl && (
                   <button
                     className="artist-ext-link"
-                    onClick={() => openLink(info.lastFmUrl!, 'lastfm')}
+                    onClick={() => openLink(lastFmUrl, 'lastfm')}
                     {...tooltipAttrs(t('artistDetail.lastfmTooltip'))}
                   >
                     <LastfmIcon size={14} />

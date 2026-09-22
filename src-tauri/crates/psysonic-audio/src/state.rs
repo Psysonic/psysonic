@@ -28,6 +28,9 @@ pub(crate) fn install_current_source_done(
 pub(crate) struct PreloadedTrack {
     pub(crate) url: String,
     pub(crate) data: Vec<u8>,
+    /// Provenance captured with retained local bytes. Remote buffers leave this
+    /// unset because their analysis eligibility does not depend on local cache metadata.
+    pub(crate) local_original_verified: Option<bool>,
 }
 
 /// Completed ranged stream too large for `stream_completed_cache`; bytes live on disk.
@@ -45,6 +48,9 @@ pub(crate) struct ChainedInfo {
     pub(crate) analysis_track_id: Option<String>,
     /// Playback server scope for analysis writes.
     pub(crate) server_id: Option<String>,
+    /// Positive provenance for local cached bytes. Carried across the automatic
+    /// gapless boundary because no new frontend command runs at that point.
+    pub(crate) local_original_verified: Option<bool>,
     /// Main playback generation shared with the predecessor. Gapless advances
     /// do not bump it, so provenance events can remain identity-qualified.
     pub(crate) generation: u64,

@@ -26,6 +26,7 @@ import {
   executeRuntimeAction,
   type GlobalAction,
 } from '@/config/shortcutActions';
+import { OPEN_SEARCH_EVENT } from '@/lib/dom/openSearch';
 
 const navigate = vi.fn();
 
@@ -120,5 +121,21 @@ describe('current track favorite shortcut action', () => {
       defaultBinding: null,
     }));
     expect(DEFAULT_GLOBAL_SHORTCUTS).not.toHaveProperty('favorite-current-track');
+  });
+});
+
+describe('start search shortcut action', () => {
+  it('lets the mounted search surface handle the request without navigating', () => {
+    const handleOpenSearch = vi.fn((event: Event) => event.preventDefault());
+    window.addEventListener(OPEN_SEARCH_EVENT, handleOpenSearch);
+
+    try {
+      executeRuntimeAction('start-search', { navigate, previewPolicy: 'ignore' });
+
+      expect(handleOpenSearch).toHaveBeenCalledOnce();
+      expect(navigate).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener(OPEN_SEARCH_EVENT, handleOpenSearch);
+    }
   });
 });

@@ -5,13 +5,14 @@
 
 use rusqlite::params;
 
-use crate::dto::{LibraryAlbumDto, LibraryTrackDto};
+use crate::dto::{LibraryAlbumDto, LibraryArtistDto, LibraryTrackDto};
 use crate::repos::{row_to_track_row, track_columns};
 use crate::store::LibraryStore;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryStarredResponse {
+    pub artists: Vec<LibraryArtistDto>,
     pub albums: Vec<LibraryAlbumDto>,
     pub tracks: Vec<LibraryTrackDto>,
     pub read_lock_wait_ms: u64,
@@ -26,6 +27,7 @@ pub fn list_starred(
     let server_id = server_id.trim();
     if server_id.is_empty() {
         return Ok(LibraryStarredResponse {
+            artists: Vec::new(),
             albums: Vec::new(),
             tracks: Vec::new(),
             read_lock_wait_ms: 0,
@@ -34,8 +36,32 @@ pub fn list_starred(
         });
     }
 
-    let ((albums, tracks), timing) = store
+    let ((artists, albums, tracks), timing) = store
         .with_read_conn_timed(|conn| {
+            let artists = {
+                let mut stmt = conn.prepare(
+                    "SELECT server_id, id, name, name_sort, album_count, starred_at, synced_at, raw_json \
+                     FROM artist \
+                     WHERE server_id = ?1 AND starred_at IS NOT NULL \
+                     ORDER BY name_sort ASC, id ASC",
+                )?;
+                let rows = stmt.query_map(params![server_id], |row| {
+                    let raw_json: Option<String> = row.get(7)?;
+                    Ok(LibraryArtistDto {
+                        server_id: row.get(0)?,
+                        id: row.get(1)?,
+                        name: row.get(2)?,
+                        name_sort: row.get(3)?,
+                        album_count: row.get(4)?,
+                        starred_at: row.get(5)?,
+                        synced_at: row.get(6)?,
+                        raw_json: raw_json
+                            .and_then(|raw| serde_json::from_str(&raw).ok())
+                            .unwrap_or(serde_json::Value::Null),
+                    })
+                })?;
+                rows.collect::<rusqlite::Result<Vec<_>>>()?
+            };
             let albums = {
                 let mut stmt = conn.prepare(
                     "SELECT server_id, id, name, artist, artist_id, song_count, duration_sec, year, \
@@ -85,11 +111,12 @@ pub fn list_starred(
                     .collect::<rusqlite::Result<Vec<_>>>()?
             };
 
-            Ok((albums, tracks))
+            Ok((artists, albums, tracks))
         })
         .map_err(|error| error.to_string())
         ?;
     Ok(LibraryStarredResponse {
+        artists,
         albums,
         tracks,
         read_lock_wait_ms: timing.lock_wait_ms,
@@ -152,6 +179,12 @@ mod tests {
         store
             .with_conn("test", |conn| {
                 conn.execute(
+                    "INSERT INTO artist (server_id, id, name, name_sort, starred_at, synced_at) \
+                     VALUES ('s1', 'artist-starred', 'Starred Artist', 'starred artist', 30, 1), \
+                            ('s1', 'artist-plain', 'Plain Artist', 'plain artist', NULL, 1)",
+                    [],
+                )?;
+                conn.execute(
                     "INSERT INTO album (server_id, id, name, starred_at, synced_at, raw_json) \
                      VALUES ('s1', 'album-starred', 'Starred', 20, 1, '{}')",
                     [],
@@ -170,6 +203,8 @@ mod tests {
 
         let response = list_starred(&store, "s1").unwrap();
 
+        assert_eq!(response.artists.len(), 1);
+        assert_eq!(response.artists[0].id, "artist-starred");
         assert_eq!(
             response
                 .albums
@@ -205,5 +240,27 @@ mod tests {
             .join(" ");
 
         assert!(plan.contains("idx_album_starred"), "query plan: {plan}");
+    }
+
+    #[test]
+    fn artist_star_query_uses_the_partial_index() {
+        let store = LibraryStore::open_in_memory();
+        let plan = store
+            .with_read_conn(|conn| {
+                let mut stmt = conn.prepare(
+                    "EXPLAIN QUERY PLAN SELECT id FROM artist \
+                     WHERE server_id = ?1 AND starred_at IS NOT NULL \
+                     ORDER BY name_sort ASC, id ASC",
+                )?;
+                let rows = stmt.query_map(params!["s1"], |row| row.get::<_, String>(3))?;
+                rows.collect::<rusqlite::Result<Vec<_>>>()
+            })
+            .unwrap()
+            .join(" ");
+
+        assert!(
+            plan.contains("idx_artist_starred_name"),
+            "query plan: {plan}"
+        );
     }
 }

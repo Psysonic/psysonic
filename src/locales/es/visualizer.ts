@@ -38,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Las frecuencias más bajas consumen menos CPU. La animación sigue siendo fluida.',
     radioNote:
       'La radio por Internet se puede visualizar cuando la emisora se conecta al grafo de audio del ecualizador. Algunos flujos no admiten esta ruta.',
+    preview: 'Vista previa',
+    previewDemo: 'Muestra una señal de demostración mientras no se reproduce nada.',
+    previewLive: 'Muestra la reproducción actual.',
   },
 };

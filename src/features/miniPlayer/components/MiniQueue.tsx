@@ -6,6 +6,7 @@ import type { MiniSyncPayload, MiniTrackInfo } from '@/features/miniPlayer/utils
 import { OptionalQueueTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { useDragPressHandle } from '@/lib/dnd/useDragPress';
+import { useDragEdgeScroll } from '@/lib/dnd/useDragEdgeScroll';
 
 // Stable initial rect so the virtualizer never re-initializes on re-render (an
 // inline literal would be a new ref each render → render loop). Replaced by the
@@ -42,6 +43,8 @@ export function MiniQueue({
   const showCovers = useTrackListCoverArtEnabled('queue');
   // Rows are virtualised, so one can be recycled out from under a held button.
   const dragPress = useDragPressHandle();
+  // Same edge pull as the main queue (issue #1592).
+  useDragEdgeScroll(queueScrollRef, isReorderDrag);
   // Virtualize so a multi-thousand-track queue keeps the mini window's DOM at
   // O(visible rows). Scroll element is the OverlayScrollArea viewport.
   // React Compiler incompatible-library rule: third-party hook/value the compiler cannot analyze; usage is correct.

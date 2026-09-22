@@ -51,6 +51,9 @@ pub struct AudioEngine {
     pub(crate) stream_attach_pending: Arc<(Mutex<u32>, Condvar)>,
     /// Serializes playback generation changes with final sink registration.
     pub(crate) playback_commit_lock: Arc<Mutex<()>>,
+    /// Allows concurrent latest-wins seeks while excluding same-generation
+    /// source replacements such as gapless advance and Hi-Res realignment.
+    pub(crate) source_transition_lock: Arc<tokio::sync::RwLock<()>>,
     /// Actual mixer/device rate selected by the output backend.
     pub stream_sample_rate: Arc<AtomicU32>,
     /// Last rate requested by playback mode. Kept separate from the negotiated
@@ -64,6 +67,10 @@ pub struct AudioEngine {
     /// User-selected output device name (None = follow system default).
     pub selected_device: Arc<Mutex<Option<String>>>,
     pub current: Arc<Mutex<AudioCurrent>>,
+    /// Playback generation owned by the sink currently stored in `current`.
+    /// During an asynchronous replacement this stays on the old generation, so
+    /// transport commands cannot accidentally mutate the outgoing sink.
+    pub(crate) current_generation: Arc<AtomicU64>,
     /// Monotonically incremented on each audio_play (non-chain) / audio_stop call.
     pub generation: Arc<AtomicU64>,
     /// Invalidates background byte/gapless preloads without superseding the
@@ -119,6 +126,10 @@ pub struct AudioEngine {
     /// Atomic sample counter — incremented by CountingSource in the audio thread.
     /// Progress task reads this for drift-free position tracking.
     pub samples_played: Arc<AtomicU64>,
+    /// Pending seek ownership + visual target as one snapshot. Progress and
+    /// lifecycle changes take the same short lock, so they cannot combine an
+    /// old owner with a newer target.
+    pub(crate) pending_seek: Arc<Mutex<PendingSeekState>>,
     /// Sample rate of the currently playing source (for samples → seconds).
     pub current_sample_rate: Arc<AtomicU32>,
     /// Channel count of the currently playing source.
@@ -174,6 +185,72 @@ pub struct AudioCurrent {
     pub fadeout_trigger: Option<Arc<AtomicBool>>,
     /// Crossfade: total fade samples (set before triggering).
     pub fadeout_samples: Option<Arc<AtomicU64>>,
+    /// Off-thread seek coordinator for the active ranged HTTP source.
+    pub(crate) streaming_seek: Option<crate::preserve_worker::StreamingSeekHandle>,
+}
+
+#[derive(Clone, Copy)]
+struct PendingSeek {
+    request_id: u64,
+    generation: u64,
+    target_samples: u64,
+    target_secs: f64,
+}
+
+#[derive(Default)]
+pub(crate) struct PendingSeekState {
+    next_request_id: u64,
+    active: Option<PendingSeek>,
+}
+
+impl PendingSeekState {
+    pub(crate) fn target_samples(&self) -> Option<u64> {
+        self.active.map(|seek| seek.target_samples)
+    }
+
+    pub(crate) fn take_target_secs(&mut self, generation: u64) -> Option<f64> {
+        self.active
+            .take()
+            .and_then(|seek| (seek.generation == generation).then_some(seek.target_secs))
+    }
+
+    pub(crate) fn begin(&mut self, generation: u64, target_samples: u64, target_secs: f64) -> u64 {
+        self.next_request_id = self.next_request_id.wrapping_add(1).max(1);
+        let request_id = self.next_request_id;
+        self.active = Some(PendingSeek {
+            request_id,
+            generation,
+            target_samples,
+            target_secs,
+        });
+        request_id
+    }
+
+    pub(crate) fn is_current(&self, request_id: u64, generation: u64) -> bool {
+        self.active
+            .is_some_and(|seek| seek.request_id == request_id && seek.generation == generation)
+    }
+
+    pub(crate) fn finish(&mut self, request_id: u64, generation: u64) -> bool {
+        let is_current = self.is_current(request_id, generation);
+        if is_current {
+            self.active = None;
+        }
+        is_current
+    }
+
+    pub(crate) fn clear(&mut self) {
+        self.active = None;
+    }
+
+    pub(crate) fn clear_generation(&mut self, generation: u64) {
+        if self
+            .active
+            .is_some_and(|active| active.generation == generation)
+        {
+            self.active = None;
+        }
+    }
 }
 
 impl AudioCurrent {
@@ -301,6 +378,7 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
         stream_open_lock: Arc::new(Mutex::new(())),
         stream_attach_pending: Arc::new((Mutex::new(0), Condvar::new())),
         playback_commit_lock: Arc::new(Mutex::new(())),
+        source_transition_lock: Arc::new(tokio::sync::RwLock::new(())),
         stream_sample_rate: Arc::new(AtomicU32::new(0)),
         stream_requested_rate: Arc::new(AtomicU32::new(0)),
         device_default_rate,
@@ -316,7 +394,9 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
             base_volume: 0.8,
             fadeout_trigger: None,
             fadeout_samples: None,
+            streaming_seek: None,
         })),
+        current_generation: Arc::new(AtomicU64::new(0)),
         generation: Arc::new(AtomicU64::new(0)),
         preload_epoch: Arc::new(AtomicU64::new(0)),
         http_client: Arc::new(RwLock::new(
@@ -348,6 +428,10 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
         chained_info: Arc::new(Mutex::new(None)),
         current_source_done: Arc::new(Mutex::new(None)),
         samples_played: Arc::new(AtomicU64::new(0)),
+        pending_seek: Arc::new(Mutex::new(PendingSeekState {
+            next_request_id: 0,
+            active: None,
+        })),
         current_sample_rate: Arc::new(AtomicU32::new(0)),
         current_channels: Arc::new(AtomicU32::new(2)),
         gapless_switch_at: Arc::new(AtomicU64::new(0)),
@@ -363,6 +447,38 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
     };
 
     (engine, thread)
+}
+
+impl AudioEngine {
+    pub(crate) fn invalidate_pending_seek(&self) {
+        self.pending_seek.lock().unwrap().clear();
+    }
+
+    pub(crate) fn begin_pending_seek(
+        &self,
+        generation: u64,
+        target_samples: u64,
+        target_secs: f64,
+    ) -> u64 {
+        self.pending_seek
+            .lock()
+            .unwrap()
+            .begin(generation, target_samples, target_secs)
+    }
+
+    pub(crate) fn pending_seek_is_current(&self, request_id: u64, generation: u64) -> bool {
+        self.pending_seek
+            .lock()
+            .unwrap()
+            .is_current(request_id, generation)
+    }
+
+    pub(crate) fn finish_pending_seek(&self, request_id: u64, generation: u64) -> bool {
+        self.pending_seek
+            .lock()
+            .unwrap()
+            .finish(request_id, generation)
+    }
 }
 
 /// Channels the output device takes, or 0 if that cannot be determined.
@@ -454,6 +570,7 @@ pub fn stop_audio_engine(app: &tauri::AppHandle) {
     let engine = app.state::<AudioEngine>();
     let _commit_guard = engine.playback_commit_lock.lock().unwrap();
     engine.generation.fetch_add(1, Ordering::SeqCst);
+    engine.invalidate_pending_seek();
     *engine.chained_info.lock().unwrap() = None;
     *engine.current_source_done.lock().unwrap() = None;
     drop(engine.radio_state.lock().unwrap().take());
@@ -461,6 +578,7 @@ pub fn stop_audio_engine(app: &tauri::AppHandle) {
     if let Some(sink) = cur.sink.take() {
         sink.stop();
     }
+    cur.streaming_seek = None;
 }
 
 /// Subsonic id pinned for the playing source (`audio_play`). Used to prioritize

@@ -30,10 +30,14 @@ import {
   SEEK_FALLBACK_RETRY_MAX_MS,
   SEEK_FALLBACK_VISUAL_GUARD_MS,
   _resetSeekFallbackStateForTest,
+  beginSeekRequest,
   clearSeekFallbackRetry,
   getSeekFallbackRestartAt,
   getSeekFallbackTrackId,
   getSeekFallbackVisualTarget,
+  isSeekRequestCurrent,
+  preserveSeekRequestAcrossNextPlaybackReset,
+  resetSeekStateForPlaybackChange,
   scheduleSeekFallbackRetry,
   setSeekFallbackRestartAt,
   setSeekFallbackTrackId,
@@ -107,6 +111,48 @@ describe('clearSeekFallbackRetry', () => {
     vi.advanceTimersByTime(SEEK_FALLBACK_RETRY_MAX_MS);
     // No invoke fired because the timer was cancelled.
     expect(hoisted.invokeMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('playback lifecycle invalidation', () => {
+  it('invalidates an active request on an unrelated playback reset', () => {
+    const generation = beginSeekRequest('t1', 12, 0.1);
+    resetSeekStateForPlaybackChange();
+    expect(isSeekRequestCurrent(generation, 't1')).toBe(false);
+  });
+
+  it('preserves only the scoped recovery reset', () => {
+    const generation = beginSeekRequest('t1', 12, 0.1);
+    const release = preserveSeekRequestAcrossNextPlaybackReset(generation);
+    resetSeekStateForPlaybackChange();
+    expect(isSeekRequestCurrent(generation, 't1')).toBe(true);
+    release();
+    resetSeekStateForPlaybackChange();
+    expect(isSeekRequestCurrent(generation, 't1')).toBe(false);
+  });
+
+  it('keeps a tagged visual target through the scoped playback reset', () => {
+    const generation = beginSeekRequest('t1', 12, 0.1);
+    setSeekFallbackVisualTarget({
+      trackId: 't1',
+      seconds: 45,
+      setAtMs: Date.now(),
+      requestGeneration: generation,
+    });
+    const release = preserveSeekRequestAcrossNextPlaybackReset(generation);
+
+    resetSeekStateForPlaybackChange();
+
+    expect(getSeekFallbackVisualTarget()?.seconds).toBe(45);
+    release();
+  });
+
+  it('does not leak preservation when playback returns before reset', () => {
+    const generation = beginSeekRequest('t1', 12, 0.1);
+    const release = preserveSeekRequestAcrossNextPlaybackReset(generation);
+    release();
+    resetSeekStateForPlaybackChange();
+    expect(isSeekRequestCurrent(generation, 't1')).toBe(false);
   });
 });
 

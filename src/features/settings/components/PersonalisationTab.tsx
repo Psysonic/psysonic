@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
-import { Disc3, LayoutGrid, ListOrdered, ListTodo, PanelLeft, RotateCcw, Users } from 'lucide-react';
+import { Disc3, Heart, LayoutGrid, ListOrdered, ListTodo, PanelLeft, RotateCcw, Users } from 'lucide-react';
 import { useArtistLayoutStore } from '@/features/artist';
+import { useFavoritesLayoutStore } from '@/features/favorites';
 import { useAuthStore } from '@/store/authStore';
 import type { QueueDisplayMode } from '@/store/authStoreTypes';
 import { useHomeStore } from '@/features/home';
@@ -14,6 +15,7 @@ import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
 import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
 import { SettingsSubCard, SettingsField } from '@/features/settings/components/SettingsSubCard';
 import { ArtistLayoutCustomizer } from '@/features/settings/components/ArtistLayoutCustomizer';
+import { FavoritesLayoutCustomizer } from '@/features/settings/components/FavoritesLayoutCustomizer';
 import { HomeCustomizer } from '@/features/settings/components/HomeCustomizer';
 import { PlayerBarLayoutCustomizer } from '@/features/settings/components/PlayerBarLayoutCustomizer';
 import { PlaylistLayoutCustomizer } from '@/features/settings/components/PlaylistLayoutCustomizer';
@@ -103,6 +105,27 @@ export function PersonalisationTab() {
       >
         <SettingsGroup>
           <ArtistLayoutCustomizer />
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('settings.favoritesLayoutTitle')}
+        icon={<Heart size={16} />}
+        action={
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 6px' }}
+            onClick={() => useFavoritesLayoutStore.getState().reset()}
+            data-tooltip={t('settings.favoritesLayoutReset')}
+            aria-label={t('settings.favoritesLayoutReset')}
+          >
+            <RotateCcw size={14} />
+          </button>
+        }
+      >
+        <SettingsGroup>
+          <FavoritesLayoutCustomizer />
         </SettingsGroup>
       </SettingsSubSection>
 

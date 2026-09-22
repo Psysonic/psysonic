@@ -56,6 +56,8 @@ struct TaskHarness {
     gapless_switch_at: Arc<AtomicU64>,
     playback_url: Arc<Mutex<Option<String>>>,
     stream_playback_armed: Arc<AtomicBool>,
+    pending_seek: Arc<Mutex<PendingSeekState>>,
+    source_transition_lock: Arc<tokio::sync::RwLock<()>>,
     playback_rate: PlaybackRateAtomics,
 }
 
@@ -72,6 +74,7 @@ impl TaskHarness {
             base_volume: 1.0,
             fadeout_trigger: None,
             fadeout_samples: None,
+            streaming_seek: None,
         };
         Self {
             gen: 1,
@@ -89,6 +92,8 @@ impl TaskHarness {
             gapless_switch_at: Arc::new(AtomicU64::new(0)),
             playback_url: Arc::new(Mutex::new(None)),
             stream_playback_armed: Arc::new(AtomicBool::new(true)),
+            pending_seek: Arc::new(Mutex::new(PendingSeekState::default())),
+            source_transition_lock: Arc::new(tokio::sync::RwLock::new(())),
             playback_rate: PlaybackRateAtomics::new(),
         }
     }
@@ -111,6 +116,8 @@ impl TaskHarness {
             self.gapless_switch_at.clone(),
             self.playback_url.clone(),
             self.stream_playback_armed.clone(),
+            self.pending_seek.clone(),
+            self.source_transition_lock.clone(),
             self.playback_rate.clone(),
         );
     }
@@ -158,6 +165,50 @@ async fn legacy_stream_holds_progress_at_zero_until_armed() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn pending_seek_holds_optimistic_target_and_reports_buffering() {
+    let h = TaskHarness::new(240.0);
+    h.samples_played
+        .store((10.0 * 44_100.0 * 2.0) as u64, Ordering::SeqCst);
+    let request_id = h
+        .pending_seek
+        .lock()
+        .unwrap()
+        .begin(1, (30.0 * 44_100.0 * 2.0) as u64, 30.0);
+    let emitter = Arc::new(MockEmitter::default());
+    h.spawn_with(emitter.clone());
+
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    {
+        let payloads = emitter.progress.lock().unwrap();
+        let pending = payloads.last().expect("pending seek progress payload");
+        assert!(
+            pending.buffering,
+            "pending seek must freeze UI interpolation"
+        );
+        assert!(
+            (29.8..=30.0).contains(&pending.current_time),
+            "pending seek should stay at its target, got {}",
+            pending.current_time
+        );
+    }
+
+    h.samples_played
+        .store((30.0 * 44_100.0 * 2.0) as u64, Ordering::Relaxed);
+    assert!(h.pending_seek.lock().unwrap().finish(request_id, 1));
+    tokio::time::sleep(Duration::from_millis(250)).await;
+    assert!(
+        emitter
+            .progress
+            .lock()
+            .unwrap()
+            .last()
+            .is_some_and(|payload| !payload.buffering),
+        "seek commit must publish the buffering transition"
+    );
+    h.gen_counter.store(99, Ordering::SeqCst);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn task_breaks_immediately_when_generation_already_changed() {
     let h = TaskHarness::new(120.0);
     h.gen_counter.store(99, Ordering::SeqCst);
@@ -167,6 +218,64 @@ async fn task_breaks_immediately_when_generation_already_changed() {
     assert_eq!(emitter.progress_count(), 0);
     assert_eq!(emitter.ended_count(), 0);
     assert_eq!(emitter.track_switched_count(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn stale_end_waiter_cannot_clear_a_new_generation_seek() {
+    let h = TaskHarness::new(0.0);
+    h.done.store(true, Ordering::SeqCst);
+    let transition_guard = h.source_transition_lock.write().await;
+    let emitter = Arc::new(MockEmitter::default());
+    h.spawn_with(emitter.clone());
+
+    // Let the old progress task observe source completion and block on the
+    // transition lock, then replace playback before it can commit audio:ended.
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    h.gen_counter.store(2, Ordering::SeqCst);
+    h.pending_seek.lock().unwrap().begin(2, 1234, 12.34);
+    drop(transition_guard);
+    tokio::time::sleep(Duration::from_millis(150)).await;
+
+    assert_eq!(h.gen_counter.load(Ordering::SeqCst), 2);
+    assert_eq!(h.pending_seek.lock().unwrap().target_samples(), Some(1234));
+    assert_eq!(emitter.ended_count(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn completed_source_is_rechecked_after_waiting_for_transition_lock() {
+    let h = TaskHarness::new(0.0);
+    h.done.store(true, Ordering::SeqCst);
+    let transition_guard = h.source_transition_lock.write().await;
+    let emitter = Arc::new(MockEmitter::default());
+    h.spawn_with(emitter.clone());
+
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    h.done.store(false, Ordering::SeqCst);
+    drop(transition_guard);
+    tokio::time::sleep(Duration::from_millis(150)).await;
+
+    assert_eq!(h.gen_counter.load(Ordering::SeqCst), h.gen);
+    assert_eq!(emitter.ended_count(), 0);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn timer_end_waits_for_active_seek_reader() {
+    let h = TaskHarness::new(10.0);
+    h.crossfade_enabled.store(true, Ordering::SeqCst);
+    h.crossfade_secs.store(1.0f32.to_bits(), Ordering::SeqCst);
+    h.samples_played
+        .store((9.5 * 44_100.0 * 2.0) as u64, Ordering::SeqCst);
+    let seek_reader = h.source_transition_lock.read().await;
+    let emitter = Arc::new(MockEmitter::default());
+    h.spawn_with(emitter.clone());
+
+    tokio::time::sleep(Duration::from_millis(1_200)).await;
+    assert_eq!(emitter.ended_count(), 0);
+    drop(seek_reader);
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    assert_eq!(emitter.ended_count(), 1);
+    assert_eq!(h.gen_counter.load(Ordering::SeqCst), h.gen + 1);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -214,6 +323,7 @@ async fn done_with_chained_info_swaps_to_chain_and_emits_track_switched() {
         url: chain_url.clone(),
         analysis_track_id: Some("next-track".into()),
         server_id: Some("srv-1".into()),
+        local_original_verified: None,
         generation: 1,
         raw_bytes: Arc::new(Vec::new()),
         resolved_format: Some(crate::decode::ResolvedCodecInfo {

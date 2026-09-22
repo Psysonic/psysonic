@@ -38,6 +38,14 @@ vi.mock('@/features/orbit/utils/orbitBulkGuard', () => ({
   orbitBulkGuard: vi.fn(async () => true),
 }));
 
+// Tests render without a DragDropProvider, so the context's own `startDrag` is a
+// no-op. Record it instead, to see what a row drag hands over.
+const startDragMock = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/dnd/DragDropContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/dnd/DragDropContext')>()),
+  useDragDrop: () => ({ isDragging: false, payload: null, startDrag: startDragMock }),
+}));
+
 import QueuePanel from '@/features/queue/components/QueuePanel';
 import { act, fireEvent, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
@@ -399,6 +407,114 @@ describe('QueuePanel — row favourite toggle', () => {
     act(() => { fireEvent.click(heart); });
 
     await waitFor(() => expect(unstarMock).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('QueuePanel — multi-select', () => {
+  // Same virtualizer layout shim as the blocks above: jsdom has no layout.
+  let offsetSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    offsetSpy = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('queue-list') ? 600 : 52;
+      });
+    useAuthStore.getState().setQueueDisplayMode('playlist');
+    startDragMock.mockClear();
+  });
+  afterEach(() => offsetSpy.mockRestore());
+
+  const rowsOf = (container: HTMLElement) =>
+    [...container.querySelectorAll<HTMLElement>('[data-queue-idx]')];
+
+  const dragRow = (row: HTMLElement) => {
+    fireEvent.mouseDown(row, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+  };
+
+  it('drags the whole selection when a selected row is grabbed', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[3]!, { ctrlKey: true });
+
+    dragRow(rowsOf(container)[3]!);
+
+    expect(startDragMock).toHaveBeenCalledTimes(1);
+    const [payload] = startDragMock.mock.calls[0]!;
+    expect(JSON.parse(payload.data)).toEqual({ type: 'queue_reorder', index: 3, indices: [1, 3] });
+    expect(payload.label).toBe('2 tracks');
+  });
+
+  it('drags only the grabbed row and drops the selection when an unselected row is grabbed', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[3]!, { ctrlKey: true });
+
+    dragRow(rowsOf(container)[2]!);
+
+    const [payload] = startDragMock.mock.calls[0]!;
+    expect(JSON.parse(payload.data)).toEqual({ type: 'queue_reorder', index: 2 });
+    expect(rowsOf(container).some(row => row.classList.contains('bulk-selected'))).toBe(false);
+  });
+
+  it('selects rows with Ctrl+click without playing them and removes them on Delete', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[3]!, { ctrlKey: true });
+
+    expect(rowsOf(container).map(row => row.classList.contains('bulk-selected')))
+      .toEqual([false, true, false, true]);
+    expect(usePlayerStore.getState().queueIndex).toBe(0);
+
+    act(() => { fireEvent.keyDown(document.body, { key: 'Delete', ctrlKey: true }); });
+
+    expect(usePlayerStore.getState().queueItems.map(ref => ref.trackId))
+      .toEqual([tracks[0].id, tracks[2].id]);
+    expect(rowsOf(container).some(row => row.classList.contains('bulk-selected'))).toBe(false);
+  });
+
+  it('keeps the selection after Ctrl is released, so Delete still removes it', () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[2]!, { ctrlKey: true });
+
+    act(() => { fireEvent.keyUp(document.body, { key: 'Control' }); });
+    expect(rowsOf(container).filter(row => row.classList.contains('bulk-selected'))).toHaveLength(2);
+
+    act(() => { fireEvent.keyDown(document.body, { key: 'Delete' }); });
+    expect(usePlayerStore.getState().queueItems.map(ref => ref.trackId)).toEqual([tracks[0].id]);
+  });
+
+  it('dissolves the selection on a plain click and plays the clicked row', async () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[2]!, { ctrlKey: true });
+
+    fireEvent.click(rowsOf(container)[3]!);
+
+    expect(rowsOf(container).some(row => row.classList.contains('bulk-selected'))).toBe(false);
+    await waitFor(() => expect(usePlayerStore.getState().queueIndex).toBe(3));
+  });
+
+  it('does not let the playing row join a selection', () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 1, currentTrack: tracks[1] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+
+    expect(rowsOf(container)[1]!.classList.contains('bulk-selected')).toBe(false);
   });
 });
 afterEach(() => {

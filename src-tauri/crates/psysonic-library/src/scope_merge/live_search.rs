@@ -143,7 +143,10 @@ pub(crate) fn live_search_artists(
            LIMIT ? \
          ), \
          base AS ( \
-           SELECT t.server_id, t.artist_id, t.artist, t.synced_at, s.pr, \
+            SELECT t.server_id, t.artist_id, t.artist, \
+                   (SELECT ar.starred_at FROM artist ar \
+                    WHERE ar.server_id = t.server_id AND ar.id = t.artist_id) AS starred_at, \
+                   t.synced_at, s.pr, \
                   MIN(h.rank) AS best_rank, {ARTIST_DEDUP_KEY} AS artist_dedup \
            FROM fts_hits h \
            INNER JOIN track t ON t.rowid = h.rowid \
@@ -156,7 +159,7 @@ pub(crate) fn live_search_artists(
            SELECT *, ROW_NUMBER() OVER (PARTITION BY artist_dedup ORDER BY pr ASC, best_rank ASC, artist_id ASC) AS rn \
            FROM base \
          ) \
-         SELECT server_id, artist_id, artist, synced_at, best_rank \
+         SELECT server_id, artist_id, artist, starred_at, synced_at, best_rank \
          FROM artist_pick WHERE rn = 1 \
          ORDER BY best_rank \
          LIMIT ?",
@@ -178,7 +181,8 @@ pub(crate) fn live_search_artists(
                     name: name.clone(),
                     name_sort: Some(sort_key_for_display_name(&name, DEFAULT_IGNORED_ARTICLES)),
                     album_count: None,
-                    synced_at: r.get(3)?,
+                    starred_at: r.get(3)?,
+                    synced_at: r.get(4)?,
                     raw_json: Value::Null,
                 })
             })?

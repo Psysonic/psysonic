@@ -195,6 +195,24 @@ pub struct ServerHttpRegistry {
     ref_to_key: Mutex<HashMap<String, String>>,
 }
 
+fn detach_app_alias(
+    contexts: &mut HashMap<String, Arc<ServerHttpContext>>,
+    refs: &mut HashMap<String, String>,
+    app_server_id: &str,
+    index_key: &str,
+) {
+    refs.remove(app_server_id);
+    let still_referenced = refs
+        .iter()
+        .any(|(alias, mapped_key)| alias.as_str() != index_key && mapped_key.as_str() == index_key);
+    if still_referenced {
+        refs.insert(index_key.to_string(), index_key.to_string());
+    } else {
+        contexts.remove(index_key);
+        refs.remove(index_key);
+    }
+}
+
 impl ServerHttpRegistry {
     pub fn new() -> Self {
         Self::default()
@@ -208,14 +226,12 @@ impl ServerHttpRegistry {
         let mut refs = self.ref_to_key.lock().unwrap();
         if let Some(previous_key) = refs.get(&app_id).cloned() {
             if previous_key != index_key {
-                contexts.remove(&previous_key);
-                refs.remove(&previous_key);
+                detach_app_alias(&mut contexts, &mut refs, &app_id, &previous_key);
             }
         }
-        if ctx.headers.is_empty() && !ctx.supports_raw_stream {
-            contexts.remove(&index_key);
-            refs.remove(&index_key);
-            refs.remove(&app_id);
+        if ctx.endpoints.is_empty() {
+            let removal_key = refs.get(&app_id).cloned().unwrap_or(index_key);
+            detach_app_alias(&mut contexts, &mut refs, &app_id, &removal_key);
             return;
         }
         contexts.insert(index_key.clone(), Arc::clone(&ctx));
@@ -230,7 +246,7 @@ impl ServerHttpRegistry {
             let index_key = wire.server_id.clone();
             let app_id = wire.app_server_id.clone();
             let ctx = Arc::new(ServerHttpContext::from(wire));
-            if ctx.headers.is_empty() && !ctx.supports_raw_stream {
+            if ctx.endpoints.is_empty() {
                 continue;
             }
             new_contexts.insert(index_key.clone(), Arc::clone(&ctx));
@@ -244,13 +260,11 @@ impl ServerHttpRegistry {
     pub fn remove(&self, index_key: &str, app_server_id: &str) {
         let mut contexts = self.contexts.lock().unwrap();
         let mut refs = self.ref_to_key.lock().unwrap();
-        if let Some(mapped_key) = refs.get(app_server_id).cloned() {
-            contexts.remove(&mapped_key);
-            refs.remove(&mapped_key);
-        }
-        contexts.remove(index_key);
-        refs.remove(index_key);
-        refs.remove(app_server_id);
+        let removal_key = refs
+            .get(app_server_id)
+            .cloned()
+            .unwrap_or_else(|| index_key.to_string());
+        detach_app_alias(&mut contexts, &mut refs, app_server_id, &removal_key);
     }
 
     pub fn get(&self, index_key: &str) -> Option<Arc<ServerHttpContext>> {
@@ -457,6 +471,29 @@ mod tests {
     }
 
     #[test]
+    fn endpoint_only_context_is_retained_for_standard_original_downloads() {
+        let reg = ServerHttpRegistry::new();
+        reg.sync(ServerHttpContextSyncWire {
+            server_id: "subsonic.example".into(),
+            app_server_id: "uuid-2".into(),
+            endpoints: vec![ServerHttpEndpointWire {
+                url: "https://subsonic.example".into(),
+                kind: EndpointKind::Public,
+            }],
+            custom_headers: Vec::new(),
+            custom_headers_apply_to: None,
+            supports_raw_stream: false,
+        });
+
+        assert!(reg
+            .resolve_context(
+                Some("uuid-2"),
+                "https://subsonic.example/rest/download.view?id=1"
+            )
+            .is_some());
+    }
+
+    #[test]
     fn raw_capability_requires_both_navidrome_context_and_registered_endpoint() {
         let reg = ServerHttpRegistry::new();
         reg.sync(ServerHttpContextSyncWire {
@@ -522,9 +559,54 @@ mod tests {
         });
 
         assert!(reg.get("old.example").is_none());
-        assert!(reg.get_for_server_ref("uuid-1").is_none());
+        assert!(reg.get("new.example").is_some());
+        assert!(reg.get_for_server_ref("uuid-1").is_some());
         assert!(
             !reg.supports_raw_stream_for_request(None, "https://old.example/rest/stream.view?id=1")
         );
+    }
+
+    #[test]
+    fn profile_resync_preserves_a_shared_server_key_for_other_profiles() {
+        let reg = ServerHttpRegistry::new();
+        for app_server_id in ["uuid-1", "uuid-2"] {
+            reg.sync(ServerHttpContextSyncWire {
+                server_id: "shared.example".into(),
+                app_server_id: app_server_id.into(),
+                endpoints: vec![ServerHttpEndpointWire {
+                    url: "https://shared.example".into(),
+                    kind: EndpointKind::Public,
+                }],
+                custom_headers: Vec::new(),
+                custom_headers_apply_to: None,
+                supports_raw_stream: false,
+            });
+        }
+
+        reg.sync(ServerHttpContextSyncWire {
+            server_id: "moved.example".into(),
+            app_server_id: "uuid-1".into(),
+            endpoints: vec![ServerHttpEndpointWire {
+                url: "https://moved.example".into(),
+                kind: EndpointKind::Public,
+            }],
+            custom_headers: Vec::new(),
+            custom_headers_apply_to: None,
+            supports_raw_stream: false,
+        });
+
+        assert!(reg.get_for_server_ref("uuid-1").is_some_and(|context| {
+            context
+                .endpoints
+                .iter()
+                .any(|(url, _)| url == "https://moved.example")
+        }));
+        assert!(reg.get_for_server_ref("uuid-2").is_some_and(|context| {
+            context
+                .endpoints
+                .iter()
+                .any(|(url, _)| url == "https://shared.example")
+        }));
+        assert!(reg.get("shared.example").is_some());
     }
 }

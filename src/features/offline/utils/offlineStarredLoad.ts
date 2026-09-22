@@ -1,5 +1,9 @@
 import { getStarredForServer } from '@/lib/api/subsonicStarRating';
-import { libraryAdvancedSearch, libraryListStarred } from '@/lib/api/library';
+import {
+  libraryAdvancedSearch,
+  libraryListStarred,
+  libraryReconcileArtistStars,
+} from '@/lib/api/library';
 import type {
   StarredResults,
   SubsonicAlbum,
@@ -10,6 +14,7 @@ import { isActiveServerReachable } from '@/lib/network/activeServerReachability'
 import { emitFavoritesBrowseDebug, favoritesBrowseTimed } from '@/lib/library/favoritesBrowseDebug';
 import {
   albumToAlbum,
+  artistToArtist,
   trackToSong,
 } from '@/lib/library/advancedSearchLocal';
 import { dedupeById } from '@/lib/util/dedupeById';
@@ -18,6 +23,7 @@ import { favoritesServerIds } from '@/features/offline/utils/favoritesOfflineBro
 import {
   buildAlbumFromTracks,
   fetchBrowsableLocalTrackDtos,
+  fetchOfflineLocalStarredArtists,
   offlineLocalBrowseEnabled,
 } from '@/features/offline/utils/offlineLocalBrowse';
 
@@ -95,9 +101,10 @@ async function loadStarredFromBrowsableLocalBytes(serverId: string): Promise<Sta
       albumsById.set(dto.id, { ...albumToAlbum(dto), serverId });
     }
   }
+  const artists = await fetchOfflineLocalStarredArtists(serverId, 'album') ?? [];
 
   return {
-    artists: [],
+    artists,
     albums: [...albumsById.values()],
     songs,
   };
@@ -111,8 +118,6 @@ export async function loadStarredFromLibraryIndex(
     return loadStarredFromBrowsableLocalBytes(serverId);
   }
 
-  // Artist-level stars are server-owned. The Favorites refresh that follows this
-  // initial snapshot restores them alongside the canonical album/song lists.
   const response = await libraryListStarred(serverId);
   emitFavoritesBrowseDebug('library_index_native_read', {
     serverId,
@@ -121,7 +126,7 @@ export async function loadStarredFromLibraryIndex(
     blockedBy: response.blockedBy,
   });
   return {
-    artists: [],
+    artists: response.artists.map(artistToArtist),
     albums: response.albums.map(albumToAlbum),
     songs: response.tracks.map(trackToSong),
   };
@@ -131,8 +136,8 @@ const libraryIndexLoads = new Map<string, Promise<StarredResults>>();
 
 export async function loadStarredFromAllLibraryIndexes(
   preferLocalBytes = isOfflineBrowseActive(),
+  serverIds = favoritesServerIds(),
 ): Promise<StarredResults> {
-  const serverIds = favoritesServerIds();
   const cacheKey = `${preferLocalBytes}:${serverIds.join('\u001f')}`;
   const inFlight = libraryIndexLoads.get(cacheKey);
   if (inFlight) return inFlight;
@@ -159,15 +164,26 @@ export async function loadStarredFromAllLibraryIndexes(
 }
 
 /** Online starred merge with per-server local index fallback. */
-export async function loadStarredFromAllServersOnline(): Promise<StarredResults> {
+export async function loadStarredFromAllServersOnline(
+  serverIds = favoritesServerIds(),
+): Promise<StarredResults> {
   if (!isActiveServerReachable()) {
-    return loadStarredFromAllLibraryIndexes();
+    return loadStarredFromAllLibraryIndexes(false, serverIds);
   }
-  const serverIds = favoritesServerIds();
   const entries = await Promise.all(
     serverIds.map(async serverId => {
       try {
         const starred = await getStarredForServer(serverId);
+        await libraryReconcileArtistStars({
+          serverId,
+          starredArtists: starred.artists.map(artist => {
+            const parsed = artist.starred ? Date.parse(artist.starred) : Number.NaN;
+            return {
+              id: artist.id,
+              starredAt: Number.isFinite(parsed) ? parsed : Date.now(),
+            };
+          }),
+        }).catch(() => {});
         return { serverId, starred };
       } catch {
         try {

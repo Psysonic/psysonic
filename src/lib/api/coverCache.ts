@@ -244,6 +244,16 @@ export async function purgeExternalArtworkAllServers(): Promise<void> {
   );
 }
 
+/**
+ * Opt-out purge for the album-cover fallbacks: drop every album cover Apple
+ * Music / Last.fm supplied for the switched-off `sources`, on all servers, so
+ * those albums load the server's art again. Fire-and-forget.
+ */
+export async function purgeExternalAlbumArt(sources: ('apple' | 'lastfm')[]): Promise<void> {
+  if (!sources.length) return;
+  await commands.coverCachePurgeExternalAlbumArt(sources).catch(() => undefined);
+}
+
 export async function coverCacheStatsServer(
   serverIndexKey: string,
 ): Promise<Pick<CoverCacheStats, 'bytes' | 'entryCount'>> {

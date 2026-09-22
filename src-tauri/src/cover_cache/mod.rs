@@ -18,7 +18,10 @@ mod peek;
 #[cfg(test)]
 mod test_support;
 
-use bucket::{purge_external_files, rename_bucket_inner, reset_cover_cache_for_index_key_layout};
+use bucket::{
+    external_album_art_dirs, purge_external_files, purge_misattributed_external_album_art_once,
+    rename_bucket_inner, reset_cover_cache_for_index_key_layout,
+};
 use cache_state::state;
 pub use cache_state::CoverCacheState;
 use cache_state::{COVER_CPU_UI_CONCURRENCY, COVER_HTTP_CONCURRENCY, FANART_HTTP_CONCURRENCY};
@@ -27,7 +30,7 @@ pub use dto::{
     CoverCacheEnsureArgs, CoverCacheEnsureResult, CoverCachePeekItem, CoverCacheStatsDto,
     CoverPipelineQueueStatsDto,
 };
-use ensure::decode_image_bytes;
+use ensure::{decode_image_bytes, inflight_dir_flight};
 use metrics::{
     cached_dir_usage_for_server, clear_dir_usage_cache, cover_pipeline_queue_stats,
     dir_usage_at_root, invalidate_dir_usage_cache,
@@ -152,6 +155,12 @@ pub fn init_cover_cache(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?
         .join("cover-cache");
     reset_cover_cache_for_index_key_layout(&root)?;
+    let reset = purge_misattributed_external_album_art_once(&root);
+    if reset > 0 {
+        crate::app_eprintln!(
+            "[cover] dropped {reset} album covers the external chain had put over server art"
+        );
+    }
     app.manage(Arc::new(Mutex::new(CoverCacheState::new(root)?)));
     app.manage(Arc::new(CoverBackfillWorker::new()));
     setup_library_sync_idle_listener(app);
@@ -473,6 +482,42 @@ pub async fn cover_cache_purge_external(
         .await;
     }
     Ok(())
+}
+
+/// Drop the album covers the external chain (Apple Music / Last.fm) wrote, so
+/// those albums load the server's art again. Fired when the user switches a
+/// source off: `sources` names the switched-off ones (`None` = every chain
+/// cover). Works across all server buckets and takes each album's flight lock
+/// before removing it, so no ensure is mid-write. Returns the number removed.
+#[tauri::command]
+#[specta::specta]
+pub async fn cover_cache_purge_external_album_art(
+    app: AppHandle,
+    sources: Option<Vec<String>>,
+) -> Result<u32, String> {
+    let st = state(&app)?;
+    let flights: Vec<_> = {
+        let guard = st.lock().await;
+        external_album_art_dirs(&guard.root, sources.as_deref())
+            .into_iter()
+            .map(|dir| {
+                let flight = inflight_dir_flight(&guard.inflight_dirs, &dir);
+                (dir, flight)
+            })
+            .collect()
+    };
+    let mut removed = 0u32;
+    for (dir, flight) in flights {
+        let _flight = flight.lock().await;
+        if std::fs::remove_dir_all(&dir).is_ok() {
+            removed += 1;
+        }
+    }
+    if removed > 0 {
+        clear_dir_usage_cache();
+        let _ = app.emit("cover:cache-cleared", serde_json::json!({}));
+    }
+    Ok(removed)
 }
 
 /// Rename a server's cover-cache bucket on disk after the user edits the

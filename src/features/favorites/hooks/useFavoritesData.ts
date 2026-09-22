@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getInternetRadioStationsForServersSettled } from '@/lib/api/subsonicRadio';
-import { getStarred } from '@/lib/api/subsonicStarRating';
 import type {
   InternetRadioStation, SubsonicAlbum, SubsonicArtist, SubsonicSong,
 } from '@/lib/api/subsonicTypes';
@@ -21,13 +20,17 @@ import {
   favoritesBrowseTimed,
 } from '@/lib/library/favoritesBrowseDebug';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
-import { deriveEffectiveLibraryBrowseServerIds } from '@/lib/library/libraryBrowseScope';
+import {
+  deriveEffectiveLibraryBrowseServerIds,
+  deriveLibraryBrowseServerIdsWithFallback,
+} from '@/lib/library/libraryBrowseScope';
 import { useUnavailableServerIds } from '@/lib/network/serverReachability';
 import {
   migrateRadioStationKeys,
   radioStationKey,
 } from '@/features/radio';
 import { navidromeCanonicalBootstrapIsActive } from '@/lib/server/navidromeCanonicalCheckpointStatus';
+import { useFavoritesRevision } from '@/lib/library/favoritesRevision';
 
 export interface FavoritesDataResult {
   albums: SubsonicAlbum[];
@@ -54,6 +57,7 @@ export function useFavoritesData(): FavoritesDataResult {
   const [radioStations, setRadioStations] = useState<InternetRadioStation[]>([]);
   const [loading, setLoading] = useState(true);
   const radioMutationGenerationRef = useRef(0);
+  const appliedFavoritesRevisionRef = useRef(0);
 
   const musicLibraryFilterVersion = useAuthStore(s => s.musicLibraryFilterVersion);
   const activeServerId = useAuthStore(s => s.activeServerId);
@@ -66,9 +70,12 @@ export function useFavoritesData(): FavoritesDataResult {
   const offlineBrowseReloadTs = useOfflineBrowseReloadToken();
   const unavailableServerIds = useUnavailableServerIds();
   const starredOverrides = usePlayerStore(s => s.starredOverrides);
+  const favoritesRevision = useFavoritesRevision();
 
   useEffect(() => {
     let cancelled = false;
+    const mutationRefresh = appliedFavoritesRevisionRef.current !== favoritesRevision;
+    appliedFavoritesRevisionRef.current = favoritesRevision;
 
     const applyStarred = (starred: {
       albums: SubsonicAlbum[];
@@ -126,7 +133,17 @@ export function useFavoritesData(): FavoritesDataResult {
     };
 
     const loadAll = async () => {
-      setLoading(true);
+      if (!mutationRefresh) setLoading(true);
+      const browseServerSource = {
+        servers,
+        activeServerId,
+        libraryBrowseServerIds,
+      };
+      const scopeServerIds = deriveLibraryBrowseServerIdsWithFallback(browseServerSource);
+      const onlineServerIds = deriveEffectiveLibraryBrowseServerIds(
+        browseServerSource,
+        unavailableServerIds,
+      );
       beginFavoritesBrowseTrace({
         favoritesOfflineEnabled,
         offlineBrowseActive,
@@ -139,7 +156,7 @@ export function useFavoritesData(): FavoritesDataResult {
         try {
           applyStarred(await favoritesBrowseTimed(
             'library_index_snapshot',
-            () => loadStarredFromAllLibraryIndexes(offlineBrowseActive),
+            () => loadStarredFromAllLibraryIndexes(offlineBrowseActive, scopeServerIds),
           ));
         } catch { /* ignore */ }
         if (cancelled) return;
@@ -149,14 +166,17 @@ export function useFavoritesData(): FavoritesDataResult {
           try {
             applyStarred(await favoritesBrowseTimed(
               'server_starred_refresh',
-              () => loadStarredFromAllServersOnline(),
+              () => loadStarredFromAllServersOnline(onlineServerIds),
             ));
           } catch { /* keep library snapshot */ }
         }
       } else {
         if (connStatus === 'connected' && isActiveServerReachable()) {
           const [starredResult] = await Promise.allSettled([
-            favoritesBrowseTimed('server_starred', () => getStarred()),
+            favoritesBrowseTimed(
+              'server_starred',
+              () => loadStarredFromAllServersOnline(onlineServerIds),
+            ),
           ]);
           if (starredResult.status === 'fulfilled') {
             applyStarred(starredResult.value);
@@ -182,6 +202,7 @@ export function useFavoritesData(): FavoritesDataResult {
     libraryBrowseServerIds,
     servers,
     unavailableServerIds,
+    favoritesRevision,
   ]);
 
   const topFavoriteArtists = useMemo<TopFavoriteArtist[]>(() => {

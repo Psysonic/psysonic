@@ -40,6 +40,7 @@ export const albumDetail = {
   trackPlayCount: 'Weergaven',
   trackLastPlayed: 'Laatst afgespeeld',
   trackBpm: 'BPM',
+  trackRowNumber: 'Rijnummer (#)',
   trackFormat: 'Formaat',
   trackYear: 'Jaar',
   trackFavorite: 'Favoriet',

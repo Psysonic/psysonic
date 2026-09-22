@@ -10,7 +10,8 @@ import { resolveServerIdForIndexKey } from '@/lib/server/serverLookup';
 
 function serverIndexKeysForServerId(serverId: string): string[] {
   const servers = useAuthStore.getState().servers;
-  const server = servers.find(s => s.id === serverId);
+  const resolvedProfileId = resolveServerIdForIndexKey(serverId);
+  const server = servers.find(s => s.id === serverId || s.id === resolvedProfileId);
   const keys = new Set<string>();
   if (server) {
     const profileKey = serverIndexKeyForProfile(server);
@@ -133,6 +134,30 @@ export function findLocalPlaybackUrl(
     if (url) return url;
   }
   return null;
+}
+
+/**
+ * Positive provenance for the exact local URL selected for playback. Legacy
+ * entries remain playable, but native analysis must not treat their bytes as
+ * the server original until background revalidation succeeds.
+ */
+export function localPlaybackOriginalVerifiedForUrl(
+  trackId: string,
+  serverId: string,
+  url: string,
+): boolean | null {
+  const path = url.startsWith('psysonic-local://')
+    ? url.slice('psysonic-local://'.length)
+    : null;
+  if (path === null) return null;
+
+  const entries = [
+    findLocalPlaybackEntry(trackId, serverId),
+    findFavoriteAutoEntry(trackId, serverId),
+    findEphemeralEntry(trackId, serverId),
+  ];
+  const selected = entries.find(entry => entry?.localPath === path);
+  return selected?.originalBytesVerified === true;
 }
 
 /**

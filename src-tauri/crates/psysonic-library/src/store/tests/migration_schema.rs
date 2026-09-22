@@ -13,9 +13,14 @@ use super::migration_runner::no_op_hook;
 #[test]
 fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
     let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_25 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 25)
+        .collect::<Vec<_>>();
     run_migrations_with(
         &conn,
-        &MIGRATIONS[..MIGRATIONS.len() - 1],
+        &migrations_through_25,
         LIBRARY_DB_MIN_COMPATIBLE_VERSION,
         super::migration_runner::no_op_hook,
     )
@@ -51,22 +56,117 @@ fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
 }
 
 #[test]
+fn migration_027_adds_artist_star_and_sparse_browse_index_idempotently() {
+    let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_26 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 26)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &migrations_through_26,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        super::migration_runner::no_op_hook,
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO artist (server_id, id, name, name_sort, synced_at) \
+         VALUES ('s1', 'ar1', 'Existing Artist', 'existing artist', 1)",
+        [],
+    )
+    .unwrap();
+
+    run_migrations(&conn).unwrap();
+    run_migrations(&conn).unwrap();
+
+    let (name, starred_at): (String, Option<i64>) = conn
+        .query_row(
+            "SELECT name, starred_at FROM artist WHERE server_id = 's1' AND id = 'ar1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(name, "Existing Artist");
+    assert!(starred_at.is_none());
+
+    let index_sql: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_artist_starred_name'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(index_sql.contains("artist(server_id, name_sort, id)"));
+    assert!(index_sql.contains("WHERE starred_at IS NOT NULL"));
+}
+
+#[test]
+fn migrations_028_and_029_add_artist_credit_projection_and_lookup_index() {
+    let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_27 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 27)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &migrations_through_27,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        super::migration_runner::no_op_hook,
+    )
+    .unwrap();
+
+    run_migrations(&conn).unwrap();
+    run_migrations(&conn).unwrap();
+
+    let table_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master \
+             WHERE type = 'table' AND name = 'artist_credit_projection'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(table_count, 1);
+    let index_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master \
+             WHERE type = 'index' AND name = 'idx_artist_credit_projection_artist_key'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(index_count, 1);
+    let completed: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM library_data_migration \
+             WHERE id = ?1 AND completed_at IS NOT NULL",
+            params![crate::artist_credit_projection::MIGRATION_ID],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(completed, 1);
+}
+
+#[test]
 fn fresh_database_marks_projection_backfills_complete() {
     let store = LibraryStore::open_in_memory();
     let completed: i64 = store
         .with_conn("test", |conn| {
             conn.query_row(
                 "SELECT COUNT(*) FROM library_data_migration \
-                 WHERE id IN (?1, ?2) AND completed_at IS NOT NULL",
+                  WHERE id IN (?1, ?2, ?3) AND completed_at IS NOT NULL",
                 params![
                     crate::browse_projection::MIGRATION_ID,
                     crate::composer_projection::MIGRATION_ID,
+                    crate::artist_credit_projection::MIGRATION_ID,
                 ],
                 |row| row.get(0),
             )
         })
         .unwrap();
-    assert_eq!(completed, 2);
+    assert_eq!(completed, 3);
 }
 
 #[test]

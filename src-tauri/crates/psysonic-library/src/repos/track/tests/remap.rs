@@ -403,6 +403,36 @@ fn remap_via_server_path_only_works_when_hash_missing() {
 }
 
 #[test]
+fn path_remap_does_not_cross_library_roots() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    let mut old = row_with_id_hash("s1", "tr_old", "", "/same/path.mp3");
+    old.library_id = Some("lib-a".into());
+    repo.upsert_batch(&[old]).unwrap();
+
+    let mut incoming = row_with_id_hash("s1", "tr_new", "", "/same/path.mp3");
+    incoming.library_id = Some("lib-b".into());
+    let stats = repo.upsert_batch_with_remap(&[incoming], true).unwrap();
+
+    assert!(stats.remapped.is_empty());
+    let (tracks, history): (i64, i64) = store
+        .with_conn("test.cross_library_path_remap", |conn| {
+            Ok((
+                conn.query_row("SELECT COUNT(*) FROM track", [], |row| row.get(0))?,
+                conn.query_row("SELECT COUNT(*) FROM track_id_history", [], |row| {
+                    row.get(0)
+                })?,
+            ))
+        })
+        .unwrap();
+    assert_eq!(
+        tracks, 2,
+        "same relative path in separate roots must coexist"
+    );
+    assert_eq!(history, 0, "cross-library paths must not create aliases");
+}
+
+#[test]
 fn remap_skips_when_neither_hash_nor_path_present() {
     // Defensive: empty-string sentinels must not cause spurious
     // remaps across unrelated rows that happen to lack hash + path.
@@ -430,20 +460,17 @@ fn remap_lookup_uses_partial_indexes_not_full_scan() {
     // incoming row → O(rows × catalog) stalls on large libraries
     // (`upsert_batch_remap exec_ms=162001` on a ~200k-track Navidrome sync).
     let store = LibraryStore::open_in_memory();
-    let plan = |sql: &str| -> String {
-        store
-            .with_conn("misc", |c| {
-                let mut stmt = c.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
-                let rows: rusqlite::Result<Vec<String>> = stmt
-                    .query_map(params!["s1", "v", "id"], |r| r.get::<_, String>(3))?
-                    .collect();
-                rows
-            })
-            .unwrap()
-            .join("\n")
-    };
-
-    let hash_plan = plan(REMAP_LOOKUP_BY_HASH_SQL);
+    let hash_plan = store
+        .with_conn("test.remap_hash_plan", |conn| {
+            let mut stmt =
+                conn.prepare(&format!("EXPLAIN QUERY PLAN {REMAP_LOOKUP_BY_HASH_SQL}"))?;
+            let rows = stmt
+                .query_map(params!["s1", "v", "id"], |row| row.get::<_, String>(3))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .unwrap()
+        .join("\n");
     assert!(
         hash_plan.contains("idx_track_remap_hash"),
         "hash lookup must use idx_track_remap_hash, got: {hash_plan}"
@@ -453,7 +480,19 @@ fn remap_lookup_uses_partial_indexes_not_full_scan() {
         "hash lookup must not full-scan track, got: {hash_plan}"
     );
 
-    let path_plan = plan(REMAP_LOOKUP_BY_PATH_SQL);
+    let path_plan = store
+        .with_conn("test.remap_path_plan", |conn| {
+            let mut stmt =
+                conn.prepare(&format!("EXPLAIN QUERY PLAN {REMAP_LOOKUP_BY_PATH_SQL}"))?;
+            let rows = stmt
+                .query_map(params!["s1", "v", "id", "lib-1"], |row| {
+                    row.get::<_, String>(3)
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .unwrap()
+        .join("\n");
     assert!(
         path_plan.contains("idx_track_remap_path"),
         "path lookup must use idx_track_remap_path, got: {path_plan}"

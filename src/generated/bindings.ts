@@ -14,6 +14,8 @@ export const commands = {
 	 *  (no INSERT / stub rows). Clears local stars absent from `starred_albums`.
 	 */
 	libraryReconcileAlbumStars: (serverId: string, starredAlbums: StarredAlbumReconcileItem[]) => typedError<null, string>(__TAURI_INVOKE("library_reconcile_album_stars", { serverId, starredAlbums })),
+	/**  Align `artist.starred_at` with server favorites without creating artist stubs. */
+	libraryReconcileArtistStars: (serverId: string, starredArtists: StarredArtistReconcileItem[]) => typedError<null, string>(__TAURI_INVOKE("library_reconcile_artist_stars", { serverId, starredArtists })),
 	/**  Resolve cover disk + fetch ids from the local library (`album` | `artist` | `track`). */
 	libraryResolveCoverEntry: (serverId: string, entity: string, entityId: string) => typedError<{
 	cacheKind: string,
@@ -163,7 +165,7 @@ export const commands = {
 	autoeqEntries: () => typedError<string, string>(__TAURI_INVOKE("autoeq_entries")),
 	/**  Fetches the AutoEQ FixedBandEQ profile for a specific headphone from GitHub raw content. */
 	autoeqFetchProfile: (name: string, source: string, rig: string | null, form: string) => typedError<string, string>(__TAURI_INVOKE("autoeq_fetch_profile", { name, source, rig, form })),
-	audioPreload: (url: string, durationHint: number | null, analysisTrackId: string | null, serverId: string | null, eager: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_preload", { url, durationHint, analysisTrackId, serverId, eager })),
+	audioPreload: (url: string, durationHint: number | null, analysisTrackId: string | null, serverId: string | null, localOriginalVerified: boolean | null, eager: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_preload", { url, durationHint, analysisTrackId, serverId, localOriginalVerified, eager })),
 	/**
 	 *  Drop byte and gapless successor preloads after their URL-affecting inputs
 	 *  change. The main playback generation and currently audible source stay live.
@@ -461,6 +463,14 @@ export const commands = {
 	 *  `cover_cache_clear_server`, Navidrome tiers survive.
 	 */
 	coverCachePurgeExternal: (serverIndexKey: string) => typedError<null, string>(__TAURI_INVOKE("cover_cache_purge_external", { serverIndexKey })),
+	/**
+	 *  Drop the album covers the external chain (Apple Music / Last.fm) wrote, so
+	 *  those albums load the server's art again. Fired when the user switches a
+	 *  source off: `sources` names the switched-off ones (`None` = every chain
+	 *  cover). Works across all server buckets and takes each album's flight lock
+	 *  before removing it, so no ensure is mid-write. Returns the number removed.
+	 */
+	coverCachePurgeExternalAlbumArt: (sources: string[] | null) => typedError<number, string>(__TAURI_INVOKE("cover_cache_purge_external_album_art", { sources })),
 	/**
 	 *  Rename a server's cover-cache bucket on disk after the user edits the
 	 *  primary URL (and the derived index key changes). Used by the URL-change
@@ -2126,6 +2136,11 @@ export type StarredAlbumReconcileItem = {
 	starredAt: number,
 };
 
+export type StarredArtistReconcileItem = {
+	id: string,
+	starredAt: number,
+};
+
 /**  Summary returned by `sync_batch_to_device` after all tracks are processed. */
 export type SyncBatchResult = {
 	done: number,
@@ -2245,6 +2260,11 @@ export type TrackSyncInfo = {
 	/**  Stable source identity used to disambiguate playlists with the same display name. */
 	playlistId?: string | null,
 	playlistIndex?: number | null,
+	/**
+	 *  Flat layout: the track goes straight into the device root, whatever
+	 *  source it came from (see `build_track_path`).
+	 */
+	flatLayout?: boolean,
 };
 
 export type WaveformCachePayload = {

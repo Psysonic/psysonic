@@ -272,6 +272,7 @@ export interface LibraryArtistDto {
   name: string;
   nameSort?: string | null;
   albumCount?: number | null;
+  starredAt?: number | null;
   syncedAt: number;
   rawJson: unknown;
 }

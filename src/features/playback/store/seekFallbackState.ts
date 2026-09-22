@@ -2,6 +2,30 @@ import { audioSeek } from '@/lib/api/audio';
 import { isRecoverableSeekError } from '@/features/playback/utils/audio/seekErrors';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { setSeekTarget } from '@/features/playback/store/seekTargetState';
+import { emitPlaybackSeek } from '@/features/playback/store/playbackProgress';
+import {
+  _resetSeekRequestStateForTest,
+  beginSeekRequest as beginSeekRequestState,
+  completeSeekRequest,
+  getSeekFallbackRestartAt,
+  getSeekFallbackTrackId,
+  getSeekRequestRollback,
+  isSeekRequestCurrent,
+  preserveSeekRequestAcrossNextPlaybackReset,
+  resetSeekRequestForPlaybackChange,
+  setSeekFallbackRestartAt,
+  setSeekFallbackTrackId,
+} from '@/features/playback/store/seekRequestState';
+
+export {
+  completeSeekRequest,
+  getSeekFallbackRestartAt,
+  getSeekFallbackTrackId,
+  isSeekRequestCurrent,
+  preserveSeekRequestAcrossNextPlaybackReset,
+  setSeekFallbackRestartAt,
+  setSeekFallbackTrackId,
+};
 
 /**
  * Streaming-fallback seek recovery + visual coverup.
@@ -28,10 +52,56 @@ export const SEEK_FALLBACK_RETRY_MAX_MS = 6000;
 
 let seekFallbackRetryTimer: ReturnType<typeof setTimeout> | null = null;
 let seekFallbackRetryStartedAt = 0;
-let seekFallbackRetryTarget: { trackId: string; seconds: number } | null = null;
-let seekFallbackTrackId: string | null = null;
-let seekFallbackRestartAt = 0;
-let seekFallbackVisualTarget: { trackId: string; seconds: number; setAtMs: number } | null = null;
+let seekFallbackRetryTarget: {
+  trackId: string;
+  seconds: number;
+  requestGeneration: number;
+} | null = null;
+let seekFallbackVisualTarget: {
+  trackId: string;
+  seconds: number;
+  setAtMs: number;
+  requestGeneration?: number;
+} | null = null;
+
+export function beginSeekRequest(
+  trackId: string,
+  rollbackTime: number,
+  rollbackProgress: number,
+): number {
+  const generation = beginSeekRequestState(trackId, rollbackTime, rollbackProgress);
+  clearSeekFallbackRetry();
+  seekFallbackVisualTarget = null;
+  return generation;
+}
+
+export function rollbackSeekRequest(
+  generation: number,
+  trackId: string,
+  failedTarget: number,
+): void {
+  const rollback = getSeekRequestRollback(generation, trackId);
+  if (!rollback) return;
+  const state = usePlayerStore.getState();
+  if (
+    !state.isPlaying
+    && state.currentTrack?.id === trackId
+    && Math.abs(state.currentTime - failedTarget) < 0.25
+  ) {
+    usePlayerStore.setState({
+      currentTime: rollback.time,
+      progress: rollback.progress,
+    });
+    emitPlaybackSeek(rollback.time);
+  }
+  completeSeekRequest(generation, trackId);
+}
+
+export function resetSeekStateForPlaybackChange(): void {
+  if (!resetSeekRequestForPlaybackChange()) return;
+  clearSeekFallbackRetry();
+  seekFallbackVisualTarget = null;
+}
 
 export function clearSeekFallbackRetry(): void {
   if (seekFallbackRetryTimer) {
@@ -42,16 +112,21 @@ export function clearSeekFallbackRetry(): void {
   seekFallbackRetryTarget = null;
 }
 
-export function scheduleSeekFallbackRetry(trackId: string, seconds: number): void {
+export function scheduleSeekFallbackRetry(
+  trackId: string,
+  seconds: number,
+  requestGeneration = 0,
+): void {
   const now = Date.now();
   if (
     !seekFallbackRetryTarget
     || seekFallbackRetryTarget.trackId !== trackId
     || Math.abs(seekFallbackRetryTarget.seconds - seconds) > 0.25
+    || seekFallbackRetryTarget.requestGeneration !== requestGeneration
   ) {
     clearSeekFallbackRetry();
     seekFallbackRetryStartedAt = now;
-    seekFallbackRetryTarget = { trackId, seconds };
+    seekFallbackRetryTarget = { trackId, seconds, requestGeneration };
   } else if (seekFallbackRetryStartedAt === 0) {
     seekFallbackRetryStartedAt = now;
   }
@@ -60,6 +135,12 @@ export function scheduleSeekFallbackRetry(trackId: string, seconds: number): voi
     seekFallbackRetryTimer = null;
     const target = seekFallbackRetryTarget;
     const s = usePlayerStore.getState();
+    if (
+      target?.requestGeneration
+      && !isSeekRequestCurrent(target.requestGeneration, target.trackId)
+    ) {
+      return;
+    }
     if (!target || !s.currentTrack || s.currentTrack.id !== target.trackId) {
       clearSeekFallbackRetry();
       return;
@@ -67,21 +148,38 @@ export function scheduleSeekFallbackRetry(trackId: string, seconds: number): voi
     if (Date.now() - seekFallbackRetryStartedAt > SEEK_FALLBACK_RETRY_MAX_MS) {
       clearSeekFallbackRetry();
       seekFallbackVisualTarget = null;
+      if (target.requestGeneration) {
+        rollbackSeekRequest(target.requestGeneration, target.trackId, target.seconds);
+      }
       return;
     }
     audioSeek({ seconds: target.seconds }).then(() => {
+      if (
+        target.requestGeneration
+        && !isSeekRequestCurrent(target.requestGeneration, target.trackId)
+      ) return;
       setSeekTarget(target.seconds);
       seekFallbackVisualTarget = null;
       clearSeekFallbackRetry();
+      if (target.requestGeneration) {
+        completeSeekRequest(target.requestGeneration, target.trackId);
+      }
     }).catch((err: unknown) => {
+      if (
+        target.requestGeneration
+        && !isSeekRequestCurrent(target.requestGeneration, target.trackId)
+      ) return;
       const msg = String(err ?? '');
       if (!isRecoverableSeekError(msg)) {
         console.error(err);
         seekFallbackVisualTarget = null;
         clearSeekFallbackRetry();
+        if (target.requestGeneration) {
+          rollbackSeekRequest(target.requestGeneration, target.trackId, target.seconds);
+        }
         return;
       }
-      scheduleSeekFallbackRetry(target.trackId, target.seconds);
+      scheduleSeekFallbackRetry(target.trackId, target.seconds, target.requestGeneration);
     });
   }, SEEK_FALLBACK_RETRY_INTERVAL_MS);
 }
@@ -90,30 +188,24 @@ export type SeekFallbackVisualTarget = {
   trackId: string;
   seconds: number;
   setAtMs: number;
+  requestGeneration?: number;
 };
 
 export function getSeekFallbackVisualTarget(): SeekFallbackVisualTarget | null {
+  if (
+    seekFallbackVisualTarget?.requestGeneration
+    && !isSeekRequestCurrent(
+      seekFallbackVisualTarget.requestGeneration,
+      seekFallbackVisualTarget.trackId,
+    )
+  ) {
+    seekFallbackVisualTarget = null;
+  }
   return seekFallbackVisualTarget;
 }
 
 export function setSeekFallbackVisualTarget(target: SeekFallbackVisualTarget | null): void {
   seekFallbackVisualTarget = target;
-}
-
-export function getSeekFallbackTrackId(): string | null {
-  return seekFallbackTrackId;
-}
-
-export function setSeekFallbackTrackId(id: string | null): void {
-  seekFallbackTrackId = id;
-}
-
-export function getSeekFallbackRestartAt(): number {
-  return seekFallbackRestartAt;
-}
-
-export function setSeekFallbackRestartAt(t: number): void {
-  seekFallbackRestartAt = t;
 }
 
 /** Test-only: reset every mutable to its initial value. */
@@ -122,7 +214,6 @@ export function _resetSeekFallbackStateForTest(): void {
   seekFallbackRetryTimer = null;
   seekFallbackRetryStartedAt = 0;
   seekFallbackRetryTarget = null;
-  seekFallbackTrackId = null;
-  seekFallbackRestartAt = 0;
   seekFallbackVisualTarget = null;
+  _resetSeekRequestStateForTest();
 }

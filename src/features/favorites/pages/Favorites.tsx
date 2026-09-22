@@ -10,7 +10,7 @@ import { useFavoritesSongFiltering } from '@/features/favorites/hooks/useFavorit
 import { useFavoritesSelection } from '@/features/favorites/hooks/useFavoritesSelection';
 import { useBulkPlPickerOutsideClick } from '@/features/playlist/hooks/useBulkPlPickerOutsideClick';
 import { AlbumRow } from '@/features/album';
-import { ArtistRow } from '@/features/artist';
+import { ArtistRow, openFavoriteArtists } from '@/features/artist';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useTranslation } from 'react-i18next';
 import { useSelectionStore } from '@/store/selectionStore';
@@ -29,9 +29,17 @@ import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { sameRadioStation } from '@/features/radio';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
+import { useAuthStore } from '@/store/authStore';
+import { useIsMobile } from '@/lib/hooks/useIsMobile';
+import { useFavoritesLayoutStore, type FavoritesSectionId } from '@/features/favorites/store/favoritesLayoutStore';
+import { useScopedBrowseSearchQuery } from '@/store/liveSearchScopeStore';
+import { matchesFavoritesSearch, normalizeFavoritesSearchQuery } from '@/features/favorites/utils/favoritesSearch';
+import { ChevronDown } from 'lucide-react';
+
+const FAV_NUM_COLUMN: ColDef = { key: 'num', i18nKey: 'trackRowNumber', minWidth: 60, defaultWidth: 60, required: false };
 
 const FAV_COLUMNS: readonly ColDef[] = [
-  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true  },
+  FAV_NUM_COLUMN,
   { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_FLEX_COL, required: true },
   { key: 'artist',     i18nKey: 'trackArtist',     minWidth: 80,  defaultWidth: 180, required: false },
   { key: 'album',      i18nKey: 'trackAlbum',      minWidth: 80,  defaultWidth: 180, required: false },
@@ -47,6 +55,7 @@ const FAV_COLUMNS: readonly ColDef[] = [
 
 const CURRENT_YEAR = new Date().getFullYear();
 const MIN_YEAR = 1950;
+type CollapsibleFavoritesSectionId = Exclude<FavoritesSectionId, 'songs'>;
 
 export default function Favorites() {
   const { t } = useTranslation();
@@ -61,6 +70,43 @@ export default function Favorites() {
     albums, artists, songs, setSongs, radioStations,
     loading, topFavoriteArtists, unfavoriteStation,
   } = useFavoritesData();
+  const favoritesSearchQuery = useScopedBrowseSearchQuery('favorites');
+  const favoritesSearchNeedle = useMemo(
+    () => normalizeFavoritesSearchQuery(favoritesSearchQuery),
+    [favoritesSearchQuery],
+  );
+  const favoritesSearchActive = favoritesSearchNeedle.length > 0;
+  const [expandedSearchSection, setExpandedSearchSection] = useState<CollapsibleFavoritesSectionId | null>(null);
+
+  useEffect(() => {
+    if (favoritesSearchActive) return;
+    // A fresh query starts a fresh auto-collapse session.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setExpandedSearchSection(current => current == null ? current : null);
+  }, [favoritesSearchActive]);
+
+  const searchedAlbums = useMemo(
+    () => albums.filter(album => matchesFavoritesSearch(
+      favoritesSearchNeedle,
+      album.name,
+      album.artist,
+      album.genre,
+      album.year,
+    )),
+    [albums, favoritesSearchNeedle],
+  );
+  const searchedArtists = useMemo(
+    () => artists.filter(artist => matchesFavoritesSearch(favoritesSearchNeedle, artist.name)),
+    [artists, favoritesSearchNeedle],
+  );
+  const searchedRadioStations = useMemo(
+    () => radioStations.filter(station => matchesFavoritesSearch(favoritesSearchNeedle, station.name)),
+    [radioStations, favoritesSearchNeedle],
+  );
+  const searchedTopFavoriteArtists = useMemo(
+    () => topFavoriteArtists.filter(artist => matchesFavoritesSearch(favoritesSearchNeedle, artist.name)),
+    [topFavoriteArtists, favoritesSearchNeedle],
+  );
 
   // ── Sorting (3-state: asc → desc → reset) ────────────────────────────────
   const [sortKey, setSortKey] = useState<string>('natural');
@@ -83,9 +129,19 @@ export default function Favorites() {
     startResize, startFlexColumnResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
   } = useTracklistColumns(FAV_COLUMNS, 'psysonic_favorites_columns');
+  const isMobile = useIsMobile();
+  // The compact (<800px) tracklist grid places cells by position and expects
+  // the number cell first; without it the title would land in the narrow slot.
+  const tracklistCols = useMemo(
+    () => (isMobile && !colVisible.has('num') ? [FAV_NUM_COLUMN, ...visibleCols] : visibleCols),
+    [isMobile, colVisible, visibleCols],
+  );
+  const sectionConfig = useFavoritesLayoutStore(s => s.sections);
+  const activeServerId = useAuthStore(s => s.activeServerId);
   const resolvedBpmSongs = useResolvedTracklistBpm(
     songs,
     colVisible.has('bpm') || sortKey === 'bpm',
+    activeServerId ?? undefined,
   );
 
   const [ratings, setRatings] = useState<Record<string, number>>({});
@@ -120,7 +176,7 @@ export default function Favorites() {
   const { visibleSongs, handleSortClick, getSortIndicator } = useFavoritesSongFiltering({
     songs: resolvedBpmSongs,
     sortKey, setSortKey, sortDir, setSortDir, sortClickCount, setSortClickCount,
-    selectedArtist, selectedGenres, yearRange, ratings,
+    selectedArtist, selectedGenres, yearRange, ratings, searchQuery: favoritesSearchQuery,
   });
 
   const selectedArtistName = useMemo(
@@ -187,6 +243,158 @@ export default function Favorites() {
   }
   // Check if user has any favorites (using original unfiltered lists)
   const hasAnyFavorites = albums.length > 0 || artists.length > 0 || songs.length > 0 || radioStations.length > 0;
+  const hasSongFilters = !!(
+    favoritesSearchActive
+    || selectedArtist
+    || selectedGenres.length > 0
+    || yearRange[0] !== MIN_YEAR
+    || yearRange[1] !== CURRENT_YEAR
+  );
+
+  const isSearchSectionCollapsed = (id: CollapsibleFavoritesSectionId) => (
+    favoritesSearchActive && expandedSearchSection !== id
+  );
+  const selectSearchSection = (id: CollapsibleFavoritesSectionId) => {
+    setExpandedSearchSection(current => current === id ? null : id);
+  };
+  const sectionHasData = (id: FavoritesSectionId): boolean => {
+    if (favoritesSearchActive) return true;
+    switch (id) {
+      case 'artists':    return artists.length > 0;
+      case 'albums':     return albums.length > 0;
+      case 'stations':   return radioStations.length > 0;
+      case 'topArtists': return topFavoriteArtists.length >= 2;
+      // Stays up while a filter empties the list, so the filter can be cleared.
+      case 'songs':      return visibleSongs.length > 0 || hasSongFilters;
+    }
+  };
+  // Order and visibility come from Settings → Personalisation.
+  const renderableSectionIds = sectionConfig
+    .filter(s => s.visible)
+    .map(s => s.id)
+    .filter(sectionHasData);
+  type SearchSectionSummary = {
+    id: CollapsibleFavoritesSectionId;
+    label: string;
+    count: number;
+  };
+  const allSearchSectionSummaries: SearchSectionSummary[] = [
+    { id: 'artists', label: t('favorites.artists'), count: searchedArtists.length },
+    { id: 'albums', label: t('favorites.albums'), count: searchedAlbums.length },
+    { id: 'stations', label: t('favorites.stations'), count: searchedRadioStations.length },
+    { id: 'topArtists', label: t('favorites.topArtists'), count: searchedTopFavoriteArtists.length },
+  ];
+  const searchSectionSummaries = allSearchSectionSummaries
+    .filter(section => renderableSectionIds.includes(section.id));
+
+  const renderSection = (sectionId: FavoritesSectionId, compactSearchRail = false) => {
+    switch (sectionId) {
+      case 'artists': return (
+        <ArtistRow
+          key="artists"
+          title={t('favorites.artists')}
+          onTitleClick={compactSearchRail ? undefined : () => openFavoriteArtists(navigate)}
+          artists={searchedArtists}
+          hideTitle={compactSearchRail}
+        />
+      );
+
+      case 'albums': return (
+        <AlbumRow
+          key="albums"
+          title={t('favorites.albums')}
+          onTitleClick={compactSearchRail ? undefined : () => openFavoriteAlbums(navigate)}
+          albums={searchedAlbums}
+          hideTitle={compactSearchRail}
+        />
+      );
+
+      case 'stations': return (
+        <RadioStationRow
+          key="stations"
+          title={t('favorites.stations')}
+          stations={searchedRadioStations}
+          currentRadio={currentRadio}
+          isPlaying={isPlaying}
+          hideTitle={compactSearchRail}
+          onPlay={s => {
+            if (sameRadioStation(currentRadio, s) && isPlaying) stop();
+            else playRadio(s);
+          }}
+          onUnfavorite={unfavoriteStation}
+        />
+      );
+
+      case 'topArtists': return (
+        <TopFavoriteArtistsRow
+          key="topArtists"
+          title={t('favorites.topArtists')}
+          artists={searchedTopFavoriteArtists}
+          selectedKey={selectedArtist}
+          onToggle={key => setSelectedArtist(prev => prev === key ? null : key)}
+          hideTitle={compactSearchRail}
+        />
+      );
+
+      case 'songs': return (
+        <section key="songs" className="album-row-section">
+          <FavoritesSongsSectionHeader
+            visibleSongs={visibleSongs}
+            songs={songs}
+            titleCount={favoritesSearchActive ? visibleSongs.length : undefined}
+            selectedArtist={selectedArtist}
+            selectedArtistName={selectedArtistName}
+            setSelectedArtist={setSelectedArtist}
+            selectedGenres={selectedGenres}
+            setSelectedGenres={setSelectedGenres}
+            yearRange={yearRange}
+            setYearRange={setYearRange}
+            showFilters={showFilters}
+            setShowFilters={setShowFilters}
+            setSortKey={setSortKey}
+            setSortClickCount={setSortClickCount}
+            playTrack={playTrack}
+            enqueue={enqueue}
+            starredOverrides={starredOverrides}
+            minYear={MIN_YEAR}
+            currentYear={CURRENT_YEAR}
+            inSelectMode={inSelectMode}
+            selectedCount={selectedCount}
+            selectedIds={selectedIds}
+            showPlPicker={showPlPicker}
+            setShowPlPicker={setShowPlPicker}
+            ratings={ratings}
+            onRate={handleRate}
+          />
+          <FavoritesSongsTracklist
+            visibleSongs={visibleSongs}
+            selectedIds={selectedIds}
+            selectedCount={selectedCount}
+            inSelectMode={inSelectMode}
+            toggleSelect={toggleSelect}
+            allColumns={FAV_COLUMNS}
+            visibleCols={tracklistCols}
+            gridStyle={gridStyle}
+            colVisible={colVisible}
+            toggleColumn={toggleColumn}
+            resetColumns={resetColumns}
+            pickerOpen={pickerOpen}
+            setPickerOpen={setPickerOpen}
+            pickerRef={pickerRef}
+            tracklistRef={tracklistRef}
+            startResize={startResize}
+            startFlexColumnResize={startFlexColumnResize}
+            handleSortClick={handleSortClick}
+            getSortIndicator={getSortIndicator}
+            ratings={ratings}
+            handleRate={handleRate}
+            removeSong={removeSong}
+            hasFilters={hasSongFilters}
+          />
+        </section>
+      );
+    }
+  };
 
   return (
     <div className="content-body animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '3rem' }}>
@@ -210,104 +418,66 @@ export default function Favorites() {
         <div className="empty-state">{t('favorites.empty')}</div>
       ) : (
         <>
-          {/* The albums heading opens All Albums with its favourites filter on
-              (#1556). A row of six is fine as a glance; for hundreds of
-              favourites the grid there is the place to browse, with its
-              sorting, filters and paging.
+          {favoritesSearchActive ? (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div
+                  role="group"
+                  aria-label={t('search.scopeFavoritesPlaceholder')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    flexWrap: 'nowrap',
+                    overflowX: 'auto',
+                  }}
+                >
+                  {searchSectionSummaries.map(({ id, label, count }) => {
+                    const expanded = count > 0 && !isSearchSectionCollapsed(id);
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        className={`btn ${expanded ? 'btn-primary' : 'btn-surface'}`}
+                        onClick={() => selectSearchSection(id)}
+                        disabled={count === 0}
+                        aria-expanded={count > 0 ? expanded : undefined}
+                        aria-label={`${label} (${count})`}
+                        style={{
+                          flex: '0 0 auto',
+                          padding: '0.35rem 0.6rem',
+                          gap: '0.3rem',
+                          fontSize: '0.78rem',
+                        }}
+                      >
+                        <span>{label}</span>
+                        <span style={{ color: 'var(--text-muted)' }}>({count})</span>
+                        {count > 0 && (
+                          <ChevronDown
+                            size={14}
+                            aria-hidden
+                            style={{
+                              transform: expanded ? undefined : 'rotate(-90deg)',
+                              transition: 'transform 0.2s ease',
+                            }}
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
 
-              The artists row has no such link yet: the artists page cannot
-              filter by favourites at all (#1582), so it would lead to an empty
-              list. It follows once that is fixed. */}
-          {artists.length > 0 && (
-            <ArtistRow title={t('favorites.artists')} artists={artists} />
-          )}
+                {searchSectionSummaries.map(({ id, count }) => (
+                  count > 0 && !isSearchSectionCollapsed(id)
+                    ? renderSection(id, true)
+                    : null
+                ))}
+              </div>
 
-          {albums.length > 0 && (
-            <AlbumRow
-              title={t('favorites.albums')}
-              onTitleClick={() => openFavoriteAlbums(navigate)}
-              albums={albums}
-            />
-          )}
-
-          {radioStations.length > 0 && (
-            <RadioStationRow
-              title={t('favorites.stations')}
-              stations={radioStations}
-              currentRadio={currentRadio}
-              isPlaying={isPlaying}
-              onPlay={s => {
-                if (sameRadioStation(currentRadio, s) && isPlaying) stop();
-                else playRadio(s);
-              }}
-              onUnfavorite={unfavoriteStation}
-            />
-          )}
-
-          {topFavoriteArtists.length >= 2 && (
-            <TopFavoriteArtistsRow
-              title={t('favorites.topArtists')}
-              artists={topFavoriteArtists}
-              selectedKey={selectedArtist}
-              onToggle={key => setSelectedArtist(prev => prev === key ? null : key)}
-            />
-          )}
-
-          {(visibleSongs.length > 0 || selectedArtist || selectedGenres.length > 0 || yearRange[0] !== MIN_YEAR || yearRange[1] !== CURRENT_YEAR) && (
-            <section className="album-row-section">
-              <FavoritesSongsSectionHeader
-                visibleSongs={visibleSongs}
-                songs={songs}
-                selectedArtist={selectedArtist}
-                selectedArtistName={selectedArtistName}
-                setSelectedArtist={setSelectedArtist}
-                selectedGenres={selectedGenres}
-                setSelectedGenres={setSelectedGenres}
-                yearRange={yearRange}
-                setYearRange={setYearRange}
-                showFilters={showFilters}
-                setShowFilters={setShowFilters}
-                setSortKey={setSortKey}
-                setSortClickCount={setSortClickCount}
-                playTrack={playTrack}
-                enqueue={enqueue}
-                starredOverrides={starredOverrides}
-                minYear={MIN_YEAR}
-                currentYear={CURRENT_YEAR}
-                inSelectMode={inSelectMode}
-                selectedCount={selectedCount}
-                selectedIds={selectedIds}
-                showPlPicker={showPlPicker}
-                setShowPlPicker={setShowPlPicker}
-                ratings={ratings}
-                onRate={handleRate}
-              />
-              <FavoritesSongsTracklist
-                visibleSongs={visibleSongs}
-                selectedIds={selectedIds}
-                selectedCount={selectedCount}
-                inSelectMode={inSelectMode}
-                toggleSelect={toggleSelect}
-                allColumns={FAV_COLUMNS}
-                visibleCols={visibleCols}
-                gridStyle={gridStyle}
-                colVisible={colVisible}
-                toggleColumn={toggleColumn}
-                resetColumns={resetColumns}
-                pickerOpen={pickerOpen}
-                setPickerOpen={setPickerOpen}
-                pickerRef={pickerRef}
-                tracklistRef={tracklistRef}
-                startResize={startResize}
-                startFlexColumnResize={startFlexColumnResize}
-                handleSortClick={handleSortClick}
-                getSortIndicator={getSortIndicator}
-                ratings={ratings}
-                handleRate={handleRate}
-                removeSong={removeSong}
-                hasFilters={!!(selectedArtist || selectedGenres.length > 0 || yearRange[0] !== MIN_YEAR || yearRange[1] !== CURRENT_YEAR)}
-              />
-            </section>
+              {renderableSectionIds.includes('songs') ? renderSection('songs') : null}
+            </>
+          ) : (
+            renderableSectionIds.map(sectionId => renderSection(sectionId))
           )}
         </>
       )}

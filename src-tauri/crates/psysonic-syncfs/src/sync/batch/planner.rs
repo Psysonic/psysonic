@@ -3,13 +3,13 @@ use std::path::Path;
 
 use super::payload::{device_sync_source_key, playlist_collision_source_keys};
 use super::{
-    estimate_track_size_bytes, inject_playlist_context, track_sync_info_from_subsonic_json,
-    DeviceSyncLayoutMode, DeviceSyncManifestFile, DeviceSyncManifestPlaylist,
-    DeviceSyncPlannedPlaylist, DeviceSyncPlaylistPathMode, DeviceSyncSourcePayload,
-    SyncDeltaResult,
+    estimate_track_size_bytes, inject_flat_layout, inject_playlist_context,
+    track_sync_info_from_subsonic_json, DeviceSyncLayoutMode, DeviceSyncManifestFile,
+    DeviceSyncManifestPlaylist, DeviceSyncPlannedPlaylist, DeviceSyncPlaylistPathMode,
+    DeviceSyncSourcePayload, SyncDeltaResult,
 };
 use crate::sync::device::{
-    build_track_path, planned_path_stays_within, playlist_directory_name, read_device_manifest,
+    build_track_path, planned_path_stays_within, playlist_file_relative_path, read_device_manifest,
     resolve_within_root,
 };
 
@@ -60,13 +60,12 @@ fn portable_track_path(track: &crate::sync::device::TrackSyncInfo) -> String {
     format!("{}.{}", build_track_path(track), track.suffix).replace('\\', "/")
 }
 
-fn playlist_manifest_path(name: &str, path_id: Option<&str>) -> String {
-    let directory = playlist_directory_name(name, path_id);
-    format!("Playlists/{directory}/{directory}.m3u8")
-}
-
-fn playlist_reference(relative_path: &str, mode: DeviceSyncPlaylistPathMode) -> String {
+/// How a shared-track playlist points at its track. The `.m3u8` sits two
+/// folders deep (`Playlists/{name}/`), or in the root next to the tracks for
+/// the flat layout.
+fn playlist_reference(relative_path: &str, mode: DeviceSyncPlaylistPathMode, flat: bool) -> String {
     match mode {
+        DeviceSyncPlaylistPathMode::PlaylistRelative if flat => relative_path.to_string(),
         DeviceSyncPlaylistPathMode::PlaylistRelative => format!("../../{relative_path}"),
         DeviceSyncPlaylistPathMode::DeviceRooted => format!("/{relative_path}"),
     }
@@ -90,19 +89,21 @@ fn add_file(
     files: &mut BTreeMap<String, DesiredFile>,
     paths: &mut HashMap<String, String>,
     input: DesiredFileInput<'_>,
+    flat: bool,
 ) -> Result<String, String> {
     if let Some(existing) = files.get_mut(&input.key) {
         existing.source_keys.insert(input.source_key.to_string());
         return Ok(existing.relative_path.clone());
     }
 
-    let sync_info = track_sync_info_from_subsonic_json(
+    let mut sync_info = track_sync_info_from_subsonic_json(
         input.track,
         input.track_id,
         input.playlist_name,
         input.playlist_id,
         input.playlist_index,
     );
+    sync_info.flat_layout = flat;
     let relative_path = portable_track_path(&sync_info);
     let path_identity = portable_path_identity(&relative_path);
     if let Some(existing_key) = paths.get(&path_identity) {
@@ -142,6 +143,7 @@ fn build_desired_state(
         .map(|entry| entry.source.clone())
         .collect::<Vec<_>>();
     let collision_sources = playlist_collision_source_keys(&included_sources);
+    let flat = layout_mode == DeviceSyncLayoutMode::Flat;
     let mut files = BTreeMap::new();
     let mut paths = HashMap::new();
 
@@ -168,6 +170,7 @@ fn build_desired_state(
                     playlist_id: None,
                     playlist_index: None,
                 },
+                flat,
             )?;
         }
     }
@@ -185,7 +188,7 @@ fn build_desired_state(
                 .contains(&source_key)
                 .then_some(entry.source.id.as_str())
         });
-        let relative_playlist_path = playlist_manifest_path(playlist_name, playlist_id);
+        let relative_playlist_path = playlist_file_relative_path(playlist_name, playlist_id, flat);
         let mut playlist_tracks = Vec::with_capacity(entry.tracks.len());
         let mut references = Vec::with_capacity(entry.tracks.len());
 
@@ -219,6 +222,7 @@ fn build_desired_state(
                     playlist_id: path_id,
                     playlist_index: path_index,
                 },
+                flat,
             )?;
             let reference = if layout_mode == DeviceSyncLayoutMode::SelfContained {
                 relative_track_path
@@ -227,7 +231,7 @@ fn build_desired_state(
                     .unwrap_or(&relative_track_path)
                     .to_string()
             } else {
-                playlist_reference(&relative_track_path, playlist_path_mode)
+                playlist_reference(&relative_track_path, playlist_path_mode, flat)
             };
             playlist_tracks.push(track.clone());
             references.push(reference);
@@ -524,6 +528,9 @@ pub(super) fn build_sync_plan_with_resume(
             file.playlist_id.as_deref(),
             file.playlist_index,
         );
+        if layout_mode == DeviceSyncLayoutMode::Flat {
+            inject_flat_layout(&mut track);
+        }
         add_bytes = add_bytes.saturating_add(file.size_bytes);
         tracks.push(track);
     }

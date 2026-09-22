@@ -7,6 +7,10 @@ use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn registry_for(endpoint: &str) -> ServerHttpRegistry {
+    registry_for_capability(endpoint, true)
+}
+
+fn registry_for_capability(endpoint: &str, supports_raw_stream: bool) -> ServerHttpRegistry {
     let registry = ServerHttpRegistry::new();
     registry.sync(ServerHttpContextSyncWire {
         server_id: "server-key".into(),
@@ -20,9 +24,45 @@ fn registry_for(endpoint: &str) -> ServerHttpRegistry {
             value: "token".into(),
         }],
         custom_headers_apply_to: Some(CustomHeadersApplyTo::Public),
-        supports_raw_stream: true,
+        supports_raw_stream,
     });
     registry
+}
+
+#[tokio::test]
+async fn full_non_navidrome_fetch_uses_the_same_standard_download_transport() {
+    let server = MockServer::start().await;
+    let original = prefix(24 * 1024);
+    let trusted = crate::analysis_cache::md5_first_16kb(&original);
+    Mock::given(method("GET"))
+        .and(path("/rest/download.view"))
+        .and(query_param("id", "t1"))
+        .and(header("X-Gate", "token"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(original.clone()))
+        .mount(&server)
+        .await;
+    let registry = registry_for_capability(&server.uri(), false);
+    let url = format!(
+        "{}/rest/stream.view?id=t1&format=mp3&maxBitRate=128",
+        server.uri()
+    );
+
+    let fetched = fetch_trusted_original_bytes(
+        &reqwest::Client::new(),
+        Some(&registry),
+        Some("server-key"),
+        &url,
+        &trusted,
+        original.len(),
+    )
+    .await;
+
+    assert_eq!(fetched.as_deref(), Some(original.as_slice()));
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 1);
+    let query = requests[0].url.query().unwrap_or_default();
+    assert!(!query.contains("format="));
+    assert!(!query.contains("maxBitRate="));
 }
 
 fn prefix(len: usize) -> Vec<u8> {

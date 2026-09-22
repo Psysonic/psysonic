@@ -122,6 +122,19 @@ export async function libraryReconcileAlbumStars(args: {
   if (res.status === 'error') throw new Error(res.error);
 }
 
+/** Server favorites -> `artist.starred_at` (UPDATE only, no stub rows). */
+export async function libraryReconcileArtistStars(args: {
+  serverId: string;
+  starredArtists: Array<{ id: string; starredAt: number }>;
+}): Promise<void> {
+  const indexKey = serverIndexKeyForId(args.serverId);
+  const res = await commands.libraryReconcileArtistStars(
+    indexKey,
+    args.starredArtists.map(artist => ({ id: artist.id, starredAt: artist.starredAt })),
+  );
+  if (res.status === 'error') throw new Error(res.error);
+}
+
 export async function libraryPutArtifact(args: {
   serverId: string;
   trackId: string;

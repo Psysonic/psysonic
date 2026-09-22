@@ -1,5 +1,5 @@
 import type { SubsonicArtist } from '@/lib/api/subsonicTypes';
-import React, { useRef, useEffect, useLayoutEffect } from 'react';
+import { useRef, useEffect, useLayoutEffect } from 'react';
 import ArtistCardLocal from '@/features/artist/components/ArtistCardLocal';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router';
@@ -7,6 +7,8 @@ import { useRailScroll } from '@/lib/hooks/useRailScroll';
 
 interface Props {
   title: string;
+  /** Turns the heading into a button, as on `AlbumRow`. */
+  onTitleClick?: () => void;
   artists: SubsonicArtist[];
   moreLink?: string;
   moreText?: string;
@@ -17,12 +19,14 @@ interface Props {
   restoreScrollLeft?: number;
   /** Parent stashes horizontal scroll when leaving the page. */
   onScrollLeftSnapshot?: (scrollLeft: number) => void;
+  /** Hide the title when an external compact control labels this rail. */
+  hideTitle?: boolean;
 }
 
 export default function ArtistRow({
-  title, artists, moreLink, moreText, artistLinkQuery, libraryResolve = false,
+  title, onTitleClick, artists, moreLink, moreText, artistLinkQuery, libraryResolve = false,
   restoreScrollLeft,
-  onScrollLeftSnapshot,
+  onScrollLeftSnapshot, hideTitle = false,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -96,8 +100,19 @@ export default function ArtistRow({
   return (
     <section className="album-row-section">
       <div className="album-row-header">
-        <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
-        <div className="album-row-nav">
+        {!hideTitle && (onTitleClick ? (
+          <button
+            type="button"
+            className="section-title-link"
+            style={{ marginBottom: 0 }}
+            onClick={onTitleClick}
+          >
+            {title}<ChevronRight size={18} className="section-title-chevron" />
+          </button>
+        ) : (
+          <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
+        ))}
+        <div className="album-row-nav" style={hideTitle ? { marginLeft: 'auto' } : undefined}>
           <button className={`nav-btn ${!showLeft ? 'disabled' : ''}`} onClick={() => scrollByPage('left')} disabled={!showLeft}>
             <ChevronLeft size={20} />
           </button>

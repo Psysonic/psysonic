@@ -40,6 +40,7 @@ export const albumDetail = {
   trackPlayCount: 'Redări',
   trackLastPlayed: 'Ultima redare',
   trackBpm: 'BPM',
+  trackRowNumber: 'Număr rând (#)',
   trackFormat: 'Format',
   trackYear: 'An',
   trackFavorite: 'Favorit',

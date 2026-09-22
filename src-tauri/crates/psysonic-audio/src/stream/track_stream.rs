@@ -364,6 +364,7 @@ pub(crate) async fn track_download_task(
                 Some(PreloadedTrack {
                     url: url.clone(),
                     data: capture,
+                    local_original_verified: None,
                 }),
                 analysis_capture,
             )
@@ -448,6 +449,7 @@ mod tests {
             Some(PreloadedTrack {
                 url: "https://example.test/stream".to_string(),
                 data: body.clone(),
+                local_original_verified: None,
             }),
             &completed,
             &download_control,

@@ -34,6 +34,15 @@ describe('playlistPathId', () => {
     expect(info.playlistId).toBe('playlist');
   });
 
+  it('carries the flat-layout mark from a planned track, or takes it explicitly', () => {
+    const song = {
+      id: 'track', title: 'Song', artist: 'Artist', album: 'Album', albumId: 'album', duration: 180,
+    };
+    expect(trackToSyncInfo({ ...song, _flatLayout: true }, '').flatLayout).toBe(true);
+    expect(trackToSyncInfo(song, '').flatLayout).toBe(false);
+    expect(trackToSyncInfo(song, '', undefined, true).flatLayout).toBe(true);
+  });
+
   it('keeps a collision discriminator after the other playlist is removed', () => {
     const sources = withPlaylistPathIds([
       playlist('one', 'Road/Trip'),

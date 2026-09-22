@@ -33,12 +33,14 @@ pub(super) fn fetch_artist_candidates(
                     (SELECT ar.name FROM artist ar \
                       WHERE ar.server_id = t.server_id AND ar.id = t.artist_id), \
                     MAX(t.artist)) AS artist, \
-                  COUNT(DISTINCT t.album_id) AS album_count, MAX(t.synced_at) AS synced_at, \
-                  MIN({priority}) AS best_pr \
+                   COUNT(DISTINCT t.album_id) AS album_count, MAX(t.synced_at) AS synced_at, \
+                   MAX((SELECT ar.starred_at FROM artist ar \
+                        WHERE ar.server_id = t.server_id AND ar.id = t.artist_id)) AS starred_at, \
+                   MIN({priority}) AS best_pr \
            {scoped} AND t.artist_id IS NOT NULL AND t.artist_id != '' {key_filter} \
            GROUP BY t.server_id, t.artist_id \
          ) \
-         SELECT server_id, artist_id, artist, album_count, synced_at, best_pr \
+         SELECT server_id, artist_id, artist, album_count, starred_at, synced_at, best_pr \
          FROM grouped ORDER BY best_pr ASC",
         scoped = scoped,
     );
@@ -59,7 +61,8 @@ pub(super) fn fetch_artist_candidates(
                 name: name.clone(),
                 name_sort: Some(sort_key_for_display_name(&name, DEFAULT_IGNORED_ARTICLES)),
                 album_count: Some(r.get(3)?),
-                synced_at: r.get(4)?,
+                starred_at: r.get(4)?,
+                synced_at: r.get(5)?,
                 raw_json: Value::Null,
             })
         })?
@@ -98,6 +101,7 @@ pub(super) fn merge_artist_by_priority(candidates: &[LibraryArtistDto]) -> Libra
             name: String::new(),
             name_sort: None,
             album_count: None,
+            starred_at: None,
             synced_at: 0,
             raw_json: Value::Null,
         });
@@ -105,6 +109,7 @@ pub(super) fn merge_artist_by_priority(candidates: &[LibraryArtistDto]) -> Libra
         merge_optional_text(&mut out.name, &c.name);
         merge_optional(&mut out.name_sort, &c.name_sort);
         merge_optional_i64(&mut out.album_count, c.album_count);
+        merge_optional_i64(&mut out.starred_at, c.starred_at);
         if out.synced_at < c.synced_at {
             out.synced_at = c.synced_at;
         }
@@ -166,6 +171,10 @@ pub(crate) fn album_artist_id_expr(json_col: &str) -> String {
 /// releases (main discography) from appears-on entries.
 pub(crate) struct AlbumSplitMeta {
     pub is_compilation: bool,
+    /// The album entered the result through a structured participant credit rather
+    /// than `track.artist_id`. An untagged participant album belongs in appears-on,
+    /// not in the participant's own discography.
+    pub participant_only: bool,
     /// The album's own `album_artist` tag, read across **all** of the album's scoped
     /// tracks — not just the ones by the artist being viewed. The artist's single
     /// guest track is often the untagged row, so reading the tag off that row alone

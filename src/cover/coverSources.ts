@@ -32,6 +32,25 @@ export function resolveCoverSource(candidates: CoverSourceCandidate[]): string |
   return null;
 }
 
+/** An external album-cover provider (everything in the chain but the server). */
+export type ExternalCoverSource = Exclude<CoverSource, 'server'>;
+
+/**
+ * External sources that were on in `prev` and are off (or gone) in `next` —
+ * the ones whose downloaded covers must be dropped. Reordering switches
+ * nothing off and returns an empty list.
+ */
+export function externalSourcesSwitchedOff(
+  prev: CoverSourcePref[],
+  next: CoverSourcePref[],
+): ExternalCoverSource[] {
+  const onAfter = new Set(next.filter(s => s.enabled).map(s => s.source));
+  return prev
+    .filter((s): s is CoverSourcePref & { source: ExternalCoverSource } =>
+      s.enabled && s.source !== 'server' && !onAfter.has(s.source))
+    .map(s => s.source);
+}
+
 /** True when at least one source is enabled (the chain is not "off"). */
 export function isCoverSourceChainEnabled(sources: CoverSourcePref[]): boolean {
   return sources.some(s => s.enabled);

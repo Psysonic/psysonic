@@ -163,6 +163,7 @@ fn decoded_frames_streaming(
         target_rate,
         0, // no device channel count: leave the source as it is
         None,
+        false,
     )
     .expect("streaming source must build");
 

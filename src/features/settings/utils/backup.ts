@@ -8,6 +8,15 @@ import {
   type MigrationGenerationSnapshotDto,
 } from '@/generated/bindings';
 import { version as appVersion } from '@/../package.json';
+import {
+  BACKUP_KEYS,
+  clearsWhenAbsent,
+  isBackupKey,
+  isRawStringKey,
+  projectionFor,
+} from './backupRegistry';
+
+export { BACKUP_KEYS } from './backupRegistry';
 
 const BACKUP_VERSION = 1;
 export type ImportedBackupKind = 'config' | 'databases' | 'full';
@@ -25,34 +34,6 @@ export type ImportedBackupCoordinator = {
   };
 };
 
-const BACKUP_KEYS = [
-  'psysonic-auth',
-  'psysonic_theme',
-  'psysonic_font',
-  'psysonic_language',
-  'psysonic_keybindings',
-  'psysonic_sidebar',
-  'psysonic-eq',
-  'psysonic_global_shortcuts',
-  'psysonic-player',
-  'psysonic_player_prefs',
-  'psysonic_queue_visible',
-  'psysonic_lastfm_loved_cache',
-  'psysonic_home',
-  'psysonic_visualizer',
-  'psysonic_np_layout',
-] as const;
-const BACKUP_KEY_SET = new Set<string>(BACKUP_KEYS);
-/**
- * Keys holding a bare string rather than a serialized store. `collectStores`
- * cannot JSON-parse those, so it carries the raw string — and the restore has
- * to write it back raw as well. Sending them through `JSON.stringify` on the
- * way in adds literal quotes to the stored value, which is how a language of
- * `en` used to come back as `"en"` and make every `Intl` call built from it
- * throw. A backup taken from an already-quoted value parses cleanly on export,
- * so restoring raw also repairs the older backups.
- */
-const RAW_STRING_BACKUP_KEYS = new Set<string>(['psysonic_language']);
 export const FULL_BACKUP_IMPORT_JOURNAL_KEY = 'psysonic-full-backup-import-journal-v1';
 
 type FullBackupImportJournal = {
@@ -76,27 +57,44 @@ export function installImportedBackupCoordinator(
 }
 
 function filterBackupStores(stores: Record<string, unknown>): Record<string, unknown> {
-  return Object.fromEntries(Object.entries(stores).filter(([key]) => BACKUP_KEY_SET.has(key)));
+  return Object.fromEntries(Object.entries(stores).filter(([key]) => isBackupKey(key)));
 }
 
 function serializedStore(value: unknown, key: string): string {
-  if (RAW_STRING_BACKUP_KEYS.has(key) && typeof value === 'string') return value;
+  if (isRawStringKey(key) && typeof value === 'string') return value;
   const serialized = JSON.stringify(value);
   if (serialized === undefined) throw new Error(`invalid_backup_store:${key}`);
   return serialized;
+}
+
+function parsedStoredValue(key: string): unknown {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return null;
+  try {
+    return JSON.parse(raw) as unknown;
+  } catch {
+    return raw;
+  }
 }
 
 function collectStores(): Record<string, unknown> {
   const stores: Record<string, unknown> = {};
   for (const key of BACKUP_KEYS) {
     const val = localStorage.getItem(key);
-    if (val !== null) {
-      try {
-        stores[key] = JSON.parse(val);
-      } catch {
-        stores[key] = val;
-      }
+    if (val === null) {
+      // Legacy keys stay out, exactly as older builds wrote them: an older build
+      // restoring this backup would otherwise write the literal `null`.
+      if (!clearsWhenAbsent(key)) stores[key] = null;
+      continue;
     }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(val);
+    } catch {
+      parsed = val;
+    }
+    const projection = projectionFor(key);
+    stores[key] = projection ? projection.export(parsed) : parsed;
   }
   return stores;
 }
@@ -114,8 +112,21 @@ export function restoreBackupStores(stores: Record<string, unknown>): void {
   const filtered = filterBackupStores(stores);
   const previous = new Map(BACKUP_KEYS.map(key => [key, localStorage.getItem(key)] as const));
   try {
-    for (const key of BACKUP_KEYS) localStorage.removeItem(key);
-    for (const [key, value] of Object.entries(filtered)) {
+    for (const key of BACKUP_KEYS) {
+      const inBackup = Object.prototype.hasOwnProperty.call(filtered, key);
+      if (!inBackup && !clearsWhenAbsent(key)) continue;
+      const backedUp = inBackup ? filtered[key] : null;
+      // A projected store only ever owns part of what is stored here, so it is
+      // folded into the current value instead of replacing it — the fields that
+      // describe this machine's attached device are not the backup's to write.
+      const projection = projectionFor(key);
+      const value = projection
+        ? projection.merge(backedUp, parsedStoredValue(key))
+        : backedUp;
+      if (value === null) {
+        localStorage.removeItem(key);
+        continue;
+      }
       const serialized = serializedStore(value, key);
       localStorage.setItem(key, serialized);
       if (localStorage.getItem(key) !== serialized) throw new Error(`backup_store_readback_failed:${key}`);
@@ -139,13 +150,16 @@ function captureBackupStoreSnapshot(): Record<string, string | null> {
 }
 
 function restoreBackupStoreSnapshot(snapshot: Record<string, string | null>): void {
-  for (const key of BACKUP_KEYS) localStorage.removeItem(key);
-  for (const key of BACKUP_KEYS) {
+  // A journal written by an older build has no entry for keys added since; its
+  // import never touched them, so the rollback leaves them as they are.
+  const keys = BACKUP_KEYS.filter(key => Object.prototype.hasOwnProperty.call(snapshot, key));
+  for (const key of keys) localStorage.removeItem(key);
+  for (const key of keys) {
     const value = snapshot[key] ?? null;
     if (value === null) continue;
     localStorage.setItem(key, value);
   }
-  for (const key of BACKUP_KEYS) {
+  for (const key of keys) {
     const expected = snapshot[key] ?? null;
     if (localStorage.getItem(key) !== expected) throw new Error(`backup_store_rollback_failed:${key}`);
   }
@@ -181,7 +195,7 @@ function readFullBackupImportJournal(): FullBackupImportJournal | null {
   }
   for (const key of BACKUP_KEYS) {
     const value = journal.previousStores[key];
-    if (value !== null && typeof value !== 'string') {
+    if (value !== undefined && value !== null && typeof value !== 'string') {
       throw new Error(`full_backup_import_journal_invalid:${key}`);
     }
   }

@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Runtime};
 
-use super::engine::AudioCurrent;
+use super::engine::{AudioCurrent, PendingSeekState};
 use super::helpers::{ramp_sink_volume, ProgressPayload, MASTER_HEADROOM};
 use super::playback_rate::{effective_duration_secs, effective_position_secs, PlaybackRateAtomics};
 use super::state::{install_current_source_done, ChainedInfo, CurrentSourceDone};
@@ -77,6 +77,8 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
     gapless_switch_at: Arc<AtomicU64>,
     current_playback_url: Arc<Mutex<Option<String>>>,
     stream_playback_armed: Arc<AtomicBool>,
+    pending_seek: Arc<Mutex<PendingSeekState>>,
+    source_transition_lock: Arc<tokio::sync::RwLock<()>>,
     playback_rate: PlaybackRateAtomics,
 ) {
     // Keep progress aligned with audible output (ALSA/PipeWire/Pulse queue) on
@@ -115,6 +117,7 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
             Instant::now() - Duration::from_millis(PROGRESS_EMIT_MIN_MS);
         let mut last_progress_emit_pos = -1.0f64;
         let mut last_progress_emit_paused = false;
+        let mut last_progress_emit_buffering = false;
 
         loop {
             // 100 ms tick keeps near-end detection timely for crossfade/gapless
@@ -135,20 +138,41 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
                 .as_ref()
                 .filter(|(source_gen, _)| *source_gen == gen)
                 .map(|(_, done)| done.clone());
-            if source_done.is_some_and(|done| done.load(Ordering::SeqCst)) {
+            if let Some(done) = source_done.filter(|done| done.load(Ordering::SeqCst)) {
+                let _source_transition = source_transition_lock.write().await;
+                if gen_counter.load(Ordering::SeqCst) != gen {
+                    break;
+                }
+                let source_still_current =
+                    current_source_done.lock().unwrap().as_ref().is_some_and(
+                        |(source_gen, current_done)| {
+                            *source_gen == gen
+                                && Arc::ptr_eq(current_done, &done)
+                                && done.load(Ordering::SeqCst)
+                        },
+                    );
+                if !source_still_current {
+                    continue;
+                }
                 // Radio (dur == 0): stream exhausted / connection dropped → stop.
                 let cur_dur = current_arc.lock().unwrap().duration_secs;
                 if cur_dur <= 0.0 {
                     crate::app_eprintln!(
                         "[radio] current_done fired → emitting audio:ended (dur=0)"
                     );
-                    gen_counter.fetch_add(1, Ordering::SeqCst);
-                    emitter.emit_ended();
+                    if gen_counter
+                        .compare_exchange(gen, gen + 1, Ordering::SeqCst, Ordering::SeqCst)
+                        .is_ok()
+                    {
+                        pending_seek.lock().unwrap().clear_generation(gen);
+                        emitter.emit_ended();
+                    }
                     break;
                 }
 
                 let chained = chained_arc.lock().unwrap().take();
                 if let Some(info) = chained {
+                    pending_seek.lock().unwrap().clear_generation(gen);
                     if !install_current_source_done(
                         &current_source_done,
                         &gen_counter,
@@ -245,15 +269,20 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
                 // whole seconds while the decoded audio runs slightly longer.
                 // The timer stays only as the crossfade trigger and as a
                 // watchdog for sources that never signal exhaustion.
-                gen_counter.fetch_add(1, Ordering::SeqCst);
-                emitter.emit_ended();
+                if gen_counter
+                    .compare_exchange(gen, gen + 1, Ordering::SeqCst, Ordering::SeqCst)
+                    .is_ok()
+                {
+                    pending_seek.lock().unwrap().clear_generation(gen);
+                    emitter.emit_ended();
+                }
                 break;
             }
 
             // ── Position from atomic sample counter ──────────────────────────
             let rate = sample_rate_arc.load(Ordering::Relaxed) as f64;
             let ch = channels_arc.load(Ordering::Relaxed) as f64;
-            let samples = samples_played.load(Ordering::Relaxed) as f64;
+            let audible_samples = samples_played.load(Ordering::Relaxed) as f64;
             let divisor = (rate * ch).max(1.0);
 
             // Read playback snapshot under a single lock to minimize contention
@@ -265,7 +294,12 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
             let dur = effective_duration_secs(base_dur, &playback_rate);
             let is_paused = paused_at.is_some();
 
-            let pos_raw = if !stream_playback_armed.load(Ordering::Relaxed) {
+            let pending_target = pending_seek.lock().unwrap().target_samples();
+            let seeking = pending_target.is_some();
+            let samples = pending_target.map_or(audible_samples, |target| target as f64);
+            let pos_raw = if seeking {
+                effective_position_secs(samples / divisor, &playback_rate).min(dur.max(0.001))
+            } else if !stream_playback_armed.load(Ordering::Relaxed) {
                 0.0
             } else if let Some(p) = paused_at {
                 p
@@ -278,14 +312,15 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
                 estimated_output_latency_secs(rate)
             };
             let pos = (pos_raw - progress_latency).max(0.0);
+            let buffering = !stream_playback_armed.load(Ordering::Relaxed) || seeking;
 
             let now = Instant::now();
             let should_emit_progress = is_paused != last_progress_emit_paused
+                || buffering != last_progress_emit_buffering
                 || now.duration_since(last_progress_emit_at)
                     >= Duration::from_millis(PROGRESS_EMIT_MIN_MS)
                 || (pos - last_progress_emit_pos).abs() >= PROGRESS_EMIT_MIN_DELTA_SECS;
             if should_emit_progress {
-                let buffering = !stream_playback_armed.load(Ordering::Relaxed);
                 emitter.emit_progress(ProgressPayload {
                     current_time: pos,
                     duration: dur,
@@ -294,9 +329,10 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
                 last_progress_emit_at = now;
                 last_progress_emit_pos = pos;
                 last_progress_emit_paused = is_paused;
+                last_progress_emit_buffering = buffering;
             }
 
-            if is_paused {
+            if is_paused || seeking {
                 continue;
             }
 
@@ -333,8 +369,34 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
                     // source that never signals exhaustion — emitting on the
                     // hint alone would clip up to ~1 s off the tail.
                     if cf_enabled || near_end_ticks >= END_WATCHDOG_TICKS {
-                        gen_counter.fetch_add(1, Ordering::SeqCst);
-                        emitter.emit_ended();
+                        let _source_transition = source_transition_lock.write().await;
+                        if gen_counter.load(Ordering::SeqCst) != gen {
+                            break;
+                        }
+                        let latest_rate = sample_rate_arc.load(Ordering::Relaxed) as f64;
+                        let latest_channels = channels_arc.load(Ordering::Relaxed) as f64;
+                        let latest_duration = effective_duration_secs(
+                            current_arc.lock().unwrap().duration_secs,
+                            &playback_rate,
+                        );
+                        let latest_position = effective_position_secs(
+                            samples_played.load(Ordering::Relaxed) as f64
+                                / (latest_rate * latest_channels).max(1.0),
+                            &playback_rate,
+                        );
+                        if latest_duration <= end_threshold
+                            || latest_position < latest_duration - end_threshold
+                        {
+                            near_end_ticks = 0;
+                            continue;
+                        }
+                        if gen_counter
+                            .compare_exchange(gen, gen + 1, Ordering::SeqCst, Ordering::SeqCst)
+                            .is_ok()
+                        {
+                            pending_seek.lock().unwrap().clear_generation(gen);
+                            emitter.emit_ended();
+                        }
                         break;
                     }
                 }

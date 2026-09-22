@@ -92,6 +92,7 @@ pub(crate) fn detach_current_sink_for_blend_reopen(state: &AudioEngine) {
     }
     cur.fadeout_trigger = None;
     cur.fadeout_samples = None;
+    cur.streaming_seek = None;
 }
 
 fn resolve_cached_play_input(engine: &AudioEngine, url: &str) -> Option<PlayInput> {
@@ -317,6 +318,7 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
     if state.generation.load(Ordering::SeqCst) != gen {
         return Ok(());
     }
+    state.pending_seek.lock().unwrap().clear_generation(gen);
     sink.play();
 
     {
@@ -330,6 +332,7 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
         cur.base_volume = snap.base_volume;
         cur.fadeout_trigger = Some(ps.built.fadeout_trigger);
         cur.fadeout_samples = Some(ps.built.fadeout_samples);
+        cur.streaming_seek = None;
     }
     drop(stream_attach);
     drop(commit_guard);

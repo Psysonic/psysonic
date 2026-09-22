@@ -10,6 +10,19 @@ use super::dev_io::output_enumeration_includes_pinned;
 use super::device_resume::{try_resume_after_device_change, ResumeOutcome, ResumeSnapshot};
 use super::engine::AudioEngine;
 
+fn should_track_output_stall(
+    watchdog_armed: bool,
+    active: bool,
+    seek_pending: bool,
+    samples_unchanged: bool,
+) -> bool {
+    watchdog_armed && active && !seek_pending && samples_unchanged
+}
+
+fn recovery_position_secs(current_position: f64, pending_target_secs: Option<f64>) -> f64 {
+    pending_target_secs.unwrap_or(current_position)
+}
+
 /// What to tell the frontend after a successful stream reopen.
 #[derive(Clone, Copy)]
 pub(crate) enum ReopenNotify {
@@ -110,7 +123,13 @@ async fn reopen_output_stream(
                     stream_reopened: false,
                 });
             }
+            let mut pending_seek = engine.pending_seek.lock().unwrap();
+            snapshot.current_time_secs = recovery_position_secs(
+                engine.current.lock().unwrap().position(),
+                pending_seek.take_target_secs(expected_generation),
+            );
             engine.generation.fetch_add(1, Ordering::SeqCst);
+            drop(pending_seek);
             super::stream_idle::teardown_playback_sinks_for_idle_release(&engine);
             engine.current.lock().unwrap().paused_at = Some(snapshot.current_time_secs);
             return Err(error);
@@ -131,16 +150,25 @@ async fn reopen_output_stream(
             });
         }
 
-        if !snapshot.is_playing {
-            engine.generation.fetch_add(1, Ordering::SeqCst);
-        }
-        if let Some(sink) = engine.current.lock().unwrap().sink.take() {
+        let mut pending_seek = engine.pending_seek.lock().unwrap();
+        let mut current = engine.current.lock().unwrap();
+        snapshot.current_time_secs = recovery_position_secs(
+            current.position(),
+            pending_seek.take_target_secs(expected_generation),
+        );
+        snapshot.is_playing = current.play_started.is_some() && current.paused_at.is_none();
+        // Atomically transfer playback ownership to device recovery. Any seek
+        // prepared against the detached sink now observes a stale generation.
+        snapshot.generation = engine.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        current.streaming_seek = None;
+        if let Some(sink) = current.sink.take() {
             sink.stop();
         }
+        drop(current);
+        drop(pending_seek);
         if let Some(sink) = engine.fading_out_sink.lock().unwrap().take() {
             sink.stop();
         }
-        snapshot.generation = engine.generation.load(Ordering::SeqCst);
         Ok(ReopenPrepared::Notify {
             snapshot,
             stream_reopened: true,
@@ -246,6 +274,7 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
     let stream_open_lock = engine.stream_open_lock.clone();
     let samples_played = engine.samples_played.clone();
     let current = engine.current.clone();
+    let pending_seek = engine.pending_seek.clone();
 
     tauri::async_runtime::spawn(async move {
         let mut last_default: Option<String> = tauri::async_runtime::spawn_blocking(|| {
@@ -287,11 +316,14 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
             let mut stall_for = Duration::ZERO;
             {
                 let samples_now = samples_played.load(Ordering::Relaxed);
+                // Match the seek commit lock order: pending seek before current.
+                let seek_pending = pending_seek.lock().unwrap().target_samples().is_some();
                 let cur = current.lock().unwrap();
                 let active = cur
                     .sink
                     .as_ref()
                     .is_some_and(|s| !s.is_paused() && !s.empty());
+                let samples_unchanged = samples_now == last_samples_seen;
 
                 if !watchdog_armed {
                     if stalled_since.take().is_some() {
@@ -300,10 +332,15 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
                         );
                     }
                     last_samples_seen = samples_now;
-                } else if !active || samples_now != last_samples_seen {
+                } else if !should_track_output_stall(
+                    watchdog_armed,
+                    active,
+                    seek_pending,
+                    samples_unchanged,
+                ) {
                     if stalled_since.take().is_some() {
                         crate::app_eprintln!(
-                            "[psysonic] device-watcher: stall candidate cleared (active={active}, samples_delta={})",
+                            "[psysonic] device-watcher: stall candidate cleared (active={active}, seek_pending={seek_pending}, samples_delta={})",
                             samples_now as i128 - last_samples_seen as i128
                         );
                     }
@@ -519,4 +556,28 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{recovery_position_secs, should_track_output_stall};
+
+    #[test]
+    fn pending_seek_is_not_treated_as_a_stalled_output() {
+        assert!(!should_track_output_stall(true, true, true, true));
+        assert!(should_track_output_stall(true, true, false, true));
+    }
+
+    #[test]
+    fn recovery_prefers_the_pending_seek_target() {
+        let target = 365.19;
+        let recovered = recovery_position_secs(19.62, Some(target));
+
+        assert!((recovered - target).abs() < 0.001);
+    }
+
+    #[test]
+    fn recovery_uses_current_position_after_pending_seek_finishes() {
+        assert_eq!(recovery_position_secs(19.62, None), 19.62);
+    }
 }

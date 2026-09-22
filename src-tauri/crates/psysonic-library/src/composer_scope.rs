@@ -78,6 +78,7 @@ pub fn list_composers(
                 name: row.get(2)?,
                 name_sort: Some(row.get(3)?),
                 album_count: Some(row.get(4)?),
+                starred_at: None,
                 synced_at: row.get(5)?,
                 raw_json: parse_raw_json(row.get(6)?),
             })
@@ -238,6 +239,7 @@ pub fn composer_detail(
             name,
             name_sort: Some(name_sort),
             album_count: Some(albums.len() as i64),
+            starred_at: None,
             synced_at,
             raw_json: parse_raw_json(raw_json),
         },

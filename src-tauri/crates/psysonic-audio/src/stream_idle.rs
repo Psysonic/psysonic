@@ -60,6 +60,7 @@ pub(crate) fn teardown_playback_sinks_for_idle_release(engine: &AudioEngine) {
         s.stop();
     }
     cur.play_started = None;
+    cur.streaming_seek = None;
 }
 
 fn close_output_device_handle_locked(engine: &AudioEngine, app: &AppHandle) -> Result<(), String> {
@@ -204,6 +205,7 @@ mod tests {
             stream_open_lock: Arc::new(Mutex::new(())),
             stream_attach_pending: Arc::new((Mutex::new(0), std::sync::Condvar::new())),
             playback_commit_lock: Arc::new(Mutex::new(())),
+            source_transition_lock: Arc::new(tokio::sync::RwLock::new(())),
             stream_sample_rate: Arc::new(AtomicU32::new(0)),
             stream_requested_rate: Arc::new(AtomicU32::new(0)),
             device_default_rate: 48_000,
@@ -219,7 +221,9 @@ mod tests {
                 base_volume: 0.8,
                 fadeout_trigger: None,
                 fadeout_samples: None,
+                streaming_seek: None,
             })),
+            current_generation: Arc::new(AtomicU64::new(0)),
             generation: Arc::new(AtomicU64::new(0)),
             preload_epoch: Arc::new(AtomicU64::new(0)),
             http_client: Arc::new(RwLock::new(reqwest::Client::new())),
@@ -244,6 +248,7 @@ mod tests {
             chained_info: Arc::new(Mutex::new(None)),
             current_source_done: Arc::new(Mutex::new(None)),
             samples_played: Arc::new(AtomicU64::new(0)),
+            pending_seek: Arc::new(Mutex::new(Default::default())),
             current_sample_rate: Arc::new(AtomicU32::new(44_100)),
             current_channels: Arc::new(AtomicU32::new(2)),
             gapless_switch_at: Arc::new(AtomicU64::new(0)),

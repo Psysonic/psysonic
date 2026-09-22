@@ -16,7 +16,7 @@
 //!   - HTTP track whose download was only partial
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use tauri::Emitter;
 use tauri::Manager;
@@ -30,6 +30,7 @@ use super::source_build::{
 };
 use super::state::install_current_source_done;
 use super::stream::LocalFileSource;
+use super::transport_commands::seek_player_with_timeout;
 
 /// Snapshot of playback state captured before the blocking stream reopen.
 pub(crate) struct ResumeSnapshot {
@@ -173,6 +174,7 @@ pub(crate) async fn try_resume_after_device_change(
         .map(|s| s.to_lowercase());
     let done_flag = Arc::new(AtomicBool::new(false));
     engine.samples_played.store(0, Ordering::Relaxed);
+    engine.invalidate_pending_seek();
 
     let hi_res_enabled = engine.current_sample_rate.load(Ordering::Relaxed) > 48_000;
     // Resume re-plays the current track → scope its analysis writes to the
@@ -240,7 +242,30 @@ pub(crate) async fn try_resume_after_device_change(
     }
     let effective_volume = (snap.base_volume * snap.gain_linear).clamp(0.0, 1.0);
     sink.set_volume(effective_volume);
+    sink.pause();
     sink.append(ps.built.source);
+
+    // Seek the replacement while it is still private and paused. Publishing it
+    // first allowed this recovery seek to race a newer user seek on the same sink.
+    let resumed_at = if ps.is_seekable && snap.current_time_secs > 0.5 {
+        let target = Duration::from_secs_f64(snap.current_time_secs.max(0.0));
+        match seek_player_with_timeout(Arc::clone(&sink), target, Duration::from_millis(700)).await
+        {
+            Ok(()) => snap.current_time_secs,
+            Err(error) => {
+                sink.stop();
+                crate::app_eprintln!("[device-resume] seek failed: {error}");
+                return if engine.generation.load(Ordering::SeqCst) == gen {
+                    ResumeOutcome::Fallback
+                } else {
+                    ResumeOutcome::Superseded
+                };
+            }
+        }
+    } else {
+        0.0
+    };
+    sink.play();
 
     let commit_guard = engine.playback_commit_lock.lock().unwrap();
     if engine.generation.load(Ordering::SeqCst) != gen {
@@ -250,6 +275,7 @@ pub(crate) async fn try_resume_after_device_change(
     swap_in_new_sink(
         &engine,
         SinkSwapInputs {
+            generation: gen,
             sink,
             duration_secs: ps.built.duration_secs,
             volume: snap.base_volume,
@@ -260,44 +286,25 @@ pub(crate) async fn try_resume_after_device_change(
             actual_fade_secs: 0.0,
             outgoing_fade_secs: 0.0,
             start_paused: false,
+            streaming_seek: None,
         },
     );
     drop(stream_attach);
-    drop(commit_guard);
-
-    // Seek to the saved position for seekable sources (local files, ranged HTTP).
-    if ps.is_seekable && snap.current_time_secs > 0.5 {
-        let seek_sink = engine.current.lock().unwrap().sink.as_ref().map(Arc::clone);
-        if let Some(sk) = seek_sink {
-            let target = std::time::Duration::from_secs_f64(snap.current_time_secs.max(0.0));
-            let (tx, rx) = std::sync::mpsc::channel::<Result<(), String>>();
-            std::thread::spawn(move || {
-                let _ = tx.send(sk.try_seek(target).map_err(|e| e.to_string()));
-            });
-            match rx.recv_timeout(std::time::Duration::from_millis(700)) {
-                Ok(Ok(())) => {
-                    let mut cur = engine.current.lock().unwrap();
-                    cur.seek_offset = snap.current_time_secs;
-                    cur.play_started = Some(Instant::now());
-                    engine.samples_played.store(
-                        crate::playback_rate::raw_counter_samples_for_content_position(
-                            snap.current_time_secs,
-                            engine.current_sample_rate.load(Ordering::Relaxed),
-                            engine.current_channels.load(Ordering::Relaxed),
-                            &engine.playback_rate,
-                        ),
-                        Ordering::Relaxed,
-                    );
-                }
-                Ok(Err(e)) => {
-                    crate::app_eprintln!("[device-resume] seek failed: {e}");
-                }
-                Err(_) => {
-                    crate::app_eprintln!("[device-resume] seek timed out");
-                }
-            }
-        }
+    if resumed_at > 0.0 {
+        let mut cur = engine.current.lock().unwrap();
+        cur.seek_offset = resumed_at;
+        cur.play_started = Some(Instant::now());
+        engine.samples_played.store(
+            crate::playback_rate::raw_counter_samples_for_content_position(
+                resumed_at,
+                engine.current_sample_rate.load(Ordering::Relaxed),
+                engine.current_channels.load(Ordering::Relaxed),
+                &engine.playback_rate,
+            ),
+            Ordering::Relaxed,
+        );
     }
+    drop(commit_guard);
 
     // Inform the frontend of the new duration (keeps seekbar range correct).
     app.emit("audio:playing", ps.built.duration_secs).ok();
@@ -341,6 +348,8 @@ pub(crate) async fn try_resume_after_device_change(
         engine.gapless_switch_at.clone(),
         engine.current_playback_url.clone(),
         engine.stream_playback_armed.clone(),
+        engine.pending_seek.clone(),
+        engine.source_transition_lock.clone(),
         engine.playback_rate.clone(),
     );
 

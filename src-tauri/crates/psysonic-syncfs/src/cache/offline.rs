@@ -65,6 +65,7 @@ async fn download_track_to_cache_dir_inner(
     client: &reqwest::Client,
     registry: Option<&psysonic_core::server_http::ServerHttpRegistry>,
     server_ref: Option<&str>,
+    trusted_original: Option<&str>,
     mut cancellation: Option<&mut DownloadCancellation>,
     cancel: Option<&AtomicBool>,
 ) -> Result<LegacyDownloadOutcome, String> {
@@ -80,16 +81,35 @@ async fn download_track_to_cache_dir_inner(
         return Err("CANCELLED".to_string());
     }
     if file_path.exists() {
-        return Ok(LegacyDownloadOutcome {
-            path: file_path,
-            created: false,
-            _guard: download_guard,
-        });
+        let matches = match trusted_original {
+            Some(trusted) => {
+                super::provenance::file_matches_trusted_original(&file_path, trusted).await?
+            }
+            None => true,
+        };
+        if matches {
+            return Ok(LegacyDownloadOutcome {
+                path: file_path,
+                created: false,
+                _guard: download_guard,
+            });
+        }
+        tokio::fs::remove_file(&file_path)
+            .await
+            .map_err(|error| format!("remove stale unverified offline file: {error}"))?;
     }
 
     let part_path = sibling_part_path(&file_path, track_id);
     let max_bytes = max_download_bytes(None);
     if promote_completed_partial(&part_path, &file_path, url, max_bytes).await? {
+        if let Some(trusted) = trusted_original {
+            if !super::provenance::file_matches_trusted_original(&file_path, trusted).await? {
+                let _ = tokio::fs::remove_file(&file_path).await;
+                return Err(
+                    "trusted original changed or did not match the downloaded bytes".to_string(),
+                );
+            }
+        }
         return Ok(LegacyDownloadOutcome {
             path: file_path,
             created: true,
@@ -122,6 +142,14 @@ async fn download_track_to_cache_dir_inner(
         .await?;
     } else {
         finalize_resumable_download(prepared, &file_path, &part_path, max_bytes, cancel).await?;
+    }
+    if let Some(trusted) = trusted_original {
+        if !super::provenance::file_matches_trusted_original(&file_path, trusted).await? {
+            let _ = tokio::fs::remove_file(&file_path).await;
+            return Err(
+                "trusted original changed or did not match the downloaded bytes".to_string(),
+            );
+        }
     }
     Ok(LegacyDownloadOutcome {
         path: file_path,
@@ -169,7 +197,7 @@ pub(crate) async fn download_track_to_cache_dir(
     cancel: Option<&AtomicBool>,
 ) -> Result<std::path::PathBuf, String> {
     download_track_to_cache_dir_inner(
-        cache_dir, track_id, suffix, url, client, registry, server_ref, None, cancel,
+        cache_dir, track_id, suffix, url, client, registry, server_ref, None, None, cancel,
     )
     .await
     .map(|outcome| outcome.path)
@@ -240,6 +268,29 @@ pub async fn download_track_offline(
     let http_registry = app
         .try_state::<Arc<psysonic_core::server_http::ServerHttpRegistry>>()
         .map(|s| Arc::clone(&*s));
+    if !psysonic_analysis::raw_probe::is_verified_original_request(
+        http_registry.as_deref(),
+        Some(&server_id),
+        &url,
+    ) {
+        return Err("trusted original request unavailable for offline download".to_string());
+    }
+    let trusted_fetch = super::provenance::resolve_trusted_original(
+        &client,
+        http_registry.as_deref(),
+        Some(&server_id),
+        &url,
+    );
+    tokio::pin!(trusted_fetch);
+    let trusted_original = if let Some(cancel) = cancellation.as_mut() {
+        tokio::select! {
+            biased;
+            _ = cancel.cancelled() => return Err("CANCELLED".to_string()),
+            trusted = &mut trusted_fetch => trusted?,
+        }
+    } else {
+        trusted_fetch.await?
+    };
     let outcome = download_track_to_cache_dir_inner(
         &cache_dir,
         &track_id,
@@ -248,6 +299,7 @@ pub async fn download_track_offline(
         &client,
         http_registry.as_deref(),
         Some(&server_id),
+        Some(&trusted_original),
         cancellation.as_mut(),
         None,
     )
@@ -483,6 +535,44 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn trusted_legacy_download_replaces_a_mismatching_existing_file() {
+        let server = MockServer::start().await;
+        let body = vec![0x42; 20 * 1024];
+        Mock::given(method("GET"))
+            .and(wm_path("/track"))
+            .respond_with(ResponseTemplate::new(200).set_body_bytes(body.clone()))
+            .mount(&server)
+            .await;
+        let dir = tempfile::tempdir().unwrap();
+        let destination = legacy_track_file_path(dir.path(), "track-1", "flac");
+        tokio::fs::write(&destination, vec![0x24; 1024])
+            .await
+            .unwrap();
+        let client = subsonic_http_client(std::time::Duration::from_secs(5)).unwrap();
+        let url = format!("{}/track", server.uri());
+        let trusted = psysonic_analysis::analysis_cache::md5_first_16kb(&body);
+
+        let outcome = download_track_to_cache_dir_inner(
+            dir.path(),
+            "track-1",
+            "flac",
+            &url,
+            &client,
+            None,
+            None,
+            Some(&trusted),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+        assert!(outcome.created);
+        assert_eq!(tokio::fs::read(&outcome.path).await.unwrap(), body);
+        assert_eq!(server.received_requests().await.unwrap().len(), 1);
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn concurrent_downloads_to_the_same_legacy_path_share_one_transfer() {
         let server = MockServer::start().await;
         Mock::given(method("GET"))
@@ -544,6 +634,7 @@ mod tests {
             None,
             None,
             None,
+            None,
         )
         .await
         .unwrap();
@@ -596,6 +687,7 @@ mod tests {
             "flac",
             &url,
             &client,
+            None,
             None,
             None,
             None,

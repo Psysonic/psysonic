@@ -29,7 +29,7 @@ import {
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
-  clearSeekFallbackRetry,
+  resetSeekStateForPlaybackChange,
   setSeekFallbackVisualTarget,
 } from '@/features/playback/store/seekFallbackState';
 import { clearSeekTarget } from '@/features/playback/store/seekTargetState';
@@ -80,7 +80,7 @@ export function createMiscActions(set: SetState, get: GetState): Pick<
       setIsAudioPaused(false);
       clearRadioReconnectTimer();
       clearPreloadingIds();
-      clearSeekFallbackRetry();
+      resetSeekStateForPlaybackChange();
       clearSeekDebounce(); clearSeekTarget();
       // Stop Rust engine in case a regular track was playing.
       audioStop().catch(() => {});

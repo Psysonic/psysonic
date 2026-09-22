@@ -386,6 +386,43 @@ fn completed_backfill_reconciles_physical_projection_keys_before_readiness() {
 }
 
 #[test]
+fn completed_projection_ignores_later_identity_maintenance() {
+    let store = LibraryStore::open_in_memory();
+    insert_artist(&store, "s1", "artist-1", "Artist");
+    insert_artist(&store, "s2", "artist-2", "Artist");
+    TrackRepository::new(&store)
+        .upsert_batch(&[album_track(
+            "s1", "t1", "Artist", "artist-1", "a1", "Shared", "Artist", "lib-a",
+        )])
+        .unwrap();
+    run_backfill_impl(&store, None).unwrap();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[album_track(
+            "s2", "t2", "Artist", "artist-2", "a2", "Shared", "Artist", "lib-b",
+        )])
+        .unwrap();
+
+    assert!(crate::identity::identity_maintenance_needed(&store).unwrap());
+    assert!(!inspect(&store).unwrap().needed);
+    let albums = browse_albums(
+        &store,
+        vec![
+            LibraryScopePair {
+                server_id: "s1".into(),
+                library_id: Some("lib-a".into()),
+            },
+            LibraryScopePair {
+                server_id: "s2".into(),
+                library_id: Some("lib-b".into()),
+            },
+        ],
+    );
+    assert_eq!(albums.len(), 1);
+    assert!(!crate::identity::identity_maintenance_needed(&store).unwrap());
+}
+
+#[test]
 fn ordinary_browse_keeps_ambiguous_physical_albums_separate() {
     let store = LibraryStore::open_in_memory();
     for (server, artist_id, name) in [

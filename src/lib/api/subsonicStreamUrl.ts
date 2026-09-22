@@ -61,15 +61,13 @@ export function buildStreamUrlForServer(serverId: string, id: string, maxBitRate
 }
 
 /**
- * URL for producers that need the original media bytes. Navidrome's verified
- * `format=raw` contract bypasses server/player transcoding; unknown and other
- * server types retain the ordinary uncapped stream request.
+ * URL for producers that need the original media bytes. Navidrome keeps its
+ * verified `format=raw` contract; other Subsonic servers use `download.view`.
  */
-export function buildOriginalStreamUrlForServer(serverId: string, id: string): string {
+export function buildOriginalStreamUrlForServer(serverId: string, id: string): string | null {
   const server = findServerByIdOrIndexKey(serverId);
-  if (!server || !serverSupportsRawStream(serverId)) {
-    return buildStreamUrlForServer(serverId, id);
-  }
+  if (!server) return null;
+  if (!serverSupportsRawStream(serverId)) return buildDownloadUrlForServer(serverId, id);
   return streamUrlFromProfile(
     connectBaseUrlForServer(server), server.username, server.password, id, 0, 'raw',
   );

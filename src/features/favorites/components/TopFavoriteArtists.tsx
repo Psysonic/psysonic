@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, ChevronRight, Users } from 'lucide-react';
 import { ArtistCoverArtImage } from '@/cover/ArtistCoverArtImage';
@@ -24,9 +24,12 @@ interface TopFavoriteArtistsRowProps {
   artists: TopFavoriteArtist[];
   selectedKey: string | null;
   onToggle: (key: string) => void;
+  hideTitle?: boolean;
 }
 
-export function TopFavoriteArtistsRow({ title, artists, selectedKey, onToggle }: TopFavoriteArtistsRowProps) {
+export function TopFavoriteArtistsRow({
+  title, artists, selectedKey, onToggle, hideTitle = false,
+}: TopFavoriteArtistsRowProps) {
   const { t } = useTranslation();
   const scrollRef = useRef<HTMLDivElement>(null);
   const { showLeft, showRight, measure, scrollByPage } = useRailScroll({
@@ -38,8 +41,10 @@ export function TopFavoriteArtistsRow({ title, artists, selectedKey, onToggle }:
   return (
     <section className="album-row-section">
       <div className="album-row-header">
-        <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
-        <div className="album-row-nav">
+        {!hideTitle && (
+          <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
+        )}
+        <div className="album-row-nav" style={hideTitle ? { marginLeft: 'auto' } : undefined}>
           <button className={`nav-btn ${!showLeft ? 'disabled' : ''}`} onClick={() => scrollByPage('left')} disabled={!showLeft}>
             <ChevronLeft size={20} />
           </button>

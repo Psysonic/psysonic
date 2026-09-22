@@ -116,6 +116,28 @@ describe('normalizeNavidromeCanonicalBackupStores', () => {
     expect(localStorage.getItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY)).toBeNull();
   });
 
+  it('rewrites the added backup stores and passes settings recorded as unchanged through', () => {
+    armNavidromeCanonicalBackupImport();
+    const stores = normalizeNavidromeCanonicalBackupStores({
+      'psysonic-auth': importedAuth(),
+      psysonic_playlist_folders: {
+        state: { byServer: { 'music.test': { folders: [], assignments: { [LEGACY_ID]: 'folder-1' } } } },
+        version: 0,
+      },
+      psysonic_radio_favorites: null,
+      psysonic_shuffle_mode: null,
+      psysonic_artist_layout: null,
+    });
+
+    const assignments = (stores.psysonic_playlist_folders as {
+      state: { byServer: Record<string, { assignments: Record<string, string> }> };
+    }).state.byServer['music.test'].assignments;
+    expect(assignments).toEqual({ [canonicalNavidromeId(LEGACY_ID)]: 'folder-1' });
+    expect(stores.psysonic_radio_favorites).toBeNull();
+    expect(stores.psysonic_shuffle_mode).toBeNull();
+    expect(stores.psysonic_artist_layout).toBeNull();
+  });
+
   it('removes stale ready checkpoints before database activation and can restore them', () => {
     const previous = localStorage.getItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY);
     const plan = prepareNavidromeCanonicalDatabaseImport();

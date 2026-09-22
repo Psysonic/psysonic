@@ -571,6 +571,7 @@ pub struct LibraryArtistDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name_sort: Option<String>,
     pub album_count: Option<i64>,
+    pub starred_at: Option<i64>,
     pub synced_at: i64,
     pub raw_json: Value,
 }

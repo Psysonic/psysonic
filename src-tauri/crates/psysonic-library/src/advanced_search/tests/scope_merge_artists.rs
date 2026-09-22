@@ -312,3 +312,170 @@ fn multi_server_album_artist_search_uses_album_credit_not_track_performer() {
         vec!["ar-kino"],
     );
 }
+
+#[test]
+fn multi_scope_track_artist_star_filter_runs_before_priority_dedup() {
+    let store = LibraryStore::open_in_memory();
+    insert_artist_with_album_count(&store, "s1", "ar-high", "Shared Artist", Some(1));
+    insert_artist_with_album_count(&store, "s2", "ar-low", "Shared Artist", Some(1));
+    store
+        .with_conn("test.star_lower_priority_artist", |conn| {
+            conn.execute(
+                "UPDATE artist SET starred_at = 200 WHERE server_id = 's2' AND id = 'ar-low'",
+                [],
+            )
+        })
+        .unwrap();
+    let mut high = scoped_track(
+        "s1",
+        "t-high",
+        "Song",
+        "Shared Artist",
+        "Album",
+        "al-high",
+        "lib-a",
+        None,
+        None,
+        Some(999),
+    );
+    high.artist_id = Some("ar-high".into());
+    let mut low = scoped_track(
+        "s2",
+        "t-low",
+        "Song",
+        "Shared Artist",
+        "Album",
+        "al-low",
+        "lib-b",
+        None,
+        None,
+        None,
+    );
+    low.artist_id = Some("ar-low".into());
+    TrackRepository::new(&store)
+        .upsert_batch(&[high, low])
+        .unwrap();
+    crate::identity::rebuild_cluster_keys(&store, None).unwrap();
+
+    let mut r = req("s1", &[EntityKind::Artist]);
+    r.library_scopes = Some(vec![scope_pair("s1", "lib-a"), scope_pair("s2", "lib-b")]);
+    r.artist_credit_mode = Some(ArtistCreditMode::Track);
+    r.starred_only = Some(true);
+    let resp = run_advanced_search(&store, &r).unwrap();
+
+    assert_eq!(resp.artists.len(), 1);
+    assert_eq!(resp.artists[0].server_id, "s2");
+    assert_eq!(resp.artists[0].id, "ar-low");
+    assert_eq!(resp.artists[0].starred_at, Some(200));
+}
+
+#[test]
+fn multi_scope_album_artist_star_filter_runs_before_priority_dedup() {
+    let store = LibraryStore::open_in_memory();
+    insert_artist_with_album_count(&store, "s1", "ar-high", "Shared Artist", Some(1));
+    insert_artist_with_album_count(&store, "s2", "ar-low", "Shared Artist", Some(1));
+    store
+        .with_conn("test.star_lower_priority_album_artist", |conn| {
+            conn.execute(
+                "UPDATE artist SET starred_at = 200 WHERE server_id = 's2' AND id = 'ar-low'",
+                [],
+            )
+        })
+        .unwrap();
+    let mut high = scoped_track(
+        "s1",
+        "t-high",
+        "Song",
+        "Shared Artist",
+        "Album",
+        "al-high",
+        "lib-a",
+        None,
+        None,
+        Some(999),
+    );
+    high.artist_id = Some("ar-high".into());
+    high.album_artist = Some("Shared Artist".into());
+    let mut low = scoped_track(
+        "s2",
+        "t-low",
+        "Song",
+        "Shared Artist",
+        "Album",
+        "al-low",
+        "lib-b",
+        None,
+        None,
+        None,
+    );
+    low.artist_id = Some("ar-low".into());
+    low.album_artist = Some("Shared Artist".into());
+    TrackRepository::new(&store)
+        .upsert_batch(&[high, low])
+        .unwrap();
+
+    let mut r = req("s1", &[EntityKind::Artist]);
+    r.library_scopes = Some(vec![scope_pair("s1", "lib-a"), scope_pair("s2", "lib-b")]);
+    r.artist_credit_mode = Some(ArtistCreditMode::Album);
+    r.starred_only = Some(true);
+    let resp = run_advanced_search(&store, &r).unwrap();
+
+    assert_eq!(resp.artists.len(), 1);
+    assert_eq!(resp.artists[0].server_id, "s2");
+    assert_eq!(resp.artists[0].id, "ar-low");
+    assert_eq!(resp.artists[0].starred_at, Some(200));
+}
+
+#[test]
+fn multi_scope_starred_role_artist_does_not_require_a_local_credit_edge() {
+    let store = LibraryStore::open_in_memory();
+    insert_artist_with_album_count(&store, "s1", "ar-high", "Shared Role", Some(1));
+    insert_artist_with_album_count(&store, "s2", "ar-low", "Shared Role", Some(1));
+    store
+        .with_conn("test.star_role_artist", |conn| {
+            conn.execute(
+                "UPDATE artist SET starred_at = 200 WHERE server_id = 's2' AND id = 'ar-low'",
+                [],
+            )
+        })
+        .unwrap();
+    let high = scoped_track(
+        "s1",
+        "t-high",
+        "Song",
+        "Different High",
+        "Album",
+        "al-high",
+        "lib-a",
+        None,
+        None,
+        None,
+    );
+    let low = scoped_track(
+        "s2",
+        "t-low",
+        "Song",
+        "Different Low",
+        "Album",
+        "al-low",
+        "lib-b",
+        None,
+        None,
+        None,
+    );
+    TrackRepository::new(&store)
+        .upsert_batch(&[high, low])
+        .unwrap();
+
+    for credit_mode in [ArtistCreditMode::Album, ArtistCreditMode::Track] {
+        let mut r = req("s1", &[EntityKind::Artist]);
+        r.library_scopes = Some(vec![scope_pair("s1", "lib-a"), scope_pair("s2", "lib-b")]);
+        r.artist_credit_mode = Some(credit_mode);
+        r.starred_only = Some(true);
+        let resp = run_advanced_search(&store, &r).unwrap();
+        assert_eq!(resp.artists.len(), 1);
+        assert_eq!(resp.artists[0].server_id, "s2");
+        assert_eq!(resp.artists[0].id, "ar-low");
+        assert_eq!(resp.artists[0].starred_at, Some(200));
+    }
+}

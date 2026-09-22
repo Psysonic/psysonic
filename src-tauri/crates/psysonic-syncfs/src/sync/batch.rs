@@ -20,7 +20,7 @@ pub(crate) mod plan;
 mod planner;
 
 pub(crate) use model::{
-    estimate_track_size_bytes, fetch_subsonic_songs, inject_playlist_context,
+    estimate_track_size_bytes, fetch_subsonic_songs, inject_flat_layout, inject_playlist_context,
     subsonic_response_root, track_sync_info_from_subsonic_json,
 };
 pub use model::{

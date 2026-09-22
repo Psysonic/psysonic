@@ -213,6 +213,7 @@ pub async fn write_playlist_m3u8(
         playlist_id.as_deref(),
         &tracks,
         references.as_deref(),
+        false,
     )
 }
 
@@ -222,13 +223,12 @@ pub(super) fn write_playlist_m3u8_within_root(
     playlist_id: Option<&str>,
     tracks: &[TrackSyncInfo],
     references: Option<&[String]>,
+    flat: bool,
 ) -> Result<(), String> {
     if references.is_some_and(|values| values.len() != tracks.len()) {
         return Err("DEVICE_SYNC_PLAYLIST_REFERENCES_INVALID".to_string());
     }
-    let directory_name = playlist_directory_name(playlist_name, playlist_id);
-    let playlist_dir = root.join("Playlists").join(&directory_name);
-    let file_path = playlist_dir.join(format!("{}.m3u8", directory_name));
+    let file_path = playlist_file_path(root, playlist_name, playlist_id, flat);
     if path_contains_symlink(root, &file_path)? {
         return Err("DEVICE_SYNC_PATH_ESCAPES_ROOT".to_string());
     }
@@ -345,6 +345,10 @@ pub struct TrackSyncInfo {
     pub playlist_id: Option<String>,
     #[serde(default, rename = "playlistIndex")]
     pub playlist_index: Option<u32>,
+    /// Flat layout: the track goes straight into the device root, whatever
+    /// source it came from (see `build_track_path`).
+    #[serde(default, rename = "flatLayout")]
+    pub flat_layout: bool,
 }
 
 /// Summary returned by `sync_batch_to_device` after all tracks are processed.
@@ -406,12 +410,51 @@ pub(crate) fn playlist_collision_key(name: &str) -> String {
     sanitize_or(name, "Unnamed Playlist").to_lowercase()
 }
 
+/// Device-relative path of a playlist's `.m3u8`, `/`-separated. The flat layout
+/// keeps it in the device root next to the tracks.
+pub(crate) fn playlist_file_relative_path(
+    name: &str,
+    playlist_id: Option<&str>,
+    flat: bool,
+) -> String {
+    let directory = playlist_directory_name(name, playlist_id);
+    if flat {
+        format!("{directory}.m3u8")
+    } else {
+        format!("Playlists/{directory}/{directory}.m3u8")
+    }
+}
+
+/// Absolute path of a playlist's `.m3u8` under `root`, joined part by part.
+pub(crate) fn playlist_file_path(
+    root: &std::path::Path,
+    name: &str,
+    playlist_id: Option<&str>,
+    flat: bool,
+) -> std::path::PathBuf {
+    playlist_file_relative_path(name, playlist_id, flat)
+        .split('/')
+        .fold(root.to_path_buf(), |path, part| path.join(part))
+}
+
 /// Builds the fixed device path for a track. When the track carries a playlist
 /// context it goes into the playlist folder, otherwise into the album tree.
 ///
 /// Album-tree:  `{AlbumArtist}/{Album}/{TrackNum:02d} - {Title}.{ext}`
 /// Playlist:    `Playlists/{PlaylistName}/{PlaylistIndex:02d} - {Artist} - {Title}.{ext}`
+/// Flat:        `{AlbumArtist} - {Album} - {TrackNum:02d} - {Title}.{ext}` in the root —
+///              the album keeps names unique and sorts tracks album by album.
 pub fn build_track_path(track: &TrackSyncInfo) -> String {
+    if track.flat_layout {
+        let album_artist = sanitize_or(&track.album_artist, "Unknown Artist");
+        let album = sanitize_or(&track.album, "Unknown Album");
+        let title = sanitize_or(&track.title, "Unknown Title");
+        let track_num = track
+            .track_number
+            .map(|n| format!("{:02}", n))
+            .unwrap_or_else(|| "00".to_string());
+        return format!("{album_artist} - {album} - {track_num} - {title}");
+    }
     let relative = match (&track.playlist_name, track.playlist_index) {
         (Some(name), Some(idx)) => {
             let playlist = playlist_directory_name(name, track.playlist_id.as_deref());

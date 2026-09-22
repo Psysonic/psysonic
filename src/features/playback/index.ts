@@ -20,6 +20,7 @@ export {
 export { useVolumeToggle } from './hooks/useVolumeToggle';
 export { useTrackPlayStats } from './hooks/useTrackPlayStats';
 export { usePlaybackLibraryNavigate } from './hooks/usePlaybackLibraryNavigate';
+export { useDebouncedBuffering } from './hooks/useDebouncedBuffering';
 export { TrackArtistLinks } from './components/TrackArtistLinks';
 export { ScrobbleActionButton } from './components/playerBar/ScrobbleStatus';
 /** Visualizer tap and reactive availability for internet radio. */
@@ -31,3 +32,4 @@ export {
 export { sameQueueTrack } from './utils/playback/queueIdentity';
 export { queueTrackIdsForServerProfile } from './utils/playback/trackServerScope';
 export { playTimelineFromHere } from './utils/playTimelineHistoryTrack';
+export { usePlayQueueSyncSettingsStore } from './store/playQueueSyncSettingsStore';

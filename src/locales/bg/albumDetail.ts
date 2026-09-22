@@ -40,6 +40,7 @@ export const albumDetail = {
   trackPlayCount: 'Изпълнения',
   trackLastPlayed: 'Последно пуснато',
   trackBpm: 'BPM',
+  trackRowNumber: 'Номер на ред (#)',
   trackFormat: 'Формат',
   trackYear: 'Година',
   trackFavorite: 'Любима',

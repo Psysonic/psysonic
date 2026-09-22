@@ -18,13 +18,13 @@ pub fn list_random_artists(
     let (artists, timing) = store
         .with_read_conn_timed(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT server_id, id, name, name_sort, album_count, synced_at, raw_json \
+                "SELECT server_id, id, name, name_sort, album_count, starred_at, synced_at, raw_json \
                  FROM artist WHERE server_id = ?1 ORDER BY RANDOM() LIMIT ?2",
             )?;
             let rows = stmt
                 .query_map(params![server_id, i64::from(limit)], |row| {
                     let raw_json = row
-                        .get::<_, Option<String>>(6)?
+                        .get::<_, Option<String>>(7)?
                         .and_then(|raw| serde_json::from_str(&raw).ok())
                         .unwrap_or(serde_json::Value::Null);
                     Ok(LibraryArtistDto {
@@ -33,7 +33,8 @@ pub fn list_random_artists(
                         name: row.get(2)?,
                         name_sort: row.get(3)?,
                         album_count: row.get(4)?,
-                        synced_at: row.get(5)?,
+                        starred_at: row.get(5)?,
+                        synced_at: row.get(6)?,
                         raw_json,
                     })
                 })?

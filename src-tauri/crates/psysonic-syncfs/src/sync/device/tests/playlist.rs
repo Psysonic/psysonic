@@ -6,8 +6,10 @@ fn playlist_replacement_never_leaves_partial_contents() {
     let first = track(|track| track.title = "First".to_string());
     let second = track(|track| track.title = "Second".to_string());
 
-    write_playlist_m3u8_within_root(device.path(), "Road Trip", None, &[first], None).unwrap();
-    write_playlist_m3u8_within_root(device.path(), "Road Trip", None, &[second], None).unwrap();
+    write_playlist_m3u8_within_root(device.path(), "Road Trip", None, &[first], None, false)
+        .unwrap();
+    write_playlist_m3u8_within_root(device.path(), "Road Trip", None, &[second], None, false)
+        .unwrap();
 
     let directory = playlist_directory_name("Road Trip", None);
 
@@ -40,6 +42,7 @@ fn playlist_write_rejects_a_symlink_escape() {
         Some("playlist-1"),
         &[track(|_| {})],
         None,
+        false,
     );
 
     assert_eq!(result, Err("DEVICE_SYNC_PATH_ESCAPES_ROOT".to_string()));
@@ -58,6 +61,7 @@ fn playlist_ids_disambiguate_identical_display_names() {
         Some(first_id),
         &[track(|track| track.title = "First".to_string())],
         None,
+        false,
     )
     .unwrap();
     write_playlist_m3u8_within_root(
@@ -66,6 +70,7 @@ fn playlist_ids_disambiguate_identical_display_names() {
         Some(second_id),
         &[track(|track| track.title = "Second".to_string())],
         None,
+        false,
     )
     .unwrap();
 
@@ -98,6 +103,7 @@ fn playlist_write_uses_explicit_shared_track_references() {
         None,
         &tracks,
         Some(&references),
+        false,
     )
     .unwrap();
 
@@ -105,4 +111,25 @@ fn playlist_write_uses_explicit_shared_track_references() {
         std::fs::read_to_string(device.path().join("Playlists/Shared Mix/Shared Mix.m3u8"))
             .unwrap();
     assert!(playlist.ends_with("/Artist/Album/01 - Shared.flac\n"));
+}
+
+#[test]
+fn playlist_write_flat_layout_lands_in_the_root() {
+    let device = tempfile::tempdir().unwrap();
+    let tracks = [track(|track| track.title = "Shared".to_string())];
+    let references = ["AlbumArtist - Album - 01 - Shared.flac".to_string()];
+
+    write_playlist_m3u8_within_root(
+        device.path(),
+        "Road Trip",
+        None,
+        &tracks,
+        Some(&references),
+        true,
+    )
+    .unwrap();
+
+    let playlist = std::fs::read_to_string(device.path().join("Road Trip.m3u8")).unwrap();
+    assert!(playlist.ends_with("\nAlbumArtist - Album - 01 - Shared.flac\n"));
+    assert!(!device.path().join("Playlists").exists());
 }

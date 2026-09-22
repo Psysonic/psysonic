@@ -431,6 +431,8 @@ async function runOfflinePinDownloadWithServerLease(
           return;
         }
         const trackServerIndexKey = serverIndexKeyForOffline(serverId);
+        const existing = findLocalPlaybackEntry(song.id, serverId);
+        const targetServerIndexKey = existing?.serverIndexKey ?? trackServerIndexKey;
         const deletionEpoch = getOfflineTrackDeletionEpoch(trackServerIndexKey, song.id);
         markStarted();
         jobStore.setState(state => ({
@@ -446,7 +448,6 @@ async function runOfflinePinDownloadWithServerLease(
         const suffix = song.suffix || 'mp3';
         let localPath: string | null = null;
         let error: string | null = null;
-        const existing = findLocalPlaybackEntry(song.id, serverId);
         if (
           existing?.tier === 'library'
           && localEntrySatisfiesOriginalRequirement(existing, serverId)
@@ -460,19 +461,20 @@ async function runOfflinePinDownloadWithServerLease(
             pendingSongs.push(song);
             continue;
           }
-            if (navidromeCanonicalBootstrapIsActive()) {
-              cancelled = true;
-              return;
-            }
-            useLocalPlaybackStore.getState().upsertEntry({
+          if (navidromeCanonicalBootstrapIsActive()) {
+            cancelled = true;
+            return;
+          }
+          useLocalPlaybackStore.getState().upsertEntry({
             ...latestExisting,
-            serverIndexKey: trackServerIndexKey,
+            serverIndexKey: targetServerIndexKey,
             pinSource,
             suffix: latestExisting.suffix || suffix,
           });
           localPath = latestExisting.localPath;
         } else {
-          const nativeResult = invoke<{
+          const originalUrl = buildOriginalStreamUrlForServer(serverId, song.id);
+          const nativeResult = originalUrl ? invoke<{
             path: string;
             size: number;
             layoutFingerprint: string;
@@ -482,14 +484,14 @@ async function runOfflinePinDownloadWithServerLease(
             {
               tier: 'library',
               trackId: song.id,
-              serverIndexKey: trackServerIndexKey,
+              serverIndexKey: targetServerIndexKey,
               libraryServerId,
-              url: buildOriginalStreamUrlForServer(serverId, song.id),
+              url: originalUrl,
               suffix,
               mediaDir,
               downloadId,
             },
-          );
+          ) : Promise.reject(new Error('SERVER_NOT_FOUND'));
           let signalCancellation!: () => void;
           const cancellation = new Promise<void>(resolve => {
             signalCancellation = resolve;
@@ -536,7 +538,8 @@ async function runOfflinePinDownloadWithServerLease(
                 continue;
               } else {
                 useLocalPlaybackStore.getState().upsertEntry({
-                  serverIndexKey: trackServerIndexKey,
+                  ...(existing ?? {}),
+                  serverIndexKey: targetServerIndexKey,
                   trackId: song.id,
                   localPath: res.path,
                   sizeBytes: res.size,

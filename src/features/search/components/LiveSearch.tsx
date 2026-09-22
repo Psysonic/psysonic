@@ -28,6 +28,7 @@ import {
 import { useLiveSearchScopeStore } from '@/store/liveSearchScopeStore';
 import { useAuthStore } from '@/store/authStore';
 import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
+import { OPEN_SEARCH_EVENT } from '@/lib/dom/openSearch';
 
 export default function LiveSearch() {
   const { t } = useTranslation();
@@ -56,6 +57,21 @@ export default function LiveSearch() {
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const isCollapsed = useLiveSearchHeaderCollapse(ref);
+
+  useEffect(() => {
+    const openSearch = (event: Event) => {
+      const root = ref.current;
+      if (!root || root.closest('.app-shell[data-mobile]')) return;
+      event.preventDefault();
+      setIsFocused(true);
+      requestAnimationFrame(() => {
+        inputRef.current?.focus();
+        inputRef.current?.select();
+      });
+    };
+    window.addEventListener(OPEN_SEARCH_EVENT, openSearch);
+    return () => window.removeEventListener(OPEN_SEARCH_EVENT, openSearch);
+  }, []);
 
   useEffect(() => {
     resetLiveSearchScopeBackspaceState(scopeBackspaceRef.current);
@@ -108,7 +124,7 @@ export default function LiveSearch() {
     setActiveIndex,
   });
 
-  const isSearchActive = isFocused || open || query.trim().length > 0 || scope != null;
+  const isSearchActive = isFocused || open || query.trim().length > 0;
 
   useEffect(() => {
     const root = ref.current;
@@ -173,6 +189,14 @@ export default function LiveSearch() {
   ] : [];
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      setOpen(false);
+      setActiveIndex(-1);
+      inputRef.current?.blur();
+      return;
+    }
     if (handleLiveSearchScopeUndo(e, undoLiveSearch)) return;
     if (handleLiveSearchScopeBackspace(e, query, scope, clearScope, scopeBackspaceRef.current)) return;
     if (isLiveSearchDropdownBlocked(scope)) return;
@@ -188,9 +212,6 @@ export default function LiveSearch() {
       } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         setActiveIndex(share.hasShareKeyboardTarget ? 0 : -1);
-      } else if (e.key === 'Escape') {
-        setOpen(false);
-        setActiveIndex(-1);
       }
       return;
     }
@@ -217,8 +238,6 @@ export default function LiveSearch() {
       else if (query.trim()) {
         leaveLiveSearchFor(`/search?q=${encodeURIComponent(query.trim())}`);
       }
-    } else if (e.key === 'Escape') {
-      setOpen(false); setActiveIndex(-1);
     }
   };
 

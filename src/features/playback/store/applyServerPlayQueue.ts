@@ -23,6 +23,7 @@ import {
 } from '@/features/playback/store/queuePlaybackIdle';
 import { clearQueueHandoffPending } from '@/features/playback/store/queueSyncUiState';
 import { sameQueueTrack } from '@/features/playback/utils/playback/queueIdentity';
+import { isPlayQueueSyncEnabled } from '@/features/playback/store/playQueueSyncSettingsStore';
 
 export type ApplyPlayQueueMode = 'startup' | 'idle' | 'manual';
 
@@ -236,6 +237,7 @@ export async function applyServerPlayQueue(
     pushUndo?: boolean;
   },
 ): Promise<ApplyPlayQueueResult> {
+  if (!isPlayQueueSyncEnabled()) return 'noop';
   const profileId = resolveServerProfileId(serverId);
   if (!profileId) return 'error';
 
@@ -295,6 +297,7 @@ export async function applyServerPlayQueue(
 }
 
 export async function fetchActiveServerPlayQueueFingerprint(): Promise<PlayQueueFingerprint | null> {
+  if (!isPlayQueueSyncEnabled()) return null;
   const activeId = useAuthStore.getState().activeServerId;
   if (!activeId) return null;
   try {
@@ -307,6 +310,7 @@ export async function fetchActiveServerPlayQueueFingerprint(): Promise<PlayQueue
 }
 
 export async function pullPlayQueueFromServer(serverId: string): Promise<ApplyPlayQueueResult> {
+  if (!isPlayQueueSyncEnabled()) return 'noop';
   if (!serverId) return 'error';
 
   clearQueueNaturallyEnded();

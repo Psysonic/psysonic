@@ -45,10 +45,18 @@ pub(super) fn preflight(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Resu
                 NavidromePayloadKind::Track,
             )
             .map_err(migration_error)?;
-            let destination_id = canonical_id(&source.row.id);
+            let destination_id = migration_destination_id(tx, server_id, &source.row.id)?;
             if source.row.id != destination_id {
-                if let Some(destination) = load_owner(tx, server_id, &destination_id)? {
-                    ensure_equivalent(&destination.row, &source.row)?;
+                if let Some(destination) = load_owner(tx, server_id, &destination_id)?
+                    .filter(|destination| !destination.row.deleted)
+                {
+                    ensure_merge_safe(
+                        tx,
+                        server_id,
+                        &destination.row,
+                        &source.row,
+                        &destination_id,
+                    )?;
                 }
             }
         }
@@ -99,7 +107,7 @@ pub(super) fn run_batch(
             selected
         };
         let old_id = source.row.id.clone();
-        let destination_id = canonical_id(&source.row.id);
+        let destination_id = migration_destination_id(tx, server_id, &source.row.id)?;
         if old_id == destination_id {
             let row = canonicalize_owner(source.row, destination_id)?;
             write_owner(tx, &row)?;
@@ -111,11 +119,20 @@ pub(super) fn run_batch(
         } else {
             None
         };
-        if let Some(destination) = destination.as_ref() {
-            ensure_equivalent(&destination.row, &source.row)?;
-        }
-        let row = match destination {
+        let replaces_deleted_owner = destination
+            .as_ref()
+            .is_some_and(|destination| destination.row.deleted);
+        // The canonical row owns the migrated ID. Keep it and retarget legacy
+        // references even when mutable server metadata has changed.
+        let row = match destination.filter(|destination| !destination.row.deleted) {
             Some(destination) => {
+                ensure_merge_safe(
+                    tx,
+                    server_id,
+                    &destination.row,
+                    &source.row,
+                    &destination_id,
+                )?;
                 stats.merged += 1;
                 merge_owner(destination.row, source.row, destination_id.clone())?
             }
@@ -124,8 +141,12 @@ pub(super) fn run_batch(
                 canonicalize_owner(source.row, destination_id.clone())?
             }
         };
+        if replaces_deleted_owner {
+            clear_deleted_owner_preserved_fields(tx, server_id, &destination_id)?;
+        }
         write_owner(tx, &row)?;
         if requires_full_retarget {
+            discard_stale_source_alias(tx, server_id, &old_id, &destination_id)?;
             retarget_track_references(
                 tx,
                 server_id,
@@ -273,12 +294,57 @@ fn load_existing_destination_ids(
          UNION \
          SELECT new_id FROM navidrome_id_batch_mapping \
          WHERE entity_kind = 'track' AND old_id != new_id \
-         GROUP BY new_id HAVING COUNT(*) > 1",
+         GROUP BY new_id HAVING COUNT(*) > 1 \
+         UNION \
+         SELECT history.new_id FROM track_id_history AS history \
+         JOIN track AS destination \
+            ON destination.server_id = history.server_id \
+           AND destination.id = history.new_id AND destination.deleted = 0 \
+         WHERE history.server_id = ?1",
     )?;
     let rows = statement
         .query_map(params![server_id], |row| row.get(0))?
         .collect();
     rows
+}
+
+fn migration_destination_id(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    old_id: &str,
+) -> rusqlite::Result<String> {
+    let existing_owner = tx
+        .query_row(
+            "SELECT history.new_id FROM track_id_history AS history \
+             JOIN track AS destination \
+                ON destination.server_id = history.server_id \
+               AND destination.id = history.new_id AND destination.deleted = 0 \
+              WHERE history.server_id = ?1 AND history.old_id = ?2",
+            params![server_id, old_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(existing_owner.unwrap_or_else(|| canonical_id(old_id)))
+}
+
+fn discard_stale_source_alias(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    old_id: &str,
+    destination_id: &str,
+) -> rusqlite::Result<()> {
+    tx.execute(
+        "DELETE FROM track_id_history AS history \
+         WHERE history.server_id = ?1 AND history.old_id = ?2 \
+           AND history.new_id != ?3 \
+           AND NOT EXISTS( \
+             SELECT 1 FROM track AS destination \
+             WHERE destination.server_id = history.server_id \
+               AND destination.id = history.new_id AND destination.deleted = 0 \
+           )",
+        params![server_id, old_id, destination_id],
+    )?;
+    Ok(())
 }
 
 fn load_batch(
@@ -328,21 +394,23 @@ fn load_owner(
         .optional()
 }
 
-fn ensure_equivalent(destination: &TrackRow, source: &TrackRow) -> rusqlite::Result<()> {
+fn ensure_merge_safe(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    destination: &TrackRow,
+    source: &TrackRow,
+    destination_id: &str,
+) -> rusqlite::Result<()> {
     if is_lossless_legacy_id(&source.id) {
         return Ok(());
     }
-    let mut matched = false;
+
+    let mut matched_strong_id = false;
     for (label, destination_value, source_value) in [
         (
             "content_hash",
             destination.content_hash.as_deref(),
             source.content_hash.as_deref(),
-        ),
-        (
-            "server_path",
-            destination.server_path.as_deref(),
-            source.server_path.as_deref(),
         ),
         ("isrc", destination.isrc.as_deref(), source.isrc.as_deref()),
         (
@@ -361,10 +429,28 @@ fn ensure_equivalent(destination: &TrackRow, source: &TrackRow) -> rusqlite::Res
                     source.id, destination.id
                 )));
             }
-            matched = true;
+            matched_strong_id = true;
         }
     }
-    if matched {
+
+    let historical_owner: bool = !destination.deleted
+        && tx.query_row(
+            "SELECT EXISTS(SELECT 1 FROM track_id_history \
+         WHERE server_id = ?1 AND old_id = ?2 AND new_id = ?3)",
+            params![server_id, source.id, destination_id],
+            |row| row.get(0),
+        )?;
+    let stable_metadata_matches = source.duration_sec > 0
+        && destination.duration_sec == source.duration_sec
+        && matches!(
+            (destination.size_bytes, source.size_bytes),
+            (Some(destination_size), Some(source_size))
+                if destination_size > 0 && destination_size == source_size
+        )
+        && !source.title.trim().is_empty()
+        && destination.title == source.title
+        && destination.album == source.album;
+    if matched_strong_id || historical_owner || stable_metadata_matches {
         Ok(())
     } else {
         Err(migration_error(format!(
@@ -494,6 +580,21 @@ fn write_owner(tx: &Transaction<'_>, row: &TrackRow) -> rusqlite::Result<()> {
         row.raw_json,
         0_i64,
     ])?;
+    Ok(())
+}
+
+fn clear_deleted_owner_preserved_fields(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    id: &str,
+) -> rusqlite::Result<()> {
+    tx.execute(
+        "UPDATE track SET \
+           title_sort = NULL, play_count = NULL, played_at = NULL, library_id = NULL, \
+           content_hash = NULL, server_updated_at = NULL, server_created_at = NULL \
+         WHERE server_id = ?1 AND id = ?2 AND deleted = 1",
+        params![server_id, id],
+    )?;
     Ok(())
 }
 

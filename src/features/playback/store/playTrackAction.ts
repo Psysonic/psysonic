@@ -46,7 +46,10 @@ import {
   findLocalPlaybackUrl,
   hasLocalPersistentPlaybackBytes,
 } from '@/store/localPlaybackResolve';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { resolveReplayGainDb } from '@/features/playback/utils/audio/resolveReplayGainDb';
 import { enrichTrackPlaybackMetadata } from '@/features/playback/utils/audio/enrichTrackReplayGainMetadata';
 import { audioPlayHiResBlendArgs } from '@/lib/audio/hiResCrossfadeResample';
@@ -89,9 +92,8 @@ import { stopRadio } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
-  clearSeekFallbackRetry,
   getSeekFallbackVisualTarget,
-  setSeekFallbackRestartAt,
+  resetSeekStateForPlaybackChange,
   setSeekFallbackTrackId,
   setSeekFallbackVisualTarget,
 } from '@/features/playback/store/seekFallbackState';
@@ -306,8 +308,7 @@ export function runPlayTrack(
   setIsAudioPaused(false);
   clearPreloadingIds(); // new track — allow fresh preload for next
   clearSeekDebounce(); clearSeekTarget();
-  clearSeekFallbackRetry();
-  setSeekFallbackRestartAt(0);
+  resetSeekStateForPlaybackChange();
 
   // If a radio stream is active, stop it before the new track starts so
   // the PlayerBar clears radio mode immediately and the stream is released.
@@ -614,6 +615,11 @@ export function runPlayTrack(
         ...audioPlayHiResBlendArgs(authStateNow),
         analysisTrackId: trackForPlay.id,
         serverId: getPlaybackIndexKey() || null,
+        localOriginalVerified: localPlaybackOriginalVerifiedForUrl(
+          trackForPlay.id,
+          playbackSid || playbackCacheSid,
+          url,
+        ),
         streamFormatSuffix: trackForPlay.suffix ?? null,
         startPaused: false,
         startSecs: crossfadeStartSecs > 0.05 ? crossfadeStartSecs : null,

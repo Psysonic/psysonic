@@ -8,7 +8,7 @@ use std::time::Duration;
 use rodio::source::SeekError;
 use rodio::{ChannelCount, SampleRate, Source};
 
-use crate::preserve_worker::PreserveOffload;
+use crate::preserve_worker::{PreserveOffload, StreamingSeekHandle};
 
 pub const STRATEGY_VARISPEED: u32 = 0;
 pub const STRATEGY_PRESERVE_PITCH: u32 = 1;
@@ -141,25 +141,57 @@ pub struct PlaybackRateSource<S: Source<Item = f32> + Send + 'static> {
     inner: Option<S>,
     base_sample_rate: SampleRate,
     base_channels: ChannelCount,
+    base_duration: Option<Duration>,
     atomics: PlaybackRateAtomics,
     offload: Option<PreserveOffload>,
     handback_rx: Option<mpsc::Receiver<S>>,
     handback_requested: bool,
+    permanent_offload: bool,
 }
 
 impl<S: Source<Item = f32> + Send + 'static> PlaybackRateSource<S> {
     pub fn new(inner: S, atomics: PlaybackRateAtomics) -> Self {
         let base_sample_rate = inner.sample_rate();
         let base_channels = inner.channels();
+        let base_duration = inner.total_duration();
         Self {
             inner: Some(inner),
             base_sample_rate,
             base_channels,
+            base_duration,
             atomics,
             offload: None,
             handback_rx: None,
             handback_requested: false,
+            permanent_offload: false,
         }
+    }
+
+    pub(crate) fn new_permanent_offload(
+        inner: S,
+        atomics: PlaybackRateAtomics,
+    ) -> (Self, StreamingSeekHandle, Arc<AtomicBool>) {
+        let base_sample_rate = inner.sample_rate();
+        let base_channels = inner.channels();
+        let base_duration = inner.total_duration();
+        let (offload, seek_handle, delivery_gate) = PreserveOffload::spawn_permanent(
+            inner,
+            atomics.clone(),
+            base_sample_rate.get(),
+            base_channels.get(),
+        );
+        let source = Self {
+            inner: None,
+            base_sample_rate,
+            base_channels,
+            base_duration,
+            atomics,
+            offload: Some(offload),
+            handback_rx: None,
+            handback_requested: false,
+            permanent_offload: true,
+        };
+        (source, seek_handle, delivery_gate)
     }
 
     fn poll_handback(&mut self) {
@@ -238,6 +270,17 @@ impl<S: Source<Item = f32> + Send + 'static> Iterator for PlaybackRateSource<S> 
     type Item = f32;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.permanent_offload {
+            let offload = self.offload.as_mut()?;
+            if let Some(sample) = offload.pop() {
+                return Some(sample);
+            }
+            if offload.has_pending_seek() || !offload.is_done() {
+                return Some(0.0);
+            }
+            return None;
+        }
+
         if !is_effect_active(&self.atomics) {
             if let Some(offload) = self.offload.as_mut() {
                 if let Some(s) = offload.pop() {
@@ -290,11 +333,23 @@ impl<S: Source<Item = f32> + Send + 'static> Source for PlaybackRateSource<S> {
     }
 
     fn total_duration(&self) -> Option<Duration> {
-        self.inner.as_ref()?.total_duration()
+        self.inner
+            .as_ref()
+            .and_then(Source::total_duration)
+            .or(self.base_duration)
     }
 
     fn try_seek(&mut self, pos: Duration) -> Result<(), SeekError> {
         // UI / transport always pass content-timeline seconds (0..full track).
+        if self.permanent_offload {
+            return self
+                .offload
+                .as_mut()
+                .ok_or(SeekError::NotSupported {
+                    underlying_source: "PlaybackRateSource",
+                })?
+                .commit_prepared_seek(pos);
+        }
         if let Some(inner) = self.inner.as_mut() {
             inner.try_seek(pos)?;
         }

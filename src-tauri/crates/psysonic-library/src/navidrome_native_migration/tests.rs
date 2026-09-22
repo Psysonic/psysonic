@@ -23,6 +23,29 @@ fn fresh_dir(label: &str) -> std::path::PathBuf {
     path
 }
 
+fn run_track_batches(store: &LibraryStore, limit: u32) -> (u32, u32) {
+    let upper = upper_rowid(store, "s1", NavidromeNativeMigrationStep::Track).unwrap();
+    let mut cursor = 0;
+    let mut moved = 0;
+    let mut merged = 0;
+    while cursor < upper {
+        let result = run_batch(
+            store,
+            "s1",
+            NavidromeNativeMigrationStep::Track,
+            cursor,
+            upper,
+            limit,
+        )
+        .unwrap();
+        assert!(result.cursor_rowid > cursor);
+        cursor = result.cursor_rowid;
+        moved += result.moved;
+        merged += result.merged;
+    }
+    (moved, merged)
+}
+
 #[test]
 fn artist_batches_resume_against_the_original_upper_rowid() {
     let store = LibraryStore::open_in_memory();
@@ -30,8 +53,8 @@ fn artist_batches_resume_against_the_original_upper_rowid() {
         .with_conn_mut("test.seed_native_artists", |conn| {
             conn.execute(
                 "INSERT INTO artist \
-                   (server_id, id, name, album_count, synced_at, raw_json) \
-                 VALUES ('s1', ?1, 'Artist One', 1, 10, ?2)",
+                   (server_id, id, name, album_count, starred_at, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Artist One', 1, 15, 10, ?2)",
                 params![
                     LEGACY_ARTIST,
                     serde_json::json!({ "id": LEGACY_ARTIST, "name": "Artist One" }).to_string()
@@ -90,6 +113,70 @@ fn artist_batches_resume_against_the_original_upper_rowid() {
         assert!(!old_exists);
         assert!(new_exists);
     }
+    let moved_star: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT starred_at FROM artist WHERE server_id = 's1' AND id = ?1",
+                params![canonical_id(LEGACY_ARTIST)],
+                |row| row.get(0),
+            )
+        })
+        .unwrap();
+    assert_eq!(moved_star, Some(15));
+}
+
+#[test]
+fn artist_collision_merge_preserves_the_newest_star() {
+    let store = LibraryStore::open_in_memory();
+    let canonical_artist = canonical_id(LEGACY_ARTIST);
+    store
+        .with_conn_mut("test.seed_native_artist_star_merge", |conn| {
+            conn.execute(
+                "INSERT INTO artist \
+                   (server_id, id, name, album_count, starred_at, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Legacy Artist', 1, 20, 2, ?2), \
+                        ('s1', ?3, 'Canonical Artist', 2, 10, 1, ?4)",
+                params![
+                    LEGACY_ARTIST,
+                    serde_json::json!({
+                        "id": LEGACY_ARTIST,
+                        "musicBrainzId": "shared-artist"
+                    })
+                    .to_string(),
+                    canonical_artist,
+                    serde_json::json!({
+                        "id": canonical_artist,
+                        "musicBrainzId": "shared-artist"
+                    })
+                    .to_string(),
+                ],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let upper = upper_rowid(&store, "s1", NavidromeNativeMigrationStep::Artist).unwrap();
+    let result = run_batch(
+        &store,
+        "s1",
+        NavidromeNativeMigrationStep::Artist,
+        0,
+        upper,
+        20,
+    )
+    .unwrap();
+    assert_eq!(result.merged, 1);
+
+    let starred_at: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT starred_at FROM artist WHERE server_id = 's1' AND id = ?1",
+                params![canonical_artist],
+                |row| row.get(0),
+            )
+        })
+        .unwrap();
+    assert_eq!(starred_at, Some(20));
 }
 
 #[test]
@@ -118,7 +205,7 @@ fn track_collision_keeps_canonical_owner_and_retargets_history() {
                 "INSERT INTO track \
                    (server_id, id, title, album, starred_at, play_count, server_updated_at, \
                     deleted, synced_at, raw_json) \
-                 VALUES ('s1', ?1, 'Canonical title', 'Album', NULL, 2, 100, 1, 100, ?2)",
+                 VALUES ('s1', ?1, 'Canonical title', 'Album', NULL, 2, 100, 0, 100, ?2)",
                 params![
                     canonical_track,
                     serde_json::json!({ "id": canonical_track, "title": "Canonical title" })
@@ -191,6 +278,492 @@ fn track_collision_keeps_canonical_owner_and_retargets_history() {
         })
         .unwrap();
     assert_eq!(session_track, canonical_track);
+}
+
+#[test]
+fn overflow_track_collision_accepts_a_moved_canonical_owner() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "K4CeqxxLfDLhWD8xzu9Pmh";
+    let canonical_track = canonical_id(legacy_track);
+    store
+        .with_conn_mut("test.seed_moved_native_track", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, duration_sec, size_bytes, server_path, \
+                    deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Promise Me', 'Promise Me (Acoustic)', 235, 9309018, \
+                         'Badflower - Promise Me.mp3', 0, 1, ?2), \
+                        ('s1', ?3, 'Promise Me', 'Promise Me (Acoustic)', 235, 9309018, \
+                         'Badflower/Promise Me (Acoustic)/01-Promise Me.mp3', 0, 2, ?4)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                    canonical_track,
+                    serde_json::json!({ "id": canonical_track }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    preflight(&store, "s1").unwrap();
+    let upper = upper_rowid(&store, "s1", NavidromeNativeMigrationStep::Track).unwrap();
+    let result = run_batch(
+        &store,
+        "s1",
+        NavidromeNativeMigrationStep::Track,
+        0,
+        upper,
+        20,
+    )
+    .unwrap();
+    assert_eq!(result.merged, 1);
+
+    let (legacy_exists, canonical_exists, retargeted_sessions): (bool, bool, i64) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?1), \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?2), \
+                   (SELECT COUNT(*) FROM play_session \
+                    WHERE server_id = 's1' AND track_id = ?2)",
+                params![legacy_track, canonical_track],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+        })
+        .unwrap();
+    assert!(!legacy_exists);
+    assert!(canonical_exists);
+    assert_eq!(retargeted_sessions, 1);
+}
+
+#[test]
+fn overflow_track_collision_rejects_contradictory_strong_ids() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "K4CeqxxLfDLhWD8xzu9Pmh";
+    let canonical_track = canonical_id(legacy_track);
+    store
+        .with_conn_mut("test.seed_contradictory_native_track", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, duration_sec, size_bytes, content_hash, \
+                    deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Promise Me', 'Promise Me (Acoustic)', 235, 9309018, \
+                         'hash-old', 0, 1, ?2), \
+                        ('s1', ?3, 'Promise Me', 'Promise Me (Acoustic)', 235, 9309018, \
+                         'hash-new', 0, 2, ?4)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                    canonical_track,
+                    serde_json::json!({ "id": canonical_track }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    assert!(preflight(&store, "s1")
+        .unwrap_err()
+        .contains("contradictory Navidrome track collision field `content_hash`"));
+    let upper = upper_rowid(&store, "s1", NavidromeNativeMigrationStep::Track).unwrap();
+    assert!(run_batch(
+        &store,
+        "s1",
+        NavidromeNativeMigrationStep::Track,
+        0,
+        upper,
+        20,
+    )
+    .unwrap_err()
+    .contains("contradictory Navidrome track collision field `content_hash`"));
+
+    let state: (i64, String) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT COUNT(*), (SELECT track_id FROM play_session) FROM track",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(state, (2, legacy_track.to_string()));
+}
+
+#[test]
+fn overflow_track_collision_keeps_an_existing_alias_owner() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "uRfLiWcvOEOTfoq0CEjxmt";
+    let computed_track = canonical_id(legacy_track);
+    let existing_track = "7JIZs20Fig8REmBWDRmWZt";
+    assert_ne!(computed_track, existing_track);
+    store
+        .with_conn_mut("test.seed_existing_track_alias", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, server_path, deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Gurenge', 'Gurenge', \
+                         'Blinding Sunrise/Gurenge/01 - Gurenge.mp3', 0, 2, ?2), \
+                        ('s1', ?3, 'Gurenge', 'Gurenge', \
+                         'Blinding Sunrise - Gurenge.mp3', 0, 1, ?4), \
+                        ('s1', ?5, 'Gurenge', 'Gurenge', \
+                         'Blinding Sunrise - Gurenge.mp3', 0, 3, ?6)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                    existing_track,
+                    serde_json::json!({ "id": existing_track }).to_string(),
+                    computed_track,
+                    serde_json::json!({ "id": computed_track }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_id_history \
+                   (server_id, old_id, new_id, server_path, remapped_at) \
+                 VALUES ('s1', ?1, ?2, 'Blinding Sunrise - Gurenge.mp3', 1)",
+                params![legacy_track, existing_track],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let (_, merged) = run_track_batches(&store, 1);
+    assert_eq!(merged, 1);
+
+    let state: (bool, bool, bool, String, String) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?1), \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?2), \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?3), \
+                   (SELECT new_id FROM track_id_history \
+                    WHERE server_id = 's1' AND old_id = ?1), \
+                   (SELECT track_id FROM play_session WHERE server_id = 's1')",
+                params![legacy_track, existing_track, computed_track],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        state,
+        (
+            false,
+            true,
+            true,
+            existing_track.to_string(),
+            existing_track.to_string(),
+        )
+    );
+}
+
+#[test]
+fn overflow_track_migration_collapses_a_stale_alias_cycle() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "XNMKOIuyafuxBspGhlKfWq";
+    let stale_alias = "hAvxWe5AT4DBwzdmOdTiAd";
+    let canonical_track = canonical_id(legacy_track);
+    let filler_track = canonical_id("batch-boundary-filler");
+    assert_eq!(canonical_track, "5whr2E9RjWewxrq0CNMaJC");
+    store
+        .with_conn_mut("test.seed_stale_track_alias_cycle", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, server_path, deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Filler', 'Filler', NULL, 0, 1, ?2), \
+                        ('s1', ?3, 'Birth of the Blues', 'Chet Lag', \
+                         'Tommy Emmanuel/Chet Lag/01-08 - Birth of the Blues.mp3', 0, 2, ?4)",
+                params![
+                    filler_track,
+                    serde_json::json!({ "id": filler_track }).to_string(),
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_id_history \
+                   (server_id, old_id, new_id, server_path, remapped_at) \
+                 VALUES ('s1', ?1, ?2, 'Tommy Emmanuel/Chet Lag/01-08 - Birth of the Blues.mp3', 1), \
+                        ('s1', ?2, ?1, 'Tommy Emmanuel/Chet Lag/01-08 - Birth of the Blues.mp3', 2)",
+                params![legacy_track, stale_alias],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let (moved, _) = run_track_batches(&store, 1);
+    assert_eq!(moved, 1);
+
+    let state: (bool, bool, i64, i64) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?1), \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?2), \
+                   (SELECT COUNT(*) FROM track_id_history \
+                    WHERE server_id = 's1' AND old_id IN (?1, ?3) AND new_id = ?2), \
+                   (SELECT COUNT(*) FROM play_session \
+                    WHERE server_id = 's1' AND track_id = ?2)",
+                params![legacy_track, canonical_track, stale_alias],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(state, (false, true, 2, 1));
+}
+
+#[test]
+fn overflow_track_migration_ignores_a_deleted_alias_owner() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "XNMKOIuyafuxBspGhlKfWq";
+    let deleted_alias = "hAvxWe5AT4DBwzdmOdTiAd";
+    let canonical_track = canonical_id(legacy_track);
+    let deleted_alias_destination = canonical_id(deleted_alias);
+    store
+        .with_conn_mut("test.seed_deleted_track_alias_owner", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Birth of the Blues', 'Chet Lag', 0, 2, ?2), \
+                        ('s1', ?3, 'Old tombstone', 'Old album', 1, 1, ?4)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                    deleted_alias,
+                    serde_json::json!({ "id": deleted_alias }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_id_history (server_id, old_id, new_id, remapped_at) \
+                 VALUES ('s1', ?1, ?2, 1)",
+                params![legacy_track, deleted_alias],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let (moved, merged) = run_track_batches(&store, 1);
+    assert_eq!((moved, merged), (2, 0));
+    let state: (bool, bool, String, String) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?1 AND deleted = 0), \
+                   EXISTS(SELECT 1 FROM track WHERE server_id = 's1' AND id = ?2 AND deleted = 1), \
+                   (SELECT new_id FROM track_id_history WHERE server_id = 's1' AND old_id = ?3), \
+                   (SELECT track_id FROM play_session)",
+                params![canonical_track, deleted_alias_destination, legacy_track],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(
+        state,
+        (
+            true,
+            true,
+            canonical_track.to_string(),
+            canonical_track.to_string(),
+        )
+    );
+}
+
+#[test]
+fn overflow_track_migration_replaces_a_deleted_canonical_owner() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "XNMKOIuyafuxBspGhlKfWq";
+    let canonical_track = canonical_id(legacy_track);
+    store
+        .with_conn_mut("test.seed_deleted_canonical_track_owner", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, title_sort, album, duration_sec, size_bytes, play_count, \
+                    played_at, library_id, content_hash, server_updated_at, server_created_at, \
+                    deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Birth of the Blues', NULL, 'Chet Lag', 351, 14168871, \
+                         NULL, NULL, NULL, NULL, NULL, NULL, 0, 2, ?2), \
+                        ('s1', ?3, 'Old tombstone', 'Stale sort', 'Old album', 0, 1, 99, \
+                         98, 'stale-library', 'stale-hash', 97, 96, 1, 1, ?4)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                    canonical_track,
+                    serde_json::json!({ "id": canonical_track, "staleOnly": true }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_id_history (server_id, old_id, new_id, remapped_at) \
+                 VALUES ('s1', ?1, ?2, 1)",
+                params![legacy_track, canonical_track],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 1, 10, 10, 'full', 'ended')",
+                params![legacy_track],
+            )?;
+            conn.execute(
+                "INSERT INTO play_session \
+                   (server_id, track_id, started_at_ms, listened_sec, position_max_sec, \
+                    completion, end_reason) \
+                 VALUES ('s1', ?1, 2, 20, 20, 'full', 'ended')",
+                params![canonical_track],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let (moved, merged) = run_track_batches(&store, 20);
+    assert_eq!((moved, merged), (1, 0));
+    let state: (i64, String, bool, String, String, i64) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   (SELECT COUNT(*) FROM track WHERE server_id = 's1'), \
+                   title, \
+                   title_sort IS NULL AND play_count IS NULL AND played_at IS NULL \
+                     AND library_id IS NULL AND content_hash IS NULL \
+                     AND server_updated_at IS NULL AND server_created_at IS NULL, \
+                   raw_json, \
+                   (SELECT new_id FROM track_id_history WHERE server_id = 's1' AND old_id = ?2), \
+                   (SELECT COUNT(*) FROM play_session \
+                    WHERE server_id = 's1' AND track_id = ?1) \
+                 FROM track WHERE server_id = 's1' AND id = ?1 AND deleted = 0",
+                params![canonical_track, legacy_track],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                },
+            )
+        })
+        .unwrap();
+    let payload: serde_json::Value = serde_json::from_str(&state.3).unwrap();
+    assert_eq!(payload["id"], state.4);
+    assert_eq!(payload["staleOnly"], serde_json::Value::Null);
+    assert_eq!(
+        (state.0, state.1, state.2, state.4, state.5),
+        (
+            1,
+            "Birth of the Blues".to_string(),
+            true,
+            canonical_track.clone(),
+            2,
+        )
+    );
+}
+
+#[test]
+fn stale_alias_cleanup_rolls_back_when_child_retarget_conflicts() {
+    let store = LibraryStore::open_in_memory();
+    let legacy_track = "XNMKOIuyafuxBspGhlKfWq";
+    let stale_alias = "hAvxWe5AT4DBwzdmOdTiAd";
+    let canonical_track = canonical_id(legacy_track);
+    store
+        .with_conn_mut("test.seed_stale_alias_rollback", |conn| {
+            conn.execute(
+                "INSERT INTO track \
+                   (server_id, id, title, album, duration_sec, size_bytes, deleted, synced_at, raw_json) \
+                 VALUES ('s1', ?1, 'Birth of the Blues', 'Chet Lag', 351, 14168871, 0, 2, ?2), \
+                        ('s1', ?3, 'Birth of the Blues', 'Chet Lag', 351, 14168871, 0, 1, ?4)",
+                params![
+                    legacy_track,
+                    serde_json::json!({ "id": legacy_track }).to_string(),
+                    canonical_track,
+                    serde_json::json!({ "id": canonical_track }).to_string(),
+                ],
+            )?;
+            conn.execute(
+                "INSERT INTO track_id_history (server_id, old_id, new_id, remapped_at) \
+                 VALUES ('s1', ?1, ?2, 1)",
+                params![legacy_track, stale_alias],
+            )?;
+            conn.execute_batch(
+                "INSERT INTO canonical_track(id, created_at, updated_at) VALUES \
+                   ('canonical-1', 1, 1), ('canonical-2', 1, 1); \
+                 INSERT INTO track_canonical_link \
+                   (server_id, track_id, canonical_id, match_method, confidence, linked_at) \
+                 VALUES ('s1', 'XNMKOIuyafuxBspGhlKfWq', 'canonical-1', 'path', 0.8, 1), \
+                        ('s1', '5whr2E9RjWewxrq0CNMaJC', 'canonical-2', 'isrc', 0.9, 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let upper = upper_rowid(&store, "s1", NavidromeNativeMigrationStep::Track).unwrap();
+    assert!(run_batch(
+        &store,
+        "s1",
+        NavidromeNativeMigrationStep::Track,
+        0,
+        upper,
+        20,
+    )
+    .unwrap_err()
+    .contains("canonical track link conflict"));
+
+    let state: (i64, String, i64) = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT \
+                   (SELECT COUNT(*) FROM track WHERE server_id = 's1' AND id IN (?1, ?2)), \
+                   (SELECT new_id FROM track_id_history WHERE server_id = 's1' AND old_id = ?1), \
+                   (SELECT COUNT(*) FROM track_canonical_link WHERE server_id = 's1')",
+                params![legacy_track, canonical_track],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+        })
+        .unwrap();
+    assert_eq!(state, (2, stale_alias.to_string(), 2));
 }
 
 #[test]

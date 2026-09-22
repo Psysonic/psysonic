@@ -422,6 +422,7 @@ async fn build_source_from_play_input(
             reader,
             format_hint: media_hint,
             tag,
+            download_control,
             random_access,
             mp4_probe_gate,
             superseded,
@@ -457,6 +458,7 @@ async fn build_source_from_play_input(
                 target_rate,
                 target_channels,
                 None,
+                download_control.is_some(),
             )
         }
         PlayInput::Streaming {
@@ -490,6 +492,7 @@ async fn build_source_from_play_input(
                 target_rate,
                 target_channels,
                 Some(state.stream_playback_armed.clone()),
+                false,
             )
         }
     }?;

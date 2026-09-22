@@ -2,7 +2,7 @@
 
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, RecvTimeoutError, SyncSender};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, SyncSender};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
@@ -26,6 +26,17 @@ const RB_TARGET_FILL: f32 = 0.6;
 const RB_FILL_HIGH: f32 = 0.88;
 const FORWARD_BATCH: usize = 4096;
 const WORKER_IDLE_SLEEP: Duration = Duration::from_millis(1);
+// The fresh ring prevents stale PCM from escaping after a seek. Keep the
+// commit gate short; the worker continues filling the ring after handoff.
+const SEEK_PREFILL_MILLIS: usize = 20;
+const PREPARED_DRAIN_PER_POLL: usize = 8;
+
+mod seek;
+mod streaming;
+
+pub(crate) use seek::StreamingSeekHandle;
+use seek::{seek_channels, PreparedSeek, SeekShared};
+use streaming::{prepare_permanent_seek, take_pending_seek, PreparedProducer, SeekWork};
 
 enum WorkerCmd {
     Seek(Duration),
@@ -41,6 +52,8 @@ struct PreserveWorkerEnv {
     stop: Arc<AtomicBool>,
     done: Arc<AtomicBool>,
     cmd_rx: mpsc::Receiver<WorkerCmd>,
+    seek_shared: Option<Arc<SeekShared>>,
+    prepared_tx: Option<mpsc::Sender<PreparedSeek>>,
 }
 
 pub(crate) struct PreserveOffload {
@@ -49,6 +62,10 @@ pub(crate) struct PreserveOffload {
     done: Arc<AtomicBool>,
     cmd_tx: SyncSender<WorkerCmd>,
     thread: Option<JoinHandle<()>>,
+    seek_shared: Option<Arc<SeekShared>>,
+    prepared_rx: Option<Receiver<PreparedSeek>>,
+    prepared: VecDeque<PreparedSeek>,
+    delivery_gate: Option<Arc<AtomicBool>>,
 }
 
 impl PreserveOffload {
@@ -59,16 +76,66 @@ impl PreserveOffload {
         channels: u16,
         handback_tx: SyncSender<S>,
     ) -> Self {
+        Self::spawn_inner(
+            inner,
+            atomics,
+            sample_rate,
+            channels,
+            Some(handback_tx),
+            false,
+        )
+        .0
+    }
+
+    pub(crate) fn spawn_permanent<S: Source<Item = f32> + Send + 'static>(
+        inner: S,
+        atomics: PlaybackRateAtomics,
+        sample_rate: u32,
+        channels: u16,
+    ) -> (Self, StreamingSeekHandle, Arc<AtomicBool>) {
+        let (offload, handle, delivery_gate) =
+            Self::spawn_inner(inner, atomics, sample_rate, channels, None, true);
+        (
+            offload,
+            handle.expect("permanent offload seek handle"),
+            delivery_gate.expect("permanent offload delivery gate"),
+        )
+    }
+
+    fn spawn_inner<S: Source<Item = f32> + Send + 'static>(
+        inner: S,
+        atomics: PlaybackRateAtomics,
+        sample_rate: u32,
+        channels: u16,
+        handback_tx: Option<SyncSender<S>>,
+        permanent: bool,
+    ) -> (Self, Option<StreamingSeekHandle>, Option<Arc<AtomicBool>>) {
         let cap = ((sample_rate as f32 * channels as f32 * 2.5) as usize).max(RB_MIN_CAPACITY);
         let rb = HeapRb::<f32>::new(cap);
         let (prod, cons) = rb.split();
         let stop = Arc::new(AtomicBool::new(false));
         let done = Arc::new(AtomicBool::new(false));
         let (cmd_tx, cmd_rx) = mpsc::sync_channel::<WorkerCmd>(8);
+        let delivery_gate = permanent.then(|| Arc::new(AtomicBool::new(false)));
+        let (seek_shared, prepared_tx, prepared_rx, handle) = if permanent {
+            let (shared, prepared_tx, prepared_rx, handle) = seek_channels();
+            (
+                Some(shared),
+                Some(prepared_tx),
+                Some(prepared_rx),
+                Some(handle),
+            )
+        } else {
+            (None, None, None, None)
+        };
         let stop_worker = stop.clone();
         let done_worker = done.clone();
         let thread = thread::Builder::new()
-            .name("psysonic-preserve-pitch".into())
+            .name(if permanent {
+                "psysonic-stream-decode".into()
+            } else {
+                "psysonic-preserve-pitch".into()
+            })
             .spawn(move || {
                 worker_main(
                     inner,
@@ -81,23 +148,44 @@ impl PreserveOffload {
                         stop: stop_worker,
                         done: done_worker,
                         cmd_rx,
+                        seek_shared,
+                        prepared_tx,
                     },
                     handback_tx,
                 );
             })
             .expect("spawn preserve-pitch worker");
 
-        Self {
-            cons,
-            stop,
-            done,
-            cmd_tx,
-            thread: Some(thread),
-        }
+        (
+            Self {
+                cons,
+                stop,
+                done,
+                cmd_tx,
+                thread: Some(thread),
+                seek_shared: handle.as_ref().map(|handle| handle.shared.clone()),
+                prepared_rx,
+                prepared: VecDeque::with_capacity(32),
+                delivery_gate: delivery_gate.clone(),
+            },
+            handle,
+            delivery_gate,
+        )
     }
 
     pub(crate) fn pop(&mut self) -> Option<f32> {
-        self.cons.try_pop()
+        if self.has_pending_seek() {
+            self.collect_prepared();
+            if let Some(gate) = &self.delivery_gate {
+                gate.store(false, Ordering::Release);
+            }
+            return None;
+        }
+        let sample = self.cons.try_pop();
+        if let Some(gate) = &self.delivery_gate {
+            gate.store(sample.is_some(), Ordering::Release);
+        }
+        sample
     }
 
     pub(crate) fn is_done(&self) -> bool {
@@ -116,6 +204,102 @@ impl PreserveOffload {
         while self.cons.try_pop().is_some() {}
     }
 
+    pub(crate) fn has_pending_seek(&self) -> bool {
+        self.seek_shared.as_ref().is_some_and(|shared| {
+            shared.desired_id.load(Ordering::Acquire) != shared.active_id.load(Ordering::Acquire)
+        })
+    }
+
+    pub(crate) fn commit_prepared_seek(
+        &mut self,
+        pos: Duration,
+    ) -> Result<(), rodio::source::SeekError> {
+        let Some(shared) = self.seek_shared.clone() else {
+            return Err(rodio::source::SeekError::NotSupported {
+                underlying_source: "PreserveOffload",
+            });
+        };
+        let desired = shared.desired_id.load(Ordering::Acquire);
+        if shared.active_id.load(Ordering::Acquire) == desired
+            && shared.active_pos_nanos.load(Ordering::Acquire) == duration_nanos(pos)
+        {
+            return Ok(());
+        }
+        if self.prepared_rx.is_none() {
+            return Err(rodio::source::SeekError::NotSupported {
+                underlying_source: "PreserveOffload",
+            });
+        }
+        self.collect_prepared();
+        let Some(index) = self
+            .prepared
+            .iter()
+            .position(|prepared| prepared.id == desired && prepared.pos == pos)
+        else {
+            return Err(rodio::source::SeekError::Other(Arc::new(
+                std::io::Error::new(
+                    std::io::ErrorKind::WouldBlock,
+                    "streaming seek was not prepared",
+                ),
+            )));
+        };
+        let prepared = self.prepared.remove(index).expect("prepared seek index");
+        let old_cons = std::mem::replace(&mut self.cons, prepared.cons);
+        // The worker still owns the matching producer until active_id changes,
+        // so dropping this consumer cannot free the ring on the audio callback.
+        drop(old_cons);
+        shared
+            .active_pos_nanos
+            .store(duration_nanos(pos), Ordering::Release);
+        shared.active_id.store(desired, Ordering::Release);
+        if let Some(gate) = &self.delivery_gate {
+            gate.store(true, Ordering::Release);
+        }
+        Ok(())
+    }
+
+    fn collect_prepared(&mut self) {
+        if let Some(rx) = &self.prepared_rx {
+            for _ in 0..PREPARED_DRAIN_PER_POLL {
+                let Ok(prepared) = rx.try_recv() else {
+                    break;
+                };
+                self.prepared.push_back(prepared);
+            }
+        }
+        let Some(shared) = &self.seek_shared else {
+            return;
+        };
+        let desired = shared.desired_id.load(Ordering::Acquire);
+        let mut index = 0;
+        let mut retired = 0;
+        while index < self.prepared.len() && retired < PREPARED_DRAIN_PER_POLL {
+            if self.prepared[index].id == desired {
+                index += 1;
+                continue;
+            }
+            let stale = self.prepared.remove(index).expect("stale seek index");
+            // Drop the consumer before publishing retirement. The worker still
+            // owns the producer, so ring allocation destruction stays off the
+            // callback thread.
+            drop(stale.cons);
+            stale.retired.store(true, Ordering::Release);
+            retired += 1;
+        }
+    }
+
+    fn discard_all_prepared(&mut self) {
+        if let Some(rx) = &self.prepared_rx {
+            while let Ok(prepared) = rx.try_recv() {
+                self.prepared.push_back(prepared);
+            }
+        }
+        while let Some(stale) = self.prepared.pop_front() {
+            drop(stale.cons);
+            stale.retired.store(true, Ordering::Release);
+        }
+    }
+
     pub(crate) fn join(mut self) {
         self.stop.store(true, Ordering::Release);
         let _ = self.cmd_tx.send(WorkerCmd::Shutdown);
@@ -125,13 +309,19 @@ impl PreserveOffload {
     }
 }
 
+fn duration_nanos(duration: Duration) -> u64 {
+    duration.as_nanos().min(u64::MAX as u128) as u64
+}
+
 impl Drop for PreserveOffload {
     fn drop(&mut self) {
+        self.discard_all_prepared();
         self.stop.store(true, Ordering::Release);
-        let _ = self.cmd_tx.send(WorkerCmd::Shutdown);
-        if let Some(t) = self.thread.take() {
-            let _ = t.join();
-        }
+        let _ = self.cmd_tx.try_send(WorkerCmd::Shutdown);
+        // A network read may still be in flight. Detach rather than ever joining
+        // from the CPAL callback; generation cancellation or the read timeout
+        // will let the worker unwind independently.
+        self.thread.take();
     }
 }
 
@@ -281,89 +471,133 @@ fn worker_main<S: Source<Item = f32> + Send>(
     mut inner: S,
     mut prod: HeapProd<f32>,
     env: PreserveWorkerEnv,
-    handback_tx: SyncSender<S>,
+    handback_tx: Option<SyncSender<S>>,
 ) {
-    let PreserveWorkerEnv {
-        atomics,
-        sample_rate,
-        channels,
-        capacity,
-        stop,
-        done,
-        cmd_rx,
-    } = env;
-    let ch_count = channels.max(1) as usize;
-    let mut preserve = PreserveState::for_channels(channels);
-    let sr = sample_rate as f32;
+    let ch_count = env.channels.max(1) as usize;
+    let mut preserve = PreserveState::for_channels(env.channels);
+    let sr = env.sample_rate as f32;
+    let mut prepared_producer: Option<PreparedProducer> = None;
+    let mut stale_producers: Vec<PreparedProducer> = Vec::new();
 
-    'run: while !stop.load(Ordering::Acquire) {
-        if let Ok(cmd) = cmd_rx.try_recv() {
+    'run: while !env.stop.load(Ordering::Acquire) {
+        stale_producers.retain(|prepared| !prepared.retired.load(Ordering::Acquire));
+
+        if let Some(prepared) = prepared_producer.take() {
+            let active = env
+                .seek_shared
+                .as_ref()
+                .map(|shared| shared.active_id.load(Ordering::Acquire))
+                .unwrap_or(0);
+            let desired = env
+                .seek_shared
+                .as_ref()
+                .map(|shared| shared.desired_id.load(Ordering::Acquire))
+                .unwrap_or(active);
+            if active == prepared.id {
+                prod = prepared.prod;
+                if let Some(shared) = &env.seek_shared {
+                    shared.worker_id.store(active, Ordering::Release);
+                }
+            } else if desired != prepared.id {
+                stale_producers.push(prepared);
+            } else {
+                prepared_producer = Some(prepared);
+            }
+        }
+
+        if let Some(request) = take_pending_seek(&env.seek_shared) {
+            match prepare_permanent_seek(request, &mut inner, &mut preserve, &env) {
+                SeekWork::Prepared(prepared) => prepared_producer = Some(prepared),
+                SeekWork::Continue => {}
+                SeekWork::Stop => break,
+            }
+            continue;
+        }
+
+        // The decoder now belongs to the prepared ring. Do not feed samples
+        // into the old producer while the callback is still committing it.
+        if prepared_producer.is_some() {
+            std::thread::sleep(WORKER_IDLE_SLEEP);
+            continue;
+        }
+
+        if let Ok(cmd) = env.cmd_rx.try_recv() {
             match cmd {
                 WorkerCmd::Shutdown => break,
                 WorkerCmd::Handback => {
-                    push_pending(&mut prod, &mut preserve.pending, &stop);
-                    let _ = handback_tx.send(inner);
-                    done.store(true, Ordering::Release);
+                    push_pending(&mut prod, &mut preserve.pending, &env.stop);
+                    if let Some(tx) = handback_tx.as_ref() {
+                        let _ = tx.send(inner);
+                    }
+                    env.done.store(true, Ordering::Release);
                     return;
                 }
                 WorkerCmd::Seek(pos) => {
                     let _ = inner.try_seek(pos);
-                    preserve.reset(channels);
+                    preserve.reset(env.channels);
                 }
             }
         }
 
-        let use_preserve = atomics.enabled.load(Ordering::Relaxed)
-            && uses_preserve_dsp(atomics.load_strategy())
-            && is_effect_active(&atomics);
+        let use_preserve = env.atomics.enabled.load(Ordering::Relaxed)
+            && uses_preserve_dsp(env.atomics.load_strategy())
+            && is_effect_active(&env.atomics);
 
         if !use_preserve {
-            preserve.reset(channels);
-            push_pending(&mut prod, &mut preserve.pending, &stop);
-            let fill = ring_fill(&prod, capacity);
+            preserve.reset(env.channels);
+            push_pending(&mut prod, &mut preserve.pending, &env.stop);
+            let fill = ring_fill(&prod, env.capacity);
             if fill >= RB_FILL_HIGH {
-                match cmd_rx.recv_timeout(WORKER_IDLE_SLEEP) {
+                match env.cmd_rx.recv_timeout(WORKER_IDLE_SLEEP) {
                     Ok(WorkerCmd::Shutdown) => break 'run,
                     Ok(WorkerCmd::Handback) => {
-                        push_pending(&mut prod, &mut preserve.pending, &stop);
-                        let _ = handback_tx.send(inner);
-                        done.store(true, Ordering::Release);
+                        push_pending(&mut prod, &mut preserve.pending, &env.stop);
+                        if let Some(tx) = handback_tx.as_ref() {
+                            let _ = tx.send(inner);
+                        }
+                        env.done.store(true, Ordering::Release);
                         return;
                     }
                     Ok(WorkerCmd::Seek(pos)) => {
                         let _ = inner.try_seek(pos);
-                        preserve.reset(channels);
+                        preserve.reset(env.channels);
                     }
                     Err(RecvTimeoutError::Timeout) => continue,
                     Err(RecvTimeoutError::Disconnected) => break 'run,
                 }
             }
-            if !forward_passthrough(&mut inner, &mut prod, capacity, &stop) {
-                break;
+            if !forward_passthrough(&mut inner, &mut prod, env.capacity, &env.stop) {
+                if env.seek_shared.is_none() {
+                    break;
+                }
+                env.done.store(true, Ordering::Release);
+                std::thread::sleep(WORKER_IDLE_SLEEP);
             }
             continue;
         }
 
-        let fill = ring_fill(&prod, capacity);
+        let fill = ring_fill(&prod, env.capacity);
         if fill >= RB_FILL_HIGH {
-            match cmd_rx.recv_timeout(WORKER_IDLE_SLEEP) {
+            match env.cmd_rx.recv_timeout(WORKER_IDLE_SLEEP) {
                 Ok(WorkerCmd::Shutdown) => break 'run,
                 Ok(WorkerCmd::Handback) => {
-                    push_pending(&mut prod, &mut preserve.pending, &stop);
-                    let _ = handback_tx.send(inner);
-                    done.store(true, Ordering::Release);
+                    push_pending(&mut prod, &mut preserve.pending, &env.stop);
+                    if let Some(tx) = handback_tx.as_ref() {
+                        let _ = tx.send(inner);
+                    }
+                    env.done.store(true, Ordering::Release);
                     return;
                 }
                 Ok(WorkerCmd::Seek(pos)) => {
                     let _ = inner.try_seek(pos);
-                    preserve.reset(channels);
+                    preserve.reset(env.channels);
                 }
                 Err(RecvTimeoutError::Timeout) => continue,
                 Err(RecvTimeoutError::Disconnected) => break 'run,
             }
         }
 
-        push_pending(&mut prod, &mut preserve.pending, &stop);
+        push_pending(&mut prod, &mut preserve.pending, &env.stop);
 
         if !preserve.pending.is_empty() {
             continue;
@@ -379,85 +613,36 @@ fn worker_main<S: Source<Item = f32> + Send>(
                     .iter()
                     .all(|c| c.frame.len() >= FRAME_BLOCK)
                 {
-                    preserve.process_block(atomics.load_speed(), effective_pitch(&atomics), sr);
+                    preserve.process_block(
+                        env.atomics.load_speed(),
+                        effective_pitch(&env.atomics),
+                        sr,
+                    );
                 }
             }
-            None => break,
+            None => {
+                if env.seek_shared.is_none() {
+                    break;
+                }
+                env.done.store(true, Ordering::Release);
+                std::thread::sleep(WORKER_IDLE_SLEEP);
+            }
         }
     }
 
-    push_pending(&mut prod, &mut preserve.pending, &stop);
-    done.store(true, Ordering::Release);
+    push_pending(&mut prod, &mut preserve.pending, &env.stop);
+    if let Some(shared) = &env.seek_shared {
+        if let Some(pending) = shared.pending.lock().unwrap().take() {
+            let _ = pending.ack.try_send(seek::SeekPreparation::Failed(
+                "audio seek worker stopped".into(),
+            ));
+        }
+        let active = shared.active_id.load(Ordering::Acquire);
+        shared.desired_id.store(active, Ordering::Release);
+        shared.worker_id.store(active, Ordering::Release);
+    }
+    env.done.store(true, Ordering::Release);
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::playback_rate::STRATEGY_PRESERVE_PITCH;
-    use rodio::{ChannelCount, SampleRate};
-    use std::time::Duration as StdDuration;
-
-    struct SineSource {
-        remaining: usize,
-        rate: u32,
-    }
-
-    impl Iterator for SineSource {
-        type Item = f32;
-        fn next(&mut self) -> Option<f32> {
-            if self.remaining == 0 {
-                return None;
-            }
-            self.remaining -= 1;
-            Some(0.25)
-        }
-    }
-
-    impl Source for SineSource {
-        fn current_span_len(&self) -> Option<usize> {
-            Some(self.remaining)
-        }
-        fn channels(&self) -> ChannelCount {
-            std::num::NonZero::new(2).unwrap()
-        }
-        fn sample_rate(&self) -> SampleRate {
-            SampleRate::new(self.rate).unwrap()
-        }
-        fn total_duration(&self) -> Option<StdDuration> {
-            Some(StdDuration::from_secs(1))
-        }
-    }
-
-    #[test]
-    fn worker_prefills_ring_before_done() {
-        let atomics = PlaybackRateAtomics::new();
-        atomics.enabled.store(true, Ordering::Relaxed);
-        atomics
-            .strategy
-            .store(STRATEGY_PRESERVE_PITCH, Ordering::Relaxed);
-        atomics.speed.store(1.25f32.to_bits(), Ordering::Relaxed);
-
-        let src = SineSource {
-            remaining: 44_100 * 2,
-            rate: 44_100,
-        };
-        let (tx, _rx) = mpsc::sync_channel(1);
-        let mut offload = PreserveOffload::spawn(src, atomics, 44_100, 2, tx);
-        std::thread::sleep(Duration::from_millis(150));
-        let mut got = 0usize;
-        for _ in 0..10_000 {
-            if let Some(s) = offload.pop() {
-                got += 1;
-                if got > 500 {
-                    break;
-                }
-                let _ = s;
-            } else if offload.is_done() {
-                break;
-            } else {
-                std::thread::sleep(Duration::from_millis(1));
-            }
-        }
-        assert!(got > 500, "expected prefetched samples, got {got}");
-    }
-}
+mod tests;

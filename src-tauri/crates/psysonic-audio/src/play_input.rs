@@ -12,8 +12,8 @@ use symphonia::core::io::MediaSource;
 use tauri::{AppHandle, Emitter, State};
 
 use super::analysis_dispatch::{
-    prepare_playback_analysis, spawn_track_analysis_bytes, spawn_track_analysis_file,
-    TrackAnalysisOrigin,
+    prepare_playback_analysis, source_analysis_allowed, spawn_track_analysis_bytes,
+    spawn_track_analysis_file, TrackAnalysisOrigin,
 };
 use super::engine::{audio_http_client, AudioEngine, PlaybackHttpHeaders};
 use super::helpers::{
@@ -70,12 +70,15 @@ pub(super) struct PlayInputContext<'a> {
     /// Playback server scope for the analysis-cache write key (empty/`None` →
     /// legacy `''`). Rides alongside `cache_id_for_tasks` into every seed path.
     pub server_id: Option<&'a str>,
+    /// Positive provenance for `psysonic-local://` bytes. Missing/false keeps
+    /// playback available but suppresses canonical analysis writes.
+    pub local_original_verified: Option<bool>,
     /// Final loudness is absent for this playback identity, so stream progress
     /// may emit provisional gain hints while loudness mode is active.
     pub needs_partial_loudness: bool,
     /// `Some(bytes)` when manual-skip onto a pre-chained track reuses bytes
     /// from the chained-info block.
-    pub reuse_chained_bytes: Option<Vec<u8>>,
+    pub reuse_chained_bytes: Option<(Vec<u8>, Option<bool>)>,
 }
 
 fn spawn_playback_analysis_bytes(
@@ -85,6 +88,9 @@ fn spawn_playback_analysis_bytes(
     origin: TrackAnalysisOrigin,
     bytes: Vec<u8>,
 ) {
+    if !source_analysis_allowed(ctx.url, ctx.local_original_verified) {
+        return;
+    }
     let Some(track_id) = ctx
         .cache_id_for_tasks
         .map(str::trim)
@@ -120,29 +126,21 @@ fn ranged_analysis_seed_hold_allowed(total_size: usize) -> bool {
 /// Returns `Ok(None)` when the operation was superseded by a later
 /// `audio_play` call (generation bump) — caller should bail out silently.
 pub(super) async fn select_play_input(
-    ctx: PlayInputContext<'_>,
+    mut ctx: PlayInputContext<'_>,
     state: &State<'_, AudioEngine>,
     app: &AppHandle,
 ) -> Result<Option<PlayInput>, String> {
-    if let Some(d) = ctx.reuse_chained_bytes {
-        if let Some(track_id) = ctx
-            .cache_id_for_tasks
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-        {
-            let (sid, high) = prepare_playback_analysis(app, state, ctx.server_id, track_id, None);
-            spawn_track_analysis_bytes(
-                app.clone(),
-                TrackAnalysisOrigin::InMemoryReplay,
-                sid,
-                track_id.to_string(),
-                d.clone(),
-                Some(ctx.url.to_string()),
-                high,
-                Some((ctx.gen, state.generation.clone())),
-                None,
-            );
+    if let Some((d, retained_local_original_verified)) = ctx.reuse_chained_bytes.take() {
+        if ctx.url.starts_with("psysonic-local://") {
+            ctx.local_original_verified = retained_local_original_verified;
         }
+        spawn_playback_analysis_bytes(
+            app,
+            state,
+            &ctx,
+            TrackAnalysisOrigin::InMemoryReplay,
+            d.clone(),
+        );
         return Ok(Some(PlayInput::Bytes(d)));
     }
 
@@ -168,10 +166,14 @@ pub(super) async fn select_play_input(
     }
 
     // Preloaded or stream-cache hit → replay in-memory bytes.
-    let data = match fetch_data(ctx.url, state, ctx.gen, app).await? {
-        Some(d) => d,
-        None => return Ok(None), // superseded while downloading
-    };
+    let (data, retained_local_original_verified) =
+        match fetch_data(ctx.url, state, ctx.gen, app).await? {
+            Some(d) => d,
+            None => return Ok(None), // superseded while downloading
+        };
+    if is_local {
+        ctx.local_original_verified = retained_local_original_verified;
+    }
     spawn_playback_analysis_bytes(
         app,
         state,
@@ -202,19 +204,21 @@ fn open_local_file_input(
         len / 1024,
         local_hint
     );
-    if let Some(seed_id) = ctx.cache_id_for_tasks {
-        let (sid, high) = prepare_playback_analysis(app, state, ctx.server_id, seed_id, None);
-        spawn_track_analysis_file(
-            app.clone(),
-            TrackAnalysisOrigin::LocalFilePlayback,
-            sid,
-            seed_id.to_string(),
-            std::path::PathBuf::from(path),
-            None, // genuine local file — original by definition
-            high,
-            Some((ctx.gen, state.generation.clone())),
-            None,
-        );
+    if source_analysis_allowed(ctx.url, ctx.local_original_verified) {
+        if let Some(seed_id) = ctx.cache_id_for_tasks {
+            let (sid, high) = prepare_playback_analysis(app, state, ctx.server_id, seed_id, None);
+            spawn_track_analysis_file(
+                app.clone(),
+                TrackAnalysisOrigin::LocalFilePlayback,
+                sid,
+                seed_id.to_string(),
+                std::path::PathBuf::from(path),
+                None,
+                high,
+                Some((ctx.gen, state.generation.clone())),
+                None,
+            );
+        }
     }
     let reader = LocalFileSource { file, len };
     Ok(PlayInput::SeekableMedia {
@@ -319,6 +323,7 @@ async fn open_ranged_or_streaming_input(
         );
         let buf = Arc::new(Mutex::new(vec![0u8; total_usize]));
         let downloaded_to = Arc::new(AtomicUsize::new(0));
+        let priority_fetches = Arc::new(AtomicUsize::new(0));
         let download_control = super::stream::StreamDownloadControl::new();
         let done = download_control.done.clone();
         state.stream_playback_armed.store(false, Ordering::SeqCst);
@@ -354,6 +359,7 @@ async fn open_ranged_or_streaming_input(
             response,
             buf.clone(),
             downloaded_to.clone(),
+            Some(priority_fetches.clone()),
             download_control.clone(),
             state.stream_completed_cache.clone(),
             state.stream_completed_spill.clone(),
@@ -383,6 +389,7 @@ async fn open_ranged_or_streaming_input(
             total,
             state.generation.clone(),
             ctx.gen,
+            priority_fetches,
             http_headers.clone(),
         )));
         let reader = RangedHttpSource {
@@ -396,6 +403,9 @@ async fn open_ranged_or_streaming_input(
             gen_arc: state.generation.clone(),
             gen: ctx.gen,
             on_demand,
+            sequential_read_end: None,
+            sequential_read_bytes: 0,
+            superseded_reported: false,
         };
         return Ok(Some(PlayInput::SeekableMedia {
             reader: Box::new(reader),

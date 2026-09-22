@@ -18,6 +18,7 @@ import {
 import { useArtistDetailData } from '@/features/artist/hooks/useArtistDetailData';
 import { useArtistSimilarArtists } from '@/features/artist/hooks/useArtistSimilarArtists';
 import { similarArtistRefs } from '@/features/artist/utils/similarArtistRefs';
+import { resolveSimilarArtistsDisplay } from '@/features/artist/utils/similarArtistsDisplay';
 import {
   runArtistDetailPlayAll, runArtistDetailPlayTopSong, runArtistDetailShuffle,
   runArtistDetailStartRadio, runArtistDetailEnqueueAll,
@@ -88,7 +89,7 @@ export default function ArtistDetail() {
     info,
     artistInfoLoading,
     // Same owner the info came from: this hook keys its AudioMuse branch on the server,
-    // and its Last.fm fallback searches that server for the matching artist rows.
+    // and its Music Network lookup searches that server for the matching artist rows.
     infoServerId ?? activeServerId,
   );
   const [uploading, setUploading] = useState(false);
@@ -99,7 +100,6 @@ export default function ArtistDetail() {
 
   const playTrack = usePlayerStore(state => state.playTrack);
   const enqueue = usePlayerStore(state => state.enqueue);
-  const enrichmentConfigured = useAuthStore(s => s.enrichmentPrimaryId !== null);
   const albumYearOrder = useArtistAlbumYearSortStore(
     s => s.orderByServer[activeServerId] ?? DEFAULT_ARTIST_ALBUM_YEAR_ORDER,
   );
@@ -273,12 +273,13 @@ export default function ArtistDetail() {
   }
 
   const serverSimilarArtists = similarArtistRefs(info?.similarArtist, infoServerId, activeServerId);
-  const showAudiomuseSimilar = audiomuseNavidromeEnabled && serverSimilarArtists.length > 0;
-  const showNetworkSimilar =
-    enrichmentConfigured &&
-    (!audiomuseNavidromeEnabled || serverSimilarArtists.length === 0) &&
-    (similarLoading || similarArtists.length > 0);
-  const showSimilarSection = showAudiomuseSimilar || showNetworkSimilar;
+  const { showServerSimilar, showNetworkSimilar } = resolveSimilarArtistsDisplay({
+    audiomuseNavidromeEnabled,
+    serverCount: serverSimilarArtists.length,
+    networkCount: similarArtists.length,
+    networkLoading: similarLoading,
+  });
+  const showSimilarSection = showServerSimilar || showNetworkSimilar;
 
   // ── User-customisable section order + visibility ────────────────────────────
   // (`sectionConfig` is read at the top of the component — see comment there)
@@ -387,7 +388,7 @@ export default function ArtistDetail() {
             <ArtistDetailSimilarArtists
               key="similar"
               marginTop={sectionMt('similar')}
-              showAudiomuseSimilar={showAudiomuseSimilar}
+              showServerSimilar={showServerSimilar}
               showNetworkSimilar={showNetworkSimilar}
               similarLoading={similarLoading}
               similarArtists={similarArtists}
