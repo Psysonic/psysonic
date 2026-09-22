@@ -15,6 +15,7 @@ import { formatQueueBpmTech, formatQueueMoodLabels } from '@/lib/library/trackEn
 import { useQueueTrackEnrichment } from '@/features/queue/hooks/useQueueTrackEnrichment';
 import { QueueLufsTargetMenu } from '@/features/queue/components/QueueLufsTargetMenu';
 import { PlaybackBufferingOverlay } from '@/features/playback/components/PlaybackBufferingOverlay';
+import { useDebouncedBuffering } from '@/features/playback';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
@@ -56,7 +57,8 @@ export function QueueCurrentTrack({
   reanalyzeLoudnessForTrack, setLoudnessTargetLufs, lufsTgtOpen, setLufsTgtOpen,
   lufsTgtBtnRef, lufsTgtMenuRef, lufsTgtPopStyle, t,
 }: Props) {
-  const showBufferingOverlay = usePlayerStore(s => s.isPlaybackBuffering);
+  const isPlaybackBuffering = usePlayerStore(s => s.isPlaybackBuffering);
+  const showBufferingOverlay = useDebouncedBuffering(isPlaybackBuffering);
   const resolvedStreamFormat = usePlayerStore(s => s.resolvedStreamFormat);
   const coverRef = usePlaybackTrackCoverRef(currentTrack);
   const directCoverUrl = currentTrack?.directCoverArtUrl;
