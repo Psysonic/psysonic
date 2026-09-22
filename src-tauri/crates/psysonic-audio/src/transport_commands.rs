@@ -398,7 +398,7 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
         channels,
         &state.playback_rate,
     );
-    let seek_request_id = state.begin_pending_seek(seek_generation, target_samples);
+    let seek_request_id = state.begin_pending_seek(seek_generation, target_samples, seek_seconds);
     let finish_progress = || state.finish_pending_seek(seek_request_id, seek_generation);
     if state.generation.load(Ordering::SeqCst) != seek_generation {
         finish_progress();
@@ -565,7 +565,7 @@ mod tests {
     #[test]
     fn latest_seek_can_finish_its_pending_state() {
         let mut pending = PendingSeekState::default();
-        let request_id = pending.begin(7, 900);
+        let request_id = pending.begin(7, 900, 9.0);
 
         assert!(pending.finish(request_id, 7));
         assert_eq!(pending.target_samples(), None);
@@ -574,11 +574,22 @@ mod tests {
     #[test]
     fn superseded_seek_cannot_finish_newer_pending_state() {
         let mut pending = PendingSeekState::default();
-        let old_request_id = pending.begin(7, 300);
-        let new_request_id = pending.begin(7, 1_200);
+        let old_request_id = pending.begin(7, 300, 3.0);
+        let new_request_id = pending.begin(7, 1_200, 12.0);
 
         assert!(!pending.finish(old_request_id, 7));
         assert!(pending.is_current(new_request_id, 7));
         assert_eq!(pending.target_samples(), Some(1_200));
+        assert_eq!(pending.take_target_secs(7), Some(12.0));
+        assert!(!pending.is_current(new_request_id, 7));
+    }
+
+    #[test]
+    fn recovery_discards_a_pending_seek_from_an_old_generation() {
+        let mut pending = PendingSeekState::default();
+        let request_id = pending.begin(6, 900, 9.0);
+
+        assert_eq!(pending.take_target_secs(7), None);
+        assert!(!pending.is_current(request_id, 6));
     }
 }

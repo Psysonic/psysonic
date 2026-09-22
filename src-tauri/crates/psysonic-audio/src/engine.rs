@@ -194,6 +194,7 @@ struct PendingSeek {
     request_id: u64,
     generation: u64,
     target_samples: u64,
+    target_secs: f64,
 }
 
 #[derive(Default)]
@@ -207,13 +208,20 @@ impl PendingSeekState {
         self.active.map(|seek| seek.target_samples)
     }
 
-    pub(crate) fn begin(&mut self, generation: u64, target_samples: u64) -> u64 {
+    pub(crate) fn take_target_secs(&mut self, generation: u64) -> Option<f64> {
+        self.active
+            .take()
+            .and_then(|seek| (seek.generation == generation).then_some(seek.target_secs))
+    }
+
+    pub(crate) fn begin(&mut self, generation: u64, target_samples: u64, target_secs: f64) -> u64 {
         self.next_request_id = self.next_request_id.wrapping_add(1).max(1);
         let request_id = self.next_request_id;
         self.active = Some(PendingSeek {
             request_id,
             generation,
             target_samples,
+            target_secs,
         });
         request_id
     }
@@ -446,11 +454,16 @@ impl AudioEngine {
         self.pending_seek.lock().unwrap().clear();
     }
 
-    pub(crate) fn begin_pending_seek(&self, generation: u64, target_samples: u64) -> u64 {
+    pub(crate) fn begin_pending_seek(
+        &self,
+        generation: u64,
+        target_samples: u64,
+        target_secs: f64,
+    ) -> u64 {
         self.pending_seek
             .lock()
             .unwrap()
-            .begin(generation, target_samples)
+            .begin(generation, target_samples, target_secs)
     }
 
     pub(crate) fn pending_seek_is_current(&self, request_id: u64, generation: u64) -> bool {
