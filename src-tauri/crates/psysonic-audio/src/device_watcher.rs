@@ -9,6 +9,28 @@ use tauri::Manager;
 use super::dev_io::output_enumeration_includes_pinned;
 use super::device_resume::{try_resume_after_device_change, ResumeOutcome, ResumeSnapshot};
 use super::engine::AudioEngine;
+use super::playback_rate::{content_position_from_samples, PlaybackRateAtomics};
+
+fn should_track_output_stall(
+    watchdog_armed: bool,
+    active: bool,
+    seek_pending: bool,
+    samples_unchanged: bool,
+) -> bool {
+    watchdog_armed && active && !seek_pending && samples_unchanged
+}
+
+fn recovery_position_secs(
+    current_position: f64,
+    pending_target_samples: Option<u64>,
+    sample_rate: u32,
+    channels: u32,
+    playback_rate: &PlaybackRateAtomics,
+) -> f64 {
+    pending_target_samples.map_or(current_position, |samples| {
+        content_position_from_samples(samples, sample_rate, channels, playback_rate)
+    })
+}
 
 /// What to tell the frontend after a successful stream reopen.
 #[derive(Clone, Copy)]
@@ -78,12 +100,19 @@ async fn reopen_output_stream(
         } else {
             engine.device_default_rate
         };
+        let pending_target_samples = engine.pending_seek.lock().unwrap().target_samples();
         let mut snapshot = {
             let cur = engine.current.lock().unwrap();
             let is_playing = cur.play_started.is_some() && cur.paused_at.is_none();
             ResumeSnapshot {
                 url: engine.current_playback_url.lock().unwrap().clone(),
-                current_time_secs: cur.position(),
+                current_time_secs: recovery_position_secs(
+                    cur.position(),
+                    pending_target_samples,
+                    engine.current_sample_rate.load(Ordering::Relaxed),
+                    engine.current_channels.load(Ordering::Relaxed),
+                    &engine.playback_rate,
+                ),
                 duration_secs: cur.duration_secs,
                 base_volume: cur.base_volume,
                 gain_linear: cur.replay_gain_linear,
@@ -252,6 +281,7 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
     let stream_open_lock = engine.stream_open_lock.clone();
     let samples_played = engine.samples_played.clone();
     let current = engine.current.clone();
+    let pending_seek = engine.pending_seek.clone();
 
     tauri::async_runtime::spawn(async move {
         let mut last_default: Option<String> = tauri::async_runtime::spawn_blocking(|| {
@@ -293,11 +323,14 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
             let mut stall_for = Duration::ZERO;
             {
                 let samples_now = samples_played.load(Ordering::Relaxed);
+                // Match the seek commit lock order: pending seek before current.
+                let seek_pending = pending_seek.lock().unwrap().target_samples().is_some();
                 let cur = current.lock().unwrap();
                 let active = cur
                     .sink
                     .as_ref()
                     .is_some_and(|s| !s.is_paused() && !s.empty());
+                let samples_unchanged = samples_now == last_samples_seen;
 
                 if !watchdog_armed {
                     if stalled_since.take().is_some() {
@@ -306,10 +339,15 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
                         );
                     }
                     last_samples_seen = samples_now;
-                } else if !active || samples_now != last_samples_seen {
+                } else if !should_track_output_stall(
+                    watchdog_armed,
+                    active,
+                    seek_pending,
+                    samples_unchanged,
+                ) {
                     if stalled_since.take().is_some() {
                         crate::app_eprintln!(
-                            "[psysonic] device-watcher: stall candidate cleared (active={active}, samples_delta={})",
+                            "[psysonic] device-watcher: stall candidate cleared (active={active}, seek_pending={seek_pending}, samples_delta={})",
                             samples_now as i128 - last_samples_seen as i128
                         );
                     }
@@ -525,4 +563,27 @@ pub fn start_device_watcher(engine: &AudioEngine, app: tauri::AppHandle) {
             }
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{recovery_position_secs, should_track_output_stall};
+    use crate::playback_rate::{raw_counter_samples_for_content_position, PlaybackRateAtomics};
+
+    #[test]
+    fn pending_seek_is_not_treated_as_a_stalled_output() {
+        assert!(!should_track_output_stall(true, true, true, true));
+        assert!(should_track_output_stall(true, true, false, true));
+    }
+
+    #[test]
+    fn recovery_prefers_the_pending_seek_target() {
+        let playback_rate = PlaybackRateAtomics::new();
+        let target = 365.19;
+        let samples = raw_counter_samples_for_content_position(target, 48_000, 2, &playback_rate);
+
+        let recovered = recovery_position_secs(19.62, Some(samples), 48_000, 2, &playback_rate);
+
+        assert!((recovered - target).abs() < 0.001);
+    }
 }
