@@ -95,8 +95,13 @@ pub(crate) fn refresh_album_scopes(
          ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
     )?;
 
+    // Clear every affected partition before rebuilding any of them. A library-tag
+    // pass can move a track between partitions, while the projection primary key
+    // intentionally identifies the track credit independently of library_id.
     for (server_id, library_id, album_id) in scopes {
         delete.execute(params![server_id, library_id, album_id])?;
+    }
+    for (server_id, library_id, album_id) in scopes {
         let rows = tracks
             .query_map(params![server_id, library_id, album_id], |row| {
                 Ok((

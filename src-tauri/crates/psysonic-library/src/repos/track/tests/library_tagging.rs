@@ -89,6 +89,38 @@ fn apply_album_list_page_fills_only_empty_library_rows() {
 }
 
 #[test]
+fn apply_album_list_page_moves_artist_credit_projection_to_the_tagged_library() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    for index in 0..32 {
+        let track_id = format!("t{index}");
+        let album_id = format!("al{index}");
+        let mut track = row("s1", &track_id, "Track");
+        track.album_id = Some(album_id.clone());
+        track.library_id = None;
+        track.raw_json = json!({
+            "artists": [{ "id": "ar1", "name": "The Artist" }]
+        })
+        .to_string();
+        repo.upsert_batch(&[track]).unwrap();
+
+        repo.apply_album_list_page("s1", "1", &[album_summary(&album_id, None)])
+            .unwrap();
+
+        let library: String = store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT library_id FROM artist_credit_projection WHERE track_id = ?1",
+                    params![track_id],
+                    |row| row.get(0),
+                )
+            })
+            .unwrap();
+        assert_eq!(library, "1");
+    }
+}
+
+#[test]
 fn apply_album_list_page_with_no_new_metadata_is_write_free() {
     let store = LibraryStore::open_in_memory();
     let repo = TrackRepository::new(&store);
