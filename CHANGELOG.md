@@ -303,6 +303,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Assigning newly indexed tracks to their Navidrome music folder could occasionally abort a background sync with a duplicate artist-credit database key. Artist-credit partitions are now cleared together before they are rebuilt, so folder tagging completes regardless of processing order.
 
+### Server upgrades are recognised across the whole server group
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1639](https://github.com/Psysonic/psysonic/pull/1639)**
+
+* When several servers are selected together, Psysonic now refreshes the reported type and version for every reachable member instead of only the active one. Upgrading an inactive Navidrome server no longer leaves old capabilities in place until you switch to it or test its connection manually.
+
 ## [1.54.0]
 
 ## Fixed
