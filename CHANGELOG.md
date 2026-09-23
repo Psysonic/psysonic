@@ -138,11 +138,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Fixed
 
-### Dropping a track in the queue no longer starts it
+### Navidrome migration progress keeps its styling during startup
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1598](https://github.com/Psysonic/psysonic/pull/1598)**
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1577](https://github.com/Psysonic/psysonic/pull/1577)**
 
-* Moving a song within the queue could leave it playing the moment you let go, because the release still counted as a click on the row. Dropping now only moves. The same stray click was possible wherever something is dragged — from an album into the queue, between playlist folders, in the settings lists — and is gone in all of them.
+* The startup screen shown during a large Navidrome canonical-ID migration could lose its layout and progress styling in packaged builds. It now stays readable and shows accessible progress throughout the blocking migration.
 
 ### Artist top tracks can be dragged to the queue
 
@@ -168,6 +168,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1595](https://github.com/Psysonic/psysonic/pull/1595)**
 
 * On a track credited to more than one artist, the dot between the names hung below them and stuck to the name in front of it. It is now drawn centred, with even spacing on both sides, and looks the same in a track row as in an album header.
+
+### Dropping a track in the queue no longer starts it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1598](https://github.com/Psysonic/psysonic/pull/1598)**
+
+* Moving a song within the queue could leave it playing the moment you let go, because the release still counted as a click on the row. Dropping now only moves. The same stray click was possible wherever something is dragged — from an album into the queue, between playlist folders, in the settings lists — and is gone in all of them.
 
 ### Navidrome library migrations recover after a failed reload
 
@@ -240,17 +246,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * On some Navidrome setups, **Add to Playlist** said "No playlists yet" although the sidebar listed them all, and tracks inside a playlist could not be moved or removed. Psysonic could not ask Navidrome which playlists are smart playlists and, to be safe, treated all of them as read-only. It now falls back to what the server already reports for each playlist, so your own playlists can be edited again while smart playlists stay read-only.
 
-### The Orbit button's label stays put when you hover it
-
-**By [@Psychotoxical](https://github.com/Psychotoxical) and [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622), PR [#1623](https://github.com/Psysonic/psysonic/pull/1623)**
-
-* On macOS, the "Orbit" lettering in the top bar moved slightly to the left while the icon next to it turned on hover, and moved back when the mouse left.
-
 ### The Last.fm button's hover circle is no longer cut off
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622)**
 
 * Hovering the Last.fm button next to the track title could cut off the right edge of its highlight circle, because the button sat right at the edge of its area. It now keeps a little room on that side.
+
+### The Orbit button's label stays put when you hover it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical) and [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622), PR [#1623](https://github.com/Psysonic/psysonic/pull/1623)**
+
+* On macOS, the "Orbit" lettering in the top bar moved slightly to the left while the icon next to it turned on hover, and moved back when the mouse left.
 
 ### A backup now restores all of your settings
 
