@@ -9,6 +9,8 @@ import {
 } from '@/features/lyrics/utils/romanizationProgress';
 import {
   setWordHighlight,
+  usesContinuousWordHighlight,
+  wordHighlightClassName,
   wordLyricsPositionAt,
 } from '@/features/lyrics/utils/wordLyricsProgress';
 
@@ -49,8 +51,8 @@ export function useWordLyricsSync({
   useEffect(() => {
     if (!enabled || !wordLines) return;
     const lines = wordLines;
-    const smooth = highlightMode === 'smooth';
-    const baseClass = `${classPrefix}-lyric-word${smooth ? ' smooth-mode' : ''}`;
+    const smooth = usesContinuousWordHighlight(highlightMode);
+    const baseClass = wordHighlightClassName(`${classPrefix}-lyric-word`, highlightMode);
     let refreshHighlightMode = true;
     const apply = (time: number) => {
       const { lineIndex: li, wordIndex: wi, wordProgress } = wordLyricsPositionAt(lines, time);
@@ -131,7 +133,7 @@ export function useWordLyricsSync({
           ? romanizationProgressForWord(
               wordLines[lineIdx]?.words.length ?? 0,
               current.word,
-              highlightMode === 'smooth' ? current.progress : 1,
+              usesContinuousWordHighlight(highlightMode) ? current.progress : 1,
             )
           : 0,
     );

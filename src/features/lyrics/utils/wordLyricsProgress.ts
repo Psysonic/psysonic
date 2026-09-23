@@ -1,4 +1,5 @@
 import type { WordLyricsLine } from '@/features/lyrics/types';
+import type { LyricsWordHighlightMode } from '@/store/authStoreTypes';
 
 export interface WordLyricsPosition {
   lineIndex: number;
@@ -8,6 +9,18 @@ export interface WordLyricsPosition {
 
 function clampProgress(value: number): number {
   return Math.min(1, Math.max(0, value));
+}
+
+export function usesContinuousWordHighlight(mode: LyricsWordHighlightMode): boolean {
+  return mode !== 'step';
+}
+
+export function wordHighlightClassName(
+  baseClass: string,
+  mode: LyricsWordHighlightMode,
+): string {
+  if (mode === 'step') return baseClass;
+  return `${baseClass} smooth-mode${mode === 'flowing' ? ' flow-only' : ''}`;
 }
 
 export function wordLyricsPositionAt(

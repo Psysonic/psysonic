@@ -11,6 +11,7 @@ import {
   useLyricsRomanization,
   type WordLyricsLine,
   useWordLyricsSync,
+  wordHighlightClassName,
 } from '@/features/lyrics';
 import type { LrcLine } from '@/features/lyrics';
 import type { Track } from '@/lib/media/trackTypes';
@@ -29,6 +30,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
   const staticOnly = useAuthStore(s => s.lyricsStaticOnly);
   const romanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
   const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
+  const wordClass = wordHighlightClassName('fsr-lyric-word', wordHighlightMode);
 
   const useWords  = !staticOnly && wordLines !== null && wordLines.length > 0;
   const lineSrc: LrcLine[] | null = useWords
@@ -121,7 +123,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
                   {line.words.length > 0 ? line.words.map((w, j) => (
                     <span
                       key={j}
-                      className={`fsr-lyric-word${wordHighlightMode === 'smooth' ? ' smooth-mode' : ''}`}
+                      className={wordClass}
                       ref={setWordRef(i, j)}
                     >{w.text}</span>
                   )) : (line.text || ' ')}

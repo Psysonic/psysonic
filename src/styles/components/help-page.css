@@ -407,6 +407,9 @@
 .lyrics-word.active.smooth-mode {
   --lyrics-word-upcoming-color: var(--text-muted);
 }
+.lyrics-word.active.smooth-mode.flow-only {
+  text-shadow: none;
+}
 
 .lyrics-word.smooth-mode,
 .fsa-lyric-word.smooth-mode,

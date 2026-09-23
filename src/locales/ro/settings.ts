@@ -354,6 +354,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Evidențiază întregul cuvânt când este atins marcajul său temporal.',
   lyricsWordHighlightSmooth: 'Liniar',
   lyricsWordHighlightSmoothDesc: 'Umple treptat cu culoare cuvântul curent pe durata sa sincronizată.',
+  lyricsWordHighlightFlowing: 'Doar umplere',
+  lyricsWordHighlightFlowingDesc: 'Umple treptat cuvântul curent fără a lumina mai întâi întregul cuvânt.',
   downloadsTitle: 'Export ZIP & Arhivare',
   downloadsFolderDesc: 'Folder destinație pentru albumele pe care le descarci ca fișiere ZIP în calculator.',
   downloadsDefault: 'Folderul Download Implicit',

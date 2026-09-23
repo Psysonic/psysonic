@@ -338,6 +338,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: '到达单词的时间戳时一次性高亮整个单词。',
   lyricsWordHighlightSmooth: '平滑',
   lyricsWordHighlightSmoothDesc: '在当前单词的持续时间内逐渐填充高亮颜色。',
+  lyricsWordHighlightFlowing: '仅流动填充',
+  lyricsWordHighlightFlowingDesc: '逐渐填充当前单词，而不会先点亮整个单词。',
   downloadsTitle: 'ZIP 导出与归档',
   downloadsFolderDesc: '将专辑以 ZIP 文件下载到电脑时的目标文件夹。',
   downloadsDefault: '默认下载文件夹',

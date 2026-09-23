@@ -355,6 +355,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'A teljes szót kiemeli, amikor eléri annak időbélyegét.',
   lyricsWordHighlightSmooth: 'Folyamatos',
   lyricsWordHighlightSmoothDesc: 'Az aktuális szót fokozatosan tölti ki színnel annak időtartama alatt.',
+  lyricsWordHighlightFlowing: 'Csak kitöltés',
+  lyricsWordHighlightFlowingDesc: 'Fokozatosan tölti ki az aktuális szót anélkül, hogy előbb az egész szót kiemelné.',
   downloadsTitle: 'ZIP-exportálás és archiválás',
   downloadsFolderDesc: 'A számítógépedre ZIP-fájlként letöltött albumok célmappája.',
   downloadsDefault: 'Alapértelmezett Letöltések mappa',

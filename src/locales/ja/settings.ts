@@ -349,6 +349,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: '各単語のタイムスタンプに達した時点で、単語全体の色を切り替えます。',
   lyricsWordHighlightSmooth: 'スムーズ',
   lyricsWordHighlightSmoothDesc: '現在の単語を表示時間に合わせて徐々に色付けします。',
+  lyricsWordHighlightFlowing: '塗りのみ',
+  lyricsWordHighlightFlowingDesc: '単語全体を先に強調せず、現在の単語を徐々に色付けします。',
   downloadsTitle: 'ZIP エクスポートとアーカイブ',
   downloadsFolderDesc: 'アルバムを ZIP ファイルとしてコンピューターへダウンロードする保存先フォルダーです。',
   downloadsDefault: '既定のダウンロードフォルダー',

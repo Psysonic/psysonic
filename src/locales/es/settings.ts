@@ -351,6 +351,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Resalta cada palabra por completo al alcanzar su marca de tiempo.',
   lyricsWordHighlightSmooth: 'Suave',
   lyricsWordHighlightSmoothDesc: 'Rellena gradualmente la palabra actual durante su duración sincronizada.',
+  lyricsWordHighlightFlowing: 'Solo relleno',
+  lyricsWordHighlightFlowingDesc: 'Rellena gradualmente la palabra actual sin iluminar primero la palabra completa.',
   downloadsTitle: 'Exportación ZIP y Archivado',
   downloadsFolderDesc: 'Carpeta de destino para álbumes que descargas como ZIP a tu computadora.',
   downloadsDefault: 'Carpeta de Descargas Predeterminada',

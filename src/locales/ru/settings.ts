@@ -359,6 +359,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Слово окрашивается целиком при достижении его таймкода.',
   lyricsWordHighlightSmooth: 'Плавно',
   lyricsWordHighlightSmoothDesc: 'Текущее слово постепенно заполняется цветом в течение его длительности.',
+  lyricsWordHighlightFlowing: 'Только заливка',
+  lyricsWordHighlightFlowingDesc: 'Постепенно заполняет текущее слово цветом без мгновенного свечения всего слова.',
   downloadsTitle: 'Экспорт ZIP и архивов',
   downloadsFolderDesc: 'Куда сохранять альбомы в ZIP архиве на диск.',
   downloadsDefault: 'Папка «Загрузки» по умолчанию',

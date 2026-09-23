@@ -110,6 +110,10 @@
   --lyrics-word-upcoming-color: rgba(255, 255, 255, 0.28);
 }
 
+.fsa-lyric-line.fsal-active .fsa-lyric-word.active.flow-only {
+  text-shadow: none;
+}
+
 /* Plain (unsynced) lyrics */
 .fsa-plain-lyrics {
   pointer-events: none;

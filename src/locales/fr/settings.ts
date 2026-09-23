@@ -339,6 +339,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Surligne chaque mot en entier lorsque son horodatage est atteint.',
   lyricsWordHighlightSmooth: 'Fluide',
   lyricsWordHighlightSmoothDesc: 'Remplit progressivement le mot actuel pendant sa durée synchronisée.',
+  lyricsWordHighlightFlowing: 'Remplissage seul',
+  lyricsWordHighlightFlowingDesc: 'Remplit progressivement le mot actuel sans éclairer d’abord le mot entier.',
   downloadsTitle: 'Export ZIP & Archivage',
   downloadsFolderDesc: 'Dossier de destination pour les albums téléchargés en tant que fichier ZIP sur votre ordinateur.',
   downloadsDefault: 'Dossier de téléchargement par défaut',

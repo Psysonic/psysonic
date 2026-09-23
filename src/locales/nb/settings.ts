@@ -338,6 +338,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Markerer hele ordet når tidsstempelet nås.',
   lyricsWordHighlightSmooth: 'Jevn',
   lyricsWordHighlightSmoothDesc: 'Fyller det aktive ordet gradvis med farge gjennom den tidsstyrte varigheten.',
+  lyricsWordHighlightFlowing: 'Kun fylling',
+  lyricsWordHighlightFlowingDesc: 'Fyller det aktive ordet gradvis uten å lyse opp hele ordet først.',
   downloadsTitle: 'ZIP Eksport & Arkivering',
 	downloadsFolderDesc: 'Målmappe for album du laster ned som en ZIP-fil til datamaskinen din.',												  
   downloadsDefault: 'Standard nedlastingsmappe',

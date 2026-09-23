@@ -38,5 +38,11 @@ describe('LyricsTab', () => {
     expect(within(section!).getByText(
       'Gradually fills the current word over its timed duration.',
     )).toBeInTheDocument();
+
+    await user.click(within(section!).getByRole('radio', { name: 'Flow only' }));
+    expect(useAuthStore.getState().lyricsWordHighlightMode).toBe('flowing');
+    expect(within(section!).getByText(
+      'Fills the current word gradually without lighting the whole word first.',
+    )).toBeInTheDocument();
   });
 });

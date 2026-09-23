@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { AudioLines, Languages, Music2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import type { LyricsWordHighlightMode } from '@/store/authStoreTypes';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { LyricsSourcesCustomizer } from '@/features/settings/components/LyricsSourcesCustomizer';
@@ -25,13 +26,16 @@ export function LyricsTab() {
     sidebarLyricsStyle === 'classic'
       ? 'settings.sidebarLyricsStyleClassicDesc'
       : 'settings.sidebarLyricsStyleAppleDesc';
-  const wordHighlightOptions: SegmentedOption<'step' | 'smooth'>[] = [
+  const wordHighlightOptions: SegmentedOption<LyricsWordHighlightMode>[] = [
     { id: 'step', label: t('settings.lyricsWordHighlightStep') },
     { id: 'smooth', label: t('settings.lyricsWordHighlightSmooth') },
+    { id: 'flowing', label: t('settings.lyricsWordHighlightFlowing') },
   ];
   const wordHighlightDescKey = wordHighlightMode === 'step'
     ? 'settings.lyricsWordHighlightStepDesc'
-    : 'settings.lyricsWordHighlightSmoothDesc';
+    : wordHighlightMode === 'smooth'
+      ? 'settings.lyricsWordHighlightSmoothDesc'
+      : 'settings.lyricsWordHighlightFlowingDesc';
 
   return (
     <>
@@ -48,7 +52,7 @@ export function LyricsTab() {
       <SettingsSubSection
         title={t('settings.lyricsWordHighlightTitle')}
         icon={<AudioLines size={16} />}
-        searchText={`${t('settings.lyricsWordHighlightTitle')} ${t('settings.lyricsWordHighlightStep')} ${t('settings.lyricsWordHighlightSmooth')} ${t(wordHighlightDescKey)}`}
+        searchText={`${t('settings.lyricsWordHighlightTitle')} ${t('settings.lyricsWordHighlightStep')} ${t('settings.lyricsWordHighlightSmooth')} ${t('settings.lyricsWordHighlightFlowing')} ${t(wordHighlightDescKey)}`}
       >
         <SettingsGroup>
           <SettingsSegmented

@@ -14,4 +14,8 @@ export { LyricsLineContent } from './components/LyricsLineContent';
 export { useLyrics } from './hooks/useLyrics';
 export { useLyricsRomanization } from './hooks/useLyricsRomanization';
 export { useWordLyricsSync } from './hooks/useWordLyricsSync';
+export {
+  usesContinuousWordHighlight,
+  wordHighlightClassName,
+} from './utils/wordLyricsProgress';
 export type { LrcLine, WordLyricsLine, WordLyricsWord, LyricsSource } from './types';

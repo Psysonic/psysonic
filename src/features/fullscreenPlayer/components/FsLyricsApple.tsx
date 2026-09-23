@@ -1,8 +1,14 @@
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
-import { LyricsLineContent, useLyrics, useLyricsRomanization, type WordLyricsLine } from '@/features/lyrics';
-import { useWordLyricsSync } from '@/features/lyrics';
+import {
+  LyricsLineContent,
+  useLyrics,
+  useLyricsRomanization,
+  useWordLyricsSync,
+  wordHighlightClassName,
+  type WordLyricsLine,
+} from '@/features/lyrics';
 import { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from '@/features/playback';
 import type { LrcLine } from '@/features/lyrics';
 import type { Track } from '@/lib/media/trackTypes';
@@ -25,6 +31,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
   const staticOnly = useAuthStore(s => s.lyricsStaticOnly);
   const romanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
   const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
+  const wordClass = wordHighlightClassName('fsa-lyric-word', wordHighlightMode);
   const sidebarLyricsStyle = useAuthStore(s => s.sidebarLyricsStyle);
 
   const useWords = !staticOnly && wordLines !== null && wordLines.length > 0;
@@ -170,7 +177,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
                   ? line.words.map((w, j) => (
                       <span
                         key={j}
-                        className={`fsa-lyric-word${wordHighlightMode === 'smooth' ? ' smooth-mode' : ''}`}
+                        className={wordClass}
                         ref={setWordRef(i, j)}
                       >{w.text}</span>
                     ))

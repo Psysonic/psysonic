@@ -704,6 +704,10 @@
   --lyrics-word-upcoming-color: rgba(255, 255, 255, 0.35);
 }
 
+.fsr-lyric-line.fsrl-active .fsr-lyric-word.active.flow-only {
+  text-shadow: none;
+}
+
 html.no-compositing .fsr-lyrics-overlay { -webkit-mask-image: none; mask-image: none; }
 html.no-compositing .fsr-lyrics-rail    { will-change: auto; }
 

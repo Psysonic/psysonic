@@ -352,6 +352,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Hebt jedes Wort vollständig hervor, sobald sein Zeitstempel erreicht ist.',
   lyricsWordHighlightSmooth: 'Fließend',
   lyricsWordHighlightSmoothDesc: 'Füllt das aktuelle Wort während seiner zeitlichen Dauer allmählich mit Farbe.',
+  lyricsWordHighlightFlowing: 'Nur Füllung',
+  lyricsWordHighlightFlowingDesc: 'Füllt das aktuelle Wort allmählich, ohne zuerst das ganze Wort hervorzuheben.',
   downloadsTitle: 'ZIP-Export & Archivierung',
   downloadsFolderDesc: 'Zielverzeichnis für Alben, die du als ZIP-Datei auf deinen Computer herunterlädst.',
   downloadsDefault: 'Standard-Downloads-Ordner',

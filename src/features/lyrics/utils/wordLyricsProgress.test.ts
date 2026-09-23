@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WordLyricsLine } from '@/features/lyrics/types';
-import { wordLyricsPositionAt } from './wordLyricsProgress';
+import { wordHighlightClassName, wordLyricsPositionAt } from './wordLyricsProgress';
 
 const lines: WordLyricsLine[] = [
   {
@@ -35,5 +35,15 @@ describe('wordLyricsPositionAt', () => {
 
   it('clamps a word at fully played after its duration', () => {
     expect(wordLyricsPositionAt(lines, 5).wordProgress).toBe(1);
+  });
+});
+
+describe('wordHighlightClassName', () => {
+  it('keeps the existing modes unchanged and marks flowing-only highlighting', () => {
+    expect(wordHighlightClassName('lyrics-word', 'step')).toBe('lyrics-word');
+    expect(wordHighlightClassName('lyrics-word', 'smooth')).toBe('lyrics-word smooth-mode');
+    expect(wordHighlightClassName('lyrics-word', 'flowing')).toBe(
+      'lyrics-word smooth-mode flow-only',
+    );
   });
 });

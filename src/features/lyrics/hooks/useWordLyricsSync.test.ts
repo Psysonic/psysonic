@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { WordLyricsLine } from '@/features/lyrics/types';
+import type { LyricsWordHighlightMode } from '@/store/authStoreTypes';
 
 const playback = vi.hoisted(() => ({
   time: 0,
@@ -70,7 +71,7 @@ describe('useWordLyricsSync romanization progress', () => {
   });
 
   it('updates the active word fill while the timed word stays unchanged', () => {
-    const { result, rerender } = renderHook(({ highlightMode }: { highlightMode: 'step' | 'smooth' }) => useWordLyricsSync({
+    const { result, rerender } = renderHook(({ highlightMode }: { highlightMode: LyricsWordHighlightMode }) => useWordLyricsSync({
       enabled: true,
       wordLines: lines,
       currentTrack: null,
@@ -103,6 +104,11 @@ describe('useWordLyricsSync romanization progress', () => {
     expect(romanization.style.getPropertyValue('--lyrics-romanization-progress')).toBe('62.5%');
 
     playback.time = 2.25;
+    rerender({ highlightMode: 'flowing' });
+    expect(second).toHaveClass('active', 'smooth-mode', 'flow-only');
+    expect(second.style.getPropertyValue('--lyrics-word-progress')).toBe('25%');
+    expect(romanization.style.getPropertyValue('--lyrics-romanization-progress')).toBe('62.5%');
+
     rerender({ highlightMode: 'step' });
     expect(second).toHaveClass('active');
     expect(second).not.toHaveClass('smooth-mode');

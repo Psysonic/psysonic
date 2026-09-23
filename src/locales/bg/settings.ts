@@ -355,6 +355,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Оцветява всяка дума наведнъж, когато бъде достигнат нейният времеви маркер.',
   lyricsWordHighlightSmooth: 'Плавно',
   lyricsWordHighlightSmoothDesc: 'Постепенно запълва текущата дума с цвят по време на нейната продължителност.',
+  lyricsWordHighlightFlowing: 'Само запълване',
+  lyricsWordHighlightFlowingDesc: 'Постепенно запълва текущата дума с цвят, без първо да осветява цялата дума.',
   downloadsTitle: 'ZIP износ и архивиране',
   downloadsFolderDesc: 'Целева папка за албуми, които изтегляш като ZIP файл на компютъра си.',
   downloadsDefault: 'Папка за изтегляния по подразбиране',

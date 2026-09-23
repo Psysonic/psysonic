@@ -339,6 +339,8 @@ export const settings = {
   lyricsWordHighlightStepDesc: 'Markeert elk woord volledig zodra het tijdstip wordt bereikt.',
   lyricsWordHighlightSmooth: 'Vloeiend',
   lyricsWordHighlightSmoothDesc: 'Vult het huidige woord geleidelijk met kleur gedurende de getimede duur.',
+  lyricsWordHighlightFlowing: 'Alleen opvulling',
+  lyricsWordHighlightFlowingDesc: 'Vult het huidige woord geleidelijk zonder eerst het hele woord op te lichten.',
   downloadsTitle: 'ZIP-export & Archivering',
   downloadsFolderDesc: 'Doelmap voor albums die je als ZIP-bestand naar je computer downloadt.',
   downloadsDefault: 'Standaard downloadmap',

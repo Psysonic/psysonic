@@ -19,6 +19,8 @@ import {
 } from '@/features/lyrics/utils/romanizationProgress';
 import {
   setWordHighlight,
+  usesContinuousWordHighlight,
+  wordHighlightClassName,
   wordLyricsPositionAt,
 } from '@/features/lyrics/utils/wordLyricsProgress';
 
@@ -57,7 +59,7 @@ export default function LyricsPane({ currentTrack }: Props) {
 
   const useWords  = !staticOnly && wordLines !== null && wordLines.length > 0;
   const hasSynced = !staticOnly && !useWords && syncedLines !== null && syncedLines.length > 0;
-  const wordClass = `lyrics-word${wordHighlightMode === 'smooth' ? ' smooth-mode' : ''}`;
+  const wordClass = wordHighlightClassName('lyrics-word', wordHighlightMode);
   const romanizedLines = useLyricsRomanization({
     enabled: romanizationEnabled,
     syncedLines,
@@ -126,7 +128,7 @@ export default function LyricsPane({ currentTrack }: Props) {
   // Imperative tracker — subscribes directly to the store, zero React re-renders per tick.
   useEffect(() => {
     if (!useWords && !hasSynced) return;
-    const smoothWordHighlight = useWords && wordHighlightMode === 'smooth';
+    const smoothWordHighlight = useWords && usesContinuousWordHighlight(wordHighlightMode);
     let refreshHighlightMode = true;
 
     const apply = (time: number) => {
@@ -270,7 +272,7 @@ export default function LyricsPane({ currentTrack }: Props) {
           ? romanizationProgressForWord(
               (wordLines as WordLyricsLine[])[lineIndex]?.words.length ?? 0,
               current.word,
-              wordHighlightMode === 'smooth' ? current.progress : 1,
+              usesContinuousWordHighlight(wordHighlightMode) ? current.progress : 1,
             )
           : 0,
     );
