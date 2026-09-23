@@ -3,7 +3,10 @@ use super::*;
 #[test]
 fn estimate_track_size_prefers_explicit_size_field() {
     let track = serde_json::json!({ "size": 12_345_u64, "duration": 200_u64 });
-    assert_eq!(estimate_track_size_bytes(&track), 12_345);
+    assert_eq!(
+        estimate_track_size_bytes(&track, DeviceSyncTranscode::default()),
+        12_345
+    );
 }
 
 #[test]
@@ -11,20 +14,29 @@ fn estimate_track_size_falls_back_to_duration_at_320kbps() {
     // Duration in seconds → bytes at 320 kbps:
     //   bytes = duration * 320_000 / 8 = duration * 40_000
     let track = serde_json::json!({ "duration": 240_u64 });
-    assert_eq!(estimate_track_size_bytes(&track), 240 * 40_000);
+    assert_eq!(
+        estimate_track_size_bytes(&track, DeviceSyncTranscode::default()),
+        240 * 40_000
+    );
 }
 
 #[test]
 fn estimate_track_size_returns_zero_when_neither_size_nor_duration_present() {
     let track = serde_json::json!({ "title": "no metadata at all" });
-    assert_eq!(estimate_track_size_bytes(&track), 0);
+    assert_eq!(
+        estimate_track_size_bytes(&track, DeviceSyncTranscode::default()),
+        0
+    );
 }
 
 #[test]
 fn estimate_track_size_explicit_size_wins_even_when_duration_present() {
     // Explicit size of 1 byte must NOT be replaced by duration-derived 8 MB.
     let track = serde_json::json!({ "size": 1_u64, "duration": 200_u64 });
-    assert_eq!(estimate_track_size_bytes(&track), 1);
+    assert_eq!(
+        estimate_track_size_bytes(&track, DeviceSyncTranscode::default()),
+        1
+    );
 }
 
 #[test]

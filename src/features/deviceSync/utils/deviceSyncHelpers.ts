@@ -26,6 +26,8 @@ export type SyncTrackMaybePlaylist = SubsonicSong & {
   _playlistId?: string;
   _playlistIndex?: number;
   _flatLayout?: boolean;
+  /** Set when the planner replaces an existing copy (new format or changed source). */
+  _overwrite?: boolean;
 };
 
 type PlaylistSourceIdentity = { type: string; id: string; name: string; pathId?: string };
@@ -80,5 +82,6 @@ export function trackToSyncInfo(
     playlistId: playlistCtx?.id ?? track._playlistId,
     playlistIndex: playlistCtx?.index ?? track._playlistIndex,
     flatLayout: flatLayout ?? track._flatLayout === true,
+    overwrite: track._overwrite === true,
   };
 }

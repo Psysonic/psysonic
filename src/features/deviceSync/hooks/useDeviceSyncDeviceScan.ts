@@ -111,6 +111,7 @@ export function useDeviceSyncDeviceScan(
           manifestImport.layoutMode,
           manifestImport.playlistPathMode,
           manifestImport.declaresConfiguration,
+          manifestImport.transcode,
         );
         manifestImport.sources.forEach(s => useDeviceSyncStore.getState().addSource(s));
         showToast(t('deviceSync.manifestImported', { count: manifestImport.sources.length }), 4000, 'info');

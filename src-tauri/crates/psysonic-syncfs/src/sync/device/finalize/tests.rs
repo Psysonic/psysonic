@@ -16,6 +16,7 @@ fn track() -> TrackSyncInfo {
         playlist_id: None,
         playlist_index: None,
         flat_layout: false,
+        overwrite: false,
     }
 }
 
@@ -30,6 +31,8 @@ fn payload(
         relative_path: "Artist/Album/01 - Song.flac".to_string(),
         source_keys: vec![source_key.clone()],
         size_bytes: 4,
+        transcode: None,
+        source: None,
     }];
     let manifest_playlists = vec![DeviceSyncManifestPlaylist {
         source_key: source_key.clone(),
@@ -61,6 +64,8 @@ fn payload(
         tracks: Vec::new(),
         delete_paths: delete_paths.clone(),
         deferred_delete_paths: Vec::new(),
+        move_count: 0,
+        move_paths: Vec::new(),
         playlists: planned_playlists,
         manifest_files: files.clone(),
         manifest_playlists: manifest_playlists.clone(),
@@ -219,6 +224,8 @@ fn flat_layout_writes_the_playlist_into_the_root() {
         relative_path: flat_track.to_string(),
         source_keys: vec![source_key.clone()],
         size_bytes: 9,
+        transcode: None,
+        source: None,
     }];
     let manifest_playlists = vec![DeviceSyncManifestPlaylist {
         source_key: source_key.clone(),
@@ -236,6 +243,8 @@ fn flat_layout_writes_the_playlist_into_the_root() {
         tracks: Vec::new(),
         delete_paths: Vec::new(),
         deferred_delete_paths: Vec::new(),
+        move_count: 0,
+        move_paths: Vec::new(),
         playlists: vec![crate::sync::batch::DeviceSyncPlannedPlaylist {
             source_key: source_key.clone(),
             name: "Mix".to_string(),
@@ -290,4 +299,113 @@ fn flat_layout_writes_the_playlist_into_the_root() {
     let playlist = std::fs::read_to_string(root.path().join("Mix.m3u8")).unwrap();
     assert!(playlist.ends_with(&format!("\n{flat_track}\n")));
     assert!(!root.path().join("Playlists").exists());
+}
+
+#[test]
+fn finalize_applies_planned_moves_with_absolute_references_and_device_sizes() {
+    let root = tempfile::tempdir().unwrap();
+    let old_copy = "Playlists/Mix/01 - Artist - Song.flac";
+    let new_copy = "Artist/Album/01 - Song.flac";
+    std::fs::create_dir_all(root.path().join("Playlists/Mix")).unwrap();
+    std::fs::write(root.path().join(old_copy), b"moved audio").unwrap();
+    let absolute_reference = root
+        .path()
+        .join("Artist")
+        .join("Album")
+        .join("01 - Song.flac")
+        .to_string_lossy()
+        .to_string();
+    let source_key = serde_json::to_string(&("owner.test", "playlist", "playlist-1")).unwrap();
+    let files = vec![DeviceSyncManifestFile {
+        track_id: "track-1".to_string(),
+        relative_path: new_copy.to_string(),
+        source_keys: vec![source_key.clone()],
+        size_bytes: 4,
+        transcode: None,
+        source: None,
+    }];
+    let manifest_playlists = vec![DeviceSyncManifestPlaylist {
+        source_key: source_key.clone(),
+        relative_path: "Playlists/Mix/Mix.m3u8".to_string(),
+    }];
+    let mut result = SyncDeltaResult {
+        plan_id: String::new(),
+        device_id: "device-1".to_string(),
+        add_bytes: 0,
+        add_count: 0,
+        del_bytes: 0,
+        del_count: 0,
+        reclaimable_bytes: 0,
+        available_bytes: 0,
+        tracks: Vec::new(),
+        delete_paths: Vec::new(),
+        deferred_delete_paths: Vec::new(),
+        move_count: 1,
+        move_paths: vec![DeviceSyncPlannedMove {
+            from: old_copy.to_string(),
+            to: new_copy.to_string(),
+        }],
+        playlists: vec![crate::sync::batch::DeviceSyncPlannedPlaylist {
+            source_key: source_key.clone(),
+            name: "Mix".to_string(),
+            path_id: None,
+            relative_path: "Playlists/Mix/Mix.m3u8".to_string(),
+            tracks: vec![serde_json::json!({ "id": "track-1" })],
+            references: vec![absolute_reference.clone()],
+        }],
+        manifest_files: files.clone(),
+        manifest_playlists: manifest_playlists.clone(),
+    };
+    prepare_device_sync_plan(
+        root.path(),
+        "device-1",
+        "owner.test",
+        vec![source_key],
+        DeviceSyncLayoutMode::SharedAlbumTree,
+        DeviceSyncPlaylistPathMode::Absolute,
+        &mut result,
+        None,
+    )
+    .unwrap();
+    let payload = DeviceSyncFinalizePayload {
+        plan_id: result.plan_id,
+        expected_device_id: "device-1".to_string(),
+        owner_server_index_key: "owner.test".to_string(),
+        owner_server_profile_id: None,
+        sources: vec![DeviceSyncFinalizeSource {
+            source_type: "playlist".to_string(),
+            id: "playlist-1".to_string(),
+            name: "Mix".to_string(),
+            path_id: None,
+            server_index_key: "owner.test".to_string(),
+            artist: None,
+        }],
+        canonical_id_version: None,
+        layout_mode: "shared-album-tree".to_string(),
+        playlist_path_mode: "absolute".to_string(),
+        files,
+        manifest_playlists,
+        playlists: vec![DeviceSyncFinalizePlaylist {
+            name: "Mix".to_string(),
+            path_id: None,
+            tracks: vec![track()],
+            references: vec![absolute_reference.clone()],
+        }],
+        deferred_delete_paths: Vec::new(),
+    };
+
+    finalize_device_sync_with_validator(root.path(), payload, |_, _| Ok(())).unwrap();
+
+    assert!(!root.path().join(old_copy).exists());
+    assert_eq!(
+        std::fs::read(root.path().join(new_copy)).unwrap(),
+        b"moved audio"
+    );
+    let playlist = std::fs::read_to_string(root.path().join("Playlists/Mix/Mix.m3u8")).unwrap();
+    assert!(playlist.ends_with(&format!("\n{absolute_reference}\n")));
+    let manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.path().join("psysonic-sync.json")).unwrap())
+            .unwrap();
+    assert_eq!(manifest["playlistPathMode"], "absolute");
+    assert_eq!(manifest["files"][0]["sizeBytes"], 11);
 }

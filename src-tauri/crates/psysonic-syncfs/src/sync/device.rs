@@ -182,12 +182,7 @@ pub async fn rename_device_files(
 ) -> Result<Vec<RenameResult>, String> {
     let _device_sync_guard = device_sync_operation_guard().await;
     let root = std::path::PathBuf::from(&target_dir);
-    if !root.exists() {
-        return Err("VOLUME_NOT_FOUND".to_string());
-    }
-    if !is_path_on_mounted_volume(&root) {
-        return Err("NOT_MOUNTED_VOLUME".to_string());
-    }
+    ensure_mounted_target(&root)?;
     Ok(rename_pairs_within_root(&root, pairs))
 }
 
@@ -303,14 +298,102 @@ pub fn is_path_on_mounted_volume(path: &std::path::Path) -> bool {
     best_len > 0
 }
 
+/// Marks a folder on the system disk that the user explicitly chose as a sync
+/// target. A USB mount point that fell back to `/` after an unmount never
+/// carries it, so the unmounted-device protection above still holds.
+pub(crate) const LOCAL_TARGET_MARKER: &str = ".psysonic-local-target";
+
+pub(crate) fn is_marked_local_target(path: &std::path::Path) -> bool {
+    std::fs::symlink_metadata(path.join(LOCAL_TARGET_MARKER))
+        .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
+}
+
 pub(super) fn ensure_mounted_target(path: &std::path::Path) -> Result<(), String> {
     if !path.is_dir() {
         return Err("VOLUME_NOT_FOUND".to_string());
     }
-    if !is_path_on_mounted_volume(path) {
+    if !is_path_on_mounted_volume(path) && !is_marked_local_target(path) {
         return Err("NOT_MOUNTED_VOLUME".to_string());
     }
     Ok(())
+}
+
+/// Free space of the volume holding `path`, including the system volume, so
+/// local-folder targets get the same capacity check as removable drives.
+pub(crate) fn target_available_space(path: &std::path::Path) -> Option<u64> {
+    use sysinfo::Disks;
+    let canonical = path.canonicalize().ok()?;
+    let disks = Disks::new_with_refreshed_list();
+    disks
+        .list()
+        .iter()
+        .filter_map(|disk| {
+            let mount = disk.mount_point().canonicalize().ok()?;
+            canonical
+                .starts_with(&mount)
+                .then(|| (mount.components().count(), disk.available_space()))
+        })
+        .max_by_key(|(depth, _)| *depth)
+        .map(|(_, available)| available)
+}
+
+#[derive(Clone, Debug, serde::Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct DeviceSyncTargetInfo {
+    pub exists: bool,
+    pub on_mounted_volume: bool,
+    pub local_target: bool,
+}
+
+pub(crate) fn inspect_device_sync_target_impl(path: &std::path::Path) -> DeviceSyncTargetInfo {
+    let exists = path.is_dir();
+    DeviceSyncTargetInfo {
+        exists,
+        on_mounted_volume: exists && is_path_on_mounted_volume(path),
+        local_target: exists && is_marked_local_target(path),
+    }
+}
+
+/// Reports whether a chosen folder can be synced to as-is, or needs the user to
+/// confirm it as a local folder first.
+#[tauri::command]
+#[specta::specta]
+pub fn inspect_device_sync_target(dest_dir: String) -> DeviceSyncTargetInfo {
+    inspect_device_sync_target_impl(std::path::Path::new(&dest_dir))
+}
+
+fn home_dir() -> Option<std::path::PathBuf> {
+    std::env::var_os("HOME")
+        .or_else(|| std::env::var_os("USERPROFILE"))
+        .map(std::path::PathBuf::from)
+        .and_then(|home| home.canonicalize().ok())
+}
+
+pub(crate) fn mark_local_sync_target_impl(path: &std::path::Path) -> Result<(), String> {
+    if !path.is_dir() {
+        return Err("VOLUME_NOT_FOUND".to_string());
+    }
+    let canonical = path.canonicalize().map_err(|error| error.to_string())?;
+    if canonical.parent().is_none() || home_dir().is_some_and(|home| home == canonical) {
+        return Err("DEVICE_SYNC_LOCAL_TARGET_INVALID".to_string());
+    }
+    if is_marked_local_target(&canonical) {
+        return Ok(());
+    }
+    replace_device_text_file(
+        &canonical,
+        &canonical.join(LOCAL_TARGET_MARKER),
+        b"Psysonic Device Sync target on a local disk. Delete this file to stop syncing here.\n",
+    )
+}
+
+/// Confirms a folder on the system disk as a sync target (see `LOCAL_TARGET_MARKER`).
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_local_sync_target(dest_dir: String) -> Result<(), String> {
+    let _device_sync_guard = device_sync_operation_guard().await;
+    let _filesystem_write_guard = crate::filesystem_write_guard().await?;
+    mark_local_sync_target_impl(std::path::Path::new(&dest_dir))
 }
 
 fn path_is_within_mount(path: &std::path::Path, mount_point: &std::path::Path) -> bool {
@@ -349,6 +432,10 @@ pub struct TrackSyncInfo {
     /// source it came from (see `build_track_path`).
     #[serde(default, rename = "flatLayout")]
     pub flat_layout: bool,
+    /// Replace an existing copy at the same path (new transcode profile or a
+    /// source file that changed on the server) instead of skipping it.
+    #[serde(default)]
+    pub overwrite: bool,
 }
 
 /// Summary returned by `sync_batch_to_device` after all tracks are processed.

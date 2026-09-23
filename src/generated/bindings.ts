@@ -404,6 +404,13 @@ export const commands = {
 	 */
 	renameDeviceFiles: (targetDir: string, pairs: ([string, string])[]) => typedError<RenameResult[], string>(__TAURI_INVOKE("rename_device_files", { targetDir, pairs })),
 	/**
+	 *  Reports whether a chosen folder can be synced to as-is, or needs the user to
+	 *  confirm it as a local folder first.
+	 */
+	inspectDeviceSyncTarget: (destDir: string) => __TAURI_INVOKE<DeviceSyncTargetInfo>("inspect_device_sync_target", { destDir }),
+	/**  Confirms a folder on the system disk as a sync target (see `LOCAL_TARGET_MARKER`). */
+	markLocalSyncTarget: (destDir: string) => typedError<null, string>(__TAURI_INVOKE("mark_local_sync_target", { destDir })),
+	/**
 	 *  Downloads a server-generated ZIP (album/playlist) directly to disk via streaming.
 	 *  Emits `download:zip:progress` events every 500 ms so the frontend can show
 	 *  live MB-counter without holding any binary data in the WebView process.
@@ -1476,12 +1483,47 @@ export type DeviceSyncManifestFile = {
 	relativePath: string,
 	sourceKeys: string[],
 	sizeBytes: number,
+	/**
+	 *  How the file was produced. Absent on manifests written before
+	 *  transcoding existed, which only ever held originals.
+	 */
+	transcode?: DeviceSyncTranscode | null,
+	/**  Server-side source file the copy was made from. Absent on older manifests. */
+	source?: DeviceSyncSourceFingerprint | null,
 };
 
 export type DeviceSyncManifestPlaylist = {
 	sourceKey: string,
 	relativePath: string,
 };
+
+/**
+ *  What the server reported about a track's source file when it was synced.
+ *  A mismatch on the next run means the file was replaced on the server.
+ */
+export type DeviceSyncSourceFingerprint = {
+	size?: number | null,
+	suffix?: string | null,
+	bitRate?: number | null,
+};
+
+export type DeviceSyncTargetInfo = {
+	exists: boolean,
+	onMountedVolume: boolean,
+	localTarget: boolean,
+};
+
+export type DeviceSyncTranscode = {
+	format?: DeviceSyncTranscodeFormat,
+	/**  Bitrate cap in kbps; `0` leaves the choice to the server. */
+	maxBitRateKbps?: number,
+};
+
+/**
+ *  Output format of a synced file. `Original` copies the server file as-is;
+ *  the others ask the server to transcode through `stream.view`.
+ */
+export type DeviceSyncTranscodeFormat = "original" | "mp3" | "aac" | "opus";
 
 export type EndpointKind = "local" | "public";
 
@@ -2265,6 +2307,11 @@ export type TrackSyncInfo = {
 	 *  source it came from (see `build_track_path`).
 	 */
 	flatLayout?: boolean,
+	/**
+	 *  Replace an existing copy at the same path (new transcode profile or a
+	 *  source file that changed on the server) instead of skipping it.
+	 */
+	overwrite?: boolean,
 };
 
 export type WaveformCachePayload = {
