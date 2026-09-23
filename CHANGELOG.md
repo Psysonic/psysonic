@@ -130,6 +130,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The search box on **Favorites** now filters favourite artists, albums, radio stations, top artists and songs together. Compact result counts keep every category visible, and each non-song category can be expanded in place without navigating away.
 
+### Word-synced lyrics can flow without highlighting the whole word
+
+**By [@cucadmuh](https://github.com/cucadmuh), suggested by [@PeridotC](https://github.com/PeridotC), PR [#1640](https://github.com/Psysonic/psysonic/pull/1640)**, closes [#1620](https://github.com/Psysonic/psysonic/issues/1620)
+
+* **Settings → Lyrics → Word highlighting** now has a **Flow only** option. It keeps the continuous colour fill but removes the instant glow around the whole active word. **Step** remains the default, and the existing **Smooth** appearance stays unchanged.
+
 ## Fixed
 
 ### Dropping a track in the queue no longer starts it
