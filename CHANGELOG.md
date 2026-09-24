@@ -359,6 +359,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Moving or removing a track made the whole playlist page reload behind a spinner. The list now stays as it is, while changes made from elsewhere, such as **Add to Playlist**, still refresh it.
 
+### Smart playlist custom fields accept names in any script
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by stefnto on Discord, PR [#1650](https://github.com/Psysonic/psysonic/pull/1650)**
+
+* Custom tag and role names in **Settings → Smart playlist custom fields** were limited to Latin letters, so Greek or Cyrillic tag names were rejected as invalid. Names in any script are now accepted; they still start with a letter and contain no spaces.
+
 ## [1.54.0]
 
 ## Fixed
