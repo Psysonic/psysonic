@@ -78,7 +78,8 @@ describe('PlaylistHero smart surfaces', () => {
     expect(view.queryByRole('button', { name: 'Import from Spotify CSV' })).not.toBeInTheDocument();
     expect(view.queryByRole('button', { name: 'Cache playlist offline' })).not.toBeInTheDocument();
 
-    expect(view.getByRole('button', { name: 'Edit Rules' })).toHaveTextContent('Edit Rules');
+    // Icon-only: the label lives in the accessible name and tooltip, not in the bar.
+    expect(view.getByRole('button', { name: 'Edit Rules' })).toHaveTextContent('');
     await user.click(view.getByRole('button', { name: 'Edit Rules' }));
     expect(navigateMock).toHaveBeenCalledWith('/playlists', {
       state: { openSmartEditorFor: { id: 'pl-1', serverId: 'srv-a', name: 'Feishin mix' } },
@@ -114,5 +115,40 @@ describe('PlaylistHero smart surfaces', () => {
 
     expect(view.queryByRole('button', { name: 'Edit Rules' })).not.toBeInTheDocument();
     expect(view.queryByRole('button', { name: 'Refresh smart playlist' })).not.toBeInTheDocument();
+  });
+});
+
+describe('PlaylistHero action bar layout', () => {
+  beforeEach(() => {
+    usePlaylistLayoutStore.getState().reset();
+  });
+
+  function barButtonNames(view: ReturnType<typeof renderHero>): string[] {
+    const bar = view.container.querySelector('.album-detail-actions-primary');
+    return Array.from(bar?.querySelectorAll('button') ?? []).map(b => b.getAttribute('aria-label') ?? '');
+  }
+
+  it('keeps Play first and renders the rest in the configured order', () => {
+    const { items, setItems } = usePlaylistLayoutStore.getState();
+    const byId = (id: string) => items.find(i => i.id === id)!;
+    setItems([
+      byId('downloadZip'), byId('shuffle'), byId('importCsv'),
+      ...items.filter(i => !['downloadZip', 'shuffle', 'importCsv'].includes(i.id)),
+    ]);
+    const names = barButtonNames(renderHero(playlist({ name: 'Manual mix', smart: false })));
+
+    expect(names[0]).toBe('Play playlist');
+    expect(names.indexOf('Download (ZIP)')).toBeLessThan(names.indexOf('Shuffle'));
+    expect(names.indexOf('Shuffle')).toBeLessThan(names.indexOf('Import from Spotify CSV'));
+  });
+
+  it('hides the primary buttons when switched off', () => {
+    usePlaylistLayoutStore.getState().toggleItem('shuffle');
+    usePlaylistLayoutStore.getState().toggleItem('enqueue');
+    const names = barButtonNames(renderHero(playlist({ name: 'Manual mix', smart: false })));
+
+    expect(names).toContain('Play playlist');
+    expect(names).not.toContain('Shuffle');
+    expect(names).not.toContain('Add to Queue');
   });
 });

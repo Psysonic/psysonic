@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { isLayoutCustomized, mergeLayoutItems } from '@/lib/util/layoutItems';
 import {
   isPlaylistOwnershipFilter,
   type PlaylistOwnershipFilter,
@@ -11,6 +12,9 @@ import {
 } from '@/features/playlist/utils/playlistListSort';
 
 export type PlaylistLayoutItemId =
+  | 'shuffle'
+  | 'enqueue'
+  | 'share'
   | 'editRules'
   | 'refreshSmart'
   | 'addSongs'
@@ -24,7 +28,14 @@ export interface PlaylistLayoutItemConfig {
   visible: boolean;
 }
 
+/**
+ * Action-bar buttons after the fixed Play button, in bar order, then the
+ * Suggestions section (a toggle only — it is not part of the bar).
+ */
 export const DEFAULT_PLAYLIST_LAYOUT_ITEMS: PlaylistLayoutItemConfig[] = [
+  { id: 'shuffle',      visible: true },
+  { id: 'enqueue',      visible: true },
+  { id: 'share',        visible: true },
   { id: 'refreshSmart', visible: true },
   { id: 'editRules',    visible: true },
   { id: 'addSongs',     visible: true },
@@ -72,13 +83,7 @@ export const usePlaylistLayoutStore = create<PlaylistLayoutStore>()(
       name: 'psysonic_playlist_layout',
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        const knownIds = new Set(DEFAULT_PLAYLIST_LAYOUT_ITEMS.map(i => i.id));
-        const safe = (state.items ?? [])
-          .filter((i): i is PlaylistLayoutItemConfig =>
-            i != null && typeof i.id === 'string' && knownIds.has(i.id as PlaylistLayoutItemId));
-        const seen = new Set(safe.map(i => i.id));
-        const missing = DEFAULT_PLAYLIST_LAYOUT_ITEMS.filter(i => !seen.has(i.id));
-        state.items = missing.length > 0 ? [...safe, ...missing] : safe;
+        state.items = mergeLayoutItems(state.items, DEFAULT_PLAYLIST_LAYOUT_ITEMS);
         // A value persisted by an older build (or a hand-edited store) must not
         // leave the page stuck on a bucket the control can no longer clear.
         if (!isPlaylistOwnershipFilter(state.ownershipFilter)) state.ownershipFilter = 'all';
@@ -89,11 +94,5 @@ export const usePlaylistLayoutStore = create<PlaylistLayoutStore>()(
 );
 
 export function isPlaylistLayoutCustomized(items: PlaylistLayoutItemConfig[]): boolean {
-  if (items.length !== DEFAULT_PLAYLIST_LAYOUT_ITEMS.length) return true;
-  for (let i = 0; i < items.length; i++) {
-    const cur = items[i];
-    const def = DEFAULT_PLAYLIST_LAYOUT_ITEMS[i];
-    if (cur.id !== def.id || cur.visible !== def.visible) return true;
-  }
-  return false;
+  return isLayoutCustomized(items, DEFAULT_PLAYLIST_LAYOUT_ITEMS);
 }

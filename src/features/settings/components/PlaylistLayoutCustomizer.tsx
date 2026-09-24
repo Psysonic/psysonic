@@ -1,8 +1,12 @@
 import { useTranslation } from 'react-i18next';
-import { Download, FileUp, HardDrive, Lightbulb, RefreshCw, Search, Sparkles } from 'lucide-react';
+import { Download, FileUp, HardDrive, Lightbulb, ListPlus, RefreshCw, Search, Share2, Shuffle, Sparkles } from 'lucide-react';
 import { usePlaylistLayoutStore, type PlaylistLayoutItemId } from '@/features/playlist';
+import { ActionBarLayoutCustomizer } from '@/features/settings/components/ActionBarLayoutCustomizer';
 
 const PLAYLIST_LAYOUT_ICONS: Record<PlaylistLayoutItemId, typeof Search> = {
+  shuffle:      Shuffle,
+  enqueue:      ListPlus,
+  share:        Share2,
   editRules:    Sparkles,
   refreshSmart: RefreshCw,
   addSongs:     Search,
@@ -13,6 +17,9 @@ const PLAYLIST_LAYOUT_ICONS: Record<PlaylistLayoutItemId, typeof Search> = {
 };
 
 const PLAYLIST_LAYOUT_LABEL_KEYS: Record<PlaylistLayoutItemId, string> = {
+  shuffle:      'playlists.shuffle',
+  enqueue:      'playlists.addToQueue',
+  share:        'contextMenu.shareLink',
   editRules:    'playlists.editRules',
   refreshSmart: 'playlists.refreshSmart',
   addSongs:     'playlists.addSongs',
@@ -22,27 +29,28 @@ const PLAYLIST_LAYOUT_LABEL_KEYS: Record<PlaylistLayoutItemId, string> = {
   suggestions:  'playlists.suggestions',
 };
 
+/** Suggestions is a page section below the list, so it is toggled but not ordered with the bar. */
+const FIXED_IDS: readonly PlaylistLayoutItemId[] = ['suggestions'];
+
 export function PlaylistLayoutCustomizer() {
   const { t } = useTranslation();
   const items = usePlaylistLayoutStore(s => s.items);
+  const setItems = usePlaylistLayoutStore(s => s.setItems);
   const toggleItem = usePlaylistLayoutStore(s => s.toggleItem);
 
+  const labels = Object.fromEntries(
+    Object.entries(PLAYLIST_LAYOUT_LABEL_KEYS).map(([id, key]) => [id, t(key)]),
+  ) as Record<PlaylistLayoutItemId, string>;
+
   return (
-    <div style={{ padding: '4px 0' }}>
-      {items.map((it) => {
-        const Icon = PLAYLIST_LAYOUT_ICONS[it.id];
-        const label = t(PLAYLIST_LAYOUT_LABEL_KEYS[it.id]);
-        return (
-          <div key={it.id} className="sidebar-customizer-row">
-            <Icon size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-            <span style={{ flex: 1, fontSize: 14 }}>{label}</span>
-            <label className="toggle-switch" aria-label={label}>
-              <input type="checkbox" checked={it.visible} onChange={() => toggleItem(it.id)} />
-              <span className="toggle-track" />
-            </label>
-          </div>
-        );
-      })}
-    </div>
+    <ActionBarLayoutCustomizer
+      items={items}
+      icons={PLAYLIST_LAYOUT_ICONS}
+      labels={labels}
+      reorderType="playlist_layout_reorder"
+      onReorder={setItems}
+      onToggle={toggleItem}
+      fixedIds={FIXED_IDS}
+    />
   );
 }

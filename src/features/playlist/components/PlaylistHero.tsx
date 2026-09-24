@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import {
@@ -22,6 +22,7 @@ import { PlaylistSmartCoverCell } from '@/features/playlist/components/PlaylistC
 import type { OfflineActionPolicy } from '@/features/offline';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { ShareMethodMenuButton } from '@/features/share';
+import { tooltipAttrs } from '@/ui/tooltipAttrs';
 
 interface Props {
   playlist: SubsonicPlaylist;
@@ -82,9 +83,151 @@ export default function PlaylistHero({
   const enableCoverArtBackground = useThemeStore(s => s.enableCoverArtBackground);
   const enablePlaylistCoverPhoto = useThemeStore(s => s.enablePlaylistCoverPhoto);
   const layoutItems = usePlaylistLayoutStore(s => s.items);
-  const isLayoutVisible = (id: PlaylistLayoutItemId) =>
-    layoutItems.find(i => i.id === id)?.visible !== false;
   const controls = playlistDetailControls(playlist);
+  const totalBytes = songs.reduce((acc, s) => acc + (s.size ?? 0), 0);
+
+  // One entry per action-bar id; `null` when the button does not apply here.
+  // `suggestions` is a page section, not a bar button, so it never renders.
+  const renderActionButton = (itemId: PlaylistLayoutItemId): React.ReactNode => {
+    switch (itemId) {
+      case 'shuffle':
+        return (
+          <button
+            className="btn btn-ghost"
+            disabled={songs.length === 0}
+            onClick={handleShuffleAll}
+            {...tooltipAttrs(t('playlists.shuffle', 'Shuffle'))}
+          >
+            <Shuffle size={16} />
+          </button>
+        );
+      case 'enqueue':
+        return (
+          <button
+            className="btn btn-ghost"
+            disabled={songs.length === 0}
+            onClick={handleEnqueueAll}
+            {...tooltipAttrs(t('playlists.addToQueue'))}
+          >
+            <ListPlus size={16} />
+          </button>
+        );
+      case 'share':
+        return (
+          <ShareMethodMenuButton
+            request={{
+              kind: 'playlist',
+              resourceIds: [playlist.id],
+              serverIds: [playlist.serverId ?? activeServerId].filter(Boolean),
+            }}
+            className="btn btn-ghost"
+            label={t('contextMenu.shareLink')}
+          />
+        );
+      case 'refreshSmart':
+        return actionPolicy.canEditPlaylist && controls.showRefreshTracks ? (
+          <button
+            className="btn btn-ghost"
+            onClick={handleRefreshSmart}
+            disabled={refreshingSmart}
+            {...tooltipAttrs(t('playlists.refreshSmart'))}
+          >
+            <RefreshCw size={16} className={refreshingSmart ? 'is-spinning' : undefined} />
+          </button>
+        ) : null;
+      case 'editRules':
+        return actionPolicy.canEditPlaylist && controls.showEditRules ? (
+          <button
+            className="btn btn-ghost"
+            onClick={() => {
+              const dest = playlistsOpenSmartEditorState(playlist);
+              if (dest) navigate(dest.pathname, { state: dest.state });
+            }}
+            {...tooltipAttrs(t('playlists.editRules'))}
+          >
+            <Sparkles size={16} />
+          </button>
+        ) : null;
+      case 'addSongs':
+        return actionPolicy.canEditPlaylist && controls.canAddTracks ? (
+          <button
+            className={`btn btn-ghost ${searchOpen ? 'active' : ''}`}
+            onClick={() => { setSearchOpen(v => !v); setSearchQuery(''); setSearchResults([]); setSelectedSearchIds(new Set()); setSearchPlPickerOpen(false); }}
+            {...tooltipAttrs(t('playlists.addSongsTooltip'))}
+          >
+            <Search size={16} />
+          </button>
+        ) : null;
+      case 'importCsv':
+        return actionPolicy.canEditPlaylist && controls.canImportCsv ? (
+          <button
+            className="btn btn-ghost"
+            onClick={handleImportCsv}
+            disabled={csvImporting}
+            {...tooltipAttrs(t('playlists.importCSVTooltip'))}
+          >
+            {csvImporting ? <Loader2 size={16} className="spin-slow" /> : <FileUp size={16} />}
+          </button>
+        ) : null;
+      case 'downloadZip':
+        if (!actionPolicy.canDownload || songs.length === 0) return null;
+        return activeZip && !activeZip.done && !activeZip.error ? (
+          <div className="download-progress-wrap">
+            <Download size={14} />
+            <div className="download-progress-bar">
+              <div className="download-progress-fill" style={{ width: `${activeZip.total ? Math.round((activeZip.bytes / activeZip.total) * 100) : 0}%` }} />
+            </div>
+            <span className="download-progress-pct">{activeZip.total ? Math.round((activeZip.bytes / activeZip.total) * 100) : '…'}%</span>
+          </div>
+        ) : (
+          <button
+            className="btn btn-ghost"
+            onClick={handleDownload}
+            {...tooltipAttrs(`${t('playlists.downloadZip')}${totalBytes > 0 ? ` · ${formatSize(totalBytes)}` : ''}`)}
+          >
+            <Download size={16} />
+          </button>
+        );
+      case 'offlineCache':
+        if (!actionPolicy.canPinOffline || songs.length === 0 || !id) return null;
+        if (!controls.canPinNewOfflineCache && offlineStatus === 'none') return null;
+        if (offlineStatus === 'downloading') {
+          return (
+            <div
+              className="btn btn-ghost"
+              role="status"
+              style={{ cursor: 'default', opacity: 0.75 }}
+              {...tooltipAttrs(t('albumDetail.offlineDownloading', { n: offlineProgress?.done ?? 0, total: offlineProgress?.total ?? 0 }))}
+            >
+              <div className="spinner" style={{ width: 14, height: 14, borderTopColor: 'currentColor' }} />
+            </div>
+          );
+        }
+        return (
+          <button
+            className={`btn btn-ghost${offlineStatus === 'cached' ? ' btn-danger' : ''}${offlineStatus === 'queued' ? ' offline-cache-btn--queued' : ''}`}
+            onClick={() => {
+              if (offlineStatus === 'cached') {
+                deleteAlbum(id, activeServerId, { kind: 'playlist', sourceId: id });
+              } else if (offlineStatus === 'queued') {
+                dequeueOfflinePin(id, activeServerId);
+              } else {
+                downloadPlaylist(id, playlist.name, playlist.coverArt, songs, activeServerId, playlist.smart);
+              }
+            }}
+            {...tooltipAttrs(offlineStatus === 'queued'
+              ? t('albumDetail.removeFromOfflineQueue')
+              : offlineStatus === 'cached'
+                ? t('playlists.removeOffline')
+                : t('playlists.cacheOffline'))}
+          >
+            {offlineStatus === 'cached' ? <Trash2 size={16} /> : <HardDriveDownload size={16} />}
+          </button>
+        );
+      case 'suggestions':
+        return null;
+    }
+  };
 
   return (
     <div className="album-detail-header">
@@ -179,139 +322,12 @@ export default function PlaylistHero({
                 >
                   <Play size={15} /> <span className="compact-btn-label">{t('common.play', 'Reproducir')}</span>
                 </button>
-                <button
-                  className="btn btn-ghost"
-                  disabled={songs.length === 0}
-                  onClick={handleShuffleAll}
-                  data-tooltip={t('playlists.shuffle', 'Shuffle')}
-                >
-                  <Shuffle size={16} />
-                </button>
-                <button
-                  className="btn btn-ghost"
-                  disabled={songs.length === 0}
-                  onClick={handleEnqueueAll}
-                  data-tooltip={t('playlists.addToQueue')}
-                >
-                  <ListPlus size={16} />
-                </button>
-                <ShareMethodMenuButton
-                  request={{
-                    kind: 'playlist',
-                    resourceIds: [playlist.id],
-                    serverIds: [playlist.serverId ?? activeServerId].filter(Boolean),
-                  }}
-                  className="btn btn-ghost"
-                  label={t('contextMenu.shareLink')}
-                />
+                {layoutItems.map(item => {
+                  if (!item.visible) return null;
+                  const node = renderActionButton(item.id);
+                  return node ? <Fragment key={item.id}>{node}</Fragment> : null;
+                })}
               </div>
-              {actionPolicy.canEditPlaylist && controls.showRefreshTracks && isLayoutVisible('refreshSmart') && (
-                <button
-                  className="btn btn-ghost"
-                  onClick={handleRefreshSmart}
-                  disabled={refreshingSmart}
-                  data-tooltip={t('playlists.refreshSmart')}
-                  aria-label={t('playlists.refreshSmart')}
-                >
-                  <RefreshCw size={16} className={refreshingSmart ? 'is-spinning' : undefined} />
-                </button>
-              )}
-              {actionPolicy.canEditPlaylist && controls.showEditRules && isLayoutVisible('editRules') && (
-                <button
-                  className="btn btn-ghost"
-                  onClick={() => {
-                    const dest = playlistsOpenSmartEditorState(playlist);
-                    if (dest) navigate(dest.pathname, { state: dest.state });
-                  }}
-                  data-tooltip={t('playlists.editRules')}
-                  aria-label={t('playlists.editRules')}
-                >
-                  <Sparkles size={16} />
-                  <span className="compact-btn-label">{t('playlists.editRules')}</span>
-                </button>
-              )}
-              {actionPolicy.canEditPlaylist && controls.canAddTracks && isLayoutVisible('addSongs') && (
-                <button
-                  className={`btn btn-ghost ${searchOpen ? 'active' : ''}`}
-                  onClick={() => { setSearchOpen(v => !v); setSearchQuery(''); setSearchResults([]); setSelectedSearchIds(new Set()); setSearchPlPickerOpen(false); }}
-                  aria-label={t('playlists.addSongsTooltip')}
-                  data-tooltip={t('playlists.addSongsTooltip')}
-                >
-                  <Search size={16} /> <span className="compact-btn-label">{t('playlists.addSongs')}</span>
-                </button>
-              )}
-              {actionPolicy.canEditPlaylist && controls.canImportCsv && isLayoutVisible('importCsv') && (
-                <button
-                  className="btn btn-ghost"
-                  onClick={handleImportCsv}
-                  disabled={csvImporting}
-                  aria-label={t('playlists.importCSVTooltip')}
-                  data-tooltip={t('playlists.importCSVTooltip')}
-                >
-                  {csvImporting ? <Loader2 size={16} className="spin-slow" /> : <FileUp size={16} />}
-                  <span className="compact-btn-label">{t('playlists.importCSV')}</span>
-                </button>
-              )}
-              {actionPolicy.canDownload && isLayoutVisible('downloadZip') && songs.length > 0 && (
-                activeZip && !activeZip.done && !activeZip.error ? (
-                  <div className="download-progress-wrap">
-                    <Download size={14} />
-                    <div className="download-progress-bar">
-                      <div className="download-progress-fill" style={{ width: `${activeZip.total ? Math.round((activeZip.bytes / activeZip.total) * 100) : 0}%` }} />
-                    </div>
-                    <span className="download-progress-pct">{activeZip.total ? Math.round((activeZip.bytes / activeZip.total) * 100) : '…'}%</span>
-                  </div>
-                ) : (
-                  <button className="btn btn-ghost" onClick={handleDownload} aria-label={t('playlists.downloadZip')} data-tooltip={t('playlists.downloadZip')}>
-                    <Download size={16} /> <span className="compact-btn-label">{t('playlists.downloadZip')}{songs.reduce((acc, s) => acc + (s.size ?? 0), 0) > 0 ? ` · ${formatSize(songs.reduce((acc, s) => acc + (s.size ?? 0), 0))}` : ''}</span>
-                  </button>
-                )
-              )}
-              {actionPolicy.canPinOffline && isLayoutVisible('offlineCache') && songs.length > 0 && id
-                && (controls.canPinNewOfflineCache || offlineStatus !== 'none') && (
-                <button
-                  className={`btn btn-ghost${offlineStatus === 'cached' ? ' btn-danger' : ''}${offlineStatus === 'queued' ? ' offline-cache-btn--queued' : ''}`}
-                  disabled={offlineStatus === 'downloading'}
-                  onClick={() => {
-                    if (offlineStatus === 'cached') {
-                      deleteAlbum(id, activeServerId, { kind: 'playlist', sourceId: id });
-                    } else if (offlineStatus === 'queued') {
-                      dequeueOfflinePin(id, activeServerId);
-                    } else if (playlist) {
-                      downloadPlaylist(id, playlist.name, playlist.coverArt, songs, activeServerId, playlist.smart);
-                    }
-                  }}
-                  data-tooltip={offlineStatus === 'downloading'
-                    ? t('albumDetail.offlineDownloading', { n: offlineProgress?.done ?? 0, total: offlineProgress?.total ?? 0 })
-                    : offlineStatus === 'queued'
-                      ? t('albumDetail.removeFromOfflineQueue')
-                      : offlineStatus === 'cached'
-                        ? t('playlists.removeOffline')
-                        : t('playlists.cacheOffline')}
-                >
-                  {offlineStatus === 'downloading' ? (
-                    <>
-                      <div className="spinner" style={{ width: 14, height: 14, borderTopColor: 'currentColor' }} />
-                      <span className="compact-btn-label">{t('albumDetail.offlineDownloading', { n: offlineProgress?.done ?? 0, total: offlineProgress?.total ?? 0 })}</span>
-                    </>
-                  ) : offlineStatus === 'queued' ? (
-                    <>
-                      <HardDriveDownload size={16} />
-                      <span className="compact-btn-label">{t('albumDetail.offlineQueued')}</span>
-                    </>
-                  ) : offlineStatus === 'cached' ? (
-                    <>
-                      <Trash2 size={16} />
-                      <span className="compact-btn-label">{t('playlists.removeOffline')}</span>
-                    </>
-                  ) : (
-                    <>
-                      <HardDriveDownload size={16} />
-                      <span className="compact-btn-label">{t('playlists.cacheOffline')}</span>
-                    </>
-                  )}
-                </button>
-              )}
             </div>
           </div>
         </div>
