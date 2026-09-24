@@ -144,6 +144,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Personalisation → Album page layout** and **Playlist page layout** let you reorder these buttons by dragging and hide the ones you don't need. **Play** always stays first.
 * **Compact buttons** moved from Appearance to Personalisation.
 
+### Playlists explain why drag reordering is off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1647](https://github.com/Psysonic/psysonic/pull/1647)**
+
+* While a playlist is sorted by anything other than **ID** or filtered, dragging a track adds it to the queue instead of moving it. A short hint next to the sort menu now says so, and **Reset** returns to the order you can rearrange.
+
 ## Fixed
 
 ### Navidrome migration progress keeps its styling during startup
