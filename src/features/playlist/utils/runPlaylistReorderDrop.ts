@@ -1,5 +1,6 @@
 import type React from 'react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
+import { moveBlockToGap } from '@/lib/util/listReorder';
 
 export interface RunPlaylistReorderDropDeps {
   e: Event;
@@ -9,37 +10,50 @@ export interface RunPlaylistReorderDropDeps {
   setSongs: React.Dispatch<React.SetStateAction<SubsonicSong[]>>;
 }
 
+/**
+ * Rows a drag moves inside this playlist: one row for `playlist_reorder`, the
+ * selection for a `songs` drag that started here (`playlistIndices`). `null` for
+ * every other payload, including `songs` dragged in from elsewhere.
+ */
+function reorderIndices(parsed: { type?: unknown; index?: unknown; playlistIndices?: unknown }): number[] | null {
+  if (parsed.type === 'playlist_reorder') {
+    return typeof parsed.index === 'number' ? [parsed.index] : null;
+  }
+  if (parsed.type === 'songs' && Array.isArray(parsed.playlistIndices)) {
+    const indices = parsed.playlistIndices.filter((i): i is number => Number.isInteger(i));
+    return indices.length > 0 ? indices : null;
+  }
+  return null;
+}
+
 export function runPlaylistReorderDrop(deps: RunPlaylistReorderDropDeps): void {
   const { e, songs, savePlaylist, setDropTargetIdx, setSongs } = deps;
   const detail = (e as CustomEvent).detail;
   if (!detail?.data) return;
-  let parsed: { type?: string; index?: number };
+  let parsed: { type?: unknown; index?: unknown; playlistIndices?: unknown };
   try { parsed = JSON.parse(detail.data); } catch { return; }
-  if (parsed.type !== 'playlist_reorder') return;
+  const indices = reorderIndices(parsed);
+  if (!indices) return;
 
   setDropTargetIdx(null);
 
-  const fromIdx = parsed.index as number;
-
-  // Determine drop index from the event target row
+  // Determine the gap from the event target row
   const target = (e.target as HTMLElement).closest('[data-track-idx]');
-  let toIdx = songs.length;
+  let gapIndex = songs.length;
   if (target) {
     const targetIdx = parseInt(target.getAttribute('data-track-idx') ?? '', 10);
     const rect = target.getBoundingClientRect();
     // `DragDropContext` puts the pointer position into `detail`; a CustomEvent has no clientY of its own.
     const cursorY = typeof detail.clientY === 'number' ? detail.clientY : rect.top + rect.height / 2;
     const before = cursorY < rect.top + rect.height / 2;
-    toIdx = before ? targetIdx : targetIdx + 1;
+    gapIndex = before ? targetIdx : targetIdx + 1;
   }
 
-  if (fromIdx === toIdx || fromIdx === toIdx - 1) return;
+  if (!moveBlockToGap(songs, indices, gapIndex)) return;
 
   setSongs(prev => {
-    const next = [...prev];
-    const [moved] = next.splice(fromIdx, 1);
-    const insertAt = toIdx > fromIdx ? toIdx - 1 : toIdx;
-    next.splice(insertAt, 0, moved);
+    const next = moveBlockToGap(prev, indices, gapIndex);
+    if (!next) return prev;
     savePlaylist(next);
     return next;
   });
