@@ -329,6 +329,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * When several servers are selected together, Psysonic now refreshes the reported type and version for every reachable member instead of only the active one. Upgrading an inactive Navidrome server no longer leaves old capabilities in place until you switch to it or test its connection manually.
 
+### Tracks dragged in a playlist land where the line shows
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1645](https://github.com/Psysonic/psysonic/pull/1645)**
+
+* Reordering a playlist by drag and drop placed the track one position below the drop line whenever it was dropped above a row. It now lands exactly where the line shows, in both directions.
+
 ## [1.54.0]
 
 ## Fixed
