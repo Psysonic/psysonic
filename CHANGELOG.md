@@ -377,6 +377,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * A long album title in the featured-album banner on the home page was cut off at the top. The title now gets smaller until it fits, and only very long titles are shortened to three lines.
 
+### Genre browsing stays responsive in large libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1653](https://github.com/Psysonic/psysonic/pull/1653)**
+
+* The Genres page could take minutes to count tracks in a large library. It now reads the maintained genre catalogue directly, and existing libraries repair stale catalogue rows once on the first start after the update.
+
 ## [1.54.0]
 
 ## Fixed
