@@ -2,7 +2,7 @@ import type { EntityRatingSupportLevel, SubsonicItemGenre, SubsonicOpenArtistRef
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
-import { Play, Heart, X, ChevronLeft, Download, ListPlus, HardDriveDownload, Highlighter, Loader2, Shuffle } from 'lucide-react';
+import { Play, Heart, X, ChevronLeft, Download, ListPlus, HardDriveDownload, Highlighter, Loader2 } from 'lucide-react';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { useCoverLightboxSrc } from '@/cover/lightbox';
 import type { CoverArtRef } from '@/cover/types';
@@ -15,14 +15,13 @@ import { useThemeStore } from '@/store/themeStore';
 import StarRating from '@/ui/StarRating';
 import { isAlbumRecentlyAdded } from '@/features/album/utils/albumRecency';
 import { formatLongDuration } from '@/lib/format/formatDuration';
-import { formatMb } from '@/lib/format/formatBytes';
 import { sanitizeHtml } from '@/lib/util/sanitizeHtml';
 import { OpenArtistRefInline } from '@/ui/OpenArtistRefInline';
-import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
 import { deriveAlbumGenreTags } from '@/lib/library/genreTags';
 import { deriveAlbumComment } from '@/features/album/utils/albumComment';
 import AlbumNotes from '@/features/album/components/AlbumNotes';
+import AlbumHeaderActionBar from '@/features/album/components/AlbumHeaderActionBar';
 import { genreColor } from '@/lib/library/genreColor';
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import EntitySourcePicker from '@/ui/EntitySourcePicker';
@@ -517,118 +516,25 @@ export default function AlbumHeader({
                   </div>
                 </div>
               ) : (
-                <div className="album-detail-actions compact-action-bar">
-                  <div className="album-detail-actions-primary">
-                    <button
-                      className="btn btn-primary"
-                      id="album-play-all-btn"
-                      onClick={onPlayAll}
-                      {...tooltipAttrs(t('albumDetail.playTooltip'))}
-                    >
-                      <Play size={15} /> <span className="compact-btn-label">{t('common.play', 'Reproducir')}</span>
-                    </button>
-                    {onShuffleAll && (
-                      <button
-                        className="btn btn-surface"
-                        onClick={onShuffleAll}
-                        data-tooltip={t('playlists.shuffle', 'Shuffle')}
-                      >
-                        <Shuffle size={16} />
-                      </button>
-                    )}
-                    <button
-                      className="btn btn-surface"
-                      onClick={onEnqueueAll}
-                      data-tooltip={t('albumDetail.enqueueTooltip')}
-                    >
-                      <ListPlus size={16} />
-                    </button>
-                    {policy.canFavorite && (
-                      <button
-                        className={`btn btn-surface${isStarred ? ' is-starred' : ''}`}
-                        onClick={onToggleStar}
-                        data-tooltip={isStarred ? t('albumDetail.favoriteRemove') : t('albumDetail.favoriteAdd')}
-                      >
-                        <Heart size={16} fill={isStarred ? 'currentColor' : 'none'} />
-                      </button>
-                    )}
-                    <ShareMethodMenuButton
-                      request={{ kind: 'album', resourceIds: [info.id], serverIds: serverId ? [serverId] : [] }}
-                      className="btn btn-surface"
-                      label={t('albumDetail.shareAlbum')}
-                    />
-                  </div>
-
-                  {showBioButton && policy.canShowBio && (
-                    <button
-                      className="btn btn-surface"
-                      id="album-bio-btn"
-                      onClick={onBio}
-                      {...tooltipAttrs(t('albumDetail.artistBioTooltip'))}
-                    >
-                      <Highlighter size={16} /> <span className="compact-btn-label">{t('albumDetail.artistBio')}</span>
-                    </button>
-                  )}
-
-                  {policy.canDownload && (
-                    downloadProgress !== null ? (
-                      <div className="download-progress-wrap">
-                        <Download size={14} />
-                        <div className="download-progress-bar">
-                          <div className="download-progress-fill" style={{ width: `${downloadProgress}%` }} />
-                        </div>
-                        <span className="download-progress-pct">{downloadProgress}%</span>
-                      </div>
-                    ) : (
-                      <button
-                        className="btn btn-surface"
-                        id="album-download-btn"
-                        onClick={onDownload}
-                        {...tooltipAttrs(t('albumDetail.downloadTooltip'))}
-                      >
-                        <Download size={16} /> <span className="compact-btn-label">{t('albumDetail.download')}{totalSize > 0 ? ` · ${formatMb(totalSize)}` : ''}</span>
-                      </button>
-                    )
-                  )}
-                  {policy.canPinOffline && (
-                    offlineStatus === 'downloading' && offlineProgress ? (
-                      <div className="offline-cache-btn offline-cache-btn--progress">
-                        <Loader2 size={14} className="spin" />
-                        {t('albumDetail.offlineDownloading', { n: offlineProgress.done, total: offlineProgress.total })}
-                      </div>
-                    ) : offlineStatus === 'queued' ? (
-                      <button
-                        className="btn btn-surface offline-cache-btn offline-cache-btn--queued"
-                        onClick={onCacheOffline}
-                        aria-label={t('albumDetail.offlineQueued')}
-                        data-tooltip={t('albumDetail.removeFromOfflineQueue')}
-                      >
-                        <HardDriveDownload size={16} />
-                        <span className="compact-btn-label">{t('albumDetail.offlineQueued')}</span>
-                      </button>
-                    ) : offlineStatus === 'cached' ? (
-                      <button
-                        className="btn btn-surface offline-cache-btn offline-cache-btn--cached"
-                        onClick={onRemoveOffline}
-                        aria-label={t('albumDetail.offlineCached')}
-                        data-tooltip={t('albumDetail.removeOffline')}
-                      >
-                        <HardDriveDownload size={16} />
-                        <span className="compact-btn-label">{t('albumDetail.offlineCached')}</span>
-                      </button>
-                    ) : (
-                      <button
-                        className="btn btn-surface offline-cache-btn"
-                        onClick={onCacheOffline}
-                        aria-label={t('albumDetail.cacheOffline')}
-                        data-tooltip={t('albumDetail.cacheOffline')}
-                      >
-                        <HardDriveDownload size={16} />
-                        <span className="compact-btn-label">{t('albumDetail.cacheOffline')}</span>
-                      </button>
-                    )
-                  )}
-                </div>
+                <AlbumHeaderActionBar
+                  albumId={info.id}
+                  serverId={serverId}
+                  policy={policy}
+                  isStarred={isStarred}
+                  showBioButton={showBioButton}
+                  totalSize={totalSize}
+                  downloadProgress={downloadProgress}
+                  offlineStatus={offlineStatus}
+                  offlineProgress={offlineProgress}
+                  onPlayAll={onPlayAll}
+                  onShuffleAll={onShuffleAll}
+                  onEnqueueAll={onEnqueueAll}
+                  onToggleStar={onToggleStar}
+                  onBio={onBio}
+                  onDownload={onDownload}
+                  onCacheOffline={onCacheOffline}
+                  onRemoveOffline={onRemoveOffline}
+                />
               )}
             </div>
           </div>

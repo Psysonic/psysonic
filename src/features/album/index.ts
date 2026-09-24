@@ -28,6 +28,7 @@ export * from './hooks/useBrowseAlbumTextSearch';
 export * from './hooks/useGenreAlbumBrowse';
 export * from './hooks/useNavigateToAlbum';
 export * from './store/albumBrowseSessionStore';
+export * from './store/albumHeaderLayoutStore';
 export * from './utils/albumBrowseRoutePrefetch';
 export * from './utils/albumDetailHelpers';
 export * from './utils/albumRecency';
