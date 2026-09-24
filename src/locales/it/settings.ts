@@ -578,6 +578,7 @@ export const settings = {
   playlistLayoutTitle: 'Layout pagina playlist',
   playlistLayoutDesc: 'Mostra o nascondi singoli elementi nella pagina playlist.',
   playlistLayoutReset: 'Ripristina predefinita',
+  albumHeaderLayoutTitle: 'Layout pagina album',
   playerBarTitle: 'Barra del player',
   playerBarReset: 'Ripristina predefinita',
   playerBarStarRating: 'Valutazione a stelle',

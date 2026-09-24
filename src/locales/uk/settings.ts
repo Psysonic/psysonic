@@ -582,6 +582,7 @@ export const settings = {
   playlistLayoutTitle: 'Розташування елементів плейліста',
   playlistLayoutDesc: 'Показувати або приховувати окремі елементи на сторінці плейліста.',
   playlistLayoutReset: 'Скинути за замовчуванням',
+  albumHeaderLayoutTitle: 'Розташування елементів альбому',
   playerBarTitle: 'Панель плеєра',
   playerBarReset: 'Скинути за замовчуванням',
   playerBarStarRating: 'Оцінка зірками',

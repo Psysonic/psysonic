@@ -514,6 +514,7 @@ export const settings = {
   playlistLayoutTitle: 'Mise en page de la playlist',
   playlistLayoutDesc: 'Afficher ou masquer des éléments individuels sur la page de la playlist.',
   playlistLayoutReset: 'Réinitialiser',
+  albumHeaderLayoutTitle: 'Mise en page de l’album',
   playerBarTitle: 'Barre de lecture',
   playerBarReset: 'Réinitialiser',
   playerBarStarRating: 'Note par étoiles',

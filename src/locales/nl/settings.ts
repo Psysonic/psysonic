@@ -514,6 +514,7 @@ export const settings = {
   playlistLayoutTitle: 'Afspeellijst pagina-indeling',
   playlistLayoutDesc: 'Individuele elementen op de afspeellijstpagina tonen of verbergen.',
   playlistLayoutReset: 'Standaard herstellen',
+  albumHeaderLayoutTitle: 'Albumpagina-indeling',
   playerBarTitle: 'Speelbalk',
   playerBarReset: 'Standaard herstellen',
   playerBarStarRating: 'Sterbeoordeling',

@@ -536,6 +536,7 @@ export const settings = {
   playlistLayoutTitle: 'Aspect pagină playlist',
   playlistLayoutDesc: 'Afișează sau ascunde elemente individuale pe pagina playlistului.',
   playlistLayoutReset: 'Resetare la implicit',
+  albumHeaderLayoutTitle: 'Aspect pagină album',
   playerBarTitle: 'Bara de redare',
   playerBarReset: 'Resetare la implicit',
   playerBarStarRating: 'Evaluare cu stele',

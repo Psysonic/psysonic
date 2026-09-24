@@ -572,6 +572,7 @@ export const settings = {
   playlistLayoutTitle: 'プレイリストページのレイアウト',
   playlistLayoutDesc: 'プレイリストページ上の個別要素を表示または非表示にします。',
   playlistLayoutReset: '既定に戻す',
+  albumHeaderLayoutTitle: 'アルバムページのレイアウト',
   playerBarTitle: 'プレイヤーバー',
   playerBarReset: '既定に戻す',
   playerBarStarRating: '星評価',

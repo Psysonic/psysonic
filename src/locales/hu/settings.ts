@@ -578,6 +578,7 @@ export const settings = {
   playlistLayoutTitle: 'Lejátszási lista oldalának elrendezése',
   playlistLayoutDesc: 'A lejátszási lista oldalán lévő egyes elemek megjelenítése vagy elrejtése.',
   playlistLayoutReset: 'Visszaállítás alapértelmezettre',
+  albumHeaderLayoutTitle: 'Albumoldal elrendezése',
   playerBarTitle: 'Lejátszósáv',
   playerBarReset: 'Visszaállítás alapértelmezettre',
   playerBarStarRating: 'Csillagos értékelés',

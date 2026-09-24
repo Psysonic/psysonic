@@ -578,6 +578,7 @@ export const settings = {
   playlistLayoutTitle: 'Оформление на страницата на плейлистата',
   playlistLayoutDesc: 'Показвай или скривай отделни елементи на страницата на плейлистата.',
   playlistLayoutReset: 'Върни към стойността по подразбиране',
+  albumHeaderLayoutTitle: 'Оформление на страницата на албума',
   playerBarTitle: 'Лента на плейъра',
   playerBarReset: 'Върни към стойността по подразбиране',
   playerBarStarRating: 'Оценка със звезди',

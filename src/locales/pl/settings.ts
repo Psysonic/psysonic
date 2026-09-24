@@ -578,6 +578,7 @@ export const settings = {
   playlistLayoutTitle: 'Układ strony playlisty',
   playlistLayoutDesc: 'Pokaż lub ukryj poszczególne elementy na stronie playlisty.',
   playlistLayoutReset: 'Przywróć domyślne',
+  albumHeaderLayoutTitle: 'Układ strony albumu',
   playerBarTitle: 'Pasek odtwarzacza',
   playerBarReset: 'Przywróć domyślne',
   playerBarStarRating: 'Ocena gwiazdkowa',

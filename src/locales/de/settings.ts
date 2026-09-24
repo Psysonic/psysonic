@@ -534,6 +534,7 @@ export const settings = {
   playlistLayoutTitle: 'Playlist-Seitenlayout',
   playlistLayoutDesc: 'Einzelne Elemente auf der Playlist-Seite ein- oder ausblenden.',
   playlistLayoutReset: 'Zurücksetzen',
+  albumHeaderLayoutTitle: 'Album-Seitenlayout',
   playerBarTitle: 'Player-Leiste',
   playerBarReset: 'Zurücksetzen',
   playerBarStarRating: 'Sterne-Bewertung',

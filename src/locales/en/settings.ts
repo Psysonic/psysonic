@@ -578,6 +578,7 @@ export const settings = {
   playlistLayoutTitle: 'Playlist page layout',
   playlistLayoutDesc: 'Show or hide individual elements on the playlist page.',
   playlistLayoutReset: 'Reset to default',
+  albumHeaderLayoutTitle: 'Album page layout',
   playerBarTitle: 'Player bar',
   playerBarReset: 'Reset to default',
   playerBarStarRating: 'Star rating',

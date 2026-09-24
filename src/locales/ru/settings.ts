@@ -593,6 +593,7 @@ export const settings = {
   playlistLayoutTitle: 'Макет страницы плейлиста',
   playlistLayoutDesc: 'Показать или скрыть отдельные элементы на странице плейлиста.',
   playlistLayoutReset: 'Сбросить',
+  albumHeaderLayoutTitle: 'Макет страницы альбома',
   playerBarTitle: 'Панель плеера',
   playerBarReset: 'Сбросить',
   playerBarStarRating: 'Оценка звёздами',

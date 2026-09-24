@@ -513,6 +513,7 @@ export const settings = {
   playlistLayoutTitle: '播放列表页面布局',
   playlistLayoutDesc: '在播放列表页面上显示或隐藏各个元素。',
   playlistLayoutReset: '重置为默认',
+  albumHeaderLayoutTitle: '专辑页面布局',
   playerBarTitle: '播放器栏',
   playerBarReset: '重置为默认',
   playerBarStarRating: '星级评分',

@@ -513,6 +513,7 @@ export const settings = {
   playlistLayoutTitle: 'Sideoppsett for spilleliste',
   playlistLayoutDesc: 'Vis eller skjul individuelle elementer på spillelistesiden.',
   playlistLayoutReset: 'Tilbakestill til standard',
+  albumHeaderLayoutTitle: 'Sideoppsett for album',
   playerBarTitle: 'Spillerlinje',
   playerBarReset: 'Tilbakestill til standard',
   playerBarStarRating: 'Stjernevurdering',
