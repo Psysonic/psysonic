@@ -43,3 +43,32 @@ export function applyListReorderById<T extends { id: string }>(
   if (next.every((c, i) => c.id === items[i].id)) return null;
   return next;
 }
+
+/**
+ * Moves the entries at `indices` as one block, keeping their order, into the
+ * gap before `gapIndex`. Both are positions in `items` as it is now, so
+ * `gapIndex` is exactly the line a drop indicator shows. Entries are carried by
+ * reference, so two equal-looking entries stay apart. Returns `null` when
+ * nothing would move.
+ */
+export function moveBlockToGap<T>(
+  items: readonly T[],
+  indices: readonly number[],
+  gapIndex: number,
+): T[] | null {
+  const moving = [...new Set(indices)]
+    .filter(i => Number.isInteger(i) && i >= 0 && i < items.length)
+    .sort((a, b) => a - b);
+  if (moving.length === 0) return null;
+  const gap = Math.max(0, Math.min(gapIndex, items.length));
+  const movingSet = new Set(moving);
+  const staying = items.filter((_, i) => !movingSet.has(i));
+  // Every moved entry above the gap frees a slot, so the block lands that much higher.
+  const at = gap - moving.filter(i => i < gap).length;
+  const next = [
+    ...staying.slice(0, at),
+    ...moving.map(i => items[i]!),
+    ...staying.slice(at),
+  ];
+  return next.every((entry, i) => entry === items[i]) ? null : next;
+}

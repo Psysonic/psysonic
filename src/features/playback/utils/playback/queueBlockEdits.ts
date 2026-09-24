@@ -1,5 +1,6 @@
 import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
 import { queueItemRefMatchesTrack } from '@/features/playback/utils/playback/queueIdentity';
+import { moveBlockToGap } from '@/lib/util/listReorder';
 
 export interface QueueEdit {
   items: QueueItemRef[];
@@ -56,21 +57,8 @@ export function planQueueItemsMove(
   indices: readonly number[],
   gapIndex: number,
 ): QueueEdit | null {
-  const moving = [...new Set(indices)]
-    .filter(i => Number.isInteger(i) && i >= 0 && i < items.length)
-    .sort((a, b) => a - b);
-  if (moving.length === 0) return null;
-  const gap = Math.max(0, Math.min(gapIndex, items.length));
-  const movingSet = new Set(moving);
-  const staying = items.filter((_, i) => !movingSet.has(i));
-  // Every moved entry above the gap frees a slot, so the block lands that much higher.
-  const at = gap - moving.filter(i => i < gap).length;
-  const next = [
-    ...staying.slice(0, at),
-    ...moving.map(i => items[i]!),
-    ...staying.slice(at),
-  ];
-  if (next.every((ref, i) => ref === items[i])) return null;
+  const next = moveBlockToGap(items, indices, gapIndex);
+  if (!next) return null;
 
   const playingRef = playingEntry(items, queueIndex, currentTrack);
   const followRef = playingRef ?? items[queueIndex];
