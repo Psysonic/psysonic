@@ -25,6 +25,7 @@ import { LongPressWaveOverlay } from '@/ui/LongPressWaveOverlay';
 import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
+import { useHeroTitleFit } from '@/features/home/hooks/useHeroTitleFit';
 
 const INTERVAL_MS = 10000;
 const HERO_ALBUM_COUNT = 8;
@@ -307,6 +308,9 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
     () => (album ? albumArtistDisplayName(album) : ''),
     [album],
   );
+  // `.hero-content` remounts per album (keyed), dropping any fitted size — so the
+  // fit keys on the album as well as its title.
+  useHeroTitleFit(heroRef, album ? `${albumOwnerKey}\n${album.name}` : undefined);
 
   // Lazily fetch format label for the currently-visible album (cached by owner + id)
   const [albumFormats, setAlbumFormats] = useState<Record<string, string>>({});
