@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Titel sortieren',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Umsortieren per Ziehen geht nur mit der Sortierung „{{order}}“ und ohne Filter.',
+  reorderHintReset: 'Zurücksetzen',
   sortDateAddedNewest: 'Hinzugefügt (neueste)',
   sortDateAddedOldest: 'Hinzugefügt (älteste)',
   editRules: 'Regeln bearbeiten',

@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Sort tracks',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Drag to reorder works only with the sort “{{order}}” and no filter.',
+  reorderHintReset: 'Reset',
   sortDateAddedNewest: 'Date added (newest)',
   sortDateAddedOldest: 'Date added (oldest)',
   editRules: 'Edit Rules',

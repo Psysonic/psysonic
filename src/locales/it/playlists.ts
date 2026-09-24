@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Ordina brani',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Il riordino trascinando funziona solo con l’ordinamento «{{order}}» e senza filtro.',
+  reorderHintReset: 'Ripristina',
   sortDateAddedNewest: 'Data aggiunta (più recenti)',
   sortDateAddedOldest: 'Data aggiunta (meno recenti)',
   editRules: 'Modifica regole',

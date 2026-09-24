@@ -1,5 +1,7 @@
 export const playlists = {
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Zmiana kolejności przez przeciąganie działa tylko przy sortowaniu „{{order}}” i bez filtra.',
+  reorderHintReset: 'Resetuj',
   editRules: 'Edytuj reguły',
   smartReadOnlyEmpty: 'Ta inteligentna playlista nie zawiera pasujących utworów.',
   title: 'Playlisty',

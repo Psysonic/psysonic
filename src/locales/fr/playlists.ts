@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Trier les titres',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Le réordonnancement par glisser-déposer ne fonctionne qu’avec le tri « {{order}} » et sans filtre.',
+  reorderHintReset: 'Réinitialiser',
   sortDateAddedNewest: "Date d'ajout (récents)",
   sortDateAddedOldest: "Date d'ajout (anciens)",
   editRules: 'Modifier les règles',

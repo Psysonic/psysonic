@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Sorter spor',
   sortDefaultServerOrder: 'ID (serverrekkefølge)',
+  reorderHint: 'Omorganisering ved å dra fungerer bare med sorteringen «{{order}}» og uten filter.',
+  reorderHintReset: 'Tilbakestill',
   sortDateAddedNewest: 'Dato lagt til (nyeste)',
   sortDateAddedOldest: 'Dato lagt til (eldste)',
   editRules: 'Rediger regler',

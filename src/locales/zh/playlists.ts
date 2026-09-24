@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: '排序曲目',
   sortDefaultServerOrder: 'ID（服务器默认顺序）',
+  reorderHint: '仅在排序为“{{order}}”且未筛选时才能拖动调整顺序。',
+  reorderHintReset: '重置',
   sortDateAddedNewest: '添加日期（最新）',
   sortDateAddedOldest: '添加日期（最早）',
   editRules: '编辑规则',

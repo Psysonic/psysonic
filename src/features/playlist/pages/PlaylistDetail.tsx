@@ -432,6 +432,7 @@ export default function PlaylistDetail() {
           setSortKey={setSortKey}
           setSortDir={setSortDir}
           setSortClickCount={setSortClickCount}
+          canReorder={!tracksReadOnly}
         />
       )}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, X } from 'lucide-react';
+import { Info, Search, X } from 'lucide-react';
 import SortDropdown, { type SortOption } from '@/ui/SortDropdown';
 import type { PlaylistSortKey, PlaylistSortDir } from '@/features/playlist/utils/playlistDisplayedSongs';
 
@@ -47,6 +47,8 @@ interface Props {
   setSortKey: (k: PlaylistSortKey) => void;
   setSortDir: (d: PlaylistSortDir) => void;
   setSortClickCount: (n: number) => void;
+  /** Whether drag reordering exists for this playlist at all (false for read-only ones). */
+  canReorder?: boolean;
 }
 
 export default function PlaylistFilterToolbar({
@@ -57,8 +59,12 @@ export default function PlaylistFilterToolbar({
   setSortKey,
   setSortDir,
   setSortClickCount,
+  canReorder = false,
 }: Props) {
   const { t } = useTranslation();
+  // Same condition under which `getDisplayedSongs` returns a derived list and a
+  // row drag turns into a queue drag instead of a reorder.
+  const reorderBlocked = canReorder && (sortKey !== 'natural' || filterText.trim() !== '');
 
   // The dropdown and the column-header clicks drive the same (sortKey, sortDir)
   // state. `natural` is the server/rule order (Feishin-style ID/default).
@@ -118,6 +124,22 @@ export default function PlaylistFilterToolbar({
           </button>
         )}
       </div>
+      {reorderBlocked && (
+        <div className="playlist-reorder-hint" role="status">
+          <Info size={14} aria-hidden="true" />
+          <span>{t('playlists.reorderHint', { order: t('playlists.sortDefaultServerOrder') })}</span>
+          <button
+            type="button"
+            className="btn btn-ghost playlist-reorder-hint-reset"
+            onClick={() => {
+              setFilterText('');
+              onSortChange('default');
+            }}
+          >
+            {t('playlists.reorderHintReset')}
+          </button>
+        </div>
+      )}
       <div style={{ marginLeft: 'auto' }}>
         <SortDropdown
           value={currentSortValue}

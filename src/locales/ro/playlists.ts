@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Sortează piesele',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Reordonarea prin tragere funcționează doar cu sortarea „{{order}}” și fără filtru.',
+  reorderHintReset: 'Resetează',
   sortDateAddedNewest: 'Data adăugării (cele mai noi)',
   sortDateAddedOldest: 'Data adăugării (cele mai vechi)',
   editRules: 'Editează regulile',
