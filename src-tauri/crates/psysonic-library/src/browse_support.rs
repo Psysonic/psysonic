@@ -468,38 +468,48 @@ pub fn library_get_catalog_year_bounds(
     result
 }
 
+fn genre_album_counts_query(
+    server_id: &str,
+    library_scopes: &[String],
+) -> (String, Vec<rusqlite::types::Value>) {
+    let scopes = normalized_library_scopes(library_scopes);
+    // The projection primary key permits one row per track and case-insensitive
+    // genre, so COUNT(*) is the song count without a DISTINCT temp B-tree.
+    let mut sql = String::from(
+        "SELECT tg.genre, COUNT(DISTINCT tg.album_id) AS album_count, \
+                COUNT(*) AS song_count \
+         FROM track_genre tg INDEXED BY idx_track_genre_browse \
+         WHERE tg.server_id = ?1 \
+           AND tg.album_id IS NOT NULL AND tg.album_id != ''",
+    );
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Text(server_id.to_string())];
+    if scopes.len() == 1 {
+        sql.push_str(&format!(" AND {}", library_scope_sargable_equals_sql("tg")));
+        push_library_scope_binds(&mut params, &scopes);
+    } else if scopes.len() > 1 {
+        sql.push_str(&format!(
+            " AND {}",
+            library_scope_in_sql("tg", scopes.len())
+        ));
+        push_library_scope_binds(&mut params, &scopes);
+    }
+    sql.push_str(
+        " GROUP BY tg.genre COLLATE NOCASE \
+         HAVING album_count > 0 \
+         ORDER BY album_count DESC, tg.genre COLLATE NOCASE ASC",
+    );
+    (sql, params)
+}
+
 pub(crate) fn genre_album_counts_for_server(
     store: &LibraryStore,
     server_id: &str,
     library_scopes: &[String],
 ) -> Result<Vec<GenreAlbumCountDto>, String> {
-    let scopes = normalized_library_scopes(library_scopes);
+    let (sql, params) = genre_album_counts_query(server_id, library_scopes);
     store
         .with_read_conn(|conn| {
-            let mut sql = String::from(
-                "SELECT tg.genre, COUNT(DISTINCT tg.album_id) AS album_count, \
-                        COUNT(DISTINCT tg.track_id) AS song_count \
-                 FROM track t \
-                 INNER JOIN track_genre tg \
-                   ON tg.server_id = t.server_id AND tg.track_id = t.id \
-                 WHERE t.server_id = ?1 \
-                   AND t.deleted = 0 \
-                   AND tg.album_id IS NOT NULL AND tg.album_id != ''",
-            );
-            let mut params: Vec<rusqlite::types::Value> =
-                vec![rusqlite::types::Value::Text(server_id.to_string())];
-            if scopes.len() == 1 {
-                sql.push_str(&format!(" AND {}", library_scope_sargable_equals_sql("t")));
-                push_library_scope_binds(&mut params, &scopes);
-            } else if scopes.len() > 1 {
-                sql.push_str(&format!(" AND {}", library_scope_in_sql("t", scopes.len())));
-                push_library_scope_binds(&mut params, &scopes);
-            }
-            sql.push_str(
-                " GROUP BY tg.genre COLLATE NOCASE \
-                 HAVING album_count > 0 \
-                 ORDER BY album_count DESC, tg.genre COLLATE NOCASE ASC",
-            );
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt
                 .query_map(rusqlite::params_from_iter(params.iter()), |r| {

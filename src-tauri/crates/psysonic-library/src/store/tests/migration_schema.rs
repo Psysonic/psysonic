@@ -156,17 +156,18 @@ fn fresh_database_marks_projection_backfills_complete() {
         .with_conn("test", |conn| {
             conn.query_row(
                 "SELECT COUNT(*) FROM library_data_migration \
-                  WHERE id IN (?1, ?2, ?3) AND completed_at IS NOT NULL",
+                  WHERE id IN (?1, ?2, ?3, ?4) AND completed_at IS NOT NULL",
                 params![
                     crate::browse_projection::MIGRATION_ID,
                     crate::composer_projection::MIGRATION_ID,
                     crate::artist_credit_projection::MIGRATION_ID,
+                    super::super::GENRE_CATALOG_PROJECTION_RECONCILE_ID,
                 ],
                 |row| row.get(0),
             )
         })
         .unwrap();
-    assert_eq!(completed, 3);
+    assert_eq!(completed, 4);
 }
 
 #[test]

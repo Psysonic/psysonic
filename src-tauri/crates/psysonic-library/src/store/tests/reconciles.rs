@@ -6,15 +6,85 @@ use super::super::native_strong_keys_reconcile::{
 };
 use super::super::reconciles::{
     maybe_reconcile_artist_name_fold, maybe_reconcile_artist_name_sort,
-    maybe_reconcile_duration_sec_backfill, maybe_reconcile_library_id_backfill,
-    maybe_reconcile_orphan_browse_rows, maybe_reconcile_track_timestamp_backfill,
-    ARTIST_NAME_FOLD_RECONCILE_ID, ARTIST_NAME_SORT_RECONCILE_ID,
-    DURATION_SEC_BACKFILL_RECONCILE_ID, LIBRARY_ID_BACKFILL_RECONCILE_ID,
+    maybe_reconcile_duration_sec_backfill, maybe_reconcile_genre_catalog_projection,
+    maybe_reconcile_library_id_backfill, maybe_reconcile_orphan_browse_rows,
+    maybe_reconcile_track_timestamp_backfill, ARTIST_NAME_FOLD_RECONCILE_ID,
+    ARTIST_NAME_SORT_RECONCILE_ID, DURATION_SEC_BACKFILL_RECONCILE_ID,
+    GENRE_CATALOG_PROJECTION_RECONCILE_ID, LIBRARY_ID_BACKFILL_RECONCILE_ID,
     ORPHAN_BROWSE_RECONCILE_ID,
 };
 use super::super::track_timestamp_reconcile::TRACK_TIMESTAMP_BACKFILL_RECONCILE_ID;
 use super::super::{LibraryBackfillStep, LibraryStore, TrackTimestampBackfillStep};
 use crate::repos::TrackRepository;
+
+#[test]
+fn genre_catalog_projection_reconcile_drops_stale_rows_and_repairs_scope_fields() {
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_conn("test.seed_genre_projection", |conn| {
+            conn.execute(
+                "DELETE FROM library_data_migration WHERE id = ?1",
+                params![GENRE_CATALOG_PROJECTION_RECONCILE_ID],
+            )?;
+            conn.execute_batch(
+                "INSERT INTO track (
+                   server_id, id, title, album, album_id, duration_sec, deleted,
+                   synced_at, raw_json, library_id
+                 ) VALUES
+                   ('s1', 'live', 'Live', 'Album', 'album-live', 180, 0, 1, '{}', 'lib-live'),
+                   ('s1', 'gone', 'Gone', 'Album', 'album-gone', 180, 1, 1, '{}', 'lib-gone');
+                 INSERT INTO track_genre (server_id, track_id, genre, album_id, library_id)
+                 VALUES
+                   ('s1', 'live', 'Rock', 'wrong-album', 'wrong-library'),
+                   ('s1', 'gone', 'Pop', 'album-gone', 'lib-gone');",
+            )?;
+            maybe_reconcile_genre_catalog_projection(conn)
+        })
+        .unwrap();
+
+    let rows = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT track_id, album_id, library_id FROM track_genre ORDER BY track_id",
+            )?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<String>>(1)?,
+                        row.get::<_, Option<String>>(2)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![(
+            "live".to_string(),
+            Some("album-live".to_string()),
+            Some("lib-live".to_string())
+        )]
+    );
+
+    store
+        .with_conn(
+            "test.reconcile_genre_projection_again",
+            maybe_reconcile_genre_catalog_projection,
+        )
+        .unwrap();
+    let completed: i64 = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT completed_at FROM library_data_migration WHERE id = ?1",
+                params![GENRE_CATALOG_PROJECTION_RECONCILE_ID],
+                |row| row.get(0),
+            )
+        })
+        .unwrap();
+    assert!(completed > 0);
+}
 
 #[test]
 fn migration_022_backfills_unicode_artist_name_fold() {
