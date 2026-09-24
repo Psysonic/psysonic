@@ -478,6 +478,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Favorites — reorder and hide the page sections, hide the # column, shuffle all songs (PR #1624)',
       'Album and playlist pages — icon-only action buttons you can reorder and hide (PR #1644)',
       'Playlists — hint and reset when drag reordering is off in a sorted or filtered view (PR #1647)',
+      'Playlists — drag a selection of tracks as one block (PR #1649)',
     ],
   },
   {

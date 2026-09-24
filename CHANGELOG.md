@@ -150,6 +150,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * While a playlist is sorted by anything other than **ID** or filtered, dragging a track adds it to the queue instead of moving it. A short hint next to the sort menu now says so, and **Reset** returns to the order you can rearrange.
 
+### Move several playlist tracks at once
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1649](https://github.com/Psysonic/psysonic/pull/1649)**
+
+* Select several tracks in a playlist and drag one of them: the whole selection moves to the drop line as a block, in its order. Dragging the selection to the queue still adds it there.
+
 ## Fixed
 
 ### Navidrome migration progress keeps its styling during startup
