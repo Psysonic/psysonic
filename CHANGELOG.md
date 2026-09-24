@@ -341,6 +341,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Tracks whose title contained brackets, a colon, `&`, `%` or a lone dash, such as **Song (Part 2)** or **Title - 2011 Remaster**, were reported as not found without being searched. They are now searched and matched like any other title.
 
+### Playlists stay in place after reordering or removing a track
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1648](https://github.com/Psysonic/psysonic/pull/1648)**
+
+* Moving or removing a track made the whole playlist page reload behind a spinner. The list now stays as it is, while changes made from elsewhere, such as **Add to Playlist**, still refresh it.
+
 ## [1.54.0]
 
 ## Fixed
