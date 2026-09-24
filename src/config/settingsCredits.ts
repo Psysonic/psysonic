@@ -476,6 +476,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Favorites — the artists heading opens the Artists page, filtered to your favourites (PR #1613)',
       'Artist page — similar artists from your server fill in when Music Network finds none in your library (PR #1617)',
       'Favorites — reorder and hide the page sections, hide the # column, shuffle all songs (PR #1624)',
+      'Album and playlist pages — icon-only action buttons you can reorder and hide (PR #1644)',
     ],
   },
   {

@@ -136,6 +136,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **Settings → Lyrics → Word highlighting** now has a **Flow only** option. It keeps the continuous colour fill but removes the instant glow around the whole active word. **Step** remains the default, and the existing **Smooth** appearance stays unchanged.
 
+### Arrange the buttons on album and playlist pages
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1644](https://github.com/Psysonic/psysonic/pull/1644)**
+
+* Artist bio, download, offline and the other buttons next to **Play** on album and playlist pages are now compact icons, with their label in the tooltip.
+* **Settings → Personalisation → Album page layout** and **Playlist page layout** let you reorder these buttons by dragging and hide the ones you don't need. **Play** always stays first.
+* **Compact buttons** moved from Appearance to Personalisation.
+
 ## Fixed
 
 ### Navidrome migration progress keeps its styling during startup
