@@ -371,6 +371,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * In Japanese songs with generated romaji, English lines were shown a second time underneath with extra spaces around the punctuation. Only lines with Japanese script now get a romaji line.
 
+### Long album titles fit in the home page hero
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1652](https://github.com/Psysonic/psysonic/pull/1652)**
+
+* A long album title in the featured-album banner on the home page was cut off at the top. The title now gets smaller until it fits, and only very long titles are shortened to three lines.
+
 ## [1.54.0]
 
 ## Fixed
