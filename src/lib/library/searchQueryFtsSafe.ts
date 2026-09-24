@@ -24,3 +24,15 @@ export function searchQueryIsFtsSafe(query: string): boolean {
   const tokens = query.trim().split(/\s+/).filter(Boolean);
   return tokens.length > 0 && tokens.every(searchTokenIsFtsSafe);
 }
+
+/**
+ * Turns free text (a track title from an import) into a query the guard above
+ * accepts, instead of rejecting it outright: syntax characters become word
+ * breaks and tokens without a letter or digit (`-`, `&`, `!`) are dropped.
+ * Returns `''` when nothing searchable is left.
+ */
+export function toFtsSafeSearchQuery(text: string): string {
+  let spaced = '';
+  for (const ch of text) spaced += FTS_QUERY_SYNTAX_CHARS.has(ch) ? ' ' : ch;
+  return spaced.split(/\s+/).filter(searchTokenIsFtsSafe).join(' ');
+}
