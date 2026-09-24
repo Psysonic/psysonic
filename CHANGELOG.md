@@ -365,6 +365,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Custom tag and role names in **Settings → Smart playlist custom fields** were limited to Latin letters, so Greek or Cyrillic tag names were rejected as invalid. Names in any script are now accepted; they still start with a letter and contain no spaces.
 
+### Generated romaji skips lines that are already in Latin script
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Padparadscha on Discord, PR [#1651](https://github.com/Psysonic/psysonic/pull/1651)**
+
+* In Japanese songs with generated romaji, English lines were shown a second time underneath with extra spaces around the punctuation. Only lines with Japanese script now get a romaji line.
+
 ## [1.54.0]
 
 ## Fixed
