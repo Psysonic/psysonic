@@ -335,6 +335,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Reordering a playlist by drag and drop placed the track one position below the drop line whenever it was dropped above a row. It now lands exactly where the line shows, in both directions.
 
+### Playlist CSV import finds titles with punctuation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1646](https://github.com/Psysonic/psysonic/pull/1646)**
+
+* Tracks whose title contained brackets, a colon, `&`, `%` or a lone dash, such as **Song (Part 2)** or **Title - 2011 Remaster**, were reported as not found without being searched. They are now searched and matched like any other title.
+
 ## [1.54.0]
 
 ## Fixed
