@@ -169,22 +169,68 @@ describe('useTracklistWheelChaining', () => {
     expect(viewport.scrollTop).toBe(1300);
   });
 
-  it('disarms automatically when the active tracklist is unmounted from the DOM', () => {
+  it('activates MutationObserver only when armed and disconnects it when disarmed', () => {
+    const observeSpy = vi.spyOn(MutationObserver.prototype, 'observe');
+    const disconnectSpy = vi.spyOn(MutationObserver.prototype, 'disconnect');
+
+    const { unmount } = renderHook(() => useTracklistWheelChaining());
+
+    // Initially, MutationObserver must NOT be observing document.body
+    expect(observeSpy).not.toHaveBeenCalled();
+
+    // Horizontal gesture arms recovery and activates MutationObserver
+    childRow.dispatchEvent(createWheelEvent({ deltaX: 50, deltaY: 0 }));
+    expect(observeSpy).toHaveBeenCalledTimes(1);
+    expect(observeSpy).toHaveBeenCalledWith(document.body, { childList: true, subtree: true });
+
+    // When disarmed upon hook unmount, observer is disconnected
+    unmount();
+    expect(disconnectSpy).toHaveBeenCalled();
+  });
+
+  it('disarms automatically when the active tracklist is unmounted from the DOM', async () => {
+    const removeEventListenerSpy = vi.spyOn(window, 'removeEventListener');
     renderHook(() => useTracklistWheelChaining());
 
-    // Arm via horizontal gesture on tracklist
+    // 1. Arm via horizontal gesture on tracklist
     childRow.dispatchEvent(createWheelEvent({ deltaX: 50, deltaY: 0 }));
 
-    // Unmount/remove tracklist from DOM (view / page change)
+    // 2. Unmount tracklist from DOM (view / page change)
     viewport.removeChild(tracklist);
 
-    // Subsequent vertical scroll should not be intercepted
-    const verticalEvent = createWheelEvent({ deltaX: 0, deltaY: 50 });
-    const preventDefaultSpy = vi.spyOn(verticalEvent, 'preventDefault');
-    viewport.dispatchEvent(verticalEvent);
+    // Allow MutationObserver microtask to execute
+    await Promise.resolve();
 
-    expect(preventDefaultSpy).not.toHaveBeenCalled();
+    // Verify observer actually removed the armed wheel listener
+    expect(removeEventListenerSpy).toHaveBeenCalledWith('wheel', expect.any(Function));
+
+    // 3. Mount a new tracklist into the DOM
+    const newTracklist = document.createElement('div');
+    newTracklist.className = 'tracklist';
+    const newChildRow = document.createElement('div');
+    newChildRow.className = 'track-row';
+    newTracklist.appendChild(newChildRow);
+    viewport.appendChild(newTracklist);
+
+    // 4. Verify vertical wheel on new tracklist is NOT intercepted (requires new horizontal gesture)
+    const initialVerticalEvent = createWheelEvent({ deltaX: 0, deltaY: 50 });
+    const initialPreventDefaultSpy = vi.spyOn(initialVerticalEvent, 'preventDefault');
+    newChildRow.dispatchEvent(initialVerticalEvent);
+
+    expect(initialPreventDefaultSpy).not.toHaveBeenCalled();
     expect(viewport.scrollTop).toBe(100);
+
+    // 5. Verify that a new horizontal gesture on the new tracklist arms recovery
+    const newHorizontalEvent = createWheelEvent({ deltaX: 60, deltaY: 0 });
+    newChildRow.dispatchEvent(newHorizontalEvent);
+
+    // 6. Subsequent vertical wheel on the new tracklist is now intercepted and scrolled
+    const recoveryVerticalEvent = createWheelEvent({ deltaX: 0, deltaY: 50 });
+    const recoveryPreventDefaultSpy = vi.spyOn(recoveryVerticalEvent, 'preventDefault');
+    newChildRow.dispatchEvent(recoveryVerticalEvent);
+
+    expect(recoveryPreventDefaultSpy).toHaveBeenCalled();
+    expect(viewport.scrollTop).toBe(150);
   });
 
   it('does NOT intercept vertical wheel events outside the tracklist', () => {

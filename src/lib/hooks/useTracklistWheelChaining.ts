@@ -32,10 +32,18 @@ export function useTracklistWheelChaining(): void {
     let isArmed = false;
     let activeTracklist: Element | null = null;
 
+    // Automatically disarm when the latched tracklist unmounts (route or view change)
+    const observer = new MutationObserver(() => {
+      if (activeTracklist && !activeTracklist.isConnected) {
+        disarm();
+      }
+    });
+
     const disarm = () => {
       if (isArmed) {
         isArmed = false;
         activeTracklist = null;
+        observer.disconnect();
         window.removeEventListener('wheel', onArmedWheel);
       }
     };
@@ -44,17 +52,10 @@ export function useTracklistWheelChaining(): void {
       activeTracklist = tracklist;
       if (!isArmed) {
         isArmed = true;
+        observer.observe(document.body, { childList: true, subtree: true });
         window.addEventListener('wheel', onArmedWheel, { passive: false });
       }
     };
-
-    // Automatically disarm when the latched tracklist unmounts (route or view change)
-    const observer = new MutationObserver(() => {
-      if (activeTracklist && !activeTracklist.isConnected) {
-        disarm();
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
 
     const onPassiveWheel = (e: WheelEvent) => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
