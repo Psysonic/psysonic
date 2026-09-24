@@ -27,7 +27,8 @@ export function runPlaylistReorderDrop(deps: RunPlaylistReorderDropDeps): void {
   if (target) {
     const targetIdx = parseInt(target.getAttribute('data-track-idx') ?? '', 10);
     const rect = target.getBoundingClientRect();
-    const cursorY = (e as CustomEvent & { clientY?: number }).clientY ?? (rect.top + rect.height / 2);
+    // `DragDropContext` puts the pointer position into `detail`; a CustomEvent has no clientY of its own.
+    const cursorY = typeof detail.clientY === 'number' ? detail.clientY : rect.top + rect.height / 2;
     const before = cursorY < rect.top + rect.height / 2;
     toIdx = before ? targetIdx : targetIdx + 1;
   }
