@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 >
 
 
+## [1.56.0]
+
+## Fixed
+
+### Navidrome smart playlists keep their cover on the Playlists page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1660](https://github.com/Psysonic/psysonic/pull/1660)**
+
+* Smart playlists created in Navidrome showed their cover briefly on the Playlists page and then switched to a collage of album art from their tracks, hiding custom artwork. They now keep their server cover there, as they already did in the sidebar and on the playlist page.
+
 ## [1.55.0]
 
 ## Added
