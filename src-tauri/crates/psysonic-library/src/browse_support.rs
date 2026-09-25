@@ -6,8 +6,8 @@ use tauri::State;
 
 use crate::album_compilation_filter::pick_album_group_artist_id;
 use crate::dto::CatalogYearBoundsDto;
-use crate::dto::{GenreAlbumCountDto, MoodAlbumCountDto};
 use crate::dto::LibraryAlbumDto;
+use crate::dto::{GenreAlbumCountDto, MoodAlbumCountDto};
 use crate::runtime::LibraryRuntime;
 use crate::search::{
     library_scope_in_sql, library_scope_sargable_equals_sql, normalized_library_scopes,
@@ -546,10 +546,7 @@ pub(crate) fn mood_album_counts_query(
         vec![rusqlite::types::Value::Text(server_id.to_string())];
 
     if scopes.len() == 1 {
-        sql.push_str(&format!(
-            " AND {}",
-            library_scope_sargable_equals_sql("tm")
-        ));
+        sql.push_str(&format!(" AND {}", library_scope_sargable_equals_sql("tm")));
 
         push_library_scope_binds(&mut params, &scopes);
     } else if scopes.len() > 1 {
@@ -575,26 +572,20 @@ pub(crate) fn mood_album_counts_for_server(
     server_id: &str,
     library_scopes: &[String],
 ) -> Result<Vec<MoodAlbumCountDto>, String> {
-    let (sql, params) =
-        mood_album_counts_query(server_id, library_scopes);
+    let (sql, params) = mood_album_counts_query(server_id, library_scopes);
 
     store
         .with_read_conn(|conn| {
             let mut stmt = conn.prepare(&sql)?;
 
             let rows = stmt
-                .query_map(
-                    rusqlite::params_from_iter(params.iter()),
-                    |r| {
-                        Ok(MoodAlbumCountDto {
-                            value: r.get::<_, String>(0)?,
-                            album_count:
-                                r.get::<_, i64>(1)?.max(0) as u32,
-                            song_count:
-                                r.get::<_, i64>(2)?.max(0) as u32,
-                        })
-                    },
-                )?
+                .query_map(rusqlite::params_from_iter(params.iter()), |r| {
+                    Ok(MoodAlbumCountDto {
+                        value: r.get::<_, String>(0)?,
+                        album_count: r.get::<_, i64>(1)?.max(0) as u32,
+                        song_count: r.get::<_, i64>(2)?.max(0) as u32,
+                    })
+                })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
 
             Ok(rows)

@@ -775,10 +775,8 @@ pub async fn library_list_albums_by_mood(
 ) -> Result<crate::dto::LibraryMoodAlbumsResponse, String> {
     let store = Arc::clone(&runtime.store);
 
-    library_spawn_blocking(move || {
-        crate::mood_album_browse::list_albums_by_mood(&store, &request)
-    })
-    .await
+    library_spawn_blocking(move || crate::mood_album_browse::list_albums_by_mood(&store, &request))
+        .await
 }
 
 #[tauri::command]
@@ -817,10 +815,8 @@ pub async fn library_file_mood_tags_run(
 ) -> Result<(), String> {
     let store = Arc::clone(&runtime.store);
 
-    library_spawn_blocking(move || {
-        crate::mood_tags_backfill::run_mood_tags_backfill(&store, &app)
-    })
-    .await
+    library_spawn_blocking(move || crate::mood_tags_backfill::run_mood_tags_backfill(&store, &app))
+        .await
 }
 
 /// Ensure precomputed cluster identity keys are current without blocking Tauri's main thread.

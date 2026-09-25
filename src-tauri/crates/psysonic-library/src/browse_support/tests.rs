@@ -435,8 +435,7 @@ fn mood_album_counts_group_distinct_albums_per_mood() {
         .upsert_batch(&[t1, t2, t3])
         .unwrap();
 
-    let counts =
-        mood_album_counts_for_server(&store, "s1", &[]).unwrap();
+    let counts = mood_album_counts_for_server(&store, "s1", &[]).unwrap();
 
     assert_eq!(counts.len(), 3);
 
@@ -457,19 +456,16 @@ fn mood_album_counts_group_distinct_albums_per_mood() {
 fn mood_album_counts_query_reads_only_the_mood_projection() {
     let store = LibraryStore::open_in_memory();
 
-    let (sql, params) =
-        mood_album_counts_query("s1", &[]);
+    let (sql, params) = mood_album_counts_query("s1", &[]);
 
     let plan = store
         .with_read_conn(|conn| {
-            let mut stmt =
-                conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
 
             let rows = stmt
-                .query_map(
-                    rusqlite::params_from_iter(params.iter()),
-                    |row| row.get::<_, String>(3),
-                )?
+                .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                    row.get::<_, String>(3)
+                })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
 
             Ok(rows)
@@ -477,16 +473,14 @@ fn mood_album_counts_query_reads_only_the_mood_projection() {
         .unwrap();
 
     assert!(
-        plan.iter().any(|detail| {
-            detail.contains("idx_track_mood_browse")
-        }),
+        plan.iter()
+            .any(|detail| { detail.contains("idx_track_mood_browse") }),
         "query plan did not use the mood browse projection: {plan:?}"
     );
 
     assert!(
         plan.iter().all(|detail| {
-            !detail.contains("sqlite_autoindex_track_1")
-                && !detail.contains("idx_track_server")
+            !detail.contains("sqlite_autoindex_track_1") && !detail.contains("idx_track_server")
         }),
         "query plan unexpectedly joined the track table: {plan:?}"
     );

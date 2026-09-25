@@ -1,16 +1,8 @@
 use super::*;
-use crate::dto::{
-    LibraryMoodAlbumsRequest, LibraryScopePair, LibrarySortClause, SortDir,
-};
+use crate::dto::{LibraryMoodAlbumsRequest, LibraryScopePair, LibrarySortClause, SortDir};
 use crate::repos::{TrackRepository, TrackRow};
 
-fn track(
-    server: &str,
-    id: &str,
-    album_id: &str,
-    library_id: &str,
-    moods: &[&str],
-) -> TrackRow {
+fn track(server: &str, id: &str, album_id: &str, library_id: &str, moods: &[&str]) -> TrackRow {
     TrackRow {
         server_id: server.into(),
         id: id.into(),
@@ -77,32 +69,13 @@ fn list_albums_by_mood_is_case_insensitive_and_deduplicates_album() {
 
     TrackRepository::new(&store)
         .upsert_batch(&[
-            track(
-                "s1",
-                "t1",
-                "al_a",
-                "lib1",
-                &["Atmospheric", "Dreamy"],
-            ),
-            track(
-                "s1",
-                "t2",
-                "al_a",
-                "lib1",
-                &["Atmospheric"],
-            ),
-            track(
-                "s1",
-                "t3",
-                "al_b",
-                "lib1",
-                &["Nocturnal"],
-            ),
+            track("s1", "t1", "al_a", "lib1", &["Atmospheric", "Dreamy"]),
+            track("s1", "t2", "al_a", "lib1", &["Atmospheric"]),
+            track("s1", "t3", "al_b", "lib1", &["Nocturnal"]),
         ])
         .unwrap();
 
-    let response =
-        list_albums_by_mood(&store, &request("atmospheric")).unwrap();
+    let response = list_albums_by_mood(&store, &request("atmospheric")).unwrap();
 
     assert_eq!(response.total, Some(1));
     assert_eq!(response.albums.len(), 1);
@@ -115,51 +88,21 @@ fn list_albums_by_mood_respects_library_scope_and_total() {
 
     TrackRepository::new(&store)
         .upsert_batch(&[
-            track(
-                "s1",
-                "t1",
-                "al_a",
-                "lib1",
-                &["Atmospheric"],
-            ),
-            track(
-                "s1",
-                "t2",
-                "al_b",
-                "lib1",
-                &["Atmospheric"],
-            ),
-            track(
-                "s1",
-                "t3",
-                "al_c",
-                "lib2",
-                &["Atmospheric"],
-            ),
+            track("s1", "t1", "al_a", "lib1", &["Atmospheric"]),
+            track("s1", "t2", "al_b", "lib1", &["Atmospheric"]),
+            track("s1", "t3", "al_c", "lib2", &["Atmospheric"]),
         ])
         .unwrap();
 
-    let mut scoped_request =
-        request("Atmospheric");
-    scoped_request.library_scope =
-        Some("lib1".into());
+    let mut scoped_request = request("Atmospheric");
+    scoped_request.library_scope = Some("lib1".into());
 
-    let scoped =
-        list_albums_by_mood(
-            &store,
-            &scoped_request,
-        )
-        .unwrap();
+    let scoped = list_albums_by_mood(&store, &scoped_request).unwrap();
 
     assert_eq!(scoped.total, Some(2));
     assert_eq!(scoped.albums.len(), 2);
 
-    let all =
-        list_albums_by_mood(
-            &store,
-            &request("Atmospheric"),
-        )
-        .unwrap();
+    let all = list_albums_by_mood(&store, &request("Atmospheric")).unwrap();
 
     assert_eq!(all.total, Some(3));
     assert_eq!(all.albums.len(), 3);
@@ -171,20 +114,8 @@ fn count_only_returns_total_without_album_rows() {
 
     TrackRepository::new(&store)
         .upsert_batch(&[
-            track(
-                "s1",
-                "t1",
-                "al_a",
-                "lib1",
-                &["Dreamy"],
-            ),
-            track(
-                "s1",
-                "t2",
-                "al_b",
-                "lib1",
-                &["Dreamy"],
-            ),
+            track("s1", "t1", "al_a", "lib1", &["Dreamy"]),
+            track("s1", "t2", "al_b", "lib1", &["Dreamy"]),
         ])
         .unwrap();
 
@@ -192,8 +123,7 @@ fn count_only_returns_total_without_album_rows() {
     req.library_scope = Some("lib1".into());
     req.count_only = true;
 
-    let response =
-        list_albums_by_mood(&store, &req).unwrap();
+    let response = list_albums_by_mood(&store, &req).unwrap();
 
     assert_eq!(response.total, Some(2));
     assert!(response.albums.is_empty());
@@ -206,56 +136,26 @@ fn list_albums_by_mood_paginates() {
 
     TrackRepository::new(&store)
         .upsert_batch(&[
-            track(
-                "s1",
-                "t1",
-                "al_a",
-                "lib1",
-                &["Energetic"],
-            ),
-            track(
-                "s1",
-                "t2",
-                "al_b",
-                "lib1",
-                &["Energetic"],
-            ),
-            track(
-                "s1",
-                "t3",
-                "al_c",
-                "lib1",
-                &["Energetic"],
-            ),
+            track("s1", "t1", "al_a", "lib1", &["Energetic"]),
+            track("s1", "t2", "al_b", "lib1", &["Energetic"]),
+            track("s1", "t3", "al_c", "lib1", &["Energetic"]),
         ])
         .unwrap();
 
-    let mut first_request =
-        request("Energetic");
+    let mut first_request = request("Energetic");
     first_request.limit = 1;
 
-    let first =
-        list_albums_by_mood(
-            &store,
-            &first_request,
-        )
-        .unwrap();
+    let first = list_albums_by_mood(&store, &first_request).unwrap();
 
     assert_eq!(first.total, Some(3));
     assert_eq!(first.albums.len(), 1);
     assert_eq!(first.albums[0].id, "al_a");
     assert!(first.has_more);
 
-    let mut second_request =
-        first_request;
+    let mut second_request = first_request;
     second_request.offset = 1;
 
-    let second =
-        list_albums_by_mood(
-            &store,
-            &second_request,
-        )
-        .unwrap();
+    let second = list_albums_by_mood(&store, &second_request).unwrap();
 
     assert_eq!(second.total, Some(3));
     assert_eq!(second.albums.len(), 1);
@@ -272,11 +172,7 @@ fn scoped_mood_query_drives_from_the_mood_index() {
         library_id: Some("lib1".into()),
     }];
 
-    let (cte, binds) =
-        scoped_mood_album_cte(
-            &scopes,
-            "Atmospheric",
-        );
+    let (cte, binds) = scoped_mood_album_cte(&scopes, "Atmospheric");
 
     let sql = format!(
         "EXPLAIN QUERY PLAN {cte} \
@@ -287,37 +183,25 @@ fn scoped_mood_query_drives_from_the_mood_index() {
 
     let details = store
         .with_read_conn(|conn| {
-            let mut stmt =
-                conn.prepare(&sql)?;
+            let mut stmt = conn.prepare(&sql)?;
 
-            let rows = stmt.query_map(
-                rusqlite::params_from_iter(
-                    binds.iter(),
-                ),
-                |row| {
-                    row.get::<_, String>(3)
-                },
-            )?;
+            let rows = stmt.query_map(rusqlite::params_from_iter(binds.iter()), |row| {
+                row.get::<_, String>(3)
+            })?;
 
-            rows.collect::<
-                rusqlite::Result<Vec<_>>,
-            >()
+            rows.collect::<rusqlite::Result<Vec<_>>>()
         })
         .unwrap();
 
     assert!(
-        details.iter().any(|detail| {
-            detail.contains(
-                "idx_track_mood_browse",
-            )
-        }),
+        details
+            .iter()
+            .any(|detail| { detail.contains("idx_track_mood_browse",) }),
         "query plan must use the mood-first browse index: {details:?}"
     );
 
     assert!(
-        !details.iter().any(|detail| {
-            detail == "SCAN t"
-        }),
+        !details.iter().any(|detail| { detail == "SCAN t" }),
         "query plan must not drive from a full track scan: {details:?}"
     );
 }

@@ -70,13 +70,13 @@ fn apply_album_list_page_fills_only_empty_library_rows() {
     assert_eq!(read("t2").as_deref(), Some("1"));
     assert_eq!(read("t3").as_deref(), Some("1"));
 
-    let (
-        empty_projection,
-        tagged_projection,
-        identity_tagged,
-        genre_tagged,
-        mood_tagged,
-    ): (i64, i64, i64, i64, i64) = store
+    let (empty_projection, tagged_projection, identity_tagged, genre_tagged, mood_tagged): (
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+    ) = store
         .with_read_conn(|conn| {
             Ok((
                 conn.query_row(
