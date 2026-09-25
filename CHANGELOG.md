@@ -31,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * In the queue panel's Playlist view, tracks before the one that is playing are now dimmed, so the current position in the full list is visible at a glance.
 
+### Command-line player controls work again
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1665](https://github.com/Psysonic/psysonic/pull/1665)**
+
+* Commands such as `--player play`, `pause`, and `next` work again after the shortcut registry moved. Playing a song by ID now starts that song even when it is not already in the queue.
+
 ## [1.55.0]
 
 ## Added
