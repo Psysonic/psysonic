@@ -39,6 +39,7 @@ pub mod live_search;
 pub mod lossless_albums;
 pub mod lossless_formats;
 pub mod mainstage_browse;
+pub mod mood_tags;
 pub mod mood_groups;
 pub mod most_played;
 pub mod navidrome_id_codec;

@@ -10,7 +10,7 @@ use super::reconciles::{
 ///
 /// Migration checklist (wiring, data backfill, open/swap path):
 /// psysonic-workdocs `ai/agent-rules/08-library-db-migrations.md`.
-pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 29;
+pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 30;
 
 /// Lowest applied schema version the current code can advance from purely
 /// additively. If a DB carries a version below this, the breaking-bump hook
@@ -76,6 +76,9 @@ pub(crate) const MIGRATION_028_ARTIST_CREDIT_PROJECTION: &str =
 /// Version 29: candidate-first structured-credit lookup by normalized artist key.
 pub(crate) const MIGRATION_029_ARTIST_CREDIT_KEY_INDEX: &str =
     include_str!("../../migrations/029_artist_credit_key_index.sql");
+/// Version 30: normalized OpenSubsonic MOOD/TMOO tags for local mood browsing.
+pub(crate) const MIGRATION_030_TRACK_MOOD: &str =
+    include_str!("../../migrations/030_track_mood.sql");
 
 /// Embedded migrations. Ordered ascending by `version`; the runner sorts
 /// defensively before applying so the source order can stay readable.
@@ -99,6 +102,7 @@ pub(super) const MIGRATIONS: &[(i64, &str)] = &[
     (27, MIGRATION_027_ARTIST_STARRED),
     (28, MIGRATION_028_ARTIST_CREDIT_PROJECTION),
     (29, MIGRATION_029_ARTIST_CREDIT_KEY_INDEX),
+    (30, MIGRATION_030_TRACK_MOOD),
 ];
 
 /// Idempotent repair — also runs after the migration runner on every open so

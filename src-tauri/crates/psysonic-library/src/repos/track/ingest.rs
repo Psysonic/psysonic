@@ -5,9 +5,10 @@ use rusqlite::{params, params_from_iter, Transaction};
 
 use super::{TrackRepository, TrackRow};
 use crate::genre_tags::{self, genres_for_track_raw_json};
+use crate::mood_tags::{self, moods_for_track_raw_json};
 use crate::store::WriteOpTiming;
 
-struct TrackGenreState {
+struct TrackTagState {
     track_id: String,
     raw_json: String,
     genre: Option<String>,
@@ -16,15 +17,30 @@ struct TrackGenreState {
     deleted: bool,
 }
 
-fn sync_track_genre_state(
+fn sync_track_tag_state(
     tx: &Transaction<'_>,
     server_id: &str,
-    state: &TrackGenreState,
+    state: &TrackTagState,
 ) -> rusqlite::Result<()> {
     if state.deleted {
-        return genre_tags::delete_track_genre_for_track(tx, server_id, &state.track_id);
+        genre_tags::delete_track_genre_for_track(
+            tx,
+            server_id,
+            &state.track_id,
+        )?;
+
+        mood_tags::delete_track_mood_for_track(
+            tx,
+            server_id,
+            &state.track_id,
+        )?;
+
+        return Ok(());
     }
-    let genres = genres_for_track_raw_json(&state.raw_json, state.genre.as_deref());
+
+    let genres =
+        genres_for_track_raw_json(&state.raw_json, state.genre.as_deref());
+
     genre_tags::replace_track_genre_rows(
         tx,
         server_id,
@@ -32,14 +48,27 @@ fn sync_track_genre_state(
         state.album_id.as_deref(),
         state.library_id.as_deref(),
         &genres,
-    )
+    )?;
+
+    let moods = moods_for_track_raw_json(&state.raw_json);
+
+    mood_tags::replace_track_mood_rows(
+        tx,
+        server_id,
+        &state.track_id,
+        state.album_id.as_deref(),
+        state.library_id.as_deref(),
+        &moods,
+    )?;
+
+    Ok(())
 }
 
 /// Rebuild the genre projection from the rows SQLite actually committed. This
 /// matters for sparse payloads: the upsert may preserve `raw_json` and
 /// `library_id`, so projecting the incoming row would immediately disagree
 /// with the authoritative stored row.
-pub(super) fn sync_persisted_track_genre_rows(
+pub(super) fn sync_persisted_track_tag_rows(
     tx: &Transaction<'_>,
     rows: &[TrackRow],
 ) -> rusqlite::Result<()> {
@@ -64,10 +93,10 @@ pub(super) fn sync_persisted_track_genre_rows(
             let mut binds = Vec::with_capacity(chunk.len() + 1);
             binds.push(Value::Text(server_id.to_string()));
             binds.extend(chunk.iter().map(|id| Value::Text((*id).to_string())));
-            let persisted: Vec<TrackGenreState> = tx
+            let persisted: Vec<TrackTagState> = tx
                 .prepare(&sql)?
                 .query_map(params_from_iter(binds.iter()), |row| {
-                    Ok(TrackGenreState {
+                    Ok(TrackTagState {
                         track_id: row.get(0)?,
                         raw_json: row.get(1)?,
                         genre: row.get(2)?,
@@ -78,7 +107,7 @@ pub(super) fn sync_persisted_track_genre_rows(
                 })?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
             for state in persisted {
-                sync_track_genre_state(tx, server_id, &state)?;
+                sync_track_tag_state(tx, server_id, &state)?;
             }
         }
     }
@@ -374,7 +403,7 @@ impl TrackRepository<'_> {
                         // a failed request is retried on the next scheduler tick.
                         invalidate_album_list_completion(&tx, rows)?;
                     }
-                    sync_persisted_track_genre_rows(&tx, rows)?;
+                    sync_persisted_track_tag_rows(&tx, rows)?;
                     crate::identity::mark_cluster_keys_dirty(
                         &tx,
                         rows.iter().map(|row| row.server_id.as_str()),

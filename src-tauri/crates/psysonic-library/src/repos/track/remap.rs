@@ -2,7 +2,7 @@ use rusqlite::{params, OptionalExtension};
 
 use super::ingest::{
     invalidate_album_list_completion, normalize_sparse_album_version_provenance,
-    sync_persisted_track_genre_rows, UPSERT_SQL,
+    sync_persisted_track_tag_rows, UPSERT_SQL,
 };
 use super::retarget::retarget_track_references;
 use super::{RemapEntry, RemapStats, TrackRepository, TrackRow};
@@ -222,7 +222,7 @@ impl TrackRepository<'_> {
                     }
                     invalidate_album_list_completion(&tx, rows)?;
                 }
-                sync_persisted_track_genre_rows(&tx, rows)?;
+                sync_persisted_track_tag_rows(&tx, rows)?;
                 crate::identity::record_tracks(
                     &tx,
                     rows.iter()
