@@ -7,7 +7,7 @@ type ClassifiablePlaylist = Pick<SubsonicPlaylist, 'name'>
 
 export type PlaylistSmartClassification = 'smart' | 'manual' | 'unknown';
 
-function hasLegacySmartPlaylistName(name: string): boolean {
+export function hasLegacySmartPlaylistName(name: string): boolean {
   return name.toLowerCase().startsWith(LEGACY_SMART_PLAYLIST_PREFIX);
 }
 
