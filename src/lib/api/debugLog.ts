@@ -21,3 +21,23 @@ export function frontendDebugLog(
   if (!isDebugLoggingDepthEnabled(depth)) return;
   void commands.frontendDebugLog(scope, message).catch(() => {});
 }
+
+/** Temporary #1664 diagnostic build: only structured, non-identifying fields reach PsyLab. */
+export function playlistDiagnosticLog(event: string, details: Record<string, string | number | boolean | null>): void {
+  if (import.meta.env.VITE_ISSUE_1664_DIAGNOSTICS !== '1') return;
+  frontendDebugLog('playlist-1664', JSON.stringify({ event, ...details }));
+}
+
+export function playlistDiagnosticError(error: unknown): Record<string, string | number | boolean | null> {
+  if (!error || typeof error !== 'object') return { errorType: 'unknown', httpStatus: null, networkCode: null };
+  const candidate = error as { response?: { status?: unknown }; code?: unknown; name?: unknown };
+  const status = candidate.response?.status;
+  const code = candidate.code;
+  return {
+    errorType: typeof candidate.name === 'string' && /^(AxiosError|Error|TypeError)$/.test(candidate.name)
+      ? candidate.name : 'other',
+    httpStatus: typeof status === 'number' ? status : null,
+    networkCode: typeof code === 'string' && /^(ECONNABORTED|ETIMEDOUT|ERR_NETWORK|ERR_CANCELED)$/.test(code)
+      ? code : null,
+  };
+}

@@ -8,7 +8,7 @@ import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
 import { connectBaseUrlForServer } from '@/lib/server/serverEndpoint';
 import { isNavidromeServer } from '@/lib/server/subsonicServerIdentity';
 import { hasNavidromeSmartRules } from '@/lib/format/playlistClassification';
-import { frontendDebugLog } from '@/lib/api/debugLog';
+import { frontendDebugLog, playlistDiagnosticLog } from '@/lib/api/debugLog';
 
 /** Max song-id params per Subsonic GET call (auth + ~8 KiB URL ceiling). */
 export const PLAYLIST_SONG_ID_GET_BATCH = 150;
@@ -135,6 +135,11 @@ export async function getPlaylistsForServer(
   );
   const all = data.playlists?.playlist ?? [];
   const visible = includeOrbit ? all : all.filter(p => !p.name.startsWith('__psyorbit_'));
+  playlistDiagnosticLog('list', {
+    count: all.length,
+    visible: visible.length,
+    positiveSongCount: visible.filter(p => p.songCount > 0).length,
+  });
   return addNativePlaylistSmartMetadata(
     visible.map(playlist => ({ ...playlist, serverId })),
     serverId,
@@ -163,6 +168,11 @@ export async function getPlaylistsForServers(serverIds: string[]): Promise<Subso
 
 export async function getPlaylist(id: string): Promise<{ playlist: SubsonicPlaylist; songs: SubsonicSong[] }> {
   const data = await api<{ playlist: SubsonicPlaylist & { entry: SubsonicSong[] } }>('getPlaylist.view', { id });
+  playlistDiagnosticLog('detail-response', {
+    songCount: data.playlist?.songCount ?? null,
+    entryShape: Array.isArray(data.playlist?.entry) ? 'array' : data.playlist?.entry == null ? 'missing' : typeof data.playlist.entry,
+    entryCount: Array.isArray(data.playlist?.entry) ? data.playlist.entry.length : 0,
+  });
   const { entry, ...playlist } = data.playlist;
   return { playlist, songs: entry ?? [] };
 }
@@ -179,6 +189,13 @@ export async function getPlaylistForServer(
     'getPlaylist.view',
     { id },
   );
+  playlistDiagnosticLog('detail-response', {
+    songCount: data.playlist?.songCount ?? null,
+    entryShape: Array.isArray(data.playlist?.entry) ? 'array' : data.playlist?.entry == null ? 'missing' : typeof data.playlist.entry,
+    entryCount: Array.isArray(data.playlist?.entry) ? data.playlist.entry.length : 0,
+    missingAlbumId: Array.isArray(data.playlist?.entry) ? data.playlist.entry.filter(song => !song.albumId).length : 0,
+    missingSongId: Array.isArray(data.playlist?.entry) ? data.playlist.entry.filter(song => !song.id).length : 0,
+  });
   const { entry, ...playlist } = data.playlist;
   return {
     playlist: { ...playlist, serverId },

@@ -10,6 +10,7 @@ import { resolvePlaylist } from '@/features/offline';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
 import { isNavidromeServer } from '@/lib/server/subsonicServerIdentity';
+import { playlistDiagnosticError, playlistDiagnosticLog } from '@/lib/api/debugLog';
 
 export interface RunPlaylistLoadDeps {
   id: string;
@@ -99,6 +100,8 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
   }
   if (!deps.soft) setLoading(true);
   const membershipRevision = usePlaylistMembershipStore.getState().revision;
+  let stage = 'start';
+  const startedAt = performance.now();
   try {
     const serverId = deps.serverId ?? useAuthStore.getState().activeServerId ?? '';
     const auth = useAuthStore.getState();
@@ -106,9 +109,12 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
     const navidromeMetadataExpected = Boolean(
       server && isNavidromeServer(auth.subsonicServerIdentityByServer?.[server.id]),
     );
+    playlistDiagnosticLog('load-start', { hasServer: Boolean(server), offline: isOfflineBrowseActive(), soft: Boolean(deps.soft) });
     if (isOfflineBrowseActive() && serverId) {
+      stage = 'offline';
       const loaded = await resolvePlaylist(serverId, id);
       if (loaded) {
+        playlistDiagnosticLog('offline-hit', { songs: loaded.songs.length });
         applyLoadedPlaylist(
           deps,
           loaded.playlist,
@@ -121,10 +127,18 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
       }
     }
 
+    stage = 'getPlaylist';
     const { playlist, songs } = serverId
       ? await getPlaylistForServer(serverId, id)
       : await getPlaylist(id);
+    stage = 'scope-filter';
     const filteredSongs = serverId ? await filterSongsToServerLibrary(songs, serverId) : songs;
+    playlistDiagnosticLog('load-complete', {
+      serverSongs: songs.length,
+      shownSongs: filteredSongs.length,
+      stale: Boolean(deps.isCurrent && !deps.isCurrent()),
+      elapsedMs: Math.round(performance.now() - startedAt),
+    });
     applyLoadedPlaylist(
       deps,
       { ...playlist, serverId: serverId || undefined },
@@ -133,9 +147,10 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
       membershipRevision,
       navidromeMetadataExpected,
     );
-  } catch {
+  } catch (error) {
     const key = ownedEntityKey({ id, serverId: deps.serverId });
     const stub = usePlaylistStore.getState().playlists.find(p => ownedEntityKey(p) === key);
+    playlistDiagnosticLog('load-failed', { stage, hasStub: Boolean(stub), ...playlistDiagnosticError(error) });
     if (stub && (!deps.isCurrent || deps.isCurrent())) {
       setPlaylist(stub);
       setSongs([]);

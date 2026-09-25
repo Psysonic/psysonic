@@ -7,6 +7,7 @@ import { api, apiForServer, libraryFilterParams, libraryFilterParamsForServer, l
 import { getLuckyMixLibraryScopeOverride } from '@/lib/library/luckyMixScopeOverride';
 import { mirrorAlbumMetadataFromServerOnUse } from '@/lib/library/patchOnUse';
 import { resolveIndexKey } from '@/lib/server/serverIndexKey';
+import { playlistDiagnosticLog } from '@/lib/api/debugLog';
 import type {
   RandomSongsFilters,
   SubsonicAlbum,
@@ -130,19 +131,31 @@ async function albumIdsInLibraryScope(
 
   const override = getLuckyMixLibraryScopeOverride();
   let libraryIds: string[] = [];
+  let scopeSource = 'all';
   if (override) {
     libraryIds = [override];
+    scopeSource = 'override';
   } else if (explicitLibraryIds !== undefined) {
     libraryIds = [...new Set(explicitLibraryIds)];
+    scopeSource = 'explicit';
   } else {
     const selection = librarySelectionForServer(serverId);
     if (selection.length === 1) {
       libraryIds = selection;
+      scopeSource = 'selection';
     } else {
       const legacy = musicLibraryFilterByServer[serverId];
-      if (legacy !== undefined && legacy !== 'all') libraryIds = [legacy];
+      if (legacy !== undefined && legacy !== 'all') {
+        libraryIds = [legacy];
+        scopeSource = 'legacy';
+      }
     }
   }
+  playlistDiagnosticLog('scope', {
+    source: scopeSource,
+    selectedLibraryCount: libraryIds.length,
+    explicit: explicitLibraryIds !== undefined,
+  });
   if (libraryIds.length === 0) {
     scopedLibraryAlbumIdCache = null;
     return null;
@@ -158,6 +171,7 @@ async function albumIdsInLibraryScope(
     hit.scopeKey === scopeKey &&
     hit.filterVersion === filterVersion
   ) {
+    playlistDiagnosticLog('scope-albums', { source: 'cache', albumCount: hit.ids.size });
     return hit.ids;
   }
   const ids = new Set<string>();
@@ -186,6 +200,7 @@ async function albumIdsInLibraryScope(
     filterVersion,
     ids,
   };
+  playlistDiagnosticLog('scope-albums', { source: 'server', albumCount: ids.size });
   return ids;
 }
 
@@ -195,8 +210,18 @@ export async function filterSongsToServerLibrary(
   explicitLibraryIds?: readonly string[],
 ): Promise<SubsonicSong[]> {
   const allowed = await albumIdsInLibraryScope(serverId, explicitLibraryIds);
-  if (!allowed || (allowed.size === 0 && explicitLibraryIds === undefined)) return songs;
-  return songs.filter(s => s.albumId && allowed.has(s.albumId));
+  if (!allowed || (allowed.size === 0 && explicitLibraryIds === undefined)) {
+    playlistDiagnosticLog('filter', { input: songs.length, output: songs.length, missingAlbumId: 0, scoped: false });
+    return songs;
+  }
+  const filtered = songs.filter(s => s.albumId && allowed.has(s.albumId));
+  playlistDiagnosticLog('filter', {
+    input: songs.length,
+    output: filtered.length,
+    missingAlbumId: songs.filter(s => !s.albumId).length,
+    scoped: true,
+  });
+  return filtered;
 }
 
 export async function filterSongsToActiveLibrary(songs: SubsonicSong[]): Promise<SubsonicSong[]> {
