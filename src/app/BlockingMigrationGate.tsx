@@ -19,18 +19,14 @@ function MigrationModal() {
   const migrationTitle = isGenreTags
     ? t('migration.genreTagsTitle')
     : isFileMoodTags
-      ? t('migration.fileMoodTagsTitle', {
-          defaultValue: 'Updating file mood index',
-        })
+      ? t('migration.fileMoodTagsTitle', )
       : isScopeBrowseProjection
         ? t('migration.scopeBrowseProjectionTitle')
         : t('migration.migrating');
   const migrationBody = isGenreTags
     ? t('migration.genreTagsBody')
     : isFileMoodTags
-      ? t('migration.fileMoodTagsBody', {
-          defaultValue: 'Building a local index of MOOD/TMOO tags from cached track metadata.',
-        })
+      ? t('migration.fileMoodTagsBody', )
       : isScopeBrowseProjection
         ? t('migration.scopeBrowseProjectionBody')
         : (progress ? `${progress.stage} - ${progress.table}` : t('migration.working'));
@@ -67,9 +63,7 @@ function MigrationModal() {
               {isGenreTags
                 ? t('migration.genreTagsTitle')
                 : isFileMoodTags
-                  ? t('migration.fileMoodTagsTitle', {
-                      defaultValue: 'Updating file mood index',
-                    })
+                  ? t('migration.fileMoodTagsTitle', )
                   : isScopeBrowseProjection
                     ? t('migration.scopeBrowseProjectionTitle')
                     : t('migration.preparing')}
@@ -77,9 +71,7 @@ function MigrationModal() {
             <p> {isGenreTags
                 ? t('migration.genreTagsBody')
                 : isFileMoodTags
-                  ? t('migration.fileMoodTagsBody', {
-                      defaultValue: 'Building a local index of MOOD/TMOO tags from cached track metadata.',
-                    })
+                  ? t('migration.fileMoodTagsBody', )
                   : isScopeBrowseProjection
                     ? t('migration.scopeBrowseProjectionBody')
                     : t('migration.preparingBody')}
@@ -107,9 +99,7 @@ function MigrationModal() {
             <h3>{isGenreTags
               ? t('migration.genreTagsFailed')
               : isFileMoodTags
-                ? t('migration.fileMoodTagsFailed', {
-                    defaultValue: 'File mood index update failed',
-                  })
+                ? t('migration.fileMoodTagsFailed', )
                 : isScopeBrowseProjection
                   ? t('migration.scopeBrowseProjectionFailed')
                   : t('migration.failed')}

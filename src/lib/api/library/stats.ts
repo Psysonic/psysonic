@@ -10,8 +10,11 @@ import { mapScopePairs } from './scopeReads';
 import type {
   CatalogYearBounds,
   GenreAlbumCountRow,
+  MoodAlbumCountRow,
   LibraryGenreAlbumsRequest,
   LibraryGenreAlbumsResponse,
+  LibraryMoodAlbumsRequest,
+  LibraryMoodAlbumsResponse,
   PlaySessionInput,
   PlaySessionYearSummary,
   PlaySessionHeatmapDay,
@@ -46,6 +49,24 @@ export async function libraryGetGenreAlbumCounts(args: {
   return res.data;
 }
 
+export async function libraryGetMoodAlbumCounts(args: {
+  serverId: string;
+  libraryScope?: string;
+  libraryScopes?: string[];
+}): Promise<MoodAlbumCountRow[]> {
+  const indexKey = serverIndexKeyForId(args.serverId);
+
+  const res = await commands.libraryGetMoodAlbumCounts(
+    indexKey,
+    args.libraryScope ?? null,
+    args.libraryScopes ?? null,
+  );
+
+  if (res.status === 'error') throw new Error(res.error);
+
+  return res.data;
+}
+
 /** Paginated albums for one genre from the local track index. */
 export function libraryListAlbumsByGenre(
   request: LibraryGenreAlbumsRequest,
@@ -71,6 +92,40 @@ export function libraryListAlbumsByGenre(
     albums: response.albums.map(album => ({
       ...album,
       serverId: mapServerIdFromIndexKey(album.serverId, request.serverId),
+    })),
+  }));
+}
+
+/** Paginated albums for one file mood from the local track-mood index. */
+export function libraryListAlbumsByMood(
+  request: LibraryMoodAlbumsRequest,
+): Promise<LibraryMoodAlbumsResponse> {
+  const indexKey = serverIndexKeyForId(request.serverId);
+
+  const libraryScopes = request.libraryScopes
+    ? mapScopePairs(request.libraryScopes, request.serverId)
+    : undefined;
+
+  return invoke<LibraryMoodAlbumsResponse>('library_list_albums_by_mood', {
+    request: {
+      serverId: indexKey,
+      mood: request.mood,
+      libraryScope: request.libraryScope ?? undefined,
+      libraryScopes,
+      sort: request.sort ?? [],
+      limit: request.limit ?? 50,
+      offset: request.offset ?? 0,
+      includeTotal: request.includeTotal ?? false,
+      countOnly: request.countOnly ?? false,
+    },
+  }).then(response => ({
+    ...response,
+    albums: response.albums.map(album => ({
+      ...album,
+      serverId: mapServerIdFromIndexKey(
+        album.serverId,
+        request.serverId,
+      ),
     })),
   }));
 }

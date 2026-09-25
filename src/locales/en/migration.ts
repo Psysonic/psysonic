@@ -35,6 +35,10 @@ export const migration = {
   genreTagsTitle: 'Updating genre index…',
   genreTagsBody: 'Indexing genres for browse and filters. This runs once after upgrade.',
   genreTagsFailed: 'Genre index update failed',
+  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsBody:
+    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
+  fileMoodTagsFailed: 'Mood index update failed',
   scopeBrowseProjectionTitle: 'Updating library browse index…',
   scopeBrowseProjectionBody: 'Preparing your album catalogue for faster browsing. This runs once after upgrade.',
   scopeBrowseProjectionFailed: 'Library browse index update failed',

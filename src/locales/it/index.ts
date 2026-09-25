@@ -13,6 +13,7 @@ import { favorites } from './favorites';
 import { randomLanding } from './randomLanding';
 import { randomAlbums } from './randomAlbums';
 import { genres } from './genres';
+import { moods } from './moods';
 import { randomMix } from './randomMix';
 import { luckyMix } from './luckyMix';
 import { albums } from './albums';
@@ -65,6 +66,7 @@ export const itTranslation = {
   randomLanding,
   randomAlbums,
   genres,
+  moods,
   randomMix,
   luckyMix,
   albums,

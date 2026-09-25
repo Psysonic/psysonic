@@ -6,7 +6,7 @@ use tauri::State;
 
 use crate::album_compilation_filter::pick_album_group_artist_id;
 use crate::dto::CatalogYearBoundsDto;
-use crate::dto::GenreAlbumCountDto;
+use crate::dto::{GenreAlbumCountDto, MoodAlbumCountDto};
 use crate::dto::LibraryAlbumDto;
 use crate::runtime::LibraryRuntime;
 use crate::search::{
@@ -525,6 +525,83 @@ pub(crate) fn genre_album_counts_for_server(
         .map_err(|e| e.to_string())
 }
 
+pub(crate) fn mood_album_counts_query(
+    server_id: &str,
+    library_scopes: &[String],
+) -> (String, Vec<rusqlite::types::Value>) {
+    let scopes = normalized_library_scopes(library_scopes);
+
+    // The projection primary key permits one row per track and
+    // case-insensitive mood, so COUNT(*) is the song count without
+    // requiring a DISTINCT temp B-tree or a join back to track.
+    let mut sql = String::from(
+        "SELECT tm.mood, COUNT(DISTINCT tm.album_id) AS album_count, \
+                COUNT(*) AS song_count \
+         FROM track_mood tm INDEXED BY idx_track_mood_browse \
+         WHERE tm.server_id = ?1 \
+           AND tm.album_id IS NOT NULL AND tm.album_id != ''",
+    );
+
+    let mut params: Vec<rusqlite::types::Value> =
+        vec![rusqlite::types::Value::Text(server_id.to_string())];
+
+    if scopes.len() == 1 {
+        sql.push_str(&format!(
+            " AND {}",
+            library_scope_sargable_equals_sql("tm")
+        ));
+
+        push_library_scope_binds(&mut params, &scopes);
+    } else if scopes.len() > 1 {
+        sql.push_str(&format!(
+            " AND {}",
+            library_scope_in_sql("tm", scopes.len())
+        ));
+
+        push_library_scope_binds(&mut params, &scopes);
+    }
+
+    sql.push_str(
+        " GROUP BY tm.mood COLLATE NOCASE \
+         HAVING album_count > 0 \
+         ORDER BY album_count DESC, tm.mood COLLATE NOCASE ASC",
+    );
+
+    (sql, params)
+}
+
+pub(crate) fn mood_album_counts_for_server(
+    store: &LibraryStore,
+    server_id: &str,
+    library_scopes: &[String],
+) -> Result<Vec<MoodAlbumCountDto>, String> {
+    let (sql, params) =
+        mood_album_counts_query(server_id, library_scopes);
+
+    store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(&sql)?;
+
+            let rows = stmt
+                .query_map(
+                    rusqlite::params_from_iter(params.iter()),
+                    |r| {
+                        Ok(MoodAlbumCountDto {
+                            value: r.get::<_, String>(0)?,
+                            album_count:
+                                r.get::<_, i64>(1)?.max(0) as u32,
+                            song_count:
+                                r.get::<_, i64>(2)?.max(0) as u32,
+                        })
+                    },
+                )?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+
+            Ok(rows)
+        })
+        .map_err(|e| e.to_string())
+}
+
 /// Distinct album counts per track genre — same grouping as genre album browse.
 #[tauri::command]
 #[specta::specta]
@@ -564,6 +641,25 @@ pub fn library_get_genre_album_counts(
         );
     }
     result
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn library_get_mood_album_counts(
+    runtime: State<'_, LibraryRuntime>,
+    server_id: String,
+    library_scope: Option<String>,
+    library_scopes: Option<Vec<String>>,
+) -> Result<Vec<MoodAlbumCountDto>, String> {
+    let scopes = if let Some(scopes) = library_scopes {
+        normalized_library_scopes(&scopes)
+    } else if let Some(scope) = library_scope.as_deref().filter(|s| !s.trim().is_empty()) {
+        vec![scope.to_string()]
+    } else {
+        vec![]
+    };
+
+    mood_album_counts_for_server(&runtime.store, &server_id, &scopes)
 }
 
 #[cfg(test)]

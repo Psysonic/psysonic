@@ -21,6 +21,7 @@ export const sidebar = {
   cancelDownload: 'Download annuleren',
   offlineLibrary: 'Offline bibliotheek',
   genres: 'Genres',
+  moods: 'Moods',
   tracks: 'Nummers',
   playlists: 'Playlists',
   shared: 'ND Delen',

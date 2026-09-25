@@ -6,9 +6,9 @@ use crate::store::LibraryStore;
 
 use super::{
     apply_album_patch, catalog_year_bounds_for_server, genre_album_counts_for_server,
-    genre_album_counts_query, overlay_album_artist_links, overlay_album_level_starred_at,
-    reconcile_album_stars, reconcile_artist_stars, StarredAlbumReconcileItem,
-    StarredArtistReconcileItem,
+    genre_album_counts_query, mood_album_counts_for_server, mood_album_counts_query,
+    overlay_album_artist_links, overlay_album_level_starred_at, reconcile_album_stars,
+    reconcile_artist_stars, StarredAlbumReconcileItem, StarredArtistReconcileItem,
 };
 use crate::dto::LibraryAlbumDto;
 
@@ -405,6 +405,89 @@ fn genre_album_counts_query_reads_only_the_genre_projection() {
         plan.iter()
             .all(|detail| !detail.contains("sqlite_autoindex_track_1")
                 && !detail.contains("idx_track_server")),
+        "query plan unexpectedly joined the track table: {plan:?}"
+    );
+}
+
+#[test]
+fn mood_album_counts_group_distinct_albums_per_mood() {
+    let store = Arc::new(LibraryStore::open_in_memory());
+
+    let mut t1 = make_row("s1", "t1", "al_a", 1);
+    t1.raw_json = serde_json::json!({
+        "moods": ["Atmospheric", "Dreamy"]
+    })
+    .to_string();
+
+    let mut t2 = make_row("s1", "t2", "al_a", 2);
+    t2.raw_json = serde_json::json!({
+        "moods": ["Atmospheric"]
+    })
+    .to_string();
+
+    let mut t3 = make_row("s1", "t3", "al_b", 1);
+    t3.raw_json = serde_json::json!({
+        "moods": ["Atmospheric", "Nocturnal"]
+    })
+    .to_string();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[t1, t2, t3])
+        .unwrap();
+
+    let counts =
+        mood_album_counts_for_server(&store, "s1", &[]).unwrap();
+
+    assert_eq!(counts.len(), 3);
+
+    assert_eq!(counts[0].value, "Atmospheric");
+    assert_eq!(counts[0].album_count, 2);
+    assert_eq!(counts[0].song_count, 3);
+
+    assert_eq!(counts[1].value, "Dreamy");
+    assert_eq!(counts[1].album_count, 1);
+    assert_eq!(counts[1].song_count, 1);
+
+    assert_eq!(counts[2].value, "Nocturnal");
+    assert_eq!(counts[2].album_count, 1);
+    assert_eq!(counts[2].song_count, 1);
+}
+
+#[test]
+fn mood_album_counts_query_reads_only_the_mood_projection() {
+    let store = LibraryStore::open_in_memory();
+
+    let (sql, params) =
+        mood_album_counts_query("s1", &[]);
+
+    let plan = store
+        .with_read_conn(|conn| {
+            let mut stmt =
+                conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
+
+            let rows = stmt
+                .query_map(
+                    rusqlite::params_from_iter(params.iter()),
+                    |row| row.get::<_, String>(3),
+                )?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+
+            Ok(rows)
+        })
+        .unwrap();
+
+    assert!(
+        plan.iter().any(|detail| {
+            detail.contains("idx_track_mood_browse")
+        }),
+        "query plan did not use the mood browse projection: {plan:?}"
+    );
+
+    assert!(
+        plan.iter().all(|detail| {
+            !detail.contains("sqlite_autoindex_track_1")
+                && !detail.contains("idx_track_server")
+        }),
         "query plan unexpectedly joined the track table: {plan:?}"
     );
 }

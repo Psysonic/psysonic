@@ -12,6 +12,10 @@ export const migration = {
   genreTagsTitle: 'Műfajindex frissítése…',
   genreTagsBody: 'Műfajok indexelése a böngészéshez és a szűrőkhöz. Ez frissítés után egyszer fut le.',
   genreTagsFailed: 'A műfajindex frissítése nem sikerült',
+  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsBody:
+    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
+  fileMoodTagsFailed: 'Mood index update failed',
   scopeBrowseProjectionTitle: 'A könyvtárböngészési index frissítése…',
   scopeBrowseProjectionBody: 'Az albumkatalógus előkészítése a gyorsabb böngészéshez. Ez frissítés után egyszer fut le.',
   scopeBrowseProjectionFailed: 'A könyvtárböngészési index frissítése nem sikerült',

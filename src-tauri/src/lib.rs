@@ -108,6 +108,7 @@ fn specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             crate::lib_commands::app_api::core::greet,
             psysonic_library::browse_support::library_get_catalog_year_bounds,
             psysonic_library::browse_support::library_get_genre_album_counts,
+            psysonic_library::browse_support::library_get_mood_album_counts,
             // psysonic-library — remaining typeable commands. Excluded (stay on
             // generate_handler! only): the 10 search/browse/track reads whose envelopes
             // carry LibraryTrack/Album/ArtistDto (each has `raw_json: Value`, dto.rs) +
@@ -731,6 +732,7 @@ pub fn run() {
             psysonic_library::commands::library_list_starred,
             psysonic_library::commands::library_list_lossless_albums,
             psysonic_library::commands::library_list_albums_by_genre,
+            psysonic_library::commands::library_list_albums_by_mood,
             psysonic_library::commands::library_genre_tags_inspect,
             psysonic_library::commands::library_genre_tags_run,
             psysonic_library::commands::library_file_mood_tags_inspect,
@@ -795,6 +797,7 @@ pub fn run() {
             psysonic_library::browse_support::library_reconcile_artist_stars,
             psysonic_library::browse_support::library_get_catalog_year_bounds,
             psysonic_library::browse_support::library_get_genre_album_counts,
+            psysonic_library::browse_support::library_get_mood_album_counts,
             psysonic_library::commands::library_put_artifact,
             psysonic_library::commands::library_put_entity_user_ratings,
             psysonic_library::commands::library_put_fact,
@@ -1036,6 +1039,7 @@ mod specta_export {
             "library_get_tracks_batch",
             "library_get_tracks_by_album",
             "library_list_albums_by_genre",
+            "library_list_albums_by_mood",
             "library_list_lossless_albums",
             "library_list_random_artists",
             "library_live_search",

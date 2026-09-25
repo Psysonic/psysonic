@@ -44,6 +44,8 @@ const FolderBrowser = lazy(() => import('@/features/folderBrowser/pages/FolderBr
 const InternetRadio = lazy(() => import('@/features/radio/pages/InternetRadio'));
 const Genres = lazy(() => import('@/features/genre/pages/Genres'));
 const GenreDetail = lazy(() => import('@/features/genre/pages/GenreDetail'));
+const Moods = lazy(() => import('@/features/mood/pages/Moods'));
+const MoodDetail = lazy(() =>import('@/features/mood/pages/MoodDetail'));
 const Shared = lazy(() => import('@/features/share/pages/Shared'));
 
 /**
@@ -119,6 +121,8 @@ export default function AppRoutes() {
       <Route path="/offline" element={<OfflineLibrary />} />
       <Route path="/genres" element={<Genres />} />
       <Route path="/genres/:name" element={<GenreDetail />} />
+      <Route path="/moods" element={<Moods />} />
+      <Route path="/moods/:name" element={<MoodDetail />} />
       <Route path="/playlists" element={<Playlists />} />
       <Route path="/playlists/:id" element={<PlaylistDetail />} />
       <Route path="/shared" element={<Shared />} />

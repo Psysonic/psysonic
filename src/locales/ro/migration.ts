@@ -12,6 +12,10 @@ export const migration = {
   genreTagsTitle: 'Se actualizează indexul de genuri…',
   genreTagsBody: 'Se indexează genurile pentru navigare și filtre. Rulează o dată după actualizare.',
   genreTagsFailed: 'Actualizarea indexului de genuri a eșuat',
+  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsBody:
+    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
+  fileMoodTagsFailed: 'Mood index update failed',
   scopeBrowseProjectionTitle: 'Se actualizează indexul de navigare al bibliotecii…',
   scopeBrowseProjectionBody: 'Se pregătește catalogul de albume pentru navigare mai rapidă. Aceasta rulează o singură dată după actualizare.',
   scopeBrowseProjectionFailed: 'Actualizarea indexului de navigare al bibliotecii a eșuat',

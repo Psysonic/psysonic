@@ -35,6 +35,10 @@ export const migration = {
   genreTagsTitle: 'Обновление индекса жанров…',
   genreTagsBody: 'Индексируем жанры для просмотра и фильтров. Выполняется один раз после обновления.',
   genreTagsFailed: 'Не удалось обновить индекс жанров',
+  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsBody:
+    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
+  fileMoodTagsFailed: 'Mood index update failed',
   scopeBrowseProjectionTitle: 'Обновление индекса библиотеки…',
   scopeBrowseProjectionBody: 'Подготавливаем каталог альбомов для более быстрого просмотра. Выполняется один раз после обновления.',
   scopeBrowseProjectionFailed: 'Не удалось обновить индекс библиотеки',

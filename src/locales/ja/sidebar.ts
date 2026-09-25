@@ -24,6 +24,7 @@ export const sidebar = {
   cancelDownload: 'ダウンロードをキャンセル',
   offlineLibrary: 'オフラインライブラリ',
   genres: 'ジャンル',
+  moods: 'Moods',
   tracks: 'トラック',
   playlists: 'プレイリスト',
   shared: 'ND 共有',
