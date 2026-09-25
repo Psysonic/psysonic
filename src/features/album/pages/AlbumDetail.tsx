@@ -28,6 +28,7 @@ import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGua
 import { join } from '@tauri-apps/api/path';
 import { useZipDownloadStore } from '@/features/offline';
 import AlbumCard from '@/features/album/components/AlbumCard';
+import SimilarAlbumsRail from '@/features/album/components/SimilarAlbumsRail';
 import AlbumHeader from '@/features/album/components/AlbumHeader';
 import AlbumTrackList from '@/features/album/components/AlbumTrackList';
 import { AlbumDetailToolbar } from '@/features/album/components/AlbumDetailToolbar';
@@ -631,6 +632,14 @@ const handleShuffleAll = () => {
           />
         </div>
       )}
+
+      <SimilarAlbumsRail
+        serverId={albumOwnerServerId}
+        albumId={albumOwnerId}
+        artistId={info.artistId}
+        songs={album.songs}
+        enabled={!offlineCtx.active}
+      />
     </div>
   );
 }

@@ -7,6 +7,7 @@ import {
 } from './catalog';
 import {
   isFeatureActiveForServer,
+  isSonicSimilarityActiveForServer,
   resolveCallRoutesForServer,
   resolveFeatureForServer,
 } from './storeView';
@@ -85,5 +86,35 @@ describe('storeView (capability read facade)', () => {
       openSubsonicExtensionsByServer: { [SID]: ['sonicSimilarity'] },
     });
     expect(isFeatureActiveForServer(SID, FEATURE_PLAYBACK_REPORT)).toBe(false);
+  });
+
+  describe('isSonicSimilarityActiveForServer', () => {
+    it('is on when the sonic strategy is detected', () => {
+      seed({ type: 'navidrome', serverVersion: '0.62.1', openSubsonic: true }, {
+        audiomusePluginProbeByServer: { [SID]: 'present' },
+      });
+      expect(isSonicSimilarityActiveForServer(SID)).toBe(true);
+    });
+
+    it('is off when the plugin is absent on a sonic-capable server', () => {
+      seed({ type: 'navidrome', serverVersion: '0.62.1', openSubsonic: true }, {
+        audiomusePluginProbeByServer: { [SID]: 'absent' },
+      });
+      expect(isSonicSimilarityActiveForServer(SID)).toBe(false);
+    });
+
+    it('is off for the legacy strategy even with the manual opt-in', () => {
+      seed({ type: 'navidrome', serverVersion: '0.61.0', openSubsonic: false }, {
+        instantMixProbeByServer: { [SID]: 'ok' },
+        audiomuseNavidromeByServer: { [SID]: true },
+      });
+      expect(isFeatureActiveForServer(SID, FEATURE_AUDIOMUSE_SIMILAR_TRACKS)).toBe(true);
+      expect(isSonicSimilarityActiveForServer(SID)).toBe(false);
+    });
+
+    it('is off for non-Navidrome servers', () => {
+      seed({ type: 'gonic', serverVersion: '0.16.0', openSubsonic: true });
+      expect(isSonicSimilarityActiveForServer(SID)).toBe(false);
+    });
   });
 });

@@ -17,6 +17,8 @@ export const PLAYBACK_REPORT_EXTENSION = 'playbackReport';
 export const SONG_LYRICS_EXTENSION = 'songLyrics';
 
 export const FEATURE_AUDIOMUSE_SIMILAR_TRACKS = 'audiomuse.similarTracks';
+/** Strategy id of the sonic (audio-analysis) AudioMuse path. */
+export const SONIC_SIMILARITY_STRATEGY_ID = 'opensubsonic.sonicSimilarity';
 export const FEATURE_PLAYBACK_REPORT = 'opensubsonic.playbackReport';
 export const FEATURE_ENHANCED_LYRICS = 'opensubsonic.enhancedLyrics';
 
@@ -36,7 +38,7 @@ export const SERVER_CAPABILITY_CATALOG: CapabilityDefinition[] = [
     strategies: [
       {
         // Navidrome ≥ 0.62: AudioMuse plugin advertised via OpenSubsonic.
-        id: 'opensubsonic.sonicSimilarity',
+        id: SONIC_SIMILARITY_STRATEGY_ID,
         priority: 100,
         when: (ctx) => ctx.isNavidrome && ctx.semverGte([0, 62, 0]),
         detection: {

@@ -25,6 +25,7 @@ export const albumDetail = {
   favorite: '收藏',
   noBio: '暂无简介。',
   moreByArtist: '{{artist}} 的更多作品',
+  similarAlbums: '相似专辑',
   tracksCount: '{{n}} 首曲目',
   goToArtist: '前往 {{artist}}',
   moreLabelAlbums: '{{label}} 的更多专辑',
