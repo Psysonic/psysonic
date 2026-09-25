@@ -3,7 +3,6 @@ import {
   Blend, Check, FolderOpen, Infinity as InfinityIcon, ListMusic, MoveRight, Save, Shuffle, Trash2, Waves,
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import type { QueueItemRef } from '@/lib/media/trackTypes';
 import type {
   QueueToolbarButtonConfig,
   QueueToolbarButtonId,
@@ -15,11 +14,11 @@ import { QueueShareButton } from '@/features/queue/components/QueueShareButton';
 import type { QueueShareController } from '@/features/queue/hooks/useQueueShare';
 
 interface Props {
-  queue: QueueItemRef[];
   activePlaylist: { id: string; name: string } | null;
   saveState: 'idle' | 'saving' | 'saved';
   toolbarButtons: QueueToolbarButtonConfig[];
-  shuffleQueue: () => void;
+  shuffleMode: boolean;
+  toggleShuffleMode: () => void;
   handleSave: () => void;
   handleLoad: () => void;
   queueShare: QueueShareController;
@@ -37,7 +36,7 @@ interface Props {
 }
 
 export function QueueToolbar({
-  queue, activePlaylist, saveState, toolbarButtons, shuffleQueue,
+  activePlaylist, saveState, toolbarButtons, shuffleMode, toggleShuffleMode,
   handleSave, handleLoad, queueShare,
   handleClear, handleClearExceptCurrent,
   publicShareQueueActive,
@@ -88,8 +87,16 @@ export function QueueToolbar({
 
         switch (btn.id as QueueToolbarButtonId) {
           case 'shuffle':
+            // Same persistent mode as the player bar button: switching it off restores the order.
             return (
-              <button key={btn.id} className="queue-round-btn" onClick={() => shuffleQueue()} disabled={queue.length < 2} data-tooltip={t('queue.shuffle')} aria-label={t('queue.shuffle')}>
+              <button
+                key={btn.id}
+                className={`queue-round-btn${shuffleMode ? ' active' : ''}`}
+                onClick={toggleShuffleMode}
+                aria-pressed={shuffleMode}
+                data-tooltip={`${t('queue.shuffle')}: ${shuffleMode ? t('player.shuffleOn') : t('player.shuffleOff')}`}
+                aria-label={t('queue.shuffle')}
+              >
                 <Shuffle size={13} />
               </button>
             );
