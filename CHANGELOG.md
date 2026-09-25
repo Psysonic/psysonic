@@ -19,6 +19,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Smart playlists created in Navidrome showed their cover briefly on the Playlists page and then switched to a collage of album art from their tracks, hiding custom artwork. They now keep their server cover there, as they already did in the sidebar and on the playlist page.
 
+### The queue's shuffle button is an on/off switch
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1661](https://github.com/Psysonic/psysonic/pull/1661)**
+
+* The shuffle button in the queue panel shuffled the whole queue once, including tracks already behind the current one, and there was no way to switch it back off. It now works like the shuffle button in the player bar: only upcoming tracks are reordered, and switching it off restores the original order.
+
+### Playlist view shows where you are in the queue
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1661](https://github.com/Psysonic/psysonic/pull/1661)**
+
+* In the queue panel's Playlist view, tracks before the one that is playing are now dimmed, so the current position in the full list is visible at a glance.
+
 ## [1.55.0]
 
 ## Added
