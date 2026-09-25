@@ -67,6 +67,10 @@ fn full_library_schema() -> Connection {
             env!("CARGO_MANIFEST_DIR"),
             "/crates/psysonic-library/migrations/026_library_tag_cursor.sql"
         )),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/crates/psysonic-library/migrations/030_track_mood.sql"
+        )),
     ] {
         conn.execute_batch(migration)
             .expect("apply library migration");
@@ -100,6 +104,8 @@ fn populate_all_library_scopes(conn: &Connection) {
            VALUES ('legacy-a', 'track-1', '/tmp/track-1', 1);
          INSERT INTO track_genre(server_id, track_id, genre, album_id)
            VALUES ('legacy-a', 'track-1', 'Rock', 'album-1');
+         INSERT INTO track_mood(server_id, track_id, mood, album_id, library_id)
+           VALUES ('legacy-a', 'track-1', 'Atmospheric', 'album-1', '');
          INSERT INTO artist_artwork_lookup(server_id, artist_id, surface_kind, status, updated_at)
            VALUES ('legacy-a', 'artist-1', 'fanart', 'hit', 1);
           INSERT INTO library_tag_state(server_id, folders_hash, completed_at)
