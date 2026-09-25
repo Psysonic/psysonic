@@ -274,6 +274,7 @@ export function retryFileMoodTagsMigration(): void {
 
     try {
       await runFileMoodTagsPhase();
+      await runScopeBrowseProjectionPhase();
       state.setPhase('completed');
     } catch (error: unknown) {
       if (

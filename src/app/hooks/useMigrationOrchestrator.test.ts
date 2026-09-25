@@ -35,7 +35,7 @@ vi.mock('@/utils/server/rewriteFrontendStoreKeys', () => ({
   rewriteFrontendStoreKeys: (servers: unknown) => rewriteFrontendStoreKeysMock(servers),
 }));
 
-import { useMigrationOrchestrator } from '@/app/hooks/useMigrationOrchestrator';
+import { retryBlockingMigration, useMigrationOrchestrator } from '@/app/hooks/useMigrationOrchestrator';
 
 const DONE_FLAG = 'psysonic-server-key-migration-v1';
 const REAL_MIGRATION_TEST_OVERRIDE = '__PSYSONIC_REAL_MIGRATION_TEST__';
@@ -295,5 +295,78 @@ describe('useMigrationOrchestrator', () => {
     await waitFor(() => {
       expect(useMigrationStore.getState().phase).toBe('completed');
     });
+  });
+  it('continues to scope browse projection after retrying file mood tags', async () => {
+    migrationInspectMock.mockResolvedValue({
+      needsMigration: false,
+      hasSkippedUnknownServerRows: false,
+      canRun: true,
+      warnings: [],
+      unmappedEmptyBucket: false,
+      library: {
+        totalLegacyRows: 0,
+        skippedUnknownServerRows: 0,
+        tables: {},
+      },
+      analysis: {
+        totalLegacyRows: 0,
+        skippedUnknownServerRows: 0,
+        tables: {},
+      },
+      mappings: [{ legacyId: 'legacy-a', indexKey: 'a.test' }],
+    });
+
+    libraryFileMoodTagsInspectMock
+      .mockResolvedValueOnce({
+        needed: true,
+        totalTracks: 100,
+        doneTracks: 0,
+      })
+      .mockResolvedValueOnce({
+        needed: true,
+        totalTracks: 100,
+        doneTracks: 0,
+      })
+      .mockResolvedValueOnce({
+        needed: false,
+        totalTracks: 100,
+        doneTracks: 100,
+      });
+
+    libraryFileMoodTagsRunMock
+      .mockRejectedValueOnce(new Error('mood backfill failed'))
+      .mockResolvedValueOnce(undefined);
+
+    libraryScopeBrowseProjectionInspectMock
+      .mockResolvedValueOnce({
+        needed: true,
+        totalTracks: 100,
+        doneTracks: 0,
+      })
+      .mockResolvedValueOnce({
+        needed: false,
+        totalTracks: 100,
+        doneTracks: 100,
+      });
+
+    renderHook(() => useMigrationOrchestrator());
+
+    await waitFor(() => {
+      expect(useMigrationStore.getState().phase).toBe('error');
+    });
+
+    expect(useMigrationStore.getState().step).toBe('fileMoodTags');
+    expect(libraryScopeBrowseProjectionInspectMock).not.toHaveBeenCalled();
+    expect(libraryScopeBrowseProjectionRunMock).not.toHaveBeenCalled();
+
+    retryBlockingMigration();
+
+    await waitFor(() => {
+      expect(useMigrationStore.getState().phase).toBe('completed');
+    });
+
+    expect(libraryFileMoodTagsRunMock).toHaveBeenCalledTimes(2);
+    expect(libraryScopeBrowseProjectionInspectMock).toHaveBeenCalledTimes(2);
+    expect(libraryScopeBrowseProjectionRunMock).toHaveBeenCalledTimes(1);
   });
 });
