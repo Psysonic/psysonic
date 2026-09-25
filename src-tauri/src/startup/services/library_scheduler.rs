@@ -87,6 +87,10 @@ async fn run_background_repairs_if_idle(runtime: &psysonic_library::LibraryRunti
         store.run_native_strong_keys_backfill_batch()
     })
     .await;
+    run_background_repair_batch_if_idle_with(runtime, "display-suffix backfill", |store| {
+        store.run_native_display_suffix_backfill_batch()
+    })
+    .await;
 }
 
 async fn run_background_repairs_after_startup_grace(

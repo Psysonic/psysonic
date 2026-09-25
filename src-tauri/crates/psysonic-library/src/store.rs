@@ -7,6 +7,7 @@ mod connection;
 mod filesystem;
 mod lifecycle;
 mod migrations;
+mod native_display_suffix_reconcile;
 mod native_strong_keys_reconcile;
 mod open;
 mod reconciles;
