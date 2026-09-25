@@ -3,7 +3,7 @@
  * the genre-tags startup backfill commands. Split out of the former single
  * `lib/api/library.ts`; re-exported via the `@/lib/api/library` barrel.
  */
-import { commands } from '@/generated/bindings';
+import { commands, type MoodTagsInspectDto } from '@/generated/bindings';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import type {
@@ -37,6 +37,17 @@ export async function libraryGenreTagsInspect(): Promise<GenreTagsInspectDto> {
 
 export async function libraryGenreTagsRun(): Promise<void> {
   const res = await commands.libraryGenreTagsRun();
+  if (res.status === 'error') throw new Error(res.error);
+}
+
+export async function libraryFileMoodTagsInspect(): Promise<MoodTagsInspectDto> {
+  const res = await commands.libraryFileMoodTagsInspect();
+  if (res.status === 'error') throw new Error(res.error);
+  return res.data;
+}
+
+export async function libraryFileMoodTagsRun(): Promise<void> {
+  const res = await commands.libraryFileMoodTagsRun();
   if (res.status === 'error') throw new Error(res.error);
 }
 

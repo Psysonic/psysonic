@@ -787,6 +787,27 @@ pub async fn library_genre_tags_run(
     })
     .await
 }
+#[tauri::command]
+#[specta::specta]
+pub fn library_file_mood_tags_inspect(
+    runtime: State<'_, LibraryRuntime>,
+) -> Result<crate::mood_tags_backfill::MoodTagsInspectDto, String> {
+    crate::mood_tags_backfill::inspect_mood_tags_backfill(&runtime.store)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn library_file_mood_tags_run(
+    app: tauri::AppHandle,
+    runtime: State<'_, LibraryRuntime>,
+) -> Result<(), String> {
+    let store = Arc::clone(&runtime.store);
+
+    library_spawn_blocking(move || {
+        crate::mood_tags_backfill::run_mood_tags_backfill(&store, &app)
+    })
+    .await
+}
 
 /// Ensure precomputed cluster identity keys are current without blocking Tauri's main thread.
 #[tauri::command]

@@ -70,6 +70,8 @@ export const commands = {
 	libraryGetOfflinePath: (serverId: string, trackId: string) => typedError<OfflinePathDto, string>(__TAURI_INVOKE("library_get_offline_path", { serverId, trackId })),
 	libraryGenreTagsInspect: () => typedError<GenreTagsInspectDto, string>(__TAURI_INVOKE("library_genre_tags_inspect")),
 	libraryGenreTagsRun: () => typedError<null, string>(__TAURI_INVOKE("library_genre_tags_run")),
+	libraryFileMoodTagsInspect: () => typedError<MoodTagsInspectDto, string>(__TAURI_INVOKE("library_file_mood_tags_inspect")),
+	libraryFileMoodTagsRun: () => typedError<null, string>(__TAURI_INVOKE("library_file_mood_tags_run")),
 	/**  Ensure precomputed cluster identity keys are current without blocking Tauri's main thread. */
 	libraryClusterRebuild: (serverId: string | null) => typedError<number, string>(__TAURI_INVOKE("library_cluster_rebuild", { serverId })),
 	libraryResolveEntitySources: (request: LibraryResolveEntitySourcesRequest) => typedError<LibraryEntitySourceDto[], string>(__TAURI_INVOKE("library_resolve_entity_sources", { request })),
@@ -1909,6 +1911,12 @@ export type MigrationServerSnapshotDto = {
 	serverId: string,
 	phase: MigrationPhase,
 	error: string | null,
+};
+
+export type MoodTagsInspectDto = {
+	needed: boolean,
+	totalTracks: number,
+	doneTracks: number,
 };
 
 export type NavidromeFilesystemMigrationDto = {
