@@ -149,6 +149,15 @@ describe('QueuePanel — display mode', () => {
     expect(container.textContent).not.toContain('Next Tracks');
   });
 
+  it('playlist mode: rows before the current track are dimmed, the current and upcoming rows are not', () => {
+    const tracks = makeTracks(4);
+    useAuthStore.getState().setQueueDisplayMode('playlist');
+    seedQueue(tracks, { index: 2, currentTrack: tracks[2] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    const opacities = [...container.querySelectorAll<HTMLElement>('[data-queue-idx]')].map(r => r.style.opacity);
+    expect(opacities).toEqual(['0.5', '0.5', '', '']);
+  });
+
   it('queue mode: header reads "Queue", only upcoming rows render with absolute indices + titles', () => {
     const tracks = makeTracks(5);
     useAuthStore.getState().setQueueDisplayMode('queue');
