@@ -45,6 +45,8 @@ describe('playByOpaqueId canonical ingress', () => {
     await playByOpaqueId(legacyId);
 
     expect(mocks.getSong).toHaveBeenCalledWith(canonicalNavidromeId(legacyId));
+    const track = { id: canonicalNavidromeId(legacyId) };
     expect(mocks.playTrack).toHaveBeenCalledOnce();
+    expect(mocks.playTrack).toHaveBeenCalledWith(track, [track]);
   });
 });

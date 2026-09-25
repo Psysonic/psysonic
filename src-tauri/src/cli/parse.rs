@@ -69,7 +69,7 @@ pub(super) struct CliActionRegistryEntry {
 fn shortcut_actions_registry_source() -> &'static str {
     include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../src/config/shortcutActions.ts"
+        "/../src/config/shortcutActionRegistry.ts"
     ))
 }
 
@@ -413,15 +413,103 @@ pub fn parse_cli_command(args: &[String]) -> Option<CliCommand> {
 mod tests {
     use super::*;
 
-    fn parse_player(args: &[&str]) -> Option<PlayerCliCmd> {
+    fn parse(args: &[&str]) -> Option<CliCommand> {
         let argv: Vec<String> = std::iter::once("psysonic")
             .chain(args.iter().copied())
             .map(String::from)
             .collect();
-        match parse_cli_command(&argv) {
+        parse_cli_command(&argv)
+    }
+
+    fn parse_player(args: &[&str]) -> Option<PlayerCliCmd> {
+        match parse(args) {
             Some(CliCommand::Player(cmd)) => Some(cmd),
             _ => None,
         }
+    }
+
+    #[test]
+    fn registry_backed_player_commands_are_available() {
+        for verb in [
+            "play", "pause", "stop", "next", "prev", "shuffle", "mute", "unmute", "star", "unstar",
+            "reload",
+        ] {
+            assert_eq!(
+                parse_player(&["--player", verb]),
+                Some(PlayerCliCmd::NoArgCommand(verb.into())),
+                "missing CLI verb {verb}"
+            );
+        }
+        assert_eq!(
+            parse_player(&["--player", "play", "song-id"]),
+            Some(PlayerCliCmd::PlayOpaqueId("song-id".into()))
+        );
+        assert_eq!(parse_player(&["--player", "play", "-bad-id"]), None);
+    }
+
+    #[test]
+    fn argument_and_list_commands_remain_available() {
+        assert_eq!(
+            parse_player(&["--player", "seek", "-15"]),
+            Some(PlayerCliCmd::Seek { delta_secs: -15 })
+        );
+        assert_eq!(
+            parse_player(&["--player", "repeat", "one"]),
+            Some(PlayerCliCmd::Repeat(RepeatCliMode::One))
+        );
+        assert_eq!(
+            parse_player(&["--player", "rating", "5"]),
+            Some(PlayerCliCmd::Rating { stars: 5 })
+        );
+        assert_eq!(
+            parse(&["--player", "audio-device", "list"]),
+            Some(CliCommand::AudioDeviceList)
+        );
+        assert_eq!(
+            parse(&["--player", "audio-device", "set", "default"]),
+            Some(CliCommand::AudioDeviceSet(None))
+        );
+        assert_eq!(
+            parse(&["--player", "library", "list"]),
+            Some(CliCommand::LibraryList)
+        );
+        assert_eq!(
+            parse(&["--player", "library", "set", "all"]),
+            Some(CliCommand::LibrarySet("all".into()))
+        );
+        assert_eq!(
+            parse(&["--player", "server", "list"]),
+            Some(CliCommand::ServerList)
+        );
+        assert_eq!(
+            parse(&["--player", "server", "set", "server-id"]),
+            Some(CliCommand::ServerSet("server-id".into()))
+        );
+        for (scope, expected) in [
+            ("track", SearchCliScope::Track),
+            ("album", SearchCliScope::Album),
+            ("artist", SearchCliScope::Artist),
+        ] {
+            assert_eq!(
+                parse(&["--player", "search", scope, "some", "name"]),
+                Some(CliCommand::Search {
+                    scope: expected,
+                    query: "some name".into(),
+                })
+            );
+        }
+        assert_eq!(
+            parse(&["--player", "mix", "new"]),
+            Some(CliCommand::Mix(MixCliMode::New))
+        );
+        assert_eq!(
+            parse(&["--player", "mix", "append"]),
+            Some(CliCommand::Mix(MixCliMode::Append))
+        );
+        assert_eq!(
+            parse(&["benchmark", "latest"]),
+            Some(CliCommand::BenchmarkLatest)
+        );
     }
 
     #[test]
