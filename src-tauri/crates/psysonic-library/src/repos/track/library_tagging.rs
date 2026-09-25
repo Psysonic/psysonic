@@ -418,6 +418,16 @@ impl TrackRepository<'_> {
                         ),
                         params_from_iter(params.iter()),
                     )?;
+                    tx.execute(
+                        &format!(
+                            "UPDATE track_mood SET library_id = ?1 \
+                            WHERE server_id = ?2 AND track_id IN ( \
+                                SELECT id FROM track WHERE server_id = ?2 \
+                                  AND album_id IN ({changed_placeholders}) AND library_id = ?1 \
+                            ) AND COALESCE(library_id, '') != ?1"
+                        ),
+                        params_from_iter(params.iter()),
+                    )?;
                     crate::identity::refresh_library_ids_for_albums(
                         &tx,
                         server_id,

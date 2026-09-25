@@ -27,6 +27,23 @@ fn apply_album_list_page_fills_only_empty_library_rows() {
     other_album.album_id = Some("al2".into());
     other_album.library_id = None;
     repo.upsert_batch(&[tagged, empty, other_album]).unwrap();
+
+    store
+        .with_conn_mut("test.seed_track_mood_library_tagging", |conn| {
+            conn.execute(
+                "INSERT INTO track_mood(server_id, track_id, mood, album_id, library_id) \
+                 VALUES ('s1', 't2', 'Atmospheric', 'al1', '')",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track_mood(server_id, track_id, mood, album_id, library_id) \
+                 VALUES ('s1', 't3', 'Dreamy', 'al2', '')",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
     crate::identity::rebuild_cluster_keys(&store, None).unwrap();
 
     let n = repo
@@ -53,39 +70,52 @@ fn apply_album_list_page_fills_only_empty_library_rows() {
     assert_eq!(read("t2").as_deref(), Some("1"));
     assert_eq!(read("t3").as_deref(), Some("1"));
 
-    let (empty_projection, tagged_projection, identity_tagged, genre_tagged): (i64, i64, i64, i64) =
-        store
-            .with_read_conn(|conn| {
-                Ok((
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = ''",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = '1'",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM cluster.track_cluster_key \
+    let (
+        empty_projection,
+        tagged_projection,
+        identity_tagged,
+        genre_tagged,
+        mood_tagged,
+    ): (i64, i64, i64, i64, i64) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = ''",
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = '1'",
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM cluster.track_cluster_key \
                      WHERE track_id IN ('t2', 't3') AND library_id = '1'",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM track_genre \
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_genre \
                      WHERE track_id IN ('t2', 't3') AND library_id = '1'",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                ))
-            })
-            .unwrap();
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood \
+                     WHERE track_id IN ('t2', 't3') AND library_id = '1'",
+                    [],
+                    |r| r.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
     assert_eq!(empty_projection, 0);
     assert_eq!(tagged_projection, 2);
     assert_eq!(identity_tagged, 2);
     assert_eq!(genre_tagged, 2);
+    assert_eq!(mood_tagged, 2);
 }
 
 #[test]
