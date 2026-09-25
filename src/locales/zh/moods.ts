@@ -1,8 +1,6 @@
 export const moods = {
   title: 'Moods',
-moodCount: 'Moods',
-  moodCount_one: '{{count}} mood',
-  moodCount_other: '{{count}} moods',
+  moodCount: 'Moods',
   albumCount_one: '{{count}} album',
   albumCount_other: '{{count}} albums',
   loading: 'Loading moods…',
