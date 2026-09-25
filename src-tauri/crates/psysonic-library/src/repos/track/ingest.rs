@@ -24,23 +24,14 @@ fn sync_track_tag_state(
     state: &TrackTagState,
 ) -> rusqlite::Result<()> {
     if state.deleted {
-        genre_tags::delete_track_genre_for_track(
-            tx,
-            server_id,
-            &state.track_id,
-        )?;
+        genre_tags::delete_track_genre_for_track(tx, server_id, &state.track_id)?;
 
-        mood_tags::delete_track_mood_for_track(
-            tx,
-            server_id,
-            &state.track_id,
-        )?;
+        mood_tags::delete_track_mood_for_track(tx, server_id, &state.track_id)?;
 
         return Ok(());
     }
 
-    let raw_json =
-        serde_json::from_str::<JsonValue>(&state.raw_json).unwrap_or(JsonValue::Null);
+    let raw_json = serde_json::from_str::<JsonValue>(&state.raw_json).unwrap_or(JsonValue::Null);
 
     let genres = genres_for_track_value(&raw_json, state.genre.as_deref());
 

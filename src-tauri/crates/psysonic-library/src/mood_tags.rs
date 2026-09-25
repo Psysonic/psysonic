@@ -59,8 +59,8 @@ pub fn moods_for_track_extracted(moods_json: Option<&str>) -> Vec<String> {
     // SQLite json_extract() returns arrays as JSON text but scalar strings
     // as ordinary SQL text.
     if raw.starts_with('[') {
-    if let Ok(value) = serde_json::from_str::<Value>(raw) {
-        return moods_from_value(&value);
+        if let Ok(value) = serde_json::from_str::<Value>(raw) {
+            return moods_from_value(&value);
         }
     }
 
@@ -97,13 +97,7 @@ pub fn replace_track_mood_rows(
     )?;
 
     for mood in moods {
-        insert.execute(params![
-            server_id,
-            track_id,
-            mood,
-            album_id,
-            library_id
-        ])?;
+        insert.execute(params![server_id, track_id, mood, album_id, library_id])?;
     }
 
     Ok(())
@@ -161,10 +155,7 @@ mod tests {
 
         assert_eq!(
             moods_for_track_value(&raw),
-            vec![
-                "Atmospheric".to_string(),
-                "Dreamy".to_string()
-            ]
+            vec!["Atmospheric".to_string(), "Dreamy".to_string()]
         );
     }
 
@@ -174,10 +165,7 @@ mod tests {
             "moods": "Atmospheric"
         });
 
-        assert_eq!(
-            moods_for_track_value(&raw),
-            vec!["Atmospheric".to_string()]
-        );
+        assert_eq!(moods_for_track_value(&raw), vec!["Atmospheric".to_string()]);
     }
 
     #[test]
@@ -243,9 +231,7 @@ fn track_upsert_projects_file_moods_into_track_mood() {
         .into(),
     };
 
-    TrackRepository::new(&store)
-        .upsert_batch(&[track])
-        .unwrap();
+    TrackRepository::new(&store).upsert_batch(&[track]).unwrap();
 
     let moods: Vec<String> = store
         .with_read_conn(|conn| {
@@ -258,8 +244,8 @@ fn track_upsert_projects_file_moods_into_track_mood() {
             )?;
 
             let rows = stmt
-    .query_map([], |row| row.get::<_, String>(0))?
-    .collect::<rusqlite::Result<Vec<_>>>()?;
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
 
             Ok(rows)
         })

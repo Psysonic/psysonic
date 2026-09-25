@@ -83,9 +83,7 @@ fn cursor_rowid(conn: &Connection) -> rusqlite::Result<i64> {
     Ok(rowid.unwrap_or(0))
 }
 
-pub fn inspect_mood_tags_backfill(
-    store: &LibraryStore,
-) -> Result<MoodTagsInspectDto, String> {
+pub fn inspect_mood_tags_backfill(store: &LibraryStore) -> Result<MoodTagsInspectDto, String> {
     store.with_read_conn(|conn| {
         let total_tracks = count_live_tracks(conn)?;
 
@@ -124,22 +122,12 @@ pub fn inspect_mood_tags_backfill(
     })
 }
 
-fn emit_progress(
-    app: &AppHandle,
-    done: u64,
-    total: u64,
-) -> Result<(), String> {
-    app.emit(
-        "mood_tags:progress",
-        MoodTagsProgressEvent { done, total },
-    )
-    .map_err(|e| e.to_string())
+fn emit_progress(app: &AppHandle, done: u64, total: u64) -> Result<(), String> {
+    app.emit("mood_tags:progress", MoodTagsProgressEvent { done, total })
+        .map_err(|e| e.to_string())
 }
 
-pub fn run_mood_tags_backfill(
-    store: &LibraryStore,
-    app: &AppHandle,
-) -> Result<(), String> {
+pub fn run_mood_tags_backfill(store: &LibraryStore, app: &AppHandle) -> Result<(), String> {
     run_mood_tags_backfill_impl(store, Some(app))
 }
 
@@ -156,17 +144,13 @@ fn run_mood_tags_backfill_impl(
     let total = inspect.total_tracks;
 
     loop {
-        let (batch_done, finished) =
-            store.with_conn_mut("mood_tags.backfill", |conn| {
-                if migration_completed(conn)? {
-                    return Ok::<(i64, bool), rusqlite::Error>((
-                        total as i64,
-                        true,
-                    ));
-                }
+        let (batch_done, finished) = store.with_conn_mut("mood_tags.backfill", |conn| {
+            if migration_completed(conn)? {
+                return Ok::<(i64, bool), rusqlite::Error>((total as i64, true));
+            }
 
-                conn.execute(
-                    "INSERT INTO library_data_migration
+            conn.execute(
+                "INSERT INTO library_data_migration
                          (id, cursor_rowid, started_at)
                      VALUES (?1, 0, ?2)
                      ON CONFLICT(id) DO UPDATE SET
@@ -174,13 +158,13 @@ fn run_mood_tags_backfill_impl(
                              library_data_migration.started_at,
                              excluded.started_at
                          )",
-                    params![MOOD_TAGS_MIGRATION_ID, now_unix()],
-                )?;
+                params![MOOD_TAGS_MIGRATION_ID, now_unix()],
+            )?;
 
-                let cursor = cursor_rowid(conn)?;
+            let cursor = cursor_rowid(conn)?;
 
-                let mut stmt = conn.prepare(
-                    "SELECT
+            let mut stmt = conn.prepare(
+                "SELECT
                          rowid,
                          server_id,
                          id,
@@ -197,24 +181,24 @@ fn run_mood_tags_backfill_impl(
                        AND rowid > ?1
                      ORDER BY rowid
                      LIMIT ?2",
-                )?;
+            )?;
 
-                let rows: Vec<BackfillTrackRow> = stmt
-                    .query_map(params![cursor, BATCH_SIZE], |row| {
-                        Ok((
-                            row.get(0)?,
-                            row.get(1)?,
-                            row.get(2)?,
-                            row.get(3)?,
-                            row.get(4)?,
-                            row.get(5)?,
-                        ))
-                    })?
-                    .collect::<rusqlite::Result<Vec<_>>>()?;
+            let rows: Vec<BackfillTrackRow> = stmt
+                .query_map(params![cursor, BATCH_SIZE], |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
 
-                if rows.is_empty() {
-                    conn.execute(
-                        "UPDATE library_data_migration
+            if rows.is_empty() {
+                conn.execute(
+                    "UPDATE library_data_migration
                          SET completed_at = ?2,
                              cursor_rowid = (
                                  SELECT COALESCE(MAX(rowid), 0)
@@ -222,58 +206,50 @@ fn run_mood_tags_backfill_impl(
                                  WHERE deleted = 0
                              )
                          WHERE id = ?1",
-                        params![MOOD_TAGS_MIGRATION_ID, now_unix()],
-                    )?;
-
-                    return Ok((total as i64, true));
-                }
-
-                let tx = conn.unchecked_transaction()?;
-                let mut last_rowid = cursor;
-
-                for (
-                    rowid,
-                    server_id,
-                    track_id,
-                    moods_json,
-                    album_id,
-                    library_id,
-                ) in rows
-                {
-                    let moods = moods_for_track_extracted(moods_json.as_deref());
-
-                    replace_track_mood_rows(
-                        &tx,
-                        &server_id,
-                        &track_id,
-                        album_id.as_deref(),
-                        library_id.as_deref(),
-                        &moods,
-                    )?;
-
-                    last_rowid = rowid;
-                }
-
-                tx.commit()?;
-
-                conn.execute(
-                    "UPDATE library_data_migration
-                     SET cursor_rowid = ?2
-                     WHERE id = ?1",
-                    params![MOOD_TAGS_MIGRATION_ID, last_rowid],
+                    params![MOOD_TAGS_MIGRATION_ID, now_unix()],
                 )?;
 
-                let done: i64 = conn.query_row(
-                    "SELECT COUNT(*)
+                return Ok((total as i64, true));
+            }
+
+            let tx = conn.unchecked_transaction()?;
+            let mut last_rowid = cursor;
+
+            for (rowid, server_id, track_id, moods_json, album_id, library_id) in rows {
+                let moods = moods_for_track_extracted(moods_json.as_deref());
+
+                replace_track_mood_rows(
+                    &tx,
+                    &server_id,
+                    &track_id,
+                    album_id.as_deref(),
+                    library_id.as_deref(),
+                    &moods,
+                )?;
+
+                last_rowid = rowid;
+            }
+
+            tx.commit()?;
+
+            conn.execute(
+                "UPDATE library_data_migration
+                     SET cursor_rowid = ?2
+                     WHERE id = ?1",
+                params![MOOD_TAGS_MIGRATION_ID, last_rowid],
+            )?;
+
+            let done: i64 = conn.query_row(
+                "SELECT COUNT(*)
                      FROM track
                      WHERE deleted = 0
                        AND rowid <= ?1",
-                    params![last_rowid],
-                    |row| row.get(0),
-                )?;
+                params![last_rowid],
+                |row| row.get(0),
+            )?;
 
-                Ok((done, false))
-            })?;
+            Ok((done, false))
+        })?;
 
         if let Some(app) = app {
             emit_progress(app, batch_done.max(0) as u64, total)?;
@@ -392,11 +368,7 @@ mod tests {
 
         let before: i64 = store
             .with_read_conn(|conn| {
-                conn.query_row(
-                    "SELECT COUNT(*) FROM track_mood",
-                    [],
-                    |row| row.get(0),
-                )
+                conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| row.get(0))
             })
             .unwrap();
 
