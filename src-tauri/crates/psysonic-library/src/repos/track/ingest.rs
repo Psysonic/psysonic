@@ -2,10 +2,11 @@ use std::collections::{HashMap, HashSet};
 
 use rusqlite::types::Value;
 use rusqlite::{params, params_from_iter, Transaction};
+use serde_json::Value as JsonValue;
 
 use super::{TrackRepository, TrackRow};
-use crate::genre_tags::{self, genres_for_track_raw_json};
-use crate::mood_tags::{self, moods_for_track_raw_json};
+use crate::genre_tags::{self, genres_for_track_value};
+use crate::mood_tags::{self, moods_for_track_value};
 use crate::store::WriteOpTiming;
 
 struct TrackTagState {
@@ -38,8 +39,10 @@ fn sync_track_tag_state(
         return Ok(());
     }
 
-    let genres =
-        genres_for_track_raw_json(&state.raw_json, state.genre.as_deref());
+    let raw_json =
+        serde_json::from_str::<JsonValue>(&state.raw_json).unwrap_or(JsonValue::Null);
+
+    let genres = genres_for_track_value(&raw_json, state.genre.as_deref());
 
     genre_tags::replace_track_genre_rows(
         tx,
@@ -50,7 +53,7 @@ fn sync_track_tag_state(
         &genres,
     )?;
 
-    let moods = moods_for_track_raw_json(&state.raw_json);
+    let moods = moods_for_track_value(&raw_json);
 
     mood_tags::replace_track_mood_rows(
         tx,

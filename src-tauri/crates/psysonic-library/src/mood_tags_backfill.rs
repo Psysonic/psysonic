@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{params, Connection, OptionalExtension};
 use tauri::{AppHandle, Emitter};
 
-use crate::mood_tags::{moods_for_track_raw_json, replace_track_mood_rows};
+use crate::mood_tags::{moods_for_track_extracted, replace_track_mood_rows};
 use crate::store::LibraryStore;
 
 pub const MOOD_TAGS_MIGRATION_ID: &str = "mood_tags_v1";
@@ -16,7 +16,7 @@ type BackfillTrackRow = (
     i64,
     String,
     String,
-    String,
+    Option<String>,
     Option<String>,
     Option<String>,
 );
@@ -184,7 +184,12 @@ fn run_mood_tags_backfill_impl(
                          rowid,
                          server_id,
                          id,
-                         raw_json,
+                         CASE WHEN json_valid(raw_json) THEN
+                                CASE
+                                    WHEN json_type(raw_json, '$.moods') IN ('array', 'text')
+                                    THEN json_extract(raw_json, '$.moods')
+                                END
+                            END,
                          album_id,
                          library_id
                      FROM track
@@ -230,12 +235,12 @@ fn run_mood_tags_backfill_impl(
                     rowid,
                     server_id,
                     track_id,
-                    raw_json,
+                    moods_json,
                     album_id,
                     library_id,
                 ) in rows
                 {
-                    let moods = moods_for_track_raw_json(&raw_json);
+                    let moods = moods_for_track_extracted(moods_json.as_deref());
 
                     replace_track_mood_rows(
                         &tx,

@@ -28,11 +28,7 @@ fn dedupe_moods(moods: Vec<String>) -> Vec<String> {
     out
 }
 
-pub fn moods_for_track_value(raw_json: &Value) -> Vec<String> {
-    let Some(value) = raw_json.get("moods") else {
-        return Vec::new();
-    };
-
+fn moods_from_value(value: &Value) -> Vec<String> {
     match value {
         Value::Array(items) => dedupe_moods(
             items
@@ -42,12 +38,33 @@ pub fn moods_for_track_value(raw_json: &Value) -> Vec<String> {
                 .collect(),
         ),
 
-        // Be liberal in what we accept in case another Subsonic-compatible
-        // server exposes a single mood as a scalar.
         Value::String(mood) => dedupe_moods(vec![mood.clone()]),
 
         _ => Vec::new(),
     }
+}
+
+pub fn moods_for_track_value(raw_json: &Value) -> Vec<String> {
+    raw_json
+        .get("moods")
+        .map(moods_from_value)
+        .unwrap_or_default()
+}
+
+pub fn moods_for_track_extracted(moods_json: Option<&str>) -> Vec<String> {
+    let Some(raw) = moods_json.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Vec::new();
+    };
+
+    // SQLite json_extract() returns arrays as JSON text but scalar strings
+    // as ordinary SQL text.
+    if raw.starts_with('[') {
+    if let Ok(value) = serde_json::from_str::<Value>(raw) {
+        return moods_from_value(&value);
+        }
+    }
+
+    dedupe_moods(vec![raw.to_string()])
 }
 
 pub fn moods_for_track_raw_json(raw_json: &str) -> Vec<String> {
