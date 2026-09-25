@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.56.0]
 
+## Added
+
+### Track subtitles and album versions from Navidrome
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**
+
+* A track's subtitle (e.g. "Instrumental") now appears after its title in every track list, and an album's version (e.g. "Deluxe Edition") after the album name — also for libraries synced through Navidrome's own API, which previously showed them only in some places. Existing libraries are updated once in the background.
+* The album page shows the version under the album title when the title does not already include it.
+
 ## Fixed
 
 ### Navidrome smart playlists keep their cover on the Playlists page
