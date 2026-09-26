@@ -34,7 +34,7 @@ fn native_display_suffix_backfill_appends_tags_once_and_invalidates_changed_rows
                 "Song",
                 "Album",
                 0,
-                r#"{"tags":{"subtitle":["Instrumental"]}}"#,
+                r#"{"updatedAt":"2026-01-01T00:00:00Z","tags":{"subtitle":["Instrumental"]}}"#,
             )?;
             seed_track(
                 conn,
@@ -42,7 +42,7 @@ fn native_display_suffix_backfill_appends_tags_once_and_invalidates_changed_rows
                 "Song",
                 "Album",
                 0,
-                r#"{"albumVersion":"Deluxe","tags":{"albumversion":["Deluxe"]}}"#,
+                r#"{"updatedAt":"2026-01-01T00:00:00Z","albumVersion":"Deluxe","tags":{"albumversion":["Deluxe"]}}"#,
             )?;
             // Arrived through the Subsonic API, which already appended both.
             seed_track(
@@ -53,13 +53,22 @@ fn native_display_suffix_backfill_appends_tags_once_and_invalidates_changed_rows
                 0,
                 r#"{"tags":{"subtitle":["Instrumental"],"albumversion":["Deluxe"]}}"#,
             )?;
+            // A Subsonic row that states bare names keeps them, tags or not.
+            seed_track(
+                conn,
+                "subsonic-bare",
+                "Song",
+                "Album",
+                0,
+                r#"{"title":"Song","album":"Album","tags":{"subtitle":["Live"],"albumversion":["Deluxe"]}}"#,
+            )?;
             seed_track(
                 conn,
                 "plain",
                 "Song",
                 "Album",
                 0,
-                r#"{"tags":{"genre":["Ambient"]}}"#,
+                r#"{"updatedAt":"2026-01-01T00:00:00Z","tags":{"genre":["Ambient"]}}"#,
             )?;
             seed_track(
                 conn,
@@ -67,7 +76,7 @@ fn native_display_suffix_backfill_appends_tags_once_and_invalidates_changed_rows
                 "Song",
                 "Album",
                 1,
-                r#"{"tags":{"subtitle":["Instrumental"]}}"#,
+                r#"{"updatedAt":"2026-01-01T00:00:00Z","tags":{"subtitle":["Instrumental"]}}"#,
             )?;
             Ok(())
         })
@@ -96,6 +105,7 @@ fn native_display_suffix_backfill_appends_tags_once_and_invalidates_changed_rows
                 "Song (Instrumental)".into(),
                 "Album (Deluxe)".into()
             ),
+            ("subsonic-bare".into(), "Song".into(), "Album".into()),
             (
                 "subtitle".into(),
                 "Song (Instrumental)".into(),
@@ -163,14 +173,88 @@ fn native_display_suffix_backfill_defers_during_bulk_ingest_and_is_not_part_of_o
 
     store.set_bulk_ingest_active(true);
     assert_eq!(
-        store.run_native_display_suffix_backfill_batch().unwrap(),
+        store
+            .run_native_display_suffix_backfill_batch()
+            .unwrap()
+            .step,
         LibraryBackfillStep::Deferred
     );
     store.set_bulk_ingest_active(false);
     assert_eq!(
-        store.run_native_display_suffix_backfill_batch().unwrap(),
+        store
+            .run_native_display_suffix_backfill_batch()
+            .unwrap()
+            .step,
         LibraryBackfillStep::Complete
     );
+}
+
+#[test]
+fn native_display_suffix_backfill_caps_candidate_rows_per_tick_and_reports_changed_servers() {
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_conn_mut("test.seed_display_suffix_dense", |conn| {
+            let tx = conn.transaction()?;
+            for index in 0..600 {
+                seed_track(
+                    &tx,
+                    &format!("track-{index}"),
+                    "Song",
+                    "Album",
+                    0,
+                    r#"{"updatedAt":"2026-01-01T00:00:00Z","tags":{"subtitle":["Live"]}}"#,
+                )?;
+            }
+            // Mentions the tag but has the Subsonic shape: read, never changed.
+            tx.execute(
+                "INSERT INTO track (server_id, id, title, album, album_id, library_id, \
+                   duration_sec, deleted, synced_at, raw_json) \
+                 VALUES ('s2', 'subsonic', 'Song', 'Album', 'al-s2', 'lib', 1, 0, 1, \
+                   '{\"tags\":{\"subtitle\":[\"Live\"]}}')",
+                [],
+            )?;
+            tx.commit()
+        })
+        .expect("seed dense window");
+
+    let suffixed = |store: &LibraryStore| -> i64 {
+        store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track WHERE title = 'Song (Live)'",
+                    [],
+                    |row| row.get(0),
+                )
+            })
+            .expect("suffixed count")
+    };
+
+    let first = store.run_native_display_suffix_backfill_batch().unwrap();
+    assert_eq!(first.step, LibraryBackfillStep::Pending);
+    assert_eq!(first.changed_server_ids, vec!["s1".to_string()]);
+    assert_eq!(suffixed(&store), 500, "one tick stops at the row cap");
+
+    let second = store.run_native_display_suffix_backfill_batch().unwrap();
+    assert_eq!(second.changed_server_ids, vec!["s1".to_string()]);
+    assert_eq!(
+        suffixed(&store),
+        600,
+        "the next tick resumes after the last row read"
+    );
+
+    let complete = store.run_native_display_suffix_backfill_batch().unwrap();
+    assert_eq!(complete.step, LibraryBackfillStep::Complete);
+    assert!(complete.changed_server_ids.is_empty());
+    let subsonic_title: String = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT title FROM track WHERE server_id = 's2'",
+                [],
+                |row| row.get(0),
+            )
+        })
+        .expect("subsonic title");
+    assert_eq!(subsonic_title, "Song");
 }
 
 #[test]
@@ -185,7 +269,7 @@ fn native_display_suffix_backfill_walks_the_table_in_rowid_windows() {
             // The last row sits in the second window.
             tx.execute(
                 "UPDATE track SET raw_json = ?1 WHERE id = 'track-10000'",
-                [r#"{"tags":{"subtitle":["Live"]}}"#],
+                [r#"{"updatedAt":"2026-01-01T00:00:00Z","tags":{"subtitle":["Live"]}}"#],
             )?;
             tx.commit()
         })
@@ -204,16 +288,25 @@ fn native_display_suffix_backfill_walks_the_table_in_rowid_windows() {
     };
 
     assert_eq!(
-        store.run_native_display_suffix_backfill_batch().unwrap(),
+        store
+            .run_native_display_suffix_backfill_batch()
+            .unwrap()
+            .step,
         LibraryBackfillStep::Pending
     );
     assert_eq!(cursor(&store), (10_000, None));
     assert_eq!(
-        store.run_native_display_suffix_backfill_batch().unwrap(),
+        store
+            .run_native_display_suffix_backfill_batch()
+            .unwrap()
+            .step,
         LibraryBackfillStep::Pending
     );
     assert_eq!(
-        store.run_native_display_suffix_backfill_batch().unwrap(),
+        store
+            .run_native_display_suffix_backfill_batch()
+            .unwrap()
+            .step,
         LibraryBackfillStep::Complete
     );
     assert!(cursor(&store).1.is_some());

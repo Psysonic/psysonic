@@ -31,6 +31,7 @@ pub(crate) use migrations::{
     MIGRATION_027_ARTIST_STARRED,
 };
 pub use migrations::{LIBRARY_DB_MIN_COMPATIBLE_VERSION, LIBRARY_DB_SCHEMA_VERSION};
+pub use native_display_suffix_reconcile::NativeDisplaySuffixBatch;
 #[allow(unused_imports)]
 pub(crate) use reconciles::{
     ARTIST_NAME_FOLD_RECONCILE_ID, ARTIST_NAME_SORT_RECONCILE_ID,
