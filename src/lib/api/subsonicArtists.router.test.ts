@@ -15,7 +15,11 @@ vi.mock('@/lib/api/subsonicLibrary', () => ({
 }));
 
 import { apiForServer } from '@/lib/api/subsonicClient';
-import { fetchSimilarTracksRouted } from '@/lib/api/subsonicArtists';
+import {
+  fetchSimilarTracksRouted,
+  getSonicSimilarMatchesForServer,
+  getSonicSimilarTracksForServer,
+} from '@/lib/api/subsonicArtists';
 import { useAuthStore } from '@/store/authStore';
 
 const SID = 'srv-router';
@@ -76,5 +80,48 @@ describe('fetchSimilarTracksRouted', () => {
     expect(result.map(s => s.id)).toEqual(['legacy-1']);
     expect(apiForServerMock).not.toHaveBeenCalledWith(SID, 'getSonicSimilarTracks.view', expect.anything());
     expect(apiForServerMock).toHaveBeenCalledWith(SID, 'getSimilarSongs.view', expect.anything());
+  });
+});
+
+describe('getSonicSimilarMatchesForServer', () => {
+  // Shape of a real `getSonicSimilarTracks` response (OpenSubsonic sonicSimilarity).
+  const SCORED_RESPONSE = {
+    sonicMatch: [
+      { entry: { id: '300000060', title: 'BrownSmoke', albumId: '200000002', album: 'Colorsmoke EP' }, similarity: 0.95 },
+      { entry: { id: '300000055', title: 'Red&GreenSmoke', albumId: '200000002', album: 'Colorsmoke EP' }, similarity: 0.88 },
+      { entry: { id: 'no-score', title: 'No score' } },
+    ],
+  };
+
+  beforeEach(() => {
+    apiForServerMock.mockReset();
+  });
+
+  it('keeps each match\'s similarity score and tags the owning server', async () => {
+    apiForServerMock.mockResolvedValue(SCORED_RESPONSE as never);
+    const matches = await getSonicSimilarMatchesForServer(SID, 'seed', 10);
+    expect(matches.map(m => [m.song.id, m.similarity, m.song.serverId])).toEqual([
+      ['300000060', 0.95, SID],
+      ['300000055', 0.88, SID],
+      ['no-score', undefined, SID],
+    ]);
+  });
+
+  it('accepts a single non-array sonicMatch', async () => {
+    apiForServerMock.mockResolvedValue({ sonicMatch: SCORED_RESPONSE.sonicMatch[0] } as never);
+    const matches = await getSonicSimilarMatchesForServer(SID, 'seed', 10);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].similarity).toBe(0.95);
+  });
+
+  it('returns [] when the request fails', async () => {
+    apiForServerMock.mockRejectedValue(new Error('404'));
+    expect(await getSonicSimilarMatchesForServer(SID, 'seed', 10)).toEqual([]);
+  });
+
+  it('getSonicSimilarTracksForServer still returns plain songs', async () => {
+    apiForServerMock.mockResolvedValue(SCORED_RESPONSE as never);
+    const songs = await getSonicSimilarTracksForServer(SID, 'seed', 2);
+    expect(songs.map(s => s.id)).toEqual(['300000060', '300000055']);
   });
 });

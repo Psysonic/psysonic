@@ -4,9 +4,11 @@ import type {
 } from '@/lib/server/subsonicServerIdentity';
 import { buildCapabilityContext } from './context';
 import {
+  FEATURE_AUDIOMUSE_SIMILAR_TRACKS,
   PROBE_LEGACY_INSTANT_MIX,
   PROBE_OPENSUBSONIC_EXTENSIONS,
   SONIC_SIMILARITY_EXTENSION,
+  SONIC_SIMILARITY_STRATEGY_ID,
   getCapabilityDefinition,
 } from './catalog';
 import {
@@ -79,6 +81,18 @@ export function isFeatureActiveForServer(serverId: string, feature: string): boo
   if (!resolved) return false;
   const userOptIn = !!useAuthStore.getState().audiomuseNavidromeByServer[serverId];
   return isCapabilityActive(resolved, userOptIn);
+}
+
+/**
+ * True only when AudioMuse similarity comes from the sonic (`sonicSimilarity`)
+ * strategy. Features that must not degrade to the legacy `getSimilarSongs`
+ * path — which Navidrome may answer from Last.fm — gate on this instead of
+ * `isFeatureActiveForServer(…, FEATURE_AUDIOMUSE_SIMILAR_TRACKS)`.
+ */
+export function isSonicSimilarityActiveForServer(serverId: string): boolean {
+  const resolved = resolveFeatureForServer(serverId, FEATURE_AUDIOMUSE_SIMILAR_TRACKS);
+  if (resolved?.strategyId !== SONIC_SIMILARITY_STRATEGY_ID) return false;
+  return isFeatureActiveForServer(serverId, FEATURE_AUDIOMUSE_SIMILAR_TRACKS);
 }
 
 export function resolveCallRoutesForServer(

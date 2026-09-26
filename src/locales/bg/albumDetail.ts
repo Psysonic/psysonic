@@ -25,6 +25,7 @@ export const albumDetail = {
   favorite: 'Любим',
   noBio: 'Няма налична биография.',
   moreByArtist: 'Още от {{artist}}',
+  similarAlbums: 'Подобни албуми',
   tracksCount: '{{n}} песни',
   goToArtist: 'Отиди при {{artist}}',
   moreLabelAlbums: 'Още албуми от {{label}}',
