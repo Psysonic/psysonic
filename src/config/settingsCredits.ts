@@ -479,6 +479,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Album and playlist pages — icon-only action buttons you can reorder and hide (PR #1644)',
       'Playlists — hint and reset when drag reordering is off in a sorted or filtered view (PR #1647)',
       'Playlists — drag a selection of tracks as one block (PR #1649)',
+      'Library — track subtitles and album versions from Navidrome, with the version shown under the album title (PR #1662)',
     ],
   },
   {

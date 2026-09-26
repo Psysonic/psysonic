@@ -118,6 +118,13 @@
   overflow-wrap: break-word;
 }
 
+.album-detail-version {
+  font-size: clamp(13px, 1.5vw, 16px);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-1);
+  overflow-wrap: break-word;
+}
+
 .album-detail-artist {
   font-size: clamp(13px, 1.5vw, 16px);
   color: var(--accent);
