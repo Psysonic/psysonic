@@ -42,4 +42,4 @@ jobs:
           name: psysonic-issue-1664-windows-scope-fix
           path: src-tauri/target/release/bundle/nsis/*-setup.exe
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
