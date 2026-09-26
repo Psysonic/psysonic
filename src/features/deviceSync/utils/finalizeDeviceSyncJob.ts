@@ -50,6 +50,6 @@ export async function finalizeDeviceSyncJob(context: DeviceSyncJobContext): Prom
     store.setPendingPlanDeviceId(null);
     store.setTargetDeviceId(context.deviceId);
     store.removeSources(context.deletionSourceKeys);
-    store.markConfigurationSynced(context.layoutMode, context.playlistPathMode);
+    store.markConfigurationSynced(context.layoutMode, context.playlistPathMode, context.transcode);
   }
 }

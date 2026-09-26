@@ -7,7 +7,9 @@ import { serverIndexKeyForProfile } from '@/lib/server/serverIndexKey';
 import { useDeviceSyncStore, type DeviceSyncSource } from '@/features/deviceSync/store/deviceSyncStore';
 import { useDeviceSyncJobStore } from '@/features/deviceSync/store/deviceSyncJobStore';
 import { showToast } from '@/lib/dom/toast';
-import { runDeviceSyncExecute, runDeviceSyncSummaryPrompt, type SyncDelta } from './runDeviceSyncExecution';
+import {
+  deviceSyncTrackUrl, runDeviceSyncExecute, runDeviceSyncSummaryPrompt, type SyncDelta,
+} from './runDeviceSyncExecution';
 
 vi.mock('@/lib/dom/toast', () => ({ showToast: vi.fn() }));
 
@@ -20,6 +22,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       // the preview aborts silently when it disagrees with its arguments.
       layoutMode: 'self-contained',
       playlistPathMode: 'playlist-relative',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       sources: [],
       checkedIds: [],
       pendingDeletion: [],
@@ -53,8 +56,10 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
         layoutMode: string;
         playlistPathMode: string;
         expectedDeviceId: string | null;
+        transcode: unknown;
       };
       expect(payload.sources).toEqual([source]);
+      expect(payload.transcode).toEqual({ format: 'original', maxBitRateKbps: 320 });
       expect(payload.auth).toMatchObject({
         serverId: owner.id,
         serverIndexKey,
@@ -81,6 +86,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       pendingDeletion: [],
       layoutMode: 'self-contained',
       playlistPathMode: 'playlist-relative',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       t: ((key: string) => key) as never,
       setPreSyncLoading: vi.fn(),
       setPreSyncOpen: vi.fn(),
@@ -121,6 +127,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       pendingDeletion: [],
       layoutMode: 'self-contained',
       playlistPathMode: 'playlist-relative',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       t: ((key: string) => key) as never,
       setPreSyncLoading: vi.fn(),
       setPreSyncOpen,
@@ -132,7 +139,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       planId: 'plan-1',
       deviceId: 'device-1',
       addBytes: 0, addCount: 0, delBytes: 0, delCount: 0, reclaimableBytes: 0,
-      availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [],
+      availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [], moveCount: 0,
       playlists: [], manifestFiles: [], manifestPlaylists: [],
     });
     await pending;
@@ -157,6 +164,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       pendingDeletion: [],
       layoutMode: 'self-contained',
       playlistPathMode: 'playlist-relative',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       t: ((key: string) => key) as never,
       setPreSyncLoading: vi.fn(),
       setPreSyncOpen: vi.fn(),
@@ -187,6 +195,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       pendingDeletion: [],
       layoutMode: 'self-contained',
       playlistPathMode: 'playlist-relative',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       t: ((key: string) => key) as never,
       setPreSyncLoading: vi.fn(),
       setPreSyncOpen: vi.fn(),
@@ -213,6 +222,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       deletionSourceKeys: [],
       layoutMode: 'self-contained' as const,
       playlistPathMode: 'playlist-relative' as const,
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       deferredDeletePaths: [],
       playlists: [],
       manifestFiles: [],
@@ -226,7 +236,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
         planId: 'plan-1',
         deviceId: 'device-1',
         addBytes: 0, addCount: 0, delBytes: 0, delCount: 0, reclaimableBytes: 0,
-        availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [],
+        availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [], moveCount: 0,
         playlists: [], manifestFiles: [], manifestPlaylists: [], context,
       },
       t: ((key: string) => key) as never,
@@ -257,6 +267,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       pendingPlanChecked: true,
       layoutMode: 'shared-album-tree',
       playlistPathMode: 'device-rooted',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
     });
     onInvoke('finalize_device_sync', () => {
       if (reject) throw error;
@@ -271,6 +282,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       deletionSourceKeys: [],
       layoutMode: 'shared-album-tree' as const,
       playlistPathMode: 'device-rooted' as const,
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       deferredDeletePaths: [],
       playlists: [],
       manifestFiles: [],
@@ -290,6 +302,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
         tracks: [],
         deletePaths: [],
         deferredDeletePaths: [],
+        moveCount: 0,
         playlists: [],
         manifestFiles: [],
         manifestPlaylists: [],
@@ -338,6 +351,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       pendingDeletion: [sourceKey],
       layoutMode: 'self-contained',
       playlistPathMode: 'playlist-relative',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       t: ((key: string) => key) as never,
       setPreSyncLoading: vi.fn(),
       setPreSyncOpen: vi.fn(),
@@ -369,6 +383,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       pendingDeletion: [],
       layoutMode: 'self-contained',
       playlistPathMode: 'playlist-relative',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       t: ((key: string) => key) as never,
       setPreSyncLoading: vi.fn(),
       setPreSyncOpen: vi.fn(),
@@ -377,5 +392,22 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
 
     expect(invoked).not.toHaveBeenCalled();
     expect(showToast).toHaveBeenCalledWith('deviceSync.serverUnresolved', 5000, 'error');
+  });
+});
+
+describe('deviceSyncTrackUrl', () => {
+  it('downloads originals and asks the server to transcode everything else', () => {
+    const original = deviceSyncTrackUrl('unknown-server', 'track-1', { format: 'original', maxBitRateKbps: 320 });
+    expect(original).toContain('/download.view?');
+    expect(original).not.toContain('format=');
+
+    const mp3 = deviceSyncTrackUrl('unknown-server', 'track-1', { format: 'mp3', maxBitRateKbps: 192 });
+    expect(mp3).toContain('/stream.view?');
+    expect(mp3).toContain('format=mp3');
+    expect(mp3).toContain('maxBitRate=192');
+
+    const serverDefault = deviceSyncTrackUrl('unknown-server', 'track-1', { format: 'opus', maxBitRateKbps: 0 });
+    expect(serverDefault).toContain('format=opus');
+    expect(serverDefault).not.toContain('maxBitRate=');
   });
 });

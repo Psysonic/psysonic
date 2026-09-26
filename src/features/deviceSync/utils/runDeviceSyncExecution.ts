@@ -1,17 +1,19 @@
 import type { TFunction } from 'i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { syncBatchToDevice } from '@/lib/api/syncfs';
-import { buildDownloadUrlForServer } from '@/lib/api/subsonicStreamUrl';
+import { buildDownloadUrlForServer, buildStreamUrlForServer } from '@/lib/api/subsonicStreamUrl';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import {
   deviceSyncOwnerKey,
   deviceSyncSourceKey,
+  sameDeviceSyncTranscode,
   useDeviceSyncStore,
   type DeviceSyncLayoutMode,
   type DeviceSyncManifestFile,
   type DeviceSyncManifestPlaylist,
   type DeviceSyncPlaylistPathMode,
   type DeviceSyncSource,
+  type DeviceSyncTranscode,
 } from '@/features/deviceSync/store/deviceSyncStore';
 import {
   deviceSyncJobIsActive,
@@ -39,10 +41,27 @@ export interface SyncDelta {
   tracks: SubsonicSong[];
   deletePaths: string[];
   deferredDeletePaths: string[];
+  /** Existing copies relocated on the device instead of downloaded again. */
+  moveCount: number;
   playlists: DeviceSyncPlannedPlaylist[];
   manifestFiles: DeviceSyncManifestFile[];
   manifestPlaylists: DeviceSyncManifestPlaylist[];
   context: DeviceSyncJobContext | null;
+}
+
+/**
+ * Where a planned track is fetched from. Originals come byte-for-byte from
+ * `download.view`; transcoded copies ask the server to convert through
+ * `stream.view`, so the format must be enabled in the server's transcoding
+ * settings (Navidrome: Settings → Transcoding).
+ */
+export function deviceSyncTrackUrl(
+  serverId: string,
+  trackId: string,
+  transcode: DeviceSyncTranscode,
+): string {
+  if (transcode.format === 'original') return buildDownloadUrlForServer(serverId, trackId);
+  return buildStreamUrlForServer(serverId, trackId, transcode.maxBitRateKbps, transcode.format);
 }
 
 /**
@@ -86,6 +105,7 @@ function contextStillCurrent(context: DeviceSyncJobContext): boolean {
   return live.targetDir === context.targetDir
     && live.layoutMode === context.layoutMode
     && live.playlistPathMode === context.playlistPathMode
+    && sameDeviceSyncTranscode(live.transcode, context.transcode)
     && sameStrings(liveSources, context.sources.map(deviceSyncSourceKey))
     && sameStrings(live.pendingDeletion, context.deletionSourceKeys);
 }
@@ -96,6 +116,7 @@ export interface RunDeviceSyncSummaryDeps {
   pendingDeletion: string[];
   layoutMode: DeviceSyncLayoutMode;
   playlistPathMode: DeviceSyncPlaylistPathMode;
+  transcode: DeviceSyncTranscode;
   t: TFunction;
   setPreSyncLoading: (v: boolean) => void;
   setPreSyncOpen: (v: boolean) => void;
@@ -104,7 +125,7 @@ export interface RunDeviceSyncSummaryDeps {
 
 export async function runDeviceSyncSummaryPrompt(deps: RunDeviceSyncSummaryDeps): Promise<void> {
   const {
-    targetDir, sources, pendingDeletion, layoutMode, playlistPathMode,
+    targetDir, sources, pendingDeletion, layoutMode, playlistPathMode, transcode,
     t, setPreSyncLoading, setPreSyncOpen, setSyncDelta,
   } = deps;
 
@@ -140,6 +161,7 @@ export async function runDeviceSyncSummaryPrompt(deps: RunDeviceSyncSummaryDeps)
       layoutMode,
       playlistPathMode,
       expectedDeviceId: currentState.targetDeviceId,
+      transcode,
     });
     const liveState = useDeviceSyncStore.getState();
     const sourceKeys = sourceSnapshot.map(deviceSyncSourceKey);
@@ -147,6 +169,7 @@ export async function runDeviceSyncSummaryPrompt(deps: RunDeviceSyncSummaryDeps)
       liveState.targetDir !== targetDir ||
       liveState.layoutMode !== layoutMode ||
       liveState.playlistPathMode !== playlistPathMode ||
+      !sameDeviceSyncTranscode(liveState.transcode, transcode) ||
       !sameStrings(liveState.sources.map(deviceSyncSourceKey), sourceKeys) ||
       !sameStrings(liveState.pendingDeletion, deletionSnapshot)
     ) {
@@ -169,6 +192,7 @@ export async function runDeviceSyncSummaryPrompt(deps: RunDeviceSyncSummaryDeps)
         deletionSourceKeys: deletionSnapshot,
         layoutMode,
         playlistPathMode,
+        transcode,
         deferredDeletePaths: [...new Set([
           ...payload.deletePaths,
           ...payload.deferredDeletePaths,
@@ -243,7 +267,7 @@ export async function runDeviceSyncExecute(deps: RunDeviceSyncExecuteDeps): Prom
   syncBatchToDevice({
     tracks: allTracks.map(track => trackToSyncInfo(
       track,
-      buildDownloadUrlForServer(runtimeServer.id, track.id),
+      deviceSyncTrackUrl(runtimeServer.id, track.id, context.transcode),
     )),
     destDir: targetDir,
     jobId,

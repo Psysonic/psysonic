@@ -6,6 +6,7 @@ import type {
   DeviceSyncManifestPlaylist,
   DeviceSyncPlaylistPathMode,
   DeviceSyncSource,
+  DeviceSyncTranscode,
 } from './deviceSyncStore';
 
 export interface DeviceSyncPlannedPlaylist {
@@ -26,6 +27,7 @@ export interface DeviceSyncJobContext {
   deletionSourceKeys: string[];
   layoutMode: DeviceSyncLayoutMode;
   playlistPathMode: DeviceSyncPlaylistPathMode;
+  transcode: DeviceSyncTranscode;
   deferredDeletePaths: string[];
   playlists: DeviceSyncPlannedPlaylist[];
   manifestFiles: DeviceSyncManifestFile[];

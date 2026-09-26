@@ -7,9 +7,12 @@ import {
   type SyncStatus,
 } from '@/features/deviceSync/utils/deviceSyncHelpers';
 import {
+  DEFAULT_DEVICE_SYNC_TRANSCODE,
   deviceSyncSourceKey,
+  deviceSyncTargetSuffix,
   type DeviceSyncLayoutMode,
   type DeviceSyncSource,
+  type DeviceSyncTranscode,
 } from '@/features/deviceSync/store/deviceSyncStore';
 
 export interface DeviceSyncSourceStatusesResult {
@@ -24,7 +27,11 @@ export function useDeviceSyncSourceStatuses(
   deviceFilePaths: string[],
   layoutMode: DeviceSyncLayoutMode,
   configurationDirty: boolean,
+  transcode: DeviceSyncTranscode = DEFAULT_DEVICE_SYNC_TRANSCODE,
+  transcodeDirty = false,
 ): DeviceSyncSourceStatusesResult {
+  // Transcoded copies carry the target extension, so expected paths do too.
+  const targetSuffix = deviceSyncTargetSuffix(transcode);
   // Map source IDs → computed device paths (for status derivation)
   const [sourcePathsMap, setSourcePathsMap] = useState<Map<string, string[]>>(new Map());
 
@@ -67,17 +74,20 @@ export function useDeviceSyncSourceStatuses(
             ? tracks.map(track => preferredSharedTracks.get(track.id) ?? track)
             : tracks;
           const paths = await computeSyncPaths({
-            tracks: pathTracks.map((tr, idx) => trackToSyncInfo(
-              tr, '',
-              source.type === 'playlist' && layoutMode === 'self-contained'
-                ? {
-                  id: playlistPathId(source, sources),
-                  name: source.name,
-                  index: idx + 1,
-                }
-                : undefined,
-              layoutMode === 'flat',
-            )),
+            tracks: pathTracks.map((tr, idx) => {
+              const info = trackToSyncInfo(
+                tr, '',
+                source.type === 'playlist' && layoutMode === 'self-contained'
+                  ? {
+                    id: playlistPathId(source, sources),
+                    name: source.name,
+                    index: idx + 1,
+                  }
+                  : undefined,
+                layoutMode === 'flat',
+              );
+              return targetSuffix ? { ...info, suffix: targetSuffix } : info;
+            }),
             destDir: targetDir,
           });
           map.set(deviceSyncSourceKey(source), paths);
@@ -88,7 +98,7 @@ export function useDeviceSyncSourceStatuses(
       if (!cancelled) setSourcePathsMap(map);
     })();
     return () => { cancelled = true; };
-  }, [targetDir, sources, layoutMode]);
+  }, [targetDir, sources, layoutMode, targetSuffix]);
 
   // Derive sync status per source
   const sourceStatuses = useMemo(() => {
@@ -98,7 +108,7 @@ export function useDeviceSyncSourceStatuses(
       const sourceKey = deviceSyncSourceKey(source);
       if (pendingDeletion.includes(sourceKey)) {
         statuses.set(sourceKey, 'deletion');
-      } else if (source.type === 'playlist' && configurationDirty) {
+      } else if ((source.type === 'playlist' && configurationDirty) || transcodeDirty) {
         statuses.set(sourceKey, 'pending');
       } else {
         const paths = sourcePathsMap.get(sourceKey) ?? [];
@@ -107,7 +117,7 @@ export function useDeviceSyncSourceStatuses(
       }
     }
     return statuses;
-  }, [sources, pendingDeletion, sourcePathsMap, deviceFilePaths, configurationDirty]);
+  }, [sources, pendingDeletion, sourcePathsMap, deviceFilePaths, configurationDirty, transcodeDirty]);
 
   return { sourcePathsMap, sourceStatuses };
 }

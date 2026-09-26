@@ -12,6 +12,7 @@ import type {
   LegacyOfflineMigrationResult,
   DeviceSyncFinalizePayload,
   DeviceSyncFinalizeResult,
+  DeviceSyncTargetInfo,
   LibraryTierDiskHit,
   RemovableDrive,
   SyncBatchResult,
@@ -83,6 +84,17 @@ export async function pendingDeviceSyncPlanDeviceId(args: { destDir: string }): 
   const res = await commands.pendingDeviceSyncPlanDeviceId(args.destDir);
   if (res.status === 'error') throw new Error(res.error);
   return res.data;
+}
+
+/** Whether a chosen folder is on a mounted volume or a confirmed local target. */
+export function inspectDeviceSyncTarget(args: { destDir: string }): Promise<DeviceSyncTargetInfo> {
+  return commands.inspectDeviceSyncTarget(args.destDir);
+}
+
+/** Confirms a folder on the system disk as a sync target. */
+export async function markLocalSyncTarget(args: { destDir: string }): Promise<void> {
+  const res = await commands.markLocalSyncTarget(args.destDir);
+  if (res.status === 'error') throw new Error(res.error);
 }
 
 export async function deviceSyncDeviceId(args: { destDir: string }): Promise<string> {

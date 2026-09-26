@@ -85,7 +85,7 @@ function isObject(value: unknown): value is Record<string, unknown> {
  * playlist path ids and resets the transient selections — the restore does not
  * repeat those rules, it defers to them.
  */
-const DEVICE_SYNC_PORTABLE_FIELDS = ['sources', 'layoutMode', 'playlistPathMode'] as const;
+const DEVICE_SYNC_PORTABLE_FIELDS = ['sources', 'layoutMode', 'playlistPathMode', 'transcode'] as const;
 
 const deviceSyncProjection: BackupProjection = {
   export: (stored) => {

@@ -15,6 +15,7 @@ describe('finalizeDeviceSyncJob', () => {
       targetDir: '/device',
       layoutMode: 'shared-album-tree',
       playlistPathMode: 'device-rooted',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       syncedLayoutMode: 'self-contained',
       syncedPlaylistPathMode: 'playlist-relative',
       sources: [],
@@ -50,6 +51,7 @@ describe('finalizeDeviceSyncJob', () => {
       deletionSourceKeys: [albumKey],
       layoutMode: 'shared-album-tree',
       playlistPathMode: 'device-rooted',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       deferredDeletePaths: ['/device/Playlists/Mix/01 - Track.flac'],
       playlists: [{
         sourceKey: deviceSyncSourceKey(playlist),
@@ -106,6 +108,7 @@ describe('finalizeDeviceSyncJob', () => {
       deletionSourceKeys: [],
       layoutMode: 'shared-album-tree',
       playlistPathMode: 'device-rooted',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       deferredDeletePaths: ['/device/Playlists/Mix/01 - Track.flac'],
       playlists: [{
         sourceKey: deviceSyncSourceKey(playlist),
@@ -140,6 +143,7 @@ describe('finalizeDeviceSyncJob', () => {
       deletionSourceKeys: [playlistKey],
       layoutMode: 'shared-album-tree',
       playlistPathMode: 'device-rooted',
+      transcode: { format: 'original' as const, maxBitRateKbps: 320 },
       deferredDeletePaths: ['/device/old.flac'],
       playlists: [],
       manifestFiles: [],

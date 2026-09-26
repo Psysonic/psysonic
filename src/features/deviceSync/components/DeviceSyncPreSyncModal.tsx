@@ -39,6 +39,12 @@ export default function DeviceSyncPreSyncModal({
               <span>{t('deviceSync.filesToDelete')}</span>
               <span className="color-error">-{syncDelta.delCount} ({formatMb(syncDelta.delBytes)})</span>
             </div>
+            {syncDelta.moveCount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                <span>{t('deviceSync.filesToMove')}</span>
+                <span>{syncDelta.moveCount}</span>
+              </div>
+            )}
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
               <span>{t('deviceSync.netChange')}</span>

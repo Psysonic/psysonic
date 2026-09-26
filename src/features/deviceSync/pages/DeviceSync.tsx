@@ -3,6 +3,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   deviceSyncSourceKey,
+  sameDeviceSyncTranscode,
   useDeviceSyncStore,
   type DeviceSyncSource,
 } from '@/features/deviceSync/store/deviceSyncStore';
@@ -48,6 +49,8 @@ export default function DeviceSync() {
   const playlistPathMode = useDeviceSyncStore(s => s.playlistPathMode);
   const syncedLayoutMode = useDeviceSyncStore(s => s.syncedLayoutMode);
   const syncedPlaylistPathMode = useDeviceSyncStore(s => s.syncedPlaylistPathMode);
+  const transcode        = useDeviceSyncStore(s => s.transcode);
+  const syncedTranscode  = useDeviceSyncStore(s => s.syncedTranscode);
   const sources          = useDeviceSyncStore(s => s.sources);
   const checkedIds       = useDeviceSyncStore(s => s.checkedIds);
   const pendingDeletion  = useDeviceSyncStore(s => s.pendingDeletion);
@@ -58,7 +61,7 @@ export default function DeviceSync() {
   const deviceFilePaths  = useDeviceSyncStore(s => s.deviceFilePaths);
   const scanning         = useDeviceSyncStore(s => s.scanning);
   const {
-    setTargetDir, setLayoutMode, setPlaylistPathMode, addSource, removeSource,
+    setTargetDir, setLayoutMode, setPlaylistPathMode, setTranscode, addSource, removeSource,
     toggleChecked, setCheckedIds, markForDeletion,
     unmarkDeletion,
   } = useDeviceSyncStore.getState();
@@ -73,7 +76,7 @@ export default function DeviceSync() {
   const [search, setSearch]                 = useState('');
   const resetSearch = useCallback(() => setSearch(''), []);
   // ─── Removable drive detection ──────────────────────────────────────────
-  const { drives, drivesLoading, activeDrive, driveDetected, refreshDrives } =
+  const { drives, drivesLoading, activeDrive, driveDetected, targetIsLocal, refreshDrives } =
     useDeviceSyncDrives(targetDir);
 
   const [preSyncOpen, setPreSyncOpen] = useState(false);
@@ -90,6 +93,7 @@ export default function DeviceSync() {
     tracks: [] as SubsonicSong[],
     deletePaths: [],
     deferredDeletePaths: [],
+    moveCount: 0,
     playlists: [],
     manifestFiles: [],
     manifestPlaylists: [],
@@ -105,9 +109,15 @@ export default function DeviceSync() {
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
 
   const isRunning = deviceSyncJobIsActive(jobStatus);
-  // The M3U path style only matters where playlists point at shared tracks.
+  // The M3U path style only matters where playlists point at shared tracks,
+  // or everywhere once full paths are involved.
+  const pathStyleMatters = layoutMode !== 'self-contained'
+    || playlistPathMode === 'absolute'
+    || syncedPlaylistPathMode === 'absolute';
   const configurationDirty = layoutMode !== syncedLayoutMode
-    || (layoutMode !== 'self-contained' && playlistPathMode !== syncedPlaylistPathMode);
+    || (pathStyleMatters && playlistPathMode !== syncedPlaylistPathMode);
+  // A new format or bitrate touches every file, not just playlists.
+  const transcodeDirty = syncedTranscode !== null && !sameDeviceSyncTranscode(transcode, syncedTranscode);
 
   // Browser (playlists / albums / artists tabs + their loaders + debounced search)
   const {
@@ -129,7 +139,7 @@ export default function DeviceSync() {
     t,
     activeDrive
       ? `${activeDrive.mount_point}\0${activeDrive.name}\0${activeDrive.total_space}\0${activeDrive.file_system}`
-      : null,
+      : targetIsLocal && targetDir ? `local\0${targetDir}` : null,
   );
 
   // Follow the owning server when it changes address, before anything reads
@@ -139,6 +149,7 @@ export default function DeviceSync() {
   // Source status (path map + derived synced/pending/deletion)
   const { sourcePathsMap, sourceStatuses } = useDeviceSyncSourceStatuses(
     targetDir, sources, pendingDeletion, deviceFilePaths, layoutMode, configurationDirty,
+    transcode, transcodeDirty,
   );
 
   // ─── Desired State / Diff Logic ─────────────────────────────────────────
@@ -155,7 +166,7 @@ export default function DeviceSync() {
       const isSynced = sourceStatuses.get(sourceKey) === 'synced';
       const pathsOnDisk = sourcePathsMap.get(sourceKey)?.filter(p => deviceFilePaths.includes(p)).length || 0;
       
-      if (configurationDirty || pathsOnDisk > 0 || isSynced) {
+      if (configurationDirty || transcodeDirty || pathsOnDisk > 0 || isSynced) {
         // Source currently has physical footprint. Stage for deletion.
         markForDeletion([sourceKey]);
       } else {
@@ -170,7 +181,7 @@ export default function DeviceSync() {
         addSource(source); // Trigger clean pending install state
       }
     }
-  }, [sources, pendingDeletion, sourceStatuses, sourcePathsMap, deviceFilePaths, configurationDirty, markForDeletion, removeSource, unmarkDeletion, addSource]);
+  }, [sources, pendingDeletion, sourceStatuses, sourcePathsMap, deviceFilePaths, configurationDirty, transcodeDirty, markForDeletion, removeSource, unmarkDeletion, addSource]);
 
   // ─── Migration handlers ─────────────────────────────────────────────────
 
@@ -202,7 +213,7 @@ export default function DeviceSync() {
   // ─── Sync (non-blocking) ────────────────────────────────────────────────
 
   const promptSyncSummary = () => runDeviceSyncSummaryPrompt({
-    targetDir, sources, pendingDeletion, layoutMode, playlistPathMode, t,
+    targetDir, sources, pendingDeletion, layoutMode, playlistPathMode, transcode, t,
     setPreSyncLoading, setPreSyncOpen, setSyncDelta,
   });
 
@@ -260,6 +271,9 @@ export default function DeviceSync() {
         playlistPathMode={playlistPathMode}
         setLayoutMode={setLayoutMode}
         setPlaylistPathMode={setPlaylistPathMode}
+        transcode={transcode}
+        setTranscode={setTranscode}
+        targetIsLocal={targetIsLocal}
         isRunning={isRunning}
       />
 

@@ -23,6 +23,7 @@ const jobContext = (source: DeviceSyncSource, targetDir: string) => ({
   deletionSourceKeys: [],
   layoutMode: 'self-contained' as const,
   playlistPathMode: 'playlist-relative' as const,
+  transcode: { format: 'original' as const, maxBitRateKbps: 320 },
   deferredDeletePaths: [],
   playlists: [],
   manifestFiles: [],

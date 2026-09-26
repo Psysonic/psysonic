@@ -6,8 +6,8 @@ use tauri::{Emitter, Manager};
 use crate::sync_cancel_flags;
 
 use super::device::{
-    build_track_path, ensure_mounted_target, get_removable_drives, path_contains_symlink,
-    planned_path_stays_within, validate_device_identity, SyncBatchResult, TrackSyncInfo,
+    build_track_path, ensure_mounted_target, path_contains_symlink, planned_path_stays_within,
+    target_available_space, validate_device_identity, SyncBatchResult, TrackSyncInfo,
 };
 use crate::file_transfer::{
     apply_server_http_get, finalize_streamed_download, subsonic_http_client,
@@ -20,20 +20,22 @@ pub(crate) mod plan;
 mod planner;
 
 pub(crate) use model::{
-    estimate_track_size_bytes, fetch_subsonic_songs, inject_flat_layout, inject_playlist_context,
-    subsonic_response_root, track_sync_info_from_subsonic_json,
+    estimate_track_size_bytes, fetch_subsonic_song, fetch_subsonic_songs, inject_flat_layout,
+    inject_overwrite, inject_playlist_context, inject_target_suffix, subsonic_response_root,
+    track_sync_info_from_subsonic_json,
 };
 pub use model::{
     parse_subsonic_songs, DeviceSyncLayoutMode, DeviceSyncManifestFile, DeviceSyncManifestPlaylist,
-    DeviceSyncPlannedPlaylist, DeviceSyncPlaylistPathMode, DeviceSyncSourcePayload,
-    SubsonicAuthPayload, SyncDeltaResult,
+    DeviceSyncPlannedPlaylist, DeviceSyncPlaylistPathMode, DeviceSyncSourceFingerprint,
+    DeviceSyncSourcePayload, DeviceSyncTranscode, DeviceSyncTranscodeFormat, SubsonicAuthPayload,
+    SyncDeltaResult,
 };
 pub(crate) use plan::{
     activate_device_sync_plan, clear_device_sync_plan, normalized_manifest_files,
     normalized_manifest_playlists, normalized_strings, relative_delete_paths,
     validate_active_device_sync_plan_binding, DeviceSyncPlanPlaylist, DeviceSyncPlanRecord,
 };
-pub(crate) use planner::portable_path_identity;
+pub(crate) use planner::{portable_path_identity, DeviceSyncPlannedMove};
 
 pub use filesystem::prune_empty_parents;
 use filesystem::{
@@ -74,6 +76,7 @@ pub async fn calculate_sync_payload(
     layout_mode: DeviceSyncLayoutMode,
     playlist_path_mode: DeviceSyncPlaylistPathMode,
     expected_device_id: Option<String>,
+    transcode: Option<DeviceSyncTranscode>,
     app: tauri::AppHandle,
 ) -> Result<SyncDeltaResult, String> {
     let _device_sync_guard = super::device::device_sync_operation_guard().await;
@@ -91,6 +94,7 @@ pub async fn calculate_sync_payload(
         target_dir,
         layout_mode,
         playlist_path_mode,
+        transcode.unwrap_or_default().normalized(),
         device_id,
         expected_device_id,
         app,
@@ -139,20 +143,11 @@ pub async fn sync_batch_to_device(
     let dest_root = std::path::PathBuf::from(&dest_dir);
     validate_device_identity(&dest_root, &expected_device_id)?;
 
-    // Safety: Ensure target logic hasn't exceeded physical volume capacities securely stopping dead bytes natively.
-    let drives = get_removable_drives();
-    let dest_canon = dest_root
-        .canonicalize()
-        .unwrap_or_else(|_| dest_root.clone());
-    let dest_str = dest_canon.to_string_lossy();
-
-    for drive in drives {
-        if dest_str.starts_with(&drive.mount_point) {
-            // Buffer of ~10 MB padding boundary natively mapped
-            if expected_bytes > drive.available_space.saturating_sub(10_000_000) {
-                return Err("NOT_ENOUGH_SPACE".to_string());
-            }
-            break;
+    // Refuse up front when the planned bytes (plus a ~10 MB margin) do not fit
+    // on the volume holding the target — removable drive or local disk alike.
+    if let Some(available) = target_available_space(&dest_root) {
+        if expected_bytes > available.saturating_sub(10_000_000) {
+            return Err("NOT_ENOUGH_SPACE".to_string());
         }
     }
 
@@ -254,7 +249,7 @@ pub async fn sync_batch_to_device(
                 return;
             }
 
-            let status = if dest_path.exists() {
+            let status = if dest_path.exists() && !track.overwrite {
                 s.fetch_add(1, Ordering::Relaxed);
                 "skipped"
             } else {
