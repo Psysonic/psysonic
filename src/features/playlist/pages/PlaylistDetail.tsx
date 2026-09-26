@@ -52,6 +52,7 @@ import { playlistDetailControls } from '@/features/playlist/utils/playlistSmartU
 import { showToast } from '@/lib/dom/toast';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 import { usePlaylistDetailScrollRestore } from '@/features/playlist/hooks/usePlaylistDetailScrollRestore';
+import { playlistDiagnosticLog } from '@/lib/api/debugLog';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 const PL_COLUMNS: readonly ColDef[] = [
@@ -225,7 +226,10 @@ export default function PlaylistDetail() {
     // Checked before the generation bump so a load already in flight stays current.
     if (isOwnPlaylistTouch({
       ownerChanged, offlineModeChanged, lastModified, selfTouchedAt: selfTouchedAtRef.current,
-    })) return;
+    })) {
+      playlistDiagnosticLog('load-skipped-self-touch', { ownerChanged, offlineModeChanged });
+      return;
+    }
     const generation = ++loadGenerationRef.current;
     loadedOwnerKeyRef.current = ownerKey;
     if (ownerChanged) {
@@ -358,6 +362,19 @@ export default function PlaylistDetail() {
   const { existingIds, tracks, displayedSongs, displayedTracks, isFiltered } = usePlaylistDerived(resolvedBpmSongs, {
     filterText, sortKey, sortDir, ratings, starredSongs,
   });
+
+  useEffect(() => {
+    playlistDiagnosticLog('page-state', {
+      hasRouteId: Boolean(id),
+      hasServer: Boolean(serverId),
+      loading,
+      hasPlaylist: playlist !== null,
+      playlistSongCount: playlist?.songCount ?? null,
+      songs: songs.length,
+      displayedSongs: displayedSongs.length,
+      activeTextFilter: Boolean(filterText.trim()),
+    });
+  }, [id, serverId, loading, playlist, songs.length, displayedSongs.length, filterText]);
 
   // ── Playback actions (encapsulated like AlbumHeader) ─────────
   const { handlePlayAll, handleShuffleAll, handleEnqueueAll } = usePlaylistBulkPlayCallbacks({

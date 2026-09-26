@@ -39,7 +39,10 @@ function applyLoadedPlaylist(
   membershipRevision?: number,
   navidromeMetadataExpected = false,
 ): void {
-  if (deps.isCurrent && !deps.isCurrent()) return;
+  if (deps.isCurrent && !deps.isCurrent()) {
+    playlistDiagnosticLog('apply-skipped-stale', { songs: songs.length });
+    return;
+  }
   const { setPlaylist, setSongs, setCustomCoverId, setRatings, setStarredSongs } = deps;
   const cached = usePlaylistStore.getState().playlists.find(candidate =>
     ownedEntityKey(candidate) === ownedEntityKey({ id: playlist.id, serverId: deps.serverId ?? playlist.serverId }),
@@ -67,6 +70,7 @@ function applyLoadedPlaylist(
   const ownedSongs = deps.serverId ? songs.map(song => ({ ...song, serverId: deps.serverId })) : songs;
   setPlaylist(ownedPlaylist);
   setSongs(ownedSongs);
+  playlistDiagnosticLog('applied', { songs: ownedSongs.length, playlistSongCount: playlist.songCount ?? null });
   setCustomCoverId(playlist.coverArt ?? null);
   const init: Record<string, number> = {};
   const starred = new Set<string>();
@@ -139,6 +143,7 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
       stale: Boolean(deps.isCurrent && !deps.isCurrent()),
       elapsedMs: Math.round(performance.now() - startedAt),
     });
+    stage = 'apply';
     applyLoadedPlaylist(
       deps,
       { ...playlist, serverId: serverId || undefined },
