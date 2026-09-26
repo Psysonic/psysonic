@@ -16,6 +16,16 @@ describe('deriveAlbumVersion', () => {
     expect(deriveAlbumVersion({ name: 'Album [Live]', version: '[Live]' }, [])).toBeNull();
   });
 
+  it('keeps a version that only appears inside the title, not appended to it', () => {
+    expect(deriveAlbumVersion({ name: 'Live Forever', version: 'Live' }, [])).toBe('Live');
+    expect(deriveAlbumVersion({ name: 'Album (Live) Sessions', version: 'Live' }, [])).toBe('Live');
+    expect(deriveAlbumVersion({ name: 'Album(Live)', version: 'Live' }, [])).toBe('Live');
+  });
+
+  it('hides a version appended in full-width brackets', () => {
+    expect(deriveAlbumVersion({ name: 'Album 【Live】', version: 'Live' }, [])).toBeNull();
+  });
+
   it('falls back to the version the tracks agree on', () => {
     expect(deriveAlbumVersion({ name: 'Album' }, [song('Deluxe'), song(), song('Deluxe')])).toBe('Deluxe');
     expect(deriveAlbumVersion({ name: 'Album' }, [song('Deluxe'), song('Standard')])).toBeNull();
