@@ -53,6 +53,7 @@ import { showToast } from '@/lib/dom/toast';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 import { usePlaylistDetailScrollRestore } from '@/features/playlist/hooks/usePlaylistDetailScrollRestore';
 import { playlistDiagnosticLog } from '@/lib/api/debugLog';
+import PlaylistScopeDiagnosticPanel from '@/features/playlist/components/PlaylistScopeDiagnosticPanel';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 const PL_COLUMNS: readonly ColDef[] = [
@@ -211,7 +212,6 @@ export default function PlaylistDetail() {
   const lastModified = usePlaylistStore(s => (
     id ? s.lastModified[ownedEntityKey({ id, serverId })] : undefined
   ));
-  const libraryBrowseScopeVersion = useAuthStore(s => s.libraryBrowseScopeVersion);
   const { active: offlineBrowseActive } = useOfflineBrowseContext();
   const actionPolicy = offlineActionPolicy('playlistDetail', offlineBrowseActive);
 
@@ -263,8 +263,7 @@ export default function PlaylistDetail() {
       isCurrent: () => loadGenerationRef.current === generation,
     });
   }, [
-    id, serverId, lastModified, offlineBrowseActive, libraryBrowseScopeVersion,
-    setSelectedIds, setSearchResults, setSuggestions,
+    id, serverId, lastModified, offlineBrowseActive, setSelectedIds, setSearchResults, setSuggestions,
   ]);
 
   // ── Meta edit ─────────────────────────────────────────────────
@@ -433,6 +432,10 @@ export default function PlaylistDetail() {
         deleteAlbum={deleteAlbum}
         downloadPlaylist={downloadPlaylist}
       />
+
+      {import.meta.env.VITE_ISSUE_1664_DIAGNOSTICS === '1' && id && serverId && !offlineBrowseActive && (
+        <PlaylistScopeDiagnosticPanel key={ownedEntityKey({ id, serverId })} playlistId={id} serverId={serverId} />
+      )}
 
       {/* ── Song search panel ── */}
       {searchOpen && !tracksReadOnly && (

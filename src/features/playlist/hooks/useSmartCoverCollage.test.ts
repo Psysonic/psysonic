@@ -9,7 +9,7 @@ vi.mock('@/lib/api/subsonicPlaylists', () => ({
 }));
 
 vi.mock('@/lib/api/subsonicLibrary', () => ({
-  filterPlaylistSongsToServerLibrary: (songs: unknown[]) => Promise.resolve(songs),
+  filterSongsToServerLibrary: (songs: unknown[]) => Promise.resolve(songs),
 }));
 
 describe('useSmartCoverCollage', () => {

@@ -7,7 +7,6 @@ import { api, apiForServer, libraryFilterParams, libraryFilterParamsForServer, l
 import { getLuckyMixLibraryScopeOverride } from '@/lib/library/luckyMixScopeOverride';
 import { mirrorAlbumMetadataFromServerOnUse } from '@/lib/library/patchOnUse';
 import { resolveIndexKey } from '@/lib/server/serverIndexKey';
-import { resolveServerIdForIndexKey } from '@/lib/server/serverLookup';
 import { playlistDiagnosticLog } from '@/lib/api/debugLog';
 import type {
   RandomSongsFilters,
@@ -223,13 +222,6 @@ export async function filterSongsToServerLibrary(
     scoped: true,
   });
   return filtered;
-}
-
-/** Playlist contents follow the sidebar browse selection, not the retired single-library filter. */
-export function filterPlaylistSongsToServerLibrary(songs: SubsonicSong[], serverId: string): Promise<SubsonicSong[]> {
-  const ownerId = resolveServerIdForIndexKey(serverId);
-  const libraryIds = useAuthStore.getState().libraryBrowseSelectionByServer[ownerId] ?? [];
-  return filterSongsToServerLibrary(songs, serverId, libraryIds);
 }
 
 export async function filterSongsToActiveLibrary(songs: SubsonicSong[]): Promise<SubsonicSong[]> {

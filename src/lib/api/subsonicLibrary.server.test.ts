@@ -6,8 +6,6 @@ const { apiForServerMock, authState, guardMock } = vi.hoisted(() => ({
     activeServerId: 'active',
     musicLibraryFilterByServer: {} as Record<string, string>,
     musicLibraryFilterVersion: 1,
-    libraryBrowseSelectionByServer: {} as Record<string, string[]>,
-    libraryBrowseScopeVersion: 1,
     servers: [] as Array<{ id: string; url: string }>,
   },
   guardMock: vi.fn(() => true),
@@ -46,7 +44,6 @@ import {
   getRandomSongsForServer,
   getSongForServer,
   filterSongsToServerLibrary,
-  filterPlaylistSongsToServerLibrary,
   similarSongsRequestCount,
 } from '@/lib/api/subsonicLibrary';
 
@@ -60,7 +57,6 @@ describe('explicit-server library wrappers', () => {
     guardMock.mockReturnValue(true);
     authState.activeServerId = 'active';
     authState.musicLibraryFilterByServer = {};
-    authState.libraryBrowseSelectionByServer = {};
     authState.servers = [
       { id: 'srv-a', url: 'https://a.example/rest' },
       { id: 'srv-random', url: 'https://random.example' },
@@ -165,32 +161,6 @@ describe('explicit-server library wrappers', () => {
       song,
       { ...song, id: 'song-3', albumId: 'album-3' },
     ]);
-  });
-
-  it('shows every playlist song under All libraries even with a stale legacy filter', async () => {
-    authState.musicLibraryFilterByServer = { 'srv-random': 'old-folder' };
-    authState.libraryBrowseSelectionByServer = { 'srv-random': [] };
-
-    await expect(filterPlaylistSongsToServerLibrary([
-      song, { ...song, id: 'song-2', albumId: 'album-2' },
-    ], 'srv-random')).resolves.toHaveLength(2);
-    expect(apiForServerMock).not.toHaveBeenCalled();
-  });
-
-  it('scopes playlist songs to the sidebar selection for their owner server', async () => {
-    authState.musicLibraryFilterByServer = { 'srv-random': 'old-folder' };
-    authState.libraryBrowseSelectionByServer = { 'srv-random': ['browse-folder'] };
-    apiForServerMock.mockResolvedValue({ albumList2: { album: [album] } });
-
-    await expect(filterPlaylistSongsToServerLibrary([
-      song, { ...song, id: 'song-2', albumId: 'album-2' },
-    ], 'srv-random')).resolves.toEqual([song]);
-    expect(apiForServerMock).toHaveBeenCalledWith(
-      'srv-random',
-      'getAlbumList2.view',
-      expect.objectContaining({ musicFolderId: 'browse-folder' }),
-      15000,
-    );
   });
 
   it('does not fail open when an explicitly selected library has no albums', async () => {

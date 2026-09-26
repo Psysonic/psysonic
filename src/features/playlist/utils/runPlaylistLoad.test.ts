@@ -17,7 +17,7 @@ vi.mock('@/lib/api/subsonicPlaylists', () => ({
 }));
 
 vi.mock('@/lib/api/subsonicLibrary', () => ({
-  filterPlaylistSongsToServerLibrary: (songs: unknown, serverId: string) => filterMock(songs, serverId),
+  filterSongsToServerLibrary: (songs: unknown, serverId: string) => filterMock(songs, serverId),
 }));
 
 vi.mock('@/features/offline', () => ({
