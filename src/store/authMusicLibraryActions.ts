@@ -6,16 +6,12 @@ import {
 } from './musicLibraryFilterNotify';
 import { deriveLibraryBrowseServerIdsWithFallback } from '@/lib/library/libraryBrowseScope';
 import { emitMultiServerDebug } from '@/lib/library/multiServerDebug';
+import { legacyFilterFromSelection } from './authMusicLibrarySelection';
 
 type SetState = (
   partial: Partial<AuthState> | ((state: AuthState) => Partial<AuthState>),
 ) => void;
 type GetState = () => AuthState;
-
-function legacyFilterFromSelection(libraryIds: string[]): 'all' | string {
-  if (libraryIds.length === 0) return 'all';
-  return libraryIds[0];
-}
 
 /**
  * Selecting every library one-by-one is the same as "All libraries": normalize
@@ -144,6 +140,7 @@ export function createMusicLibraryActions(set: SetState, get: GetState): Pick<
       const prunedBrowseSelection = previousBrowseSelection?.filter(id => folderIds.has(id));
       const browseScopeChanged = previousBrowseSelection !== undefined
         && prunedBrowseSelection?.length !== previousBrowseSelection.length;
+      const nextBrowseSelection = prunedBrowseSelection ?? [];
 
       set(state => ({
         musicFoldersByServer: {
@@ -154,13 +151,19 @@ export function createMusicLibraryActions(set: SetState, get: GetState): Pick<
         ...(browseScopeChanged ? {
           libraryBrowseSelectionByServer: {
             ...state.libraryBrowseSelectionByServer,
-            [serverId]: prunedBrowseSelection ?? [],
+            [serverId]: nextBrowseSelection,
+          },
+          musicLibrarySelectionByServer: { ...state.musicLibrarySelectionByServer, [serverId]: nextBrowseSelection },
+          musicLibraryFilterByServer: {
+            ...state.musicLibraryFilterByServer,
+            [serverId]: legacyFilterFromSelection(nextBrowseSelection),
           },
         } : {}),
         ...(browseScopeChanged || (foldersChanged && state.libraryBrowseServerIds.includes(serverId))
           ? { libraryBrowseScopeVersion: state.libraryBrowseScopeVersion + 1 }
           : {}),
       }));
+      if (browseScopeChanged) deferMusicLibraryCatalogReload(get, set, serverId);
       const next = get();
       emitMultiServerDebug('folders_store_update', {
         serverId,
@@ -280,7 +283,13 @@ export function createMusicLibraryActions(set: SetState, get: GetState): Pick<
       const unique = [...new Set(libraryIds)].filter(id => folders.length === 0 || knownFolderIds.has(id));
       const selection = collapseServerSelection(folders, unique);
       const previous = s.libraryBrowseSelectionByServer[serverId] ?? [];
+      const legacy = legacyFilterFromSelection(selection);
+      const legacyChanged = s.musicLibraryFilterByServer[serverId] !== legacy
+        || !s.musicLibrarySelectionByServer[serverId]
+        || selection.length !== s.musicLibrarySelectionByServer[serverId].length
+        || selection.some((id, index) => id !== s.musicLibrarySelectionByServer[serverId][index]);
       if (!scopeChanged
+        && !legacyChanged
         && selection.length === previous.length
         && selection.every((id, index) => id === previous[index])) {
         emitMultiServerDebug('library_folder_selection_skip', {
@@ -297,8 +306,11 @@ export function createMusicLibraryActions(set: SetState, get: GetState): Pick<
           ...state.libraryBrowseSelectionByServer,
           [serverId]: selection,
         },
+        musicLibrarySelectionByServer: { ...state.musicLibrarySelectionByServer, [serverId]: selection },
+        musicLibraryFilterByServer: { ...state.musicLibraryFilterByServer, [serverId]: legacy },
         libraryBrowseScopeVersion: state.libraryBrowseScopeVersion + 1,
       }));
+      if (legacyChanged) deferMusicLibraryCatalogReload(get, set, serverId);
       emitMultiServerDebug('library_folder_selection_set', {
         serverId,
         requestedLibraryIds: libraryIds,
@@ -324,6 +336,8 @@ export function createMusicLibraryActions(set: SetState, get: GetState): Pick<
           [sid]: selection,
         },
         musicLibraryFilterByServer: { ...s.musicLibraryFilterByServer, [sid]: folderId },
+        libraryBrowseSelectionByServer: { ...s.libraryBrowseSelectionByServer, [sid]: selection },
+        libraryBrowseScopeVersion: s.libraryBrowseScopeVersion + 1,
       }));
       deferMusicLibraryCatalogReload(get, set, sid);
     },
@@ -341,6 +355,8 @@ export function createMusicLibraryActions(set: SetState, get: GetState): Pick<
           ...s.musicLibraryFilterByServer,
           [sid]: legacyFilterFromSelection(selection),
         },
+        libraryBrowseSelectionByServer: { ...s.libraryBrowseSelectionByServer, [sid]: selection },
+        libraryBrowseScopeVersion: s.libraryBrowseScopeVersion + 1,
       }));
       deferMusicLibraryCatalogReload(get, set, sid);
     },

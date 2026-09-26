@@ -70,6 +70,12 @@ function offlineMeta(sourceId: string, serverId: string) {
   return albums[`${indexKey}:${sourceId}`] ?? albums[`${serverId}:${sourceId}`];
 }
 
+function pinnedTrackIds(sourceId: string, serverId: string, kind: OfflinePinKind): string[] {
+  const group = useLocalPlaybackStore.getState().listPinnedGroups(serverIndexKeyForOffline(serverId))
+    .find(g => g.pinSource.kind === kind && g.pinSource.sourceId === sourceId);
+  return group?.trackIds ?? offlineMeta(sourceId, serverId)?.trackIds ?? [];
+}
+
 function resolvePlaylistName(playlistId: string, serverId: string): string | undefined {
   // Only pinned playlists reach the nameless internal callers (all gated by
   // isSourcePinnedOffline), so offline meta always carries the name here; external
@@ -121,9 +127,7 @@ async function pruneRemovedPinTracks(
   const lp = useLocalPlaybackStore.getState();
   const mediaDir = getMediaDir();
   const pinSource: PinSource = { kind, sourceId };
-  const group = lp.listPinnedGroups(indexKey)
-    .find(g => g.pinSource.kind === kind && g.pinSource.sourceId === sourceId);
-  const previousIds = group?.trackIds ?? offlineMeta(sourceId, serverId)?.trackIds ?? [];
+  const previousIds = pinnedTrackIds(sourceId, serverId, kind);
 
   for (const trackId of previousIds) {
     if (!shouldContinue()) return;
@@ -253,6 +257,7 @@ export async function syncPinnedSourceIfNeeded(
     && getOfflineSourceGeneration(indexKey, kind, sourceId) === sourceGeneration;
 
   let songs = options.prefetchedSongs;
+  let playlistMembership: Set<string> | null = null;
   let displayName = options.name ?? offlineMeta(sourceId, serverId)?.name ?? sourceId;
   let albumArtist = options.albumArtist ?? offlineMeta(sourceId, serverId)?.artist ?? '';
   let coverArt = options.coverArt ?? offlineMeta(sourceId, serverId)?.coverArt;
@@ -264,6 +269,7 @@ export async function syncPinnedSourceIfNeeded(
         const data = await getPlaylistForServer(serverId, sourceId);
         displayName = data.playlist.name;
         coverArt = data.playlist.coverArt ?? coverArt;
+        playlistMembership = new Set(data.songs.map(song => song.id));
         songs = await filterSongsToServerLibrary(data.songs, serverId);
       } else {
         const data = await getAlbumForServer(serverId, sourceId);
@@ -282,7 +288,11 @@ export async function syncPinnedSourceIfNeeded(
   if (!isCurrent()) return;
 
   const unique = dedupeSongs(songs);
-  const keepIds = new Set(unique.map(s => s.id));
+  const previousIds = kind === 'playlist' ? pinnedTrackIds(sourceId, serverId, kind) : [];
+  // A narrower browse scope must not look like a server-side playlist removal.
+  // Prefetched songs lack full membership, so only a later server read can prune.
+  const keepIds = playlistMembership ?? new Set([...unique.map(s => s.id), ...previousIds]);
+  const retainedTrackIds = kind === 'playlist' ? previousIds.filter(id => keepIds.has(id)) : [];
 
   await pruneRemovedPinTracks(sourceId, serverId, kind, keepIds, isCurrent);
   if (!isCurrent()) return;
@@ -291,7 +301,7 @@ export async function syncPinnedSourceIfNeeded(
     albumArtist,
     coverArt,
     year,
-    trackIds: unique.map(s => s.id),
+    trackIds: [...new Set([...unique.map(s => s.id), ...retainedTrackIds])],
   });
 
   const offline = useOfflineStore.getState();
@@ -309,6 +319,7 @@ export async function syncPinnedSourceIfNeeded(
     coverArt,
     year,
     songs: unique,
+    ...(kind === 'playlist' ? { retainedTrackIds } : {}),
     serverId,
     type: kind,
     artistProgressGroupId: options.artistProgressGroupId,

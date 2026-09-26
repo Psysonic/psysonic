@@ -13,6 +13,7 @@ import {
   cancelAllOfflinePins,
   clearOfflinePinTasks,
   dequeueOfflinePin,
+  enqueueOfflinePin,
 } from '@/features/offline/utils/offlinePinQueue';
 import { runOfflineTrackCleanup } from '@/features/offline/utils/offlineOperationCoordinator';
 import { NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY } from '@/lib/server/navidromeCanonicalCheckpointStatus';
@@ -115,6 +116,18 @@ beforeEach(() => {
 });
 
 describe('offlineStore download producer', () => {
+  it('retains hidden playlist tracks in persisted metadata after the queued download', async () => {
+    enqueueOfflinePin({
+      albumId: 'playlist-1', albumName: 'Mix', albumArtist: '',
+      coverArt: undefined, year: undefined, songs: [SONG],
+      retainedTrackIds: ['hidden-track'], serverId: 'srv-a', type: 'playlist',
+    });
+
+    await waitFor(() => expect(useOfflineJobStore.getState().pinQueue).toEqual([]));
+    expect(useOfflineStore.getState().albums['a.test:playlist-1']?.trackIds)
+      .toEqual(['track-1', 'hidden-track']);
+  });
+
   it('passes the shared original-stream URL to the native downloader', async () => {
     await useOfflineStore.getState().downloadAlbum(
       'album-1',

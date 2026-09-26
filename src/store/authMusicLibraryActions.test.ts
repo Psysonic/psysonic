@@ -132,8 +132,39 @@ describe('Library browse scope', () => {
     ]);
     useAuthStore.getState().setLibraryBrowseSelectionForServer(serverId, ['two']);
     expect(useAuthStore.getState().libraryBrowseSelectionByServer[serverId]).toEqual(['two']);
+    expect(useAuthStore.getState().musicLibrarySelectionByServer[serverId]).toEqual(['two']);
+    expect(useAuthStore.getState().musicLibraryFilterByServer[serverId]).toBe('two');
     useAuthStore.getState().setLibraryBrowseSelectionForServer(serverId, ['two', 'one']);
     expect(useAuthStore.getState().libraryBrowseSelectionByServer[serverId]).toEqual([]);
+    expect(useAuthStore.getState().musicLibrarySelectionByServer[serverId]).toEqual([]);
+    expect(useAuthStore.getState().musicLibraryFilterByServer[serverId]).toBe('all');
+  });
+
+  it('repairs an unchanged All libraries selection with a stale audiobook legacy filter', () => {
+    const serverId = setUpActiveServer();
+    useAuthStore.setState({
+      musicLibrarySelectionByServer: { [serverId]: [] },
+      musicLibraryFilterByServer: { [serverId]: 'audiobooks' },
+    });
+
+    useAuthStore.getState().setLibraryBrowseSelectionForServer(serverId, []);
+
+    expect(useAuthStore.getState().musicLibraryFilterByServer[serverId]).toBe('all');
+    expect(useAuthStore.getState().musicLibrarySelectionByServer[serverId]).toEqual([]);
+  });
+
+  it('prunes disappeared folders in both the sidebar and legacy selection', () => {
+    const serverId = setUpActiveServer();
+    useAuthStore.getState().setMusicFoldersForServer(serverId, [
+      { id: 'music', name: 'Music' }, { id: 'books', name: 'Books' }, { id: 'other', name: 'Other' },
+    ]);
+    useAuthStore.getState().setLibraryBrowseSelectionForServer(serverId, ['music', 'books']);
+    useAuthStore.getState().setMusicFoldersForServer(serverId, [{ id: 'books', name: 'Books' }, { id: 'other', name: 'Other' }]);
+
+    const state = useAuthStore.getState();
+    expect(state.libraryBrowseSelectionByServer[serverId]).toEqual(['books']);
+    expect(state.musicLibrarySelectionByServer[serverId]).toEqual(['books']);
+    expect(state.musicLibraryFilterByServer[serverId]).toBe('books');
   });
 
   it('repairs an empty server scope before storing a folder selection', () => {

@@ -242,7 +242,7 @@ async function runOfflinePinDownloadWithServerLease(
   if (isCancelled()) return 'cancelled';
   cancelledDownloads.delete(cancelKey);
 
-  const trackIds = songs.map(s => s.id);
+  const trackIds = [...new Set([...songs.map(s => s.id), ...(task.retainedTrackIds ?? [])])];
   const jobStore = useOfflineJobStore;
   const downloadId = nextOfflineDownloadId(serverId, albumId);
   const serverIndexKey = serverIndexKeyForOffline(serverId);
