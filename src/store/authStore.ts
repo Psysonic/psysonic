@@ -216,9 +216,9 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'psysonic-auth',
       storage: createNavidromeCanonicalMigrationAwareJSONStorage(),
-      version: 1,
-      // Version 1 moves post-hydration repairs into `merge`. Returning the
-      // version-0 payload unchanged makes Zustand rewrite the repaired state.
+      version: 2,
+      // Version 2 writes repaired legacy library fields back to storage, so a
+      // downgrade reads the same scope the sidebar displayed before rollback.
       migrate: persistedState => persistedState,
       merge: (persistedState, currentState) => {
         const state = {

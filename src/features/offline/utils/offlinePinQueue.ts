@@ -17,6 +17,8 @@ export interface OfflinePinTask {
   coverArt: string | undefined;
   year: number | undefined;
   songs: SubsonicSong[];
+  /** Playlist membership retained outside the current browse selection. */
+  retainedTrackIds?: string[];
   serverId: string;
   type: OfflinePinKind;
   /** When set, bump `bulkProgress[groupId].done` after each album finishes. */
