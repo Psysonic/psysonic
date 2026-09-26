@@ -5,6 +5,7 @@ use serde_json::Value;
 
 use super::{LibraryBackfillStep, LibraryStore};
 use crate::browse_projection::AlbumScope;
+use crate::sync::capability::CapabilityFlags;
 use crate::sync::mapping::{album_version_from_tags, append_navidrome_suffix, subtitle_from_tags};
 
 /// One-time repair for rows ingested from Navidrome's native `/api/song` before
@@ -12,11 +13,12 @@ use crate::sync::mapping::{album_version_from_tags, append_navidrome_suffix, sub
 /// the album name the way Navidrome's Subsonic API does (issue #1638). Without it
 /// those rows keep the bare text until the server changes them.
 ///
-/// Only rows whose `raw_json` has the native shape are touched: Navidrome's
-/// `MediaFile` always serializes `updatedAt`, its Subsonic `Child` never does
-/// (both checked at v0.64.0). A Subsonic row that states a bare title keeps it,
-/// whatever tags it carries. `append_navidrome_suffix` also leaves a value that
-/// already ends with the suffix alone.
+/// Only rows of servers with the persisted Navidrome native capability are
+/// touched. Navidrome's Subsonic `Child` has no `tags` field (checked at v0.64.0
+/// and live on v0.61.2), so on such a server a row carrying `tags` came from
+/// `/api/song`. A row from any other Subsonic server keeps the title it states,
+/// whatever other fields it carries. `append_navidrome_suffix` also leaves a
+/// value that already ends with the suffix alone.
 pub(crate) const NATIVE_DISPLAY_SUFFIX_BACKFILL_RECONCILE_ID: &str =
     "native_display_suffix_backfill_v1";
 /// Rowid span covered per scheduler tick. Only rows whose JSON mentions either tag
@@ -43,10 +45,6 @@ impl NativeDisplaySuffixBatch {
             changed_server_ids: Vec::new(),
         }
     }
-}
-
-fn has_native_song_shape(raw: &Value) -> bool {
-    raw.get("updatedAt").is_some()
 }
 
 fn native_display_suffix_backfill_completed(conn: &Connection) -> rusqlite::Result<bool> {
@@ -111,11 +109,19 @@ fn reconcile_native_display_suffix_backfill_batch(
              FROM track WHERE rowid > ?1 AND rowid <= ?2 AND deleted = 0 \
                AND (instr(raw_json, '\"subtitle\"') > 0 \
                     OR instr(raw_json, '\"albumversion\"') > 0) \
+               AND EXISTS (SELECT 1 FROM sync_state ss \
+                           WHERE ss.server_id = track.server_id \
+                             AND (ss.capability_flags & ?4) != 0) \
              ORDER BY rowid LIMIT ?3",
         )?;
         let rows = stmt
             .query_map(
-                params![cursor, window_end, NATIVE_DISPLAY_SUFFIX_BACKFILL_ROW_LIMIT],
+                params![
+                    cursor,
+                    window_end,
+                    NATIVE_DISPLAY_SUFFIX_BACKFILL_ROW_LIMIT,
+                    CapabilityFlags::NAVIDROME_NATIVE_BULK
+                ],
                 |row| {
                     Ok(BackfillRow {
                         rowid: row.get(0)?,
@@ -143,9 +149,6 @@ fn reconcile_native_display_suffix_backfill_batch(
         let Ok(raw) = serde_json::from_str::<Value>(&row.raw_json) else {
             continue;
         };
-        if !has_native_song_shape(&raw) {
-            continue;
-        }
         let title = append_navidrome_suffix(&row.title, subtitle_from_tags(&raw).as_deref());
         let album = if row.album.is_empty() {
             row.album.clone()
