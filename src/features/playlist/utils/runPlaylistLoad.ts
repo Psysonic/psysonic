@@ -1,6 +1,6 @@
 import type React from 'react';
 import { getPlaylist, getPlaylistForServer } from '@/lib/api/subsonicPlaylists';
-import { filterSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
+import { filterPlaylistSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
 import type { SubsonicPlaylist, SubsonicSong } from '@/lib/api/subsonicTypes';
 import { useAuthStore } from '@/store/authStore';
 import { usePlaylistStore } from '@/features/playlist/store/playlistStore';
@@ -136,7 +136,7 @@ export async function runPlaylistLoad(deps: RunPlaylistLoadDeps): Promise<void> 
       ? await getPlaylistForServer(serverId, id)
       : await getPlaylist(id);
     stage = 'scope-filter';
-    const filteredSongs = serverId ? await filterSongsToServerLibrary(songs, serverId) : songs;
+    const filteredSongs = serverId ? await filterPlaylistSongsToServerLibrary(songs, serverId) : songs;
     playlistDiagnosticLog('load-complete', {
       serverSongs: songs.length,
       shownSongs: filteredSongs.length,

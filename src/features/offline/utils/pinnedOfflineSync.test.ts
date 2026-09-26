@@ -44,6 +44,7 @@ vi.mock('@/lib/api/subsonicPlaylists', () => ({
 vi.mock('@/lib/api/subsonicLibrary', () => ({
   getAlbumForServer: (serverId: string, id: string) => getAlbumForServerMock(serverId, id),
   filterSongsToServerLibrary: (songs: SubsonicSong[]) => filterSongsMock(songs),
+  filterPlaylistSongsToServerLibrary: (songs: SubsonicSong[]) => filterSongsMock(songs),
 }));
 
 vi.mock('@/lib/api/subsonicArtists', () => ({

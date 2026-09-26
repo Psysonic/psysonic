@@ -1,5 +1,5 @@
 import { libraryGetTracksByAlbum, subscribeLibrarySyncIdle } from '@/lib/api/library';
-import { getAlbumForServer, filterSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
+import { getAlbumForServer, filterPlaylistSongsToServerLibrary, filterSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
 import { getPlaylistForServer } from '@/lib/api/subsonicPlaylists';
 import { getArtistForServer } from '@/lib/api/subsonicArtists';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
@@ -264,7 +264,7 @@ export async function syncPinnedSourceIfNeeded(
         const data = await getPlaylistForServer(serverId, sourceId);
         displayName = data.playlist.name;
         coverArt = data.playlist.coverArt ?? coverArt;
-        songs = await filterSongsToServerLibrary(data.songs, serverId);
+        songs = await filterPlaylistSongsToServerLibrary(data.songs, serverId);
       } else {
         const data = await getAlbumForServer(serverId, sourceId);
         displayName = data.album.name;
@@ -277,7 +277,9 @@ export async function syncPinnedSourceIfNeeded(
       return;
     }
   } else {
-    songs = await filterSongsToServerLibrary(songs, serverId);
+    songs = await (kind === 'playlist'
+      ? filterPlaylistSongsToServerLibrary(songs, serverId)
+      : filterSongsToServerLibrary(songs, serverId));
   }
   if (!isCurrent()) return;
 

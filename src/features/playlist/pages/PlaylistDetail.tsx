@@ -211,6 +211,7 @@ export default function PlaylistDetail() {
   const lastModified = usePlaylistStore(s => (
     id ? s.lastModified[ownedEntityKey({ id, serverId })] : undefined
   ));
+  const libraryBrowseScopeVersion = useAuthStore(s => s.libraryBrowseScopeVersion);
   const { active: offlineBrowseActive } = useOfflineBrowseContext();
   const actionPolicy = offlineActionPolicy('playlistDetail', offlineBrowseActive);
 
@@ -262,7 +263,8 @@ export default function PlaylistDetail() {
       isCurrent: () => loadGenerationRef.current === generation,
     });
   }, [
-    id, serverId, lastModified, offlineBrowseActive, setSelectedIds, setSearchResults, setSuggestions,
+    id, serverId, lastModified, offlineBrowseActive, libraryBrowseScopeVersion,
+    setSelectedIds, setSearchResults, setSuggestions,
   ]);
 
   // ── Meta edit ─────────────────────────────────────────────────

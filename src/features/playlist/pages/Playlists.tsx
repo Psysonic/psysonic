@@ -118,8 +118,6 @@ export default function Playlists() {
     && effectiveServerIds[0] === activeServerId
     && folderCount > 0
     && folderGroupView;
-  const musicLibraryFilterVersion = useAuthStore(s => s.musicLibraryFilterVersion);
-  const playlistScopeVersion = musicLibraryFilterVersion + libraryBrowseScopeVersion;
   const offlineCtx = useOfflineBrowseContext();
   const offlineBrowseActive = offlineCtx.active;
   const playlistsActionPolicy = offlineActionPolicy('playlistsHeader', offlineCtx.active);
@@ -138,9 +136,9 @@ export default function Playlists() {
   const [editingSmartServerId, setEditingSmartServerId] = useState<string | null>(null);
   const [requestedCreateServerId, setRequestedCreateServerId] = useState<string | null>(null);
   const [pendingSmart, setPendingSmart] = useState<PendingSmartPlaylist[]>([]);
-  const smartCoverIdsByPlaylist = useSmartCoverCollage(playlists, playlistScopeVersion);
+  const smartCoverIdsByPlaylist = useSmartCoverCollage(playlists, libraryBrowseScopeVersion);
   const { filteredSongCountByPlaylist, filteredDurationByPlaylist } =
-    usePlaylistsLibraryScopeCounts(playlists, playlistScopeVersion);
+    usePlaylistsLibraryScopeCounts(playlists, libraryBrowseScopeVersion);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);

@@ -1,5 +1,5 @@
 import { isOfflineBrowseActive, resolveMediaServerId, resolvePlaylist } from '@/features/offline';
-import { filterSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
+import { filterPlaylistSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
 import { songToTrack } from '@/lib/media/songToTrack';
 import type { Track } from '@/lib/media/trackTypes';
 import { useAuthStore } from '@/store/authStore';
@@ -25,7 +25,7 @@ export async function resolvePlaylistTracks(playlistId: string, ownerServerId?: 
     // no-catch handler) never leak an unhandled rejection.
     const songs = isOfflineBrowseActive()
       ? data.songs
-      : await filterSongsToServerLibrary(data.songs, serverId);
+      : await filterPlaylistSongsToServerLibrary(data.songs, serverId);
     return songs.map(song => songToTrack({ ...song, serverId }));
   } catch {
     return [];

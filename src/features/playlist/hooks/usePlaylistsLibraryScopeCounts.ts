@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { filterSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
+import { filterPlaylistSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
 import { getPlaylistForServer } from '@/lib/api/subsonicPlaylists';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import { useOfflineBrowseContext } from '@/features/offline';
@@ -14,11 +14,11 @@ export interface PlaylistsLibraryScopeCountsResult {
  * Recompute song count + total duration for each playlist under the current
  * library scope. Chunked into batches of 4 parallel fetches to avoid hammering
  * Navidrome on large playlists. Re-runs when the playlist list changes or
- * when the active library filter version bumps.
+ * when the sidebar browse scope version bumps.
  */
 export function usePlaylistsLibraryScopeCounts(
   playlists: SubsonicPlaylist[],
-  musicLibraryFilterVersion: number,
+  libraryBrowseScopeVersion: number,
 ): PlaylistsLibraryScopeCountsResult {
   const [filteredSongCountByPlaylist, setFilteredSongCountByPlaylist] = useState<Record<string, number>>({});
   const [filteredDurationByPlaylist, setFilteredDurationByPlaylist] = useState<Record<string, number>>({});
@@ -58,7 +58,7 @@ export function usePlaylistsLibraryScopeCounts(
             try {
               if (!playlist.serverId) return [key, -1, -1] as const;
               const { songs } = await getPlaylistForServer(playlist.serverId, playlist.id);
-              const filtered = await filterSongsToServerLibrary(songs, playlist.serverId);
+              const filtered = await filterPlaylistSongsToServerLibrary(songs, playlist.serverId);
               const duration = filtered.reduce((acc, s) => acc + (s.duration ?? 0), 0);
               return [key, filtered.length, duration] as const;
             } catch {
@@ -78,7 +78,7 @@ export function usePlaylistsLibraryScopeCounts(
     };
     run();
     return () => { cancelled = true; };
-  }, [playlists, musicLibraryFilterVersion, offlineBrowseActive]);
+  }, [playlists, libraryBrowseScopeVersion, offlineBrowseActive]);
 
   return { filteredSongCountByPlaylist, filteredDurationByPlaylist };
 }

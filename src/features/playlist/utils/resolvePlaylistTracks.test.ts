@@ -14,7 +14,7 @@ vi.mock('@/features/offline', () => ({
 }));
 
 vi.mock('@/lib/api/subsonicLibrary', () => ({
-  filterSongsToServerLibrary: (songs: unknown, serverId: string) => filterMock(songs, serverId),
+  filterPlaylistSongsToServerLibrary: (songs: unknown, serverId: string) => filterMock(songs, serverId),
 }));
 
 vi.mock('@/lib/media/songToTrack', () => ({
@@ -34,9 +34,9 @@ describe('resolvePlaylistTracks', () => {
     activeServerId = 'srv-1';
   });
 
-  it('scopes to the active library when online', async () => {
+  it('scopes to the sidebar library selection when online', async () => {
     resolvePlaylistMock.mockResolvedValue({ playlist: { id: 'pl-1' }, songs: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] });
-    // Active-library scope hides b and c.
+    // Sidebar browse scope hides b and c.
     filterMock.mockResolvedValue([{ id: 'a' }]);
 
     const tracks = await resolvePlaylistTracks('pl-1');
