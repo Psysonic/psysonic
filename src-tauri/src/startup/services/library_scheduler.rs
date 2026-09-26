@@ -18,40 +18,34 @@ fn background_repair_is_allowed(runtime: &psysonic_library::LibraryRuntime) -> b
         && runtime.ensure_ordinary_sync_activity_allowed().is_ok()
 }
 
-async fn run_background_repair_batch_if_idle_with<F>(
+async fn run_background_repair_batch_if_idle_with<T, F>(
     runtime: &psysonic_library::LibraryRuntime,
     label: &'static str,
     run_batch: F,
-) where
-    F: FnOnce(
-            Arc<psysonic_library::LibraryStore>,
-        ) -> Result<psysonic_library::store::LibraryBackfillStep, String>
-        + Send
-        + 'static,
+) -> Option<T>
+where
+    T: Send + 'static,
+    F: FnOnce(Arc<psysonic_library::LibraryStore>) -> Result<T, String> + Send + 'static,
 {
     if !background_repair_is_allowed(runtime) {
-        return;
+        return None;
     }
 
-    run_background_repair_batch_after_initial_check(runtime, label, run_batch).await;
+    run_background_repair_batch_after_initial_check(runtime, label, run_batch).await
 }
 
-async fn run_background_repair_batch_after_initial_check<F>(
+async fn run_background_repair_batch_after_initial_check<T, F>(
     runtime: &psysonic_library::LibraryRuntime,
     label: &'static str,
     run_batch: F,
-) where
-    F: FnOnce(
-            Arc<psysonic_library::LibraryStore>,
-        ) -> Result<psysonic_library::store::LibraryBackfillStep, String>
-        + Send
-        + 'static,
+) -> Option<T>
+where
+    T: Send + 'static,
+    F: FnOnce(Arc<psysonic_library::LibraryStore>) -> Result<T, String> + Send + 'static,
 {
-    use psysonic_library::store::LibraryBackfillStep;
-
     let sync_activity = runtime.sync_activity_guard().await;
     if !background_repair_is_allowed(runtime) {
-        return;
+        return None;
     }
 
     let store = Arc::clone(&runtime.store);
@@ -64,21 +58,90 @@ async fn run_background_repair_batch_after_initial_check<F>(
     })
     .await
     {
-        Ok(Ok(LibraryBackfillStep::Deferred | LibraryBackfillStep::Pending)) => {}
-        Ok(Ok(LibraryBackfillStep::Complete)) => {}
+        Ok(Ok(outcome)) => Some(outcome),
         Ok(Err(error)) => {
             crate::app_eprintln!("[library-db] background {label} failed: {error}");
+            None
         }
         Err(error) => {
             crate::app_eprintln!("[library-db] background {label} task failed: {error}");
+            None
         }
+    }
+}
+
+/// Sync-idle payloads for the servers a display-suffix batch changed. The repair
+/// runs after the tick's own sync-idle, so without these an open album or track
+/// list keeps the old names until the next sync changes something.
+fn display_suffix_idle_payloads(
+    changed_server_ids: &[String],
+) -> Vec<psysonic_library::LibrarySyncIdlePayload> {
+    changed_server_ids
+        .iter()
+        .map(|server_id| {
+            psysonic_library::LibrarySyncIdlePayload::ok(
+                server_id,
+                "",
+                "display_suffix_backfill",
+                "background",
+            )
+        })
+        .collect()
+}
+
+async fn publish_display_suffix_changes(
+    app: &tauri::AppHandle,
+    runtime: &psysonic_library::LibraryRuntime,
+    changed_server_ids: &[String],
+) {
+    use std::sync::atomic::Ordering;
+
+    if changed_server_ids.is_empty() {
+        return;
+    }
+    // Drain the identity invalidations the batch recorded before telling the
+    // webview, under the same activity guard the scheduler tick holds for it.
+    let sync_activity = runtime.sync_activity_guard().await;
+    if runtime.scheduler_cancel.load(Ordering::SeqCst) {
+        return;
+    }
+    let store = Arc::clone(&runtime.store);
+    let server_ids = changed_server_ids.to_vec();
+    let maintenance = tokio::task::spawn_blocking(move || {
+        let _sync_activity = sync_activity;
+        server_ids
+            .iter()
+            .map(|server_id| {
+                psysonic_library::identity::ensure_cluster_keys_built(&store, server_id).err()
+            })
+            .collect::<Vec<_>>()
+    })
+    .await;
+    for (index, mut payload) in display_suffix_idle_payloads(changed_server_ids)
+        .into_iter()
+        .enumerate()
+    {
+        let error = match &maintenance {
+            Ok(errors) => errors.get(index).cloned().flatten(),
+            Err(error) => Some(error.to_string()),
+        };
+        if let Some(error) = error {
+            payload.mark_failed(format!("identity maintenance failed: {error}"));
+        }
+        let _ = app.emit(
+            psysonic_library::LibrarySyncProgressPayload::IDLE_EVENT_NAME,
+            &payload,
+        );
     }
 }
 
 /// The idle-only repairs run one bounded batch each per scheduler tick, in a
 /// fixed order, so they never compete for the same tick's write lock. Each
 /// returns immediately once its completion marker is set.
-async fn run_background_repairs_if_idle(runtime: &psysonic_library::LibraryRuntime) {
+async fn run_background_repairs_if_idle(
+    app: &tauri::AppHandle,
+    runtime: &psysonic_library::LibraryRuntime,
+) {
     run_background_repair_batch_if_idle_with(runtime, "timestamp repair", |store| {
         store.run_track_timestamp_backfill_batch()
     })
@@ -87,20 +150,25 @@ async fn run_background_repairs_if_idle(runtime: &psysonic_library::LibraryRunti
         store.run_native_strong_keys_backfill_batch()
     })
     .await;
-    run_background_repair_batch_if_idle_with(runtime, "display-suffix backfill", |store| {
-        store.run_native_display_suffix_backfill_batch()
-    })
-    .await;
+    if let Some(batch) =
+        run_background_repair_batch_if_idle_with(runtime, "display-suffix backfill", |store| {
+            store.run_native_display_suffix_backfill_batch()
+        })
+        .await
+    {
+        publish_display_suffix_changes(app, runtime, &batch.changed_server_ids).await;
+    }
 }
 
 async fn run_background_repairs_after_startup_grace(
+    app: &tauri::AppHandle,
     runtime: &psysonic_library::LibraryRuntime,
     startup_deferred: &mut bool,
 ) {
     if *startup_deferred {
         *startup_deferred = false;
     } else {
-        run_background_repairs_if_idle(runtime).await;
+        run_background_repairs_if_idle(app, runtime).await;
     }
 }
 
@@ -170,6 +238,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
             let sessions = state.snapshot_sessions();
             if sessions.is_empty() {
                 run_background_repairs_after_startup_grace(
+                    &app_for_sched,
                     &state,
                     &mut background_repair_startup_deferred,
                 )
@@ -301,6 +370,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
             })
             .await;
             run_background_repairs_after_startup_grace(
+                &app_for_sched,
                 &state,
                 &mut background_repair_startup_deferred,
             )
@@ -437,7 +507,7 @@ mod tests {
 
         tokio::select! {
             biased;
-            () = &mut repair => panic!("timestamp repair completed while activity was blocked"),
+            _ = &mut repair => panic!("timestamp repair completed while activity was blocked"),
             _ = tokio::task::yield_now() => {}
         }
         runtime.scheduler_cancel.store(true, Ordering::SeqCst);
@@ -583,6 +653,31 @@ mod tests {
 
         runtime.clear_session("s1");
         assert!(!scheduler_session_still_current(&runtime, &session));
+    }
+
+    #[test]
+    fn display_suffix_changes_publish_one_ok_idle_payload_per_changed_server() {
+        assert!(display_suffix_idle_payloads(&[]).is_empty());
+
+        let payloads = display_suffix_idle_payloads(&["s1".to_string(), "s2".to_string()]);
+        let summary: Vec<_> = payloads
+            .iter()
+            .map(|payload| {
+                (
+                    payload.server_id.as_str(),
+                    payload.ok,
+                    payload.source.as_str(),
+                    payload.kind.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            vec![
+                ("s1", true, "background", "display_suffix_backfill"),
+                ("s2", true, "background", "display_suffix_backfill"),
+            ]
+        );
     }
 
     #[test]
