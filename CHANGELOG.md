@@ -42,6 +42,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Track lists now highlight a row: click it or move with the arrow keys, then press Enter to play it. Holding Ctrl adds more rows to a selection, including the highlighted one, and Escape clears the selection.
 * The Tracks page and search results now follow the same setting; before, songs there only played on a double click.
 
+### Device Sync playlists with absolute paths
+
+**By [@circle3451](https://github.com/circle3451), PR [#1669](https://github.com/Psysonic/psysonic/pull/1669)**
+
+* **Device Sync → M3U path style** gains **Absolute**, which writes full file paths into the playlists, for software that does not resolve relative entries. It is available for every layout.
+* Absolute paths include this computer's drive letter or mount point, so the playlists only resolve while the device appears under the same one.
+
 ## Fixed
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists
