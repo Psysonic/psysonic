@@ -1,0 +1,68 @@
+name: Linux CPAL 0.18 Diagnostic (issues 1466, 1659)
+
+# Temporary branch-only AppImage for reporter testing. It neither creates a
+# release nor touches the updater channel.
+on:
+  push:
+    branches:
+      - experiment/issue-1659-cpal-0.18.2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf \
+            libasound2-dev squashfs-tools cmake
+      - name: setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+      - name: cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: install npm dependencies
+        run: npm ci
+      - name: record source revision
+        run: |
+          set -euo pipefail
+          git rev-parse HEAD
+          grep -A2 '^name = "cpal"' src-tauri/Cargo.lock
+      - name: build unsigned AppImage with CPAL 0.18.2
+        env:
+          VITE_LASTFM_API_KEY: ${{ secrets.VITE_LASTFM_API_KEY }}
+          VITE_LASTFM_API_SECRET: ${{ secrets.VITE_LASTFM_API_SECRET }}
+          APPIMAGE_EXTRACT_AND_RUN: 1
+        run: npm run tauri:build -- --bundles appimage --verbose
+      - name: package AppImage and checksum
+        run: |
+          set -euo pipefail
+          BUNDLE_DIR="src-tauri/target/release/bundle/appimage"
+          mapfile -t APPIMAGES < <(find "$BUNDLE_DIR" -maxdepth 1 -name '*.AppImage' -type f -print)
+          if [ "${#APPIMAGES[@]}" -ne 1 ]; then
+            echo "::error::Expected one AppImage, found ${#APPIMAGES[@]}"
+            find "$BUNDLE_DIR" -maxdepth 1 -type f -printf '%f\n' || true
+            exit 1
+          fi
+          cd "$BUNDLE_DIR"
+          sha256sum "${APPIMAGES[0]##*/}" > SHA256SUMS
+          tar czf "$GITHUB_WORKSPACE/psysonic-issue-1659-cpal-0.18.2-linux.tar.gz" \
+            "${APPIMAGES[0]##*/}" SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: psysonic-issue-1659-linux-cpal-0.18.2
+          path: psysonic-issue-1659-cpal-0.18.2-linux.tar.gz
+          if-no-files-found: error
+          retention-days: 14

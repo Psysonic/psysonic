@@ -115,4 +115,9 @@ windows = { version = "0.62", features = [
 # top-level atoms after replay. Fixture tests cover ordinary, fragmented, padded,
 # repeated-EOF, and seekable-stream paths. Revalidate them before updating 0.6.1.
 [patch.crates-io]
+# Experimental diagnostic for Linux ALSA stream stalls (issues #1466, #1659).
+# This Rodio 0.22.2-compatible fork raises CPAL to 0.18.2; do not ship it
+# outside the diagnostic branch until reporter testing confirms the result.
+rodio = { git = "https://github.com/cucadmuh/rodio.git", rev = "28aec9140622abf452cf3703669cb8a5dda129e9" }
+
 symphonia-format-isomp4 = { path = "patches/symphonia-format-isomp4" }
