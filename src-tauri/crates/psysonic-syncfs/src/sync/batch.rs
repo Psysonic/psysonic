@@ -6,8 +6,8 @@ use tauri::{Emitter, Manager};
 use crate::sync_cancel_flags;
 
 use super::device::{
-    build_track_path, ensure_mounted_target, path_contains_symlink, planned_path_stays_within,
-    target_available_space, validate_device_identity, SyncBatchResult, TrackSyncInfo,
+    build_track_path, ensure_mounted_target, get_removable_drives, path_contains_symlink,
+    planned_path_stays_within, validate_device_identity, SyncBatchResult, TrackSyncInfo,
 };
 use crate::file_transfer::{
     apply_server_http_get, finalize_streamed_download, subsonic_http_client,
@@ -20,8 +20,8 @@ pub(crate) mod plan;
 mod planner;
 
 pub(crate) use model::{
-    estimate_track_size_bytes, fetch_subsonic_song, fetch_subsonic_songs, inject_flat_layout,
-    inject_overwrite, inject_playlist_context, inject_target_suffix, subsonic_response_root,
+    estimate_track_size_bytes, fetch_subsonic_songs, inject_flat_layout, inject_overwrite,
+    inject_playlist_context, inject_target_suffix, subsonic_response_root,
     track_sync_info_from_subsonic_json,
 };
 pub use model::{
@@ -35,7 +35,7 @@ pub(crate) use plan::{
     normalized_manifest_playlists, normalized_strings, relative_delete_paths,
     validate_active_device_sync_plan_binding, DeviceSyncPlanPlaylist, DeviceSyncPlanRecord,
 };
-pub(crate) use planner::{portable_path_identity, DeviceSyncPlannedMove};
+pub(crate) use planner::portable_path_identity;
 
 pub use filesystem::prune_empty_parents;
 use filesystem::{
@@ -143,11 +143,20 @@ pub async fn sync_batch_to_device(
     let dest_root = std::path::PathBuf::from(&dest_dir);
     validate_device_identity(&dest_root, &expected_device_id)?;
 
-    // Refuse up front when the planned bytes (plus a ~10 MB margin) do not fit
-    // on the volume holding the target — removable drive or local disk alike.
-    if let Some(available) = target_available_space(&dest_root) {
-        if expected_bytes > available.saturating_sub(10_000_000) {
-            return Err("NOT_ENOUGH_SPACE".to_string());
+    // Safety: Ensure target logic hasn't exceeded physical volume capacities securely stopping dead bytes natively.
+    let drives = get_removable_drives();
+    let dest_canon = dest_root
+        .canonicalize()
+        .unwrap_or_else(|_| dest_root.clone());
+    let dest_str = dest_canon.to_string_lossy();
+
+    for drive in drives {
+        if dest_str.starts_with(&drive.mount_point) {
+            // Buffer of ~10 MB padding boundary natively mapped
+            if expected_bytes > drive.available_space.saturating_sub(10_000_000) {
+                return Err("NOT_ENOUGH_SPACE".to_string());
+            }
+            break;
         }
     }
 

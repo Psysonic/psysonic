@@ -139,7 +139,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       planId: 'plan-1',
       deviceId: 'device-1',
       addBytes: 0, addCount: 0, delBytes: 0, delCount: 0, reclaimableBytes: 0,
-      availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [], moveCount: 0,
+      availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [],
       playlists: [], manifestFiles: [], manifestPlaylists: [],
     });
     await pending;
@@ -236,7 +236,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
         planId: 'plan-1',
         deviceId: 'device-1',
         addBytes: 0, addCount: 0, delBytes: 0, delCount: 0, reclaimableBytes: 0,
-        availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [], moveCount: 0,
+        availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [],
         playlists: [], manifestFiles: [], manifestPlaylists: [], context,
       },
       t: ((key: string) => key) as never,
@@ -302,7 +302,6 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
         tracks: [],
         deletePaths: [],
         deferredDeletePaths: [],
-        moveCount: 0,
         playlists: [],
         manifestFiles: [],
         manifestPlaylists: [],

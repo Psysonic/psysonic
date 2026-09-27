@@ -45,9 +45,6 @@ pub enum DeviceSyncPlaylistPathMode {
     #[default]
     PlaylistRelative,
     DeviceRooted,
-    /// Full filesystem paths — for local-folder targets whose playlists are
-    /// imported by DJ software that does not resolve relative entries.
-    Absolute,
 }
 
 /// Output format of a synced file. `Original` copies the server file as-is;
@@ -181,12 +178,6 @@ pub struct SyncDeltaResult {
     pub(crate) tracks: Vec<serde_json::Value>,
     pub(crate) delete_paths: Vec<String>,
     pub(crate) deferred_delete_paths: Vec<String>,
-    /// Existing files relocated on the device instead of downloaded again.
-    pub(crate) move_count: u32,
-    /// Recorded in the persisted plan and applied by finalize; the frontend
-    /// only needs the count.
-    #[serde(skip)]
-    pub(crate) move_paths: Vec<super::planner::DeviceSyncPlannedMove>,
     pub(crate) playlists: Vec<DeviceSyncPlannedPlaylist>,
     pub(crate) manifest_files: Vec<DeviceSyncManifestFile>,
     pub(crate) manifest_playlists: Vec<DeviceSyncManifestPlaylist>,
@@ -216,44 +207,6 @@ pub async fn fetch_subsonic_songs(
         .map_err(|error| error.to_string())?;
     let json: serde_json::Value = res.json().await.map_err(|error| error.to_string())?;
     parse_subsonic_songs(&json, endpoint)
-}
-
-/// Looks up one song by id. `Ok(None)` means the server no longer knows it.
-pub(crate) async fn fetch_subsonic_song(
-    client: &reqwest::Client,
-    registry: Option<&psysonic_core::server_http::ServerHttpRegistry>,
-    auth: &SubsonicAuthPayload,
-    id: &str,
-) -> Result<Option<serde_json::Value>, String> {
-    let url = format!("{}/getSong.view", auth.base_url);
-    let query = vec![
-        ("u", auth.u.as_str()),
-        ("t", auth.t.as_str()),
-        ("s", auth.s.as_str()),
-        ("v", auth.v.as_str()),
-        ("c", auth.c.as_str()),
-        ("f", auth.f.as_str()),
-        ("id", id),
-    ];
-    let res = apply_server_http_get(client, registry, Some(&auth.server_id), &url)
-        .query(&query)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-    if !res.status().is_success() {
-        return Err(format!("HTTP {}", res.status().as_u16()));
-    }
-    let json: serde_json::Value = res.json().await.map_err(|error| error.to_string())?;
-    Ok(parse_subsonic_song(&json, id))
-}
-
-/// The `song` of a `getSong.view` response, if it is the requested one.
-pub(crate) fn parse_subsonic_song(json: &serde_json::Value, id: &str) -> Option<serde_json::Value> {
-    subsonic_response_root(json)
-        .ok()?
-        .get("song")
-        .filter(|song| song.get("id").and_then(serde_json::Value::as_str) == Some(id))
-        .cloned()
 }
 
 pub(crate) fn estimate_track_size_bytes(

@@ -214,10 +214,7 @@ pub(super) fn write_device_manifest_payload(input: DeviceManifestWrite) -> Resul
                 .map(str::to_string)
         })
         .unwrap_or_else(|| "playlist-relative".to_string());
-    if !matches!(
-        playlist_path_mode.as_str(),
-        "playlist-relative" | "device-rooted" | "absolute"
-    ) {
+    if playlist_path_mode != "playlist-relative" && playlist_path_mode != "device-rooted" {
         return Err("DEVICE_SYNC_PLAYLIST_PATH_MODE_INVALID".to_string());
     }
     let files = files.or_else(|| {

@@ -32,15 +32,6 @@ pub(super) struct SyncPlanOptions {
     pub transcode: DeviceSyncTranscode,
 }
 
-/// An existing device file relocated to its new planned path, e.g. after a
-/// playlist reorder renumbered a self-contained copy. Paths are root-relative.
-#[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct DeviceSyncPlannedMove {
-    pub(crate) from: String,
-    pub(crate) to: String,
-}
-
 #[derive(Clone)]
 pub(super) struct FetchedDeviceSyncSource {
     pub source: DeviceSyncSourcePayload,
@@ -83,28 +74,12 @@ fn portable_track_path(track: &crate::sync::device::TrackSyncInfo) -> String {
 /// How a shared-track playlist points at its track. The `.m3u8` sits two
 /// folders deep (`Playlists/{name}/`), or in the root next to the tracks for
 /// the flat layout.
-fn playlist_reference(
-    relative_path: &str,
-    mode: DeviceSyncPlaylistPathMode,
-    flat: bool,
-    root: &Path,
-) -> String {
+fn playlist_reference(relative_path: &str, mode: DeviceSyncPlaylistPathMode, flat: bool) -> String {
     match mode {
         DeviceSyncPlaylistPathMode::PlaylistRelative if flat => relative_path.to_string(),
         DeviceSyncPlaylistPathMode::PlaylistRelative => format!("../../{relative_path}"),
         DeviceSyncPlaylistPathMode::DeviceRooted => format!("/{relative_path}"),
-        DeviceSyncPlaylistPathMode::Absolute => absolute_reference(root, relative_path),
     }
-}
-
-/// Full native path of a device file, for playlists imported by software that
-/// only resolves absolute entries.
-fn absolute_reference(root: &Path, relative_path: &str) -> String {
-    relative_path
-        .split('/')
-        .fold(root.to_path_buf(), |path, component| path.join(component))
-        .to_string_lossy()
-        .to_string()
 }
 
 /// Leading track number of a self-contained playlist file (`07 - Artist - Title.flac`).
@@ -115,12 +90,6 @@ fn playlist_index_from_path(relative_path: &str) -> Option<u32> {
         .take_while(char::is_ascii_digit)
         .collect::<String>();
     digits.parse().ok().filter(|index| *index > 0)
-}
-
-fn file_extension_identity(relative_path: &str) -> Option<String> {
-    Path::new(relative_path)
-        .extension()
-        .map(|extension| extension.to_string_lossy().to_lowercase())
 }
 
 /// Proves that a manifest file sits exactly where the planner would have put
@@ -247,7 +216,6 @@ fn build_desired_state(
     fetched: &[FetchedDeviceSyncSource],
     included_source_keys: &HashSet<String>,
     options: SyncPlanOptions,
-    root: &Path,
 ) -> Result<DesiredState, String> {
     let SyncPlanOptions {
         layout_mode,
@@ -343,18 +311,14 @@ fn build_desired_state(
                 flat,
                 transcode,
             )?;
-            // Self-contained copies sit next to their playlist file, so a bare
-            // filename resolves — unless full paths were asked for.
-            let reference = if layout_mode == DeviceSyncLayoutMode::SelfContained
-                && playlist_path_mode != DeviceSyncPlaylistPathMode::Absolute
-            {
+            let reference = if layout_mode == DeviceSyncLayoutMode::SelfContained {
                 relative_track_path
                     .rsplit('/')
                     .next()
                     .unwrap_or(&relative_track_path)
                     .to_string()
             } else {
-                playlist_reference(&relative_track_path, playlist_path_mode, flat, root)
+                playlist_reference(&relative_track_path, playlist_path_mode, flat)
             };
             let mut playlist_track = track.clone();
             if let Some(suffix) = transcode.target_suffix() {
@@ -437,19 +401,15 @@ pub(super) fn build_sync_plan(
             transcode: DeviceSyncTranscode::default(),
         },
         None,
-        &HashMap::new(),
     )
 }
 
-/// `departed_songs` holds server metadata for tracks the previous manifest
-/// recorded that no current source lists any more (see `fetch_departed_songs`).
 pub(super) fn build_sync_plan_with_resume(
     fetched: &[FetchedDeviceSyncSource],
     deletion_ids: &[String],
     target_dir: &str,
     options: SyncPlanOptions,
     resume_files: Option<&[DeviceSyncManifestFile]>,
-    departed_songs: &HashMap<String, serde_json::Value>,
 ) -> Result<SyncDeltaResult, String> {
     let SyncPlanOptions {
         layout_mode,
@@ -466,7 +426,7 @@ pub(super) fn build_sync_plan_with_resume(
         .difference(&deletion_keys)
         .cloned()
         .collect::<HashSet<_>>();
-    let desired = build_desired_state(fetched, &desired_source_keys, options, root)?;
+    let desired = build_desired_state(fetched, &desired_source_keys, options)?;
 
     let previous_manifest = read_device_manifest(target_dir.to_string());
     if let (Some(manifest), Some(owner)) = (
@@ -496,7 +456,6 @@ pub(super) fn build_sync_plan_with_resume(
             layout_mode: previous_layout_mode,
             ..SyncPlanOptions::default()
         },
-        root,
     )?;
     let has_materialized_plan = previous_manifest.as_ref().is_some_and(|manifest| {
         manifest.get("files").is_some() && manifest.get("playlists").is_some()
@@ -513,10 +472,7 @@ pub(super) fn build_sync_plan_with_resume(
             .map(|source| (*source).clone())
             .collect::<Vec<_>>(),
     );
-    let mut known_songs = departed_songs
-        .iter()
-        .map(|(id, song)| (id.as_str(), song))
-        .collect::<HashMap<_, _>>();
+    let mut known_songs = HashMap::new();
     for entry in fetched {
         for track in &entry.tracks {
             if let Some(id) = track.get("id").and_then(serde_json::Value::as_str) {
@@ -621,8 +577,6 @@ pub(super) fn build_sync_plan_with_resume(
 
     let mut delete_paths = Vec::new();
     let mut deferred_delete_paths = Vec::new();
-    let mut move_paths = Vec::new();
-    let mut moved_into = HashSet::new();
     let mut del_bytes = 0_u64;
     let mut reclaimable_bytes = 0_u64;
     for old in &old_files {
@@ -645,27 +599,6 @@ pub(super) fn build_sync_plan_with_resume(
         }
         if !planned_path_stays_within(root, &absolute).map_err(|error| error.to_string())? {
             return Err("DEVICE_SYNC_MANIFEST_PATH_ESCAPES_ROOT".to_string());
-        }
-        // A copy that is still current but now belongs elsewhere (a playlist
-        // reorder renumbers self-contained files) moves instead of being
-        // deleted and fetched again.
-        let move_target = desired.files.iter().find(|(key, file)| {
-            file.track_id == old.track_id
-                && !moved_into.contains(*key)
-                && file_extension_identity(&file.relative_path)
-                    == file_extension_identity(&old.relative_path)
-                && !copy_is_stale(old, file, transcode)
-                && resolve_within_root(root, &file.relative_path).is_some_and(|next| {
-                    !next.exists() && planned_path_stays_within(root, &next).unwrap_or(false)
-                })
-        });
-        if let Some((key, file)) = move_target {
-            moved_into.insert(key.clone());
-            move_paths.push(DeviceSyncPlannedMove {
-                from: old.relative_path.clone(),
-                to: file.relative_path.clone(),
-            });
-            continue;
         }
         del_bytes = del_bytes.saturating_add(old.size_bytes);
         let waits_for_replacement = desired_paths_by_track
@@ -709,15 +642,12 @@ pub(super) fn build_sync_plan_with_resume(
         .collect::<HashMap<_, _>>();
     let mut tracks = Vec::new();
     let mut add_bytes = 0_u64;
-    for (key, file) in &desired.files {
+    for file in desired.files.values() {
         let Some(absolute) = resolve_within_root(root, &file.relative_path) else {
             return Err("DEVICE_SYNC_PLANNED_PATH_INVALID".to_string());
         };
         if !planned_path_stays_within(root, &absolute).map_err(|error| error.to_string())? {
             return Err("DEVICE_SYNC_PLANNED_PATH_ESCAPES_ROOT".to_string());
-        }
-        if moved_into.contains(key) {
-            continue;
         }
         let mut overwrite = false;
         if absolute.exists() {
@@ -802,8 +732,6 @@ pub(super) fn build_sync_plan_with_resume(
         tracks,
         delete_paths,
         deferred_delete_paths,
-        move_count: move_paths.len() as u32,
-        move_paths,
         playlists: desired.playlists,
         manifest_files: desired_manifest_files,
         manifest_playlists: desired_manifest_playlists,

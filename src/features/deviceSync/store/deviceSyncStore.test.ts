@@ -188,7 +188,7 @@ describe('deviceSyncStore ownership', () => {
     })).toBeNull();
   });
 
-  it('imports absolute playlist paths and the recorded transcode profile', () => {
+  it('imports the recorded transcode profile', () => {
     const sourceKey = deviceSyncSourceKey(sourceA);
     expect(deviceSyncManifestImport({
       version: 4,
@@ -196,7 +196,7 @@ describe('deviceSyncStore ownership', () => {
       ownerServerIndexKey: sourceA.serverIndexKey,
       sources: [sourceA],
       layoutMode: 'shared-album-tree',
-      playlistPathMode: 'absolute',
+      playlistPathMode: 'device-rooted',
       files: [{
         trackId: 'track-1',
         relativePath: 'Artist/Album/01 - Song.mp3',
@@ -207,34 +207,34 @@ describe('deviceSyncStore ownership', () => {
       }],
       playlists: [],
     })).toEqual(expect.objectContaining({
-      playlistPathMode: 'absolute',
+      playlistPathMode: 'device-rooted',
       transcode: { format: 'mp3', maxBitRateKbps: 192 },
     }));
   });
 
   it('adopts a recorded transcode profile from the manifest as synced and desired', () => {
     useDeviceSyncStore.getState().applyManifestConfiguration(
-      'shared-album-tree', 'absolute', true, { format: 'mp3', maxBitRateKbps: 192 },
+      'shared-album-tree', 'device-rooted', true, { format: 'mp3', maxBitRateKbps: 192 },
     );
     expect(useDeviceSyncStore.getState()).toMatchObject({
-      playlistPathMode: 'absolute',
+      playlistPathMode: 'device-rooted',
       transcode: { format: 'mp3', maxBitRateKbps: 192 },
       syncedTranscode: { format: 'mp3', maxBitRateKbps: 192 },
     });
   });
 
-  it('migrates v4 state to original files and keeps absolute path modes', () => {
+  it('migrates v4 state to original files and keeps the chosen format', () => {
     const fromV4 = migrateDeviceSyncPersistedState({ playlistPathMode: 'device-rooted' });
     expect(fromV4.transcode).toEqual({ format: 'original', maxBitRateKbps: 320 });
     expect(fromV4.syncedTranscode).toBeNull();
 
     const migrated = migrateDeviceSyncPersistedState({
-      playlistPathMode: 'absolute',
-      syncedPlaylistPathMode: 'absolute',
+      playlistPathMode: 'device-rooted',
+      syncedPlaylistPathMode: 'device-rooted',
       transcode: { format: 'mp3', maxBitRateKbps: 192 },
     } as never);
-    expect(migrated.playlistPathMode).toBe('absolute');
-    expect(migrated.syncedPlaylistPathMode).toBe('absolute');
+    expect(migrated.playlistPathMode).toBe('device-rooted');
+    expect(migrated.syncedPlaylistPathMode).toBe('device-rooted');
     expect(migrated.transcode).toEqual({ format: 'mp3', maxBitRateKbps: 192 });
 
     const invalid = migrateDeviceSyncPersistedState({

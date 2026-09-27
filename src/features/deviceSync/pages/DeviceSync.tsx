@@ -76,7 +76,7 @@ export default function DeviceSync() {
   const [search, setSearch]                 = useState('');
   const resetSearch = useCallback(() => setSearch(''), []);
   // ─── Removable drive detection ──────────────────────────────────────────
-  const { drives, drivesLoading, activeDrive, driveDetected, targetIsLocal, refreshDrives } =
+  const { drives, drivesLoading, activeDrive, driveDetected, refreshDrives } =
     useDeviceSyncDrives(targetDir);
 
   const [preSyncOpen, setPreSyncOpen] = useState(false);
@@ -93,7 +93,6 @@ export default function DeviceSync() {
     tracks: [] as SubsonicSong[],
     deletePaths: [],
     deferredDeletePaths: [],
-    moveCount: 0,
     playlists: [],
     manifestFiles: [],
     manifestPlaylists: [],
@@ -109,13 +108,9 @@ export default function DeviceSync() {
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
 
   const isRunning = deviceSyncJobIsActive(jobStatus);
-  // The M3U path style only matters where playlists point at shared tracks,
-  // or everywhere once full paths are involved.
-  const pathStyleMatters = layoutMode !== 'self-contained'
-    || playlistPathMode === 'absolute'
-    || syncedPlaylistPathMode === 'absolute';
+  // The M3U path style only matters where playlists point at shared tracks.
   const configurationDirty = layoutMode !== syncedLayoutMode
-    || (pathStyleMatters && playlistPathMode !== syncedPlaylistPathMode);
+    || (layoutMode !== 'self-contained' && playlistPathMode !== syncedPlaylistPathMode);
   // A new format or bitrate touches every file, not just playlists.
   const transcodeDirty = syncedTranscode !== null && !sameDeviceSyncTranscode(transcode, syncedTranscode);
 
@@ -139,7 +134,7 @@ export default function DeviceSync() {
     t,
     activeDrive
       ? `${activeDrive.mount_point}\0${activeDrive.name}\0${activeDrive.total_space}\0${activeDrive.file_system}`
-      : targetIsLocal && targetDir ? `local\0${targetDir}` : null,
+      : null,
   );
 
   // Follow the owning server when it changes address, before anything reads
@@ -273,7 +268,6 @@ export default function DeviceSync() {
         setPlaylistPathMode={setPlaylistPathMode}
         transcode={transcode}
         setTranscode={setTranscode}
-        targetIsLocal={targetIsLocal}
         isRunning={isRunning}
       />
 
