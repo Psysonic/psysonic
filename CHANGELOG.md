@@ -74,8 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **By [@circle3451](https://github.com/circle3451), PR [#1672](https://github.com/Psysonic/psysonic/pull/1672)**
 
-* **All Albums** and **Lossless Albums** can now be sorted by **Year**, oldest first. Albums from the same year are ordered by artist, then title.
-* In the table view, clicking the **Year** column header selects the same sort.
+* **All Albums** and **Lossless Albums** can now be sorted by **Year**. It starts newest first, and choosing it again switches to oldest first. Albums from the same year are ordered by artist, then title.
+* In the table view, the **Year** column header does the same: the first click sorts newest first, and each click after that flips the direction.
 
 ## Fixed
 
