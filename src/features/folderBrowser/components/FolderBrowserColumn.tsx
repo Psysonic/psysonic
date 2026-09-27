@@ -28,6 +28,8 @@ interface Props {
   onFilterArrowDown: () => void;
   onFilterChange: (value: string) => void;
   onRowClick: (item: SubsonicDirectoryEntry, rowIndex: number) => void;
+  /** Only set in double-click-to-play mode. */
+  onRowDoubleClick?: (item: SubsonicDirectoryEntry) => void;
   onRowContextMenu: (
     e: React.MouseEvent,
     rowIndex: number,
@@ -41,7 +43,7 @@ export default function FolderBrowserColumn({
   keyboardRowIndex, contextRowIndex, currentTrack, isPlaying,
   isSelectedPathForCurrentTrack, playingPathIds,
   registerFilterInput, onFilterFocus, onFilterBlur, onFilterEscape, onFilterArrowDown, onFilterChange,
-  onRowClick, onRowContextMenu,
+  onRowClick, onRowDoubleClick, onRowContextMenu,
 }: Props) {
   const { t } = useTranslation();
 
@@ -107,6 +109,7 @@ export default function FolderBrowserColumn({
               data-item-key={itemKey}
               className={`folder-col-row${isSelected ? ' selected' : ''}${isContextRow ? ' context-active' : ''}${isKeyboardRow ? ' keyboard-active' : ''}${isNowPlayingTrack ? ' now-playing' : ''}`}
               onClick={() => onRowClick(item, rowIndex)}
+              onDoubleClick={onRowDoubleClick ? () => onRowDoubleClick(item) : undefined}
               onKeyDown={e => {
                 if (!isFolderBrowserArrowKey(e) || folderBrowserHasKeyModifiers(e)) return;
                 e.preventDefault();
