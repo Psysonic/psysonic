@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 
+### Device Sync can convert files on the server
+
+**By [@circle3451](https://github.com/circle3451), PR [#1643](https://github.com/Psysonic/psysonic/pull/1643)**
+
+* **Device Sync → Format** can store tracks as MP3, AAC or Opus with a maximum bitrate instead of the original files; your server converts them while syncing. The format must be enabled in the server's transcoding settings.
+* Copies are replaced in place when the format or bitrate changes, or when the file on the server changes. Devices synced before keep their original files until another format is chosen.
+
 ### Track subtitles and album versions from Navidrome
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**

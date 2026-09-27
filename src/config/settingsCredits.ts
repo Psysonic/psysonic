@@ -615,6 +615,7 @@ const CONTRIBUTOR_ENTRIES = [
     github: 'circle3451',
     since: '1.56.0',
     contributions: [
+      'Device Sync — transcode to MP3, AAC or Opus on the server (PR #1643)',
       'Album page — similar albums from AudioMuse (PR #1663)',
     ],
   },
