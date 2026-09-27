@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getSonicSimilarMatchesForServer } from '@/lib/api/subsonicArtists';
 import type { SubsonicAlbum, SubsonicSong } from '@/lib/api/subsonicTypes';
+import { createBoundedTtlCache } from '@/lib/cache/boundedTtlCache';
 import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGuard';
 import { isSonicSimilarityActiveForServer } from '@/lib/serverCapabilities/storeView';
 import { useAuthStore } from '@/store/authStore';
@@ -10,27 +11,7 @@ const SIMILAR_TRACKS_PER_SEED = 40;
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 32;
 
-const cache = new Map<string, { albums: SubsonicAlbum[]; savedAt: number }>();
-
-function readCache(key: string): SubsonicAlbum[] | null {
-  const entry = cache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.savedAt > CACHE_TTL_MS) {
-    cache.delete(key);
-    return null;
-  }
-  return entry.albums;
-}
-
-function writeCache(key: string, albums: SubsonicAlbum[]): void {
-  cache.delete(key);
-  cache.set(key, { albums, savedAt: Date.now() });
-  while (cache.size > CACHE_MAX_ENTRIES) {
-    const oldestKey = cache.keys().next().value as string | undefined;
-    if (!oldestKey) break;
-    cache.delete(oldestKey);
-  }
-}
+const cache = createBoundedTtlCache<SubsonicAlbum[]>(CACHE_TTL_MS, CACHE_MAX_ENTRIES);
 
 export function resetAlbumSimilarAlbumsCacheForTests(): void {
   cache.clear();
@@ -85,7 +66,7 @@ export function useAlbumSimilarAlbums({
 
   useEffect(() => {
     if (!wanted) return;
-    const cached = readCache(cacheKey);
+    const cached = cache.get(cacheKey);
     if (cached) {
       // React Compiler set-state-in-effect rule: cache hit resolved synchronously in this effect.
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -102,7 +83,7 @@ export function useAlbumSimilarAlbums({
       const matches = outcomes.flatMap(o => (o.status === 'fulfilled' ? o.value : []));
       const albums = aggregateSimilarAlbums(matches, albumId, artistId);
       // Only cache when some lookup succeeded, so a transient failure retries on the next visit.
-      if (outcomes.some(o => o.status === 'fulfilled' && o.value.length > 0)) writeCache(cacheKey, albums);
+      if (outcomes.some(o => o.status === 'fulfilled' && o.value.length > 0)) cache.set(cacheKey, albums);
       setResult({ key: cacheKey, albums, settled: true });
     });
     return () => { cancelled = true; };
