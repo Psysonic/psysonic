@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
-import { albumSortClauses, sortSubsonicAlbums } from './albumBrowseSort';
+import {
+  albumListFetchParams,
+  albumListFetchType,
+  albumSortClauses,
+  sortSubsonicAlbums,
+} from './albumBrowseSort';
 
 const album = (artist: string, name: string, year?: number): SubsonicAlbum =>
   ({ id: `${artist}-${name}`, artist, name, year }) as SubsonicAlbum;
@@ -26,6 +31,27 @@ describe('albumSortClauses', () => {
       { field: 'year', dir: 'asc' },
       { field: 'name', dir: 'asc' },
     ]);
+  });
+
+  it('sorts by year, then artist, then album name', () => {
+    expect(albumSortClauses('byYear')).toEqual([
+      { field: 'year', dir: 'asc' },
+      { field: 'artist', dir: 'asc' },
+      { field: 'name', dir: 'asc' },
+    ]);
+  });
+});
+
+describe('albumListFetchType / albumListFetchParams', () => {
+  it('fetches the server year list across every year for the year sort', () => {
+    expect(albumListFetchType('byYear')).toBe('byYear');
+    expect(albumListFetchParams('byYear')).toEqual({ fromYear: 0, toYear: 9999 });
+  });
+
+  it('needs no extra params for the alphabetical sorts', () => {
+    expect(albumListFetchType('byArtistThenYear')).toBe('alphabeticalByArtist');
+    expect(albumListFetchParams('alphabeticalByName')).toEqual({});
+    expect(albumListFetchParams('byArtistThenYear')).toEqual({});
   });
 });
 
@@ -72,6 +98,24 @@ describe('sortSubsonicAlbums', () => {
       'Artist A - Reprise',
       'Artist B - Nocturne',
       'Artist B - Aftermath',
+    ]);
+  });
+
+  it('orders albums chronologically, grouping same-year albums by artist then title', () => {
+    const input = [
+      album('Artist B', 'Nocturne', 1997),
+      album('Artist A', 'Untagged'),
+      album('Artist B', 'Aftermath', 1981),
+      album('Artist A', 'Mirage', 1981),
+      album('Artist A', 'Debut', 1981),
+    ];
+    const ordered = sortSubsonicAlbums(input, 'byYear').map(a => `${a.artist} - ${a.name}`);
+    expect(ordered).toEqual([
+      'Artist A - Untagged',
+      'Artist A - Debut',
+      'Artist A - Mirage',
+      'Artist B - Aftermath',
+      'Artist B - Nocturne',
     ]);
   });
 });

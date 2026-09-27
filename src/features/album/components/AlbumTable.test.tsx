@@ -139,6 +139,20 @@ describe('AlbumTable', () => {
     expect(onChange).toHaveBeenCalledWith('alphabeticalByArtist');
   });
 
+  it('marks the year column when sorting by year and sorts by year from its header', () => {
+    const onChange = vi.fn();
+    renderTable({ sort: { value: 'byYear', onChange } });
+
+    const headers = screen.getAllByRole('columnheader');
+    const title = headers.find(h => h.classList.contains('album-table__cell--title'))!;
+    const year = headers.find(h => h.classList.contains('album-table__cell--year'))!;
+    expect(year.getAttribute('aria-sort')).toBe('ascending');
+    expect(title.getAttribute('aria-sort')).toBe('none');
+
+    fireEvent.click(within(year).getByRole('button'));
+    expect(onChange).toHaveBeenCalledWith('byYear');
+  });
+
   // New Releases has no sort control, so its headers must not offer one —
   // a clickable header there would promise an order the page cannot produce.
   it('renders static headers on a page without a sort control', () => {

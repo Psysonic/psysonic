@@ -108,6 +108,7 @@ export default function LosslessAlbums() {
   const sortOptions: { value: AlbumBrowseSort; label: string }[] = [
     { value: 'alphabeticalByName', label: t('albums.sortByName') },
     { value: 'alphabeticalByArtist', label: t('albums.sortByArtist') },
+    { value: 'byYear', label: t('albums.sortByYear') },
   ];
 
   const mainstageHeaderTight = useMainstageInpageHeaderTight(scrollBodyEl, [

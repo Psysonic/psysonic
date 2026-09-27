@@ -3,6 +3,7 @@ export const albums = {
   sortByName: 'A-Z (アルバム)',
   sortByArtist: 'A-Z (アーティスト)',
   sortByArtistYear: 'アーティスト → 年',
+  sortByYear: '年',
   sortNewest: '新しい順',
   sortRandom: 'ランダム',
   yearFrom: '開始',

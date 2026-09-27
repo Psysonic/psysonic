@@ -89,6 +89,7 @@ export default function AlbumTable({
 
   const sortedByTitle = sort?.value === 'alphabeticalByName';
   const sortedByArtist = sort?.value === 'alphabeticalByArtist';
+  const sortedByYear = sort?.value === 'byYear';
 
   return (
     <div
@@ -119,8 +120,12 @@ export default function AlbumTable({
         <span className="album-table__cell album-table__cell--songs" role="columnheader">
           {t('albums.columnSongs')}
         </span>
-        <span className="album-table__cell album-table__cell--year" role="columnheader">
-          {t('albums.columnYear')}
+        <span
+          className="album-table__cell album-table__cell--year"
+          role="columnheader"
+          aria-sort={sort ? (sortedByYear ? 'ascending' : 'none') : undefined}
+        >
+          <SortableHeader label={t('albums.columnYear')} sortKey="byYear" sort={sort} />
         </span>
         <span className="album-table__cell album-table__cell--duration" role="columnheader">
           {t('albums.columnDuration')}
