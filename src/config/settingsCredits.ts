@@ -608,6 +608,15 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.55.0',
     contributions: [
       'Seek buffering indicator polish for player and queue cover art (PR #1634)',
+      'Track-list mouse-wheel scrolling after horizontal swipes on WebKit (PR #1635)',
+    ],
+  },
+  {
+    github: 'circle3451',
+    since: '1.56.0',
+    contributions: [
+      'Device Sync — transcode to MP3, AAC or Opus on the server (PR #1643)',
+      'Album page — similar albums from AudioMuse (PR #1663)',
     ],
   },
 ] as const;
