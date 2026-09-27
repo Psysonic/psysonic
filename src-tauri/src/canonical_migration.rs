@@ -397,16 +397,22 @@ mod tests {
             .await
         });
 
-        loop {
-            match psysonic_syncfs::filesystem_write_guard().await {
-                Ok(guard) => {
-                    drop(guard);
-                    tokio::task::yield_now().await;
+        // Probe without waiting: this task still holds a reader, so a blocking
+        // read queued behind the migration writer would wait on itself.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match psysonic_syncfs::filesystem_write_guard_now() {
+                    Ok(guard) => drop(guard),
+                    Err(error) if error.contains("migration generation 41") => break,
+                    // The writer is queued; its generation is visible on the next probe.
+                    Err(error) if error.contains("filesystem migration blocks") => {}
+                    Err(error) => panic!("unexpected filesystem admission error: {error}"),
                 }
-                Err(error) if error.contains("migration generation 41") => break,
-                Err(error) => panic!("unexpected filesystem admission error: {error}"),
+                tokio::task::yield_now().await;
             }
-        }
+        })
+        .await
+        .expect("migration must block ordinary filesystem admission");
 
         // This models an in-flight filesystem operation that discovers it must
         // enqueue enrichment after migration begin has started.
