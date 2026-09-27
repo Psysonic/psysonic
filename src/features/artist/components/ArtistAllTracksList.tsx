@@ -21,6 +21,7 @@ import { appendServerQuery, buildArtistDetailPath } from '@/lib/navigation/detai
 import { APP_MAIN_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
 import { useElementClientHeightById } from '@/lib/hooks/useResizeClientHeight';
 import { useVirtualizerScrollMargin } from '@/lib/hooks/useVirtualizerScrollMargin';
+import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
@@ -74,7 +75,7 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
   const psyDrag = useDragDrop();
   // Rows are virtualised, so one can be recycled out from under a held button.
   const dragPress = useDragPressHandle();
-  const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
 
   const [sort, setSort] = useState<ArtistAllTracksSortState>({ key: 'natural', dir: 'asc' });
 
@@ -136,20 +137,38 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
       : <ArrowDown size={12} style={{ marginLeft: 4, opacity: 0.7 }} />;
   };
 
+  // Index-suffixed for the same reason as the virtualiser keys above.
+  const cursorKeys = useMemo(() => displayed.map((song, i) => `${song.id}:${i}`), [displayed]);
+  const cursor = useTrackListCursor({
+    keys: cursorKeys,
+    onActivate: index => {
+      const song = displayed[index];
+      if (!song) return;
+      if (orbitActive) addTrackToOrbit(song.id, song.serverId);
+      else onPlay(displayed, index);
+    },
+    scrollToIndex: index => rowVirtualizer.scrollToIndex(index, { align: 'auto' }),
+  });
+  const { setCursorFromClick } = cursor;
+
   // Latest-value box so the row callbacks stay stable across renders.
-  const latest = useRef({ displayed, orbitActive, queueHint, addTrackToOrbit, onPlay, psyDrag });
-  latest.current = { displayed, orbitActive, queueHint, addTrackToOrbit, onPlay, psyDrag };
+  const latest = useRef({ displayed, orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit, onPlay, psyDrag, setCursorFromClick });
+  latest.current = { displayed, orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit, onPlay, psyDrag, setCursorFromClick };
 
   const cb = useMemo<ArtistAllTracksRowCallbacks>(() => ({
     activate: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
       const L = latest.current;
+      L.setCursorFromClick(index, e);
       if (L.orbitActive) { L.queueHint(); return; }
+      if (L.doubleClickToPlay) return;
       L.onPlay(L.displayed, index);
     },
-    dblOrbit: (song, e) => {
+    doubleClick: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
-      latest.current.addTrackToOrbit(song.id, song.serverId);
+      const L = latest.current;
+      if (L.orbitActive) L.addTrackToOrbit(song.id, song.serverId);
+      else L.onPlay(L.displayed, index);
     },
     context: (song, e) => {
       e.preventDefault();
@@ -193,7 +212,7 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
   }
 
   return (
-      <div className="tracklist" data-preview-loc="artist" style={{ padding: 0 }} ref={tracklistRef}>
+      <div className="tracklist" data-preview-loc="artist" style={{ padding: 0 }} ref={tracklistRef} {...cursor.listProps}>
         <div style={{ position: 'relative' }}>
           <div className="tracklist-header tracklist-va" style={gridStyle}>
             {visibleCols.map((colDef, colIndex) => {
@@ -272,7 +291,8 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
                   showEq={isActive && isPlaying}
                   isPreviewing={previewingId === song.id}
                   previewStarted={previewingId === song.id && previewAudioStarted}
-                  orbitActive={orbitActive}
+                  doubleClickActive={orbitActive || doubleClickToPlay}
+                  cursorRowId={cursor.cursorIndex === vi.index ? cursor.cursorRowId : undefined}
                   cb={cb}
                 />
               </div>

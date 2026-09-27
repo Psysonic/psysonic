@@ -14,7 +14,7 @@ import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 
 export interface PlaylistRowCallbacks {
   activate: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
-  dblOrbit: (song: SubsonicSong, e: React.MouseEvent) => void;
+  doubleClick: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
   context: (song: SubsonicSong, realIdx: number, e: React.MouseEvent) => void;
   mouseDownRow: (realIdx: number, e: React.MouseEvent) => void;
   mouseEnterRow: (index: number, e: React.MouseEvent) => void;
@@ -43,27 +43,31 @@ interface Props {
   ratingValue: number;
   isPreviewing: boolean;
   previewStarted: boolean;
-  orbitActive: boolean;
+  /** Double click does something (Orbit add, or play in double-click mode). */
+  doubleClickActive: boolean;
+  /** Set only on the list's cursor row (`useTrackListCursor`). */
+  cursorRowId?: string;
   cb: PlaylistRowCallbacks;
 }
 
 function PlaylistRow({
   song, index: i, realIdx, visibleCols, gridStyle, showBitrate,
   isActive, showEq, isContextActive, isSelected, inSelectMode,
-  isStarred, ratingValue, isPreviewing, previewStarted, orbitActive, cb,
+  isStarred, ratingValue, isPreviewing, previewStarted, doubleClickActive, cursorRowId, cb,
 }: Props) {
   const { t } = useTranslation();
   const playStats = useTrackPlayStats(song);
 
   return (
     <div
+      id={cursorRowId}
       data-track-idx={realIdx}
-      className={`track-row track-row-va track-row-with-actions tracklist-playlist${isActive ? ' active' : ''}${isContextActive ? ' context-active' : ''}${isSelected ? ' bulk-selected' : ''}`}
+      className={`track-row track-row-va track-row-with-actions tracklist-playlist${isActive ? ' active' : ''}${isContextActive ? ' context-active' : ''}${isSelected ? ' bulk-selected' : ''}${cursorRowId ? ' track-row--cursor' : ''}`}
       style={gridStyle}
       onMouseEnter={e => cb.mouseEnterRow(i, e)}
       onMouseDown={e => cb.mouseDownRow(realIdx, e)}
       onClick={e => cb.activate(song, i, e)}
-      onDoubleClick={orbitActive ? e => cb.dblOrbit(song, e) : undefined}
+      onDoubleClick={doubleClickActive ? e => cb.doubleClick(song, i, e) : undefined}
       onContextMenu={e => cb.context(song, realIdx, e)}
     >
       {visibleCols.map(colDef => {

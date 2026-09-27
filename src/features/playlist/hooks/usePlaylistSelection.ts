@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type React from 'react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
+import { useEscapeClearsSelection } from '@/lib/hooks/useEscapeClearsSelection';
 
 export interface PlaylistSelection {
   selectedIds: Set<string>;
@@ -19,6 +20,11 @@ export function usePlaylistSelection(
 ): PlaylistSelection {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [lastSelectedIdx, setLastSelectedIdx] = useState<number | null>(null);
+
+  useEscapeClearsSelection(selectedIds.size > 0, () => {
+    setSelectedIds(new Set());
+    setLastSelectedIdx(null);
+  });
 
   const toggleSelect = (id: string, idx: number, shift: boolean) => {
     setSelectedIds(prev => {

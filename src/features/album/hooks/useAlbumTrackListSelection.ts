@@ -4,6 +4,7 @@ import { useSelectionStore } from '@/store/selectionStore';
 import { useDragDrop } from '@/lib/dnd/DragDropContext';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { useEscapeClearsSelection } from '@/lib/hooks/useEscapeClearsSelection';
 
 interface UseAlbumTrackListSelectionArgs {
   songs: SubsonicSong[];
@@ -62,6 +63,11 @@ export function useAlbumTrackListSelection({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [inSelectMode, tracklistRef]);
+
+  useEscapeClearsSelection(inSelectMode, () => {
+    useSelectionStore.getState().clearAll();
+    lastSelectedIdxRef.current = null;
+  });
 
   const onToggleSelect = useCallback((id: string, globalIdx: number, shift: boolean) => {
     useSelectionStore.getState().setSelectedIds(prev => {
