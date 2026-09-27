@@ -56,6 +56,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * When a playlist is reordered or the layout changes, copies already on the device are renamed to their new place instead of being downloaded again.
 * A track removed from a synced playlist, or from a source you remove from Device Sync, is now deleted from the device as well.
 
+### Device Sync to a folder on this computer
+
+**By [@circle3451](https://github.com/circle3451), PR [#1671](https://github.com/Psysonic/psysonic/pull/1671)**
+
+* Device Sync can now sync into an empty folder on the computer's own disk, for example to import the playlists into DJ software. Psysonic asks once before using the folder.
+* Only an empty folder can be chosen, and Psysonic never takes over or deletes files it did not write there.
+
 ## Fixed
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists
