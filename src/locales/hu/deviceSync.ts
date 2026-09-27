@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'A lejátszási listához képest',
   playlistPathRooted: 'Az eszköz gyökerétől (/Előadó/Album/…)',
   playlistPathAbsolute: 'Abszolút (teljes fájlútvonalak)',
+  playlistPathAbsoluteHint: 'Az abszolút útvonalak tartalmazzák a számítógép meghajtóbetűjelét vagy csatolási pontját, így a lejátszási listák csak addig működnek, amíg az eszköz ugyanott jelenik meg.',
   transcodeFormat: 'Formátum',
   transcodeOriginal: 'Eredeti fájlok',
   transcodeMp3: 'MP3',

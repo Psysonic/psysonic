@@ -13,12 +13,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 
+### Device Sync can convert files on the server
+
+**By [@circle3451](https://github.com/circle3451), PR [#1643](https://github.com/Psysonic/psysonic/pull/1643)**
+
+* **Device Sync → Format** can store tracks as MP3, AAC or Opus with a maximum bitrate instead of the original files; your server converts them while syncing. The format must be enabled in the server's transcoding settings.
+* Copies are replaced in place when the format or bitrate changes, or when the file on the server changes. Devices synced before keep their original files until another format is chosen.
+
 ### Track subtitles and album versions from Navidrome
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**
 
 * A track's subtitle (e.g. "Instrumental") now appears after its title in every track list, and an album's version (e.g. "Deluxe Edition") after the album name — also for libraries synced through Navidrome's own API, which previously showed them only in some places. Existing libraries are updated once in the background.
 * The album page shows the version under the album title when the title does not already include it.
+
+### Similar albums on the album page
+
+**By [@circle3451](https://github.com/circle3451), PR [#1663](https://github.com/Psysonic/psysonic/pull/1663)**
+
+* A **Similar albums** row below "More by artist" suggests albums that sound alike, found by AudioMuse from a few tracks of the open album. Albums by the same artist are left out.
+* Needs Navidrome 0.62 or newer with the AudioMuse plugin; the row stays hidden on other servers, offline, or when nothing is found.
 
 ### Play songs from a list on a single or double click
 
@@ -28,7 +42,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Track lists now highlight a row: click it or move with the arrow keys, then press Enter to play it. Holding Ctrl adds more rows to a selection, including the highlighted one, and Escape clears the selection.
 * The Tracks page and search results now follow the same setting; before, songs there only played on a double click.
 
+### Device Sync playlists with absolute paths
+
+**By [@circle3451](https://github.com/circle3451), PR [#1669](https://github.com/Psysonic/psysonic/pull/1669)**
+
+* **Device Sync → M3U path style** gains **Absolute**, which writes full file paths into the playlists, for software that does not resolve relative entries. It is available for every layout.
+* Absolute paths include this computer's drive letter or mount point, so the playlists only resolve while the device appears under the same one.
+
 ## Fixed
+
+### Mouse-wheel scrolling resumes after a sideways swipe on track lists
+
+**By [@strecke](https://github.com/strecke), PR [#1635](https://github.com/Psysonic/psysonic/pull/1635)**
+
+* On macOS and Linux, scrolling sideways through a track list could leave the mouse wheel unable to scroll the page vertically. Vertical scrolling now works again after the sideways gesture without interrupting horizontal swipes or zoom gestures.
 
 ### Navidrome smart playlists keep their cover on the Playlists page
 

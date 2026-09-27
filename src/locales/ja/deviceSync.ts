@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'プレイリストからの相対パス',
   playlistPathRooted: 'デバイスのルートから (/アーティスト/アルバム/…)',
   playlistPathAbsolute: '絶対パス（完全なファイルパス）',
+  playlistPathAbsoluteHint: '絶対パスにはこのコンピューターのドライブ文字またはマウントポイントが含まれるため、デバイスが同じ場所に表示されている間だけプレイリストが機能します。',
   transcodeFormat: '形式',
   transcodeOriginal: '元のファイル',
   transcodeMp3: 'MP3',

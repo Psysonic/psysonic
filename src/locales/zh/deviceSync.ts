@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: '相对于播放列表',
   playlistPathRooted: '从设备根目录开始（/艺术家/专辑/…）',
   playlistPathAbsolute: '绝对路径（完整文件路径）',
+  playlistPathAbsoluteHint: '绝对路径包含此电脑的驱动器号或挂载点，因此只有当设备出现在同一位置时，播放列表才能正常使用。',
   transcodeFormat: '格式',
   transcodeOriginal: '原始文件',
   transcodeMp3: 'MP3',
