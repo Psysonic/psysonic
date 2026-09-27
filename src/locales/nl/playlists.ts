@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Nummers sorteren',
   sortDefaultServerOrder: 'ID (servervolgorde)',
+  reorderHint: 'Herschikken door te slepen werkt alleen met de sortering ‘{{order}}’ en zonder filter.',
+  reorderHintReset: 'Herstellen',
   sortDateAddedNewest: 'Datum toegevoegd (nieuwste)',
   sortDateAddedOldest: 'Datum toegevoegd (oudste)',
   editRules: 'Regels bewerken',

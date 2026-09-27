@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Сортировать треки',
   sortDefaultServerOrder: 'ID (порядок сервера)',
+  reorderHint: 'Изменить порядок перетаскиванием можно только при сортировке «{{order}}» и без фильтра.',
+  reorderHintReset: 'Сбросить',
   sortDateAddedNewest: 'Дата добавления (новые)',
   sortDateAddedOldest: 'Дата добавления (старые)',
   editRules: 'Редактировать правила',

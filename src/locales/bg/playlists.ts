@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Сортиране на песни',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Пренареждането с плъзгане работи само при сортиране „{{order}}“ и без филтър.',
+  reorderHintReset: 'Нулиране',
   sortDateAddedNewest: 'Дата на добавяне (най-нови)',
   sortDateAddedOldest: 'Дата на добавяне (най-стари)',
   editRules: 'Редактирай правилата',

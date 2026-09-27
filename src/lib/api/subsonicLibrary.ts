@@ -123,26 +123,16 @@ async function albumIdsInLibraryScope(
 ): Promise<Set<string> | null> {
   const {
     libraryBrowseScopeVersion,
-    musicLibraryFilterByServer,
     musicLibraryFilterVersion,
   } = useAuthStore.getState();
   if (!serverId) return null;
 
   const override = getLuckyMixLibraryScopeOverride();
-  let libraryIds: string[] = [];
-  if (override) {
-    libraryIds = [override];
-  } else if (explicitLibraryIds !== undefined) {
-    libraryIds = [...new Set(explicitLibraryIds)];
-  } else {
-    const selection = librarySelectionForServer(serverId);
-    if (selection.length === 1) {
-      libraryIds = selection;
-    } else {
-      const legacy = musicLibraryFilterByServer[serverId];
-      if (legacy !== undefined && legacy !== 'all') libraryIds = [legacy];
-    }
-  }
+  const libraryIds = override
+    ? [override]
+    : explicitLibraryIds !== undefined
+      ? [...new Set(explicitLibraryIds)]
+      : librarySelectionForServer(serverId);
   if (libraryIds.length === 0) {
     scopedLibraryAlbumIdCache = null;
     return null;

@@ -357,7 +357,9 @@ export interface CustomSmartRuleFieldInput {
 }
 
 const RESERVED_FIELD_NAMES = new Set(['all', 'any', 'limit', 'limitpercent', 'offset', 'order', 'sort']);
-const CUSTOM_FIELD_NAME = /^[A-Za-z][A-Za-z0-9_.-]*$/;
+// Any script's letters: Navidrome keeps tag names as lowercased map keys and SQLite's
+// JSON path takes non-ASCII keys, so a Greek or Cyrillic tag is as valid as a Latin one.
+const CUSTOM_FIELD_NAME = /^\p{L}[\p{L}\p{M}\p{N}_.-]*$/u;
 
 /** Creates an explicitly typed server-configured tag/role for structured editing. */
 export function createCustomSmartRuleField(

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyListReorderById } from '@/lib/util/listReorder';
+import { applyListReorderById, moveBlockToGap } from '@/lib/util/listReorder';
 
 type Item = { id: string; visible?: boolean };
 
@@ -54,5 +54,31 @@ describe('applyListReorderById', () => {
     const snapshot = ids(base);
     applyListReorderById(base, 'a', { id: 'e', before: false });
     expect(ids(base)).toEqual(snapshot);
+  });
+});
+
+describe('moveBlockToGap', () => {
+  const letters = ['a', 'b', 'c', 'd', 'e'];
+
+  it('moves a scattered block up to the gap, keeping its order', () => {
+    expect(moveBlockToGap(letters, [3, 1], 0)).toEqual(['b', 'd', 'a', 'c', 'e']);
+  });
+
+  it('moves a block down; the gap counts positions before the move', () => {
+    expect(moveBlockToGap(letters, [0, 1], 4)).toEqual(['c', 'd', 'a', 'b', 'e']);
+  });
+
+  it('returns null when nothing moves or no index is valid', () => {
+    expect(moveBlockToGap(letters, [1, 2], 2)).toBeNull();
+    expect(moveBlockToGap(letters, [1], 1)).toBeNull();
+    expect(moveBlockToGap(letters, [9, -1, 0.5], 0)).toBeNull();
+  });
+
+  it('keeps duplicate-looking entries apart by reference', () => {
+    const x1 = { id: 'x' };
+    const x2 = { id: 'x' };
+    const next = moveBlockToGap([x1, { id: 'y' }, x2], [2], 0);
+    expect(next?.[0]).toBe(x2);
+    expect(next?.[1]).toBe(x1);
   });
 });

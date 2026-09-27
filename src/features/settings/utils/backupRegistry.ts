@@ -136,6 +136,7 @@ export const BACKUP_REGISTRY: readonly BackupEntry[] = [
   { key: 'psysonic_artist_layout', tier: 'added', storage: 'json' },
   { key: 'psysonic_favorites_layout', tier: 'added', storage: 'json' },
   { key: 'psysonic_playlist_layout', tier: 'added', storage: 'json' },
+  { key: 'psysonic_album_header_layout', tier: 'added', storage: 'json' },
   { key: 'psysonic_player_bar_layout', tier: 'added', storage: 'json' },
   { key: 'psysonic_queue_toolbar', tier: 'added', storage: 'json' },
   { key: 'psysonic_burner_layout', tier: 'added', storage: 'json' },

@@ -42,6 +42,22 @@ describe('lyrics romanization', () => {
     expect(mocks.init).toHaveBeenCalledTimes(1);
   });
 
+  it('skips Latin-only lines even when the analyzer would re-space their punctuation', async () => {
+    mocks.convert.mockImplementation(async (line: string) => ({
+      '闇のワルツ': 'yami no warutsu',
+      '(no way out! right now!)': '( no   way   out !   right   now !)',
+      '闇': 'yami',
+    })[line] ?? line);
+    const { romanizeJapaneseLines } = await import('./useLyricsRomanization');
+
+    await expect(romanizeJapaneseLines(['闇のワルツ', '(no way out! right now!)', '闇'])).resolves.toEqual([
+      'yami no warutsu',
+      '',
+      'yami',
+    ]);
+    expect(mocks.convert).not.toHaveBeenCalledWith('(no way out! right now!)', expect.anything());
+  });
+
   it('prefers a server pronunciation layer without loading Kuroshiro', async () => {
     const { useLyricsRomanization } = await import('./useLyricsRomanization');
     const { result } = renderHook(() => useLyricsRomanization({

@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 >
 
 
+## [1.56.0]
+
+## Added
+
+### Track subtitles and album versions from Navidrome
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**
+
+* A track's subtitle (e.g. "Instrumental") now appears after its title in every track list, and an album's version (e.g. "Deluxe Edition") after the album name — also for libraries synced through Navidrome's own API, which previously showed them only in some places. Existing libraries are updated once in the background.
+* The album page shows the version under the album title when the title does not already include it.
+
+### Play songs from a list on a single or double click
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1668](https://github.com/Psysonic/psysonic/pull/1668)**
+
+* **Settings → Input → Mouse** chooses whether a song in a list plays on a single click or on a double click, so a stray click no longer replaces what is playing. The play button on a row always plays with one click.
+* Track lists now highlight a row: click it or move with the arrow keys, then press Enter to play it. Holding Ctrl adds more rows to a selection, including the highlighted one, and Escape clears the selection.
+* The Tracks page and search results now follow the same setting; before, songs there only played on a double click.
+
+## Fixed
+
+### Navidrome smart playlists keep their cover on the Playlists page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1660](https://github.com/Psysonic/psysonic/pull/1660)**
+
+* Smart playlists created in Navidrome showed their cover briefly on the Playlists page and then switched to a collage of album art from their tracks, hiding custom artwork. They now keep their server cover there, as they already did in the sidebar and on the playlist page.
+
+### The queue's shuffle button is an on/off switch
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1661](https://github.com/Psysonic/psysonic/pull/1661)**
+
+* The shuffle button in the queue panel shuffled the whole queue once, including tracks already behind the current one, and there was no way to switch it back off. It now works like the shuffle button in the player bar: only upcoming tracks are reordered, and switching it off restores the original order.
+
+### Playlist view shows where you are in the queue
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1661](https://github.com/Psysonic/psysonic/pull/1661)**
+
+* In the queue panel's Playlist view, tracks before the one that is playing are now dimmed, so the current position in the full list is visible at a glance.
+
+### Playlist downloads respect the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1667](https://github.com/Psysonic/psysonic/pull/1667)**
+
+* Server playlists no longer appear empty when **All libraries** or several music folders are selected in the sidebar. Their tracks follow the same library selection as the rest of browsing.
+* Changing the visible library scope no longer removes offline-pinned tracks that are merely hidden from the current view.
+
 ## [1.55.0]
 
 ## Added
@@ -135,6 +181,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), suggested by [@PeridotC](https://github.com/PeridotC), PR [#1640](https://github.com/Psysonic/psysonic/pull/1640)**, closes [#1620](https://github.com/Psysonic/psysonic/issues/1620)
 
 * **Settings → Lyrics → Word highlighting** now has a **Flow only** option. It keeps the continuous colour fill but removes the instant glow around the whole active word. **Step** remains the default, and the existing **Smooth** appearance stays unchanged.
+
+### Arrange the buttons on album and playlist pages
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1644](https://github.com/Psysonic/psysonic/pull/1644)**
+
+* Artist bio, download, offline and the other buttons next to **Play** on album and playlist pages are now compact icons, with their label in the tooltip.
+* **Settings → Personalisation → Album page layout** and **Playlist page layout** let you reorder these buttons by dragging and hide the ones you don't need. **Play** always stays first.
+* **Compact buttons** moved from Appearance to Personalisation.
+
+### Playlists explain why drag reordering is off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1647](https://github.com/Psysonic/psysonic/pull/1647)**
+
+* While a playlist is sorted by anything other than **ID** or filtered, dragging a track adds it to the queue instead of moving it. A short hint next to the sort menu now says so, and **Reset** returns to the order you can rearrange.
+
+### Move several playlist tracks at once
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1649](https://github.com/Psysonic/psysonic/pull/1649)**
+
+* Select several tracks in a playlist and drag one of them: the whole selection moves to the drop line as a block, in its order. Dragging the selection to the queue still adds it there.
 
 ## Fixed
 
@@ -320,6 +386,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1639](https://github.com/Psysonic/psysonic/pull/1639)**
 
 * When several servers are selected together, Psysonic now refreshes the reported type and version for every reachable member instead of only the active one. Upgrading an inactive Navidrome server no longer leaves old capabilities in place until you switch to it or test its connection manually.
+
+### Tracks dragged in a playlist land where the line shows
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1645](https://github.com/Psysonic/psysonic/pull/1645)**
+
+* Reordering a playlist by drag and drop placed the track one position below the drop line whenever it was dropped above a row. It now lands exactly where the line shows, in both directions.
+
+### Playlist CSV import finds titles with punctuation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1646](https://github.com/Psysonic/psysonic/pull/1646)**
+
+* Tracks whose title contained brackets, a colon, `&`, `%` or a lone dash, such as **Song (Part 2)** or **Title - 2011 Remaster**, were reported as not found without being searched. They are now searched and matched like any other title.
+
+### Playlists stay in place after reordering or removing a track
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1648](https://github.com/Psysonic/psysonic/pull/1648)**
+
+* Moving or removing a track made the whole playlist page reload behind a spinner. The list now stays as it is, while changes made from elsewhere, such as **Add to Playlist**, still refresh it.
+
+### Smart playlist custom fields accept names in any script
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by stefnto on Discord, PR [#1650](https://github.com/Psysonic/psysonic/pull/1650)**
+
+* Custom tag and role names in **Settings → Smart playlist custom fields** were limited to Latin letters, so Greek or Cyrillic tag names were rejected as invalid. Names in any script are now accepted; they still start with a letter and contain no spaces.
+
+### Generated romaji skips lines that are already in Latin script
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Padparadscha on Discord, PR [#1651](https://github.com/Psysonic/psysonic/pull/1651)**
+
+* In Japanese songs with generated romaji, English lines were shown a second time underneath with extra spaces around the punctuation. Only lines with Japanese script now get a romaji line.
+
+### Long album titles fit in the home page hero
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1652](https://github.com/Psysonic/psysonic/pull/1652)**
+
+* A long album title in the featured-album banner on the home page was cut off at the top. The title now gets smaller until it fits, and only very long titles are shortened to three lines.
+
+### Genre browsing stays responsive in large libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1653](https://github.com/Psysonic/psysonic/pull/1653)**
+
+* The Genres page could take minutes to count tracks in a large library. It now reads the maintained genre catalogue directly, and existing libraries repair stale catalogue rows once on the first start after the update.
 
 ## [1.54.0]
 

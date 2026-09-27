@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { apiForServerMock, authState, guardMock } = vi.hoisted(() => ({
+const { apiForServerMock, authState, guardMock, selectionMock } = vi.hoisted(() => ({
   apiForServerMock: vi.fn(),
+  selectionMock: vi.fn(() => ['folder-1']),
   authState: {
     activeServerId: 'active',
     musicLibraryFilterByServer: {} as Record<string, string>,
@@ -22,7 +23,7 @@ vi.mock('@/lib/api/subsonicClient', () => ({
   apiForServer: apiForServerMock,
   libraryFilterParams: () => ({}),
   libraryFilterParamsForServer: () => ({ musicFolderId: 'folder-1' }),
-  librarySelectionForServer: () => ['folder-1'],
+  librarySelectionForServer: selectionMock,
 }));
 
 vi.mock('@/lib/network/subsonicNetworkGuard', () => ({
@@ -57,6 +58,7 @@ describe('explicit-server library wrappers', () => {
     guardMock.mockReturnValue(true);
     authState.activeServerId = 'active';
     authState.musicLibraryFilterByServer = {};
+    selectionMock.mockReturnValue(['folder-1']);
     authState.servers = [
       { id: 'srv-a', url: 'https://a.example/rest' },
       { id: 'srv-random', url: 'https://random.example' },
@@ -168,6 +170,26 @@ describe('explicit-server library wrappers', () => {
 
     await expect(filterSongsToServerLibrary([song], 'srv-random', ['empty-library']))
       .resolves.toEqual([]);
+  });
+
+  it('shows all playlist songs when selection is all despite a stale legacy folder', async () => {
+    selectionMock.mockReturnValue([]);
+    authState.musicLibraryFilterByServer = { 'srv-random': 'audiobooks' };
+
+    await expect(filterSongsToServerLibrary([song], 'srv-random')).resolves.toEqual([song]);
+    expect(apiForServerMock).not.toHaveBeenCalled();
+  });
+
+  it('honours multiple selected folders instead of falling back to the first legacy folder', async () => {
+    selectionMock.mockReturnValue(['music', 'books']);
+    authState.musicLibraryFilterByServer = { 'srv-random': 'books' };
+    apiForServerMock.mockImplementation(async (_serverId: string, _endpoint: string, params: Record<string, unknown>) => ({
+      albumList2: { album: params.musicFolderId === 'music' ? [album] : [] },
+    }));
+
+    await expect(filterSongsToServerLibrary([song], 'srv-random')).resolves.toEqual([song]);
+    expect(apiForServerMock.mock.calls.map(call => (call[2] as { musicFolderId: string }).musicFolderId))
+      .toEqual(['music', 'books']);
   });
 
   it('skips random-song network calls when the server guard fails', async () => {

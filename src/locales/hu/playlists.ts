@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Számok rendezése',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Húzással átrendezni csak „{{order}}” rendezéssel és szűrő nélkül lehet.',
+  reorderHintReset: 'Visszaállítás',
   sortDateAddedNewest: 'Hozzáadás dátuma (legújabb)',
   sortDateAddedOldest: 'Hozzáadás dátuma (legrégebbi)',
   editRules: 'Szabályok szerkesztése',

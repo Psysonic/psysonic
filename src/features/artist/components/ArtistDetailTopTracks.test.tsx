@@ -3,6 +3,7 @@ import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { makeSubsonicSong } from '@/test/helpers/factories';
 import { resetAllStores } from '@/test/helpers/storeReset';
+import { useThemeStore } from '@/store/themeStore';
 
 const startDrag = vi.hoisted(() => vi.fn());
 
@@ -78,5 +79,53 @@ describe('ArtistDetailTopTracks', () => {
     fireEvent.mouseMove(document, { clientX: 20, clientY: 10 });
 
     expect(startDrag).not.toHaveBeenCalled();
+  });
+});
+
+describe('ArtistDetailTopTracks row click to play', () => {
+  beforeEach(() => {
+    resetAllStores();
+  });
+
+  afterEach(() => {
+    useThemeStore.setState({ trackRowPlayClick: 'single' });
+  });
+
+  function renderTopTracks() {
+    const play = vi.fn().mockResolvedValue(undefined);
+    const { container } = renderWithProviders(
+      <ArtistDetailTopTracks
+        topSongs={[makeSubsonicSong({ id: 'top-1', title: 'Ranked track' })]}
+        albums={[]}
+        playTopSongWithContinuation={play}
+      />,
+    );
+    const row = container.querySelector<HTMLElement>('.track-row:not(.artist-top-track-skeleton)')!;
+    return { play, row };
+  }
+
+  it('plays on a single click by default', () => {
+    const { play, row } = renderTopTracks();
+    fireEvent.click(row);
+    expect(play).toHaveBeenCalledWith(0);
+  });
+
+  it('plays only on a double click in double-click mode', () => {
+    useThemeStore.setState({ trackRowPlayClick: 'double' });
+    const { play, row } = renderTopTracks();
+
+    fireEvent.click(row);
+    expect(play).not.toHaveBeenCalled();
+
+    fireEvent.doubleClick(row);
+    expect(play).toHaveBeenCalledOnce();
+    expect(play).toHaveBeenCalledWith(0);
+  });
+
+  it('keeps the play button on a single click in double-click mode', () => {
+    useThemeStore.setState({ trackRowPlayClick: 'double' });
+    const { play } = renderTopTracks();
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    expect(play).toHaveBeenCalledWith(0);
   });
 });

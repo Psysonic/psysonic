@@ -3,6 +3,8 @@ import type { LrcLine, WordLyricsLine } from '@/features/lyrics/types';
 import type { KuroshiroAnalyzer } from 'kuroshiro';
 
 const JAPANESE_KANA_RE = /[\u3040-\u30ff\uff66-\uff9f]/u;
+/** Kana, CJK ideographs (incl. extension A) and the \u3005 iteration mark. */
+const JAPANESE_SCRIPT_RE = /[\u3040-\u30ff\uff66-\uff9f\u3400-\u4dbf\u4e00-\u9fff\u3005]/u;
 const ROMANIZATION_CACHE_LIMIT = 24;
 const romanizationCache = new Map<string, Promise<string[] | null>>();
 
@@ -102,7 +104,9 @@ export function romanizeJapaneseLines(lines: readonly string[]): Promise<string[
     try {
       const kuroshiro = await getKuroshiro();
       const converted = await Promise.all(lines.map(async line => {
-        if (!line.trim()) return '';
+        // A line without Japanese script has nothing to romanize; the analyzer would
+        // only re-space its punctuation and show it again underneath.
+        if (!JAPANESE_SCRIPT_RE.test(line)) return '';
         const value = (await kuroshiro.convert(line, {
           mode: 'spaced',
           to: 'romaji',

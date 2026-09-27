@@ -476,6 +476,11 @@ const CONTRIBUTOR_ENTRIES = [
       'Favorites — the artists heading opens the Artists page, filtered to your favourites (PR #1613)',
       'Artist page — similar artists from your server fill in when Music Network finds none in your library (PR #1617)',
       'Favorites — reorder and hide the page sections, hide the # column, shuffle all songs (PR #1624)',
+      'Album and playlist pages — icon-only action buttons you can reorder and hide (PR #1644)',
+      'Playlists — hint and reset when drag reordering is off in a sorted or filtered view (PR #1647)',
+      'Playlists — drag a selection of tracks as one block (PR #1649)',
+      'Library — track subtitles and album versions from Navidrome, with the version shown under the album title (PR #1662)',
+      'Tracklists — play songs on a single or double click, with a row highlight you move by keyboard (PR #1668)',
     ],
   },
   {

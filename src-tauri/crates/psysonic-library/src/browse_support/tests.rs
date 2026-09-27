@@ -6,8 +6,9 @@ use crate::store::LibraryStore;
 
 use super::{
     apply_album_patch, catalog_year_bounds_for_server, genre_album_counts_for_server,
-    overlay_album_artist_links, overlay_album_level_starred_at, reconcile_album_stars,
-    reconcile_artist_stars, StarredAlbumReconcileItem, StarredArtistReconcileItem,
+    genre_album_counts_query, overlay_album_artist_links, overlay_album_level_starred_at,
+    reconcile_album_stars, reconcile_artist_stars, StarredAlbumReconcileItem,
+    StarredArtistReconcileItem,
 };
 use crate::dto::LibraryAlbumDto;
 
@@ -362,27 +363,50 @@ fn genre_album_counts_drop_genre_after_track_retag() {
 }
 
 #[test]
-fn genre_album_counts_ignore_orphan_track_genre_rows() {
+fn genre_album_counts_drop_deleted_tracks_through_ingest_projection() {
     let store = Arc::new(LibraryStore::open_in_memory());
     let mut live = make_row("s1", "live", "al1", 1);
     live.genre = Some("Rock".into());
     let mut stale = make_row("s1", "gone", "al_stale", 1);
     stale.genre = Some("ruspop".into());
     TrackRepository::new(&store)
-        .upsert_batch(&[live, stale])
+        .upsert_batch(&[live, stale.clone()])
         .unwrap();
-    store
-        .with_conn("test", |conn| {
-            conn.execute(
-                "UPDATE track SET deleted = 1 WHERE server_id = 's1' AND id = 'gone'",
-                [],
-            )
-        })
-        .unwrap();
+    stale.deleted = true;
+    TrackRepository::new(&store).upsert_batch(&[stale]).unwrap();
 
     let counts = genre_album_counts_for_server(&store, "s1", &[]).unwrap();
     assert_eq!(counts.len(), 1);
     assert_eq!(counts[0].value, "Rock");
+}
+
+#[test]
+fn genre_album_counts_query_reads_only_the_genre_projection() {
+    let store = LibraryStore::open_in_memory();
+    let (sql, params) = genre_album_counts_query("s1", &[]);
+    let plan = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                    row.get::<_, String>(3)
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .unwrap();
+
+    assert!(
+        plan.iter()
+            .any(|detail| detail.contains("idx_track_genre_browse")),
+        "query plan did not use the genre browse projection: {plan:?}"
+    );
+    assert!(
+        plan.iter()
+            .all(|detail| !detail.contains("sqlite_autoindex_track_1")
+                && !detail.contains("idx_track_server")),
+        "query plan unexpectedly joined the track table: {plan:?}"
+    );
 }
 
 #[test]

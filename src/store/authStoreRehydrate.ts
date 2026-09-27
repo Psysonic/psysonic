@@ -36,6 +36,7 @@ import type {
 import { migrateLegacyLastfm, sanitizeAccounts, sanitizeScrobbleQueue } from '../music-network';
 import { deriveLibraryBrowseServerIdsWithFallback } from '@/lib/library/libraryBrowseScope';
 import { sanitizeDebugLoggingDepth } from '@/lib/perf/debugLoggingMode';
+import { legacyFilterFromSelection } from './authMusicLibrarySelection';
 
 /**
  * Computes the post-rehydration patch for the auth store. Runs all
@@ -367,6 +368,15 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
       .filter(([serverId, selection]) => serverIds.has(serverId) && Array.isArray(selection))
       .map(([serverId, selection]) => [serverId, [...new Set((selection as unknown[]).filter((id): id is string => typeof id === 'string'))]]),
   );
+  // The sidebar scope is authoritative. Repair persisted single-library state
+  // for older readers and for users who later downgrade to a previous build.
+  const musicLibrarySelectionByServer = { ...state.musicLibrarySelectionByServer };
+  const musicLibraryFilterByServer = { ...state.musicLibraryFilterByServer };
+  for (const serverId of serverIds) {
+    const selection = libraryBrowseSelectionByServer[serverId] ?? [];
+    musicLibrarySelectionByServer[serverId] = selection;
+    musicLibraryFilterByServer[serverId] = legacyFilterFromSelection(selection);
+  }
 
   return {
     ...mediaDirMigrated,
@@ -374,6 +384,8 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
     libraryBrowseServerIds,
     musicFoldersByServer,
     libraryBrowseSelectionByServer,
+    musicLibrarySelectionByServer,
+    musicLibraryFilterByServer,
     libraryBrowseScopeVersion: 0,
     debugLoggingDepth: sanitizeDebugLoggingDepth(
       (state as { debugLoggingDepth?: unknown }).debugLoggingDepth,

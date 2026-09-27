@@ -32,4 +32,5 @@ export {
 export { sameQueueTrack } from './utils/playback/queueIdentity';
 export { queueTrackIdsForServerProfile } from './utils/playback/trackServerScope';
 export { playTimelineFromHere } from './utils/playTimelineHistoryTrack';
+export { enqueueAndPlay } from './utils/playback/playSong';
 export { usePlayQueueSyncSettingsStore } from './store/playQueueSyncSettingsStore';

@@ -192,6 +192,20 @@ describe('custom smart-rule fields', () => {
     ]).map(field => field.name)).toEqual(['ndmood_energy']);
   });
 
+  it('accepts tag names in non-Latin scripts', () => {
+    const greek = createCustomSmartRuleField({ name: 'διάθεση', type: 'string', kind: 'tag' });
+    expect(greek.name).toBe('διάθεση');
+    expect(greek.label).toBe('Διάθεση');
+    expect(createCustomSmartRuleField({ name: 'настроение_2', type: 'string', kind: 'role' }).name)
+      .toBe('настроение_2');
+  });
+
+  it('still requires a letter first and no spaces in any script', () => {
+    for (const name of ['2διάθεση', '_mood', 'δι άθεση', 'mood!']) {
+      expect(() => createCustomSmartRuleField({ name, type: 'string', kind: 'tag' })).toThrow(/Invalid custom/);
+    }
+  });
+
   it('rejects reserved or untyped-looking names', () => {
     expect(() => createCustomSmartRuleField({
       name: 'sort',

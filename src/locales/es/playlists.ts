@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Ordenar canciones',
   sortDefaultServerOrder: 'ID',
+  reorderHint: 'Reordenar arrastrando solo funciona con el orden «{{order}}» y sin filtro.',
+  reorderHintReset: 'Restablecer',
   sortDateAddedNewest: 'Fecha de adición (recientes)',
   sortDateAddedOldest: 'Fecha de adición (antiguos)',
   editRules: 'Editar reglas',

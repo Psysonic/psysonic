@@ -13,9 +13,9 @@ use super::migrations::{
 };
 use super::reconciles::{
     maybe_reconcile_artist_name_fold, maybe_reconcile_artist_name_sort,
-    maybe_reconcile_duration_sec_backfill, maybe_reconcile_library_id_backfill,
-    maybe_reconcile_orphan_browse_rows, maybe_reconcile_replay_gain_peak,
-    reconcile_ready_rows_with_ingest_cursors,
+    maybe_reconcile_duration_sec_backfill, maybe_reconcile_genre_catalog_projection,
+    maybe_reconcile_library_id_backfill, maybe_reconcile_orphan_browse_rows,
+    maybe_reconcile_replay_gain_peak, reconcile_ready_rows_with_ingest_cursors,
 };
 use super::LibraryStore;
 
@@ -317,6 +317,7 @@ fn prepare_write_connection_for_open(conn: &Connection) -> rusqlite::Result<()> 
     maybe_reconcile_duration_sec_backfill(conn)?;
     maybe_reconcile_orphan_browse_rows(conn)?;
     ensure_genre_tags_schema(conn)?;
+    maybe_reconcile_genre_catalog_projection(conn)?;
     ensure_mainstage_feed_indexes(conn)?;
     ensure_entity_user_rating_schema(conn)?;
     ensure_scope_browse_projection_schema(conn)?;

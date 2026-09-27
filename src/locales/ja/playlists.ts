@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: '曲を並べ替え',
   sortDefaultServerOrder: 'ID（サーバー順）',
+  reorderHint: 'ドラッグでの並べ替えは、並び順「{{order}}」でフィルターなしの場合のみ使えます。',
+  reorderHintReset: 'リセット',
   sortDateAddedNewest: '追加日（新しい順）',
   sortDateAddedOldest: '追加日（古い順）',
   editRules: 'ルールを編集',

@@ -36,6 +36,18 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 - Drag one selected track to move the whole selection together. Holding tracks at the top or bottom edge scrolls long queues automatically, including in the mini player.
 - Right-click **Clear** to remove queue history and upcoming tracks without interrupting the current song.
 
+### Playlists — move several tracks at once
+
+- Select several tracks in a playlist and drag one of them to move the whole selection to the drop line as a block, in its order. Dragging the selection to the queue still adds it there.
+- Reordered tracks land exactly where the drop line shows, and the list stays in place after moving or removing tracks instead of reloading.
+- While a playlist is sorted or filtered, a short hint next to the sort menu explains why dragging adds to the queue instead of reordering. **Reset** returns to the order you can rearrange.
+
+### Arrange the buttons on album and playlist pages
+
+- The buttons next to **Play** on album and playlist pages are now compact icons, with their label in the tooltip.
+- **Settings → Personalisation → Album page layout** and **Playlist page layout** let you reorder these buttons by dragging and hide the ones you don't need. **Play** always stays first.
+- **Compact buttons** moved from Appearance to Personalisation.
+
 ### Device Sync — every track in one folder
 
 - **Device Sync → Layout → All files in one folder** puts music directly in the device's main folder for players that cannot browse directories.
@@ -76,11 +88,15 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 - Tracks under **Artist → Top** can be dragged to the queue just like tracks under **All**.
 - Fullscreen lyrics no longer cover track details in **Minimal** mode or remain visible through the cover and title in **Immersive** mode.
 - The search shortcut opens a collapsed desktop or mobile search field before focusing it, so typing is always visible.
+- In Japanese songs with generated romaji, lines already in Latin script are no longer repeated underneath.
 
 ### Browse and library
 
+- The Genres page no longer takes minutes to count tracks in large libraries. Existing libraries repair their genre catalogue once on the first start after updating.
 - Favourite artist filters now include every credited role and update with the active server group. Tracklists also use analysed BPM when the file has no BPM tag.
 - **Add to Playlist** shows editable Navidrome playlists again when native smart-playlist metadata is unavailable, while smart playlists remain read-only.
+- Playlist CSV import now finds tracks whose titles contain brackets, colons, ampersands, or a lone dash, such as remaster suffixes.
+- **Settings → Library → Smart Playlist Custom Fields** accepts tag and role names in any script, such as Greek or Cyrillic.
 - Guest performers, orchestras, choirs, and other participant-only artists open correctly from track credits within the selected library scope.
 - Separate Navidrome libraries can contain tracks at the same relative path without colliding during background sync.
 - Background sync no longer aborts with duplicate artist-credit keys while assigning music folders.
@@ -100,6 +116,7 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 
 ### Other
 
+- Long album titles in the home page banner shrink to fit instead of being cut off at the top.
 - Multi-artist separators are centred and spaced consistently in track rows and album headers.
 - **macOS:** dropdowns, player-bar buttons, the Orbit label, and rating stars remain steady and correctly sized while hovering or using JetBrains Mono.
 - The login logo can no longer be dragged away, and long server names wrap correctly in the cover cache table.
