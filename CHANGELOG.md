@@ -40,6 +40,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * In the queue panel's Playlist view, tracks before the one that is playing are now dimmed, so the current position in the full list is visible at a glance.
 
+### Playlist downloads respect the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1667](https://github.com/Psysonic/psysonic/pull/1667)**
+
+* Server playlists no longer appear empty when **All libraries** or several music folders are selected in the sidebar. Their tracks follow the same library selection as the rest of browsing.
+* Changing the visible library scope no longer removes offline-pinned tracks that are merely hidden from the current view.
+
 ## [1.55.0]
 
 ## Added
