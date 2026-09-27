@@ -404,6 +404,13 @@ export const commands = {
 	 */
 	renameDeviceFiles: (targetDir: string, pairs: ([string, string])[]) => typedError<RenameResult[], string>(__TAURI_INVOKE("rename_device_files", { targetDir, pairs })),
 	/**
+	 *  Reports whether a chosen folder can be synced to as-is, or needs the user to
+	 *  confirm it as a local folder first.
+	 */
+	inspectDeviceSyncTarget: (destDir: string) => __TAURI_INVOKE<DeviceSyncTargetInfo>("inspect_device_sync_target", { destDir }),
+	/**  Confirms a folder on the system disk as a sync target (see `LOCAL_TARGET_MARKER`). */
+	markLocalSyncTarget: (destDir: string) => typedError<null, string>(__TAURI_INVOKE("mark_local_sync_target", { destDir })),
+	/**
 	 *  Downloads a server-generated ZIP (album/playlist) directly to disk via streaming.
 	 *  Emits `download:zip:progress` events every 500 ms so the frontend can show
 	 *  live MB-counter without holding any binary data in the WebView process.
@@ -1498,6 +1505,17 @@ export type DeviceSyncSourceFingerprint = {
 	size?: number | null,
 	suffix?: string | null,
 	bitRate?: number | null,
+};
+
+export type DeviceSyncTargetInfo = {
+	exists: boolean,
+	onMountedVolume: boolean,
+	localTarget: boolean,
+	/**
+	 *  The folder may be confirmed as a local target: it is empty or already
+	 *  holds a Psysonic sync (see `local_target_refusal`).
+	 */
+	localTargetAllowed: boolean,
 };
 
 export type DeviceSyncTranscode = {

@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertCircle, FolderOpen, HardDriveUpload, RefreshCw, Usb,
+  AlertCircle, Folder, FolderOpen, HardDriveUpload, RefreshCw, Usb,
 } from 'lucide-react';
 import CustomSelect from '@/ui/CustomSelect';
 import type { RemovableDrive } from '@/features/deviceSync/utils/deviceSyncHelpers';
@@ -32,6 +32,7 @@ interface Props {
   setPlaylistPathMode: (mode: DeviceSyncPlaylistPathMode) => void;
   transcode: DeviceSyncTranscode;
   setTranscode: (transcode: DeviceSyncTranscode) => void;
+  targetIsLocal: boolean;
   isRunning: boolean;
 }
 
@@ -42,11 +43,15 @@ const TRANSCODE_FORMAT_LABEL_KEYS: Record<DeviceSyncTranscodeFormat, string> = {
   opus: 'deviceSync.transcodeOpus',
 };
 
+function folderName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
+}
+
 export default function DeviceSyncHeader({
   targetDir, setTargetDir, sources, drives, drivesLoading, activeDrive,
   refreshDrives, scanDevice, handleChooseFolder, startMigrationPreview,
   layoutMode, playlistPathMode, setLayoutMode, setPlaylistPathMode,
-  transcode, setTranscode, isRunning,
+  transcode, setTranscode, targetIsLocal, isRunning,
 }: Props) {
   const { t } = useTranslation();
   // Self-contained playlists sit next to their files, so only absolute paths
@@ -58,6 +63,9 @@ export default function DeviceSyncHeader({
       : []),
     { value: 'absolute', label: t('deviceSync.playlistPathAbsolute') },
   ];
+  const localTargetOption = targetIsLocal && targetDir
+    ? [{ value: targetDir, label: `${t('deviceSync.localTargetBadge')}: ${folderName(targetDir)}` }]
+    : [];
 
   return (
     <div className="device-sync-header">
@@ -146,6 +154,9 @@ export default function DeviceSyncHeader({
           {transcode.format !== 'original' && (
             <span className="device-sync-schema-hint">{t('deviceSync.transcodeHint')}</span>
           )}
+          {targetIsLocal && (
+            <span className="device-sync-schema-hint">{t('deviceSync.localTargetHint')}</span>
+          )}
           {targetDir && sources.length > 0 && (
             <button
               className="btn btn-ghost device-sync-migrate-btn"
@@ -182,9 +193,11 @@ export default function DeviceSyncHeader({
                 </button>
 
                 {/* Dropdown element */}
-                {drives.length > 0 ? (
+                {drives.length > 0 || localTargetOption.length > 0 ? (
                   <>
-                    <Usb size={18} className="device-sync-drive-icon" />
+                    {activeDrive || !targetIsLocal
+                      ? <Usb size={18} className="device-sync-drive-icon" />
+                      : <Folder size={18} className="device-sync-drive-icon" />}
                     <CustomSelect
                       className="input device-sync-drive-select"
                       value={targetDir ?? ''}
@@ -197,6 +210,7 @@ export default function DeviceSyncHeader({
                       }}
                       options={[
                         { value: '', label: t('deviceSync.selectDrive') },
+                        ...localTargetOption,
                         ...drives.map(d => ({ value: d.mount_point, label: d.name || d.mount_point }))
                       ]}
                     />
@@ -214,6 +228,9 @@ export default function DeviceSyncHeader({
               <div className="device-sync-drive-meta">
                 {formatBytes(activeDrive.available_space)} {t('deviceSync.free')} / {formatBytes(activeDrive.total_space)} &bull; {activeDrive.file_system}
               </div>
+            )}
+            {!activeDrive && targetIsLocal && targetDir && (
+              <div className="device-sync-drive-meta">{targetDir}</div>
             )}
           </div>
         </div>

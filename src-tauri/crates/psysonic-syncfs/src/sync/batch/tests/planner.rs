@@ -8,7 +8,7 @@ use super::super::{
     DeviceSyncTranscode, DeviceSyncTranscodeFormat, SyncDeltaResult,
 };
 
-fn source(source_type: &str, id: &str, name: &str) -> DeviceSyncSourcePayload {
+pub(super) fn source(source_type: &str, id: &str, name: &str) -> DeviceSyncSourcePayload {
     DeviceSyncSourcePayload {
         source_type: source_type.to_string(),
         id: id.to_string(),
@@ -18,7 +18,7 @@ fn source(source_type: &str, id: &str, name: &str) -> DeviceSyncSourcePayload {
     }
 }
 
-fn track(id: &str, title: &str) -> serde_json::Value {
+pub(super) fn track(id: &str, title: &str) -> serde_json::Value {
     serde_json::json!({
         "id": id,
         "artist": "Artist",
@@ -31,7 +31,7 @@ fn track(id: &str, title: &str) -> serde_json::Value {
     })
 }
 
-fn write_manifest(
+pub(super) fn write_manifest(
     device: &tempfile::TempDir,
     sources: &[DeviceSyncSourcePayload],
     layout_mode: DeviceSyncLayoutMode,

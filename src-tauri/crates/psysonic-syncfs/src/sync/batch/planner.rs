@@ -2,6 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
 use super::payload::{device_sync_source_key, playlist_collision_source_keys};
+use super::plan::read_device_sync_plan;
 use super::{
     estimate_track_size_bytes, inject_flat_layout, inject_overwrite, inject_playlist_context,
     inject_target_suffix, track_sync_info_from_subsonic_json, DeviceSyncLayoutMode,
@@ -10,8 +11,8 @@ use super::{
     DeviceSyncTranscode, SyncDeltaResult,
 };
 use crate::sync::device::{
-    build_track_path, planned_path_stays_within, playlist_file_relative_path, read_device_manifest,
-    resolve_within_root,
+    build_track_path, is_marked_local_target, planned_path_stays_within,
+    playlist_file_relative_path, read_device_manifest, resolve_within_root,
 };
 
 mod manifest;
@@ -501,6 +502,16 @@ pub(super) fn build_sync_plan_with_resume(
     let has_materialized_plan = previous_manifest.as_ref().is_some_and(|manifest| {
         manifest.get("files").is_some() && manifest.get("playlists").is_some()
     });
+    // A local folder may hold files Psysonic never wrote. There, only what a
+    // manifest or a plan written by an earlier run records is Psysonic's: a
+    // file found at a planned path is never adopted, and without a manifest
+    // nothing is derived as previously synced, so nothing can be deleted.
+    let local_target = is_marked_local_target(root);
+    let pending_plan = if local_target {
+        read_device_sync_plan(root)?
+    } else {
+        None
+    };
     let derived_old_files = manifest_files(&derived_old, DeviceSyncTranscode::default());
     let previous_sources = fetched
         .iter()
@@ -555,7 +566,13 @@ pub(super) fn build_sync_plan_with_resume(
                 })
                 .collect()
         })
-        .unwrap_or(derived_old_files);
+        .unwrap_or_else(|| {
+            if local_target {
+                Vec::new()
+            } else {
+                derived_old_files
+            }
+        });
     let expected_old_playlists = derived_old
         .manifest_playlists
         .iter()
@@ -574,7 +591,13 @@ pub(super) fn build_sync_plan_with_resume(
                 })
                 .collect()
         })
-        .unwrap_or(derived_old.manifest_playlists);
+        .unwrap_or_else(|| {
+            if local_target {
+                Vec::new()
+            } else {
+                derived_old.manifest_playlists
+            }
+        });
 
     let desired_paths = desired
         .files
@@ -608,9 +631,17 @@ pub(super) fn build_sync_plan_with_resume(
             return Err("DEVICE_SYNC_MANIFEST_PLAN_INVALID".to_string());
         }
     }
+    // Files a plan wrote before its run was interrupted. On a local target the
+    // plan need not be active yet: it only ever names paths that were free or
+    // already recorded when it was made.
     let resume_files_by_path = resume_files
         .unwrap_or_default()
         .iter()
+        .chain(
+            pending_plan
+                .iter()
+                .flat_map(|plan| plan.manifest_files.iter()),
+        )
         .map(|file| {
             (
                 portable_path_identity(&file.relative_path),
@@ -688,6 +719,34 @@ pub(super) fn build_sync_plan_with_resume(
         .iter()
         .map(|playlist| portable_path_identity(&playlist.relative_path))
         .collect::<HashSet<_>>();
+    if local_target {
+        let recorded_playlists = old_playlists
+            .iter()
+            .chain(
+                pending_plan
+                    .iter()
+                    .flat_map(|plan| plan.manifest_playlists.iter()),
+            )
+            .map(|playlist| {
+                (
+                    portable_path_identity(&playlist.relative_path),
+                    playlist.source_key.as_str(),
+                )
+            })
+            .collect::<HashSet<_>>();
+        for playlist in &desired.manifest_playlists {
+            let identity = portable_path_identity(&playlist.relative_path);
+            if !recorded_playlists.contains(&(identity, playlist.source_key.as_str()))
+                && resolve_within_root(root, &playlist.relative_path)
+                    .is_some_and(|path| std::fs::symlink_metadata(path).is_ok())
+            {
+                return Err(format!(
+                    "DEVICE_SYNC_PATH_IDENTITY_COLLISION:{}",
+                    playlist.relative_path
+                ));
+            }
+        }
+    }
     for old in &old_playlists {
         if desired_playlist_paths.contains(&portable_path_identity(&old.relative_path)) {
             continue;
@@ -721,7 +780,7 @@ pub(super) fn build_sync_plan_with_resume(
         }
         let mut overwrite = false;
         if absolute.exists() {
-            if has_materialized_plan
+            if (has_materialized_plan || local_target)
                 && old_files_by_path
                     .get(&portable_path_identity(&file.relative_path))
                     .copied()

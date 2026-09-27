@@ -18,7 +18,7 @@ type SourceFetchHandle = (
 use super::planner::{build_sync_plan_with_resume, FetchedDeviceSyncSource, SyncPlanOptions};
 use crate::file_transfer::{apply_server_http_get, subsonic_http_client};
 use crate::sync::device::{
-    get_removable_drives, playlist_collision_key, read_device_manifest, validate_device_identity,
+    playlist_collision_key, read_device_manifest, target_available_space, validate_device_identity,
 };
 
 /// Upper bound on per-song lookups for tracks that left their source since the
@@ -263,11 +263,8 @@ pub(super) async fn calculate_sync_payload_impl(
         existing_active,
     )?;
 
-    for drive in get_removable_drives() {
-        if target_dir.starts_with(&drive.mount_point) {
-            result.available_bytes = drive.available_space;
-            break;
-        }
+    if let Some(available) = target_available_space(root) {
+        result.available_bytes = available;
     }
     Ok(result)
 }

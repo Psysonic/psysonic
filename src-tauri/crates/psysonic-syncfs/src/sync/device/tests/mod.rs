@@ -30,6 +30,7 @@ fn norm(path: String) -> String {
 }
 
 mod download;
+mod local_target;
 mod manifest;
 mod paths;
 mod playlist;

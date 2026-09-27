@@ -76,7 +76,7 @@ export default function DeviceSync() {
   const [search, setSearch]                 = useState('');
   const resetSearch = useCallback(() => setSearch(''), []);
   // ─── Removable drive detection ──────────────────────────────────────────
-  const { drives, drivesLoading, activeDrive, driveDetected, refreshDrives } =
+  const { drives, drivesLoading, activeDrive, driveDetected, targetIsLocal, refreshDrives } =
     useDeviceSyncDrives(targetDir);
 
   const [preSyncOpen, setPreSyncOpen] = useState(false);
@@ -139,7 +139,7 @@ export default function DeviceSync() {
     t,
     activeDrive
       ? `${activeDrive.mount_point}\0${activeDrive.name}\0${activeDrive.total_space}\0${activeDrive.file_system}`
-      : null,
+      : targetIsLocal && targetDir ? `local\0${targetDir}` : null,
   );
 
   // Follow the owning server when it changes address, before anything reads
@@ -273,6 +273,7 @@ export default function DeviceSync() {
         setPlaylistPathMode={setPlaylistPathMode}
         transcode={transcode}
         setTranscode={setTranscode}
+        targetIsLocal={targetIsLocal}
         isRunning={isRunning}
       />
 
