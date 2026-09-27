@@ -11,7 +11,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.56.0]
 
+## Added
+
+### Track subtitles and album versions from Navidrome
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**
+
+* A track's subtitle (e.g. "Instrumental") now appears after its title in every track list, and an album's version (e.g. "Deluxe Edition") after the album name — also for libraries synced through Navidrome's own API, which previously showed them only in some places. Existing libraries are updated once in the background.
+* The album page shows the version under the album title when the title does not already include it.
+
+### Similar albums on the album page
+
+**By [@circle3451](https://github.com/circle3451), PR [#1663](https://github.com/Psysonic/psysonic/pull/1663)**
+
+* A **Similar albums** row below "More by artist" suggests albums that sound alike, found by AudioMuse from a few tracks of the open album. Albums by the same artist are left out.
+* Needs Navidrome 0.62 or newer with the AudioMuse plugin; the row stays hidden on other servers, offline, or when nothing is found.
+
+### Play songs from a list on a single or double click
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1668](https://github.com/Psysonic/psysonic/pull/1668)**
+
+* **Settings → Input → Mouse** chooses whether a song in a list plays on a single click or on a double click, so a stray click no longer replaces what is playing. The play button on a row always plays with one click.
+* Track lists now highlight a row: click it or move with the arrow keys, then press Enter to play it. Holding Ctrl adds more rows to a selection, including the highlighted one, and Escape clears the selection.
+* The Tracks page and search results now follow the same setting; before, songs there only played on a double click.
+
 ## Fixed
+
+### Mouse-wheel scrolling resumes after a sideways swipe on track lists
+
+**By [@strecke](https://github.com/strecke), PR [#1635](https://github.com/Psysonic/psysonic/pull/1635)**
+
+* On macOS and Linux, scrolling sideways through a track list could leave the mouse wheel unable to scroll the page vertically. Vertical scrolling now works again after the sideways gesture without interrupting horizontal swipes or zoom gestures.
 
 ### Navidrome smart playlists keep their cover on the Playlists page
 
@@ -36,6 +66,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1665](https://github.com/Psysonic/psysonic/pull/1665)**
 
 * Commands such as `--player play`, `pause`, and `next` work again after the shortcut registry moved. Playing a song by ID now starts that song even when it is not already in the queue.
+
+### Playlist downloads respect the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1667](https://github.com/Psysonic/psysonic/pull/1667)**
+
+* Server playlists no longer appear empty when **All libraries** or several music folders are selected in the sidebar. Their tracks follow the same library selection as the rest of browsing.
+* Changing the visible library scope no longer removes offline-pinned tracks that are merely hidden from the current view.
 
 ## [1.55.0]
 

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { useSelectionStore } from '@/store/selectionStore';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { useEscapeClearsSelection } from '@/lib/hooks/useEscapeClearsSelection';
 
 export interface FavoritesSelectionResult {
   toggleSelect: (id: string, idx: number, shift: boolean) => void;
@@ -34,6 +35,11 @@ export function useFavoritesSelection(
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [inSelectMode, tracklistRef]);
+
+  useEscapeClearsSelection(inSelectMode, () => {
+    useSelectionStore.getState().clearAll();
+    lastSelectedIdxRef.current = null;
+  });
 
   const toggleSelect = useCallback((id: string, idx: number, shift: boolean) => {
     useSelectionStore.getState().setSelectedIds(prev => {

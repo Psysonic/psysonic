@@ -25,6 +25,7 @@ export const albumDetail = {
   favorite: 'Улюблене',
   noBio: 'Біографія відсутня.',
   moreByArtist: 'Більше від {{artist}}',
+  similarAlbums: 'Схожі альбоми',
   tracksCount: '{{n}} треків',
   goToArtist: 'Перейти до {{artist}}',
   moreLabelAlbums: 'Більше альбомів лейблу {{label}}',

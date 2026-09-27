@@ -143,6 +143,22 @@ describe('computeAuthStoreRehydration — Library browse scope', () => {
 
     expect(patch.libraryBrowseServerIds).toEqual([server.id]);
   });
+
+  it('repairs a stale legacy audiobook filter from the sidebar scope for rollback', async () => {
+    const server = { id: 'a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' };
+    const old = { ...useAuthStore.getState(), servers: [server], activeServerId: 'a',
+      libraryBrowseServerIds: ['a'], libraryBrowseSelectionByServer: { a: [] },
+      musicLibrarySelectionByServer: { a: [] }, musicLibraryFilterByServer: { a: 'audiobooks' } };
+    localStorage.setItem('psysonic-auth', JSON.stringify({ state: old, version: 1 }));
+
+    await useAuthStore.persist.rehydrate();
+
+    expect(useAuthStore.getState().musicLibraryFilterByServer.a).toBe('all');
+    expect(useAuthStore.getState().musicLibrarySelectionByServer.a).toEqual([]);
+    const stored = JSON.parse(localStorage.getItem('psysonic-auth') ?? '{}');
+    expect(stored.version).toBe(2);
+    expect(stored.state.musicLibraryFilterByServer.a).toBe('all');
+  });
 });
 
 describe('computeAuthStoreRehydration — lyrics', () => {

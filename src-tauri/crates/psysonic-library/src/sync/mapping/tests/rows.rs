@@ -77,6 +77,41 @@ fn navidrome_song_maps_native_field_shape() {
 }
 
 #[test]
+fn navidrome_song_appends_subtitle_and_album_version_like_the_subsonic_api() {
+    let raw = json!({
+        "id": "tr_1", "title": "Song", "album": "Album",
+        "tags": { "subtitle": ["Instrumental"], "albumversion": ["Deluxe Edition"] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    assert_eq!(row.title, "Song (Instrumental)");
+    assert_eq!(row.album, "Album (Deluxe Edition)");
+}
+
+#[test]
+fn navidrome_song_keeps_a_bracketed_suffix_and_skips_blank_tags() {
+    let raw = json!({
+        "id": "tr_1", "title": "Song", "album": "Album",
+        "tags": { "subtitle": ["  ", "[Live]"], "albumversion": [""] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    assert_eq!(row.title, "Song [Live]");
+    assert_eq!(row.album, "Album");
+}
+
+#[test]
+fn navidrome_suffix_is_not_appended_twice() {
+    assert_eq!(
+        append_navidrome_suffix("Song (Instrumental)", Some("Instrumental")),
+        "Song (Instrumental)"
+    );
+    assert_eq!(
+        append_navidrome_suffix("Song [Live]", Some("[Live]")),
+        "Song [Live]"
+    );
+    assert_eq!(append_navidrome_suffix("Song", None), "Song");
+}
+
+#[test]
 fn navidrome_song_maps_negative_offset_timestamps() {
     let raw = json!({
         "id": "tr_1",

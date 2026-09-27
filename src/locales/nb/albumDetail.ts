@@ -25,6 +25,7 @@ export const albumDetail = {
   favorite: 'Favoritt',
   noBio: 'Ingen biografi er tilgjengelig.',
   moreByArtist: 'Mer av {{artist}}',
+  similarAlbums: 'Lignende album',
   tracksCount: '{{n}} spor',
   goToArtist: 'Gå til {{artist}}',
   moreLabelAlbums: 'Flere album på {{label}}',

@@ -5,6 +5,7 @@ import { TracklistColumnPicker } from '@/ui/TracklistColumnPicker';
 import { useTranslation } from 'react-i18next';
 import { APP_MAIN_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
 import { useElementClientHeightById } from '@/lib/hooks/useResizeClientHeight';
+import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import { useLocation, useNavigate } from 'react-router';
 import {
   ListPlus, Search, Trash2, X,
@@ -121,7 +122,7 @@ export default function PlaylistTracklist({
   const showBitrate = useThemeStore(s => s.showBitrate);
   const trackListCoversOn = useTrackListCoverArtEnabled('pages');
   const { isDragging } = useDragDrop();
-  const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
   const { active: offlineBrowseActive } = useOfflineBrowseContext();
   const policy = offlineActionPolicy('playlistDetail', offlineBrowseActive);
   const selectedSongs = useMemo(
@@ -129,11 +130,26 @@ export default function PlaylistTracklist({
     [songs, selectedIds],
   );
 
+  const cursorKeys = useMemo(() => displayedSongs.map(song => song.id), [displayedSongs]);
+  const cursor = useTrackListCursor({
+    keys: cursorKeys,
+    onActivate: index => {
+      const song = displayedSongs[index];
+      if (!song) return;
+      if (orbitActive) addTrackToOrbit(song.id, song.serverId);
+      else playTrack(displayedTracks[index], displayedTracks);
+    },
+    // `rowVirtualizer` is declared further down; this only runs on a key press, after render.
+    scrollToIndex: index => rowVirtualizer.scrollToIndex(index, { align: 'auto' }),
+  });
+  const { setCursorFromClick } = cursor;
+
   const latestVals = {
-    selectedIds, orbitActive, displayedTracks, isFiltered, id, songs, serverId,
+    selectedIds, orbitActive, doubleClickToPlay, displayedTracks, isFiltered, id, songs, serverId,
     toggleSelect, handleRowMouseDown, handleRowMouseEnter, handleToggleStar,
     handleRate, removeSong, playTrack, openContextMenu, setContextMenuSongId,
-    navigate, location, queueHint, addTrackToOrbit, tracksReadOnly,
+    navigate, location, queueHint, addTrackToOrbit, tracksReadOnly, setCursorFromClick,
+    displayedSongs, cursorIndex: cursor.cursorIndex,
   };
   const latest = useRef(latestVals);
   latest.current = latestVals;
@@ -142,16 +158,26 @@ export default function PlaylistTracklist({
     activate: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
       const L = latest.current;
-      if (e.ctrlKey || e.metaKey) L.toggleSelect(song.id, index, false);
-      else if (L.selectedIds.size > 0) L.toggleSelect(song.id, index, e.shiftKey);
-      else if (L.orbitActive) L.queueHint();
-      else L.playTrack(L.displayedTracks[index], L.displayedTracks);
+      if (e.ctrlKey || e.metaKey) {
+        // A Ctrl click that starts a multi-selection takes the highlighted row along.
+        const at = L.cursorIndex;
+        if (L.selectedIds.size === 0 && at !== null && at !== index) {
+          L.toggleSelect(L.displayedSongs[at].id, at, false);
+        }
+        L.toggleSelect(song.id, index, false);
+        return;
+      }
+      if (L.selectedIds.size > 0) { L.toggleSelect(song.id, index, e.shiftKey); return; }
+      L.setCursorFromClick(index, e);
+      if (L.orbitActive) L.queueHint();
+      else if (!L.doubleClickToPlay) L.playTrack(L.displayedTracks[index], L.displayedTracks);
     },
-    dblOrbit: (song, e) => {
+    doubleClick: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
       const L = latest.current;
       if (e.ctrlKey || e.metaKey || L.selectedIds.size > 0) return;
-      L.addTrackToOrbit(song.id, song.serverId);
+      if (L.orbitActive) L.addTrackToOrbit(song.id, song.serverId);
+      else L.playTrack(L.displayedTracks[index], L.displayedTracks);
     },
     context: (song, rIdx, e) => {
       e.preventDefault();
@@ -301,7 +327,7 @@ export default function PlaylistTracklist({
         resetColumns={resetColumns}
         t={t}
       />
-    <div className="tracklist" data-preview-loc="playlists" ref={tracklistRef}>
+    <div className="tracklist" data-preview-loc="playlists" ref={tracklistRef} {...cursor.listProps}>
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
@@ -527,7 +553,8 @@ export default function PlaylistTracklist({
             ratingValue={ratings[song.id] ?? ownedOverrideValue(userRatingOverrides, song) ?? song.userRating ?? 0}
             isPreviewing={previewingId === song.id}
             previewStarted={previewingId === song.id && previewAudioStarted}
-            orbitActive={orbitActive}
+            doubleClickActive={orbitActive || doubleClickToPlay}
+            cursorRowId={cursor.cursorIndex === i ? cursor.cursorRowId : undefined}
             cb={cb}
           />
         </div>

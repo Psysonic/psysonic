@@ -25,6 +25,7 @@ export const albumDetail = {
   favorite: 'Kedvenc',
   noBio: 'Nincs elérhető életrajz.',
   moreByArtist: 'Több ettől: {{artist}}',
+  similarAlbums: 'Hasonló albumok',
   tracksCount: '{{n}} szám',
   goToArtist: 'Ugrás ide: {{artist}}',
   moreLabelAlbums: 'Több album a(z) {{label}} kiadótól',

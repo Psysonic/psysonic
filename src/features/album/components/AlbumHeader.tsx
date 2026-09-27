@@ -20,6 +20,7 @@ import { OpenArtistRefInline } from '@/ui/OpenArtistRefInline';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
 import { deriveAlbumGenreTags } from '@/lib/library/genreTags';
 import { deriveAlbumComment } from '@/features/album/utils/albumComment';
+import { deriveAlbumVersion } from '@/features/album/utils/albumVersion';
 import AlbumNotes from '@/features/album/components/AlbumNotes';
 import AlbumHeaderActionBar from '@/features/album/components/AlbumHeaderActionBar';
 import { genreColor } from '@/lib/library/genreColor';
@@ -247,6 +248,7 @@ export default function AlbumHeader({
   // agrees on, or null. Memoized because the album track list is stable while
   // the header re-renders on playback state.
   const albumComment = useMemo(() => deriveAlbumComment(songs), [songs]);
+  const albumVersion = useMemo(() => deriveAlbumVersion(info, songs), [info, songs]);
   const [genreMenuPos, setGenreMenuPos] = useState<{ x: number; y: number } | null>(null);
   const genreMoreRef = useRef<HTMLButtonElement>(null);
   // §5 external album-chain context for the hero cover. Memoized on the
@@ -323,6 +325,7 @@ export default function AlbumHeader({
                 <span className="badge album-detail-badge">{t('common.new', 'New')}</span>
               )}
               <h1 className="album-detail-title">{info.name}</h1>
+              {albumVersion && <p className="album-detail-version">{albumVersion}</p>}
               <p className="album-detail-artist">
                 <OpenArtistRefInline
                   refs={resolvedArtistRefs}

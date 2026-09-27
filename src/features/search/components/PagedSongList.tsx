@@ -1,7 +1,9 @@
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 import SongRow, { SongListHeader } from '@/features/search/components/SongRow';
+import { useSongRowPlay } from '@/features/search/hooks/useSongRowPlay';
 import { useInpageScrollSentinel } from '@/lib/hooks/useInpageScrollSentinel';
+import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import InpageScrollSentinel from '@/ui/InpageScrollSentinel';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
@@ -44,11 +46,28 @@ export default function PagedSongList({ songs, hasMore, loadingMore, onLoadMore,
     enabled: trackListCoversOn && songs.length > 0,
   });
 
+  const playSong = useSongRowPlay();
+  const cursorKeys = useMemo(() => songs.map(ownedEntityKey), [songs]);
+  const cursor = useTrackListCursor({
+    keys: cursorKeys,
+    onActivate: index => {
+      const song = songs[index];
+      if (song) playSong(song);
+    },
+  });
+
   return (
-    <>
+    <div {...cursor.listProps}>
       <SongListHeader showBpm={showBpm} />
-      {songs.map(song => (
-        <SongRow key={ownedEntityKey(song)} song={song} showBpm={showBpm} />
+      {songs.map((song, i) => (
+        <SongRow
+          key={cursorKeys[i]}
+          song={song}
+          showBpm={showBpm}
+          rowIndex={i}
+          cursorRowId={cursor.cursorIndex === i ? cursor.cursorRowId : undefined}
+          onCursorClick={cursor.setCursorFromClick}
+        />
       ))}
       {hasMore && (
         <InpageScrollSentinel
@@ -58,6 +77,6 @@ export default function PagedSongList({ songs, hasMore, loadingMore, onLoadMore,
           style={{ padding: '1rem', height: 'auto', margin: 0 }}
         />
       )}
-    </>
+    </div>
   );
 }
