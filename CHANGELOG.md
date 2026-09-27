@@ -70,6 +70,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The new **Moods** page groups the mood tags exposed by your server for individual tracks. Pick a mood to browse its albums, with album counts, library selection and incremental loading for large collections.
 * Existing libraries build the local mood index from cached track metadata after upgrading. The index stays in sync when tracks change and rebuilds after a Navidrome ID migration. No music files or server tags are changed; servers that do not expose track moods have none to browse.
 
+### Sort albums by year
+
+**By [@circle3451](https://github.com/circle3451), PR [#1672](https://github.com/Psysonic/psysonic/pull/1672)**
+
+* **All Albums** and **Lossless Albums** can now be sorted by **Year**, oldest first. Albums from the same year are ordered by artist, then title.
+* In the table view, clicking the **Year** column header selects the same sort.
+
 ## Fixed
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists
