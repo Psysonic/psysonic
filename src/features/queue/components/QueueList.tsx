@@ -447,7 +447,8 @@ export function QueueList({
           const base = queue[idx];
           const track = resolveQueueTrack(base);
           const isPlaying = absIdx === queueIndex;
-          const isPast = false;
+          // Playlist mode shows the whole queue; rows before the current track are behind the play position.
+          const isPast = queueIndex >= 0 && absIdx < queueIndex;
           const isFirstAutoAdded = base.autoAdded && (idx === 0 || !queue[idx - 1].autoAdded);
           const isFirstRadioAdded = base.radioAdded && (idx === 0 || !queue[idx - 1].radioAdded);
 

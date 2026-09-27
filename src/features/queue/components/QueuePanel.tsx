@@ -93,7 +93,8 @@ function QueuePanelHostOrSolo() {
   const moveQueueItems = usePlayerStore(s => s.moveQueueItems);
   const removeTrack = usePlayerStore(s => s.removeTrack);
   const removeQueueItems = usePlayerStore(s => s.removeQueueItems);
-  const shuffleQueue = usePlayerStore(s => s.shuffleQueue);
+  const shuffleMode = usePlayerStore(s => s.shuffleMode);
+  const toggleShuffleMode = usePlayerStore(s => s.toggleShuffleMode);
   const enqueue = usePlayerStore(s => s.enqueue);
   const enqueueAt = usePlayerStore(s => s.enqueueAt);
   const contextMenu = usePlayerStore(s => s.contextMenu);
@@ -358,11 +359,11 @@ function QueuePanelHostOrSolo() {
       {activeTab === 'queue' ? (<>
         {!isNowPlayingCollapsed && toolbarButtons.some(b => b.visible && b.id !== 'separator') && (
           <QueueToolbar
-            queue={queueItems}
             activePlaylist={activePlaylist}
             saveState={saveState}
             toolbarButtons={toolbarButtons}
-            shuffleQueue={shuffleQueue}
+            shuffleMode={shuffleMode}
+            toggleShuffleMode={toggleShuffleMode}
             handleSave={handleSave}
             handleLoad={handleLoad}
             queueShare={queueShare}

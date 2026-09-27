@@ -308,19 +308,51 @@ export async function getSonicSimilarTracksForServer(
   id: string,
   count = 50,
 ): Promise<SubsonicSong[]> {
+  const matches = await getSonicSimilarMatchesForServer(serverId, id, count);
+  return matches.map(m => m.song);
+}
+
+/** One `sonicMatch` entry: the track plus the server's 0–1 similarity score, when sent. */
+export interface SonicSimilarMatch {
+  song: SubsonicSong;
+  similarity?: number;
+}
+
+/**
+ * Same request as `getSonicSimilarTracksForServer`, keeping each match's
+ * `similarity` score for callers that rank or weight results.
+ */
+export async function getSonicSimilarMatchesForServer(
+  serverId: string,
+  id: string,
+  count = 50,
+): Promise<SonicSimilarMatch[]> {
   try {
     const requestCount = similarSongsRequestCount(count);
-    const data = await apiForServer<{ sonicMatch: Array<{ entry?: SubsonicSong }> | { entry?: SubsonicSong } }>(
+    const data = await apiForServer<{
+      sonicMatch: Array<{ entry?: SubsonicSong; similarity?: number }> | { entry?: SubsonicSong; similarity?: number };
+    }>(
       serverId,
       'getSonicSimilarTracks.view',
       { id, count: requestCount, ...libraryFilterParamsForServer(serverId) },
     );
     const raw = data.sonicMatch;
     const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    const songs = list.map(m => m.entry).filter((e): e is SubsonicSong => !!e);
+    const similarityById = new Map<string, number | undefined>();
+    const songs: SubsonicSong[] = [];
+    for (const m of list) {
+      if (!m.entry) continue;
+      songs.push(m.entry);
+      similarityById.set(m.entry.id, typeof m.similarity === 'number' ? m.similarity : undefined);
+    }
     if (songs.length === 0) return [];
     const filtered = await filterSongsToServerLibrary(songs, serverId);
-    return filtered.slice(0, count).map(song => ({ ...song, serverId }));
+    return filtered.slice(0, count).map(song => {
+      const similarity = similarityById.get(song.id);
+      return similarity === undefined
+        ? { song: { ...song, serverId } }
+        : { song: { ...song, serverId }, similarity };
+    });
   } catch {
     return [];
   }

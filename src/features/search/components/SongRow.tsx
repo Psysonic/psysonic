@@ -6,7 +6,7 @@ import { useNavigateToArtist } from '@/features/artist';
 import { Play, ListPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
-import { enqueueAndPlay } from '@/features/playback/utils/playback/playSong';
+import { useSongRowPlay } from '@/features/search/hooks/useSongRowPlay';
 import { useDragDrop } from '@/lib/dnd/DragDropContext';
 import { useDragPress } from '@/lib/dnd/useDragPress';
 import { useOrbitSongRowBehavior } from '@/features/orbit';
@@ -22,9 +22,15 @@ import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 interface Props {
   song: SubsonicSong;
   showBpm?: boolean;
+  /** Position in the list, handed back with `onCursorClick`. */
+  rowIndex?: number;
+  /** Set only on the list's cursor row (`useTrackListCursor`). */
+  cursorRowId?: string;
+  /** A plain click moved the list cursor onto this row. */
+  onCursorClick?: (rowIndex: number, e: React.MouseEvent) => void;
 }
 
-function SongRow({ song, showBpm }: Props) {
+function SongRow({ song, showBpm, rowIndex = 0, cursorRowId, onCursorClick }: Props) {
   const navigateToAlbum = useNavigateToAlbum();
   const navigateToArtist = useNavigateToArtist();
   const { t } = useTranslation();
@@ -37,15 +43,13 @@ function SongRow({ song, showBpm }: Props) {
     return resolveIndexKey(current.serverId) === resolveIndexKey(song.serverId);
   });
   const psyDrag = useDragDrop();
-  const { orbitActive, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { orbitActive, doubleClickToPlay, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const playSong = useSongRowPlay();
   const showCovers = useTrackListCoverArtEnabled('pages');
 
-  // In an orbit session both buttons collapse into the orbit-suggest / host-enqueue
-  // path so we don't ship a queue replacement to every guest.
-  const handlePlay = () => {
-    if (orbitActive) { addTrackToOrbit(song.id, song.serverId); return; }
-    enqueueAndPlay(song);
-  };
+  const handlePlay = () => playSong(song);
+  // A single click only plays in single-click mode; Orbit keeps its double-click suggest.
+  const playsOnDoubleClick = orbitActive || doubleClickToPlay;
 
   const handleEnqueue = () => {
     if (orbitActive) { addTrackToOrbit(song.id, song.serverId); return; }
@@ -72,8 +76,19 @@ function SongRow({ song, showBpm }: Props) {
 
   return (
     <div
-      className={`song-list-row${isCurrent ? ' is-current' : ''}${showBpm ? ' song-list-row--with-bpm' : ''}${showCovers ? ' song-list-row--with-cover' : ''}`}
-      onDoubleClick={handlePlay}
+      id={cursorRowId}
+      className={`song-list-row${isCurrent ? ' is-current' : ''}${showBpm ? ' song-list-row--with-bpm' : ''}${showCovers ? ' song-list-row--with-cover' : ''}${cursorRowId ? ' song-list-row--cursor' : ''}`}
+      onClick={e => {
+        if ((e.target as HTMLElement).closest('button, a, input')) return;
+        onCursorClick?.(rowIndex, e);
+        // The second click of a habitual double click would restart the fade-out
+        // `enqueueAndPlay` is still running, so only the first one plays.
+        if (!playsOnDoubleClick && e.detail <= 1) handlePlay();
+      }}
+      onDoubleClick={playsOnDoubleClick ? e => {
+        if ((e.target as HTMLElement).closest('button, a, input')) return;
+        handlePlay();
+      } : undefined}
       onContextMenu={(e) => {
         e.preventDefault();
         openContextMenu(e.clientX, e.clientY, song, 'song');

@@ -46,6 +46,8 @@ export type Theme = BuiltinTheme | (string & {});
 /** Trigger for the day/night theme switch. */
 export type ThemeSchedulerMode = 'time' | 'system';
 
+export type TrackRowPlayClick = 'single' | 'double';
+
 interface ThemeState {
   theme: Theme;
   setTheme: (theme: Theme) => void;
@@ -88,6 +90,10 @@ interface ThemeState {
    *  Only shown when the text is actually cut off — measured on hover. */
   showCardTooltips: boolean;
   setShowCardTooltips: (v: boolean) => void;
+  /** How a click on a song row in a page tracklist starts playback. `double`
+   *  keeps a stray single click from replacing what is playing. */
+  trackRowPlayClick: TrackRowPlayClick;
+  setTrackRowPlayClick: (v: TrackRowPlayClick) => void;
   /** Compact (icon-only) vs. large action/toolbar buttons across detail pages and browse views. */
   buttonSize: 'large' | 'small';
   setButtonSize: (v: 'large' | 'small') => void;
@@ -184,6 +190,8 @@ export const useThemeStore = create<ThemeState>()(
       setShowBitrate: (v) => set({ showBitrate: v }),
       showCardTooltips: true,
       setShowCardTooltips: (v) => set({ showCardTooltips: v }),
+      trackRowPlayClick: 'single',
+      setTrackRowPlayClick: (v) => set({ trackRowPlayClick: v }),
       buttonSize: 'large',
       setButtonSize: (v) => set({ buttonSize: v }),
       showRemainingTime: false,

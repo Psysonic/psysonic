@@ -149,6 +149,15 @@ describe('QueuePanel — display mode', () => {
     expect(container.textContent).not.toContain('Next Tracks');
   });
 
+  it('playlist mode: rows before the current track are dimmed, the current and upcoming rows are not', () => {
+    const tracks = makeTracks(4);
+    useAuthStore.getState().setQueueDisplayMode('playlist');
+    seedQueue(tracks, { index: 2, currentTrack: tracks[2] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    const opacities = [...container.querySelectorAll<HTMLElement>('[data-queue-idx]')].map(r => r.style.opacity);
+    expect(opacities).toEqual(['0.5', '0.5', '', '']);
+  });
+
   it('queue mode: header reads "Queue", only upcoming rows render with absolute indices + titles', () => {
     const tracks = makeTracks(5);
     useAuthStore.getState().setQueueDisplayMode('queue');
@@ -240,11 +249,30 @@ describe('QueuePanel — toolbar', () => {
     expect(menu?.textContent).toContain('Load Playlist');
   });
 
-  it('Shuffle button is disabled when the queue has fewer than 2 tracks', () => {
-    seedQueue([makeTrack()], { index: 0, currentTrack: makeTrack() });
+  it('Shuffle button toggles the player shuffle mode and switching it off restores the order', () => {
+    const tracks = makeTracks(6);
+    seedQueue(tracks, { index: 1, currentTrack: tracks[1] });
+    const original = usePlayerStore.getState().queueItems.map(ref => ref.trackId);
     const { getByLabelText } = renderWithProviders(<QueuePanel />);
-    const shuffle = getByLabelText('Shuffle queue') as HTMLButtonElement;
-    expect(shuffle.disabled).toBe(true);
+    const shuffle = getByLabelText('Shuffle queue');
+    expect(shuffle.getAttribute('aria-pressed')).toBe('false');
+
+    act(() => { fireEvent.click(shuffle); });
+
+    const on = usePlayerStore.getState();
+    expect(on.shuffleMode).toBe(true);
+    expect(shuffle.getAttribute('aria-pressed')).toBe('true');
+    // Played and current rows stay put; only the upcoming tail is reordered.
+    expect(on.queueItems.slice(0, 2).map(ref => ref.trackId)).toEqual(original.slice(0, 2));
+    expect([...on.queueItems.map(ref => ref.trackId)].sort()).toEqual([...original].sort());
+    expect(on.queueIndex).toBe(1);
+
+    act(() => { fireEvent.click(shuffle); });
+
+    const off = usePlayerStore.getState();
+    expect(off.shuffleMode).toBe(false);
+    expect(off.queueItems.map(ref => ref.trackId)).toEqual(original);
+    expect(shuffle.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('closes a pending save modal when the queue is cleared', () => {
