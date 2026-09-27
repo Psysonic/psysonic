@@ -511,6 +511,21 @@ html[data-track-previews-randommix="off"]   [data-preview-loc="randomMix"]   .pl
   background: var(--row-playing-bg);
 }
 
+/* Keyboard/click cursor (`useTrackListCursor`) — shown while its list has focus,
+   so it never lingers once the user has moved on. An inset frame keeps it apart
+   from the filled multi-selection and from the playing row's background. */
+[data-track-cursor-list]:focus {
+  outline: none;
+}
+
+[data-track-cursor-list]:focus-within .track-row.track-row--cursor {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+[data-track-cursor-list]:focus-within .track-row.track-row--cursor:not(.active):not(.bulk-selected) {
+  background: var(--row-hover);
+}
+
 .track-row>* {
   padding-top: 6px;
   padding-bottom: 6px;

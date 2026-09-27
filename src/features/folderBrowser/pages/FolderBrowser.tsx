@@ -13,6 +13,7 @@ import { useFolderBrowserNowPlayingPath } from '@/features/folderBrowser/hooks/u
 import { useFolderBrowserScrolling } from '@/features/folderBrowser/hooks/useFolderBrowserScrolling';
 import { useFolderBrowserKeyboardNav } from '@/features/folderBrowser/hooks/useFolderBrowserKeyboardNav';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
 import {
   libraryScopeAlbumDetail,
   libraryScopeArtistDetail,
@@ -37,6 +38,7 @@ export default function FolderBrowser() {
   const playTrack = usePlayerStore(s => s.playTrack);
   const openContextMenu = usePlayerStore(s => s.openContextMenu);
   const isContextMenuOpen = usePlayerStore(s => s.contextMenu.isOpen);
+  const doubleClickToPlay = useThemeStore(s => s.trackRowPlayClick === 'double');
   const servers = useAuthStore(s => s.servers);
   const activeServerId = useAuthStore(s => s.activeServerId);
   const libraryBrowseServerIds = useAuthStore(s => s.libraryBrowseServerIds);
@@ -450,8 +452,13 @@ export default function FolderBrowser() {
             onRowClick={(item, rowIndex) => {
               setKeyboardPos({ colIndex, rowIndex });
               if (item.isDir) handleDirClick(colIndex, item);
+              // Double-click mode: a click only marks the track; Enter or a double click plays it.
+              else if (doubleClickToPlay) setSelectedInColumn(colIndex, item);
               else handleFileClick(colIndex, item);
             }}
+            onRowDoubleClick={doubleClickToPlay ? item => {
+              if (!item.isDir) handleFileClick(colIndex, item);
+            } : undefined}
             onRowContextMenu={(e, rowIndex, c, item) => {
               setKeyboardPos({ colIndex, rowIndex });
               onRowContextMenu(e, colIndex, rowIndex, c, item);

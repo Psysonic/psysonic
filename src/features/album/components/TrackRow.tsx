@@ -51,6 +51,12 @@ interface TrackRowProps {
   onDragStart: (song: SubsonicSong, me: MouseEvent) => void;
   setContextMenuSongKey: (id: string | null) => void;
   actionPolicy?: OfflineActionPolicy;
+  /** Set only on the list's cursor row (`useTrackListCursor`). */
+  cursorRowId?: string;
+  /** A plain click moved the list cursor onto this row. */
+  onCursorClick?: (song: SubsonicSong, e: React.MouseEvent) => void;
+  /** A Ctrl/Cmd click on this row is about to start a multi-selection. */
+  onSelectionStart?: (song: SubsonicSong) => void;
 }
 
 /**
@@ -108,10 +114,14 @@ export const TrackRow = React.memo(function TrackRow({
   onDragStart,
   setContextMenuSongKey,
   actionPolicy,
+  cursorRowId,
+  onCursorClick,
+  onSelectionStart,
 }: TrackRowProps) {
   const policy = actionPolicy ?? offlineActionPolicy('trackRow', false);
   const { t } = useTranslation();
   const showBitrate = useThemeStore(s => s.showBitrate);
+  const doubleClickToPlay = useThemeStore(s => s.trackRowPlayClick === 'double');
   const songKey = ownedEntityKey(song);
   const isSelected = useSelectionStore(s => s.selectedIds.has(songKey));
   const isActive = sameQueueTrack(currentTrack, song);
@@ -259,22 +269,28 @@ export const TrackRow = React.memo(function TrackRow({
 
   return (
     <div
-      className={`track-row track-row-va track-row-with-actions${isActive ? ' active' : ''}${isContextMenuSong ? ' context-active' : ''}${isSelected ? ' bulk-selected' : ''}`}
+      id={cursorRowId}
+      className={`track-row track-row-va track-row-with-actions${isActive ? ' active' : ''}${isContextMenuSong ? ' context-active' : ''}${isSelected ? ' bulk-selected' : ''}${cursorRowId ? ' track-row--cursor' : ''}`}
       style={gridStyle}
       onClick={e => {
         if ((e.target as HTMLElement).closest('button, a, input')) return;
         if (e.ctrlKey || e.metaKey) {
+          if (!inSelectMode) onSelectionStart?.(song);
           onToggleSelect(songKey, globalIdx, false);
         } else if (inSelectMode) {
           onToggleSelect(songKey, globalIdx, e.shiftKey);
         } else {
-          onPlaySong(song);
+          onCursorClick?.(song, e);
+          // With Orbit on (the only time a double-click handler is passed), the
+          // single click still goes through so the page can show its Orbit hint.
+          if (!doubleClickToPlay || onDoubleClickSong) onPlaySong(song);
         }
       }}
-      onDoubleClick={onDoubleClickSong ? e => {
+      onDoubleClick={onDoubleClickSong || doubleClickToPlay ? e => {
         if ((e.target as HTMLElement).closest('button, a, input')) return;
         if (e.ctrlKey || e.metaKey || inSelectMode) return;
-        onDoubleClickSong(song);
+        if (onDoubleClickSong) onDoubleClickSong(song);
+        else onPlaySong(song);
       } : undefined}
       onContextMenu={e => {
         e.preventDefault();

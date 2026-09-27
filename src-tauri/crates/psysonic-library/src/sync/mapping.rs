@@ -44,6 +44,41 @@ pub(crate) fn album_version_from_tags(raw: &Value) -> Option<&str> {
     }
 }
 
+/// Navidrome's Subsonic API sends a title with the track subtitle appended and an
+/// album name with the album version appended (`FullTitle` / `FullAlbumName` in
+/// `model/mediafile.go`, v0.64.0, on by default through `Subsonic.AppendSubtitle`
+/// and `Subsonic.AppendAlbumVersion`). The native `/api/song` row carries the bare
+/// value and the suffix only in `tags.subtitle` / `tags.albumversion`. Appending it
+/// here the same way keeps both ingest paths on the same text (issue #1638).
+///
+/// A value that already ends with the suffix is returned unchanged, so rows that
+/// arrived through the Subsonic path are never suffixed twice.
+pub(crate) fn append_navidrome_suffix(base: &str, suffix: Option<&str>) -> String {
+    let Some(suffix) = suffix.map(str::trim).filter(|suffix| !suffix.is_empty()) else {
+        return base.to_string();
+    };
+    let bracketed = matches!(
+        (suffix.chars().next(), suffix.chars().last()),
+        (Some('('), Some(')'))
+            | (Some('['), Some(']'))
+            | (Some('{'), Some('}'))
+            | (Some('<'), Some('>'))
+    ) && suffix.chars().count() >= 2;
+    let appended = if bracketed {
+        format!(" {suffix}")
+    } else {
+        format!(" ({suffix})")
+    };
+    if base.ends_with(&appended) {
+        return base.to_string();
+    }
+    format!("{base}{appended}")
+}
+
+pub(crate) fn subtitle_from_tags(raw: &Value) -> Option<String> {
+    first_non_empty_string(raw.pointer("/tags/subtitle"))
+}
+
 fn track_raw_json(raw: &Value) -> String {
     let needs_normalized_version = raw
         .as_object()
@@ -323,11 +358,15 @@ pub fn navidrome_song_to_track_row(
     let normalized = normalize_navidrome_participants(raw);
     let raw = &normalized;
     let id = raw.get("id").and_then(|v| v.as_str())?.to_string();
-    let title = raw
-        .get("title")
-        .and_then(|v| v.as_str())
-        .unwrap_or_default()
-        .to_string();
+    let title = append_navidrome_suffix(
+        raw.get("title")
+            .and_then(|v| v.as_str())
+            .unwrap_or_default(),
+        subtitle_from_tags(raw).as_deref(),
+    );
+    let album = string_field(raw, "album")
+        .map(|album| append_navidrome_suffix(&album, album_version_from_tags(raw)))
+        .unwrap_or_default();
     let server_updated_at = parse_raw_timestamp_ms(raw, &["updatedAt"]);
     let library_id = json_string_field(raw, "libraryId")
         .or_else(|| json_string_field(raw, "library_id"))
@@ -342,7 +381,7 @@ pub fn navidrome_song_to_track_row(
             .or_else(|| string_field(raw, "sortName")),
         artist: string_field(raw, "artist"),
         artist_id: string_field(raw, "artistId"),
-        album: string_field(raw, "album").unwrap_or_default(),
+        album,
         album_id: string_field(raw, "albumId"),
         album_artist: string_field(raw, "albumArtist"),
         duration_sec: duration_seconds(raw),

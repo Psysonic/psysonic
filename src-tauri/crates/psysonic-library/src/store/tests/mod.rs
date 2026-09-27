@@ -30,5 +30,6 @@ impl Drop for TestDatabase {
 mod connections;
 mod migration_runner;
 mod migration_schema;
+mod native_display_suffix;
 mod reconciles;
 mod schema;

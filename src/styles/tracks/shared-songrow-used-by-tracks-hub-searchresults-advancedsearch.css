@@ -25,6 +25,20 @@
   color: var(--row-playing-text);
 }
 
+/* List cursor — same look as `.track-row--cursor` in tracklist.css. The scroll
+   margin keeps a row reached with ↑ from sliding under the sticky header. */
+.song-list-row--cursor {
+  scroll-margin-top: 36px;
+}
+
+[data-track-cursor-list]:focus-within .song-list-row--cursor {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 60%, transparent);
+}
+
+[data-track-cursor-list]:focus-within .song-list-row--cursor:not(.is-current) {
+  background: var(--row-hover);
+}
+
 .song-list-row--header {
   height: 36px;
   font-size: 11px;
