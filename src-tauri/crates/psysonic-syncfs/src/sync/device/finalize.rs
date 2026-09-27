@@ -13,7 +13,8 @@ use crate::sync::batch::{
     activate_device_sync_plan, clear_device_sync_plan, normalized_manifest_files,
     normalized_manifest_playlists, normalized_strings, portable_path_identity,
     relative_delete_paths, DeviceSyncLayoutMode, DeviceSyncManifestFile,
-    DeviceSyncManifestPlaylist, DeviceSyncPlanPlaylist, DeviceSyncPlaylistPathMode,
+    DeviceSyncManifestPlaylist, DeviceSyncPlanPlaylist, DeviceSyncPlannedMove,
+    DeviceSyncPlaylistPathMode,
 };
 
 #[derive(serde::Deserialize, serde::Serialize, specta::Type)]
@@ -211,6 +212,45 @@ fn verify_plan(
     Ok(())
 }
 
+/// Relocates the copies the plan moves instead of downloading again. Runs
+/// before the desired-state preflight, and is safe to repeat after an
+/// interrupted finalize: a move whose target already exists is done.
+fn apply_planned_moves(root: &Path, moves: &[DeviceSyncPlannedMove]) -> Result<(), String> {
+    for planned in moves {
+        let (Some(from), Some(to)) = (
+            resolve_within_root(root, &planned.from),
+            resolve_within_root(root, &planned.to),
+        ) else {
+            return Err("DEVICE_SYNC_MOVE_PATH_INVALID".to_string());
+        };
+        for path in [&from, &to] {
+            if !planned_path_stays_within(root, path).map_err(|error| error.to_string())?
+                || path_contains_symlink(root, path)?
+            {
+                return Err("DEVICE_SYNC_MOVE_PATH_INVALID".to_string());
+            }
+        }
+        if std::fs::symlink_metadata(&to).is_ok() {
+            continue;
+        }
+        // A missing source is left for the preflight, which names the path.
+        let Some(from) = checked_existing_path(root, &from.to_string_lossy())? else {
+            continue;
+        };
+        if let Some(parent) = to.parent() {
+            std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+        }
+        if path_contains_symlink(root, &to)? {
+            return Err("DEVICE_SYNC_MOVE_PATH_INVALID".to_string());
+        }
+        std::fs::rename(&from, &to).map_err(|error| error.to_string())?;
+        sync_device_directory(to.parent())?;
+        sync_device_directory(from.parent())?;
+        prune_empty_parents(root, &from, 2)?;
+    }
+    Ok(())
+}
+
 /// Records the size each file actually has on the device; the plan only
 /// carries estimates, which are far off for transcoded copies.
 fn files_with_device_sizes(
@@ -308,6 +348,7 @@ fn finalize_device_sync_with_validator(
     validate(root, &expected_device_id)?;
     let plan = activate_device_sync_plan(root, &payload.plan_id, &expected_device_id)?;
     verify_plan(root, &payload, &plan)?;
+    apply_planned_moves(root, &plan.move_paths)?;
     let desired_files = preflight_files_and_references(root, &payload)?;
 
     let flat = payload_is_flat(&payload)?;

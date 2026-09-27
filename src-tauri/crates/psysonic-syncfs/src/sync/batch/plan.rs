@@ -1,6 +1,7 @@
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use super::planner::DeviceSyncPlannedMove;
 use super::{
     DeviceSyncLayoutMode, DeviceSyncManifestFile, DeviceSyncManifestPlaylist,
     DeviceSyncPlannedPlaylist, DeviceSyncPlaylistPathMode, SyncDeltaResult,
@@ -29,6 +30,10 @@ pub(crate) struct DeviceSyncPlanRecord {
     pub(crate) layout_mode: DeviceSyncLayoutMode,
     pub(crate) playlist_path_mode: DeviceSyncPlaylistPathMode,
     pub(crate) delete_paths: Vec<String>,
+    /// Existing files finalize relocates before checking the desired state.
+    /// Absent on plans written before moves existed.
+    #[serde(default)]
+    pub(crate) move_paths: Vec<DeviceSyncPlannedMove>,
     pub(crate) manifest_files: Vec<DeviceSyncManifestFile>,
     pub(crate) manifest_playlists: Vec<DeviceSyncManifestPlaylist>,
     pub(crate) playlists: Vec<DeviceSyncPlanPlaylist>,
@@ -212,6 +217,7 @@ pub(crate) fn prepare_device_sync_plan(
         layout_mode,
         playlist_path_mode,
         delete_paths,
+        move_paths: result.move_paths.clone(),
         manifest_files: normalized_manifest_files(&result.manifest_files),
         manifest_playlists: normalized_manifest_playlists(&result.manifest_playlists),
         playlists: planned_playlists(&result.playlists),
@@ -412,6 +418,8 @@ mod tests {
             tracks: Vec::new(),
             delete_paths: Vec::new(),
             deferred_delete_paths: Vec::new(),
+            move_count: 0,
+            move_paths: Vec::new(),
             playlists: Vec::new(),
             manifest_files: Vec::new(),
             manifest_playlists: Vec::new(),

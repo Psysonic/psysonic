@@ -4,8 +4,9 @@ use tauri::Manager;
 
 use super::plan::{carry_active_plan_cleanup, prepare_device_sync_plan, read_device_sync_plan};
 use super::{
-    fetch_subsonic_songs, subsonic_response_root, DeviceSyncLayoutMode, DeviceSyncPlaylistPathMode,
-    DeviceSyncSourcePayload, DeviceSyncTranscode, SubsonicAuthPayload, SyncDeltaResult,
+    fetch_subsonic_song, fetch_subsonic_songs, subsonic_response_root, DeviceSyncLayoutMode,
+    DeviceSyncPlaylistPathMode, DeviceSyncSourcePayload, DeviceSyncTranscode, SubsonicAuthPayload,
+    SyncDeltaResult,
 };
 
 /// `None` marks a source that is on its way off the device: it contributes no
@@ -16,7 +17,14 @@ type SourceFetchHandle = (
 );
 use super::planner::{build_sync_plan_with_resume, FetchedDeviceSyncSource, SyncPlanOptions};
 use crate::file_transfer::{apply_server_http_get, subsonic_http_client};
-use crate::sync::device::{get_removable_drives, playlist_collision_key, validate_device_identity};
+use crate::sync::device::{
+    get_removable_drives, playlist_collision_key, read_device_manifest, validate_device_identity,
+};
+
+/// Upper bound on per-song lookups for tracks that left their source since the
+/// last sync; beyond it the remainder stays on the device as before.
+const MAX_DEPARTED_SONG_LOOKUPS: usize = 2_000;
+const DEPARTED_SONG_LOOKUP_CONCURRENCY: usize = 8;
 
 pub(super) fn device_sync_source_key(source: &DeviceSyncSourcePayload) -> String {
     serde_json::to_string(&(&source.server_index_key, &source.source_type, &source.id))
@@ -196,6 +204,15 @@ pub(super) async fn calculate_sync_payload_impl(
         fetched.push(FetchedDeviceSyncSource { source, tracks });
     }
 
+    let departed_songs = fetch_departed_songs(
+        &client,
+        http_registry.as_deref(),
+        &auth,
+        &target_dir,
+        &fetched,
+    )
+    .await;
+
     validate_device_identity(root, &device_id)?;
     super::plan::validate_active_device_sync_plan_binding(
         root,
@@ -222,6 +239,7 @@ pub(super) async fn calculate_sync_payload_impl(
         existing_active
             .as_ref()
             .map(|plan| plan.manifest_files.as_slice()),
+        &departed_songs,
     )?;
     if let Some(plan) = &existing_active {
         carry_active_plan_cleanup(root, plan, &mut result);
@@ -252,4 +270,70 @@ pub(super) async fn calculate_sync_payload_impl(
         }
     }
     Ok(result)
+}
+
+/// Songs the previous manifest recorded but no current source listing returns
+/// any more — a track removed from a playlist, or every track of a source on
+/// its way off the device. Their server metadata is what lets the planner
+/// prove a device path is one it created (see `authenticated_by_server_song`),
+/// so the stale copy can be removed or moved. Lookups are best effort: a song
+/// the server no longer knows, or a server that is offline, keeps the old copy.
+async fn fetch_departed_songs(
+    client: &reqwest::Client,
+    registry: Option<&psysonic_core::server_http::ServerHttpRegistry>,
+    auth: &SubsonicAuthPayload,
+    target_dir: &str,
+    fetched: &[FetchedDeviceSyncSource],
+) -> std::collections::HashMap<String, serde_json::Value> {
+    let mut departed = std::collections::HashMap::new();
+    if auth.base_url.is_empty() {
+        return departed;
+    }
+    let Some(files) = read_device_manifest(target_dir.to_string())
+        .as_ref()
+        .and_then(|manifest| manifest.get("files"))
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+    else {
+        return departed;
+    };
+    let listed = fetched
+        .iter()
+        .flat_map(|entry| entry.tracks.iter())
+        .filter_map(|track| track.get("id").and_then(serde_json::Value::as_str))
+        .collect::<std::collections::HashSet<_>>();
+    let mut missing = files
+        .iter()
+        .filter_map(|file| file.get("trackId").and_then(serde_json::Value::as_str))
+        .filter(|id| !listed.contains(id))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    missing.sort();
+    missing.dedup();
+    missing.truncate(MAX_DEPARTED_SONG_LOOKUPS);
+
+    for chunk in missing.chunks(DEPARTED_SONG_LOOKUP_CONCURRENCY) {
+        let lookups = chunk
+            .iter()
+            .map(|id| fetch_subsonic_song(client, registry, auth, id));
+        let mut unreachable = false;
+        for (id, song) in chunk
+            .iter()
+            .zip(futures_util::future::join_all(lookups).await)
+        {
+            match song {
+                Ok(Some(song)) => {
+                    departed.insert(id.clone(), song);
+                }
+                Ok(None) => {}
+                // Stop at the first failure so an offline server cannot stall a
+                // delete-only run behind hundreds of timeouts.
+                Err(_) => unreachable = true,
+            }
+        }
+        if unreachable {
+            break;
+        }
+    }
+    departed
 }

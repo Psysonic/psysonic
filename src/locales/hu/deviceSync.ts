@@ -104,6 +104,7 @@ export const deviceSync = {
   calculating: 'A szükséges adatmennyiség kiszámítása…',
   filesToAdd: 'Hozzáadandó fájlok:',
   filesToDelete: 'Törlendő fájlok:',
+  filesToMove: 'Áthelyezendő fájlok:',
   netChange: 'Nettó változás:',
   availableSpace: 'Elérhető lemezterület:',
   spaceWarning: 'Figyelem: a céleszközön a jelentett szerint nincs elég hely.',

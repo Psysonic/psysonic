@@ -93,6 +93,7 @@ export default function DeviceSync() {
     tracks: [] as SubsonicSong[],
     deletePaths: [],
     deferredDeletePaths: [],
+    moveCount: 0,
     playlists: [],
     manifestFiles: [],
     manifestPlaylists: [],

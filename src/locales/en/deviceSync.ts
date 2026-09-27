@@ -104,6 +104,7 @@ export const deviceSync = {
   calculating: 'Calculating required payload…',
   filesToAdd: 'Files to Add:',
   filesToDelete: 'Files to Delete:',
+  filesToMove: 'Files to Move:',
   netChange: 'Net Change:',
   availableSpace: 'Available Disk Space:',
   spaceWarning: 'Warning: Target device does not have enough reported space.',

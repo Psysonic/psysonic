@@ -97,6 +97,7 @@ export const deviceSync = {
   calculating: 'Vereiste payload berekenen…',
   filesToAdd: 'Te toevoegen bestanden:',
   filesToDelete: 'Te verwijderen bestanden:',
+  filesToMove: 'Te verplaatsen bestanden:',
   netChange: 'Nettoverandering:',
   availableSpace: 'Beschikbare schijfruimte:',
   spaceWarning: 'Waarschuwing: Het doelapparaat heeft niet genoeg gerapporteerde ruimte.',

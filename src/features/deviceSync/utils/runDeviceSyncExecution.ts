@@ -41,6 +41,8 @@ export interface SyncDelta {
   tracks: SubsonicSong[];
   deletePaths: string[];
   deferredDeletePaths: string[];
+  /** Existing copies relocated on the device instead of downloaded again. */
+  moveCount: number;
   playlists: DeviceSyncPlannedPlaylist[];
   manifestFiles: DeviceSyncManifestFile[];
   manifestPlaylists: DeviceSyncManifestPlaylist[];

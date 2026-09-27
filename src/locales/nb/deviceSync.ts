@@ -97,6 +97,7 @@ export const deviceSync = {
   calculating: 'Beregner nødvendig nyttelast…',
   filesToAdd: 'Filer som skal legges til:',
   filesToDelete: 'Filer som skal slettes:',
+  filesToMove: 'Filer som flyttes:',
   netChange: 'Nettoendring:',
   availableSpace: 'Tilgjengelig diskplass:',
   spaceWarning: 'Advarsel: Målenheten har ikke nok rapportert plass.',

@@ -104,6 +104,7 @@ export const deviceSync = {
   calculating: 'Se calculează încărcătura necesară…',
   filesToAdd: 'Fișiere de Adăugat:',
   filesToDelete: 'Fișiere de Șterse:',
+  filesToMove: 'Fișiere de mutat:',
   netChange: 'Schimbarea netă:',
   availableSpace: 'Spațiu pe Disc disponibil:',
   spaceWarning: 'Alertă: Dispozitivul țintă nu are destul spațiu raportat.',

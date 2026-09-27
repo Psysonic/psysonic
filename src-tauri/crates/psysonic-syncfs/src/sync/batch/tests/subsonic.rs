@@ -161,3 +161,19 @@ async fn fetch_subsonic_songs_handles_single_song_object_shape() {
     );
     assert_eq!(songs[0].get("id").unwrap(), "only");
 }
+
+#[test]
+fn parse_song_returns_the_requested_song_only() {
+    let json = serde_json::json!({
+        "subsonic-response": { "status": "ok", "song": { "id": "track-1", "title": "Song" } }
+    });
+    assert_eq!(
+        super::super::model::parse_subsonic_song(&json, "track-1").unwrap()["title"],
+        "Song"
+    );
+    assert!(super::super::model::parse_subsonic_song(&json, "track-2").is_none());
+    let failed = serde_json::json!({
+        "subsonic-response": { "status": "failed", "error": { "code": 70, "message": "not found" } }
+    });
+    assert!(super::super::model::parse_subsonic_song(&failed, "track-1").is_none());
+}

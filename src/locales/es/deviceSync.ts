@@ -97,6 +97,7 @@ export const deviceSync = {
   calculating: 'Calculando la carga útil requerida…',
   filesToAdd: 'Archivos a agregar:',
   filesToDelete: 'Archivos a eliminar:',
+  filesToMove: 'Archivos a mover:',
   netChange: 'Cambio neto:',
   availableSpace: 'Espacio disponible en disco:',
   spaceWarning: 'Advertencia: El dispositivo de destino no tiene suficiente espacio reportado.',
