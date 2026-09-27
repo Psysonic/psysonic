@@ -610,6 +610,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Seek buffering indicator polish for player and queue cover art (PR #1634)',
     ],
   },
+  {
+    github: 'circle3451',
+    since: '1.56.0',
+    contributions: [
+      'Album page — similar albums from AudioMuse (PR #1663)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the
