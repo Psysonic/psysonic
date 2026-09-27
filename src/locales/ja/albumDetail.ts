@@ -25,6 +25,7 @@ export const albumDetail = {
   favorite: 'お気に入り',
   noBio: '紹介文はありません。',
   moreByArtist: '{{artist}} の他の作品',
+  similarAlbums: '似ているアルバム',
   tracksCount: '{{n}} 曲',
   goToArtist: '{{artist}} へ移動',
   moreLabelAlbums: '{{label}} の他のアルバム',

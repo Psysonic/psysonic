@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Relatief aan afspeellijst',
   playlistPathRooted: 'Vanaf apparaatroot (/Artiest/Album/…)',
   playlistPathAbsolute: 'Absoluut (volledige bestandspaden)',
+  playlistPathAbsoluteHint: 'Absolute paden bevatten de stationsletter of het koppelpunt van deze computer, dus de afspeellijsten werken alleen zolang het apparaat daar onder hetzelfde pad verschijnt.',
   localTargetBadge: 'Lokale map',
   localTargetTitle: 'Synchroniseren naar een lokale map?',
   localTargetConfirm: '{{path}} staat op deze computer, niet op een verwisselbare schijf. Psysonic synchroniseert erin als naar een apparaat en onthoudt de map als lokaal doel.',

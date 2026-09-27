@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Relativ zur Playlist',
   playlistPathRooted: 'Vom Gerätestamm (/Künstler/Album/…)',
   playlistPathAbsolute: 'Absolut (vollständige Dateipfade)',
+  playlistPathAbsoluteHint: 'Absolute Pfade enthalten den Laufwerksbuchstaben bzw. Einhängepunkt dieses Computers. Die Playlists funktionieren daher nur, solange das Gerät dort unter demselben Pfad erscheint.',
   localTargetBadge: 'Lokaler Ordner',
   localTargetTitle: 'In einen lokalen Ordner synchronisieren?',
   localTargetConfirm: '{{path}} liegt auf diesem Computer, nicht auf einem Wechseldatenträger. Psysonic synchronisiert wie auf ein Gerät hinein und merkt sich den Ordner als lokales Ziel.',

@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Relative la playlist',
   playlistPathRooted: 'De la rădăcina dispozitivului (/Artist/Album/…)',
   playlistPathAbsolute: 'Absolută (căi complete)',
+  playlistPathAbsoluteHint: 'Căile absolute conțin litera de unitate sau punctul de montare al acestui computer, așa că playlisturile funcționează doar cât timp dispozitivul apare în același loc.',
   localTargetBadge: 'Folder local',
   localTargetTitle: 'Sincronizezi într-un folder local?',
   localTargetConfirm: '{{path}} se află pe acest computer, nu pe o unitate amovibilă. Psysonic va sincroniza în el ca într-un dispozitiv și îl va reține ca țintă locală.',

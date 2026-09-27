@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Relativ til spillelisten',
   playlistPathRooted: 'Fra enhetsroten (/Artist/Album/…)',
   playlistPathAbsolute: 'Absolutt (fullstendige filstier)',
+  playlistPathAbsoluteHint: 'Absolutte stier inneholder stasjonsbokstaven eller monteringspunktet på denne datamaskinen, så spillelistene fungerer bare så lenge enheten dukker opp under det samme.',
   localTargetBadge: 'Lokal mappe',
   localTargetTitle: 'Synkronisere til en lokal mappe?',
   localTargetConfirm: '{{path}} ligger på denne datamaskinen, ikke på en flyttbar stasjon. Psysonic synkroniserer til den som til en enhet og husker den som et lokalt mål.',

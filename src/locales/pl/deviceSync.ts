@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Względem playlisty',
   playlistPathRooted: 'Od katalogu głównego urządzenia (/Wykonawca/Album/…)',
   playlistPathAbsolute: 'Bezwzględne (pełne ścieżki plików)',
+  playlistPathAbsoluteHint: 'Ścieżki bezwzględne zawierają literę dysku lub punkt montowania tego komputera, więc playlisty działają tylko wtedy, gdy urządzenie pojawia się pod tą samą ścieżką.',
   localTargetBadge: 'Folder lokalny',
   localTargetTitle: 'Synchronizować do folderu lokalnego?',
   localTargetConfirm: '{{path}} znajduje się na tym komputerze, a nie na dysku wymiennym. Psysonic będzie do niego synchronizować jak do urządzenia i zapamięta go jako cel lokalny.',

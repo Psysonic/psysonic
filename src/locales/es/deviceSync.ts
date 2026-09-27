@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Relativas a la lista',
   playlistPathRooted: 'Desde la raíz del dispositivo (/Artista/Álbum/…)',
   playlistPathAbsolute: 'Absoluta (rutas completas)',
+  playlistPathAbsoluteHint: 'Las rutas absolutas incluyen la letra de unidad o el punto de montaje de este equipo, así que las listas solo funcionan mientras el dispositivo aparezca en el mismo.',
   localTargetBadge: 'Carpeta local',
   localTargetTitle: '¿Sincronizar con una carpeta local?',
   localTargetConfirm: '{{path}} está en este ordenador, no en una unidad extraíble. Psysonic sincronizará en ella como en un dispositivo y la recordará como destino local.',

@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: '相对于播放列表',
   playlistPathRooted: '从设备根目录开始（/艺术家/专辑/…）',
   playlistPathAbsolute: '绝对路径（完整文件路径）',
+  playlistPathAbsoluteHint: '绝对路径包含此电脑的驱动器号或挂载点，因此只有当设备出现在同一位置时，播放列表才能正常使用。',
   localTargetBadge: '本地文件夹',
   localTargetTitle: '同步到本地文件夹？',
   localTargetConfirm: '{{path}} 位于这台电脑上，而不是可移动驱动器。Psysonic 会像设备一样同步到其中，并将其记为本地目标。',

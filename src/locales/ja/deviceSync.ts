@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'プレイリストからの相対パス',
   playlistPathRooted: 'デバイスのルートから (/アーティスト/アルバム/…)',
   playlistPathAbsolute: '絶対パス（完全なファイルパス）',
+  playlistPathAbsoluteHint: '絶対パスにはこのコンピューターのドライブ文字またはマウントポイントが含まれるため、デバイスが同じ場所に表示されている間だけプレイリストが機能します。',
   localTargetBadge: 'ローカルフォルダー',
   localTargetTitle: 'ローカルフォルダーに同期しますか？',
   localTargetConfirm: '{{path}} はリムーバブルドライブではなく、このコンピューター上にあります。Psysonic はデバイスと同様に同期し、ローカルの同期先として記憶します。',

@@ -151,6 +151,9 @@ export default function DeviceSyncHeader({
               </label>
             )}
           </div>
+          {playlistPathMode === 'absolute' && (
+            <span className="device-sync-schema-hint">{t('deviceSync.playlistPathAbsoluteHint')}</span>
+          )}
           {transcode.format !== 'original' && (
             <span className="device-sync-schema-hint">{t('deviceSync.transcodeHint')}</span>
           )}
