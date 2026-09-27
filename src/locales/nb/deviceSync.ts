@@ -31,7 +31,7 @@ export const deviceSync = {
   localTargetUse: 'Bruk denne mappen',
   localTargetInvalid: 'Denne mappen kan ikke brukes som synkroniseringsmål.',
   localTargetNotEmpty: 'Velg en tom mappe. Psysonic synkroniserer bare til en mappe den styrer alene, så musikk du allerede har der blir aldri rørt.',
-  localTargetHint: 'For DJ-programvare som Rekordbox: bruk delte albumspor med absolutte stier. Da beholder filene plasseringen når en spilleliste endres, og importert analyse og cue-punkter forblir koblet.',
+  localTargetHint: 'For DJ-programvare: bruk delte albumspor med absolutte stier. Da beholder filene plasseringen når en spilleliste endres, og importert analyse og cue-punkter forblir koblet.',
   transcodeFormat: 'Format',
   transcodeOriginal: 'Originalfiler',
   transcodeMp3: 'MP3',

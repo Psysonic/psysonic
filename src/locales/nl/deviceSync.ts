@@ -31,7 +31,7 @@ export const deviceSync = {
   localTargetUse: 'Deze map gebruiken',
   localTargetInvalid: 'Deze map kan niet als synchronisatiedoel worden gebruikt.',
   localTargetNotEmpty: 'Kies een lege map. Psysonic synchroniseert alleen naar een map die het zelf beheert, zodat muziek die je daar al bewaart nooit wordt aangeraakt.',
-  localTargetHint: 'Gebruik voor DJ-software zoals Rekordbox gedeelde albumnummers met absolute paden: bestanden behouden hun locatie als een afspeellijst verandert, zodat geïmporteerde analyses en cuepunten gekoppeld blijven.',
+  localTargetHint: 'Gebruik voor DJ-software gedeelde albumnummers met absolute paden: bestanden behouden hun locatie als een afspeellijst verandert, zodat geïmporteerde analyses en cuepunten gekoppeld blijven.',
   transcodeFormat: 'Formaat',
   transcodeOriginal: 'Originele bestanden',
   transcodeMp3: 'MP3',

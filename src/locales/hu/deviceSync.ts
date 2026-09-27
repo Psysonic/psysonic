@@ -31,7 +31,7 @@ export const deviceSync = {
   localTargetUse: 'Mappa használata',
   localTargetInvalid: 'Ez a mappa nem használható szinkronizálási célként.',
   localTargetNotEmpty: 'Válassz egy üres mappát. A Psysonic csak olyan mappába szinkronizál, amelyet egyedül kezel, így sosem nyúl az ott már tárolt zenéidhez.',
-  localTargetHint: 'DJ-szoftverekhez, például a Rekordboxhoz, használj megosztott albumszámokat abszolút útvonalakkal: a fájlok a lejátszási lista változásakor is a helyükön maradnak, így az importált elemzés és cue pontok megmaradnak.',
+  localTargetHint: 'DJ-szoftverekhez használj megosztott albumszámokat abszolút útvonalakkal: a fájlok a lejátszási lista változásakor is a helyükön maradnak, így az importált elemzés és cue pontok megmaradnak.',
   transcodeFormat: 'Formátum',
   transcodeOriginal: 'Eredeti fájlok',
   transcodeMp3: 'MP3',

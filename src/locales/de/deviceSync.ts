@@ -31,7 +31,7 @@ export const deviceSync = {
   localTargetUse: 'Diesen Ordner verwenden',
   localTargetInvalid: 'Dieser Ordner kann nicht als Sync-Ziel verwendet werden.',
   localTargetNotEmpty: 'Wähle einen leeren Ordner. Psysonic synchronisiert nur in einen Ordner, den es allein verwaltet, damit Musik, die du dort schon hast, unberührt bleibt.',
-  localTargetHint: 'Für DJ-Software wie Rekordbox: gemeinsame Albumtitel mit absoluten Pfaden verwenden. Dateien behalten dann ihren Ort, wenn sich eine Playlist ändert, und importierte Analysen und Cue-Punkte bleiben verknüpft.',
+  localTargetHint: 'Für DJ-Software: gemeinsame Albumtitel mit absoluten Pfaden verwenden. Dateien behalten dann ihren Ort, wenn sich eine Playlist ändert, und importierte Analysen und Cue-Punkte bleiben verknüpft.',
   transcodeFormat: 'Format',
   transcodeOriginal: 'Originaldateien',
   transcodeMp3: 'MP3',

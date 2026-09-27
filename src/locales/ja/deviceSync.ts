@@ -31,7 +31,7 @@ export const deviceSync = {
   localTargetUse: 'このフォルダーを使用',
   localTargetInvalid: 'このフォルダーは同期先として使用できません。',
   localTargetNotEmpty: '空のフォルダーを選んでください。Psysonic は自分だけが管理するフォルダーにのみ同期するため、そこにある既存の音楽には手を触れません。',
-  localTargetHint: 'Rekordbox などの DJ ソフトでは、共有アルバムトラックと絶対パスを使用してください。プレイリストが変わってもファイルの場所が変わらないため、取り込んだ解析やキューポイントが保持されます。',
+  localTargetHint: 'DJ ソフトでは、共有アルバムトラックと絶対パスを使用してください。プレイリストが変わってもファイルの場所が変わらないため、取り込んだ解析やキューポイントが保持されます。',
   transcodeFormat: '形式',
   transcodeOriginal: '元のファイル',
   transcodeMp3: 'MP3',

@@ -31,7 +31,7 @@ export const deviceSync = {
   localTargetUse: '使用此文件夹',
   localTargetInvalid: '此文件夹不能用作同步目标。',
   localTargetNotEmpty: '请选择一个空文件夹。Psysonic 只同步到由它单独管理的文件夹，因此绝不会触碰你已存放在那里的音乐。',
-  localTargetHint: '对于 Rekordbox 等 DJ 软件，请使用共享专辑曲目并选择绝对路径：播放列表变化时文件位置保持不变，导入的分析和 Cue 点仍然有效。',
+  localTargetHint: '对于 DJ 软件，请使用共享专辑曲目并选择绝对路径：播放列表变化时文件位置保持不变，导入的分析和 Cue 点仍然有效。',
   transcodeFormat: '格式',
   transcodeOriginal: '原始文件',
   transcodeMp3: 'MP3',

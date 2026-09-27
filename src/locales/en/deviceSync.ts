@@ -31,7 +31,7 @@ export const deviceSync = {
   localTargetUse: 'Use this folder',
   localTargetInvalid: 'This folder cannot be used as a sync target.',
   localTargetNotEmpty: 'Choose an empty folder. Psysonic only syncs into a folder it manages alone, so it never touches music you already keep there.',
-  localTargetHint: 'For DJ software such as Rekordbox, use shared album tracks with absolute paths: files keep their location when a playlist changes, so imported analysis and cue points stay linked.',
+  localTargetHint: 'For DJ software, use shared album tracks with absolute paths: files keep their location when a playlist changes, so imported analysis and cue points stay linked.',
   transcodeFormat: 'Format',
   transcodeOriginal: 'Original files',
   transcodeMp3: 'MP3',
