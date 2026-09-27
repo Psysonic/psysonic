@@ -243,6 +243,26 @@ describe('deviceSyncStore ownership', () => {
     expect(invalid.transcode).toEqual({ format: 'original', maxBitRateKbps: 320 });
   });
 
+  it('imports and migrates the absolute playlist path mode', () => {
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'absolute',
+      files: [],
+      playlists: [],
+    })).toEqual(expect.objectContaining({ playlistPathMode: 'absolute' }));
+
+    const migrated = migrateDeviceSyncPersistedState({
+      playlistPathMode: 'absolute',
+      syncedPlaylistPathMode: 'absolute',
+    } as never);
+    expect(migrated.playlistPathMode).toBe('absolute');
+    expect(migrated.syncedPlaylistPathMode).toBe('absolute');
+  });
+
   it('keeps a persisted flat layout across the store migration', () => {
     const migrated = migrateDeviceSyncPersistedState({
       layoutMode: 'flat',

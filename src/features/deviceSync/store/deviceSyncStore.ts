@@ -33,7 +33,15 @@ export interface DeviceSyncSource {
 }
 
 export type DeviceSyncLayoutMode = 'self-contained' | 'shared-album-tree' | 'flat';
-export type DeviceSyncPlaylistPathMode = 'playlist-relative' | 'device-rooted';
+export type DeviceSyncPlaylistPathMode = 'playlist-relative' | 'device-rooted' | 'absolute';
+
+const DEVICE_SYNC_PLAYLIST_PATH_MODES: readonly DeviceSyncPlaylistPathMode[] = [
+  'playlist-relative', 'device-rooted', 'absolute',
+];
+
+function isDeviceSyncPlaylistPathMode(value: unknown): value is DeviceSyncPlaylistPathMode {
+  return DEVICE_SYNC_PLAYLIST_PATH_MODES.includes(value as DeviceSyncPlaylistPathMode);
+}
 
 /** Output format of synced files; `original` copies the server file as-is. */
 export type DeviceSyncTranscodeFormat = 'original' | 'mp3' | 'aac' | 'opus';
@@ -218,8 +226,7 @@ function isSupportedDeviceSyncManifest(manifest: DeviceSyncManifest): boolean {
   if (manifest.canonicalIdVersion !== undefined && manifest.canonicalIdVersion !== 1) return false;
   if (manifest.layoutMode !== undefined && !isDeviceSyncLayoutMode(manifest.layoutMode)) return false;
   if (manifest.playlistPathMode !== undefined
-    && manifest.playlistPathMode !== 'playlist-relative'
-    && manifest.playlistPathMode !== 'device-rooted') return false;
+    && !isDeviceSyncPlaylistPathMode(manifest.playlistPathMode)) return false;
   return true;
 }
 
@@ -398,9 +405,11 @@ export function migrateDeviceSyncPersistedState(persisted: unknown): Partial<Dev
   return {
     ...state,
     layoutMode: isDeviceSyncLayoutMode(persistedLayout) ? persistedLayout : 'self-contained',
-    playlistPathMode: state?.playlistPathMode === 'device-rooted' ? 'device-rooted' : 'playlist-relative',
+    playlistPathMode: isDeviceSyncPlaylistPathMode(state?.playlistPathMode) ? state.playlistPathMode : 'playlist-relative',
     syncedLayoutMode: isDeviceSyncLayoutMode(persistedSyncedLayout) ? persistedSyncedLayout : 'self-contained',
-    syncedPlaylistPathMode: state?.syncedPlaylistPathMode === 'device-rooted' ? 'device-rooted' : 'playlist-relative',
+    syncedPlaylistPathMode: isDeviceSyncPlaylistPathMode(state?.syncedPlaylistPathMode)
+      ? state.syncedPlaylistPathMode
+      : 'playlist-relative',
     transcode: sanitizeDeviceSyncTranscode(state?.transcode),
     syncedTranscode: state?.syncedTranscode ? sanitizeDeviceSyncTranscode(state.syncedTranscode) : null,
     sources: withPlaylistPathIds(persistedSources.filter(isDeviceSyncSource)),

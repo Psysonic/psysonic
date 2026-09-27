@@ -23,6 +23,7 @@ export const deviceSync = {
   playlistPathStyle: 'M3U-padstijl',
   playlistPathRelative: 'Relatief aan afspeellijst',
   playlistPathRooted: 'Vanaf apparaatroot (/Artiest/Album/…)',
+  playlistPathAbsolute: 'Absoluut (volledige bestandspaden)',
   transcodeFormat: 'Formaat',
   transcodeOriginal: 'Originele bestanden',
   transcodeMp3: 'MP3',

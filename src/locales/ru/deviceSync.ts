@@ -23,6 +23,7 @@ export const deviceSync = {
   playlistPathStyle: 'Стиль путей M3U',
   playlistPathRelative: 'Относительно плейлиста',
   playlistPathRooted: 'От корня устройства (/Исполнитель/Альбом/…)',
+  playlistPathAbsolute: 'Абсолютные (полные пути)',
   transcodeFormat: 'Формат',
   transcodeOriginal: 'Исходные файлы',
   transcodeMp3: 'MP3',

@@ -74,12 +74,28 @@ fn portable_track_path(track: &crate::sync::device::TrackSyncInfo) -> String {
 /// How a shared-track playlist points at its track. The `.m3u8` sits two
 /// folders deep (`Playlists/{name}/`), or in the root next to the tracks for
 /// the flat layout.
-fn playlist_reference(relative_path: &str, mode: DeviceSyncPlaylistPathMode, flat: bool) -> String {
+fn playlist_reference(
+    relative_path: &str,
+    mode: DeviceSyncPlaylistPathMode,
+    flat: bool,
+    root: &Path,
+) -> String {
     match mode {
         DeviceSyncPlaylistPathMode::PlaylistRelative if flat => relative_path.to_string(),
         DeviceSyncPlaylistPathMode::PlaylistRelative => format!("../../{relative_path}"),
         DeviceSyncPlaylistPathMode::DeviceRooted => format!("/{relative_path}"),
+        DeviceSyncPlaylistPathMode::Absolute => absolute_reference(root, relative_path),
     }
+}
+
+/// Full native path of a device file, for playlists imported by software that
+/// only resolves absolute entries.
+fn absolute_reference(root: &Path, relative_path: &str) -> String {
+    relative_path
+        .split('/')
+        .fold(root.to_path_buf(), |path, component| path.join(component))
+        .to_string_lossy()
+        .to_string()
 }
 
 /// Leading track number of a self-contained playlist file (`07 - Artist - Title.flac`).
@@ -216,6 +232,7 @@ fn build_desired_state(
     fetched: &[FetchedDeviceSyncSource],
     included_source_keys: &HashSet<String>,
     options: SyncPlanOptions,
+    root: &Path,
 ) -> Result<DesiredState, String> {
     let SyncPlanOptions {
         layout_mode,
@@ -311,14 +328,18 @@ fn build_desired_state(
                 flat,
                 transcode,
             )?;
-            let reference = if layout_mode == DeviceSyncLayoutMode::SelfContained {
+            // Self-contained copies sit next to their playlist file, so a bare
+            // filename resolves — unless full paths were asked for.
+            let reference = if layout_mode == DeviceSyncLayoutMode::SelfContained
+                && playlist_path_mode != DeviceSyncPlaylistPathMode::Absolute
+            {
                 relative_track_path
                     .rsplit('/')
                     .next()
                     .unwrap_or(&relative_track_path)
                     .to_string()
             } else {
-                playlist_reference(&relative_track_path, playlist_path_mode, flat)
+                playlist_reference(&relative_track_path, playlist_path_mode, flat, root)
             };
             let mut playlist_track = track.clone();
             if let Some(suffix) = transcode.target_suffix() {
@@ -426,7 +447,7 @@ pub(super) fn build_sync_plan_with_resume(
         .difference(&deletion_keys)
         .cloned()
         .collect::<HashSet<_>>();
-    let desired = build_desired_state(fetched, &desired_source_keys, options)?;
+    let desired = build_desired_state(fetched, &desired_source_keys, options, root)?;
 
     let previous_manifest = read_device_manifest(target_dir.to_string());
     if let (Some(manifest), Some(owner)) = (
@@ -456,6 +477,7 @@ pub(super) fn build_sync_plan_with_resume(
             layout_mode: previous_layout_mode,
             ..SyncPlanOptions::default()
         },
+        root,
     )?;
     let has_materialized_plan = previous_manifest.as_ref().is_some_and(|manifest| {
         manifest.get("files").is_some() && manifest.get("playlists").is_some()

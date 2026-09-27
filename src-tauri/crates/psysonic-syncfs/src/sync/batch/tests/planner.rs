@@ -1047,3 +1047,36 @@ fn switching_back_to_originals_replaces_the_transcoded_copy() {
         vec![device.path().join(mp3_path).to_string_lossy().to_string()]
     );
 }
+
+#[test]
+fn absolute_mode_references_full_paths() {
+    let device = tempfile::tempdir().unwrap();
+    let playlist = source("playlist", "playlist-1", "Mix");
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: playlist,
+        tracks: vec![track("track-1", "Song")],
+    }];
+
+    for layout_mode in [
+        DeviceSyncLayoutMode::SharedAlbumTree,
+        DeviceSyncLayoutMode::SelfContained,
+    ] {
+        let plan = plan_with(
+            &device,
+            &fetched,
+            SyncPlanOptions {
+                layout_mode,
+                playlist_path_mode: DeviceSyncPlaylistPathMode::Absolute,
+                transcode: DeviceSyncTranscode::default(),
+            },
+        );
+        let expected = plan.manifest_files[0]
+            .relative_path
+            .split('/')
+            .fold(device.path().to_path_buf(), |path, part| path.join(part));
+        assert_eq!(
+            plan.playlists[0].references,
+            vec![expected.to_string_lossy().to_string()]
+        );
+    }
+}

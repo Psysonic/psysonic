@@ -23,6 +23,7 @@ export const deviceSync = {
   playlistPathStyle: 'M3U-útvonal stílusa',
   playlistPathRelative: 'A lejátszási listához képest',
   playlistPathRooted: 'Az eszköz gyökerétől (/Előadó/Album/…)',
+  playlistPathAbsolute: 'Abszolút (teljes fájlútvonalak)',
   transcodeFormat: 'Formátum',
   transcodeOriginal: 'Eredeti fájlok',
   transcodeMp3: 'MP3',

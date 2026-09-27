@@ -49,6 +49,15 @@ export default function DeviceSyncHeader({
   transcode, setTranscode, isRunning,
 }: Props) {
   const { t } = useTranslation();
+  // Self-contained playlists sit next to their files, so only absolute paths
+  // change anything there.
+  const pathStyleOptions = [
+    { value: 'playlist-relative', label: t('deviceSync.playlistPathRelative') },
+    ...(layoutMode !== 'self-contained' || playlistPathMode === 'device-rooted'
+      ? [{ value: 'device-rooted', label: t('deviceSync.playlistPathRooted') }]
+      : []),
+    { value: 'absolute', label: t('deviceSync.playlistPathAbsolute') },
+  ];
 
   return (
     <div className="device-sync-header">
@@ -90,22 +99,17 @@ export default function DeviceSyncHeader({
                 ]}
               />
             </label>
-            {layoutMode !== 'self-contained' && (
-              <label>
-                <span className="device-sync-label-inline">{t('deviceSync.playlistPathStyle')}</span>
-                <CustomSelect
-                  className="input device-sync-layout-select"
-                  value={playlistPathMode}
-                  onChange={value => setPlaylistPathMode(value as DeviceSyncPlaylistPathMode)}
-                  disabled={isRunning}
-                  ariaLabel={t('deviceSync.playlistPathStyle')}
-                  options={[
-                    { value: 'playlist-relative', label: t('deviceSync.playlistPathRelative') },
-                    { value: 'device-rooted', label: t('deviceSync.playlistPathRooted') },
-                  ]}
-                />
-              </label>
-            )}
+            <label>
+              <span className="device-sync-label-inline">{t('deviceSync.playlistPathStyle')}</span>
+              <CustomSelect
+                className="input device-sync-layout-select"
+                value={playlistPathMode}
+                onChange={value => setPlaylistPathMode(value as DeviceSyncPlaylistPathMode)}
+                disabled={isRunning}
+                ariaLabel={t('deviceSync.playlistPathStyle')}
+                options={pathStyleOptions}
+              />
+            </label>
             <label>
               <span className="device-sync-label-inline">{t('deviceSync.transcodeFormat')}</span>
               <CustomSelect

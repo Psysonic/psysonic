@@ -23,6 +23,7 @@ export const deviceSync = {
   playlistPathStyle: 'M3U 路径格式',
   playlistPathRelative: '相对于播放列表',
   playlistPathRooted: '从设备根目录开始（/艺术家/专辑/…）',
+  playlistPathAbsolute: '绝对路径（完整文件路径）',
   transcodeFormat: '格式',
   transcodeOriginal: '原始文件',
   transcodeMp3: 'MP3',

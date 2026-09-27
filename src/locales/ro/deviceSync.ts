@@ -23,6 +23,7 @@ export const deviceSync = {
   playlistPathStyle: 'Stilul căilor M3U',
   playlistPathRelative: 'Relative la playlist',
   playlistPathRooted: 'De la rădăcina dispozitivului (/Artist/Album/…)',
+  playlistPathAbsolute: 'Absolută (căi complete)',
   transcodeFormat: 'Format',
   transcodeOriginal: 'Fișiere originale',
   transcodeMp3: 'MP3',

@@ -45,6 +45,9 @@ pub enum DeviceSyncPlaylistPathMode {
     #[default]
     PlaylistRelative,
     DeviceRooted,
+    /// Full filesystem paths, for playlists imported by software (DJ tools
+    /// such as Rekordbox) that does not resolve relative entries.
+    Absolute,
 }
 
 /// Output format of a synced file. `Original` copies the server file as-is;

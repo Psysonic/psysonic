@@ -23,6 +23,7 @@ export const deviceSync = {
   playlistPathStyle: 'M3U パス形式',
   playlistPathRelative: 'プレイリストからの相対パス',
   playlistPathRooted: 'デバイスのルートから (/アーティスト/アルバム/…)',
+  playlistPathAbsolute: '絶対パス（完全なファイルパス）',
   transcodeFormat: '形式',
   transcodeOriginal: '元のファイル',
   transcodeMp3: 'MP3',

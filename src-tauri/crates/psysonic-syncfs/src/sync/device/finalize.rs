@@ -261,6 +261,8 @@ fn preflight_files_and_references(
     }
 
     let flat = payload_is_flat(payload)?;
+    let absolute_references = parse_playlist_path_mode(&payload.playlist_path_mode)?
+        == DeviceSyncPlaylistPathMode::Absolute;
     for playlist in &payload.playlists {
         let playlist_file = playlist_path(root, playlist, flat);
         if path_contains_symlink(root, &playlist_file)? {
@@ -270,7 +272,9 @@ fn preflight_files_and_references(
             .parent()
             .ok_or_else(|| "DEVICE_SYNC_PLAYLIST_PATH_INVALID".to_string())?;
         for reference in &playlist.references {
-            let candidate = if let Some(rooted) = reference.strip_prefix('/') {
+            let candidate = if absolute_references {
+                PathBuf::from(reference)
+            } else if let Some(rooted) = reference.strip_prefix('/') {
                 root.join(rooted)
             } else {
                 parent.join(reference)

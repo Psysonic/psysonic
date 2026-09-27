@@ -108,9 +108,13 @@ export default function DeviceSync() {
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
 
   const isRunning = deviceSyncJobIsActive(jobStatus);
-  // The M3U path style only matters where playlists point at shared tracks.
+  // The M3U path style only matters where playlists point at shared tracks,
+  // or everywhere once full paths are involved.
+  const pathStyleMatters = layoutMode !== 'self-contained'
+    || playlistPathMode === 'absolute'
+    || syncedPlaylistPathMode === 'absolute';
   const configurationDirty = layoutMode !== syncedLayoutMode
-    || (layoutMode !== 'self-contained' && playlistPathMode !== syncedPlaylistPathMode);
+    || (pathStyleMatters && playlistPathMode !== syncedPlaylistPathMode);
   // A new format or bitrate touches every file, not just playlists.
   const transcodeDirty = syncedTranscode !== null && !sameDeviceSyncTranscode(transcode, syncedTranscode);
 
