@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A track's subtitle (e.g. "Instrumental") now appears after its title in every track list, and an album's version (e.g. "Deluxe Edition") after the album name — also for libraries synced through Navidrome's own API, which previously showed them only in some places. Existing libraries are updated once in the background.
 * The album page shows the version under the album title when the title does not already include it.
 
+### Play songs from a list on a single or double click
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1668](https://github.com/Psysonic/psysonic/pull/1668)**
+
+* **Settings → Input → Mouse** chooses whether a song in a list plays on a single click or on a double click, so a stray click no longer replaces what is playing. The play button on a row always plays with one click.
+* Track lists now highlight a row: click it or move with the arrow keys, then press Enter to play it. Holding Ctrl adds more rows to a selection, including the highlighted one, and Escape clears the selection.
+* The Tracks page and search results now follow the same setting; before, songs there only played on a double click.
+
 ## Fixed
 
 ### Navidrome smart playlists keep their cover on the Playlists page
