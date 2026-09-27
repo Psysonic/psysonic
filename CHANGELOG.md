@@ -37,6 +37,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Fixed
 
+### Mouse-wheel scrolling resumes after a sideways swipe on track lists
+
+**By [@strecke](https://github.com/strecke), PR [#1635](https://github.com/Psysonic/psysonic/pull/1635)**
+
+* On macOS and Linux, scrolling sideways through a track list could leave the mouse wheel unable to scroll the page vertically. Vertical scrolling now works again after the sideways gesture without interrupting horizontal swipes or zoom gestures.
+
 ### Navidrome smart playlists keep their cover on the Playlists page
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1660](https://github.com/Psysonic/psysonic/pull/1660)**

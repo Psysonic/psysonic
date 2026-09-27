@@ -253,4 +253,3 @@ describe('useTracklistWheelChaining', () => {
     document.body.removeChild(outside);
   });
 });
-

@@ -608,6 +608,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.55.0',
     contributions: [
       'Seek buffering indicator polish for player and queue cover art (PR #1634)',
+      'Track-list mouse-wheel scrolling after horizontal swipes on WebKit (PR #1635)',
     ],
   },
   {
