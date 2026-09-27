@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Relativi alla playlist',
   playlistPathRooted: 'Dalla radice del dispositivo (/Artista/Album/…)',
   playlistPathAbsolute: 'Assoluto (percorsi completi)',
+  playlistPathAbsoluteHint: 'I percorsi assoluti contengono la lettera di unità o il punto di montaggio di questo computer, quindi le playlist funzionano solo finché il dispositivo compare nello stesso punto.',
   transcodeFormat: 'Formato',
   transcodeOriginal: 'File originali',
   transcodeMp3: 'MP3',

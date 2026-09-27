@@ -24,6 +24,7 @@ export const deviceSync = {
   playlistPathRelative: 'Спрямо плейлиста',
   playlistPathRooted: 'От корена на устройството (/Изпълнител/Албум/…)',
   playlistPathAbsolute: 'Абсолютни (пълни пътища)',
+  playlistPathAbsoluteHint: 'Абсолютните пътища съдържат буквата на устройството или точката на монтиране на този компютър, така че плейлистите работят само докато устройството е свързано под същия път.',
   transcodeFormat: 'Формат',
   transcodeOriginal: 'Оригинални файлове',
   transcodeMp3: 'MP3',
