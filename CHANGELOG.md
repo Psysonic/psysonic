@@ -49,6 +49,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Device Sync → M3U path style** gains **Absolute**, which writes full file paths into the playlists, for software that does not resolve relative entries. It is available for every layout.
 * Absolute paths include this computer's drive letter or mount point, so the playlists only resolve while the device appears under the same one.
 
+### Device Sync moves files instead of downloading them again
+
+**By [@circle3451](https://github.com/circle3451), PR [#1670](https://github.com/Psysonic/psysonic/pull/1670)**
+
+* When a playlist is reordered or the layout changes, copies already on the device are renamed to their new place instead of being downloaded again.
+* A track removed from a synced playlist, or from a source you remove from Device Sync, is now deleted from the device as well.
+
 ## Fixed
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists

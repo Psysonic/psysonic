@@ -44,7 +44,7 @@ fn source_owner_must_match_the_captured_auth_owner() {
 }
 
 #[test]
-fn sources_marked_for_deletion_are_never_listed_from_the_server() {
+fn listings_of_sources_marked_for_deletion_are_not_required() {
     let source = |id: &str| DeviceSyncSourcePayload {
         source_type: "album".into(),
         id: id.into(),
@@ -56,7 +56,7 @@ fn sources_marked_for_deletion_are_never_listed_from_the_server() {
     let kept = source("album-2");
     let deletion_keys = std::collections::HashSet::from([device_sync_source_key(&removed)]);
 
-    // A delete-only run has no source left to list, which is what makes it
+    // A delete-only run has no listing it depends on, which is what makes it
     // possible without reachable server credentials.
     assert!(!device_sync_source_requires_fetch(&removed, &deletion_keys));
     assert!(device_sync_source_requires_fetch(&kept, &deletion_keys));
@@ -64,6 +64,30 @@ fn sources_marked_for_deletion_are_never_listed_from_the_server() {
         &removed,
         &std::collections::HashSet::new()
     ));
+}
+
+#[test]
+fn per_song_lookups_only_cover_tracks_that_left_a_source_still_synced() {
+    let kept = "kept-playlist".to_string();
+    let removed = "removed-playlist".to_string();
+    let deletion_keys = std::collections::HashSet::from([removed.clone()]);
+    let file = |track_id: &str, source_keys: &[&str]| serde_json::json!({ "trackId": track_id, "sourceKeys": source_keys });
+    let files = [
+        file("still-listed", &[&kept]),
+        file("left-kept", &[&kept]),
+        file("left-kept", &[&kept]),
+        file("only-removed", &[&removed]),
+        file("shared", &[&kept, &removed]),
+        file("unowned", &[]),
+    ];
+    let listed = std::collections::HashSet::from(["still-listed"]);
+
+    // `only-removed` is covered by the removed source's own listing, so it
+    // never costs a request of its own.
+    assert_eq!(
+        departed_song_lookup_ids(&files, &listed, &deletion_keys),
+        vec!["left-kept".to_string(), "shared".to_string()],
+    );
 }
 
 #[test]

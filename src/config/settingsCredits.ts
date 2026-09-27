@@ -618,6 +618,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Device Sync — transcode to MP3, AAC or Opus on the server (PR #1643)',
       'Album page — similar albums from AudioMuse (PR #1663)',
       'Device Sync — absolute M3U path style (PR #1669)',
+      'Device Sync — move relocated copies, remove departed tracks (PR #1670)',
     ],
   },
 ] as const;

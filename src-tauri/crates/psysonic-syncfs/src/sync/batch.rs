@@ -45,8 +45,8 @@ use filesystem::{
 use payload::calculate_sync_payload_impl;
 #[cfg(test)]
 use payload::{
-    device_sync_source_key, device_sync_source_requires_fetch, playlist_collision_source_keys,
-    validate_device_sync_source_owners,
+    departed_song_lookup_ids, device_sync_source_key, device_sync_source_requires_fetch,
+    playlist_collision_source_keys, validate_device_sync_source_owners,
 };
 
 #[tauri::command]
