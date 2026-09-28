@@ -22,6 +22,17 @@ fn tombstone_albums_batches_live_rows_and_stale_projection_cleanup() {
     second.album_id = Some("al2".into());
     repo.upsert_batch(&[first, second]).unwrap();
     store
+        .with_conn_mut("test.track_mood", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_mood \
+                (server_id, track_id, mood, album_id, library_id) VALUES \
+                ('s1', 't1', 'Atmospheric', 'al1', ''), \
+                ('s1', 't2', 'Dreamy', 'al2', '');",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    store
         .with_conn_mut("test.stale_album_projection", |conn| {
             conn.execute(
                 "INSERT INTO album_browse_projection \
@@ -61,6 +72,70 @@ fn tombstone_albums_batches_live_rows_and_stale_projection_cleanup() {
         })
         .unwrap();
     assert_eq!(genre_rows, 0);
+    let mood_rows: i64 = store
+        .with_read_conn(|conn| {
+            conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| row.get(0))
+        })
+        .unwrap();
+    assert_eq!(mood_rows, 0);
+}
+
+#[test]
+fn apply_tombstone_results_removes_moods_for_deleted_tracks() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    repo.upsert_batch(&[row("s1", "alive", "Alive"), row("s1", "gone", "Gone")])
+        .unwrap();
+
+    store
+        .with_conn_mut("test.track_mood", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_mood \
+                 (server_id, track_id, mood, album_id, library_id) VALUES \
+                 ('s1', 'alive', 'Keep Mood', 'al1', ''), \
+                 ('s1', 'gone', 'Stale Mood', 'al1', '');",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    repo.apply_tombstone_results("s1", "", &["alive".to_string()], &["gone".to_string()])
+        .unwrap();
+
+    let (alive_deleted, gone_deleted, alive_moods, gone_moods): (i64, i64, i64, i64) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT deleted FROM track WHERE server_id = 's1' AND id = 'alive'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT deleted FROM track WHERE server_id = 's1' AND id = 'gone'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood \
+                         WHERE server_id = 's1' AND track_id = 'alive'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood \
+                         WHERE server_id = 's1' AND track_id = 'gone'",
+                    [],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
+    assert_eq!(alive_deleted, 0);
+    assert_eq!(gone_deleted, 1);
+    assert_eq!(alive_moods, 1);
+    assert_eq!(gone_moods, 0);
 }
 
 #[test]
@@ -69,6 +144,7 @@ fn resync_upsert_stamps_generation_and_sweep_deletes_stale_rows() {
     let repo = TrackRepository::new(&store);
     repo.upsert_batch_initial_ingest_timed(&[row("s1", "seen", "Seen")], Some(2))
         .unwrap();
+
     store
         .with_conn_mut("misc", |c| {
             c.execute(
@@ -76,6 +152,17 @@ fn resync_upsert_stamps_generation_and_sweep_deletes_stale_rows() {
                  VALUES ('s1', 'orphan', 'Orphan', 'Al', 1, 0, 1, '{}', 1)",
                 [],
             )
+        })
+        .unwrap();
+
+    store
+        .with_conn_mut("test.track_mood", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_mood (server_id, track_id, mood) VALUES \
+                 ('s1', 'seen', 'Keep Mood'), \
+                 ('s1', 'orphan', 'Stale Mood');",
+            )?;
+            Ok(())
         })
         .unwrap();
 
@@ -100,8 +187,27 @@ fn resync_upsert_stamps_generation_and_sweep_deletes_stale_rows() {
         })
         .unwrap();
     assert_eq!(orphan_deleted, 1);
-}
 
+    let (seen_moods, orphan_moods): (i64, i64) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood WHERE track_id = 'seen'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood WHERE track_id = 'orphan'",
+                    [],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
+    assert_eq!(seen_moods, 1);
+    assert_eq!(orphan_moods, 0);
+}
 #[test]
 fn resync_sweep_with_no_orphans_does_not_rewrite_derived_state() {
     let store = LibraryStore::open_in_memory();
@@ -131,6 +237,17 @@ fn scoped_resync_sweep_preserves_other_library_and_refreshes_derived_rows() {
     lib_b.library_id = Some("lib-b".into());
     lib_b.album_id = Some("album-b".into());
     repo.upsert_batch_initial_ingest_timed(&[lib_a, lib_b], Some(1))
+        .unwrap();
+    store
+        .with_conn_mut("test.track_mood", |conn| {
+            conn.execute_batch(
+                "INSERT INTO track_mood \
+                (server_id, track_id, mood, album_id, library_id) VALUES \
+                ('s1', 'a-stale', 'Stale Mood', 'album-a', 'lib-a'), \
+                ('s1', 'b-keep', 'Keep Mood', 'album-b', 'lib-b');",
+            )?;
+            Ok(())
+        })
         .unwrap();
     crate::identity::rebuild_cluster_keys(&store, None).unwrap();
 
@@ -185,6 +302,25 @@ fn scoped_resync_sweep_preserves_other_library_and_refreshes_derived_rows() {
     assert_eq!(projection_b, 1);
     assert_eq!(identity_a, 0);
     assert_eq!(identity_b, 1);
+    let (mood_a, mood_b): (i64, i64) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood WHERE track_id = 'a-stale'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood WHERE track_id = 'b-keep'",
+                    [],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
+    assert_eq!(mood_a, 0);
+    assert_eq!(mood_b, 1);
 }
 
 #[test]
