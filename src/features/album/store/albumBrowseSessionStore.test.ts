@@ -16,6 +16,12 @@ import {
   peekGenreDetailScrollRestore,
   stashGenreDetailReturnFilters,
   useAlbumBrowseSessionStore,
+  clearMoodDetailReturnStash,
+  isMoodDetailPath,
+  moodDetailMoodFromPath,
+  peekMoodDetailReturnStash,
+  peekMoodDetailScrollRestore,
+  stashMoodDetailReturnFilters,
 } from '@/features/album/store/albumBrowseSessionStore';
 
 describe('albumBrowseSessionStore', () => {
@@ -120,6 +126,31 @@ describe('albumBrowseSessionStore', () => {
     });
     clearGenreDetailReturnStash('srv-a', 'Rock');
     expect(peekGenreDetailReturnStash('srv-a', 'Rock')).toBeNull();
+    });
+
+    it('stashes mood detail leave snapshot separately from album grid surfaces', () => {
+    stashMoodDetailReturnFilters('srv-a', 'Dreamy', {
+      ...DEFAULT_ALBUM_BROWSE_RETURN_FILTERS,
+      scrollTop: 720,
+      displayCount: 120,
+    });
+
+    expect(
+      peekMoodDetailReturnStash('srv-a', 'Dreamy')?.scrollTop,
+    ).toBe(720);
+
+    expect(
+      peekMoodDetailScrollRestore('srv-a', 'Dreamy'),
+    ).toEqual({
+      scrollTop: 720,
+      displayCount: 120,
+    });
+
+    clearMoodDetailReturnStash('srv-a', 'Dreamy');
+
+    expect(
+      peekMoodDetailReturnStash('srv-a', 'Dreamy'),
+    ).toBeNull();
   });
 });
 
@@ -140,6 +171,19 @@ describe('isGenreDetailPath', () => {
     expect(isGenreDetailPath('/genres')).toBe(false);
     expect(isGenreDetailPath('/genres/Rock/albums')).toBe(false);
     expect(genreDetailGenreFromPath('/genres/Rock%20%26%20Roll')).toBe('Rock & Roll');
+  });
+});
+
+describe('isMoodDetailPath', () => {
+  it('matches single mood detail routes only', () => {
+    expect(isMoodDetailPath('/moods/Dreamy')).toBe(true);
+    expect(isMoodDetailPath('/moods/100%25')).toBe(true);
+    expect(isMoodDetailPath('/moods')).toBe(false);
+    expect(isMoodDetailPath('/moods/Dreamy/albums')).toBe(false);
+
+    expect(
+      moodDetailMoodFromPath('/moods/100%25'),
+    ).toBe('100%');
   });
 });
 

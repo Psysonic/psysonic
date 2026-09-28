@@ -104,4 +104,46 @@ describe('useMoodAlbumBrowse', () => {
       browseScope,
     );
   });
+
+  it('restores the prior displayed album count', async () => {
+    hoisted.fetchMoodAlbumPage.mockResolvedValueOnce({
+      albums: albums(0, 120),
+      hasMore: true,
+    });
+
+    const scrollRoot =
+      document.createElement('div');
+
+    const { result } = renderHook(() =>
+      useMoodAlbumBrowse(
+        'srv-1',
+        'Dreamy',
+        true,
+        'alphabeticalByName',
+        0,
+        browseScope,
+        () => scrollRoot,
+        scrollRoot,
+        120,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(
+        result.current.displayAlbums,
+      ).toHaveLength(120),
+    );
+
+    expect(
+      hoisted.fetchMoodAlbumPage,
+    ).toHaveBeenCalledWith(
+      'srv-1',
+      'Dreamy',
+      true,
+      0,
+      120,
+      'alphabeticalByName',
+      browseScope,
+    );
+  });
 });

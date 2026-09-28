@@ -131,6 +131,25 @@ describe('albumDetailNavigation', () => {
     expect(navigate).toHaveBeenCalledWith('/genres/Rock', { state: { albumBrowseRestore: true } });
   });
 
+  it('flags Mood Detail return for browse restore', () => {
+    const navigate = vi.fn();
+
+    navigateAlbumDetailBack(navigate, {
+      state: {
+        returnTo: '/moods/100%25',
+      },
+    });
+
+    expect(navigate).toHaveBeenCalledWith(
+      '/moods/100%25',
+      {
+        state: {
+          albumBrowseRestore: true,
+        },
+      },
+    );
+  });
+
   it('restores the previous detail return state', () => {
     const navigate = vi.fn();
     navigateAlbumDetailBack(navigate, {

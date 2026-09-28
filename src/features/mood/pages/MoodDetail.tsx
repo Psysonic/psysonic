@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -15,12 +16,11 @@ import { useTranslation } from 'react-i18next';
 
 import {
   AlbumCard,
-  albumBrowseSortForServer,
-  useAlbumBrowseSessionStore,
+  useAlbumBrowseScrollRestore,
+  useAlbumBrowseScrollSnapshotSync,
+  type AlbumBrowseScrollSnapshot,
 } from '@/features/album';
-import {
-  MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID,
-} from '@/constants/appScroll';
+import { MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID, } from '@/constants/appScroll';
 import { albumGridWarmCovers } from '@/cover/layoutSizes';
 import { useInpageScrollViewport } from '@/lib/hooks/useInpageScrollViewport';
 import { useMainstageInpageHeaderTight } from '@/lib/hooks/useMainstageInpageHeaderTight';
@@ -33,8 +33,9 @@ import { useLibraryIndexStore } from '@/store/libraryIndexStore';
 import InpageScrollSentinel from '@/ui/InpageScrollSentinel';
 import OverlayScrollArea from '@/ui/OverlayScrollArea';
 import { VirtualCardGrid } from '@/ui/VirtualCardGrid';
-
 import { useMoodAlbumBrowse } from '../hooks/useMoodAlbumBrowse';
+import { readAlbumBrowseRestore, } from '@/lib/navigation/albumDetailNavigation';
+import { useMoodDetailBrowse, } from '../hooks/useMoodDetailBrowse';
 
 export default function MoodDetail() {
   const { name } =
@@ -115,14 +116,20 @@ export default function MoodDetail() {
       state.isIndexEnabled(serverId),
     );
 
-  const sort =
-    useAlbumBrowseSessionStore(
-      state =>
-        albumBrowseSortForServer(
-          state.sortByServer,
-          serverId,
-        ),
-    );
+  const scrollSnapshotRef =
+    useRef<AlbumBrowseScrollSnapshot>({
+      scrollTop: 0,
+      displayCount: 0,
+    });
+
+  const {
+    sort,
+    restoreDisplayCount,
+  } = useMoodDetailBrowse(
+    serverId,
+    mood,
+    scrollSnapshotRef,
+  );
 
   const {
     scrollBodyEl,
@@ -137,6 +144,7 @@ export default function MoodDetail() {
     hasMore,
     displayAlbums,
     bindLoadMoreSentinel,
+    loadMore,
   } = useMoodAlbumBrowse(
     serverId,
     mood,
@@ -146,7 +154,53 @@ export default function MoodDetail() {
     browseScope,
     getScrollRoot,
     scrollBodyEl,
+    restoreDisplayCount,
   );
+  useAlbumBrowseScrollSnapshotSync(
+  scrollSnapshotRef,
+  scrollBodyEl,
+  displayAlbums.length,
+);
+
+const {
+  isScrollRestorePending,
+} = useAlbumBrowseScrollRestore({
+  serverId,
+  moodName: mood,
+  scrollBodyEl,
+  displayAlbumsLength:
+    displayAlbums.length,
+  loading,
+  loadingMore,
+  hasMore,
+  loadMore,
+});
+
+useEffect(() => {
+  if (
+    isScrollRestorePending ||
+    !readAlbumBrowseRestore(
+      location.state,
+    )
+  ) {
+    return;
+  }
+
+  navigate(
+    `${location.pathname}${location.search}${location.hash}`,
+    {
+      replace: true,
+      state: null,
+    },
+  );
+}, [
+  isScrollRestorePending,
+  location.pathname,
+  location.search,
+  location.hash,
+  location.state,
+  navigate,
+]);
 
   const [albumCount, setAlbumCount] =
     useState<number | null>(null);
@@ -328,48 +382,72 @@ export default function MoodDetail() {
               position: 'relative',
             }}
           >
-            <VirtualCardGrid
-              items={displayAlbums}
-              itemKey={(album, _index) =>
-                album.id
-              }
-              rowVariant="album"
-              disableVirtualization={
-                perfFlags.disableMainstageVirtualLists
-              }
-              layoutSignal={
-                displayAlbums.length
-              }
-              scrollRootId={
-                MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID
-              }
-              warmGridCovers={
-                albumGridWarmCovers()
-              }
-              renderItem={album => (
-                <AlbumCard
-                  album={album}
-                  observeScrollRootId={
-                    MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID
+            <div
+              style={{
+                visibility:
+                  isScrollRestorePending
+                    ? 'hidden'
+                    : 'visible',
+              }}
+            >
+              <VirtualCardGrid
+                items={displayAlbums}
+                itemKey={(album, _index) =>
+                  album.id
+                }
+                rowVariant="album"
+                disableVirtualization={
+                  perfFlags.disableMainstageVirtualLists
+                }
+                layoutSignal={
+                  displayAlbums.length
+                }
+                scrollRootId={
+                  MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID
+                }
+                warmGridCovers={
+                  albumGridWarmCovers()
+                }
+                renderItem={album => (
+                  <AlbumCard
+                    album={album}
+                    observeScrollRootId={
+                      MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID
+                    }
+                  />
+                )}
+              />
+
+              {hasMore && (
+                <InpageScrollSentinel
+                  bindSentinel={
+                    bindLoadMoreSentinel
+                  }
+                  loading={loadingMore}
+                  itemCount={
+                    displayAlbums.length
                   }
                 />
               )}
-            />
+            </div>
 
-            {hasMore && (
-              <InpageScrollSentinel
-                bindSentinel={
-                  bindLoadMoreSentinel
-                }
-                loading={loadingMore}
-                itemCount={
-                  displayAlbums.length
-                }
-              />
-            )}
-          </div>
-        )}
-      </OverlayScrollArea>
-    </div>
-  );
+            {isScrollRestorePending && (
+  <div
+    style={{
+      position: 'absolute',
+      inset: 0,
+      display: 'flex',
+      justifyContent: 'center',
+      paddingTop: '3rem',
+      background: 'var(--bg-app)',
+    }}
+  >
+    <div className="spinner" />
+  </div>
+)}
+</div>
+)}
+</OverlayScrollArea>
+</div>
+);
 }

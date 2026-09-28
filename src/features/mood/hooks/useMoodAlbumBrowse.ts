@@ -14,7 +14,20 @@ import { dedupeById } from '@/lib/util/dedupeById';
 
 const CLIENT_SLICE_PAGE_SIZE = MOOD_ALBUM_FIRST_PAGE;
 
-function initialSqlPageSize(): number {
+function initialSqlPageSize(
+  restoreDisplayCount?: number,
+): number {
+  if (
+    restoreDisplayCount != null &&
+    restoreDisplayCount >
+      CLIENT_SLICE_PAGE_SIZE
+  ) {
+    return Math.min(
+      restoreDisplayCount,
+      MOOD_ALBUM_CATALOG_CHUNK,
+    );
+  }
+
   return CLIENT_SLICE_PAGE_SIZE;
 }
 
@@ -27,6 +40,7 @@ export function useMoodAlbumBrowse(
   browseScope: LibraryBrowseScope,
   getScrollRoot?: () => HTMLElement | null,
   scrollRootEl?: HTMLElement | null,
+  restoreDisplayCount?: number,
 ) {
   const [albums, setAlbums] = useState<SubsonicAlbum[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,10 +54,32 @@ export function useMoodAlbumBrowse(
   const loadPendingRef = useRef(false);
   const loadMoreRef = useRef<() => void>(() => {});
 
+  const browseSessionRef = useRef({
+    key: '',
+    restoreDisplayCount: undefined as number | undefined,
+  });
+  const browseKey = `${serverId}:${mood}:${browseScope.fingerprint}`;
+
+  // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
+  // eslint-disable-next-line react-hooks/refs
+  if (browseSessionRef.current.key !== browseKey) {
+    // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
+    // eslint-disable-next-line react-hooks/refs
+    browseSessionRef.current = {
+      key: browseKey,
+      restoreDisplayCount,
+    };
+  }
+
+  const sessionRestoreDisplayCount =
+    browseSessionRef.current.restoreDisplayCount;
+
   const {
     visibleCount,
     loadingMore: sliceLoadingMore,
     loadMore: sliceLoadMore,
+  // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
+  // eslint-disable-next-line react-hooks/refs
   } = useClientSliceInfiniteScroll({
     pageSize: CLIENT_SLICE_PAGE_SIZE,
     resetDeps: [
@@ -56,6 +92,9 @@ export function useMoodAlbumBrowse(
     ],
     getScrollRoot,
     scrollRootEl,
+    // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
+    // eslint-disable-next-line react-hooks/refs
+    restoreDisplayCount: sessionRestoreDisplayCount,
   });
 
   const displayAlbums = useMemo(
@@ -152,7 +191,10 @@ export function useMoodAlbumBrowse(
     setCatalogHasMore(false);
     setAlbums([]);
 
-    const firstPageSize = initialSqlPageSize();
+    const firstPageSize =
+      initialSqlPageSize(
+        sessionRestoreDisplayCount,
+      );
 
     void loadCatalogChunk(
       0,
@@ -174,7 +216,12 @@ export function useMoodAlbumBrowse(
     return () => {
       cancelled = true;
     };
-  }, [
+  },
+  // sessionRestoreDisplayCount is read once to
+  // restore the prior visible count; the catalog
+  // load must not re-run when it later changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [
     serverId,
     mood,
     indexEnabled,
