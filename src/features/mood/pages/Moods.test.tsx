@@ -16,7 +16,7 @@ function MoodRouteProbe() {
 
   return (
     <div>
-      Mood detail: {decodeURIComponent(name ?? '')}
+      Mood detail: {name ?? ''}
     </div>
   );
 }

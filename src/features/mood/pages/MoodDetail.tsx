@@ -40,9 +40,7 @@ export default function MoodDetail() {
   const { name } =
     useParams<{ name: string }>();
 
-  const mood = decodeURIComponent(
-    name ?? '',
-  );
+  const mood = name ?? '';
 
   const { t } = useTranslation();
   const navigate = useNavigate();

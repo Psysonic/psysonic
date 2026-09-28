@@ -174,6 +174,16 @@ describe('MoodDetail', () => {
     });
   });
 
+  it('renders mood names containing a percent sign', () => {
+    renderMoodDetail('100%');
+
+    expect(
+      screen.getByRole('heading', {
+        name: '100%',
+      }),
+    ).toBeInTheDocument();
+  });
+
   it('shows the empty state when no albums match', async () => {
     renderMoodDetail('Sparse');
 
