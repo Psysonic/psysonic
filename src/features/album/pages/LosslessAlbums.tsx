@@ -42,6 +42,7 @@ import {
   sortSubsonicAlbums,
   type AlbumBrowseSort,
 } from '@/lib/library/browseTextSearch';
+import { pickedSort, yearSortOption } from '@/lib/library/albumBrowseSort';
 import { useOfflineLocalLibrarySyncRevision } from '@/store/offlineLocalLibrarySyncRevision';
 
 /** Local index page size — SQLite is cheap; larger pages than the network walk. */
@@ -108,6 +109,7 @@ export default function LosslessAlbums() {
   const sortOptions: { value: AlbumBrowseSort; label: string }[] = [
     { value: 'alphabeticalByName', label: t('albums.sortByName') },
     { value: 'alphabeticalByArtist', label: t('albums.sortByArtist') },
+    yearSortOption(sort, t('albums.sortByYear')),
   ];
 
   const mainstageHeaderTight = useMainstageInpageHeaderTight(scrollBodyEl, [
@@ -341,7 +343,7 @@ export default function LosslessAlbums() {
                   <SortDropdown
                     value={sort}
                     options={sortOptions}
-                    onChange={value => setBrowseSort(serverId, value)}
+                    onChange={value => setBrowseSort(serverId, pickedSort(sort, value))}
                   />
                   <AlbumViewModeToggle
                     value={viewMode}

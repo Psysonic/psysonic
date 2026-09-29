@@ -3,6 +3,7 @@ export const albums = {
   sortByName: 'A–Z (Album)',
   sortByArtist: 'A–Z (Artist)',
   sortByArtistYear: 'Artist → Year',
+  sortByYear: 'Year',
   sortNewest: 'Newest first',
   sortRandom: 'Random',
   yearFrom: 'From',

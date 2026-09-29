@@ -47,7 +47,7 @@ import { peekAlbumBrowseScrollRestore } from '@/features/album/store/albumBrowse
 import { readAlbumBrowseRestore } from '@/lib/navigation/albumDetailNavigation';
 import { albumArtistDisplayName } from '@/features/album/utils/deriveAlbumHeaderArtistRefs';
 import { useAlbumCatalogYearBounds } from '@/features/album/hooks/useAlbumCatalogYearBounds';
-import type { AlbumBrowseSort } from '@/lib/library/albumBrowseSort';
+import { pickedSort, yearSortOption, type AlbumBrowseSort } from '@/lib/library/albumBrowseSort';
 import { LOSSLESS_MODE_QUERY } from '@/lib/library/losslessMode';
 import { resolveAlbumYearBounds } from '@/lib/library/albumYearFilter';
 import {
@@ -430,6 +430,7 @@ export default function Albums() {
     { value: 'alphabeticalByName',   label: t('albums.sortByName') },
     { value: 'alphabeticalByArtist', label: t('albums.sortByArtist') },
     { value: 'byArtistThenYear',     label: t('albums.sortByArtistYear') },
+    yearSortOption(sort, t('albums.sortByYear')),
   ];
 
   const copyAlbumBrowseDiagnostics = async () => {
@@ -509,7 +510,7 @@ export default function Albums() {
                   <SortDropdown
                     value={sort}
                     options={sortOptions}
-                    onChange={onSortChange}
+                    onChange={value => onSortChange(pickedSort(sort, value))}
                     tooltip={t('albums.sortTooltip')}
                   />
 

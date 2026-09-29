@@ -432,3 +432,110 @@ fn same_server_occurrence_ranks_survive_across_cursor_pages() {
         vec!["chapter-2"]
     );
 }
+
+fn year_request(
+    scopes: Vec<LibraryScopePair>,
+    dir: crate::dto::SortDir,
+    limit: u32,
+    cursor: Option<String>,
+) -> LibraryScopeBrowseRequest {
+    let clause = |field: &str, dir| LibrarySortClause {
+        field: field.into(),
+        dir,
+    };
+    LibraryScopeBrowseRequest {
+        entity: LibraryScopeBrowseEntity::Album,
+        scopes,
+        sort: vec![
+            clause("year", dir),
+            clause("artist", crate::dto::SortDir::Asc),
+            clause("name", crate::dto::SortDir::Asc),
+        ],
+        limit,
+        cursor,
+    }
+}
+
+fn insert_dated_projection(
+    store: &LibraryStore,
+    server_id: &str,
+    album_id: &str,
+    name: &str,
+    artist: &str,
+    year: Option<i64>,
+) {
+    insert_projection(store, server_id, "lib", album_id, name, Some(album_id));
+    store
+        .with_conn_mut("test.scope_browse.year_seed", |conn| {
+            conn.execute(
+                "UPDATE album_browse_projection SET artist = ?1, year = ?2 \
+                 WHERE server_id = ?3 AND album_id = ?4",
+                rusqlite::params![artist, year, server_id, album_id],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+}
+
+/// Walks every cursor page of a year sort over two merged servers.
+fn year_pages(store: &LibraryStore, dir: crate::dto::SortDir) -> Vec<Vec<String>> {
+    let scopes = vec![
+        LibraryScopePair {
+            server_id: "a".into(),
+            library_id: Some("lib".into()),
+        },
+        LibraryScopePair {
+            server_id: "b".into(),
+            library_id: Some("lib".into()),
+        },
+    ];
+    let mut pages = Vec::new();
+    let mut cursor = None;
+    loop {
+        let page = browse(store, &year_request(scopes.clone(), dir, 2, cursor)).unwrap();
+        pages.push(page.albums.iter().map(|album| album.id.clone()).collect());
+        if !page.has_more {
+            return pages;
+        }
+        cursor = page.next_cursor;
+    }
+}
+
+fn seed_year_albums(store: &LibraryStore) {
+    insert_dated_projection(store, "a", "a-1999-zed", "Zed", "Beta", Some(1999));
+    insert_dated_projection(store, "b", "b-1999-abba", "Arrival", "abba", Some(1999));
+    insert_dated_projection(store, "a", "a-1999-alpha", "Alpha", "Beta", Some(1999));
+    insert_dated_projection(store, "b", "b-2010", "Later", "Gamma", Some(2010));
+    insert_dated_projection(store, "a", "a-untagged", "Unknown", "Delta", None);
+    insert_dated_projection(store, "b", "b-1980", "Early", "Omega", Some(1980));
+}
+
+#[test]
+fn year_sort_pages_oldest_first_with_artist_and_title_ties() {
+    let store = LibraryStore::open_in_memory();
+    seed_year_albums(&store);
+
+    assert_eq!(
+        year_pages(&store, crate::dto::SortDir::Asc),
+        vec![
+            vec!["a-untagged", "b-1980"],
+            vec!["b-1999-abba", "a-1999-alpha"],
+            vec!["a-1999-zed", "b-2010"],
+        ],
+    );
+}
+
+#[test]
+fn year_sort_pages_newest_first_keeping_same_year_ties_ascending() {
+    let store = LibraryStore::open_in_memory();
+    seed_year_albums(&store);
+
+    assert_eq!(
+        year_pages(&store, crate::dto::SortDir::Desc),
+        vec![
+            vec!["b-2010", "b-1999-abba"],
+            vec!["a-1999-alpha", "a-1999-zed"],
+            vec!["b-1980", "a-untagged"],
+        ],
+    );
+}

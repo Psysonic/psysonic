@@ -139,6 +139,42 @@ describe('AlbumTable', () => {
     expect(onChange).toHaveBeenCalledWith('alphabeticalByArtist');
   });
 
+  it('sorts newest first from the year header when another sort is active', () => {
+    const onChange = vi.fn();
+    renderTable({ sort: { value: 'alphabeticalByName', onChange } });
+
+    const year = screen.getAllByRole('columnheader').find(h => h.classList.contains('album-table__cell--year'))!;
+    expect(year.getAttribute('aria-sort')).toBe('none');
+
+    fireEvent.click(within(year).getByRole('button'));
+    expect(onChange).toHaveBeenCalledWith('byYearDesc');
+  });
+
+  it('switches from newest first to oldest first from the year header', () => {
+    const onChange = vi.fn();
+    renderTable({ sort: { value: 'byYearDesc', onChange } });
+
+    const headers = screen.getAllByRole('columnheader');
+    const title = headers.find(h => h.classList.contains('album-table__cell--title'))!;
+    const year = headers.find(h => h.classList.contains('album-table__cell--year'))!;
+    expect(year.getAttribute('aria-sort')).toBe('descending');
+    expect(title.getAttribute('aria-sort')).toBe('none');
+
+    fireEvent.click(within(year).getByRole('button'));
+    expect(onChange).toHaveBeenCalledWith('byYear');
+  });
+
+  it('switches from oldest first back to newest first from the year header', () => {
+    const onChange = vi.fn();
+    renderTable({ sort: { value: 'byYear', onChange } });
+
+    const year = screen.getAllByRole('columnheader').find(h => h.classList.contains('album-table__cell--year'))!;
+    expect(year.getAttribute('aria-sort')).toBe('ascending');
+
+    fireEvent.click(within(year).getByRole('button'));
+    expect(onChange).toHaveBeenCalledWith('byYearDesc');
+  });
+
   // New Releases has no sort control, so its headers must not offer one —
   // a clickable header there would promise an order the page cannot produce.
   it('renders static headers on a page without a sort control', () => {

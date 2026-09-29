@@ -621,6 +621,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Device Sync — absolute M3U path style (PR #1669)',
       'Device Sync — move relocated copies, remove departed tracks (PR #1670)',
       'Device Sync — sync to a local folder (PR #1671)',
+      'Albums — sort by year (PR #1672)',
       'Labels tab — browse record labels on Navidrome (PR #1682)',
     ],
   },

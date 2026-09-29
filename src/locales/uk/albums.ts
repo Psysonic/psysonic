@@ -3,6 +3,7 @@ export const albums = {
   sortByName: 'А–Я (Альбом)',
   sortByArtist: 'А–Я (Виконавець)',
   sortByArtistYear: 'Виконавець → Рік',
+  sortByYear: 'Рік',
   sortNewest: 'Спочатку нові',
   sortRandom: 'Випадково',
   yearFrom: 'Від',

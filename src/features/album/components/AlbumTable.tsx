@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
-import type { AlbumBrowseSort } from '@/lib/library/albumBrowseSort';
+import { isYearSort, nextYearSort, type AlbumBrowseSort } from '@/lib/library/albumBrowseSort';
 import { VirtualCardGrid } from '@/ui/VirtualCardGrid';
 import { albumGridWarmCovers, COVER_TRACK_ROW_CSS_PX } from '@/cover/layoutSizes';
 import { ALBUM_TABLE_ROW_HEIGHT_PX } from '@/lib/util/cardGridLayout';
@@ -41,19 +41,22 @@ function SortableHeader({
   sort?: AlbumTableSortControl;
 }) {
   if (!sort) return <>{label}</>;
-  // Ascending is the only direction the browse sorts offer, so an active header
-  // is `ascending` and every other one is `none` — never a toggle that would
-  // suggest a descending order the index cannot produce. Composite sorts
-  // (artist → year) mark no header: they are not what a single column means.
-  const active = sort.value === sortKey;
+  // Title and artist only sort ascending, so their header just selects that
+  // sort. Year sorts both ways: newest first on the first press, then each
+  // press flips the direction. Composite sorts (artist → year) mark no header:
+  // they are not what a single column means.
+  const yearHeader = isYearSort(sortKey);
+  const active = yearHeader ? isYearSort(sort.value) : sort.value === sortKey;
+  const next = yearHeader ? nextYearSort(sort.value) : sortKey;
   return (
     <button
       type="button"
       className={`album-table__sort-btn${active ? ' album-table__sort-btn--active' : ''}`}
-      onClick={() => sort.onChange(sortKey)}
+      onClick={() => sort.onChange(next)}
       aria-pressed={active}
     >
       {label}
+      {active && yearHeader && (sort.value === 'byYearDesc' ? ' ↓' : ' ↑')}
     </button>
   );
 }
@@ -89,6 +92,9 @@ export default function AlbumTable({
 
   const sortedByTitle = sort?.value === 'alphabeticalByName';
   const sortedByArtist = sort?.value === 'alphabeticalByArtist';
+  const yearSortDir = sort?.value === 'byYearDesc'
+    ? 'descending'
+    : sort?.value === 'byYear' ? 'ascending' : 'none';
 
   return (
     <div
@@ -119,8 +125,12 @@ export default function AlbumTable({
         <span className="album-table__cell album-table__cell--songs" role="columnheader">
           {t('albums.columnSongs')}
         </span>
-        <span className="album-table__cell album-table__cell--year" role="columnheader">
-          {t('albums.columnYear')}
+        <span
+          className="album-table__cell album-table__cell--year"
+          role="columnheader"
+          aria-sort={sort ? yearSortDir : undefined}
+        >
+          <SortableHeader label={t('albums.columnYear')} sortKey="byYear" sort={sort} />
         </span>
         <span className="album-table__cell album-table__cell--duration" role="columnheader">
           {t('albums.columnDuration')}

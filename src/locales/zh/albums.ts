@@ -3,6 +3,7 @@ export const albums = {
   sortByName: '按名称排序 (A-Z)',
   sortByArtist: '按艺术家排序 (A-Z)',
   sortByArtistYear: '艺术家 → 年份',
+  sortByYear: '年份',
   sortNewest: '最新优先',
   sortRandom: '随机排序',
   yearFrom: '从',

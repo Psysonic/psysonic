@@ -3,6 +3,7 @@ export const albums = {
   sortByName: 'A–Z (album)',
   sortByArtist: 'A–Z (előadó)',
   sortByArtistYear: 'Előadó → év',
+  sortByYear: 'Év',
   sortNewest: 'Legújabb elöl',
   sortRandom: 'Véletlen',
   yearFrom: 'Ettől',
