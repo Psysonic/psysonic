@@ -16,6 +16,7 @@ Psysonic is **GPLv3** — see [LICENSE](LICENSE). Forks and modifications are we
 - [The Rust ↔ frontend (Tauri) contract](#the-rust--frontend-tauri-contract)
 - [CI on pull requests to `main`](#ci-on-pull-requests-to-main)
 - [Local checks](#local-checks)
+- [Runtime benchmarks](#runtime-benchmarks)
 - [Pull request expectations](#pull-request-expectations)
 - [Why we are wary of irreversible UI churn](#why-we-are-wary-of-irreversible-ui-churn)
 
@@ -206,10 +207,41 @@ If you change both frontend and backend, run the relevant blocks above before op
 
 ---
 
+## Runtime benchmarks
+
+Psysonic runs on large libraries and on slow servers, so a change that makes pages slower matters as much as a failing test. The app has a built-in benchmark that opens real pages against your own library and reports how long they take until they are ready.
+
+**Every PR states whether a benchmark applies**, as one line in the description:
+
+- `Runtime benchmark: required` — the change can affect how fast the app loads or navigates: route startup or navigation, library browse, search, sort, filters or pagination, SQLite queries or indexes, caches and background work, global stores or components mounted on many pages, large lists or cover loading, or a PR that claims a performance improvement. Measure **before and after**: one run on the base commit (current `main`) and one on your branch head.
+- `Runtime benchmark: smoke` — the change alters behaviour on a benchmarked page without being performance work. One final run on your branch head is enough.
+- `Runtime benchmark: not applicable - <reason>` — for example docs, tests only, translations, or packaging scripts.
+
+**Running it.** Use the same machine, library, scenario, profile and run count for both runs. `core-pages` covers Home, Albums, Artists, Tracks and Favourites; `all-pages` covers every page and suits broad changes.
+
+- **Linux:** keep `npm run tauri:dev` running and, in a second terminal, call the debug binary it built. It forwards the request to the running app:
+
+  ```bash
+  src-tauri/target/debug/psysonic benchmark run --scenario core-pages --runs 2 --profile realistic --json
+  ```
+
+- **Windows / macOS:** debug builds do not forward to a running instance. Close Psysonic, start only `npm run dev`, then in a second terminal:
+
+  ```bash
+  cargo run --manifest-path src-tauri/Cargo.toml --bin psysonic -- benchmark run --scenario core-pages --runs 2 --profile realistic --json
+  ```
+
+`--runs 2` is the minimum for a PR (one first visit, one warm visit). `benchmark latest --json` prints the last report again.
+
+**In the PR description**, add a short `Runtime benchmark` section: both commit SHAs, the command, and the before → after numbers for the pages your change touches. Leave out server addresses and library names. Differences between two identical runs can be large, so a small change in either direction is not a finding on its own.
+
+---
+
 ## Pull request expectations
 
 - **Description:** what changed, who should notice (end users vs developers only), how to verify manually. Link the issue if the PR closes it.
 - **Scope:** stay on task; no unrelated reformatting or cleanup in the same PR.
+- **Runtime benchmark:** one line saying whether it applies, plus the results when it does — see [Runtime benchmarks](#runtime-benchmarks).
 - **UI/UX:** describe the user flow; before/after screenshots help reviewers a lot.
 - **i18n:** see [House rules](#house-rules) — add the key to `en.ts` first, keep the shape of other locales consistent.
 - **Server compatibility:** the client targets the Subsonic API and is **Navidrome-first**; if a feature depends on server support, say so explicitly.
