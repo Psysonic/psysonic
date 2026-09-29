@@ -32,6 +32,7 @@ export * from './store/albumHeaderLayoutStore';
 export * from './utils/albumBrowseRoutePrefetch';
 export * from './utils/albumDetailHelpers';
 export * from './utils/albumRecency';
+export * from './utils/aggregateSimilarAlbums';
 export * from './utils/albumTrackListHelpers';
 export * from './utils/deriveAlbumHeaderArtistRefs';
 export * from './utils/exportAlbumCard';

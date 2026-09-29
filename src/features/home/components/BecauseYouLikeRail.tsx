@@ -29,6 +29,8 @@ import {
   type LibraryBrowseScopePair,
 } from '@/lib/library/libraryBrowseScope';
 import { navidromeCanonicalBootstrapIsActive } from '@/lib/server/navidromeCanonicalCheckpointStatus';
+import { useHomeStore, type BecauseYouLikeSource } from '@/features/home/store/homeStore';
+import { resolveSonicPicks } from '@/features/home/utils/becauseYouLikeSonicPicks';
 
 const ANCHOR_HISTORY_KEY_PREFIX = 'psysonic_because_anchor_history:';
 const PICKS_HISTORY_KEY_PREFIX = 'psysonic_because_picks:';
@@ -92,12 +94,23 @@ function readJsonArray(key: string | null): string[] {
   }
 }
 
-/** Resolve a set of album picks for one anchor candidate. */
+type AnchorPicks = { anchor: BecauseYouLikeAnchor; picks: SubsonicAlbum[] };
+
+/**
+ * Resolve a set of album picks for one anchor candidate. The returned anchor
+ * carries `bySound` when AudioMuse supplied the picks, so the rail can title
+ * them accordingly; a fallback to similar artists returns the plain candidate.
+ */
 async function resolvePicks(
   candidate: BecauseYouLikeAnchor,
   recentPicks: Set<string>,
   scopes: readonly LibraryBrowseScopePair[],
-): Promise<SubsonicAlbum[] | null> {
+  source: BecauseYouLikeSource,
+): Promise<AnchorPicks | null> {
+  if (source === 'audiomuse') {
+    const sonic = await resolveSonicPicks(candidate, recentPicks, SHOW_COUNT).catch(() => null);
+    if (sonic && sonic.length > 0) return { anchor: { ...candidate, bySound: true }, picks: sonic };
+  }
   const info = await getArtistInfoForServer(candidate.serverId, candidate.id, {
     similarArtistCount: SIMILAR_FETCH,
   });
@@ -121,7 +134,7 @@ async function resolvePicks(
     picks.push(album);
     if (picks.length >= SHOW_COUNT) break;
   }
-  return picks.length > 0 ? picks : null;
+  return picks.length > 0 ? { anchor: candidate, picks } : null;
 }
 
 type FetchBecauseResult = {
@@ -143,6 +156,7 @@ type FetchBecauseOutcome =
 async function fetchBecauseYouLike(
   pool: BecauseYouLikeAnchor[],
   scopes: readonly LibraryBrowseScopePair[],
+  source: BecauseYouLikeSource,
   anchorHistKey: string | null,
   picksHistKey: string | null,
 ): Promise<FetchBecauseOutcome> {
@@ -175,23 +189,22 @@ async function fetchBecauseYouLike(
     const raced = await Promise.all(
       tryList.slice(0, 2).map(async candidate => {
         try {
-          const picks = await resolvePicks(candidate, recentPicks, scopes);
-          return picks ? { candidate, picks } : null;
+          return await resolvePicks(candidate, recentPicks, scopes, source);
         } catch {
           hadError = true;
           return null;
         }
       }),
     );
-    const hit = raced.find((r): r is { candidate: BecauseYouLikeAnchor; picks: SubsonicAlbum[] } => r != null);
-    if (hit) return { status: 'ready', result: buildResult(hit.candidate, hit.picks) };
+    const hit = raced.find((r): r is AnchorPicks => r != null);
+    if (hit) return { status: 'ready', result: buildResult(hit.anchor, hit.picks) };
   }
 
   for (const candidate of tryList) {
     try {
-      const picks = await resolvePicks(candidate, recentPicks, scopes);
-      if (!picks) continue;
-      return { status: 'ready', result: buildResult(candidate, picks) };
+      const hit = await resolvePicks(candidate, recentPicks, scopes, source);
+      if (!hit) continue;
+      return { status: 'ready', result: buildResult(hit.anchor, hit.picks) };
     } catch {
       hadError = true;
       /* try next anchor */
@@ -213,13 +226,14 @@ async function fillBecauseReserve(
   scopeKey: string,
   scopeVersion: number,
   scopes: readonly LibraryBrowseScopePair[],
+  source: BecauseYouLikeSource,
   anchorHistKey: string | null,
   picksHistKey: string | null,
 ): Promise<void> {
   if (_becauseReserveFilling) return;
   _becauseReserveFilling = true;
   try {
-    const outcome = await fetchBecauseYouLike(pool, scopes, anchorHistKey, picksHistKey);
+    const outcome = await fetchBecauseYouLike(pool, scopes, source, anchorHistKey, picksHistKey);
     if (outcome.status === 'ready') {
       const { result } = outcome;
       _becauseReserve = { scopeKey, scopeVersion, ...result };
@@ -344,7 +358,7 @@ export function buildAnchorPool(sources: SubsonicAlbum[][], limit: number): Beca
       const key = ownedEntityKey(a.serverId, a.artistId);
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push({ id: a.artistId, name: a.artist, serverId: a.serverId });
+      out.push({ id: a.artistId, name: a.artist, serverId: a.serverId, seedAlbumId: a.id });
     }
   }
   return out;
@@ -379,13 +393,17 @@ export default function BecauseYouLikeRail({
   mostPlayed,
   recentlyPlayed,
   starred,
-  scopeKey,
+  scopeKey: browseScopeKey,
   scopeVersion,
   scopes,
   disableArtwork = false,
   onDiagnosticResult,
 }: Props) {
   const { t } = useTranslation();
+  const source = useHomeStore(s => s.becauseYouLikeSource);
+  // Reserve and session snapshot are keyed by the source too, so switching it
+  // never shows the other source's cards. Rotation history stays per scope.
+  const scopeKey = browseScopeKey ? `${browseScopeKey}|${source}` : '';
   const pool = useMemo(
     () => buildAnchorPool([mostPlayed, recentlyPlayed ?? [], starred ?? []], TOP_ARTIST_POOL),
     [mostPlayed, recentlyPlayed, starred],
@@ -486,8 +504,8 @@ export default function BecauseYouLikeRail({
       return;
     }
 
-    const anchorHistKey = anchorHistoryKey(scopeKey);
-    const picksHistKey = picksHistoryKey(scopeKey);
+    const anchorHistKey = anchorHistoryKey(browseScopeKey);
+    const picksHistKey = picksHistoryKey(browseScopeKey);
     const snap = readBecauseYouLikeCache(scopeKey, scopeVersion);
     const startedAt = performance.now();
     const generation = ++diagnosticGenerationRef.current;
@@ -536,7 +554,7 @@ export default function BecauseYouLikeRail({
         });
         setRefreshing(false);
         // Pre-fetch the next batch so the next visit is also instant.
-        void fillBecauseReserve(pool, scopeKey, scopeVersion, scopes, anchorHistKey, picksHistKey);
+        void fillBecauseReserve(pool, scopeKey, scopeVersion, scopes, source, anchorHistKey, picksHistKey);
         return;
       }
 
@@ -546,7 +564,7 @@ export default function BecauseYouLikeRail({
       if (snap && snap.recs.length > 0) {
         reportFinal('ready', snap.recs.length, 'cache');
         setRefreshing(false);
-        void fillBecauseReserve(pool, scopeKey, scopeVersion, scopes, anchorHistKey, picksHistKey);
+        void fillBecauseReserve(pool, scopeKey, scopeVersion, scopes, source, anchorHistKey, picksHistKey);
         return;
       }
 
@@ -562,7 +580,7 @@ export default function BecauseYouLikeRail({
 
       let outcome: FetchBecauseOutcome;
       try {
-        outcome = await fetchBecauseYouLike(pool, scopes, anchorHistKey, picksHistKey);
+        outcome = await fetchBecauseYouLike(pool, scopes, source, anchorHistKey, picksHistKey);
       } catch (error) {
         reportFinal('error', 0, error instanceof Error ? error.message : 'network');
         if (!cancelled) {
@@ -598,7 +616,7 @@ export default function BecauseYouLikeRail({
         });
         setRefreshing(false);
         // Pre-fetch next batch so the next visit is instant.
-        void fillBecauseReserve(pool, scopeKey, scopeVersion, scopes, anchorHistKey, picksHistKey);
+        void fillBecauseReserve(pool, scopeKey, scopeVersion, scopes, source, anchorHistKey, picksHistKey);
       } else {
         reportFinal(outcome.status, 0, 'network');
         // Network failed — restore session cache if available.
@@ -625,7 +643,7 @@ export default function BecauseYouLikeRail({
     // swap the cards — a height blip above the row that scroll anchoring turns into
     // an upward viewport jump. The sibling reserve effect already keys on poolKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poolKey, scopeKey, scopeVersion, disableArtwork]);
+  }, [poolKey, scopeKey, scopeVersion, disableArtwork, source]);
 
   useLibraryCoverPrefetch(
     disableArtwork || recs.length === 0 ? [] : [{ albums: recs, priority: 'high' }],
@@ -652,7 +670,9 @@ export default function BecauseYouLikeRail({
     );
   }
 
-  const sectionTitle = t('home.becauseYouLikeFor', { artist: anchor.name });
+  const sectionTitle = anchor.bySound
+    ? t('home.becauseYouLikeSoundFor', { artist: anchor.name })
+    : t('home.becauseYouLikeFor', { artist: anchor.name });
 
   return (
     <div ref={containerRef}>
@@ -671,6 +691,7 @@ export default function BecauseYouLikeRail({
                 key={ownedEntityKey(album.serverId ?? anchor.serverId, album.id)}
                 album={album}
                 anchor={anchor.name}
+                bySound={anchor.bySound === true}
                 disableArtwork={disableArtwork}
                 enter={index > 0}
               />
@@ -685,11 +706,13 @@ export default function BecauseYouLikeRail({
 interface CardProps {
   album: SubsonicAlbum;
   anchor: string;
+  /** Cards from AudioMuse sonic matches say "sounds like" instead of "similar to". */
+  bySound: boolean;
   disableArtwork: boolean;
   enter?: boolean;
 }
 
-const BecauseCard = memo(function BecauseCard({ album, anchor, disableArtwork, enter }: CardProps) {
+const BecauseCard = memo(function BecauseCard({ album, anchor, bySound, disableArtwork, enter }: CardProps) {
   const { t } = useTranslation();
   const ownerServerId = album.serverId;
   const { isHolding, pressBind } = useLongPressAction({
@@ -794,7 +817,7 @@ const BecauseCard = memo(function BecauseCard({ album, anchor, disableArtwork, e
       <div className="because-card-text">
         <div className="because-card-top">
           <div className="because-card-similar">
-            {t('home.similarTo', { artist: anchor })}
+            {t(bySound ? 'home.soundsLike' : 'home.similarTo', { artist: anchor })}
           </div>
           <div className="because-card-title">{album.name}</div>
           <div className="because-card-artist">{artistLabel}</div>
