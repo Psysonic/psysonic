@@ -54,7 +54,8 @@ resolve_appimagetool() {
 # through to AppRun.wrapped, because AppRun.wrapped rebuilds LD_LIBRARY_PATH as
 # "$APPDIR/usr/lib/:...:$LD_LIBRARY_PATH" and would put the bundled libraries
 # back in front. AppRun.wrapped sets nothing else this app needs that the hooks
-# do not already set (GST_PLUGIN_SYSTEM_PATH_1_0 comes from the gstreamer hook).
+# do not already set (GST_PLUGIN_SYSTEM_PATH_1_0 comes from the gstreamer hook,
+# and the block puts the host plugin directory in front of it).
 read -r -d '' block <<'EOF' || true
 
 # Prefer the host WebKitGTK stack when available. The bundled (Ubuntu) build of
@@ -69,7 +70,16 @@ if [ -z "${PSYSONIC_FORCE_BUNDLED_WEBKIT:-}" ]; then
     # ldconfig lives in sbin, which is not on a non-root PATH on Debian.
     psysonic_host_webkit="$(PATH=/usr/sbin:/sbin:$PATH ldconfig -p 2>/dev/null | awk '/libwebkit2gtk-4\.1\.so\.0 .*@LDARCH@/{print $NF; exit}')"
     if [ -n "$psysonic_host_webkit" ] && [ -e "$psysonic_host_webkit" ]; then
-        export LD_LIBRARY_PATH="$(dirname "$psysonic_host_webkit")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        psysonic_host_libdir="$(dirname "$psysonic_host_webkit")"
+        export LD_LIBRARY_PATH="$psysonic_host_libdir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        # The gstreamer hook limits GStreamer to the bundled plugins, which ship
+        # no AAC decoder. Search the host plugins first; for a plugin present in
+        # both, the first directory wins. The bundled ones stay as a fallback for
+        # hosts that do not install e.g. gst-plugins-good. GST_PLUGIN_PATH_1_0
+        # would be searched before either, and the bundled scanner and PTP helper
+        # belong to the bundled GStreamer, so the host defaults take over.
+        export GST_PLUGIN_SYSTEM_PATH_1_0="$psysonic_host_libdir/gstreamer-1.0${GST_PLUGIN_SYSTEM_PATH_1_0:+:$GST_PLUGIN_SYSTEM_PATH_1_0}"
+        unset GST_PLUGIN_PATH_1_0 GST_PLUGIN_SCANNER_1_0 GST_PTP_HELPER_1_0
         export PATH="$this_dir/usr/bin:$PATH"
         exec "$this_dir"/usr/bin/@BINARY@ "$@"
     fi
