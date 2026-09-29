@@ -70,6 +70,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The new **Moods** page groups the mood tags exposed by your server for individual tracks. Pick a mood to browse its albums, with album counts, library selection and incremental loading for large collections.
 * Existing libraries build the local mood index from cached track metadata after upgrading. The index stays in sync when tracks change and rebuilds after a Navidrome ID migration. No music files or server tags are changed; servers that do not expose track moods have none to browse.
 
+### "Because you listened" can use AudioMuse
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1678](https://github.com/Psysonic/psysonic/pull/1678)**
+
+* **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
+* AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
+
 ## Fixed
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists

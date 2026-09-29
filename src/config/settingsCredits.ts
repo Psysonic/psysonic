@@ -481,6 +481,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Playlists — drag a selection of tracks as one block (PR #1649)',
       'Library — track subtitles and album versions from Navidrome, with the version shown under the album title (PR #1662)',
       'Tracklists — play songs on a single or double click, with a row highlight you move by keyboard (PR #1668)',
+      'Home — AudioMuse as a source for the "Because you listened" rail (PR #1678)',
     ],
   },
   {
