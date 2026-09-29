@@ -1,17 +1,22 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, screen, waitFor } from '@testing-library/react';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { latestResizeObserver } from '@/test/mocks/browser';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const { artistInfoMock, artistMock, readCacheMock, writeCacheMock, primeMock } = vi.hoisted(() => ({
+const { artistInfoMock, artistMock, readCacheMock, writeCacheMock, primeMock, sonicPicksMock } = vi.hoisted(() => ({
   artistInfoMock: vi.fn(),
   artistMock: vi.fn(),
   readCacheMock: vi.fn(),
   writeCacheMock: vi.fn(),
   primeMock: vi.fn(),
+  sonicPicksMock: vi.fn(),
+}));
+
+vi.mock('@/features/home/utils/becauseYouLikeSonicPicks', () => ({
+  resolveSonicPicks: sonicPicksMock,
 }));
 
 vi.mock('@/lib/api/subsonicArtists', () => ({
@@ -30,12 +35,15 @@ vi.mock('@/cover/useCoverArt', () => ({
 }));
 vi.mock('@/lib/util/shuffleArray', () => ({ shuffleArray: <T,>(items: T[]) => items }));
 vi.mock('@/features/album', () => ({
-  AlbumRow: ({ albums }: { albums: SubsonicAlbum[] }) => <div data-testid="albums">{albums.length}</div>,
+  AlbumRow: ({ albums, title }: { albums: SubsonicAlbum[]; title?: string }) => (
+    <div data-testid="albums" data-title={title}>{albums.length}</div>
+  ),
   albumArtistDisplayName: (item: SubsonicAlbum) => item.artist,
   useNavigateToAlbum: () => vi.fn(),
 }));
 
 import BecauseYouLikeRail, { buildAnchorPool } from '@/features/home/components/BecauseYouLikeRail';
+import { useHomeStore } from '@/features/home/store/homeStore';
 
 function album(serverId: string | undefined, artistId: string, name: string): SubsonicAlbum {
   return {
@@ -57,8 +65,8 @@ describe('buildAnchorPool', () => {
     ], 20);
 
     expect(pool).toEqual([
-      { id: 'artist-1', name: 'Artist A', serverId: 'srv-a' },
-      { id: 'artist-1', name: 'Artist B', serverId: 'srv-b' },
+      { id: 'artist-1', name: 'Artist A', serverId: 'srv-a', seedAlbumId: 'srv-a-artist-1' },
+      { id: 'artist-1', name: 'Artist B', serverId: 'srv-b', seedAlbumId: 'srv-b-artist-1' },
     ]);
   });
 });
@@ -159,6 +167,97 @@ describe('BecauseYouLikeRail diagnostics', () => {
       'similar',
       { libraryIds: ['lib-a'] },
     ));
+  });
+});
+
+describe('BecauseYouLikeRail source', () => {
+  beforeEach(() => {
+    artistInfoMock.mockReset();
+    artistMock.mockReset();
+    readCacheMock.mockReset();
+    writeCacheMock.mockReset();
+    primeMock.mockReset();
+    sonicPicksMock.mockReset();
+    readCacheMock.mockReturnValue(null);
+    primeMock.mockResolvedValue(undefined);
+    artistInfoMock.mockResolvedValue({
+      similarArtist: [{ id: 'similar', name: 'Similar', serverId: 'srv-a' }],
+    });
+    artistMock.mockResolvedValue({
+      artist: { id: 'similar', name: 'Similar', serverId: 'srv-a' },
+      albums: [album('srv-a', 'similar', 'Similar')],
+    });
+  });
+
+  afterEach(() => {
+    useHomeStore.setState({ becauseYouLikeSource: 'similarArtists' });
+  });
+
+  function renderRail(scopeVersion: number) {
+    return renderWithProviders(
+      <BecauseYouLikeRail
+        mostPlayed={[album('srv-a', 'seed', 'Seed')]}
+        scopeKey="scope-source"
+        scopeVersion={scopeVersion}
+        scopes={[{ serverId: 'srv-a', libraryId: 'lib-a' }]}
+      />,
+    );
+  }
+
+  it('never asks AudioMuse while the source is similar artists', async () => {
+    renderRail(20);
+    await waitFor(() => expect(artistMock).toHaveBeenCalled());
+    expect(sonicPicksMock).not.toHaveBeenCalled();
+  });
+
+  it('uses AudioMuse picks, seeded by the anchor album, when chosen', async () => {
+    useHomeStore.setState({ becauseYouLikeSource: 'audiomuse' });
+    sonicPicksMock.mockResolvedValue([album('srv-a', 'sonic', 'Sonic')]);
+    const onDiagnosticResult = vi.fn();
+    renderWithProviders(
+      <BecauseYouLikeRail
+        mostPlayed={[album('srv-a', 'seed', 'Seed')]}
+        scopeKey="scope-source"
+        scopeVersion={21}
+        scopes={[{ serverId: 'srv-a', libraryId: 'lib-a' }]}
+        onDiagnosticResult={onDiagnosticResult}
+      />,
+    );
+
+    await waitFor(() => expect(onDiagnosticResult).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ready', itemCount: 1 }),
+    ));
+    expect(sonicPicksMock.mock.calls[0][0]).toMatchObject({
+      id: 'seed',
+      serverId: 'srv-a',
+      seedAlbumId: 'srv-a-seed',
+    });
+    expect(artistInfoMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('albums').getAttribute('data-title'))
+      .toBe('If you like the sound of Seed'));
+  });
+
+  it('falls back to similar artists when AudioMuse has nothing for the anchor', async () => {
+    useHomeStore.setState({ becauseYouLikeSource: 'audiomuse' });
+    sonicPicksMock.mockResolvedValue(null);
+    renderRail(22);
+
+    await waitFor(() => expect(artistMock).toHaveBeenCalledWith(
+      'srv-a',
+      'similar',
+      { libraryIds: ['lib-a'] },
+    ));
+    expect(sonicPicksMock).toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByTestId('albums').getAttribute('data-title'))
+      .toBe('Because you listened to Seed'));
+  });
+
+  it('keeps the rail working when the AudioMuse lookup throws', async () => {
+    useHomeStore.setState({ becauseYouLikeSource: 'audiomuse' });
+    sonicPicksMock.mockRejectedValue(new Error('down'));
+    renderRail(23);
+
+    await waitFor(() => expect(artistMock).toHaveBeenCalled());
   });
 });
 

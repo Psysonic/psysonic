@@ -77,6 +77,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **All Albums** and **Lossless Albums** can now be sorted by **Year**. It starts newest first, and choosing it again switches to oldest first. Albums from the same year are ordered by artist, then title.
 * In the table view, the **Year** column header does the same: the first click sorts newest first, and each click after that flips the direction.
 
+### "Because you listened" can use AudioMuse
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1678](https://github.com/Psysonic/psysonic/pull/1678)**
+
+* **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
+* AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
+
 ## Fixed
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists
@@ -115,6 +122,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Server playlists no longer appear empty when **All libraries** or several music folders are selected in the sidebar. Their tracks follow the same library selection as the rest of browsing.
 * Changing the visible library scope no longer removes offline-pinned tracks that are merely hidden from the current view.
+
+### The AppImage starts on Fedora 44 again
+
+**By [@netherguy4](https://github.com/netherguy4), PR [#1348](https://github.com/Psysonic/psysonic/pull/1348)**
+
+* On Fedora 44, including atomic variants such as Bluefin, the AppImage opened an empty window and nothing ever appeared in it. The WebKitGTK copy shipped inside the AppImage cannot start on those systems' newer graphics stack, and it crashed on every launch.
+* The AppImage now launches against your system WebKitGTK whenever one is installed, which is the copy that works there. Systems without one keep using the bundled copy exactly as before, and `PSYSONIC_FORCE_BUNDLED_WEBKIT=1` forces the bundled copy back if you ever need it.
+
+### AAC internet radio plays in the AppImage
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1679](https://github.com/Psysonic/psysonic/pull/1679)**
+
+* Internet radio stations that stream AAC stopped with a stream error in the AppImage, because the media plugins it ships include no AAC decoder. When the AppImage runs on your system WebKitGTK, it now uses your system's media plugins first, so AAC stations play. Plugins your system lacks still come from the AppImage.
 
 ## [1.55.0]
 

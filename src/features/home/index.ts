@@ -7,5 +7,12 @@
  * Cross-feature consumers pull only the section config store (settings'
  * mainstage customiser, the tracks-page chrome).
  */
-export { useHomeStore, type HomeSectionId, type HomeSectionConfig, DEFAULT_HOME_SECTIONS } from './store/homeStore';
+export {
+  useHomeStore,
+  type HomeSectionId,
+  type HomeSectionConfig,
+  type BecauseYouLikeSource,
+  DEFAULT_HOME_SECTIONS,
+} from './store/homeStore';
+export { useSonicSimilarityAvailable } from './hooks/useSonicSimilarityAvailable';
 export { default as SongRail } from './components/SongRail';

@@ -1,6 +1,14 @@
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 
-export type BecauseYouLikeAnchor = { id: string; name: string; serverId: string };
+export type BecauseYouLikeAnchor = {
+  id: string;
+  name: string;
+  serverId: string;
+  /** Album that put this artist into the pool; seeds the AudioMuse lookup. */
+  seedAlbumId?: string;
+  /** Set when the cards shown for this anchor came from AudioMuse sonic matches. */
+  bySound?: true;
+};
 
 export type BecauseYouLikeSnapshot = {
   scopeKey: string;
