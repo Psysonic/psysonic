@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Device Sync → Format** can store tracks as MP3, AAC or Opus with a maximum bitrate instead of the original files; your server converts them while syncing. The format must be enabled in the server's transcoding settings.
 * Copies are replaced in place when the format or bitrate changes, or when the file on the server changes. Devices synced before keep their original files until another format is chosen.
 
+### Browse by record label
+
+**By [@circle3451](https://github.com/circle3451), PR [#1682](https://github.com/Psysonic/psysonic/pull/1682)**
+
+* A new **Labels** entry in the sidebar lists every record label on your Navidrome server, A–Z, with a filter box and a letter jump bar.
+* Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, with their count. Servers other than Navidrome keep the previous search-based results.
+
 ### Track subtitles and album versions from Navidrome
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**
