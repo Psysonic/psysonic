@@ -16,7 +16,33 @@ export interface MoodTrackPageResult {
   total: number | null;
 }
 
+const MOOD_TRACK_READINESS_RETRY_DELAY_MS = 250;
+const MOOD_TRACK_READINESS_RETRY_LIMIT = 20;
+
 const inflight = new Map<string, Promise<MoodTrackPageResult | null>>();
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForMoodTrackLibraryReady(
+  serverIds: readonly string[],
+): Promise<boolean> {
+  if (await readyLibraryServerKeys(serverIds)) return true;
+
+  for (
+    let attempt = 0;
+    attempt < MOOD_TRACK_READINESS_RETRY_LIMIT;
+    attempt += 1
+  ) {
+    await sleep(MOOD_TRACK_READINESS_RETRY_DELAY_MS);
+    if (await readyLibraryServerKeys(serverIds)) return true;
+  }
+
+  return false;
+}
 
 async function fetchLocalMoodTrackPage(
   serverId: string,
@@ -36,7 +62,7 @@ async function fetchLocalMoodTrackPage(
     ? browseScope.serverIds
     : [serverId];
 
-  if (!(await readyLibraryServerKeys(serverIds))) {
+  if (!(await waitForMoodTrackLibraryReady(serverIds))) {
     return null;
   }
 
@@ -95,19 +121,17 @@ export async function fetchMoodTrackPage(
   pageSize = MOOD_TRACK_PAGE_SIZE,
   browseScope?: LibraryBrowseScope,
   includeTotal = false,
-): Promise<MoodTrackPageResult> {
+): Promise<MoodTrackPageResult | null> {
   if (!serverId || !mood.trim() || !indexEnabled) {
-    return { songs: [], hasMore: false, total: null };
+    return null;
   }
 
-  return (
-    (await fetchLocalMoodTrackPage(
-      serverId,
-      mood,
-      offset,
-      pageSize,
-      browseScope,
-      includeTotal,
-    )) ?? { songs: [], hasMore: false, total: null }
+  return fetchLocalMoodTrackPage(
+    serverId,
+    mood,
+    offset,
+    pageSize,
+    browseScope,
+    includeTotal,
   );
 }

@@ -7,6 +7,7 @@ import {
   MOOD_TRACK_PAGE_SIZE,
 } from '@/lib/library/moodTrackBrowse';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { useLibraryScopeSyncRevision } from '@/store/offlineLocalLibrarySyncRevision';
 
 type MoodTrackBrowseCacheEntry = {
   songs: SubsonicSong[];
@@ -22,6 +23,7 @@ function moodTrackBrowseCacheKey(
   mood: string,
   indexEnabled: boolean,
   musicLibraryFilterVersion: number,
+  librarySyncRevision: number,
   browseScope: LibraryBrowseScope,
 ): string {
   return JSON.stringify([
@@ -29,6 +31,7 @@ function moodTrackBrowseCacheKey(
     mood.trim().toLowerCase(),
     indexEnabled,
     musicLibraryFilterVersion,
+    librarySyncRevision,
     browseScope.fingerprint,
   ]);
 }
@@ -74,11 +77,18 @@ export function useMoodTrackBrowse(
   musicLibraryFilterVersion: number,
   browseScope: LibraryBrowseScope,
 ) {
+  const syncServerIds = browseScope.serverIds.length > 0
+    ? browseScope.serverIds
+    : serverId
+      ? [serverId]
+      : [];
+  const librarySyncRevision = useLibraryScopeSyncRevision(syncServerIds);
   const cacheKey = moodTrackBrowseCacheKey(
     serverId,
     mood,
     indexEnabled,
     musicLibraryFilterVersion,
+    librarySyncRevision,
     browseScope,
   );
   const cachedForKey = peekMoodTrackBrowseCache(cacheKey);
@@ -152,7 +162,7 @@ export function useMoodTrackBrowse(
       browseScope,
       true,
     ).then(page => {
-      if (generation !== generationRef.current) return;
+      if (generation !== generationRef.current || !page) return;
       setSongs(page.songs);
       setHasMore(page.hasMore);
       setTotal(page.total);
@@ -164,7 +174,10 @@ export function useMoodTrackBrowse(
           total: page.total,
         },
       );
-      setLoading(false);
+    }).finally(() => {
+      if (generation === generationRef.current) {
+        setLoading(false);
+      }
     });
 
     return () => {
@@ -176,6 +189,7 @@ export function useMoodTrackBrowse(
     indexEnabled,
     enabled,
     musicLibraryFilterVersion,
+    librarySyncRevision,
     browseScope,
     cacheKey,
   ]);
@@ -205,7 +219,7 @@ export function useMoodTrackBrowse(
       browseScope,
       false,
     ).then(page => {
-      if (generation !== generationRef.current) return;
+      if (generation !== generationRef.current || !page) return;
       setSongs(previous => {
         const merged = [...previous, ...page.songs];
         const seen = new Set<string>();
