@@ -260,6 +260,8 @@ brew install --cask psysonic
 
 Contributor expectations (PRs, CI, Tauri boundary, UI): [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Building from source needs **Rust 1.98 or newer**.
+
 ```bash
 git clone https://github.com/Psysonic/psysonic.git
 cd psysonic
