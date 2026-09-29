@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **By [@circle3451](https://github.com/circle3451), PR [#1682](https://github.com/Psysonic/psysonic/pull/1682)**
 
-* A new **Labels** entry in the sidebar lists every record label on your Navidrome server, A–Z, with a filter box and a letter jump bar.
+* A new **Labels** entry in the sidebar lists every record label on your Navidrome server, A–Z, with a filter box and a letter jump bar. It is hidden by default; turn it on under **Settings → Personalisation → Sidebar**.
 * Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, with their count. Servers other than Navidrome keep the previous search-based results.
 
 ### Track subtitles and album versions from Navidrome
