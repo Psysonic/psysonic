@@ -71,6 +71,10 @@ fn full_library_schema() -> Connection {
             env!("CARGO_MANIFEST_DIR"),
             "/crates/psysonic-library/migrations/030_track_mood.sql"
         )),
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/crates/psysonic-library/migrations/031_track_mood_schema_repair.sql"
+        )),
     ] {
         conn.execute_batch(migration)
             .expect("apply library migration");
