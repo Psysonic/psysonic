@@ -98,3 +98,19 @@ fn merge_album_open_subsonic_track_raw_ignores_empty_album_participants() {
     assert_eq!(song.get("albumArtists"), None);
     assert_eq!(song.get("displayAlbumArtist"), None);
 }
+
+#[test]
+fn merge_album_open_subsonic_track_raw_copies_record_labels() {
+    let album = json!({ "recordLabels": [{ "name": "Transmigration" }] });
+    let mut song = json!({ "id": "tr_1", "title": "A" });
+    merge_album_open_subsonic_track_raw(&album, &mut song);
+    assert_eq!(
+        song.get("recordLabels"),
+        Some(&json!([{ "name": "Transmigration" }]))
+    );
+
+    let empty = json!({ "recordLabels": [] });
+    let mut untouched = json!({ "id": "tr_2", "title": "B" });
+    merge_album_open_subsonic_track_raw(&empty, &mut untouched);
+    assert!(untouched.get("recordLabels").is_none());
+}
