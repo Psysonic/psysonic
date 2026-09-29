@@ -88,6 +88,14 @@ patch_appimage() {
         cd "$workdir"
         "$appimage" --appimage-extract >/dev/null
 
+        # Repack with the runtime the input AppImage already carries. Without
+        # --runtime-file appimagetool downloads one from a mutable "continuous"
+        # release, so the executable head of the shipped AppImage would be
+        # whatever that asset happens to be at build time, unverified.
+        local offset
+        offset="$("$appimage" --appimage-offset)"
+        head -c "$offset" "$appimage" > "$workdir/runtime"
+
         local apprun=squashfs-root/AppRun
         # Only patch the linuxdeploy-generated AppRun we know the shape of.
         grep -q 'apprun-hooks' "$apprun" || {
@@ -123,7 +131,8 @@ patch_appimage() {
         # the runtime of the AppImage above run the app instead of extracting.
         # Absolute AppDir path: APPIMAGE_EXTRACT_AND_RUN makes appimagetool's own
         # runtime chdir into its extraction dir, so a relative one does not resolve.
-        ARCH="$arch" APPIMAGE_EXTRACT_AND_RUN=1 "$appimagetool" "$PWD/squashfs-root" "$appimage.patched" >/dev/null
+        ARCH="$arch" APPIMAGE_EXTRACT_AND_RUN=1 "$appimagetool" --runtime-file "$workdir/runtime" \
+            "$PWD/squashfs-root" "$appimage.patched" >/dev/null
         mv "$appimage.patched" "$appimage"
         echo "patched: $appimage"
     )
