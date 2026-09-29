@@ -63,19 +63,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Device Sync can now sync into an empty folder on the computer's own disk, for example to import the playlists into DJ software. Psysonic asks once before using the folder.
 * Only an empty folder can be chosen, and Psysonic never takes over or deletes files it did not write there.
 
-### Browse albums by the moods in your music files
-
-**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1675](https://github.com/Psysonic/psysonic/pull/1675)**
-
-* The new **Moods** page groups the mood tags exposed by your server for individual tracks. Pick a mood to browse its albums, with album counts, library selection and incremental loading for large collections.
-* Existing libraries build the local mood index from cached track metadata after upgrading. The index stays in sync when tracks change and rebuilds after a Navidrome ID migration. No music files or server tags are changed; servers that do not expose track moods have none to browse.
-
 ### Sort albums by year
 
 **By [@circle3451](https://github.com/circle3451), PR [#1672](https://github.com/Psysonic/psysonic/pull/1672)**
 
 * **All Albums** and **Lossless Albums** can now be sorted by **Year**. It starts newest first, and choosing it again switches to oldest first. Albums from the same year are ordered by artist, then title.
 * In the table view, the **Year** column header does the same: the first click sorts newest first, and each click after that flips the direction.
+
+### Browse albums by the moods in your music files
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1675](https://github.com/Psysonic/psysonic/pull/1675)**
+
+* The new **Moods** page groups the mood tags exposed by your server for individual tracks. Pick a mood to browse its albums, with album counts, library selection and incremental loading for large collections.
+* Existing libraries build the local mood index from cached track metadata after upgrading. The index stays in sync when tracks change and rebuilds after a Navidrome ID migration. No music files or server tags are changed; servers that do not expose track moods have none to browse.
 
 ### "Because you listened" can use AudioMuse
 
@@ -85,6 +85,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
 
 ## Fixed
+
+### The AppImage starts on Fedora 44 again
+
+**By [@netherguy4](https://github.com/netherguy4), PR [#1348](https://github.com/Psysonic/psysonic/pull/1348)**
+
+* On Fedora 44, including atomic variants such as Bluefin, the AppImage opened an empty window and nothing ever appeared in it. The WebKitGTK copy shipped inside the AppImage cannot start on those systems' newer graphics stack, and it crashed on every launch.
+* The AppImage now launches against your system WebKitGTK whenever one is installed, which is the copy that works there. Systems without one keep using the bundled copy exactly as before, and `PSYSONIC_FORCE_BUNDLED_WEBKIT=1` forces the bundled copy back if you ever need it.
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists
 
@@ -123,18 +130,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Server playlists no longer appear empty when **All libraries** or several music folders are selected in the sidebar. Their tracks follow the same library selection as the rest of browsing.
 * Changing the visible library scope no longer removes offline-pinned tracks that are merely hidden from the current view.
 
-### The AppImage starts on Fedora 44 again
-
-**By [@netherguy4](https://github.com/netherguy4), PR [#1348](https://github.com/Psysonic/psysonic/pull/1348)**
-
-* On Fedora 44, including atomic variants such as Bluefin, the AppImage opened an empty window and nothing ever appeared in it. The WebKitGTK copy shipped inside the AppImage cannot start on those systems' newer graphics stack, and it crashed on every launch.
-* The AppImage now launches against your system WebKitGTK whenever one is installed, which is the copy that works there. Systems without one keep using the bundled copy exactly as before, and `PSYSONIC_FORCE_BUNDLED_WEBKIT=1` forces the bundled copy back if you ever need it.
-
 ### AAC internet radio plays in the AppImage
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1679](https://github.com/Psysonic/psysonic/pull/1679)**
 
 * Internet radio stations that stream AAC stopped with a stream error in the AppImage, because the media plugins it ships include no AAC decoder. When the AppImage runs on your system WebKitGTK, it now uses your system's media plugins first, so AAC stations play. Plugins your system lacks still come from the AppImage.
+
+### Gapless transitions keep the correct playback speed
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1683](https://github.com/Psysonic/psysonic/pull/1683)**
+
+* With **Gapless Playback** enabled, moving between tracks with different sample rates (such as 44.1 and 48 kHz) could play the next track at the wrong speed. Each track now matches the actual audio output rate before joining the gapless queue, including after an audio-device recovery or Hi-Res realignment. Radio, previews and playback with Gapless Playback off are unchanged.
 
 ### Seeking works on the first play of a streamed track
 
