@@ -3,11 +3,29 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use rodio::source::UniformSourceIterator;
 use rodio::Source;
 
 mod eq;
 
+#[cfg(test)]
+#[path = "sources/gapless_rate_tests.rs"]
+mod gapless_rate_tests;
+
 pub(crate) use eq::EqSource;
+
+/// Give each gapless track its own output-rate converter before Rodio queues it.
+/// The mixer's converter wraps the *whole* Player queue and cannot detect a
+/// source boundary when the outgoing source reports an unbounded span (as the
+/// streaming decode worker does). Keeping every queued source at the mixer's
+/// rate makes that boundary independent of its span metadata.
+pub(crate) fn gapless_output_source<S: Source<Item = f32>>(
+    source: S,
+    channels: rodio::ChannelCount,
+    sample_rate: rodio::SampleRate,
+) -> UniformSourceIterator<S> {
+    UniformSourceIterator::new(source, channels, sample_rate)
+}
 
 // ─── DynSource — type-erased Source wrapper ───────────────────────────────────
 //

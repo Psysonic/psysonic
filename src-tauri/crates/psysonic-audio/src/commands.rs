@@ -24,7 +24,7 @@ use super::sink_swap::{
     SinkSwapInputs,
 };
 use super::source_build::{build_playback_source_with_probe_fallback, BuildSourceArgs};
-use super::sources::CancellableSource;
+use super::sources::{gapless_output_source, CancellableSource};
 use super::state::{install_current_source_done, ChainedInfo, PreloadedTrack};
 
 // ─── Commands ─────────────────────────────────────────────────────────────────
@@ -603,7 +603,22 @@ pub async fn audio_play(
         false
     };
 
-    sink.append(source);
+    if gapless {
+        let config = state
+            .stream_handle
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|handle| *handle.config())
+            .ok_or_else(|| "gapless playback lost its output stream".to_string())?;
+        sink.append(gapless_output_source(
+            source,
+            config.channel_count(),
+            config.sample_rate(),
+        ));
+    } else {
+        sink.append(source);
+    }
 
     if needs_prefill {
         let prefill_ms = if needs_preserve_prefill { 800 } else { 500 };
@@ -1007,6 +1022,15 @@ pub async fn audio_chain_preload(
     // Note: `set_volume` is deliberately NOT called here (see comment above).
     let cancel = Arc::new(AtomicBool::new(false));
     let source = CancellableSource::new(source, cancel.clone());
+    let Some(config) = state
+        .stream_handle
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|handle| *handle.config())
+    else {
+        return Ok(());
+    };
     let mut chained = state.chained_info.lock().unwrap();
     if !snapshot.is_current(&state) || chained.is_some() {
         return Ok(());
@@ -1015,7 +1039,11 @@ pub async fn audio_chain_preload(
         let cur = state.current.lock().unwrap();
         match &cur.sink {
             Some(sink) => {
-                sink.append(source);
+                sink.append(gapless_output_source(
+                    source,
+                    config.channel_count(),
+                    config.sample_rate(),
+                ));
             }
             None => return Ok(()), // playback stopped — bail
         }
