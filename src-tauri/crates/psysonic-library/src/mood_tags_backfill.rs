@@ -299,6 +299,10 @@ fn run_mood_tags_backfill_impl(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::navidrome_id_codec::canonical_id;
+    use crate::navidrome_native_migration::{
+        finalize, run_batch, upper_rowid, NavidromeNativeMigrationStep,
+    };
     use crate::repos::track::{TrackRepository, TrackRow};
 
     fn track_with_moods(id: &str) -> TrackRow {
@@ -408,5 +412,103 @@ mod tests {
         assert!(!inspect.needed);
         assert_eq!(inspect.total_tracks, 1);
         assert_eq!(inspect.done_tracks, 1);
+    }
+
+    #[test]
+    fn native_id_migration_rebuilds_moods_with_canonical_track_and_album_ownership() {
+        let store = LibraryStore::open_in_memory();
+        let legacy_track = "e3b7fc2ae9447bbec37a13bf916e3cf6";
+        let legacy_album = "f47ac10b-58cc-4372-a567-0e02b2c3d479";
+        let legacy_library = "00112233445566778899aabbccddeeff";
+
+        let mut moving = track_with_moods(legacy_track);
+        moving.album_id = Some(legacy_album.into());
+        moving.library_id = Some(legacy_library.into());
+        let mut stable = track_with_moods("stable-track");
+        stable.album_id = Some(legacy_album.into());
+        stable.library_id = Some(legacy_library.into());
+        let mut other_server = track_with_moods("other-song");
+        other_server.server_id = "s2".into();
+        TrackRepository::new(&store)
+            .upsert_batch(&[moving, stable, other_server])
+            .unwrap();
+        store
+            .with_conn_mut("test.seed_native_album", |conn| {
+                conn.execute(
+                    "INSERT INTO album (server_id, id, name, synced_at, raw_json) \
+                     VALUES ('s1', ?1, 'Test Album', 1, ?2)",
+                    params![
+                        legacy_album,
+                        serde_json::json!({ "id": legacy_album, "name": "Test Album" }).to_string()
+                    ],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+
+        // The original projection was marked complete before Navidrome changed IDs.
+        run_mood_tags_backfill_impl(&store, None).unwrap();
+        assert!(!inspect_mood_tags_backfill(&store).unwrap().needed);
+
+        for step in [
+            NavidromeNativeMigrationStep::Album,
+            NavidromeNativeMigrationStep::Track,
+        ] {
+            let upper = upper_rowid(&store, "s1", step).unwrap();
+            run_batch(&store, "s1", step, 0, upper, 100).unwrap();
+        }
+        finalize(&store, "s1").unwrap();
+
+        assert!(inspect_mood_tags_backfill(&store).unwrap().needed);
+        let stale_rows: i64 = store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood WHERE server_id = 's1'",
+                    [],
+                    |r| r.get(0),
+                )
+            })
+            .unwrap();
+        assert_eq!(stale_rows, 0);
+
+        run_mood_tags_backfill_impl(&store, None).unwrap();
+
+        let rows: Vec<(String, String, String)> = store
+            .with_read_conn(|conn| {
+                let mut stmt = conn.prepare(
+                    "SELECT track_id, album_id, library_id FROM track_mood \
+                     WHERE server_id = 's1' AND mood = 'Atmospheric' ORDER BY track_id",
+                )?;
+                let rows = stmt
+                    .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                Ok(rows)
+            })
+            .unwrap();
+        let mut expected = vec![
+            (
+                canonical_id(legacy_track),
+                canonical_id(legacy_album),
+                canonical_id(legacy_library),
+            ),
+            (
+                "stable-track".into(),
+                canonical_id(legacy_album),
+                canonical_id(legacy_library),
+            ),
+        ];
+        expected.sort_by(|left, right| left.0.cmp(&right.0));
+        assert_eq!(rows, expected);
+        let other_server_moods: i64 = store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood WHERE server_id = 's2' AND track_id = 'other-song'",
+                    [],
+                    |row| row.get(0),
+                )
+            })
+            .unwrap();
+        assert_eq!(other_server_moods, 3);
+        assert!(!inspect_mood_tags_backfill(&store).unwrap().needed);
     }
 }

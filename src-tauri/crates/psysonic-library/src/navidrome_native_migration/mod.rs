@@ -161,6 +161,7 @@ pub fn finalize(
         let mut removed = 0u64;
         for (table, column) in [
             ("track_genre", "server_id"),
+            ("track_mood", "server_id"),
             ("album_browse_projection", "server_id"),
             ("composer_album_projection", "server_id"),
             ("artist_credit_projection", "server_id"),
@@ -190,9 +191,12 @@ pub fn finalize(
             params![server_id],
         )?;
         tx.execute(
-            "DELETE FROM library_data_migration WHERE id IN (?1, ?2, ?3, ?4)",
+            // The tags backfills are global: after a server's IDs and library/album
+            // ownership change, rerun them from raw_json for all live tracks.
+            "DELETE FROM library_data_migration WHERE id IN (?1, ?2, ?3, ?4, ?5)",
             params![
                 crate::genre_tags_backfill::GENRE_TAGS_MIGRATION_ID,
+                crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID,
                 crate::browse_projection::MIGRATION_ID,
                 crate::composer_projection::MIGRATION_ID,
                 crate::artist_credit_projection::MIGRATION_ID,
@@ -333,6 +337,7 @@ pub fn has_rebuildable_state(store: &LibraryStore, server_id: &str) -> Result<bo
             let main_state = conn.query_row(
                 "SELECT \
                    EXISTS(SELECT 1 FROM track_genre WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM track_mood WHERE server_id = ?1) OR \
                    EXISTS(SELECT 1 FROM album_browse_projection WHERE server_id = ?1) OR \
                    EXISTS(SELECT 1 FROM composer_album_projection WHERE server_id = ?1) OR \
                    EXISTS(SELECT 1 FROM artist_artwork_lookup WHERE server_id = ?1) OR \

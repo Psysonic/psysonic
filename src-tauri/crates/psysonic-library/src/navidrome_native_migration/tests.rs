@@ -991,6 +991,26 @@ fn finalization_clears_rebuildable_state_and_rebuilds_fts() {
                 params![canonical_track],
             )?;
             conn.execute(
+                "INSERT INTO track_mood (server_id, track_id, mood, album_id, library_id) \
+                 VALUES ('s1', ?1, 'Dreamy', 'old-album', 'old-library')",
+                params![canonical_track],
+            )?;
+            conn.execute(
+                "INSERT INTO library_data_migration (id, cursor_rowid, completed_at) \
+                 VALUES (?1, 1, 1)",
+                params![crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
+            )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, synced_at, raw_json) \
+                 VALUES ('s2', 'other-song', 'Other', 'Album', 1, '{}')",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track_mood (server_id, track_id, mood) \
+                 VALUES ('s2', 'other-song', 'Keep')",
+                [],
+            )?;
+            conn.execute(
                 "INSERT INTO sync_state (server_id, library_scope) VALUES ('s1', '')",
                 [],
             )?;
@@ -1005,9 +1025,9 @@ fn finalization_clears_rebuildable_state_and_rebuilds_fts() {
         .unwrap();
 
     let result = finalize(&store, "s1").unwrap();
-    assert_eq!(result.derived_rows_removed, 3);
+    assert_eq!(result.derived_rows_removed, 4);
 
-    let state: (i64, i64, i64, i64, i64) = store
+    let state: (i64, i64, i64, i64, i64, i64, i64, i64) = store
         .with_read_conn(|conn| {
             conn.query_row(
                 "SELECT \
@@ -1016,8 +1036,11 @@ fn finalization_clears_rebuildable_state_and_rebuilds_fts() {
                    (SELECT COUNT(*) FROM cluster.track_cluster_key WHERE server_id = 's1'), \
                    (SELECT COUNT(*) FROM identity_invalidation \
                       WHERE server_id = 's1' AND kind = 'server'), \
-                   (SELECT COUNT(*) FROM track_fts WHERE track_fts MATCH 'Canonical')",
-                [],
+                   (SELECT COUNT(*) FROM track_fts WHERE track_fts MATCH 'Canonical'), \
+                   (SELECT COUNT(*) FROM track_mood WHERE server_id = 's1'), \
+                   (SELECT COUNT(*) FROM track_mood WHERE server_id = 's2'), \
+                   (SELECT COUNT(*) FROM library_data_migration WHERE id = ?1)",
+                params![crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
                 |row| {
                     Ok((
                         row.get(0)?,
@@ -1025,12 +1048,15 @@ fn finalization_clears_rebuildable_state_and_rebuilds_fts() {
                         row.get(2)?,
                         row.get(3)?,
                         row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
                     ))
                 },
             )
         })
         .unwrap();
-    assert_eq!(state, (0, 0, 0, 1, 1));
+    assert_eq!(state, (0, 0, 0, 1, 1, 0, 1, 0));
 }
 
 #[test]
@@ -1042,6 +1068,29 @@ fn rebuildable_state_distinguishes_a_pristine_server() {
         .with_conn_mut("test.seed_rebuildable_state", |conn| {
             conn.execute(
                 "INSERT INTO sync_state (server_id, library_scope) VALUES ('s1', '')",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    assert!(has_rebuildable_state(&store, "s1").unwrap());
+    assert!(!has_rebuildable_state(&store, "s2").unwrap());
+}
+
+#[test]
+fn mood_rows_alone_count_as_rebuildable_native_state() {
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_conn_mut("test.seed_mood_rebuildable_state", |conn| {
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, synced_at, raw_json) \
+                 VALUES ('s1', 'song', 'Song', 'Album', 1, '{}')",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track_mood (server_id, track_id, mood) \
+                 VALUES ('s1', 'song', 'Dreamy')",
                 [],
             )?;
             Ok(())
@@ -1079,6 +1128,21 @@ fn finalization_rolls_back_cleanup_when_legacy_residue_remains() {
                 "INSERT INTO sync_state (server_id, library_scope) VALUES ('s1', '')",
                 [],
             )?;
+            conn.execute(
+                "INSERT INTO track (server_id, id, title, album, synced_at, raw_json) \
+                 VALUES ('s1', 'canonical-song', 'Song', 'Album', 1, '{}')",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track_mood (server_id, track_id, mood) \
+                 VALUES ('s1', 'canonical-song', 'Dreamy')",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO library_data_migration (id, cursor_rowid, completed_at) \
+                 VALUES (?1, 1, 1)",
+                params![crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
+            )?;
             Ok(())
         })
         .unwrap();
@@ -1086,18 +1150,20 @@ fn finalization_rolls_back_cleanup_when_legacy_residue_remains() {
     let error = finalize(&store, "s1").unwrap_err();
     assert!(error.contains("native migration residue in artist.id"));
 
-    let state: (i64, i64) = store
+    let state: (i64, i64, i64, i64) = store
         .with_read_conn(|conn| {
             conn.query_row(
                 "SELECT \
                    (SELECT COUNT(*) FROM sync_state WHERE server_id = 's1'), \
-                   (SELECT COUNT(*) FROM identity_invalidation WHERE server_id = 's1')",
-                [],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                   (SELECT COUNT(*) FROM identity_invalidation WHERE server_id = 's1'), \
+                   (SELECT COUNT(*) FROM track_mood WHERE server_id = 's1'), \
+                   (SELECT COUNT(*) FROM library_data_migration WHERE id = ?1)",
+                params![crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
             )
         })
         .unwrap();
-    assert_eq!(state, (1, 0));
+    assert_eq!(state, (1, 0, 1, 1));
 }
 
 #[test]
