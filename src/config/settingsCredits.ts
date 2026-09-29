@@ -629,6 +629,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Browse albums by file mood tags (PR #1675)',
     ],
   },
+  {
+    github: 'netherguy4',
+    since: '1.56.0',
+    contributions: [
+      'AppImage launches against the system WebKitGTK when one is installed (PR #1348)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the
