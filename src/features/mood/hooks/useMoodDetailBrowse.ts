@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   type RefObject,
 } from 'react';
@@ -17,6 +18,7 @@ import {
   albumBrowseSortForServer,
   clearMoodDetailReturnStash,
   isAlbumDetailPath,
+  isArtistDetailPath,
   isMoodDetailPath,
   moodDetailMoodFromPath,
   peekMoodDetailScrollRestore,
@@ -49,28 +51,27 @@ export function useMoodDetailBrowse(
 
   const restoredFromStashRef =
     useRef(false);
-  const restoreKeyRef = useRef('');
-  const restoreDisplayCountRef =
-    useRef<number | undefined>(undefined);
 
-  const restoreKey =
-    `${serverId}:${moodName}`;
-
-  // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
-  // eslint-disable-next-line react-hooks/refs
-  if (restoreKeyRef.current !== restoreKey) {
-    // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
-    // eslint-disable-next-line react-hooks/refs
-    restoreKeyRef.current = restoreKey;
-
-    // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
-    // eslint-disable-next-line react-hooks/refs
-    restoreDisplayCountRef.current =
-      peekMoodDetailScrollRestore(
-        serverId,
-        moodName,
-      )?.displayCount;
-  }
+  const restoreSnapshot = useMemo(
+    () => ({
+      displayCount:
+        peekMoodDetailScrollRestore(
+          serverId,
+          moodName,
+        )?.displayCount,
+      view:
+        new URLSearchParams(
+          location.search,
+        ).get('view') === 'tracks'
+          ? 'tracks' as const
+          : 'albums' as const,
+    }),
+    [
+      serverId,
+      moodName,
+      location.search,
+    ],
+  );
 
   useEffect(() => {
     restoredFromStashRef.current = false;
@@ -111,7 +112,10 @@ export function useMoodDetailBrowse(
       const path =
         window.location.pathname;
 
-      if (isAlbumDetailPath(path)) {
+      if (
+        isAlbumDetailPath(path) ||
+        isArtistDetailPath(path)
+      ) {
         // Read at cleanup time on purpose: we want the scroll snapshot as it is
         // at navigation-away. Copying it at effect setup would stash a stale value.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -153,8 +157,9 @@ export function useMoodDetailBrowse(
 
   return {
     sort,
-    // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
-    // eslint-disable-next-line react-hooks/refs
-    restoreDisplayCount: restoreDisplayCountRef.current,
+    restoreDisplayCount:
+      restoreSnapshot.displayCount,
+    // The saved count belongs to whichever tab was visible when detail navigation began.
+    restoreView: restoreSnapshot.view,
   };
 }
