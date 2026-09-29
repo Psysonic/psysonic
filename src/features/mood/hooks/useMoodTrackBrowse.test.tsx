@@ -152,6 +152,58 @@ describe('useMoodTrackBrowse', () => {
     );
   });
 
+  it('invalidates a cached track session after a library sync', async () => {
+    hoisted.fetchMoodTrackPage
+      .mockResolvedValueOnce({
+        songs: songs(0, 2),
+        hasMore: false,
+        total: 2,
+      })
+      .mockResolvedValueOnce({
+        songs: songs(0, 3),
+        hasMore: false,
+        total: 3,
+      });
+
+    const first = renderHook(() =>
+      useMoodTrackBrowse(
+        'srv-1',
+        'Sync Cache Refresh',
+        true,
+        true,
+        13,
+        browseScope,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(first.result.current.songs).toHaveLength(2),
+    );
+    expect(first.result.current.total).toBe(2);
+    expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(1);
+
+    first.unmount();
+
+    hoisted.useLibraryScopeSyncRevision.mockReturnValue(1);
+
+    const second = renderHook(() =>
+      useMoodTrackBrowse(
+        'srv-1',
+        'Sync Cache Refresh',
+        true,
+        true,
+        13,
+        browseScope,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(second.result.current.songs).toHaveLength(3),
+    );
+    expect(second.result.current.total).toBe(3);
+    expect(second.result.current.loading).toBe(false);
+    expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(2);
+  });
   it('does not cache a readiness failure as an empty result', async () => {
     hoisted.fetchMoodTrackPage
       .mockResolvedValueOnce(null)
