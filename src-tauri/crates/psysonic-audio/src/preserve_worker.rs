@@ -30,6 +30,12 @@ const WORKER_IDLE_SLEEP: Duration = Duration::from_millis(1);
 // commit gate short; the worker continues filling the ring after handoff.
 const SEEK_PREFILL_MILLIS: usize = 20;
 const PREPARED_DRAIN_PER_POLL: usize = 8;
+// rodio's `Player` wraps every source in `speed(1.0)`, and `Speed::try_seek`
+// rescales the position with `Duration::mul_f32` even at factor 1.0. Depending
+// on the toolchain's std, that f32 round-trip moves the commit position by up to
+// half an f32 ulp (< 1 ms below 2^14 s), so the prepared seek is matched by its
+// exact id and a position within this window.
+const SEEK_POS_TOLERANCE_NANOS: u64 = 2_000_000;
 
 mod seek;
 mod streaming;
@@ -221,7 +227,10 @@ impl PreserveOffload {
         };
         let desired = shared.desired_id.load(Ordering::Acquire);
         if shared.active_id.load(Ordering::Acquire) == desired
-            && shared.active_pos_nanos.load(Ordering::Acquire) == duration_nanos(pos)
+            && seek_pos_matches(
+                shared.active_pos_nanos.load(Ordering::Acquire),
+                duration_nanos(pos),
+            )
         {
             return Ok(());
         }
@@ -231,11 +240,10 @@ impl PreserveOffload {
             });
         }
         self.collect_prepared();
-        let Some(index) = self
-            .prepared
-            .iter()
-            .position(|prepared| prepared.id == desired && prepared.pos == pos)
-        else {
+        let Some(index) = self.prepared.iter().position(|prepared| {
+            prepared.id == desired
+                && seek_pos_matches(duration_nanos(prepared.pos), duration_nanos(pos))
+        }) else {
             return Err(rodio::source::SeekError::Other(Arc::new(
                 std::io::Error::new(
                     std::io::ErrorKind::WouldBlock,
@@ -311,6 +319,10 @@ impl PreserveOffload {
 
 fn duration_nanos(duration: Duration) -> u64 {
     duration.as_nanos().min(u64::MAX as u128) as u64
+}
+
+fn seek_pos_matches(a: u64, b: u64) -> bool {
+    a.abs_diff(b) <= SEEK_POS_TOLERANCE_NANOS
 }
 
 impl Drop for PreserveOffload {
