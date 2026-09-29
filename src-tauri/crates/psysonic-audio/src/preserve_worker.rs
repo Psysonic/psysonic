@@ -33,8 +33,9 @@ const PREPARED_DRAIN_PER_POLL: usize = 8;
 // rodio's `Player` wraps every source in `speed(1.0)`, and `Speed::try_seek`
 // rescales the position with `Duration::mul_f32` even at factor 1.0. Depending
 // on the toolchain's std, that f32 round-trip moves the commit position by up to
-// half an f32 ulp (< 1 ms below 2^14 s), so the prepared seek is matched by its
-// exact id and a position within this window.
+// half an f32 ulp, which grows with the position (3.9 ms above 2^16 s). The
+// prepared seek is matched by its exact id and a position within one full f32
+// ulp of the larger value, never less than this floor.
 const SEEK_POS_TOLERANCE_NANOS: u64 = 2_000_000;
 
 mod seek;
@@ -322,7 +323,8 @@ fn duration_nanos(duration: Duration) -> u64 {
 }
 
 fn seek_pos_matches(a: u64, b: u64) -> bool {
-    a.abs_diff(b) <= SEEK_POS_TOLERANCE_NANOS
+    // f32 has a 24-bit significand, so `x >> 23` is at least one ulp at `x`.
+    a.abs_diff(b) <= SEEK_POS_TOLERANCE_NANOS.max(a.max(b) >> 23)
 }
 
 impl Drop for PreserveOffload {
