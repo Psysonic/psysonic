@@ -5,7 +5,7 @@ resolver = "2"
 [workspace.package]
 version = "1.56.0-dev"
 edition = "2021"
-rust-version = "1.95"
+rust-version = "1.98"
 license = "GPL-3.0-or-later"
 
 [workspace.dependencies]
