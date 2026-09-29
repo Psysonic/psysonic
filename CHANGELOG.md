@@ -136,6 +136,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Internet radio stations that stream AAC stopped with a stream error in the AppImage, because the media plugins it ships include no AAC decoder. When the AppImage runs on your system WebKitGTK, it now uses your system's media plugins first, so AAC stations play. Plugins your system lacks still come from the AppImage.
 
+### Seeking works on the first play of a streamed track
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1686](https://github.com/Psysonic/psysonic/pull/1686)**
+
+* Seeking in a track that was streaming for the first time could fail with "streaming seek was not prepared": playback went silent, the position jumped back, and only Stop or another track brought the sound back. Seeks now land where you click, including on the first play.
+
 ## [1.55.0]
 
 ## Added
