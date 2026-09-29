@@ -64,10 +64,27 @@ describe('albumListFetchType / albumListFetchParams', () => {
     expect(albumListFetchParams('byYearDesc')).toEqual({ fromYear: 9999, toYear: 0 });
   });
 
+  it('narrows the year range to the year filter in the sort direction', () => {
+    expect(albumListFetchParams('byYear', { from: 1990, to: 1999 }))
+      .toEqual({ fromYear: 1990, toYear: 1999 });
+    expect(albumListFetchParams('byYearDesc', { from: 1990, to: 1999 }))
+      .toEqual({ fromYear: 1999, toYear: 1990 });
+    expect(albumListFetchParams('byYearDesc', { from: 1999, to: 1990 }))
+      .toEqual({ fromYear: 1999, toYear: 1990 });
+  });
+
+  it('fills an open year-filter bound with the full year range', () => {
+    expect(albumListFetchParams('byYearDesc', { from: 2000 }))
+      .toEqual({ fromYear: 9999, toYear: 2000 });
+    expect(albumListFetchParams('byYear', { to: 1970 }))
+      .toEqual({ fromYear: 0, toYear: 1970 });
+  });
+
   it('needs no extra params for the alphabetical sorts', () => {
     expect(albumListFetchType('byArtistThenYear')).toBe('alphabeticalByArtist');
     expect(albumListFetchParams('alphabeticalByName')).toEqual({});
     expect(albumListFetchParams('byArtistThenYear')).toEqual({});
+    expect(albumListFetchParams('alphabeticalByName', { from: 1990 })).toEqual({});
   });
 });
 

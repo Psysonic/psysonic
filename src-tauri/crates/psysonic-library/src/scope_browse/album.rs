@@ -5,6 +5,8 @@ enum AlbumSort {
     Name,
     Artist,
     ArtistYear,
+    Year,
+    YearDesc,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,6 +49,13 @@ fn album_sort(sort: &[LibrarySortClause]) -> Result<AlbumSort, String> {
         [] | ["name"] | ["name", "artist"] => Ok(AlbumSort::Name),
         ["artist"] | ["artist", "name"] => Ok(AlbumSort::Artist),
         ["artist", "year"] | ["artist", "year", "name"] => Ok(AlbumSort::ArtistYear),
+        ["year"] | ["year", "artist"] | ["year", "artist", "name"] => {
+            Ok(if matches!(sort[0].dir, crate::dto::SortDir::Desc) {
+                AlbumSort::YearDesc
+            } else {
+                AlbumSort::Year
+            })
+        }
         _ => Err("unsupported scope browse album sort".into()),
     }
 }
@@ -62,6 +71,12 @@ fn order_sql(sort: AlbumSort) -> &'static str {
         AlbumSort::ArtistYear => {
             "COALESCE(artist, '') COLLATE NOCASE ASC, COALESCE(year, 0) ASC, name COLLATE NOCASE ASC, album_id ASC"
         }
+        AlbumSort::Year => {
+            "COALESCE(year, 0) ASC, COALESCE(artist, '') COLLATE NOCASE ASC, name COLLATE NOCASE ASC, album_id ASC"
+        }
+        AlbumSort::YearDesc => {
+            "COALESCE(year, 0) DESC, COALESCE(artist, '') COLLATE NOCASE ASC, name COLLATE NOCASE ASC, album_id ASC"
+        }
     }
 }
 
@@ -70,12 +85,13 @@ fn candidate_cmp(sort: AlbumSort, a: &AlbumCandidate, b: &AlbumCandidate) -> Ord
     let by_name = || fold(&a.name).cmp(&fold(&b.name));
     let by_artist =
         || fold(a.artist.as_deref().unwrap_or("")).cmp(&fold(b.artist.as_deref().unwrap_or("")));
+    let by_year = || a.year.unwrap_or(0).cmp(&b.year.unwrap_or(0));
     let order = match sort {
         AlbumSort::Name => by_name().then_with(by_artist),
         AlbumSort::Artist => by_artist().then_with(by_name),
-        AlbumSort::ArtistYear => by_artist()
-            .then_with(|| a.year.unwrap_or(0).cmp(&b.year.unwrap_or(0)))
-            .then_with(by_name),
+        AlbumSort::ArtistYear => by_artist().then_with(by_year).then_with(by_name),
+        AlbumSort::Year => by_year().then_with(by_artist).then_with(by_name),
+        AlbumSort::YearDesc => by_year().reverse().then_with(by_artist).then_with(by_name),
     };
     order
         .then_with(|| a.priority.cmp(&b.priority))
@@ -162,6 +178,21 @@ fn seek_sql(sort: AlbumSort, position: Option<&AlbumCursorPosition>) -> (String,
                 SqlValue::Text(position.artist.clone()),
                 SqlValue::Integer(position.year),
                 SqlValue::Integer(position.year),
+                SqlValue::Text(position.name.clone()),
+                SqlValue::Text(position.name.clone()),
+                SqlValue::Text(position.album_id.clone()),
+            ],
+        ),
+        AlbumSort::Year | AlbumSort::YearDesc => (
+            format!(
+                "AND (COALESCE(year, 0) {} ? OR (COALESCE(year, 0) = ? AND (COALESCE(artist, '') COLLATE NOCASE > ? OR (COALESCE(artist, '') COLLATE NOCASE = ? AND (name COLLATE NOCASE > ? OR (name COLLATE NOCASE = ? AND album_id > ?))))))",
+                if sort == AlbumSort::YearDesc { "<" } else { ">" },
+            ),
+            vec![
+                SqlValue::Integer(position.year),
+                SqlValue::Integer(position.year),
+                SqlValue::Text(position.artist.clone()),
+                SqlValue::Text(position.artist.clone()),
                 SqlValue::Text(position.name.clone()),
                 SqlValue::Text(position.name.clone()),
                 SqlValue::Text(position.album_id.clone()),

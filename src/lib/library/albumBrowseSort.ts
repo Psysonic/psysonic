@@ -1,5 +1,6 @@
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import type { LibrarySortClause } from '@/lib/api/library';
+import type { AlbumYearBounds } from './albumYearFilter';
 
 export type AlbumBrowseSort =
   | 'alphabeticalByName'
@@ -85,21 +86,34 @@ export function albumListFetchType(
 }
 
 /**
- * Extra `getAlbumList` params for an unfiltered browse sort. The Subsonic
- * `byYear` list requires `fromYear`/`toYear`, so span every plausible year
- * (0 keeps albums without a year tag in the list). The server lists newest
- * first when `fromYear` is greater than `toYear`.
+ * Extra `getAlbumList` params for a browse sort, narrowed by the year filter
+ * when one is set. The Subsonic `byYear` list requires `fromYear`/`toYear`, so
+ * an open bound spans every plausible year (0 keeps albums without a year tag
+ * in the list). The server lists newest first when `fromYear` is greater than
+ * `toYear`, so the range follows the sort direction: re-sorting each page in
+ * `sortSubsonicAlbums` cannot fix the year order across pages.
  */
-export function albumListFetchParams(sort: AlbumBrowseSort): Record<string, number> {
-  if (sort === 'byYear') return { fromYear: 0, toYear: 9999 };
-  if (sort === 'byYearDesc') return { fromYear: 9999, toYear: 0 };
-  return {};
+export function albumListFetchParams(
+  sort: AlbumBrowseSort,
+  year?: AlbumYearBounds,
+): Record<string, number> {
+  if (!isYearSort(sort)) return {};
+  const from = year?.from ?? 0;
+  const to = year?.to ?? 9999;
+  const oldest = Math.min(from, to);
+  const newest = Math.max(from, to);
+  return sort === 'byYearDesc'
+    ? { fromYear: newest, toYear: oldest }
+    : { fromYear: oldest, toYear: newest };
 }
 
 export function sortSubsonicAlbums(albums: SubsonicAlbum[], sort: AlbumBrowseSort): SubsonicAlbum[] {
   const out = [...albums];
   out.sort((a, b) => {
     if (isYearSort(sort)) {
+      // The server already returns pages in year order (see `albumListFetchParams`);
+      // artist and title only tie-break within this page, not across a year
+      // that spans a page boundary.
       const byYear = (a.year ?? 0) - (b.year ?? 0);
       return (
         (sort === 'byYearDesc' ? -byYear : byYear) ||
