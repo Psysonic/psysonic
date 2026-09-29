@@ -143,10 +143,7 @@ where
         .and_then(|_| restore_analysis(&old_analysis_work, active_analysis));
     let restored_verification = verify_pair();
 
-    if library_restore.is_ok()
-        && analysis_restore.is_ok()
-        && restored_verification.is_ok()
-    {
+    if library_restore.is_ok() && analysis_restore.is_ok() && restored_verification.is_ok() {
         let mut cleanup_paths = library_backups.to_vec();
         cleanup_paths.extend_from_slice(analysis_backups);
         cleanup_paths.extend([

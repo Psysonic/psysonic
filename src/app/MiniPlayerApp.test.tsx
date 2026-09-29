@@ -7,10 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.mock factories run before module-level vars are initialized; route the
 // shared mocks through vi.hoisted() so the references resolve in time.
-const { themeRehydrate, fontRehydrate, keybindingsRehydrate } = vi.hoisted(() => ({
+const { themeRehydrate, fontRehydrate, keybindingsRehydrate, authRehydrate } = vi.hoisted(() => ({
   themeRehydrate: vi.fn(),
   fontRehydrate: vi.fn(),
   keybindingsRehydrate: vi.fn(),
+  authRehydrate: vi.fn(),
 }));
 
 vi.mock('../store/themeStore', () => ({
@@ -22,10 +23,16 @@ vi.mock('../store/fontStore', () => ({
 vi.mock('../store/keybindingsStore', () => ({
   useKeybindingsStore: { persist: { rehydrate: keybindingsRehydrate } },
 }));
+vi.mock('../store/authStore', () => ({
+  useAuthStore: { persist: { rehydrate: authRehydrate } },
+}));
 vi.mock('@/lib/perf/perfFlags', () => ({
   usePerfProbeFlags: () => ({ disableTooltipPortal: true }),
 }));
-vi.mock('@/lib/i18n', () => ({
+vi.mock('@/lib/i18n', async () => ({
+  // Keep the real `normalizeLanguageCode` so the guard is exercised for real;
+  // only the instance itself is stubbed.
+  ...(await vi.importActual<typeof import('@/lib/i18n')>('@/lib/i18n')),
   default: { changeLanguage: vi.fn() },
 }));
 vi.mock('@/features/miniPlayer', () => ({ default: () => <div data-testid="mini-player" /> }));
@@ -44,6 +51,7 @@ beforeEach(() => {
   themeRehydrate.mockClear();
   fontRehydrate.mockClear();
   keybindingsRehydrate.mockClear();
+  authRehydrate.mockClear();
   vi.mocked(i18n.changeLanguage).mockClear();
 });
 
@@ -90,6 +98,13 @@ describe('MiniPlayerApp', () => {
       expect(keybindingsRehydrate).toHaveBeenCalledTimes(1);
     });
 
+    it('rehydrates authStore on psysonic-auth writes so settings reach the mini', () => {
+      render(<MiniPlayerApp />);
+      fireStorage('psysonic-auth');
+      expect(authRehydrate).toHaveBeenCalledTimes(1);
+      expect(themeRehydrate).not.toHaveBeenCalled();
+    });
+
     it('switches i18n language on psysonic_language writes', () => {
       render(<MiniPlayerApp />);
       fireStorage('psysonic_language', 'de');
@@ -99,6 +114,18 @@ describe('MiniPlayerApp', () => {
     it('ignores psysonic_language when newValue is empty', () => {
       render(<MiniPlayerApp />);
       fireStorage('psysonic_language', '');
+      expect(i18n.changeLanguage).not.toHaveBeenCalled();
+    });
+
+    it('unwraps a quoted psysonic_language value before switching', () => {
+      render(<MiniPlayerApp />);
+      fireStorage('psysonic_language', '"de"');
+      expect(i18n.changeLanguage).toHaveBeenCalledWith('de');
+    });
+
+    it('ignores a psysonic_language value it cannot use', () => {
+      render(<MiniPlayerApp />);
+      fireStorage('psysonic_language', 'not a language');
       expect(i18n.changeLanguage).not.toHaveBeenCalled();
     });
 

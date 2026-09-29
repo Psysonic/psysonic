@@ -7,27 +7,34 @@ import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
 import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
 import { SettingsSubCard, SettingsField } from '@/features/settings/components/SettingsSubCard';
-import type { DiscordCoverSource } from '@/store/authStoreTypes';
 import { BackdropSourceList } from '@/features/settings/components/BackdropSourceList';
+import type { DiscordCoverSource } from '@/store/authStoreTypes';
 import type { BackdropSurface } from '@/store/themeStore';
 import type { BackdropSource } from '@/cover/artistBackdrop';
+import { CoverSourceList } from '@/features/settings/components/CoverSourceList';
+import { externalSourcesSwitchedOff, type CoverSource } from '@/cover/coverSources';
 import { MusicNetworkSection } from '@/features/settings/components/musicNetwork/MusicNetworkSection';
-import { purgeExternalArtworkAllServers } from '@/lib/api/coverCache';
+import { purgeExternalAlbumArt, purgeExternalArtworkAllServers } from '@/lib/api/coverCache';
+import { useShareSettingsStore } from '@/features/share';
+import { usePlayQueueSyncSettingsStore } from '@/features/playback';
 
 export function IntegrationsTab() {
   const { t } = useTranslation();
   const auth = useAuthStore();
   const theme = useThemeStore();
+  const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
+  const navidromeSharesDownloadable = useShareSettingsStore(state => state.navidromeSharesDownloadable);
+  const setNavidromeSharingEnabled = useShareSettingsStore(state => state.setNavidromeSharingEnabled);
+  const setNavidromeSharesDownloadable = useShareSettingsStore(
+    state => state.setNavidromeSharesDownloadable,
+  );
+  const playQueueSyncEnabled = usePlayQueueSyncSettingsStore(state => state.enabled);
+  const setPlayQueueSyncEnabled = usePlayQueueSyncSettingsStore(state => state.setEnabled);
 
   const backdropSurfaces: { key: BackdropSurface; label: string }[] = [
     { key: 'mainstageHero', label: t('settings.backdropSurfaceMainstage') },
     { key: 'artistDetailHero', label: t('settings.backdropSurfaceArtistDetail') },
     { key: 'fullscreenPlayer', label: t('settings.backdropSurfaceFullscreen') },
-  ];
-  const discordCoverOptions: SegmentedOption<DiscordCoverSource>[] = [
-    { id: 'none', label: t('settings.discordCoverNone') },
-    { id: 'server', label: t('settings.discordCoverServer') },
-    { id: 'apple', label: t('settings.discordCoverApple') },
   ];
   const backdropSourceLabel = (s: BackdropSource): string =>
     s === 'banner'
@@ -35,6 +42,15 @@ export function IntegrationsTab() {
       : s === 'fanart'
         ? t('settings.backdropSourceFanart')
         : t('settings.backdropSourceNavidrome');
+  const discordCoverOptions: SegmentedOption<DiscordCoverSource>[] = [
+    { id: 'none', label: t('settings.discordCoverNone') },
+    { id: 'server', label: t('settings.discordCoverServer') },
+    { id: 'apple', label: t('settings.discordCoverApple') },
+  ];
+  const coverSourceLabel = (s: CoverSource): string =>
+    s === 'server' ? t('settings.coverSourceServer')
+    : s === 'apple' ? t('settings.coverSourceApple')
+    : t('settings.coverSourceLastfm');
 
   return (
     <>
@@ -54,6 +70,41 @@ export function IntegrationsTab() {
           />
         </div>
       </div>
+
+      {/* Navidrome-native integrations */}
+      <SettingsSubSection
+        title="Navidrome"
+        icon={<Wifi size={16} />}
+      >
+        <div className="settings-card">
+          <SettingsGroup title={t('settings.playQueueSyncTitle')}>
+            <SettingsToggle
+              desc={t('settings.playQueueSyncDesc')}
+              ariaLabel={t('settings.playQueueSyncTitle')}
+              checked={playQueueSyncEnabled}
+              onChange={setPlayQueueSyncEnabled}
+            />
+          </SettingsGroup>
+          <SettingsGroup title={t('shared.navidromeSharingTitle')}>
+            <SettingsToggle
+              desc={t('shared.navidromeSharingDesc')}
+              ariaLabel={t('shared.navidromeSharingTitle')}
+              checked={navidromeSharingEnabled}
+              onChange={setNavidromeSharingEnabled}
+            />
+            {navidromeSharingEnabled && (
+              <SettingsSubCard style={{ marginTop: 'var(--space-3)' }}>
+                <SettingsToggle
+                  label={t('shared.allowDownloadsTitle')}
+                  desc={t('shared.allowDownloadsDesc')}
+                  checked={navidromeSharesDownloadable}
+                  onChange={setNavidromeSharesDownloadable}
+                />
+              </SettingsSubCard>
+            )}
+          </SettingsGroup>
+        </div>
+      </SettingsSubSection>
 
       {/* Music Network — scrobbling + enrichment across multiple services */}
       <MusicNetworkSection />
@@ -85,6 +136,10 @@ export function IntegrationsTab() {
                   value={auth.discordCoverSource}
                   onChange={auth.setDiscordCoverSource}
                   ariaLabel={t('settings.discordCoverTitle')}
+                  // These three labels differ by more than a factor of two in
+                  // length, and translations widen the gap. Equal-width
+                  // segments would clip the longest one at both ends.
+                  className="settings-segmented-auto"
                 />
               </SettingsGroup>
 
@@ -130,6 +185,30 @@ export function IntegrationsTab() {
               </SettingsGroup>
             </>
           )}
+        </div>
+      </SettingsSubSection>
+
+      {/* Cover source chain — library-wide art */}
+      <SettingsSubSection
+        title={t('settings.coverSourceSectionTitle')}
+        icon={<ImageIcon size={16} />}
+      >
+        <div className="settings-card">
+          <SettingsGroup title={t('settings.coverSourceTitle')} desc={t('settings.coverSourceDesc')}>
+            <CoverSourceList
+              sources={auth.coverSources}
+              labelFor={coverSourceLabel}
+              onChange={next => {
+                // Switching a provider off also takes back the covers it put in
+                // place — they would otherwise stay until the cache is cleared.
+                const switchedOff = externalSourcesSwitchedOff(auth.coverSources, next);
+                auth.setCoverSources(next);
+                void purgeExternalAlbumArt(switchedOff);
+              }}
+              moveUpLabel={t('settings.backdropMoveUp')}
+              moveDownLabel={t('settings.backdropMoveDown')}
+            />
+          </SettingsGroup>
         </div>
       </SettingsSubSection>
 
@@ -236,7 +315,7 @@ export function IntegrationsTab() {
         </div>
       </SettingsSubSection>
 
-      {/* Now-Playing Share (Navidrome) */}
+      {/* Now-Playing Share (Subsonic / OpenSubsonic) */}
       <SettingsSubSection
         title={t('settings.nowPlayingEnabled')}
         icon={<Wifi size={16} />}
@@ -253,6 +332,7 @@ export function IntegrationsTab() {
           </SettingsGroup>
         </div>
       </SettingsSubSection>
+
     </>
   );
 }

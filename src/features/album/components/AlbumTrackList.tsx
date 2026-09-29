@@ -1,7 +1,8 @@
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import type { Track } from '@/lib/media/trackTypes';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import { useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
+import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/lib/hooks/useIsMobile';
@@ -17,6 +18,7 @@ import { TracklistColumnPicker } from '@/ui/TracklistColumnPicker';
 import { TracklistHeaderRow } from '@/features/album/components/TracklistHeaderRow';
 import { DiscHeaderCover } from '@/features/album/components/DiscHeaderCover';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
+import { songToTrack } from '@/lib/media/songToTrack';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 
 export type { SortKey } from '@/features/album/utils/albumTrackListHelpers';
@@ -71,6 +73,24 @@ export default function AlbumTrackList({
   const isMobile = useIsMobile();
   const [contextMenuSongKey, setContextMenuSongKey] = useState<string | null>(null);
   const contextMenuOpen = usePlayerStore(s => s.contextMenu.isOpen);
+  const openContextMenu = usePlayerStore(s => s.openContextMenu);
+
+  /**
+   * A right-click inside a multi-row selection addresses the whole selection,
+   * the same way the album and artist grids do. A single picked row keeps the
+   * regular per-track menu, which carries far more actions.
+   */
+  const handleRowContextMenu = useCallback<AlbumTrackListProps['onContextMenu']>((x, y, track, type) => {
+    const { selectedIds } = useSelectionStore.getState();
+    if (selectedIds.size > 1) {
+      const selected = songs.filter(song => selectedIds.has(ownedEntityKey(song)));
+      if (selected.length > 1) {
+        openContextMenu(x, y, selected.map(songToTrack), 'multi-song');
+        return;
+      }
+    }
+    onContextMenu(x, y, track, type);
+  }, [songs, onContextMenu, openContextMenu]);
 
   const {
     colVisible, visibleCols, gridStyle,
@@ -110,6 +130,40 @@ export default function AlbumTrackList({
     [policy.canFavorite, visibleCols],
   );
 
+  // Rows render disc by disc; a stable sort by disc gives the same top-to-bottom order.
+  const cursorSongs = useMemo(
+    () => (sorted ? songs : [...songs].sort((a, b) => (a.discNumber ?? 1) - (b.discNumber ?? 1))),
+    [songs, sorted],
+  );
+  const cursorKeys = useMemo(() => cursorSongs.map(ownedEntityKey), [cursorSongs]);
+  const cursor = useTrackListCursor({
+    keys: cursorKeys,
+    onActivate: index => {
+      const song = cursorSongs[index];
+      if (!song) return;
+      if (onDoubleClickSong) onDoubleClickSong(song);
+      else onPlaySong(song);
+    },
+  });
+  const cursorKey = cursor.cursorIndex === null ? null : cursorKeys[cursor.cursorIndex];
+  const { setCursorFromClick } = cursor;
+  const handleCursorClick = useCallback((song: SubsonicSong, e: React.MouseEvent) => {
+    setCursorFromClick(cursorKeys.indexOf(ownedEntityKey(song)), e);
+  }, [cursorKeys, setCursorFromClick]);
+
+  // Read through a ref so a moving cursor does not re-render every memoised row.
+  const cursorKeyRef = useRef(cursorKey);
+  // React Compiler refs rule: ref kept in sync with the latest value for use in event handlers; not render data.
+  // eslint-disable-next-line react-hooks/refs
+  cursorKeyRef.current = cursorKey;
+  // A Ctrl click that starts a multi-selection takes the highlighted row along.
+  const handleSelectionStart = useCallback((song: SubsonicSong) => {
+    const key = cursorKeyRef.current;
+    if (!key || key === ownedEntityKey(song)) return;
+    const cursorGlobalIdx = songs.findIndex(s => ownedEntityKey(s) === key);
+    if (cursorGlobalIdx >= 0) onToggleSelect(key, cursorGlobalIdx, false);
+  }, [songs, onToggleSelect]);
+
   if (isMobile) {
     return (
       <AlbumTrackListMobile
@@ -144,6 +198,7 @@ export default function AlbumTrackList({
         className="tracklist"
         ref={tracklistRef}
         data-preview-loc="albums"
+        {...cursor.listProps}
         onClick={e => {
           if (inSelectMode && e.target === e.currentTarget) useSelectionStore.getState().clearAll();
         }}
@@ -195,11 +250,14 @@ export default function AlbumTrackList({
                 onDoubleClickSong={onDoubleClickSong}
                 onRate={onRate}
                 onToggleSongStar={onToggleSongStar}
-                onContextMenu={onContextMenu}
+                onContextMenu={handleRowContextMenu}
                 onToggleSelect={onToggleSelect}
                 onDragStart={onDragStart}
                 setContextMenuSongKey={setContextMenuSongKey}
                 actionPolicy={policy}
+                cursorRowId={songKey === cursorKey ? cursor.cursorRowId : undefined}
+                onCursorClick={handleCursorClick}
+                onSelectionStart={handleSelectionStart}
               />
             );
           })}

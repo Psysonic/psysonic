@@ -1,0 +1,203 @@
+export const burner = {
+  title: 'CD 刻录',
+  discTitleLabel: '光盘标题',
+  discTitlePlaceholder: '为这张光盘命名…',
+
+  recorder: '刻录机',
+  noRecorders: '未找到 CD 刻录机',
+  refreshDrives: '刷新驱动器',
+  eraseDisc: '擦除光盘',
+  reloadDisc: '重新读取光盘',
+  reloading: '正在弹出光盘…',
+  reloadDone: '光盘已弹出。请重新推入，然后按“刷新”。',
+  reloadHint:
+    '驱动器可能仍按上次排演结束时的状态描述这张光盘。弹出并重新载入会让它重新读取。',
+  erasing: '正在擦除光盘…',
+  eraseDone: '光盘已擦除。',
+  mediaLabel: '介质',
+  mediaBlankSuffix: '，空白',
+  noDisc: '无光盘',
+  capacityLabel: '容量',
+  capacityValue: '{{minutes}} · {{sectors}} 个扇区',
+  platformUnsupported: '此平台不支持 CD 刻录。',
+
+  ringLabel: '光盘容量：{{count}} 首曲目，已用 {{used}} / {{capacity}}',
+  hubRemaining: '剩余',
+  hubOverCapacity: '超出',
+  hubTrackOf: '第 {{number}} 首，共 {{total}} 首',
+  hubTrackCount_one: '{{count}} 首曲目',
+  hubTrackCount_other: '{{count}} 首曲目',
+  hubPhaseNote: {
+    fetching: '正在从你的服务器下载',
+    analyzing: '正在测量响度',
+    rendering: '正在转换为 CD 音频',
+    preparing: '正在准备光盘',
+    writing: '正在写入光盘',
+    closing: '正在完成光盘',
+  },
+
+  runningOrder: '曲目顺序',
+
+  colNumber: '#',
+  colTrack: '曲目',
+  colArtist: '艺术家',
+  colTime: '时长',
+  colStart: '开始',
+
+  metricHeadroom: '余量',
+  metricOverBy: '超出',
+  metricToFetch: '待下载',
+  metricWritten: '已写入',
+  metricTook: '用时',
+
+  modeLabel: '写入模式',
+  modeBurn: '刻录',
+  modeRehearse: '排演',
+
+  prepareStopFree: '尚未写入任何内容 — 现在停止不会有任何损失。',
+  abort: '中止刻录',
+  abortConfirm: '毁掉这张光盘',
+  burnAnother: '再刻一张',
+
+  outcomeWritten: '光盘已刻录 — {{count}} 首曲目 · {{duration}} · 用时 {{elapsed}}',
+  outcomeRehearsed: '排演已完成。光盘上没有写入任何内容。',
+  outcomeFailed: '刻录失败。',
+  outcomeCancelled: '刻录已停止。',
+  discSpoiled: '这张 CD-R 已被部分写入，无法再次使用。',
+  discBlank: '没有写入任何内容；光盘仍是空白的。',
+  failHintBuffer:
+    '驱动器没有可写入的音频了。关闭繁重的磁盘任务并降低刻录速度通常可以解决。',
+  failHintMedia: '请检查光盘：音频 CD 需要空白的 CD-R 或 CD-RW。',
+  failHintPermission: '其他程序正占用驱动器。请关闭后重试。',
+
+  speedTraceLabel: '正在以 {{now}}× 写入，最低 {{low}}×',
+  totalRuntime: '{{duration}}',
+  trackCount_one: '{{count}} 首曲目',
+  trackCount_other: '{{count}} 首曲目',
+  emptyTitle: '队列中还没有曲目。',
+  emptyHint: '右键点击曲目、专辑或播放列表，然后选择“添加到 CD”。',
+  fetchNote: '未在本地缓存的曲目会在刻录开始时自动下载。',
+  removeTrack: '移除 {{title}}',
+  rowWritten: '已写入光盘',
+  trackWillDownloadHint: '尚未在本地缓存。刻录会在写入前从你的服务器下载。',
+  willDownload_one:
+    '将先下载 {{count}} 首曲目（约 {{size}}）。不会向你的离线库添加任何内容。',
+  willDownload_other:
+    '将先下载 {{count}} 首曲目（约 {{size}}）。不会向你的离线库添加任何内容。',
+
+  metricElapsed: '已用时间',
+  metricRemaining: '剩余时间',
+  metricTotal: '总时间',
+  metricRuntime: '光盘时长',
+  metricSpeed: '正在以 {{speed}}× 写入',
+
+  options: '刻录选项',
+  writeSpeed: '写入速度',
+  speedAuto: '自动',
+  gapless: '无间隙',
+  gaplessHint: '曲目之间没有 2 秒间隙。Disc-At-Once，与压制 CD 相同。',
+  normalize: '统一音量',
+  normalizeHint: '分析响度并调整每首曲目的电平，让合辑听起来音量均匀。',
+  ejectWhenDone: '完成后弹出',
+  cdText: '写入 CD-TEXT',
+  cdTextHint:
+    '把曲目名和艺术家名保存到光盘上，供能够显示它们的播放器使用。你的驱动器报告支持此功能。',
+  cdTextUnavailable: '此驱动器无法写入 CD-TEXT。',
+  cdTextNoAnswer: '此驱动器未报告其写入能力，因此无法安全地提供 CD-TEXT。',
+  cdTextNoSao: 'CD-TEXT 需要 Session-At-Once 刻录，而此驱动器不支持。',
+  cdTextNoSubchannel:
+    '此驱动器无法写入承载 CD-TEXT 的 R-W 子通道。光盘仍会刻录，但没有曲目名。',
+
+  startBurn: '刻录光盘',
+  startTestWrite: '测试写入',
+  cancel: '停止',
+  cancelling: '正在停止…',
+  clear: '清空',
+
+  alertReady_one: '就绪 · {{count}} 首曲目 · {{runtime}} · 剩余 {{free}}',
+  alertReady_other: '就绪 · {{count}} 首曲目 · {{runtime}} · 剩余 {{free}}',
+  alertNoDisc: '请在驱动器中放入空白 CD-R 以刻录此曲目顺序。',
+  alertMore_one: '再显示 1 条消息',
+  alertMore_other: '再显示 {{count}} 条消息',
+
+  pillRehearsal: '排演',
+  pillWriting: '写入中',
+
+  seamLabel: '曲目顺序列表宽度',
+  seamValue: '{{px}} 像素',
+
+  movedTo: '{{title}} 已移到第 {{position}} 位，共 {{total}} 位',
+  removedAnnounce: '已移除 {{title}}',
+
+  cancelSpoilsDisc: 'CD-R 正在刻录。停止会让光盘无法使用 — CD-R 不能重写。',
+
+  mediaBlockerNoDisc: '驱动器中没有光盘。',
+  mediaBlockerNotCd: '这是 {{mediaType}}。音频 CD 需要空白的 CD-R 或 CD-RW。',
+  mediaBlockerAlreadyWritten: '此光盘已写入并封盘，无法再写入。',
+  mediaBlockerNotBlankRewritable: '此 CD-RW 已有数据。刻录前请先擦除。',
+  mediaBlockerNotBlankRecordable: '此 CD-R 不是空白的。音频 CD 必须一次性写入。',
+  mediaBlockerDriveRefused: '驱动器不接受此光盘。',
+  mediaBlockerDriveSilent: '驱动器未提供此光盘的信息。',
+  mediaBlockerUnknown: '无法向此光盘写入。',
+
+  blockerEmpty: '请至少添加一首曲目才能刻录光盘。',
+  blockerOverCapacity: '超出容量 {{over}}。请移除一首曲目或改用 80 分钟光盘。',
+  blockerTooManyTracks: '一张 CD 最多容纳 {{max}} 首曲目；此队列有 {{count}} 首。',
+
+  past74: '已超过 74:00。这张光盘装得下，但部分较旧的 CD 播放器在此之后可能出问题。',
+
+  readoutPhase: '阶段',
+  readoutMode: '写入模式',
+  readoutPosition: '位置 (MSF)',
+  readoutSectors: '扇区',
+  readoutBuffer: '缓冲区',
+  modeDao: 'DAO / 2352',
+  modeTest: 'DAO / TEST',
+  phaseIdle: '空闲',
+  phaseRehearsing: '排演中',
+  phase: {
+    fetching: '下载',
+    analyzing: '分析',
+    rendering: '转换',
+    preparing: '准备',
+    writing: '写入',
+    closing: '收尾',
+  },
+
+  toastAdded_one: '已将 {{count}} 首曲目添加到 CD。',
+  toastAdded_other: '已将 {{count}} 首曲目添加到 CD。',
+  toastAddedSome_one:
+    '已添加 {{count}} 首曲目；跳过 {{skipped}} 首，因为已在队列中或超出上限。',
+  toastAddedSome_other:
+    '已添加 {{count}} 首曲目；跳过 {{skipped}} 首，因为已在队列中或超出上限。',
+  toastNewDiscStarted: '已开始新光盘。上次刻录的曲目顺序已清空。',
+  toastAlreadyQueued: '已在 CD 上。',
+  toastDiscFull: '光盘已达到 {{max}} 首曲目的上限。',
+  toastBurnInProgress: '正在刻录。请先停止，再修改队列。',
+  toastCancelled: '刻录已停止。',
+  toastBurnDone_one: '光盘已刻录 — {{count}} 首曲目。',
+  toastBurnDone_other: '光盘已刻录 — {{count}} 首曲目。',
+  toastCdTextSkipped:
+    '光盘在没有 CD-TEXT 的情况下完成刻录 — 此驱动器在这里无法写入，因此播放器不会显示曲目名。',
+  toastTestWriteDone: '测试写入已完成。光盘上没有写入任何内容。',
+  toastCdTextVerified_one: '已在光盘上验证 CD-TEXT（{{count}} 个数据包）。',
+  toastCdTextVerified_other: '已在光盘上验证 CD-TEXT（{{count}} 个数据包）。',
+  toastCdTextUnconfirmed:
+    '光盘已刻录，音频没有问题，但回读时未找到 CD-TEXT。驱动器常常沿用光盘放入时的内容，因此这可能只是过时的读取结果 — 请在能显示曲目名的播放器中试试这张光盘。',
+  toastCdTextUnreadable:
+    '光盘已刻录，音频没有问题。此驱动器不肯报告光盘的 CD-TEXT，因此无法在这里确认是否写入 — 请在能显示曲目名的播放器中试试这张光盘。',
+
+  trackListing: '曲目列表',
+  listingUntitled: '混音 CD',
+  listingSummary_one: '{{count}} 首曲目 · {{duration}}',
+  listingSummary_other: '{{count}} 首曲目 · {{duration}}',
+  listingCopy: '复制',
+  listingCopied: '曲目列表已复制。',
+  listingCopyFailed: '无法复制曲目列表。',
+  listingSave: '保存 .txt',
+  listingSaveTitle: '保存曲目列表',
+  listingSaved: '曲目列表已保存。',
+  listingPrint: '打印',
+
+  addToCd: '添加到 CD',
+};

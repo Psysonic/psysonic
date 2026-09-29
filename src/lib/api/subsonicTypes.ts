@@ -85,6 +85,11 @@ export interface SubsonicSong {
   genre?: string;
   /** OpenSubsonic atomic genres — preferred over splitting `genre`. */
   genres?: SubsonicItemGenre[];
+  /**
+   * OpenSubsonic mood tags read from the file (MOOD / TMOO). Flat strings, not
+   * the `{ name }` objects `genres` uses — measured against Navidrome 0.58+.
+   */
+  moods?: string[];
   path?: string;
   albumArtist?: string;
   /** OpenSubsonic: single-string album-artist for display (mirrors `albumArtists` joined). */
@@ -115,6 +120,14 @@ export interface SubsonicSong {
     subRole?: string;
     artist: { id?: string; name: string };
   }>;
+  /**
+   * The file's comment tag, as the server reports it. Per track, even though
+   * people mostly use it to say something about the whole release ("Remaster
+   * 2024"); `deriveAlbumComment` decides when that is safe to show as one.
+   */
+  comment?: string;
+  /** Album edition label the local index copies onto each track (`version` / `tags.albumversion`). */
+  albumVersion?: string;
 }
 
 export interface InternetRadioStation {
@@ -139,6 +152,14 @@ export interface SubsonicPlaylist {
   id: string;
   /** Owning server profile when playlists are aggregated across a Library scope. */
   serverId?: string;
+  /** Native Navidrome classification; absent when native metadata was unavailable. */
+  smart?: boolean;
+  /** Navidrome metadata was expected but unavailable, so membership must fail closed. */
+  smartMetadataUnavailable?: boolean;
+  /** Native smart rules retained for editor validation; absent when metadata was unavailable. */
+  smartRules?: Record<string, unknown>;
+  /** OpenSubsonic: the current user cannot edit this playlist. Absent on plain Subsonic servers. */
+  readonly?: boolean;
   name: string;
   songCount: number;
   duration: number;

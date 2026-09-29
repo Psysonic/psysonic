@@ -1,5 +1,5 @@
 import { getSongForServer } from '@/lib/api/subsonicLibrary';
-import { resolveAlbum, resolveArtist } from '@/features/offline';
+import { resolveAlbum, resolveArtist, resolvePlaylist } from '@/features/offline';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { songToTrack } from '@/lib/media/songToTrack';
 import type { Location, NavigateFunction } from 'react-router';
@@ -12,6 +12,7 @@ import {
   buildAlbumDetailPath,
   buildArtistDetailPath,
   buildComposerDetailPath,
+  buildPlaylistDetailPath,
 } from '@/lib/navigation/detailServerScope';
 import { activateShareServer, lookupShareServer } from '@/features/share/shareServerResolution';
 import { normalizeNavidromeExternalId } from '@/lib/server/navidromeCanonicalExternalId';
@@ -170,6 +171,17 @@ export async function applySharePastePayload(
       activateShareServer(lookup.serverId);
       navigate(buildComposerDetailPath(id!, { serverId: lookup.serverId }));
       showToast(t('sharePaste.openedComposer'), 3000, 'info');
+      return;
+    }
+
+    if (payload.k === 'playlist') {
+      const playlistResult = await resolvePlaylist(lookup.serverId, id!);
+      if (!playlistResult) {
+        showToast(t('sharePaste.genericError'), 5000, 'error');
+        return;
+      }
+      activateShareServer(lookup.serverId);
+      navigate(buildPlaylistDetailPath(id!, { serverId: lookup.serverId }));
       return;
     }
 

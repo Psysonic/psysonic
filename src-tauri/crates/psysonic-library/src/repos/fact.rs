@@ -196,7 +196,12 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    fn fact(kind: &str, source_kind: &str, value_int: Option<i64>, expires_at: Option<i64>) -> FactInputDto {
+    fn fact(
+        kind: &str,
+        source_kind: &str,
+        value_int: Option<i64>,
+        expires_at: Option<i64>,
+    ) -> FactInputDto {
         FactInputDto {
             fact_kind: kind.into(),
             value_real: None,
@@ -228,7 +233,8 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         seed_track(&store, "s1", "t1");
         let repo = FactRepository::new(&store);
-        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 100).unwrap();
+        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 100)
+            .unwrap();
         let facts = repo.get("s1", "t1", &[], 200).unwrap();
         assert_eq!(facts.len(), 1);
         assert_eq!(facts[0].fact_kind, "bpm");
@@ -241,8 +247,15 @@ mod tests {
         seed_track(&store, "s1", "t1");
         let repo = FactRepository::new(&store);
         // expires at t=150
-        repo.put("s1", "t1", &fact("energy", "external_api", Some(5), Some(150)), 100).unwrap();
-        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 100).unwrap();
+        repo.put(
+            "s1",
+            "t1",
+            &fact("energy", "external_api", Some(5), Some(150)),
+            100,
+        )
+        .unwrap();
+        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 100)
+            .unwrap();
 
         // read at t=200 → energy expired, dropped + excluded; bpm survives.
         let facts = repo.get("s1", "t1", &[], 200).unwrap();
@@ -251,7 +264,9 @@ mod tests {
 
         // and it was actually deleted from the table (not just filtered).
         let total: i64 = store
-            .with_conn("misc", |c| c.query_row("SELECT COUNT(*) FROM track_fact", [], |r| r.get(0)))
+            .with_conn("misc", |c| {
+                c.query_row("SELECT COUNT(*) FROM track_fact", [], |r| r.get(0))
+            })
             .unwrap();
         assert_eq!(total, 1);
     }
@@ -289,7 +304,9 @@ mod tests {
         writer.join().unwrap();
         reader.join().unwrap();
 
-        let facts = result.expect("read-only fact lookup blocked on writer").unwrap();
+        let facts = result
+            .expect("read-only fact lookup blocked on writer")
+            .unwrap();
         assert_eq!(facts.len(), 1);
     }
 
@@ -298,8 +315,10 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         seed_track(&store, "s1", "t1");
         let repo = FactRepository::new(&store);
-        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 1).unwrap();
-        repo.put("s1", "t1", &fact("energy", "analysis", Some(7), None), 1).unwrap();
+        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 1)
+            .unwrap();
+        repo.put("s1", "t1", &fact("energy", "analysis", Some(7), None), 1)
+            .unwrap();
         let facts = repo.get("s1", "t1", &["bpm".into()], 2).unwrap();
         assert_eq!(facts.len(), 1);
         assert_eq!(facts[0].fact_kind, "bpm");
@@ -310,10 +329,15 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         seed_track(&store, "s1", "t1");
         let repo = FactRepository::new(&store);
-        repo.put("s1", "t1", &fact("bpm", "user", Some(128), None), 1).unwrap();
+        repo.put("s1", "t1", &fact("bpm", "user", Some(128), None), 1)
+            .unwrap();
         let bpm: Option<i64> = store
             .with_conn("misc", |c| {
-                c.query_row("SELECT bpm FROM track WHERE server_id='s1' AND id='t1'", [], |r| r.get(0))
+                c.query_row(
+                    "SELECT bpm FROM track WHERE server_id='s1' AND id='t1'",
+                    [],
+                    |r| r.get(0),
+                )
             })
             .unwrap();
         assert_eq!(bpm, Some(128), "user bpm override must write track.bpm");
@@ -324,13 +348,21 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         seed_track(&store, "s1", "t1");
         let repo = FactRepository::new(&store);
-        repo.put("s1", "t1", &fact("bpm", "analysis", Some(99), None), 1).unwrap();
+        repo.put("s1", "t1", &fact("bpm", "analysis", Some(99), None), 1)
+            .unwrap();
         let bpm: Option<i64> = store
             .with_conn("misc", |c| {
-                c.query_row("SELECT bpm FROM track WHERE server_id='s1' AND id='t1'", [], |r| r.get(0))
+                c.query_row(
+                    "SELECT bpm FROM track WHERE server_id='s1' AND id='t1'",
+                    [],
+                    |r| r.get(0),
+                )
             })
             .unwrap();
-        assert_eq!(bpm, None, "only a user override writes the hot column (§5.12)");
+        assert_eq!(
+            bpm, None,
+            "only a user override writes the hot column (§5.12)"
+        );
     }
 
     #[test]
@@ -338,8 +370,10 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         seed_track(&store, "s1", "t1");
         let repo = FactRepository::new(&store);
-        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 1).unwrap();
-        repo.put("s1", "t1", &fact("bpm", "analysis", Some(124), None), 2).unwrap();
+        repo.put("s1", "t1", &fact("bpm", "analysis", Some(120), None), 1)
+            .unwrap();
+        repo.put("s1", "t1", &fact("bpm", "analysis", Some(124), None), 2)
+            .unwrap();
         let facts = repo.get("s1", "t1", &[], 3).unwrap();
         assert_eq!(facts.len(), 1, "same (kind, source) updates in place");
         assert_eq!(facts[0].value_int, Some(124));

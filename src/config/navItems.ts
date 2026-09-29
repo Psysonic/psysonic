@@ -1,14 +1,15 @@
 import React from 'react';
 import {
   Disc3, Users, Music4, Radio, Heart, BarChart3,
-  HelpCircle, Tags, ListMusic, Cast, TrendingUp,
+  HelpCircle, Tags, Smile, ListMusic, Cast, TrendingUp,
   FolderOpen, HardDriveUpload, Wand2, Shuffle, Dices, Sparkles,
-  AudioLines, Feather, Gem,
+  AudioLines, Feather, Gem, Flame, Share2,
 } from 'lucide-react';
 
 export interface NavItemMeta {
   icon: React.ElementType;
   labelKey: string;
+  defaultLabel?: string;
   to: string;
   section: 'library' | 'system';
 }
@@ -26,13 +27,16 @@ export const ALL_NAV_ITEMS: Record<string, NavItemMeta> = {
   artists:      { icon: Users,          labelKey: 'sidebar.artists',      to: '/artists',       section: 'library' },
   composers:    { icon: Feather,        labelKey: 'sidebar.composers',    to: '/composers',     section: 'library' },
   genres:       { icon: Tags,           labelKey: 'sidebar.genres',       to: '/genres',        section: 'library' },
+  moods:        { icon: Smile,          labelKey: 'sidebar.moods',        defaultLabel: 'Moods', to: '/moods', section: 'library' },
   favorites:    { icon: Heart,          labelKey: 'sidebar.favorites',    to: '/favorites',     section: 'library' },
   playlists:    { icon: ListMusic,      labelKey: 'sidebar.playlists',    to: '/playlists',     section: 'library' },
+  shared:       { icon: Share2,         labelKey: 'sidebar.shared',       defaultLabel: 'ND Shares', to: '/shared', section: 'library' },
   mostPlayed:   { icon: TrendingUp,     labelKey: 'sidebar.mostPlayed',   to: '/most-played',   section: 'library' },
   losslessAlbums:{ icon: Gem,           labelKey: 'sidebar.losslessAlbums',to: '/lossless-albums',section: 'library' },
   radio:        { icon: Cast,           labelKey: 'sidebar.radio',        to: '/radio',         section: 'library' },
   folderBrowser:{ icon: FolderOpen,     labelKey: 'sidebar.folderBrowser',to: '/folders',       section: 'library' },
   deviceSync:   { icon: HardDriveUpload,labelKey: 'sidebar.deviceSync',   to: '/device-sync',   section: 'library' },
+  burner:       { icon: Flame,          labelKey: 'sidebar.burner',       to: '/burn',          section: 'library' },
   statistics:   { icon: BarChart3,      labelKey: 'sidebar.statistics',   to: '/statistics',    section: 'system'  },
   help:         { icon: HelpCircle,     labelKey: 'sidebar.help',         to: '/help',          section: 'system'  },
 };

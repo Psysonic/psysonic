@@ -17,7 +17,9 @@ use super::error::SyncError;
 
 const MAX_ATTEMPTS_PER_BATCH: u32 = 5;
 
-pub fn check_cancel_flag(cancel: &Option<Arc<std::sync::atomic::AtomicBool>>) -> Result<(), SyncError> {
+pub fn check_cancel_flag(
+    cancel: &Option<Arc<std::sync::atomic::AtomicBool>>,
+) -> Result<(), SyncError> {
     if cancel.as_ref().is_some_and(|f| f.load(Ordering::SeqCst)) {
         return Err(SyncError::Cancelled);
     }
@@ -175,7 +177,10 @@ pub async fn fetch_albums_parallel(
     if album_ids.is_empty() {
         return Ok(Vec::new());
     }
-    wait_while_bulk_paused(&opts.budget, opts.sleep_enabled, || check_cancel_flag(&opts.cancel)).await?;
+    wait_while_bulk_paused(&opts.budget, opts.sleep_enabled, || {
+        check_cancel_flag(&opts.cancel)
+    })
+    .await?;
     let max = opts.budget.max_concurrent.max(1) as usize;
     let client = subsonic.clone();
     let sem = Arc::new(Semaphore::new(max));
@@ -217,7 +222,7 @@ pub async fn fetch_albums_parallel(
         out.push(
             handle
                 .await
-                .map_err(|e| SyncError::Transport(format!("parallel album fetch join: {e}")))??
+                .map_err(|e| SyncError::Transport(format!("parallel album fetch join: {e}")))??,
         );
     }
     Ok(out)

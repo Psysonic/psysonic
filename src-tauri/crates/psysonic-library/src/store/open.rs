@@ -7,15 +7,16 @@ use rusqlite::{functions::FunctionFlags, Connection, OpenFlags};
 
 use super::filesystem::library_db_path;
 use super::migrations::{
-    ensure_composer_browse_projection_schema, ensure_entity_user_rating_schema,
-    ensure_genre_tags_schema, ensure_mainstage_feed_indexes, ensure_scope_browse_projection_schema,
-    run_migrations, LIBRARY_DB_SCHEMA_VERSION,
+    ensure_additive_schema, ensure_composer_browse_projection_schema,
+    ensure_entity_user_rating_schema, ensure_genre_tags_schema, ensure_mainstage_feed_indexes,
+    ensure_scope_browse_projection_schema, run_migrations, verify_additive_schema,
+    LIBRARY_DB_SCHEMA_VERSION,
 };
 use super::reconciles::{
     maybe_reconcile_artist_name_fold, maybe_reconcile_artist_name_sort,
-    maybe_reconcile_duration_sec_backfill, maybe_reconcile_library_id_backfill,
-    maybe_reconcile_orphan_browse_rows, maybe_reconcile_replay_gain_peak,
-    reconcile_ready_rows_with_ingest_cursors,
+    maybe_reconcile_duration_sec_backfill, maybe_reconcile_genre_catalog_projection,
+    maybe_reconcile_library_id_backfill, maybe_reconcile_orphan_browse_rows,
+    maybe_reconcile_replay_gain_peak, reconcile_ready_rows_with_ingest_cursors,
 };
 use super::LibraryStore;
 
@@ -41,9 +42,7 @@ impl LibraryStore {
 
     pub fn init_with_migration_barrier(
         app: &tauri::AppHandle,
-        migration_write_barrier: Arc<
-            psysonic_core::migration_write_barrier::MigrationWriteBarrier,
-        >,
+        migration_write_barrier: Arc<psysonic_core::migration_write_barrier::MigrationWriteBarrier>,
     ) -> Result<Self, String> {
         let db_path = library_db_path(app)?;
         if let Some(parent) = db_path.parent() {
@@ -54,9 +53,7 @@ impl LibraryStore {
 
     fn open_file(
         db_path: &Path,
-        migration_write_barrier: Arc<
-            psysonic_core::migration_write_barrier::MigrationWriteBarrier,
-        >,
+        migration_write_barrier: Arc<psysonic_core::migration_write_barrier::MigrationWriteBarrier>,
     ) -> Result<Self, String> {
         let (write_conn, read_conn, mainstage_read_conn, scope_detail_read_conn) =
             open_database_connections(db_path).map_err(|e| e.to_string())?;
@@ -83,17 +80,13 @@ impl LibraryStore {
         let read_conn = Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
             .map_err(|error| error.to_string())?;
         configure_read_connection(&read_conn).map_err(|error| error.to_string())?;
-        let mainstage_read_conn = Connection::open_with_flags(
-            db_path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )
-        .map_err(|error| error.to_string())?;
+        let mainstage_read_conn =
+            Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| error.to_string())?;
         configure_read_connection(&mainstage_read_conn).map_err(|error| error.to_string())?;
-        let scope_detail_read_conn = Connection::open_with_flags(
-            db_path,
-            OpenFlags::SQLITE_OPEN_READ_ONLY,
-        )
-        .map_err(|error| error.to_string())?;
+        let scope_detail_read_conn =
+            Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+                .map_err(|error| error.to_string())?;
         configure_read_connection(&scope_detail_read_conn).map_err(|error| error.to_string())?;
 
         let cluster_uri = in_memory_cluster_uri();
@@ -173,6 +166,7 @@ impl LibraryStore {
     pub fn verify_operational_schema(&self) -> Result<(), String> {
         let (migration_head, missing_indexes, missing_triggers) =
             self.with_conn("store.verify_operational_schema", |conn| {
+                verify_additive_schema(conn)?;
                 let migration_head =
                     conn.query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
                         row.get::<_, Option<i64>>(0)
@@ -318,6 +312,7 @@ pub(super) fn open_database_connections(
 
 fn prepare_write_connection_for_open(conn: &Connection) -> rusqlite::Result<()> {
     run_migrations(conn)?;
+    ensure_additive_schema(conn)?;
     maybe_reconcile_artist_name_sort(conn)?;
     maybe_reconcile_artist_name_fold(conn)?;
     maybe_reconcile_replay_gain_peak(conn)?;
@@ -325,6 +320,7 @@ fn prepare_write_connection_for_open(conn: &Connection) -> rusqlite::Result<()> 
     maybe_reconcile_duration_sec_backfill(conn)?;
     maybe_reconcile_orphan_browse_rows(conn)?;
     ensure_genre_tags_schema(conn)?;
+    maybe_reconcile_genre_catalog_projection(conn)?;
     ensure_mainstage_feed_indexes(conn)?;
     ensure_entity_user_rating_schema(conn)?;
     ensure_scope_browse_projection_schema(conn)?;

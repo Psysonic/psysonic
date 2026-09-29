@@ -14,11 +14,11 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ringbuf::HeapCons;
 use ringbuf::traits::{Consumer, Observer};
+use ringbuf::HeapCons;
 use symphonia::core::io::MediaSource;
 
-use super::{RADIO_YIELD_MS};
+use super::RADIO_YIELD_MS;
 
 pub(crate) struct AudioStreamReader {
     pub(crate) read_timeout_secs: u64,
@@ -53,8 +53,7 @@ impl Read for AudioStreamReader {
         }
         if let Some(c) = newest {
             *self.cons.lock().unwrap() = c;
-            self.deadline =
-                std::time::Instant::now() + Duration::from_secs(self.read_timeout_secs);
+            self.deadline = std::time::Instant::now() + Duration::from_secs(self.read_timeout_secs);
         }
         loop {
             if self.gen_arc.load(Ordering::SeqCst) != self.gen {
@@ -106,6 +105,10 @@ impl Seek for AudioStreamReader {
 }
 
 impl MediaSource for AudioStreamReader {
-    fn is_seekable(&self) -> bool { false }
-    fn byte_len(&self) -> Option<u64> { None }
+    fn is_seekable(&self) -> bool {
+        false
+    }
+    fn byte_len(&self) -> Option<u64> {
+        None
+    }
 }

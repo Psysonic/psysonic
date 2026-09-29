@@ -42,7 +42,7 @@ export function useWaveformInterpolation({
     // On resume the first `tick` would add the entire pause duration to `elapsedSec` and
     // overshoot the playhead until the next transport heartbeat corrects it.
     const snap = getPlaybackProgressSnapshot();
-    const raw = snap.buffering || snap.currentTime < 0.005 ? 0 : snap.progress;
+    const raw = snap.currentTime < 0.005 ? 0 : snap.progress;
     progressRef.current = raw;
     progressAnchorRef.current = {
       progress: raw,
@@ -75,7 +75,33 @@ export function useWaveformInterpolation({
         return;
       }
       const snap = getPlaybackProgressSnapshot();
-      if (snap.buffering || snap.currentTime < 0.005) {
+      if (snap.buffering) {
+        const held = snap.currentTime < 0.005 ? 0 : snap.progress;
+        const heldVisual = isBarQuantizedSeekStyle(styleRef.current)
+          ? quantizeProgressByBars(held)
+          : held;
+        const visualChanged = Math.abs(heldVisual - visualProgressRef.current) > 0.000001;
+        progressRef.current = held;
+        visualTargetProgressRef.current = heldVisual;
+        visualProgressRef.current = heldVisual;
+        progressAnchorRef.current = { progress: held, atMs: now };
+        if (visualChanged && !ANIMATED_STYLES.has(styleRef.current)) {
+          const canvas = canvasRef.current;
+          if (canvas) {
+            drawSeekbar(
+              canvas,
+              styleRef.current,
+              heightsRef.current,
+              heldVisual,
+              bufferedRef.current,
+              animStateRef.current,
+            );
+          }
+        }
+        rafId = requestAnimationFrame(tick);
+        return;
+      }
+      if (snap.currentTime < 0.005) {
         progressRef.current = 0;
         visualTargetProgressRef.current = 0;
         visualProgressRef.current = 0;

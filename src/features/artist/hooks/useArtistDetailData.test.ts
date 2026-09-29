@@ -109,7 +109,7 @@ describe('useArtistDetailData — id-gated info', () => {
     ));
     expect(getArtistForServer).toHaveBeenCalledWith('srv-b', 'A');
     expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-b', 'A', {
-      similarArtistCount: undefined,
+      similarArtistCount: 24,
     });
     expect(getArtist).not.toHaveBeenCalled();
     expect(getArtistInfo).not.toHaveBeenCalled();

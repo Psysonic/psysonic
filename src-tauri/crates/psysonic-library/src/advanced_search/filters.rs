@@ -149,7 +149,16 @@ pub(super) fn multi_scope_track_filter_sql(
         }
     }
     if req.starred_only == Some(true) {
-        w.push_raw("t.starred_at IS NOT NULL");
+        if text_entity == Some(EntityKind::Artist) {
+            w.push_raw(
+                "EXISTS (SELECT 1 FROM artist starred_ar \
+                 WHERE starred_ar.server_id = t.server_id \
+                   AND starred_ar.id = t.artist_id \
+                   AND starred_ar.starred_at IS NOT NULL)",
+            );
+        } else {
+            w.push_raw("t.starred_at IS NOT NULL");
+        }
         applied.insert("starred".to_string());
     }
     push_album_id_allowlist(
@@ -200,8 +209,7 @@ pub(crate) fn resolve_clause(
         ("year", EntityKind::Album) => "a.year",
         ("starred", EntityKind::Track) => "t.starred_at",
         ("starred", EntityKind::Album) => "a.starred_at",
-        // `artist` has no `starred_at` column — favorites use the network list.
-        ("starred", EntityKind::Artist) => return Ok(None),
+        ("starred", EntityKind::Artist) => "ar.starred_at",
         ("mood_group" | "mood_tag", EntityKind::Track) => {
             return crate::advanced_search_mood::resolve_mood_clause(c);
         }

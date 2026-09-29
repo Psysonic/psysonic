@@ -65,6 +65,170 @@ fn list_artists_collapses_collaboration_track_names_for_one_artist_id() {
 }
 
 #[test]
+fn album_artist_browse_prefers_structured_id_over_same_name_rows() {
+    let store = LibraryStore::open_in_memory();
+    let mut row = track(
+        "s1",
+        "t1",
+        "Song",
+        Some("Blind Guardian"),
+        "Album",
+        "album-1",
+        Some("track-performer"),
+        200,
+        "lib-a",
+        None,
+        None,
+        None,
+    );
+    row.album_artist = Some("Blind Guardian".into());
+    row.raw_json = serde_json::json!({
+        "albumArtists": [
+            { "id": "structured-id", "name": " Blind Guardian" }
+        ]
+    })
+    .to_string();
+    TrackRepository::new(&store).upsert_batch(&[row]).unwrap();
+    store
+        .with_conn_mut("test.album_artist_ids", |conn| {
+            conn.execute_batch(
+                "INSERT INTO artist (server_id, id, name, name_sort, name_fold, album_count, synced_at)
+                 VALUES
+                   ('s1', 'canonical-id', 'Blind Guardian', 'blind guardian', 'blind guardian', 313, 1),
+                   ('s1', 'structured-id', 'Blind Guardian', 'blind guardian', 'blind guardian', 0, 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let (artists, total) = list_index_artists_layer1_filtered(
+        &store,
+        "s1",
+        &[scope_pair("s1", "lib-a")],
+        true,
+        "",
+        &[],
+        "ORDER BY ar.name COLLATE NOCASE ASC, ar.id ASC",
+        50,
+        0,
+        false,
+    )
+    .unwrap();
+
+    assert_eq!(total, 1);
+    assert_eq!(artists.len(), 1);
+    assert_eq!(artists[0].id, "structured-id");
+    assert_eq!(artists[0].name, "Blind Guardian");
+}
+
+#[test]
+fn artist_browse_modes_report_the_full_unique_credited_album_union() {
+    let store = LibraryStore::open_in_memory();
+    let mut own = track(
+        "s1",
+        "own-track",
+        "Mirror Mirror",
+        Some("Blind Guardian"),
+        "Nightfall in Middle-Earth",
+        "own-album",
+        Some("blind-primary"),
+        240,
+        "lib-a",
+        None,
+        None,
+        None,
+    );
+    own.raw_json = serde_json::json!({
+        "artists": [{ "id": "blind-primary", "name": "Blind Guardian" }],
+        "albumArtists": [{ "id": "blind-primary", "name": "Blind Guardian" }]
+    })
+    .to_string();
+    let mut compilation = track(
+        "s1",
+        "compilation-track",
+        "Beyond the Realms of Death",
+        Some("Blind Guardian"),
+        "A Tribute to Judas Priest",
+        "compilation-album",
+        Some("blind-primary"),
+        240,
+        "lib-a",
+        None,
+        None,
+        None,
+    );
+    compilation.album_artist = Some("Various Artists".into());
+    compilation.raw_json = serde_json::json!({
+        "artists": [{ "id": "blind-primary", "name": "Blind Guardian" }],
+        "albumArtists": [{ "id": "va", "name": "Various Artists" }],
+        "isCompilation": true
+    })
+    .to_string();
+    let mut alias = track(
+        "s1",
+        "alias-track",
+        "The Dragonborn Comes",
+        Some("Saltatio Mortis"),
+        "Finsterwacht",
+        "alias-album",
+        Some("saltatio"),
+        240,
+        "lib-a",
+        None,
+        None,
+        None,
+    );
+    alias.raw_json = serde_json::json!({
+        "artists": [{ "id": "saltatio", "name": "Saltatio Mortis" }],
+        "albumArtists": [{ "id": "blind-alias", "name": " Blind Guardian" }]
+    })
+    .to_string();
+    seed_and_rebuild(&store, &[own, compilation, alias]);
+    store
+        .with_conn_mut("test.artist_union_count", |conn| {
+            conn.execute_batch(
+                "UPDATE artist SET name_sort = 'blind guardian', name_fold = 'blind guardian', album_count = 1 \
+                 WHERE server_id = 's1' AND id = 'blind-primary'; \
+                 INSERT INTO artist (server_id, id, name, name_sort, name_fold, album_count, synced_at) \
+                 VALUES ('s1', 'blind-alias', ' Blind Guardian', 'blind guardian', 'blind guardian', 1, 1); \
+                 INSERT INTO artist (server_id, id, name, name_sort, name_fold, album_count, synced_at) \
+                 VALUES ('s1', 'va', 'Various Artists', 'various artists', 'various artists', 1, 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+    let scopes = [scope_pair("s1", "lib-a")];
+
+    let (track_mode, _) = list_artists_filtered(
+        &store,
+        &scopes,
+        "psysonic_lower_name(t.artist) = ?",
+        &[SqlValue::Text("blind guardian".into())],
+        "ORDER BY artist COLLATE NOCASE ASC",
+        10,
+        0,
+        true,
+    )
+    .unwrap();
+    let (album_mode, _) = list_index_artists_multi_scope_album_filtered(
+        &store,
+        &scopes,
+        "ar.name_fold = ?",
+        &[SqlValue::Text("blind guardian".into())],
+        "ORDER BY artist COLLATE NOCASE ASC",
+        10,
+        0,
+        true,
+    )
+    .unwrap();
+
+    assert_eq!(track_mode.len(), 1);
+    assert_eq!(album_mode.len(), 1);
+    assert_eq!(track_mode[0].album_count, Some(3));
+    assert_eq!(album_mode[0].album_count, Some(3));
+}
+
+#[test]
 fn album_merge_preserves_same_server_track_multiplicity_and_priority_winner_flips() {
     let store = LibraryStore::open_in_memory();
     let rows = [

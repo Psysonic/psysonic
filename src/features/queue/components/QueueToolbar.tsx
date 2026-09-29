@@ -3,31 +3,27 @@ import {
   Blend, Check, FolderOpen, Infinity as InfinityIcon, ListMusic, MoveRight, Save, Shuffle, Trash2, Waves,
 } from 'lucide-react';
 import type { TFunction } from 'i18next';
-import type { QueueItemRef } from '@/lib/media/trackTypes';
 import type {
   QueueToolbarButtonConfig,
   QueueToolbarButtonId,
 } from '@/store/queueToolbarStore';
 import { getTransitionMode, setTransitionMode } from '@/features/playback/utils/playback/playbackTransition';
 import { useOrbitStore } from '@/features/orbit';
+import { ShareMethodMenuButton, useShareSettingsStore } from '@/features/share';
 import { QueueShareButton } from '@/features/queue/components/QueueShareButton';
-import type { ServerChoiceOption } from '@/ui/ServerChoiceList';
+import type { QueueShareController } from '@/features/queue/hooks/useQueueShare';
 
 interface Props {
-  queue: QueueItemRef[];
   activePlaylist: { id: string; name: string } | null;
   saveState: 'idle' | 'saving' | 'saved';
   toolbarButtons: QueueToolbarButtonConfig[];
-  shuffleQueue: () => void;
+  shuffleMode: boolean;
+  toggleShuffleMode: () => void;
   handleSave: () => void;
   handleLoad: () => void;
-  handleCopyQueueShare: () => void;
-  sharePickerOpen: boolean;
-  queueServerOptions: ServerChoiceOption[];
-  defaultQueueServerId: string;
-  shareForServer: (serverId: string) => Promise<void>;
-  closeSharePicker: () => void;
+  queueShare: QueueShareController;
   handleClear: () => void;
+  handleClearExceptCurrent: () => void;
   publicShareQueueActive: boolean;
   gaplessEnabled: boolean;
   crossfadeEnabled: boolean;
@@ -40,10 +36,9 @@ interface Props {
 }
 
 export function QueueToolbar({
-  queue, activePlaylist, saveState, toolbarButtons, shuffleQueue,
-  handleSave, handleLoad, handleCopyQueueShare,
-  sharePickerOpen, queueServerOptions, defaultQueueServerId, shareForServer, closeSharePicker,
-  handleClear,
+  activePlaylist, saveState, toolbarButtons, shuffleMode, toggleShuffleMode,
+  handleSave, handleLoad, queueShare,
+  handleClear, handleClearExceptCurrent,
   publicShareQueueActive,
   gaplessEnabled, crossfadeEnabled, crossfadeTrimSilence,
   crossfadeSecs, setCrossfadeSecs,
@@ -52,6 +47,7 @@ export function QueueToolbar({
 }: Props) {
   const [showCrossfadePopover, setShowCrossfadePopover] = useState(false);
   const [showPlaylistMenu, setShowPlaylistMenu] = useState(false);
+  const navidromeSharingEnabled = useShareSettingsStore(state => state.navidromeSharingEnabled);
   const crossfadeBtnRef = useRef<HTMLButtonElement>(null);
   const crossfadePopoverRef = useRef<HTMLDivElement>(null);
   const playlistBtnRef = useRef<HTMLButtonElement>(null);
@@ -91,8 +87,16 @@ export function QueueToolbar({
 
         switch (btn.id as QueueToolbarButtonId) {
           case 'shuffle':
+            // Same persistent mode as the player bar button: switching it off restores the order.
             return (
-              <button key={btn.id} className="queue-round-btn" onClick={() => shuffleQueue()} disabled={queue.length < 2} data-tooltip={t('queue.shuffle')} aria-label={t('queue.shuffle')}>
+              <button
+                key={btn.id}
+                className={`queue-round-btn${shuffleMode ? ' active' : ''}`}
+                onClick={toggleShuffleMode}
+                aria-pressed={shuffleMode}
+                data-tooltip={`${t('queue.shuffle')}: ${shuffleMode ? t('player.shuffleOn') : t('player.shuffleOff')}`}
+                aria-label={t('queue.shuffle')}
+              >
                 <Shuffle size={13} />
               </button>
             );
@@ -134,25 +138,37 @@ export function QueueToolbar({
               </div>
             );
           case 'share':
-            return (
+            return navidromeSharingEnabled && queueShare.serverOptions.length <= 1 ? (
+              <ShareMethodMenuButton
+                key={btn.id}
+                label={publicShareQueueActive ? t('queue.shareNavidromePublic') : t('queue.shareQueue')}
+                request={queueShare.request}
+                className="queue-round-btn"
+                iconSize={13}
+              />
+            ) : (
               <QueueShareButton
                 key={btn.id}
                 label={publicShareQueueActive ? t('queue.shareNavidromePublic') : t('queue.shareQueue')}
-                open={sharePickerOpen}
-                options={queueServerOptions}
-                initialServerId={defaultQueueServerId}
-                onTrigger={() => {
-                  setShowCrossfadePopover(false);
-                  setShowPlaylistMenu(false);
-                  handleCopyQueueShare();
-                }}
-                onClose={closeSharePicker}
-                onShare={shareForServer}
+                open={queueShare.sharePickerOpen}
+                options={queueShare.serverOptions}
+                initialServerId={queueShare.defaultServerId}
+                onTrigger={() => { void queueShare.handleCopy(); }}
+                onClose={queueShare.closeSharePicker}
+                onShare={queueShare.shareForServer}
+                requestForServer={navidromeSharingEnabled ? queueShare.requestForServer : undefined}
               />
             );
           case 'clear':
             return (
-              <button key={btn.id} className="queue-round-btn" onClick={handleClear} data-tooltip={t('queue.clear')} aria-label={t('queue.clear')}>
+              <button
+                key={btn.id}
+                className="queue-round-btn"
+                onClick={handleClear}
+                onContextMenu={e => { e.preventDefault(); handleClearExceptCurrent(); }}
+                data-tooltip={t('queue.clear')}
+                aria-label={t('queue.clear')}
+              >
                 <Trash2 size={13} />
               </button>
             );

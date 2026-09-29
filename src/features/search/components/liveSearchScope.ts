@@ -13,6 +13,7 @@ export const SCOPE_NAV_ITEM: Record<LiveSearchScope, keyof typeof ALL_NAV_ITEMS>
   newReleases: 'newReleases',
   tracks: 'tracks',
   composers: 'composers',
+  favorites: 'favorites',
   playlists: 'playlists',
 };
 
@@ -27,6 +28,7 @@ export function resolveLiveSearchScopeGhost(
   if (isNewReleasesBrowsePath(pathname)) return 'newReleases';
   if (isTracksBrowsePath(pathname)) return 'tracks';
   if (isComposersBrowsePath(pathname)) return 'composers';
+  if (pathname === ALL_NAV_ITEMS.favorites.to) return 'favorites';
   if (isPlaylistsBrowsePath(pathname)) return 'playlists';
   return null;
 }
@@ -43,6 +45,8 @@ export function liveSearchScopePlaceholderKey(scope: LiveSearchScope | null): st
       return 'search.scopeTracksPlaceholder';
     case 'composers':
       return 'search.scopeComposersPlaceholder';
+    case 'favorites':
+      return 'search.scopeFavoritesPlaceholder';
     case 'playlists':
       return 'search.scopePlaylistsPlaceholder';
     default:
@@ -67,6 +71,8 @@ export function liveSearchScopeBadgeTooltipKey(scope: LiveSearchScope): string {
       return 'search.scopeTracksBadgeTooltip';
     case 'composers':
       return 'search.scopeComposersBadgeTooltip';
+    case 'favorites':
+      return 'search.scopeFavoritesBadgeTooltip';
     case 'playlists':
       return 'search.scopePlaylistsBadgeTooltip';
     default:
@@ -86,6 +92,8 @@ export function liveSearchScopeGhostTooltipKey(scope: LiveSearchScope): string {
       return 'search.scopeTracksGhostTooltip';
     case 'composers':
       return 'search.scopeComposersGhostTooltip';
+    case 'favorites':
+      return 'search.scopeFavoritesGhostTooltip';
     case 'playlists':
       return 'search.scopePlaylistsGhostTooltip';
     default:

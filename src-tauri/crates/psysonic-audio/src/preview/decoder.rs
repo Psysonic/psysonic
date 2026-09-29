@@ -163,6 +163,7 @@ pub(super) async fn open_preview_decoder(
             response,
             buf.clone(),
             downloaded_to.clone(),
+            None,
             download_control,
             state.stream_completed_cache.clone(),
             state.stream_completed_spill.clone(),
@@ -198,6 +199,9 @@ pub(super) async fn open_preview_decoder(
             // Preview plays a fixed short segment; no user seeking → no need for
             // the on-demand random-access fetcher.
             on_demand: None,
+            sequential_read_end: None,
+            sequential_read_bytes: 0,
+            superseded_reported: false,
         };
         let hint = stream_hint.clone();
         // Preview runs on its own generation: hovering away bumps `preview_gen`

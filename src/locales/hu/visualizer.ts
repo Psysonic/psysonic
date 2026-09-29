@@ -18,6 +18,9 @@ export const visualizer = {
     enableNowPlayingHint: 'Kártyaként adja hozzá a vizualizálót a Most szól oldalhoz.',
     enableFullscreen: 'Megjelenítés a teljes képernyős lejátszóban',
     enableFullscreenHint: 'Hozzáadja a vizualizálót az összes teljes képernyős lejátszóstílushoz.',
+    pauseWhenUnfocused: 'Szüneteltetés, amikor nem a Psysonic az aktív ablak',
+    pauseWhenUnfocusedHint:
+      'Leállítja a vizualizáló kirajzolását, amíg másik ablak aktív, így csökkenti a CPU és a GPU használatát.',
     mode: 'Alapértelmezett mód',
     sensitivity: 'Érzékenység',
     sensitivityHint: 'Kiemeli a halk részeket a hangos részek levágása nélkül.',
@@ -35,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Az alacsonyabb érték kevesebb processzort használ, miközben az animáció folyamatos marad.',
     radioNote:
       'Az internetes rádió azután jeleníthető meg, hogy az állomás csatlakozott a hangszínszabályzó hanggráfjához. Egyes streamek nem támogatják ezt az útvonalat.',
+    preview: 'Előnézet',
+    previewDemo: 'Bemutató jelet mutat, amíg semmi sem szól.',
+    previewLive: 'Az aktuális lejátszást mutatja.',
   },
 };

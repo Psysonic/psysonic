@@ -26,9 +26,10 @@ export const contextMenu = {
   addToPlaylist: 'プレイリストに追加',
   selectedPlaylists: '{{count}} 個のプレイリストを選択中',
   selectedAlbums: '{{count}} 枚のアルバムを選択中',
+  selectedSongs: '{{count}} 曲を選択中',
   selectedArtists: '{{count}} 人のアーティストを選択中',
   songInfo: '曲情報',
-  shareLink: '共有リンクをコピー',
+  shareLink: 'リンクを共有',
   shareCopied: '共有リンクをクリップボードにコピーしました。',
   shareCopyFailed: 'クリップボードにコピーできませんでした。',
 };

@@ -195,6 +195,24 @@ pub struct ServerHttpRegistry {
     ref_to_key: Mutex<HashMap<String, String>>,
 }
 
+fn detach_app_alias(
+    contexts: &mut HashMap<String, Arc<ServerHttpContext>>,
+    refs: &mut HashMap<String, String>,
+    app_server_id: &str,
+    index_key: &str,
+) {
+    refs.remove(app_server_id);
+    let still_referenced = refs
+        .iter()
+        .any(|(alias, mapped_key)| alias.as_str() != index_key && mapped_key.as_str() == index_key);
+    if still_referenced {
+        refs.insert(index_key.to_string(), index_key.to_string());
+    } else {
+        contexts.remove(index_key);
+        refs.remove(index_key);
+    }
+}
+
 impl ServerHttpRegistry {
     pub fn new() -> Self {
         Self::default()
@@ -208,14 +226,12 @@ impl ServerHttpRegistry {
         let mut refs = self.ref_to_key.lock().unwrap();
         if let Some(previous_key) = refs.get(&app_id).cloned() {
             if previous_key != index_key {
-                contexts.remove(&previous_key);
-                refs.remove(&previous_key);
+                detach_app_alias(&mut contexts, &mut refs, &app_id, &previous_key);
             }
         }
-        if ctx.headers.is_empty() && !ctx.supports_raw_stream {
-            contexts.remove(&index_key);
-            refs.remove(&index_key);
-            refs.remove(&app_id);
+        if ctx.endpoints.is_empty() {
+            let removal_key = refs.get(&app_id).cloned().unwrap_or(index_key);
+            detach_app_alias(&mut contexts, &mut refs, &app_id, &removal_key);
             return;
         }
         contexts.insert(index_key.clone(), Arc::clone(&ctx));
@@ -230,7 +246,7 @@ impl ServerHttpRegistry {
             let index_key = wire.server_id.clone();
             let app_id = wire.app_server_id.clone();
             let ctx = Arc::new(ServerHttpContext::from(wire));
-            if ctx.headers.is_empty() && !ctx.supports_raw_stream {
+            if ctx.endpoints.is_empty() {
                 continue;
             }
             new_contexts.insert(index_key.clone(), Arc::clone(&ctx));
@@ -244,13 +260,11 @@ impl ServerHttpRegistry {
     pub fn remove(&self, index_key: &str, app_server_id: &str) {
         let mut contexts = self.contexts.lock().unwrap();
         let mut refs = self.ref_to_key.lock().unwrap();
-        if let Some(mapped_key) = refs.get(app_server_id).cloned() {
-            contexts.remove(&mapped_key);
-            refs.remove(&mapped_key);
-        }
-        contexts.remove(index_key);
-        refs.remove(index_key);
-        refs.remove(app_server_id);
+        let removal_key = refs
+            .get(app_server_id)
+            .cloned()
+            .unwrap_or_else(|| index_key.to_string());
+        detach_app_alias(&mut contexts, &mut refs, app_server_id, &removal_key);
     }
 
     pub fn get(&self, index_key: &str) -> Option<Arc<ServerHttpContext>> {
@@ -315,7 +329,6 @@ impl ServerHttpRegistry {
         self.resolve_context(server_ref, full_http_url)
             .is_some_and(|ctx| ctx.supports_raw_stream)
     }
-
 }
 
 /// The single entry point for attaching a gated server's custom headers to any
@@ -346,10 +359,7 @@ mod tests {
     #[test]
     fn request_base_url_strips_rest_and_query() {
         let url = "https://music.example/rest/stream.view?id=1&u=x";
-        assert_eq!(
-            request_base_url_from_http_url(url),
-            "https://music.example"
-        );
+        assert_eq!(request_base_url_from_http_url(url), "https://music.example");
     }
 
     #[test]
@@ -366,7 +376,10 @@ mod tests {
         let lan = headers_for_request_base_url(&ctx, "http://192.168.0.10");
         assert!(lan.is_empty());
         let pub_ = headers_for_request_base_url(&ctx, "https://music.example");
-        assert_eq!(pub_.get("X-Gate").map(|v| v.to_str().ok()), Some(Some("secret")));
+        assert_eq!(
+            pub_.get("X-Gate").map(|v| v.to_str().ok()),
+            Some(Some("secret"))
+        );
     }
 
     #[test]
@@ -396,11 +409,17 @@ mod tests {
             .resolve_context(Some("some-stale-playback-id"), stream_url)
             .expect("stale ref must fall back to URL endpoint match");
         let headers = headers_for_request_base_url(&ctx, "http://127.0.0.1:8899");
-        assert_eq!(headers.get("X-Gate").map(|v| v.to_str().ok()), Some(Some("tok")));
+        assert_eq!(
+            headers.get("X-Gate").map(|v| v.to_str().ok()),
+            Some(Some("tok"))
+        );
 
         // A non-gated server URL never resolves — foreign servers stay untouched.
         assert!(reg
-            .resolve_context(Some("some-stale-playback-id"), "https://other.example/rest/stream.view?id=1")
+            .resolve_context(
+                Some("some-stale-playback-id"),
+                "https://other.example/rest/stream.view?id=1"
+            )
             .is_none());
     }
 
@@ -449,6 +468,29 @@ mod tests {
             "https://music.example"
         )
         .is_empty());
+    }
+
+    #[test]
+    fn endpoint_only_context_is_retained_for_standard_original_downloads() {
+        let reg = ServerHttpRegistry::new();
+        reg.sync(ServerHttpContextSyncWire {
+            server_id: "subsonic.example".into(),
+            app_server_id: "uuid-2".into(),
+            endpoints: vec![ServerHttpEndpointWire {
+                url: "https://subsonic.example".into(),
+                kind: EndpointKind::Public,
+            }],
+            custom_headers: Vec::new(),
+            custom_headers_apply_to: None,
+            supports_raw_stream: false,
+        });
+
+        assert!(reg
+            .resolve_context(
+                Some("uuid-2"),
+                "https://subsonic.example/rest/download.view?id=1"
+            )
+            .is_some());
     }
 
     #[test]
@@ -517,10 +559,54 @@ mod tests {
         });
 
         assert!(reg.get("old.example").is_none());
-        assert!(reg.get_for_server_ref("uuid-1").is_none());
-        assert!(!reg.supports_raw_stream_for_request(
-            None,
-            "https://old.example/rest/stream.view?id=1"
-        ));
+        assert!(reg.get("new.example").is_some());
+        assert!(reg.get_for_server_ref("uuid-1").is_some());
+        assert!(
+            !reg.supports_raw_stream_for_request(None, "https://old.example/rest/stream.view?id=1")
+        );
+    }
+
+    #[test]
+    fn profile_resync_preserves_a_shared_server_key_for_other_profiles() {
+        let reg = ServerHttpRegistry::new();
+        for app_server_id in ["uuid-1", "uuid-2"] {
+            reg.sync(ServerHttpContextSyncWire {
+                server_id: "shared.example".into(),
+                app_server_id: app_server_id.into(),
+                endpoints: vec![ServerHttpEndpointWire {
+                    url: "https://shared.example".into(),
+                    kind: EndpointKind::Public,
+                }],
+                custom_headers: Vec::new(),
+                custom_headers_apply_to: None,
+                supports_raw_stream: false,
+            });
+        }
+
+        reg.sync(ServerHttpContextSyncWire {
+            server_id: "moved.example".into(),
+            app_server_id: "uuid-1".into(),
+            endpoints: vec![ServerHttpEndpointWire {
+                url: "https://moved.example".into(),
+                kind: EndpointKind::Public,
+            }],
+            custom_headers: Vec::new(),
+            custom_headers_apply_to: None,
+            supports_raw_stream: false,
+        });
+
+        assert!(reg.get_for_server_ref("uuid-1").is_some_and(|context| {
+            context
+                .endpoints
+                .iter()
+                .any(|(url, _)| url == "https://moved.example")
+        }));
+        assert!(reg.get_for_server_ref("uuid-2").is_some_and(|context| {
+            context
+                .endpoints
+                .iter()
+                .any(|(url, _)| url == "https://shared.example")
+        }));
+        assert!(reg.get("shared.example").is_some());
     }
 }

@@ -100,7 +100,9 @@ mod tests {
     async fn supervisor_runs_task_to_completion_and_emits_progress() {
         let mut sup = SyncSupervisor::spawn_with_interval(
             |_cancel, progress| async move {
-                progress.emit(ProgressEvent::PhaseChanged { phase: "ingest".into() });
+                progress.emit(ProgressEvent::PhaseChanged {
+                    phase: "ingest".into(),
+                });
                 progress.emit(ProgressEvent::Completed {
                     kind: "initial_sync".into(),
                 });

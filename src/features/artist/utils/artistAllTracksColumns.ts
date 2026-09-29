@@ -23,6 +23,8 @@ export const ARTIST_ALL_TRACKS_COLUMNS: readonly ColDef[] = [
   // showing all of them at once overflows the artist page's content column.
   { key: 'format',     i18nKey: 'trackFormat',     minWidth: 60,  defaultWidth: 90,  required: false, defaultHidden: true },
   { key: 'genre',      i18nKey: 'trackGenre',      minWidth: 60,  defaultWidth: 90,  required: false, defaultHidden: true },
+  { key: 'genres',     i18nKey: 'trackGenres',     minWidth: 80,  defaultWidth: 150, required: false, defaultHidden: true },
+  { key: 'mood',       i18nKey: 'trackMood',       minWidth: 80,  defaultWidth: 150, required: false, defaultHidden: true },
   { key: 'year',       i18nKey: 'trackYear',       minWidth: 60,  defaultWidth: 80,  required: false, defaultHidden: true },
   { key: 'playCount',  i18nKey: 'trackPlayCount',  minWidth: 60,  defaultWidth: 80,  required: false, defaultHidden: true },
   { key: 'lastPlayed', i18nKey: 'trackLastPlayed', minWidth: 90,  defaultWidth: 130, required: false, defaultHidden: true },
@@ -31,7 +33,7 @@ export const ARTIST_ALL_TRACKS_COLUMNS: readonly ColDef[] = [
 
 export type ArtistAllTracksColKey =
   | 'num' | 'title' | 'album' | 'artist' | 'duration'
-  | 'format' | 'genre' | 'year' | 'playCount' | 'lastPlayed' | 'bpm';
+  | 'format' | 'genre' | 'genres' | 'mood' | 'year' | 'playCount' | 'lastPlayed' | 'bpm';
 
 /** Columns whose content is centred rather than left-aligned, as elsewhere. */
 export const ARTIST_ALL_TRACKS_CENTERED_COLS = new Set<ArtistAllTracksColKey>([

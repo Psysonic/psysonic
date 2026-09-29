@@ -1,0 +1,15 @@
+export const moods = {
+  title: 'Настроения',
+  moodCount: 'настроений',
+  moodCount_one: 'настроение',
+  moodCount_few: 'настроения',
+  moodCount_many: 'настроений',
+  albumCount_one: '{{count}} альбом',
+  albumCount_few: '{{count}} альбома',
+  albumCount_many: '{{count}} альбомов',
+  albumCount_other: '{{count}} альбомов',
+  loading: 'Загрузка настроений…',
+  empty: 'Настроения не найдены.',
+  albumsEmpty: 'Для этого настроения альбомов не найдено.',
+  back: 'Назад',
+};

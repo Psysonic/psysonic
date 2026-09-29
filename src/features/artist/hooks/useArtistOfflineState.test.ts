@@ -22,6 +22,7 @@ describe('useArtistOfflineState', () => {
           tier: 'library',
           cachedAt: 1,
           suffix: 'mp3',
+          originalBytesVerified: true,
           pinSource: { kind: 'artist', sourceId: 'al-1' },
         },
         'srv:al-2': {
@@ -33,6 +34,7 @@ describe('useArtistOfflineState', () => {
           tier: 'library',
           cachedAt: 1,
           suffix: 'mp3',
+          originalBytesVerified: true,
           pinSource: { kind: 'artist', sourceId: 'al-2' },
         },
       },

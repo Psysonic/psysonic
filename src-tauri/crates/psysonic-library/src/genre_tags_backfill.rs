@@ -60,11 +60,9 @@ fn migration_completed(conn: &Connection) -> Result<bool, rusqlite::Error> {
 }
 
 fn count_live_tracks(conn: &Connection) -> Result<u64, rusqlite::Error> {
-    let n: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM track WHERE deleted = 0",
-        [],
-        |r| r.get(0),
-    )?;
+    let n: i64 = conn.query_row("SELECT COUNT(*) FROM track WHERE deleted = 0", [], |r| {
+        r.get(0)
+    })?;
     Ok(n.max(0) as u64)
 }
 
@@ -314,6 +312,9 @@ mod tests {
         run_genre_tags_backfill_impl(&store, None).unwrap();
 
         let inspect = inspect_genre_tags_backfill(&store).unwrap();
-        assert!(!inspect.needed, "backfill should complete despite rowid gaps");
+        assert!(
+            !inspect.needed,
+            "backfill should complete despite rowid gaps"
+        );
     }
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { Disc3, Search, Music4, AudioLines, MoreHorizontal } from 'lucide-react';
@@ -6,6 +6,7 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { MobileSearchOverlay } from '@/features/search';
 import MobileMoreOverlay from '@/features/sidebar/components/MobileMoreOverlay';
 import { mainstageBrowseNavHandlers } from '@/features/sidebar/utils/mainstageBrowseNavHandlers';
+import { OPEN_SEARCH_EVENT } from '@/lib/dom/openSearch';
 
 const NAV_ITEMS = [
   { to: '/',            end: true,  icon: Disc3,      labelKey: 'sidebar.mainstage' },
@@ -19,6 +20,15 @@ export default function BottomNav() {
   const currentTrack = usePlayerStore(s => s.currentTrack);
   const [searchOpen, setSearchOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    const openSearch = (event: Event) => {
+      event.preventDefault();
+      setSearchOpen(true);
+    };
+    window.addEventListener(OPEN_SEARCH_EVENT, openSearch);
+    return () => window.removeEventListener(OPEN_SEARCH_EVENT, openSearch);
+  }, []);
 
   return (
     <>

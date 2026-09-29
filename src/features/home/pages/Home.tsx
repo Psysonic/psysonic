@@ -194,15 +194,13 @@ export default function Home() {
   const previousConnStatusRef = useRef(connStatus);
   const activeScopeRef = useRef({ scopeKey, scopeVersion });
 
+  useEffect(() => {
+    scheduleStartupSplashDismiss();
+  }, []);
+
   useLayoutEffect(() => {
     activeScopeRef.current = { scopeKey, scopeVersion };
   }, [scopeKey, scopeVersion]);
-
-  useEffect(() => {
-    const canLoadFeed = serverIds.length > 0 && !!scopeKey && !!anchorServerId;
-    if (loading && canLoadFeed) return;
-    scheduleStartupSplashDismiss();
-  }, [anchorServerId, loading, scopeKey, serverIds.length]);
 
   const applyFeedSnapshot = (snap: HomeFeedSnapshot) => {
     displayedSnapshotRef.current = snap;

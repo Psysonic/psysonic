@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Valgte i kø',
   playAll: 'Spill alle',
   playSelected: 'Spill valgte',
+  shuffleAll: 'Bland alle',
+  shuffleSelected: 'Bland valgte',
   removeSong: 'Fjern fra favoritter',
   stations: 'Radiostasjoner',
   showingFiltered: 'Viser {{filtered}} av {{total}} ({{artist}})',

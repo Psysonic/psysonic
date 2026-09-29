@@ -11,3 +11,9 @@
 export { useFavoritesData } from './hooks/useFavoritesData';
 export { useFavoritesSelection } from './hooks/useFavoritesSelection';
 export { useFavoritesOfflineStatus } from './hooks/useFavoritesOfflineStatus';
+export {
+  useFavoritesLayoutStore,
+  DEFAULT_FAVORITES_SECTIONS,
+  type FavoritesSectionId,
+  type FavoritesSectionConfig,
+} from './store/favoritesLayoutStore';

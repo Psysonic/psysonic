@@ -7,6 +7,8 @@ const migrationInspectMock = vi.fn();
 const migrationRunMock = vi.fn();
 const libraryGenreTagsInspectMock = vi.fn();
 const libraryGenreTagsRunMock = vi.fn();
+const libraryFileMoodTagsInspectMock = vi.fn();
+const libraryFileMoodTagsRunMock = vi.fn();
 const libraryScopeBrowseProjectionInspectMock = vi.fn();
 const libraryScopeBrowseProjectionRunMock = vi.fn();
 const rewriteFrontendStoreKeysMock = vi.fn(async (_servers: unknown) => undefined);
@@ -23,6 +25,8 @@ vi.mock('@/lib/api/migration', () => ({
 vi.mock('@/lib/api/library', () => ({
   libraryGenreTagsInspect: () => libraryGenreTagsInspectMock(),
   libraryGenreTagsRun: () => libraryGenreTagsRunMock(),
+  libraryFileMoodTagsInspect: () => libraryFileMoodTagsInspectMock(),
+  libraryFileMoodTagsRun: () => libraryFileMoodTagsRunMock(),
   libraryScopeBrowseProjectionInspect: () => libraryScopeBrowseProjectionInspectMock(),
   libraryScopeBrowseProjectionRun: () => libraryScopeBrowseProjectionRunMock(),
 }));
@@ -31,7 +35,7 @@ vi.mock('@/utils/server/rewriteFrontendStoreKeys', () => ({
   rewriteFrontendStoreKeys: (servers: unknown) => rewriteFrontendStoreKeysMock(servers),
 }));
 
-import { useMigrationOrchestrator } from '@/app/hooks/useMigrationOrchestrator';
+import { retryBlockingMigration, useMigrationOrchestrator } from '@/app/hooks/useMigrationOrchestrator';
 
 const DONE_FLAG = 'psysonic-server-key-migration-v1';
 const REAL_MIGRATION_TEST_OVERRIDE = '__PSYSONIC_REAL_MIGRATION_TEST__';
@@ -42,10 +46,14 @@ describe('useMigrationOrchestrator', () => {
     migrationRunMock.mockReset();
     libraryGenreTagsInspectMock.mockReset();
     libraryGenreTagsRunMock.mockReset();
+    libraryFileMoodTagsInspectMock.mockReset();
+    libraryFileMoodTagsRunMock.mockReset();
     libraryScopeBrowseProjectionInspectMock.mockReset();
     libraryScopeBrowseProjectionRunMock.mockReset();
     libraryGenreTagsInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
     libraryGenreTagsRunMock.mockResolvedValue(undefined);
+    libraryFileMoodTagsInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
+    libraryFileMoodTagsRunMock.mockResolvedValue(undefined);
     libraryScopeBrowseProjectionInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
     libraryScopeBrowseProjectionRunMock.mockResolvedValue(undefined);
     rewriteFrontendStoreKeysMock.mockClear();
@@ -65,6 +73,8 @@ describe('useMigrationOrchestrator', () => {
       progress: null,
       genreTagsInspect: null,
       genreTagsProgress: null,
+      fileMoodTagsInspect: null,
+      fileMoodTagsProgress: null,
       scopeBrowseProjectionInspect: null,
       scopeBrowseProjectionProgress: null,
       lastError: null,
@@ -173,6 +183,60 @@ describe('useMigrationOrchestrator', () => {
     });
   });
 
+  it('keeps startup non-blocking while file-mood-tags inspect is pending', async () => {
+    localStorage.setItem(DONE_FLAG, '1');
+
+    migrationInspectMock.mockResolvedValue({
+      needsMigration: false,
+      hasSkippedUnknownServerRows: false,
+      canRun: true,
+      warnings: [],
+      unmappedEmptyBucket: false,
+      library: {
+        totalLegacyRows: 0,
+        skippedUnknownServerRows: 0,
+        tables: {},
+      },
+      analysis: {
+        totalLegacyRows: 0,
+        skippedUnknownServerRows: 0,
+        tables: {},
+      },
+      mappings: [{ legacyId: 'legacy-a', indexKey: 'a.test' }],
+    });
+
+    let resolveMood: ((value: unknown) => void) | undefined;
+
+    libraryFileMoodTagsInspectMock.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveMood = resolve;
+        }),
+    );
+
+    renderHook(() => useMigrationOrchestrator());
+
+    await waitFor(() => {
+      expect(libraryFileMoodTagsInspectMock).toHaveBeenCalled();
+    });
+
+    expect(useMigrationStore.getState().phase).toBe('idle');
+
+    if (!resolveMood) {
+      throw new Error('file mood inspect resolver not captured');
+    }
+
+    resolveMood({
+      needed: false,
+      totalTracks: 100,
+      doneTracks: 100,
+    });
+
+    await waitFor(() => {
+      expect(useMigrationStore.getState().phase).toBe('completed');
+    });
+  });
+
   it('keeps startup non-blocking while done-flag precheck is pending', async () => {
     localStorage.setItem(DONE_FLAG, '1');
     let resolveInspect: ((value: unknown) => void) | undefined;
@@ -231,5 +295,78 @@ describe('useMigrationOrchestrator', () => {
     await waitFor(() => {
       expect(useMigrationStore.getState().phase).toBe('completed');
     });
+  });
+  it('continues to scope browse projection after retrying file mood tags', async () => {
+    migrationInspectMock.mockResolvedValue({
+      needsMigration: false,
+      hasSkippedUnknownServerRows: false,
+      canRun: true,
+      warnings: [],
+      unmappedEmptyBucket: false,
+      library: {
+        totalLegacyRows: 0,
+        skippedUnknownServerRows: 0,
+        tables: {},
+      },
+      analysis: {
+        totalLegacyRows: 0,
+        skippedUnknownServerRows: 0,
+        tables: {},
+      },
+      mappings: [{ legacyId: 'legacy-a', indexKey: 'a.test' }],
+    });
+
+    libraryFileMoodTagsInspectMock
+      .mockResolvedValueOnce({
+        needed: true,
+        totalTracks: 100,
+        doneTracks: 0,
+      })
+      .mockResolvedValueOnce({
+        needed: true,
+        totalTracks: 100,
+        doneTracks: 0,
+      })
+      .mockResolvedValueOnce({
+        needed: false,
+        totalTracks: 100,
+        doneTracks: 100,
+      });
+
+    libraryFileMoodTagsRunMock
+      .mockRejectedValueOnce(new Error('mood backfill failed'))
+      .mockResolvedValueOnce(undefined);
+
+    libraryScopeBrowseProjectionInspectMock
+      .mockResolvedValueOnce({
+        needed: true,
+        totalTracks: 100,
+        doneTracks: 0,
+      })
+      .mockResolvedValueOnce({
+        needed: false,
+        totalTracks: 100,
+        doneTracks: 100,
+      });
+
+    renderHook(() => useMigrationOrchestrator());
+
+    await waitFor(() => {
+      expect(useMigrationStore.getState().phase).toBe('error');
+    });
+
+    expect(useMigrationStore.getState().step).toBe('fileMoodTags');
+    expect(libraryScopeBrowseProjectionInspectMock).not.toHaveBeenCalled();
+    expect(libraryScopeBrowseProjectionRunMock).not.toHaveBeenCalled();
+
+    retryBlockingMigration();
+
+    await waitFor(() => {
+      expect(useMigrationStore.getState().phase).toBe('completed');
+    });
+
+    expect(libraryFileMoodTagsRunMock).toHaveBeenCalledTimes(2);
+    expect(libraryScopeBrowseProjectionInspectMock).toHaveBeenCalledTimes(2);
+    expect(libraryScopeBrowseProjectionRunMock).toHaveBeenCalledTimes(1);
   });
 });

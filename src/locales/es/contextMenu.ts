@@ -26,9 +26,10 @@ export const contextMenu = {
   addToPlaylist: 'Agregar a Lista de Reproducción',
   selectedPlaylists: '{{count}} listas seleccionadas',
   selectedAlbums: '{{count}} álbumes seleccionados',
+  selectedSongs: '{{count}} pistas seleccionadas',
   selectedArtists: '{{count}} artistas seleccionados',
   songInfo: 'Información de la Canción',
-  shareLink: 'Copiar enlace para compartir',
+  shareLink: 'Compartir enlace',
   shareCopied: 'Enlace copiado al portapapeles.',
   shareCopyFailed: 'No se pudo copiar al portapapeles.',
 };

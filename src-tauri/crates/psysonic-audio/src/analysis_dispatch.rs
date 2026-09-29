@@ -154,7 +154,7 @@ fn max_http_fetch_bytes_for_dispatch() -> usize {
 /// force transcoding without any client-visible URL marker — so canonical
 /// identity is established by a raw-prefix probe of the original
 /// (`format=raw`, capability-gated). Captured bytes are analysed only when they
-/// match that prefix; otherwise the bounded full raw original is fetched and
+/// match that prefix; otherwise the bounded full trusted original is fetched and
 /// analysed instead. Any probe/fetch failure skips canonical writes.
 fn provenance_from_trusted_bytes(bytes: &[u8], trusted: &str) -> StreamProvenance {
     if psysonic_analysis::raw_probe::bytes_match_trusted(bytes, trusted) {
@@ -162,6 +162,10 @@ fn provenance_from_trusted_bytes(bytes: &[u8], trusted: &str) -> StreamProvenanc
     } else {
         StreamProvenance::Transcoded
     }
+}
+
+pub(crate) fn source_analysis_allowed(url: &str, local_original_verified: Option<bool>) -> bool {
+    !url.starts_with("psysonic-local://") || local_original_verified == Some(true)
 }
 
 fn should_fetch_trusted_original(in_cpu_pipeline: bool, plan_has_work: bool) -> bool {
@@ -298,12 +302,12 @@ pub(crate) async fn dispatch_track_analysis_bytes(
                 } else {
                     if !trusted_original_fetch_needed(app, server_id, track_id, &trusted) {
                         crate::app_deprintln!(
-                            "[analysis][dispatch] skip raw original fetch track_id={track_id}: analysis complete or already queued"
+                            "[analysis][dispatch] skip trusted original fetch track_id={track_id}: analysis complete or already queued"
                         );
                         return Ok(provenance);
                     }
                     crate::app_deprintln!(
-                        "[analysis][dispatch] captured bytes differ from trusted original track_id={track_id}; fetching bounded raw original"
+                        "[analysis][dispatch] captured bytes differ from trusted original track_id={track_id}; fetching bounded original"
                     );
                     let permit =
                         psysonic_analysis::analysis_runtime::reserve_trusted_analysis_fetch(
@@ -314,7 +318,7 @@ pub(crate) async fn dispatch_track_analysis_bytes(
                         && !trusted_original_fetch_needed(app, server_id, track_id, &trusted)
                     {
                         crate::app_deprintln!(
-                            "[analysis][dispatch] skip completed duplicate raw original fetch track_id={track_id}"
+                            "[analysis][dispatch] skip completed duplicate trusted original fetch track_id={track_id}"
                         );
                         return Ok(provenance);
                     }
@@ -339,7 +343,7 @@ pub(crate) async fn dispatch_track_analysis_bytes(
                                 return Ok(provenance);
                             }
                             crate::app_deprintln!(
-                                "[analysis][dispatch] raw original unavailable or exceeds HTTP cap; analyzing captured transcode track_id={track_id}"
+                                "[analysis][dispatch] trusted original unavailable or exceeds HTTP cap; analyzing captured transcode track_id={track_id}"
                             );
                             (bytes, true)
                         }

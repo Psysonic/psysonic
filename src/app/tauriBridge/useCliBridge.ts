@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { listen } from '@tauri-apps/api/event';
+import { listen, type Event } from '@tauri-apps/api/event';
 import { invoke } from '@tauri-apps/api/core';
 import { audioSetDevice } from '@/lib/api/audio';
 import type { NavigateFunction } from 'react-router';
@@ -20,10 +20,18 @@ import { executeCliPlayerCommand } from '@/config/shortcutActions';
  * handler: audio-device, instant-mix, library / server resolution, search and
  * player commands. */
 export function useCliBridge(navigate: NavigateFunction) {
-  // CLI: `--player audio-device set …` (forwarded on Linux via single-instance).
   useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    listen<string>('cli:audio-device-set', async e => {
+    let disposed = false;
+    const unsubs: Array<() => void> = [];
+    const register = <T,>(event: string, handler: (event: Event<T>) => void) => {
+      void listen<T>(event, handler).then(unlisten => {
+        if (disposed) unlisten();
+        else unsubs.push(unlisten);
+      });
+    };
+
+    // CLI: `--player audio-device set …` (forwarded on Linux via single-instance).
+    register<string>('cli:audio-device-set', async e => {
       const raw = typeof e.payload === 'string' ? e.payload : '';
       const deviceName = raw.length > 0 ? raw : null;
       try {
@@ -32,14 +40,10 @@ export function useCliBridge(navigate: NavigateFunction) {
       } catch {
         /* device open failed — do not persist (same as Settings) */
       }
-    }).then(u => { unlisten = u; });
-    return () => { unlisten?.(); };
-  }, []);
+    });
 
-  // CLI: `--player mix append|new` from the currently playing track.
-  useEffect(() => {
-    let unlisten: (() => void) | undefined;
-    listen<string>('cli:instant-mix', async e => {
+    // CLI: `--player mix append|new` from the currently playing track.
+    register<string>('cli:instant-mix', async e => {
       const mode = e.payload === 'append' ? 'append' : 'new';
       const state = usePlayerStore.getState();
       const song = state.currentTrack;
@@ -76,15 +80,10 @@ export function useCliBridge(navigate: NavigateFunction) {
         if (serverId) useAuthStore.getState().setAudiomuseNavidromeIssue(serverId, true);
         showToast(i18n.t('contextMenu.instantMixFailed'), 5000, 'error');
       }
-    }).then(u => { unlisten = u; });
-    return () => { unlisten?.(); };
-  }, []);
+    });
 
-  // CLI: `--player library list` (Rust polls the JSON file) / `library set`.
-  useEffect(() => {
-    let u1: (() => void) | undefined;
-    let u2: (() => void) | undefined;
-    listen('cli:library-list', async () => {
+    // CLI: `--player library list` (Rust polls the JSON file) / `library set`.
+    register('cli:library-list', async () => {
       try {
         const folders = await getMusicFolders();
         const auth = useAuthStore.getState();
@@ -103,22 +102,15 @@ export function useCliBridge(navigate: NavigateFunction) {
           payload: { folders: [], selected: 'all', active_server_id: null },
         }).catch(() => {});
       }
-    }).then(u => { u1 = u; });
-    listen<string>('cli:library-set', e => {
+    });
+    register<string>('cli:library-set', e => {
       const raw = typeof e.payload === 'string' ? e.payload : '';
       if (raw === 'all') useAuthStore.getState().setMusicLibraryFilter('all');
       else if (raw.length > 0) useAuthStore.getState().setMusicLibraryFilter(raw);
-    }).then(u => { u2 = u; });
-    return () => {
-      u1?.();
-      u2?.();
-    };
-  }, []);
+    });
 
-  // CLI: servers, search, transport extras, mute, star, rating, play-by-id, reload.
-  useEffect(() => {
-    const unsubs: Array<() => void> = [];
-    listen('cli:server-list', async () => {
+    // CLI: servers, search, transport extras, mute, star, rating, play-by-id, reload.
+    register('cli:server-list', async () => {
       const auth = useAuthStore.getState();
       await invoke('cli_publish_server_list', {
         payload: {
@@ -126,8 +118,8 @@ export function useCliBridge(navigate: NavigateFunction) {
           servers: auth.servers.map(s => ({ id: s.id, name: s.name })),
         },
       });
-    }).then(u => unsubs.push(u));
-    listen<string>('cli:server-set', async e => {
+    });
+    register<string>('cli:server-set', async e => {
       const raw = typeof e.payload === 'string' ? e.payload : '';
       const id = raw.trim();
       if (!id) return;
@@ -140,8 +132,8 @@ export function useCliBridge(navigate: NavigateFunction) {
       if (!ok) {
         showToast(i18n.t('contextMenu.cliServerSwitchFailed', { defaultValue: 'Could not switch server (ping failed).' }), 5000, 'error');
       }
-    }).then(u => unsubs.push(u));
-    listen<{ scope: string; query: string }>('cli:search', async e => {
+    });
+    register<{ scope: string; query: string }>('cli:search', async e => {
       const { scope, query } = e.payload;
       const base = { scope, query, ready: false };
       try {
@@ -184,11 +176,12 @@ export function useCliBridge(navigate: NavigateFunction) {
           },
         }).catch(() => {});
       }
-    }).then(u => unsubs.push(u));
-    listen<Record<string, unknown>>('cli:player-command', async e => {
+    });
+    register<Record<string, unknown>>('cli:player-command', async e => {
       await executeCliPlayerCommand({ payload: e.payload ?? {}, navigate });
-    }).then(u => unsubs.push(u));
+    });
     return () => {
+      disposed = true;
       unsubs.forEach(u => u());
     };
     // Listeners registered once on mount; `navigate` is captured by closure and

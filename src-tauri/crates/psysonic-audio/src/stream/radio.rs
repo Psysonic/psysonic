@@ -13,9 +13,9 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_util::StreamExt;
+use ringbuf::traits::{Observer, Producer};
 use ringbuf::HeapCons;
 use ringbuf::HeapProd;
-use ringbuf::traits::{Observer, Producer};
 use tauri::{AppHandle, Emitter};
 
 use super::icy::IcyInterceptor;
@@ -40,7 +40,9 @@ pub(crate) struct RadioLiveState {
 }
 
 impl Drop for RadioLiveState {
-    fn drop(&mut self) { self.task.abort(); }
+    fn drop(&mut self) {
+        self.task.abort();
+    }
 }
 
 /// Pure: extract the `icy-metaint` header value from a HeaderMap. Returns
@@ -62,8 +64,7 @@ pub(crate) fn should_hard_pause(
     now: std::time::Instant,
     threshold: Duration,
 ) -> bool {
-    is_paused
-        && stall_since.is_some_and(|since| now.duration_since(since) >= threshold)
+    is_paused && stall_since.is_some_and(|since| now.duration_since(since) >= threshold)
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -85,18 +86,24 @@ pub(crate) async fn radio_download_task(
     let mut audio_scratch: Vec<u8> = Vec::with_capacity(65_536);
 
     'outer: loop {
-        if gen_arc.load(Ordering::SeqCst) != gen { return; }
+        if gen_arc.load(Ordering::SeqCst) != gen {
+            return;
+        }
 
         // ── Obtain response (initial or reconnect) ────────────────────────────
         let response = match initial_response.take() {
             Some(r) => r,
             None => {
                 if reconnect_count >= MAX_CONSECUTIVE_FAILURES {
-                    crate::app_eprintln!("[radio] {MAX_CONSECUTIVE_FAILURES} consecutive failures — giving up");
+                    crate::app_eprintln!(
+                        "[radio] {MAX_CONSECUTIVE_FAILURES} consecutive failures — giving up"
+                    );
                     break 'outer;
                 }
                 tokio::time::sleep(Duration::from_millis(500)).await;
-                if gen_arc.load(Ordering::SeqCst) != gen { return; }
+                if gen_arc.load(Ordering::SeqCst) != gen {
+                    return;
+                }
                 match http_client
                     .get(&url)
                     .header("Icy-MetaData", "1")
@@ -128,7 +135,9 @@ pub(crate) async fn radio_download_task(
         let mut stall_since: Option<std::time::Instant> = None;
 
         'inner: loop {
-            if gen_arc.load(Ordering::SeqCst) != gen { return; }
+            if gen_arc.load(Ordering::SeqCst) != gen {
+                return;
+            }
 
             // ── Back-pressure + hard-pause detection ──────────────────────────
             if prod.is_full() {
@@ -145,8 +154,7 @@ pub(crate) async fn radio_download_task(
                     now,
                     Duration::from_secs(RADIO_HARD_PAUSE_SECS),
                 ) {
-                    let fill_pct = ((1.0
-                        - prod.vacant_len() as f32 / RADIO_BUF_CAPACITY as f32)
+                    let fill_pct = ((1.0 - prod.vacant_len() as f32 / RADIO_BUF_CAPACITY as f32)
                         * 100.0) as u32;
                     crate::app_eprintln!(
                         "[radio] hard pause: {fill_pct}% full, \
@@ -171,7 +179,11 @@ pub(crate) async fn radio_download_task(
                     if let Some(ref mut interceptor) = icy {
                         if let Some(meta) = interceptor.process(&chunk, &mut audio_scratch) {
                             let label = if meta.is_ad { "[Ad]" } else { "" };
-                            crate::app_eprintln!("[radio] ICY StreamTitle: {}{}", label, meta.title);
+                            crate::app_eprintln!(
+                                "[radio] ICY StreamTitle: {}{}",
+                                label,
+                                meta.title
+                            );
                             let _ = app.emit("radio:metadata", &meta);
                         }
                     } else {
@@ -181,7 +193,9 @@ pub(crate) async fn radio_download_task(
                     // Push with per-chunk back-pressure: yield 5 ms if full mid-chunk.
                     let mut offset = 0;
                     while offset < audio_scratch.len() {
-                        if gen_arc.load(Ordering::SeqCst) != gen { return; }
+                        if gen_arc.load(Ordering::SeqCst) != gen {
+                            return;
+                        }
                         let pushed = prod.push_slice(&audio_scratch[offset..]);
                         if pushed == 0 {
                             tokio::time::sleep(Duration::from_millis(5)).await;
@@ -192,7 +206,9 @@ pub(crate) async fn radio_download_task(
                 }
                 Some(Err(e)) => {
                     reconnect_count += 1;
-                    crate::app_eprintln!("[radio] stream error: {e} → reconnecting (consecutive #{reconnect_count})");
+                    crate::app_eprintln!(
+                        "[radio] stream error: {e} → reconnecting (consecutive #{reconnect_count})"
+                    );
                     break 'inner;
                 }
                 None => {
@@ -261,7 +277,12 @@ mod tests {
         let now = std::time::Instant::now();
         let stalled = now - Duration::from_secs(60);
         // Not paused → never disconnect even after long stalls.
-        assert!(!should_hard_pause(false, Some(stalled), now, Duration::from_secs(5)));
+        assert!(!should_hard_pause(
+            false,
+            Some(stalled),
+            now,
+            Duration::from_secs(5)
+        ));
     }
 
     #[test]

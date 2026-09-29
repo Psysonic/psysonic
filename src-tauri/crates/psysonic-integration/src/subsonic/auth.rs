@@ -19,13 +19,25 @@ impl SubsonicCredentials {
     pub fn from_password(username: impl Into<String>, password: &str) -> Self {
         let salt = fresh_salt();
         let token = md5_hex(&format!("{password}{salt}"));
-        Self { username: username.into(), token, salt }
+        Self {
+            username: username.into(),
+            token,
+            salt,
+        }
     }
 
     /// Use a caller-supplied salt + token. Intended for tests and for
     /// callers that already cache the derivation result.
-    pub fn with_static(username: impl Into<String>, token: impl Into<String>, salt: impl Into<String>) -> Self {
-        Self { username: username.into(), token: token.into(), salt: salt.into() }
+    pub fn with_static(
+        username: impl Into<String>,
+        token: impl Into<String>,
+        salt: impl Into<String>,
+    ) -> Self {
+        Self {
+            username: username.into(),
+            token: token.into(),
+            salt: salt.into(),
+        }
     }
 }
 

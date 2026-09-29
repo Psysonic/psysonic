@@ -9,11 +9,14 @@ export const commands = {
 	libraryGetCatalogYearBounds: (serverId: string) => typedError<CatalogYearBoundsDto, string>(__TAURI_INVOKE("library_get_catalog_year_bounds", { serverId })),
 	/**  Distinct album counts per track genre — same grouping as genre album browse. */
 	libraryGetGenreAlbumCounts: (serverId: string, libraryScope: string | null, libraryScopes: string[] | null) => typedError<GenreAlbumCountDto[], string>(__TAURI_INVOKE("library_get_genre_album_counts", { serverId, libraryScope, libraryScopes })),
+	libraryGetMoodAlbumCounts: (serverId: string, libraryScope: string | null, libraryScopes: string[] | null) => typedError<MoodAlbumCountDto[], string>(__TAURI_INVOKE("library_get_mood_album_counts", { serverId, libraryScope, libraryScopes })),
 	/**
 	 *  Align `album.starred_at` with server favorites: UPDATE existing rows only
 	 *  (no INSERT / stub rows). Clears local stars absent from `starred_albums`.
 	 */
 	libraryReconcileAlbumStars: (serverId: string, starredAlbums: StarredAlbumReconcileItem[]) => typedError<null, string>(__TAURI_INVOKE("library_reconcile_album_stars", { serverId, starredAlbums })),
+	/**  Align `artist.starred_at` with server favorites without creating artist stubs. */
+	libraryReconcileArtistStars: (serverId: string, starredArtists: StarredArtistReconcileItem[]) => typedError<null, string>(__TAURI_INVOKE("library_reconcile_artist_stars", { serverId, starredArtists })),
 	/**  Resolve cover disk + fetch ids from the local library (`album` | `artist` | `track`). */
 	libraryResolveCoverEntry: (serverId: string, entity: string, entityId: string) => typedError<{
 	cacheKind: string,
@@ -68,6 +71,8 @@ export const commands = {
 	libraryGetOfflinePath: (serverId: string, trackId: string) => typedError<OfflinePathDto, string>(__TAURI_INVOKE("library_get_offline_path", { serverId, trackId })),
 	libraryGenreTagsInspect: () => typedError<GenreTagsInspectDto, string>(__TAURI_INVOKE("library_genre_tags_inspect")),
 	libraryGenreTagsRun: () => typedError<null, string>(__TAURI_INVOKE("library_genre_tags_run")),
+	libraryFileMoodTagsInspect: () => typedError<MoodTagsInspectDto, string>(__TAURI_INVOKE("library_file_mood_tags_inspect")),
+	libraryFileMoodTagsRun: () => typedError<null, string>(__TAURI_INVOKE("library_file_mood_tags_run")),
 	/**  Ensure precomputed cluster identity keys are current without blocking Tauri's main thread. */
 	libraryClusterRebuild: (serverId: string | null) => typedError<number, string>(__TAURI_INVOKE("library_cluster_rebuild", { serverId })),
 	libraryResolveEntitySources: (request: LibraryResolveEntitySourcesRequest) => typedError<LibraryEntitySourceDto[], string>(__TAURI_INVOKE("library_resolve_entity_sources", { request })),
@@ -78,6 +83,7 @@ export const commands = {
 	libraryMigrationAnalysisFinalize: (generation: number, serverId: string) => typedError<AnalysisMigrationFinalizeDto, string>(__TAURI_INVOKE("library_migration_analysis_finalize", { generation, serverId })),
 	libraryMigrationVerify: (generation: number, serverId: string) => typedError<null, string>(__TAURI_INVOKE("library_migration_verify", { generation, serverId })),
 	libraryMigrationInventory: (serverId: string, serverIndexKey: string, customOfflineDir: string | null, customHotCacheDir: string | null) => typedError<null, string>(__TAURI_INVOKE("library_migration_inventory", { serverId, serverIndexKey, customOfflineDir, customHotCacheDir })),
+	libraryMigrationHasRebuildableState: (serverId: string) => typedError<boolean, string>(__TAURI_INVOKE("library_migration_has_rebuildable_state", { serverId })),
 	libraryMigrationInspect: () => typedError<MigrationGenerationSnapshotDto, string>(__TAURI_INVOKE("library_migration_inspect")),
 	libraryMigrationUpdatePhase: (generation: number, serverId: string, phase: MigrationPhase) => typedError<null, string>(__TAURI_INVOKE("library_migration_update_phase", { generation, serverId, phase })),
 	libraryMigrationAbort: (generation: number, serverId: string, error: string) => typedError<null, string>(__TAURI_INVOKE("library_migration_abort", { generation, serverId, error })),
@@ -162,7 +168,7 @@ export const commands = {
 	autoeqEntries: () => typedError<string, string>(__TAURI_INVOKE("autoeq_entries")),
 	/**  Fetches the AutoEQ FixedBandEQ profile for a specific headphone from GitHub raw content. */
 	autoeqFetchProfile: (name: string, source: string, rig: string | null, form: string) => typedError<string, string>(__TAURI_INVOKE("autoeq_fetch_profile", { name, source, rig, form })),
-	audioPreload: (url: string, durationHint: number | null, analysisTrackId: string | null, serverId: string | null, eager: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_preload", { url, durationHint, analysisTrackId, serverId, eager })),
+	audioPreload: (url: string, durationHint: number | null, analysisTrackId: string | null, serverId: string | null, localOriginalVerified: boolean | null, eager: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_preload", { url, durationHint, analysisTrackId, serverId, localOriginalVerified, eager })),
 	/**
 	 *  Drop byte and gapless successor preloads after their URL-affecting inputs
 	 *  change. The main playback generation and currently audible source stay live.
@@ -344,10 +350,7 @@ export const commands = {
 	deleteHotCacheTrack: (localPath: string, customDir: string | null) => typedError<null, string>(__TAURI_INVOKE("delete_hot_cache_track", { localPath, customDir })),
 	/**  Removes the entire hot cache root (`psysonic-hot-cache` for the active location). */
 	purgeHotCache: (customDir: string | null) => typedError<null, string>(__TAURI_INVOKE("purge_hot_cache", { customDir })),
-	/**
-	 *  Downloads a single track to a USB/SD device using the configured filename template.
-	 *  Emits `device:sync:progress` events with `{ jobId, trackId, status, path? }`.
-	 */
+	/**  Downloads one track through the legacy single-track command. */
 	syncTrackToDevice: (track: TrackSyncInfo, destDir: string, jobId: string) => typedError<SyncTrackResult, string>(__TAURI_INVOKE("sync_track_to_device", { track, destDir, jobId })),
 	/**
 	 *  Downloads a batch of tracks to a USB/SD device with controlled concurrency.
@@ -355,7 +358,7 @@ export const commands = {
 	 *  Emits throttled `device:sync:progress` events (max once per 500ms) and a
 	 *  final `device:sync:complete` event with the summary.
 	 */
-	syncBatchToDevice: (tracks: TrackSyncInfo[], destDir: string, jobId: string, expectedBytes: number, serverId: string | null) => typedError<SyncBatchResult, string>(__TAURI_INVOKE("sync_batch_to_device", { tracks, destDir, jobId, expectedBytes, serverId })),
+	syncBatchToDevice: (tracks: TrackSyncInfo[], destDir: string, jobId: string, expectedBytes: number, expectedDeviceId: string, planId: string, serverId: string | null) => typedError<SyncBatchResult, string>(__TAURI_INVOKE("sync_batch_to_device", { tracks, destDir, jobId, expectedBytes, expectedDeviceId, planId, serverId })),
 	/**  Signals a running `sync_batch_to_device` job to stop after its current tracks finish. */
 	cancelDeviceSync: (jobId: string) => __TAURI_INVOKE<void>("cancel_device_sync", { jobId }),
 	/**
@@ -368,25 +371,28 @@ export const commands = {
 	 *  Deletes a file from the device and prunes empty parent directories
 	 *  (up to 2 levels: album folder, then artist folder).
 	 */
-	deleteDeviceFile: (path: string) => typedError<null, string>(__TAURI_INVOKE("delete_device_file", { path })),
+	deleteDeviceFile: (destDir: string, path: string) => typedError<null, string>(__TAURI_INVOKE("delete_device_file", { destDir, path })),
 	/**
 	 *  Deletes multiple files from the device in one call and prunes empty parent
 	 *  directories. Returns the number of files successfully deleted.
 	 */
-	deleteDeviceFiles: (paths: string[]) => typedError<number, string>(__TAURI_INVOKE("delete_device_files", { paths })),
+	deleteDeviceFiles: (destDir: string, paths: string[]) => typedError<number, string>(__TAURI_INVOKE("delete_device_files", { destDir, paths })),
 	/**
 	 *  Returns all currently mounted removable drives.
 	 *  On Linux these are typically USB sticks / SD cards under /media or /run/media.
 	 *  On macOS they appear under /Volumes. On Windows they are separate drive letters.
 	 */
 	getRemovableDrives: () => __TAURI_INVOKE<RemovableDrive[]>("get_removable_drives"),
+	finalizeDeviceSync: (destDir: string, payload: DeviceSyncFinalizePayload) => typedError<DeviceSyncFinalizeResult, string>(__TAURI_INVOKE("finalize_device_sync", { destDir, payload })),
+	hasPendingDeviceSyncPlan: (destDir: string) => typedError<boolean, string>(__TAURI_INVOKE("has_pending_device_sync_plan", { destDir })),
+	pendingDeviceSyncPlanDeviceId: (destDir: string) => typedError<string | null, string>(__TAURI_INVOKE("pending_device_sync_plan_device_id", { destDir })),
+	deviceSyncDeviceId: (destDir: string) => typedError<string, string>(__TAURI_INVOKE("device_sync_device_id", { destDir })),
 	/**
 	 *  Writes an Extended-M3U playlist at `{dest_dir}/Playlists/{name}/{name}.m3u8`.
-	 *  References are sibling filenames (just `01 - Artist - Title.ext`) so the
-	 *  playlist is self-contained — moving/copying the folder anywhere keeps it
-	 *  working. Tracks are expected to be in playlist order (index starts at 1).
+	 *  Explicit references allow shared album-tree files; omitted references keep
+	 *  the legacy self-contained sibling-filename behavior.
 	 */
-	writePlaylistM3u8: (destDir: string, playlistName: string, playlistId: string | null, tracks: TrackSyncInfo[]) => typedError<null, string>(__TAURI_INVOKE("write_playlist_m3u8", { destDir, playlistName, playlistId, tracks })),
+	writePlaylistM3u8: (destDir: string, playlistName: string, playlistId: string | null, tracks: TrackSyncInfo[], references: string[] | null) => typedError<null, string>(__TAURI_INVOKE("write_playlist_m3u8", { destDir, playlistName, playlistId, tracks, references })),
 	/**
 	 *  Atomically renames files on the device from their old path to the new fixed-
 	 *  schema path. Intended for the migration flow when switching away from the
@@ -400,6 +406,13 @@ export const commands = {
 	 *  is atomic, so nothing can be half-renamed.
 	 */
 	renameDeviceFiles: (targetDir: string, pairs: ([string, string])[]) => typedError<RenameResult[], string>(__TAURI_INVOKE("rename_device_files", { targetDir, pairs })),
+	/**
+	 *  Reports whether a chosen folder can be synced to as-is, or needs the user to
+	 *  confirm it as a local folder first.
+	 */
+	inspectDeviceSyncTarget: (destDir: string) => __TAURI_INVOKE<DeviceSyncTargetInfo>("inspect_device_sync_target", { destDir }),
+	/**  Confirms a folder on the system disk as a sync target (see `LOCAL_TARGET_MARKER`). */
+	markLocalSyncTarget: (destDir: string) => typedError<null, string>(__TAURI_INVOKE("mark_local_sync_target", { destDir })),
 	/**
 	 *  Downloads a server-generated ZIP (album/playlist) directly to disk via streaming.
 	 *  Emits `download:zip:progress` events every 500 ms so the frontend can show
@@ -460,6 +473,14 @@ export const commands = {
 	 *  `cover_cache_clear_server`, Navidrome tiers survive.
 	 */
 	coverCachePurgeExternal: (serverIndexKey: string) => typedError<null, string>(__TAURI_INVOKE("cover_cache_purge_external", { serverIndexKey })),
+	/**
+	 *  Drop the album covers the external chain (Apple Music / Last.fm) wrote, so
+	 *  those albums load the server's art again. Fired when the user switches a
+	 *  source off: `sources` names the switched-off ones (`None` = every chain
+	 *  cover). Works across all server buckets and takes each album's flight lock
+	 *  before removing it, so no ensure is mid-write. Returns the number removed.
+	 */
+	coverCachePurgeExternalAlbumArt: (sources: string[] | null) => typedError<number, string>(__TAURI_INVOKE("cover_cache_purge_external_album_art", { sources })),
 	/**
 	 *  Rename a server's cover-cache bucket on disk after the user edits the
 	 *  primary URL (and the derived index key changes). Used by the URL-change
@@ -561,6 +582,13 @@ export const commands = {
 	 *  Always false off Linux.
 	 */
 	themeAnimationRisk: () => __TAURI_INVOKE<boolean>("theme_animation_risk"),
+	/**  Return update metadata from the repository backing the current Flatpak branch. */
+	flatpakUpdateInfo: () => __TAURI_INVOKE<{
+	branch: string,
+	version: string,
+	tag: string,
+	body: string,
+} | null>("flatpak_update_info"),
 	migrationInspect: (mappings: ServerIndexMapping[]) => typedError<MigrationInspectReport, string>(__TAURI_INVOKE("migration_inspect", { mappings })),
 	migrationRun: (mappings: ServerIndexMapping[]) => typedError<MigrationRunResult, string>(__TAURI_INVOKE("migration_run", { mappings })),
 	/**
@@ -677,6 +705,21 @@ export const commands = {
 	 */
 	setMiniPlayerAlwaysOnTop: (onTop: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mini_player_always_on_top", { onTop })),
 	/**
+	 *  Show or hide the mini player's native window frame.
+	 *
+	 *  Windows and macOS keep the system caption bar by default; Linux has always
+	 *  used the in-page titlebar instead. This lets the Windows build switch to
+	 *  that same in-page bar, so a picture-in-picture window is not framed by
+	 *  buttons that duplicate what its own toolbar already does.
+	 *
+	 *  Applied from the mini webview after it mounts rather than at build time.
+	 *  The window is built once — on Windows before the first open — and rebuilding
+	 *  the second WebView2 at runtime is exactly the path that used to stall the
+	 *  event loop (see `build_mini_player_window`), so the frame is changed on the
+	 *  live window instead.
+	 */
+	setMiniPlayerDecorations: (decorations: boolean) => typedError<null, string>(__TAURI_INVOKE("set_mini_player_decorations", { decorations })),
+	/**
 	 *  Resize the mini player window (logical pixels). Used when toggling the
 	 *  queue panel to expand/collapse without a capability dance. Optional
 	 *  `minWidth` / `minHeight` adjust the window's resize floor so the user
@@ -749,6 +792,23 @@ export const commands = {
 	 */
 	setTrayMenuLabels: (playPause: string, next: string, previous: string, showHide: string, quit: string, nothingPlaying: string) => typedError<null, string>(__TAURI_INVOKE("set_tray_menu_labels", { playPause, next, previous, showHide, quit, nothingPlaying })),
 	importThemeZip: (path: string) => typedError<ImportedThemeFiles, string>(__TAURI_INVOKE("import_theme_zip", { path })),
+	/**  Current desktop palette, or `None` when this machine publishes none. */
+	readDesktopPalette: () => typedError<{
+	/**
+	 *  Absolute path the palette was read from — shown in settings so the user
+	 *  can see which file is driving the theme.
+	 */
+	source: string,
+	/**  Human-readable name of the desktop theme, when the source publishes one. */
+	name: string | null,
+	/**  `"dark"` or `"light"` when the source declares it; `None` otherwise. */
+	mode: string | null,
+	/**
+	 *  Colour name → `#rrggbb`. Keys are lowercased verbatim from the file, so
+	 *  the frontend can map whatever vocabulary a given desktop uses.
+	 */
+	colors: { [key in string]: string },
+} | null, string>(__TAURI_INVOKE("read_desktop_palette")),
 	libraryAnalysisBackfillConfigure: (enabled: boolean, serverIndexKey: string, libraryServerId: string, serverUrl: string, username: string, password: string, workers: number) => typedError<null, string>(__TAURI_INVOKE("library_analysis_backfill_configure", { enabled, serverIndexKey, libraryServerId, serverUrl, username, password, workers })),
 	/**
 	 *  Fetch upcoming Bandsintown events for an artist by name.
@@ -810,6 +870,78 @@ export const commands = {
 	resolveStreamUrl: (url: string) => __TAURI_INVOKE<string>("resolve_stream_url", { url }),
 	/**  Clear the Discord Rich Presence activity (e.g. playback stopped). */
 	discordClearPresence: () => typedError<null, string>(__TAURI_INVOKE("discord_clear_presence")),
+	/**
+	 *  Resolve an iTunes artwork URL directly (Discord chain step). Reuses the
+	 *  blocking `search_itunes_artwork` + the managed client/cache so the 1h TTL
+	 *  is shared with the old `discord_update_presence` path.
+	 */
+	resolveAppleCover: (artist: string, album: string, title: string) => typedError<string | null, string>(__TAURI_INVOKE("resolve_apple_cover", { artist, album, title })),
+	/**  Resolve a Last.fm album-cover URL directly (Discord chain step). */
+	resolveLastfmCover: (artist: string, album: string) => __TAURI_INVOKE<string | null>("resolve_lastfm_cover", { artist, album }),
+	/**
+	 *  Optical recorders attached to this machine.
+	 *
+	 *  Returns an empty list (not an error) on platforms without a backend, so
+	 *  the UI can explain itself with `burn_is_supported`.
+	 *
+	 *  Off-thread for the same reason as `burn_media_state` below: a sync
+	 *  `#[tauri::command]` resolves on the IPC thread, and enumerating drives is
+	 *  blocking COM/ioctl work that can sit for seconds on a drive still spinning
+	 *  up. Run inline it froze the whole app, transport controls included.
+	 */
+	burnListRecorders: () => typedError<BurnRecorder[], string>(__TAURI_INVOKE("burn_list_recorders")),
+	/**  Whether this platform has a burn backend at all. */
+	burnIsSupported: () => __TAURI_INVOKE<boolean>("burn_is_supported"),
+	/**
+	 *  What is in the drive right now: media type, blankness, capacity, speeds.
+	 *
+	 *  Off-thread: this is the slowest read on the page — it waits for the drive
+	 *  to spin up and read the disc — and it runs when the burner page opens.
+	 */
+	burnProbeMedia: (recorderId: string) => typedError<BurnMediaInfo, string>(__TAURI_INVOKE("burn_probe_media", { recorderId })),
+	/**
+	 *  Lay the running order out on a disc of `capacity_sectors`.
+	 *
+	 *  Pure arithmetic from the library's durations — instant, so the UI can call
+	 *  it on every reorder. The authoritative sector counts only exist after
+	 *  rendering, and `burn_start` re-checks against the real disc before writing.
+	 */
+	burnPlan: (tracks: BurnTrackInput[], capacitySectors: number, gapless: boolean) => typedError<BurnPlan, string>(__TAURI_INVOKE("burn_plan", { tracks, capacitySectors, gapless })),
+	/**
+	 *  Render `tracks` to Red Book PCM and write them to the disc.
+	 *
+	 *  Returns once the job is registered. Watch `burn:progress` and
+	 *  `burn:complete` for the rest.
+	 */
+	burnStart: (jobId: string, tracks: BurnTrackInput[], options: BurnOptions) => typedError<null, string>(__TAURI_INVOKE("burn_start", { jobId, tracks, options })),
+	/**
+	 *  Stop a running job at its next checkpoint.
+	 *
+	 *  Returns `false` when the job already finished. Cancelling mid-write cannot
+	 *  un-burn committed sectors — the disc is spoiled either way.
+	 */
+	burnCancel: (jobId: string) => __TAURI_INVOKE<boolean>("burn_cancel", { jobId }),
+	/**
+	 *  Erase a CD-RW. `quick` clears the TOC; a full erase rewrites the surface
+	 *  and takes much longer.
+	 */
+	burnErase: (recorderId: string, quick: boolean) => typedError<null, string>(__TAURI_INVOKE("burn_erase", { recorderId, quick })),
+	/**
+	 *  Eject the disc and pull it back in, so the drive re-reads it.
+	 *
+	 *  The recovery for a disc the drive is still describing the way it did when a
+	 *  rehearsal ended. A CD-R cannot be erased, so without this a stale
+	 *  "not blank" verdict has no way out.
+	 */
+	burnReloadMedia: (recorderId: string) => typedError<null, string>(__TAURI_INVOKE("burn_reload_media", { recorderId })),
+	/**
+	 *  A cheap fingerprint of what is in the drive.
+	 *
+	 *  Polled while the burner page is open. The token is opaque: compare it with
+	 *  the last one and re-probe when it differs. Never fails for an absent or busy
+	 *  drive - a poll that raises errors would be a toast every few seconds.
+	 */
+	burnMediaState: (recorderId: string) => typedError<string, string>(__TAURI_INVOKE("burn_media_state", { recorderId })),
 };
 
 /* Types */
@@ -931,6 +1063,224 @@ export type BandsintownEvent = {
 	lineup: string[],
 };
 
+/**
+ *  Why the disc in the drive cannot be written to.
+ *
+ *  A code rather than a sentence: the backends build finished English prose for
+ *  everything else they report, and the frontend renders it verbatim, so no
+ *  locale file can reach it. This is the one such message a user meets in
+ *  normal use — it sits in the burner's alert line whenever the disc is wrong —
+ *  so the backend says *which* problem and the frontend says it in the user's
+ *  language.
+ *
+ *  Deliberately carries no data. The only variable any of these sentences needs
+ *  is the media type, which `BurnMediaInfo` already reports on its own field.
+ */
+export type BurnMediaBlocker =
+/**  The tray is empty, or what is in it cannot be read at all. */
+"noDisc" |
+/**  Not a CD: a DVD, a Blu-ray, or something the drive would not name. */
+"notCd" |
+/**
+ *  Written and closed. A pressed CD reports this way, and so does a CD-R
+ *  the user burned a minute ago.
+ */
+"alreadyWritten" |
+/**  A CD-RW with data on it, which erasing makes usable again. */
+"notBlankRewritable" |
+/**  A CD-R with data on it, which nothing makes usable again. */
+"notBlankRecordable" |
+/**  The drive itself turned the disc down. */
+"driveRefusedDisc" |
+/**  The drive would not describe the disc, so nothing about it is known. */
+"driveSilent";
+
+/**  What is actually in the drive right now. */
+export type BurnMediaInfo = {
+	/**  `false` when the tray is empty or the disc is unreadable. */
+	present: boolean,
+	/**  Blank enough to write an audio disc onto. */
+	blank: boolean,
+	/**  CD-RW (or another rewritable) — offer Erase. */
+	erasable: boolean,
+	/**  Physical media label, e.g. `CD-R`. */
+	mediaType: string,
+	/**  Sectors available before the lead-out. `0` when unknown. */
+	capacitySectors: number,
+	/**
+	 *  Write speeds the drive advertises for this disc, in sectors/second.
+	 *  75 sectors/s = 1×.
+	 */
+	writeSpeeds: number[],
+	/**
+	 *  Set when the disc cannot be used, saying which problem it is. The
+	 *  frontend turns it into a sentence in the user's language.
+	 */
+	blocker: BurnMediaBlocker | null,
+};
+
+/**  Everything the user chose in the burn drawer. */
+export type BurnOptions = {
+	recorderId: string,
+	/**  Sectors/second. `None` lets the drive pick. */
+	writeSpeed: number | null,
+	/**
+	 *  Run the whole write with the laser off. Nothing is committed to the
+	 *  disc, so this is the safe way to shake out a new drive.
+	 */
+	testWrite: boolean,
+	/**  Gapless (no 2-second gap between tracks). On by default. */
+	gapless: boolean,
+	/**  Level every track to a shared gain before writing. */
+	normalize: boolean,
+	ejectWhenDone: boolean,
+	/**  Optional Media Catalog Number (UPC/EAN) for the whole disc. */
+	mediaCatalogNumber: string | null,
+	/**  Write a CD-TEXT lead-in. Ignored when the drive cannot do it. */
+	cdText: boolean,
+	/**  Disc-level CD-TEXT title. */
+	discTitle: string | null,
+	/**  Disc-level CD-TEXT performer. */
+	discPerformer: string | null,
+};
+
+/**  The result of laying the queue out on a disc. */
+export type BurnPlan = {
+	tracks: BurnPlanTrack[],
+	pregapSectors: number,
+	/**  Pregap + every track. This is what must fit. */
+	totalSectors: number,
+	capacitySectors: number,
+	fits: boolean,
+	/**
+	 *  True once the disc runs past 74:00 — still legal on an 80-minute
+	 *  blank, but worth telling the user about.
+	 */
+	pastRedBook74: boolean,
+	/**
+	 *  Human-readable notes to surface in the UI (over capacity, too many
+	 *  tracks, unreadable source, …).
+	 */
+	warnings: string[],
+};
+
+/**  A planned track once its real length is known. */
+export type BurnPlanTrack = {
+	/**  1-based CD track number. */
+	number: number,
+	title: string,
+	artist: string,
+	/**  Absolute LBA of the track's first sector. */
+	startSector: number,
+	sectors: number,
+	durationSec: number | null,
+};
+
+/**  One optical recorder attached to the machine. */
+export type BurnRecorder = {
+	/**
+	 *  Opaque per-platform recorder id — an IMAPI2 id on Windows, a device
+	 *  path on Linux. Round-trips back on every later call, and each backend
+	 *  resolves it against the drives it actually found rather than trusting
+	 *  it as a path.
+	 */
+	id: string,
+	/**  Human label, e.g. `HL-DT-ST BD-RE WH16NS40`. */
+	name: string,
+	/**
+	 *  Where the drive shows up in the filesystem: mount points on Windows
+	 *  (`["E:\\"]`), the device node on Linux (`["/dev/sr0"]`).
+	 */
+	volumePaths: string[],
+	/**
+	 *  Whether the drive can write CD-R/CD-RW at all. A DVD-only reader is
+	 *  listed but not selectable.
+	 */
+	canWriteCd: boolean,
+	/**
+	 *  Whether this drive can carry CD-TEXT, from its own feature page rather
+	 *  than an assumption. See `capabilities`.
+	 */
+	supportsCdText: boolean,
+	/**  The raw answer behind `supports_cd_text`, so the UI can explain itself. */
+	capabilities: BurnWriteCapabilities,
+};
+
+/**
+ *  One track queued for the disc, as the frontend sends it.
+ *
+ *  Either `source_path` (already on disk) or `download_url` must be present.
+ *  When both are, the local file wins and nothing is fetched.
+ */
+export type BurnTrackInput = {
+	/**
+	 *  Absolute path to a local audio file, when the track is already cached
+	 *  offline. `None` means the burner has to fetch it first.
+	 */
+	sourcePath: string | null,
+	/**
+	 *  Original-file URL (`download.view`, never `stream.view` — a transcoded
+	 *  stream would put a lossy copy on a disc that cannot be rewritten).
+	 */
+	downloadUrl: string | null,
+	/**
+	 *  Container extension for the fetched file, e.g. `flac`. Used for the
+	 *  temp filename so the decoder's format hint is right.
+	 */
+	suffix: string | null,
+	/**
+	 *  Server this track belongs to, so per-server HTTP settings (custom
+	 *  headers, self-signed certs) are applied to the fetch.
+	 */
+	serverId: string | null,
+	/**
+	 *  File size the library reports, for the pre-flight disk estimate.
+	 *  `None` when unknown — the estimate then falls back on the duration.
+	 */
+	sizeBytes: number | null,
+	title: string,
+	artist: string,
+	/**
+	 *  Duration the library believes the track has, in seconds. Only used for
+	 *  the pre-render estimate; the rendered sector count is authoritative.
+	 */
+	durationSec: number | null,
+	/**  Optional ISRC, written into the subchannel when present. */
+	isrc: string | null,
+};
+
+/**
+ *  What the drive reports it can do, read from MMC feature 002Eh
+ *  ("CD Mastering") — a read-only query, safe to run with any disc or none.
+ *
+ *  This is how the burner decides whether to offer CD-TEXT instead of guessing:
+ *  `rw_subchannel` is the drive's own answer to "can I write host-supplied R-W
+ *  subchannel data", which is exactly where CD-TEXT lives.
+ */
+export type BurnWriteCapabilities = {
+	/**
+	 *  The drive answered the query at all. `false` means every flag below is
+	 *  a default, not a measurement.
+	 */
+	reported: boolean,
+	/**  Session-At-Once — required for any CD-TEXT write. */
+	sessionAtOnce: boolean,
+	/**  Raw write types. */
+	rawRecording: boolean,
+	/**  Raw multisession. */
+	rawMultisession: boolean,
+	/**  Laser-off test writes. */
+	testWrite: boolean,
+	/**  Mastering onto CD-RW. */
+	cdRewritable: boolean,
+	/**  **Can write host-supplied R-W subchannel — i.e. can carry CD-TEXT.** */
+	rwSubchannel: boolean,
+	/**  Zero-loss linking (burn-proof). */
+	bufferUnderrunFree: boolean,
+	/**  Largest cue sheet the drive will accept, in bytes. */
+	maxCueSheetBytes: number,
+};
+
 /**  Min/max `year` from indexed tracks for a server (Albums year filter UI). */
 export type CatalogYearBoundsDto = {
 	minYear: number | null,
@@ -1000,12 +1350,26 @@ export type CoverCacheEnsureArgs = {
 	 *  the project key (§22). Falls back to the `PSYSONIC_FANART_CLIENT_KEY` env.
 	 */
 	externalArtworkByok?: string | null,
+	/**
+	 *  Ordered external album chain (§5, cover provider chain): the enabled
+	 *  `apple`/`lastfm` sources the server-miss fallback should try when the
+	 *  Navidrome/Subsonic server returns no cover art. `None`/empty = external
+	 *  album fallback off. This keys the album external branch (NOT
+	 *  `external_artwork_enabled`, which is the fanart master toggle).
+	 */
+	externalAlbumSources?: string[] | null,
 };
 
 export type CoverCacheEnsureResult = {
 	hit: boolean,
 	path: string,
 	tier: number,
+	/**
+	 *  mtime (epoch secs) of the returned tier file — the webview appends it as
+	 *  `?v=` to the asset URL so overwritten tiers bust the webview image
+	 *  cache. `0` on miss / unreadable file (versioning degrades gracefully).
+	 */
+	pathVersion?: number,
 };
 
 export type CoverCacheNavidromeMigrationDto = {
@@ -1059,6 +1423,116 @@ export type CustomHeaderEntryWire = {
 
 export type CustomHeadersApplyTo = "local" | "public" | "both";
 
+/**  The desktop's active palette, as read off disk. */
+export type DesktopPalette = {
+	/**
+	 *  Absolute path the palette was read from — shown in settings so the user
+	 *  can see which file is driving the theme.
+	 */
+	source: string,
+	/**  Human-readable name of the desktop theme, when the source publishes one. */
+	name: string | null,
+	/**  `"dark"` or `"light"` when the source declares it; `None` otherwise. */
+	mode: string | null,
+	/**
+	 *  Colour name → `#rrggbb`. Keys are lowercased verbatim from the file, so
+	 *  the frontend can map whatever vocabulary a given desktop uses.
+	 */
+	colors: { [key in string]: string },
+};
+
+export type DeviceSyncFinalizePayload = {
+	planId: string,
+	expectedDeviceId: string,
+	ownerServerIndexKey: string,
+	/**
+	 *  Stable identity of the owning profile, recorded next to the address-
+	 *  derived key so a later reader can follow the server to a new address.
+	 */
+	ownerServerProfileId?: string | null,
+	sources: DeviceSyncFinalizeSource[],
+	canonicalIdVersion: number | null,
+	layoutMode: string,
+	playlistPathMode: string,
+	files: DeviceSyncManifestFile[],
+	manifestPlaylists: DeviceSyncManifestPlaylist[],
+	playlists: DeviceSyncFinalizePlaylist[],
+	deferredDeletePaths: string[],
+};
+
+export type DeviceSyncFinalizePlaylist = {
+	name: string,
+	pathId: string | null,
+	tracks: TrackSyncInfo[],
+	references: string[],
+};
+
+export type DeviceSyncFinalizeResult = {
+	deleted: number,
+	cleanupFailed: boolean,
+};
+
+export type DeviceSyncFinalizeSource = {
+	type: string,
+	id: string,
+	name: string,
+	pathId: string | null,
+	serverIndexKey: string,
+	artist: string | null,
+};
+
+export type DeviceSyncManifestFile = {
+	trackId: string,
+	relativePath: string,
+	sourceKeys: string[],
+	sizeBytes: number,
+	/**
+	 *  How the file was produced. Absent on manifests written before
+	 *  transcoding existed, which only ever held originals.
+	 */
+	transcode?: DeviceSyncTranscode | null,
+	/**  Server-side source file the copy was made from. Absent on older manifests. */
+	source?: DeviceSyncSourceFingerprint | null,
+};
+
+export type DeviceSyncManifestPlaylist = {
+	sourceKey: string,
+	relativePath: string,
+};
+
+/**
+ *  What the server reported about a track's source file when it was synced.
+ *  A mismatch on the next run means the file was replaced on the server.
+ */
+export type DeviceSyncSourceFingerprint = {
+	size?: number | null,
+	suffix?: string | null,
+	bitRate?: number | null,
+};
+
+export type DeviceSyncTargetInfo = {
+	exists: boolean,
+	onMountedVolume: boolean,
+	localTarget: boolean,
+	/**
+	 *  The folder may be confirmed as a local target: it is empty or already
+	 *  holds a Psysonic sync (see `local_target_refusal`).
+	 */
+	localTargetAllowed: boolean,
+};
+
+export type DeviceSyncTranscode = {
+	format?: DeviceSyncTranscodeFormat,
+	/**  Bitrate cap in kbps; `0` leaves the choice to the server. */
+	maxBitRateKbps?: number,
+};
+
+/**
+ *  Output format of a synced file. `Original` copies the server file as-is;
+ *  the others ask the server to transcode through `stream.view`.
+ */
+export type DeviceSyncTranscodeFormat = "original" | "mp3" | "aac" | "opus";
+
 export type EndpointKind = "local" | "public";
 
 export type EnqueueSeedFromUrlOutcome = "enqueued" | "alreadyReserved" | "skipped" | "unsupported";
@@ -1094,6 +1568,13 @@ export type FactInputDto = {
 	confidence?: number | null,
 	contentHash?: string | null,
 	expiresAt?: number | null,
+};
+
+export type FlatpakUpdateInfo = {
+	branch: string,
+	version: string,
+	tag: string,
+	body: string,
 };
 
 export type FullImportRecoveryPhase = "prepared" | "databases-restored" | "committed";
@@ -1433,6 +1914,19 @@ export type MigrationServerSnapshotDto = {
 	error: string | null,
 };
 
+/**  Per-file-mood album/track totals from the local mood index. */
+export type MoodAlbumCountDto = {
+	value: string,
+	albumCount: number,
+	songCount: number,
+};
+
+export type MoodTagsInspectDto = {
+	needed: boolean,
+	totalTracks: number,
+	doneTracks: number,
+};
+
 export type NavidromeFilesystemMigrationDto = {
 	offlineFilesScanned: number,
 	offlineFilesMoved: number,
@@ -1705,6 +2199,11 @@ export type StarredAlbumReconcileItem = {
 	starredAt: number,
 };
 
+export type StarredArtistReconcileItem = {
+	id: string,
+	starredAt: number,
+};
+
 /**  Summary returned by `sync_batch_to_device` after all tracks are processed. */
 export type SyncBatchResult = {
 	done: number,
@@ -1817,15 +2316,23 @@ export type TrackSyncInfo = {
 	/**  Duration in seconds — needed for Extended M3U (#EXTINF) playlist entries. */
 	duration?: number | null,
 	/**
-	 *  When set, the track belongs to a playlist source and is placed under
+	 *  When set, the self-contained layout places this track under
 	 *  `Playlists/{name}/` with `playlist_index` as its filename prefix.
-	 *  Same track synced from both an album and a playlist source ends up twice
-	 *  on the device — once in the album tree, once in the playlist folder.
 	 */
 	playlistName?: string | null,
 	/**  Stable source identity used to disambiguate playlists with the same display name. */
 	playlistId?: string | null,
 	playlistIndex?: number | null,
+	/**
+	 *  Flat layout: the track goes straight into the device root, whatever
+	 *  source it came from (see `build_track_path`).
+	 */
+	flatLayout?: boolean,
+	/**
+	 *  Replace an existing copy at the same path (new transcode profile or a
+	 *  source file that changed on the server) instead of skipping it.
+	 */
+	overwrite?: boolean,
 };
 
 export type WaveformCachePayload = {

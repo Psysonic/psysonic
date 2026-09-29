@@ -203,10 +203,7 @@ fn fuzzy_matches(
         if out.len() >= overall_cap {
             break;
         }
-        let mut bound = vec![
-            SqlValue::Text(server.clone()),
-            SqlValue::Text(like.clone()),
-        ];
+        let mut bound = vec![SqlValue::Text(server.clone()), SqlValue::Text(like.clone())];
         push_library_scope_binds(&mut bound, library_scopes);
         bound.push(SqlValue::Integer(FUZZY_PER_SERVER_CAP as i64));
         let rows: Vec<(LibraryTrackDto, Option<String>)> = store.with_read_conn(|conn| {
@@ -244,8 +241,7 @@ fn ready_servers(store: &LibraryStore) -> Result<Vec<String>, String> {
     store.with_read_conn(|conn| {
         let mut stmt =
             conn.prepare("SELECT DISTINCT server_id FROM sync_state WHERE sync_phase = 'ready'")?;
-        let collected: rusqlite::Result<Vec<String>> =
-            stmt.query_map([], |r| r.get(0))?.collect();
+        let collected: rusqlite::Result<Vec<String>> = stmt.query_map([], |r| r.get(0))?.collect();
         collected
     })
 }
@@ -333,14 +329,8 @@ mod tests {
             .unwrap();
         set_phase(&store, "s1", "ready");
         set_phase(&store, "s2", "ready");
-        let resp = run_cross_server_search(
-            &store,
-            "aurora",
-            50,
-            None,
-            Some(&["lib1".to_string()]),
-        )
-        .unwrap();
+        let resp = run_cross_server_search(&store, "aurora", 50, None, Some(&["lib1".to_string()]))
+            .unwrap();
         assert_eq!(resp.hits.len(), 1);
         assert_eq!(resp.hits[0].server_id, "s1");
     }
@@ -371,7 +361,8 @@ mod tests {
             .upsert_batch(&[track("s9", "t1", "Aurora", "Anna", "Alb")])
             .unwrap();
         // s9 is not marked ready, but an explicit servers list overrides.
-        let resp = run_cross_server_search(&store, "aurora", 50, Some(&["s9".to_string()]), None).unwrap();
+        let resp =
+            run_cross_server_search(&store, "aurora", 50, Some(&["s9".to_string()]), None).unwrap();
         assert_eq!(resp.hits.len(), 1);
         assert_eq!(resp.servers_searched, vec!["s9".to_string()]);
     }
@@ -406,7 +397,11 @@ mod tests {
         set_phase(&store, "s1", "ready");
         set_phase(&store, "s2", "ready");
         let resp = run_cross_server_search(&store, "aurora", 50, None, None).unwrap();
-        assert_eq!(resp.hits.len(), 1, "duplicate canonical id collapses to one hit");
+        assert_eq!(
+            resp.hits.len(),
+            1,
+            "duplicate canonical id collapses to one hit"
+        );
     }
 
     #[test]
@@ -482,6 +477,9 @@ mod tests {
         // "Aurora" is both an FTS hit and a LIKE match — must appear only once.
         let resp = run_cross_server_search(&store, "aurora", 50, None, None).unwrap();
         assert_eq!(resp.hits.len(), 1);
-        assert!(resp.fuzzy.is_empty(), "exact hits are not repeated in fuzzy");
+        assert!(
+            resp.fuzzy.is_empty(),
+            "exact hits are not repeated in fuzzy"
+        );
     }
 }

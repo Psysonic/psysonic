@@ -3,18 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { AudioLines, ChevronRight, Play, Square } from 'lucide-react';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import { codecLabel } from '@/lib/format/playlistDetailHelpers';
+import { codecLabel, genresLabel, moodsLabel } from '@/lib/format/playlistDetailHelpers';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import i18n from '@/lib/i18n';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
-import { resolveTrackArtistRefs } from '@/features/playback';
+import { resolveTrackArtistRefs, useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 
 export interface ArtistAllTracksRowCallbacks {
   activate: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
-  dblOrbit: (song: SubsonicSong, e: React.MouseEvent) => void;
+  doubleClick: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
   context: (song: SubsonicSong, e: React.MouseEvent) => void;
   mouseDownRow: (song: SubsonicSong, e: React.MouseEvent) => void;
   play: (index: number) => void;
@@ -33,7 +33,10 @@ interface Props {
   showEq: boolean;
   isPreviewing: boolean;
   previewStarted: boolean;
-  orbitActive: boolean;
+  /** Double click does something (Orbit add, or play in double-click mode). */
+  doubleClickActive: boolean;
+  /** Set only on the list's cursor row (`useTrackListCursor`). */
+  cursorRowId?: string;
   cb: ArtistAllTracksRowCallbacks;
 }
 
@@ -44,19 +47,21 @@ interface Props {
  */
 function ArtistAllTracksRow({
   song, index: i, visibleCols, gridStyle, showBitrate,
-  isActive, showEq, isPreviewing, previewStarted, orbitActive, cb,
+  isActive, showEq, isPreviewing, previewStarted, doubleClickActive, cursorRowId, cb,
 }: Props) {
   const { t } = useTranslation();
   // `song.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
+  const playStats = useTrackPlayStats(song);
 
   return (
     <div
-      className={`track-row track-row-va track-row-with-actions${isActive ? ' active' : ''}`}
+      id={cursorRowId}
+      className={`track-row track-row-va track-row-with-actions${isActive ? ' active' : ''}${cursorRowId ? ' track-row--cursor' : ''}`}
       style={gridStyle}
       role="row"
       onClick={e => cb.activate(song, i, e)}
-      onDoubleClick={orbitActive ? e => cb.dblOrbit(song, e) : undefined}
+      onDoubleClick={doubleClickActive ? e => cb.doubleClick(song, i, e) : undefined}
       onContextMenu={e => cb.context(song, e)}
       onMouseDown={e => cb.mouseDownRow(song, e)}
     >
@@ -139,15 +144,21 @@ function ArtistAllTracksRow({
           case 'genre': return (
             <div key="genre" className="track-genre">{song.genre ?? '—'}</div>
           );
+          case 'genres': return (
+            <div key="genres" className="track-genre">{genresLabel(song) || '—'}</div>
+          );
+          case 'mood': return (
+            <div key="mood" className="track-genre">{moodsLabel(song) || '—'}</div>
+          );
           case 'year': return (
             <div key="year" className="track-duration">{song.year && song.year > 0 ? song.year : '—'}</div>
           );
           case 'playCount': return (
-            <div key="playCount" className="track-duration">{song.playCount ?? '—'}</div>
+            <div key="playCount" className="track-duration">{playStats.playCount ?? '—'}</div>
           );
           case 'lastPlayed': return (
             <div key="lastPlayed" className="track-genre">
-              {song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}
+              {playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}
             </div>
           );
           case 'bpm': return (

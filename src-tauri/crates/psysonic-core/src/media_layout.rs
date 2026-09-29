@@ -131,7 +131,10 @@ pub fn ensure_track_path_within_tier(
         ));
     };
     for comp in rel.components() {
-        if matches!(comp, Component::ParentDir | Component::RootDir | Component::Prefix(_)) {
+        if matches!(
+            comp,
+            Component::ParentDir | Component::RootDir | Component::Prefix(_)
+        ) {
             return Err(format!(
                 "path `{}` contains forbidden component `{comp:?}`",
                 absolute.display()
@@ -158,13 +161,21 @@ fn artist_folder_segment(input: &TrackPathInput) -> String {
 
 fn album_folder_segment(album: &str) -> String {
     let trimmed = album.trim();
-    let fallback = if trimmed.is_empty() { "Unknown Album" } else { trimmed };
+    let fallback = if trimmed.is_empty() {
+        "Unknown Album"
+    } else {
+        trimmed
+    };
     sanitize_and_truncate_segment(fallback, MAX_SEGMENT_LEN)
 }
 
 fn track_filename_stem(input: &TrackPathInput) -> String {
     let title = input.title.trim();
-    let title = if title.is_empty() { "Unknown Title" } else { title };
+    let title = if title.is_empty() {
+        "Unknown Title"
+    } else {
+        title
+    };
     let track_n = input.track_number.unwrap_or(0).max(0) as u32;
     let disc_n = input.disc_number.unwrap_or(1).max(0) as u32;
     if disc_n > 1 {
@@ -276,7 +287,10 @@ mod tests {
             raw_json: None,
         };
         let rel = relative_path_for_track("srv", &input, "mp3");
-        assert_eq!(rel.components().nth(1).and_then(|c| c.as_os_str().to_str()), Some("Original Soundtrack"));
+        assert_eq!(
+            rel.components().nth(1).and_then(|c| c.as_os_str().to_str()),
+            Some("Original Soundtrack")
+        );
     }
 
     #[test]
@@ -292,7 +306,10 @@ mod tests {
             raw_json: None,
         };
         let rel = relative_path_for_track("srv", &input, "mp3");
-        assert_eq!(rel.components().nth(1).and_then(|c| c.as_os_str().to_str()), Some("Various Artists"));
+        assert_eq!(
+            rel.components().nth(1).and_then(|c| c.as_os_str().to_str()),
+            Some("Various Artists")
+        );
     }
 
     #[test]
@@ -311,7 +328,10 @@ mod tests {
         assert_eq!(LocalTier::Favorites.subdir(), "favorites");
         assert_eq!(LocalTier::parse("ephemeral"), Some(LocalTier::Ephemeral));
         assert_eq!(LocalTier::parse("library"), Some(LocalTier::Library));
-        assert_eq!(LocalTier::parse("favorite-auto"), Some(LocalTier::Favorites));
+        assert_eq!(
+            LocalTier::parse("favorite-auto"),
+            Some(LocalTier::Favorites)
+        );
     }
 
     #[test]

@@ -8,6 +8,7 @@ import {
   OrbitSuggestBlockedError,
 } from '@/features/orbit/utils/orbit';
 import { showToast } from '@/lib/dom/toast';
+import { useThemeStore } from '@/store/themeStore';
 
 /**
  * Shared behaviour for song rows that in "normal mode" swallow a full list
@@ -27,11 +28,16 @@ import { showToast } from '@/lib/dom/toast';
  *
  * `orbitActive` is the gate — when false, callers should skip the hint and
  * run their original bulk-play path unchanged.
+ *
+ * `doubleClickToPlay` is the user's Settings → Input choice. Outside Orbit it
+ * moves the row's play from a single click to a double click; the row's play
+ * button is unaffected. Orbit keeps precedence over it.
  */
 export function useOrbitSongRowBehavior() {
   const { t } = useTranslation();
   const orbitRole = useOrbitStore(s => s.role);
   const orbitActive = orbitRole === 'host' || orbitRole === 'guest';
+  const doubleClickToPlay = useThemeStore(s => s.trackRowPlayClick === 'double');
   const clickTimerRef = useRef<number | null>(null);
 
   const queueHint = useCallback(() => {
@@ -69,5 +75,5 @@ export function useOrbitSongRowBehavior() {
     }
   }, [orbitRole, t]);
 
-  return { orbitActive, queueHint, addTrackToOrbit };
+  return { orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit };
 }

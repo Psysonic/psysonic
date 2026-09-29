@@ -20,6 +20,11 @@ pub(crate) const ORPHAN_BROWSE_RECONCILE_ID: &str = "orphan_browse_rows_reconcil
 pub(crate) const DURATION_SEC_BACKFILL_RECONCILE_ID: &str = "duration_sec_decimal_backfill_v1";
 const DURATION_SEC_BACKFILL_BATCH_SIZE: i64 = 1_000;
 
+/// One-time cleanup before genre counts start reading the projection directly.
+pub(crate) const GENRE_CATALOG_PROJECTION_RECONCILE_ID: &str =
+    "genre_catalog_projection_reconcile_v1";
+const GENRE_CATALOG_PROJECTION_BATCH_SIZE: i64 = 50_000;
+
 #[cfg(test)]
 pub(super) use super::track_timestamp_reconcile::maybe_reconcile_track_timestamp_backfill;
 
@@ -417,6 +422,97 @@ pub(super) fn maybe_reconcile_duration_sec_backfill(conn: &Connection) -> rusqli
         tx.execute(
             "UPDATE library_data_migration SET cursor_rowid = ?2 WHERE id = ?1",
             params![DURATION_SEC_BACKFILL_RECONCILE_ID, last_rowid],
+        )?;
+        tx.commit()?;
+    }
+}
+
+fn genre_catalog_projection_reconcile_completed(conn: &Connection) -> rusqlite::Result<bool> {
+    let completed: Option<Option<i64>> = conn
+        .query_row(
+            "SELECT completed_at FROM library_data_migration WHERE id = ?1",
+            params![GENRE_CATALOG_PROJECTION_RECONCILE_ID],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok(completed.flatten().is_some())
+}
+
+/// Remove stale genre rows and repair their denormalized browse fields in
+/// bounded transactions. Normal ingest keeps this projection aligned after the
+/// one-time repair.
+pub(super) fn maybe_reconcile_genre_catalog_projection(conn: &Connection) -> rusqlite::Result<()> {
+    if genre_catalog_projection_reconcile_completed(conn)? {
+        return Ok(());
+    }
+    conn.execute(
+        "INSERT INTO library_data_migration (id, cursor_rowid, started_at) \
+         VALUES (?1, 0, strftime('%s','now')) \
+         ON CONFLICT(id) DO UPDATE SET \
+           started_at = COALESCE(library_data_migration.started_at, excluded.started_at)",
+        params![GENRE_CATALOG_PROJECTION_RECONCILE_ID],
+    )?;
+
+    loop {
+        let cursor: i64 = conn.query_row(
+            "SELECT cursor_rowid FROM library_data_migration WHERE id = ?1",
+            params![GENRE_CATALOG_PROJECTION_RECONCILE_ID],
+            |row| row.get(0),
+        )?;
+        let last_rowid: Option<i64> = conn.query_row(
+            "SELECT MAX(rowid) FROM ( \
+               SELECT rowid FROM track_genre \
+               WHERE rowid > ?1 ORDER BY rowid LIMIT ?2 \
+             )",
+            params![cursor, GENRE_CATALOG_PROJECTION_BATCH_SIZE],
+            |row| row.get(0),
+        )?;
+        let Some(last_rowid) = last_rowid else {
+            conn.execute(
+                "UPDATE library_data_migration \
+                 SET completed_at = strftime('%s','now') WHERE id = ?1",
+                params![GENRE_CATALOG_PROJECTION_RECONCILE_ID],
+            )?;
+            return Ok(());
+        };
+        let repairs = {
+            let mut stmt = conn.prepare(
+                "SELECT tg.rowid, t.id, t.album_id, t.library_id, t.deleted \
+                 FROM track_genre AS tg \
+                 LEFT JOIN track AS t INDEXED BY sqlite_autoindex_track_1 \
+                   ON t.server_id = tg.server_id AND t.id = tg.track_id \
+                 WHERE tg.rowid > ?1 AND tg.rowid <= ?2 \
+                   AND (t.id IS NULL OR t.deleted != 0 \
+                     OR tg.album_id IS NOT t.album_id \
+                     OR tg.library_id IS NOT t.library_id) \
+                 ORDER BY tg.rowid",
+            )?;
+            let rows = stmt.query_map(params![cursor, last_rowid], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<i64>>(4)?,
+                ))
+            })?;
+            rows.collect::<rusqlite::Result<Vec<_>>>()?
+        };
+
+        let tx = conn.unchecked_transaction()?;
+        for (rowid, track_id, track_album_id, track_library_id, deleted) in repairs {
+            if track_id.is_none() || deleted != Some(0) {
+                tx.execute("DELETE FROM track_genre WHERE rowid = ?1", [rowid])?;
+            } else {
+                tx.execute(
+                    "UPDATE track_genre SET album_id = ?2, library_id = ?3 WHERE rowid = ?1",
+                    params![rowid, track_album_id, track_library_id],
+                )?;
+            }
+        }
+        tx.execute(
+            "UPDATE library_data_migration SET cursor_rowid = ?2 WHERE id = ?1",
+            params![GENRE_CATALOG_PROJECTION_RECONCILE_ID, last_rowid],
         )?;
         tx.commit()?;
     }

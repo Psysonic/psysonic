@@ -9,11 +9,12 @@
 
 pub mod advanced_search;
 mod advanced_search_mood;
-pub mod album_overlay;
 pub mod album_compilation_filter;
+pub mod album_overlay;
 pub mod analysis_backfill;
 pub mod analysis_backfill_policy;
 pub mod artist_artwork;
+pub mod artist_credit_projection;
 pub mod artist_lossless_browse;
 pub mod artist_sort;
 pub mod browse_projection;
@@ -38,7 +39,10 @@ pub mod live_search;
 pub mod lossless_albums;
 pub mod lossless_formats;
 pub mod mainstage_browse;
+pub mod mood_album_browse;
 pub mod mood_groups;
+pub mod mood_tags;
+pub mod mood_tags_backfill;
 pub mod most_played;
 pub mod navidrome_id_codec;
 pub mod navidrome_native_migration;

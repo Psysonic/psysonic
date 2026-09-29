@@ -5,10 +5,8 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
-import type { EntityShareKind } from '@/lib/share/shareLink';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/AddToPlaylistSubmenu';
 import {
-  copyShareLink as copyShareLinkAction,
   downloadAlbum as downloadAlbumAction,
   startInstantMix as startInstantMixAction,
   startRadio as startRadioAction,
@@ -83,8 +81,7 @@ export default function ContextMenu() {
 
   // Adjusted coordinates to keep menu on screen
   const [coords, setCoords] = useState({ x: 0, y: 0 });
-  const [playlistSubmenuOpen, setPlaylistSubmenuOpen] = useState(false);
-  const [playlistSongIds, setPlaylistSongIds] = useState<string[]>([]);
+  const [activeSubmenuId, setActiveSubmenuId] = useState<string | null>(null);
   const [keyboardRating, setKeyboardRating] = useState<{ kind: 'song' | 'album' | 'artist'; id: string; value: number } | null>(null);
   const [pendingSubmenuKeyboardFocus, setPendingSubmenuKeyboardFocus] = useState(false);
 
@@ -107,7 +104,7 @@ export default function ContextMenu() {
       playlistSubmenuCloseTimerRef.current = window.setTimeout(() => {
         playlistSubmenuCloseTimerRef.current = null;
         if (!cur.isConnected) return;
-        if (!cur.matches(':hover')) setPlaylistSubmenuOpen(false);
+        if (!cur.matches(':hover')) setActiveSubmenuId(null);
       }, 140);
     },
     [cancelPlaylistSubmenuCloseTimer],
@@ -119,8 +116,7 @@ export default function ContextMenu() {
       // React Compiler set-state-in-effect rule: local coords synced from the store's contextMenu position when the menu opens.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setCoords({ x: contextMenu.x, y: contextMenu.y });
-      setPlaylistSubmenuOpen(false);
-      setPlaylistSongIds([]);
+      setActiveSubmenuId(null);
       setKeyboardRating(null);
       setPendingSubmenuKeyboardFocus(false);
     }
@@ -218,9 +214,8 @@ export default function ContextMenu() {
     setKeyboardRating,
     getRatingValueByKind,
     commitRatingByKind,
-    playlistSubmenuOpen,
-    setPlaylistSubmenuOpen,
-    setPlaylistSongIds,
+    activeSubmenuId,
+    setActiveSubmenuId,
     pendingSubmenuKeyboardFocus,
     setPendingSubmenuKeyboardFocus,
   });
@@ -229,11 +224,6 @@ export default function ContextMenu() {
     closeContextMenu();
     await action();
   };
-
-  const copyShareLink = useCallback(
-    (kind: EntityShareKind, id: string, serverId?: string) => copyShareLinkAction(kind, id, t, serverId),
-    [t],
-  );
 
   const startRadio = (artistId: string, artistName: string, seedTrack?: Track, serverId?: string) =>
     startRadioAction(artistId, artistName, playTrack, seedTrack, serverId);
@@ -283,12 +273,10 @@ export default function ContextMenu() {
           userRatingOverrides={userRatingOverrides}
           setKeyboardRating={setKeyboardRating}
           keyboardRating={keyboardRating}
-          playlistSubmenuOpen={playlistSubmenuOpen}
-          setPlaylistSubmenuOpen={setPlaylistSubmenuOpen}
+          activeSubmenuId={activeSubmenuId}
+          setActiveSubmenuId={setActiveSubmenuId}
           cancelPlaylistSubmenuCloseTimer={cancelPlaylistSubmenuCloseTimer}
           onPlaylistSubmenuTriggerMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
-          playlistSongIds={playlistSongIds}
-          setPlaylistSongIds={setPlaylistSongIds}
           orbitRole={orbitRole}
           entityRatingSupport={entityRatingSupport}
           audiomuseNavidromeEnabled={audiomuseNavidromeEnabled}
@@ -299,7 +287,6 @@ export default function ContextMenu() {
           startRadio={startRadio}
           startInstantMix={startInstantMix}
           downloadAlbum={downloadAlbum}
-          copyShareLink={copyShareLink}
           isStarred={isStarred}
           pinToPlaybackServer={pinToPlaybackServer}
           navigateLibrary={navigateLibrary}

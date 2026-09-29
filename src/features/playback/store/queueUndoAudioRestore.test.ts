@@ -40,6 +40,7 @@ const hoisted = vi.hoisted(() => {
 vi.mock('@tauri-apps/api/core', () => ({ invoke: hoisted.invokeMock }));
 vi.mock('@/lib/cache/hotCacheGate', () => ({ setDeferHotCachePrefetch: hoisted.setDeferHotCachePrefetchMock }));
 vi.mock('@/features/playback/utils/playback/resolvePlaybackUrl', () => ({
+  localPlaybackOriginalVerifiedForUrl: vi.fn(() => null),
   resolvePlaybackUrl: hoisted.resolvePlaybackUrlMock,
   resolvePlaybackUrlForTrack: (
     track: { id: string; directStreamUrl?: string },

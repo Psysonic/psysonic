@@ -80,3 +80,72 @@
   outline: var(--focus-ring-width) solid var(--genre-color, var(--focus-ring-color));
   outline-offset: var(--focus-ring-offset);
 }
+
+/* ─ Album notes: the comment tag and the server's description ─ */
+
+.album-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 6px 0 10px;
+  max-width: 68ch;
+}
+
+/* The comment is usually a short, concrete line ("Remaster 2024"), so it reads
+   as a statement rather than prose — hence its own weight, not the body style. */
+.album-notes-comment {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.album-notes-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--album-notes-lines, 2);
+  line-clamp: var(--album-notes-lines, 2);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.album-notes-text.is-expanded {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
+/* Links inside a server-supplied description (Last.fm notes carry them). */
+.album-notes-text a {
+  color: var(--accent);
+}
+
+.album-notes-toggle {
+  align-self: flex-start;
+  appearance: none;
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.album-notes-toggle:hover {
+  text-decoration: underline;
+}
+
+.album-notes-toggle:focus-visible {
+  outline: var(--focus-ring-width) solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--radius-sm);
+}

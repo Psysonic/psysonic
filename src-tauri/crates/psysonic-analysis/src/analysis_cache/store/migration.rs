@@ -4,9 +4,7 @@ use super::AnalysisCache;
 
 const MAX_BATCH_LIMIT: u32 = 5_000;
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize, specta::Type,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize, specta::Type)]
 #[serde(rename_all = "kebab-case")]
 pub enum AnalysisMigrationStep {
     AnalysisTrack,
@@ -123,7 +121,10 @@ impl AnalysisCache {
         })
     }
 
-    pub fn migration_finalize(&self, server_id: &str) -> Result<AnalysisMigrationFinalizeDto, String> {
+    pub fn migration_finalize(
+        &self,
+        server_id: &str,
+    ) -> Result<AnalysisMigrationFinalizeDto, String> {
         validate_server_id(server_id)?;
         let mut conn = self.lock_write_conn()?;
         let tx = conn.transaction().map_err(|error| error.to_string())?;
@@ -133,9 +134,9 @@ impl AnalysisCache {
         let ownerless_loudness_removed = tx
             .execute("DELETE FROM loudness_cache WHERE server_id = ''", [])
             .map_err(|error| error.to_string())? as u64;
-        let ownerless_analysis_tracks_removed = tx
-            .execute("DELETE FROM analysis_track WHERE server_id = ''", [])
-            .map_err(|error| error.to_string())? as u64;
+        let ownerless_analysis_tracks_removed =
+            tx.execute("DELETE FROM analysis_track WHERE server_id = ''", [])
+                .map_err(|error| error.to_string())? as u64;
         verify_no_legacy_analysis_ids(&tx, server_id).map_err(|error| error.to_string())?;
         tx.commit().map_err(|error| error.to_string())?;
         Ok(AnalysisMigrationFinalizeDto {
@@ -194,7 +195,14 @@ fn migrate_analysis_track(
     upper_rowid: i64,
     limit: u32,
 ) -> rusqlite::Result<BatchStats> {
-    let rowids = select_rowids(tx, "analysis_track", server_id, cursor_rowid, upper_rowid, limit)?;
+    let rowids = select_rowids(
+        tx,
+        "analysis_track",
+        server_id,
+        cursor_rowid,
+        upper_rowid,
+        limit,
+    )?;
     let mut stats = BatchStats::default();
     for rowid in rowids {
         stats.processed += 1;
@@ -239,7 +247,10 @@ fn migrate_analysis_track(
                         ],
                     )?;
                 }
-                tx.execute("DELETE FROM analysis_track WHERE rowid = ?1", params![rowid])?;
+                tx.execute(
+                    "DELETE FROM analysis_track WHERE rowid = ?1",
+                    params![rowid],
+                )?;
                 stats.collisions += 1;
             }
         }
@@ -292,7 +303,14 @@ fn migrate_waveform(
     upper_rowid: i64,
     limit: u32,
 ) -> rusqlite::Result<BatchStats> {
-    let rowids = select_rowids(tx, "waveform_cache", server_id, cursor_rowid, upper_rowid, limit)?;
+    let rowids = select_rowids(
+        tx,
+        "waveform_cache",
+        server_id,
+        cursor_rowid,
+        upper_rowid,
+        limit,
+    )?;
     let mut stats = BatchStats::default();
     for rowid in rowids {
         stats.processed += 1;
@@ -337,7 +355,10 @@ fn migrate_waveform(
                         ],
                     )?;
                 }
-                tx.execute("DELETE FROM waveform_cache WHERE rowid = ?1", params![rowid])?;
+                tx.execute(
+                    "DELETE FROM waveform_cache WHERE rowid = ?1",
+                    params![rowid],
+                )?;
                 stats.collisions += 1;
             }
         }
@@ -370,8 +391,8 @@ fn waveform_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WaveformRow> {
 }
 
 fn waveform_preferred(source: &WaveformRow, destination: &WaveformRow) -> bool {
-    let source_valid = source.bin_count > 0
-        && source.bins.len() == (source.bin_count as usize).saturating_mul(2);
+    let source_valid =
+        source.bin_count > 0 && source.bins.len() == (source.bin_count as usize).saturating_mul(2);
     let destination_valid = destination.bin_count > 0
         && destination.bins.len() == (destination.bin_count as usize).saturating_mul(2);
     (source_valid && !destination_valid)
@@ -397,7 +418,14 @@ fn migrate_loudness(
     upper_rowid: i64,
     limit: u32,
 ) -> rusqlite::Result<BatchStats> {
-    let rowids = select_rowids(tx, "loudness_cache", server_id, cursor_rowid, upper_rowid, limit)?;
+    let rowids = select_rowids(
+        tx,
+        "loudness_cache",
+        server_id,
+        cursor_rowid,
+        upper_rowid,
+        limit,
+    )?;
     let mut stats = BatchStats::default();
     for rowid in rowids {
         stats.processed += 1;
@@ -441,7 +469,10 @@ fn migrate_loudness(
                         ],
                     )?;
                 }
-                tx.execute("DELETE FROM loudness_cache WHERE rowid = ?1", params![rowid])?;
+                tx.execute(
+                    "DELETE FROM loudness_cache WHERE rowid = ?1",
+                    params![rowid],
+                )?;
                 stats.collisions += 1;
             }
         }
@@ -508,10 +539,7 @@ fn select_rowids(
     rows
 }
 
-fn verify_no_legacy_analysis_ids(
-    tx: &Connection,
-    server_id: &str,
-) -> rusqlite::Result<()> {
+fn verify_no_legacy_analysis_ids(tx: &Connection, server_id: &str) -> rusqlite::Result<()> {
     for table in ["analysis_track", "waveform_cache", "loudness_cache"] {
         let sql = format!("SELECT track_id FROM {table} WHERE server_id = ?1");
         let mut statement = tx.prepare(&sql)?;
@@ -601,9 +629,8 @@ mod tests {
 
     #[test]
     fn shared_generation_blocks_ordinary_analysis_writes() {
-        let barrier = Arc::new(
-            psysonic_core::migration_write_barrier::MigrationWriteBarrier::default(),
-        );
+        let barrier =
+            Arc::new(psysonic_core::migration_write_barrier::MigrationWriteBarrier::default());
         let cache = AnalysisCache::open_in_memory_with_migration_barrier(Arc::clone(&barrier));
         let key = super::super::TrackKey {
             server_id: "s1".to_string(),

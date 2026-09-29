@@ -69,10 +69,12 @@ import {
   markQueuePushFailed,
   touchQueueMutationClock,
 } from '@/features/playback/store/queuePlaybackIdle';
+import { usePlayQueueSyncSettingsStore } from '@/features/playback/store/playQueueSyncSettingsStore';
 
 describe('applyServerPlayQueue idle guards', () => {
   beforeEach(() => {
     _resetQueuePlaybackIdleForTest();
+    usePlayQueueSyncSettingsStore.setState({ enabled: true });
     getPlayQueueForServerMock.mockReset();
     playerState.queueServerId = null;
     playerState.queueItems = [{ serverId: 'srv-a', trackId: 'local-only' }];
@@ -103,6 +105,16 @@ describe('applyServerPlayQueue idle guards', () => {
     expect(getPlayQueueForServerMock).not.toHaveBeenCalled();
     expect(playerState.queueItems).toEqual([{ serverId: 'srv-a', trackId: 'local-only' }]);
     expect(isIdleQueuePullSuspended()).toBe(true);
+  });
+
+  it('does not fetch or apply a server queue when sync is disabled for this device', async () => {
+    usePlayQueueSyncSettingsStore.setState({ enabled: false });
+
+    const result = await applyServerPlayQueue('srv-a', { mode: 'startup' });
+
+    expect(result).toBe('noop');
+    expect(getPlayQueueForServerMock).not.toHaveBeenCalled();
+    expect(playerState.queueItems).toEqual([{ serverId: 'srv-a', trackId: 'local-only' }]);
   });
 
   it('does not apply server queue in idle mode while a failed push blocks pull', async () => {

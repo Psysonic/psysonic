@@ -27,6 +27,23 @@ fn apply_album_list_page_fills_only_empty_library_rows() {
     other_album.album_id = Some("al2".into());
     other_album.library_id = None;
     repo.upsert_batch(&[tagged, empty, other_album]).unwrap();
+
+    store
+        .with_conn_mut("test.seed_track_mood_library_tagging", |conn| {
+            conn.execute(
+                "INSERT INTO track_mood(server_id, track_id, mood, album_id, library_id) \
+                 VALUES ('s1', 't2', 'Atmospheric', 'al1', '')",
+                [],
+            )?;
+            conn.execute(
+                "INSERT INTO track_mood(server_id, track_id, mood, album_id, library_id) \
+                 VALUES ('s1', 't3', 'Dreamy', 'al2', '')",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
     crate::identity::rebuild_cluster_keys(&store, None).unwrap();
 
     let n = repo
@@ -53,39 +70,84 @@ fn apply_album_list_page_fills_only_empty_library_rows() {
     assert_eq!(read("t2").as_deref(), Some("1"));
     assert_eq!(read("t3").as_deref(), Some("1"));
 
-    let (empty_projection, tagged_projection, identity_tagged, genre_tagged): (i64, i64, i64, i64) =
-        store
-            .with_read_conn(|conn| {
-                Ok((
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = ''",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = '1'",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM cluster.track_cluster_key \
+    let (empty_projection, tagged_projection, identity_tagged, genre_tagged, mood_tagged): (
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+    ) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = ''",
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM album_browse_projection WHERE library_id = '1'",
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM cluster.track_cluster_key \
                      WHERE track_id IN ('t2', 't3') AND library_id = '1'",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                    conn.query_row(
-                        "SELECT COUNT(*) FROM track_genre \
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_genre \
                      WHERE track_id IN ('t2', 't3') AND library_id = '1'",
-                        [],
-                        |r| r.get(0),
-                    )?,
-                ))
-            })
-            .unwrap();
+                    [],
+                    |r| r.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_mood \
+                     WHERE track_id IN ('t2', 't3') AND library_id = '1'",
+                    [],
+                    |r| r.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
     assert_eq!(empty_projection, 0);
     assert_eq!(tagged_projection, 2);
     assert_eq!(identity_tagged, 2);
     assert_eq!(genre_tagged, 2);
+    assert_eq!(mood_tagged, 2);
+}
+
+#[test]
+fn apply_album_list_page_moves_artist_credit_projection_to_the_tagged_library() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+    for index in 0..32 {
+        let track_id = format!("t{index}");
+        let album_id = format!("al{index}");
+        let mut track = row("s1", &track_id, "Track");
+        track.album_id = Some(album_id.clone());
+        track.library_id = None;
+        track.raw_json = json!({
+            "artists": [{ "id": "ar1", "name": "The Artist" }]
+        })
+        .to_string();
+        repo.upsert_batch(&[track]).unwrap();
+
+        repo.apply_album_list_page("s1", "1", &[album_summary(&album_id, None)])
+            .unwrap();
+
+        let library: String = store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT library_id FROM artist_credit_projection WHERE track_id = ?1",
+                    params![track_id],
+                    |row| row.get(0),
+                )
+            })
+            .unwrap();
+        assert_eq!(library, "1");
+    }
 }
 
 #[test]
@@ -134,12 +196,8 @@ fn apply_album_list_page_preserves_album_version_and_invalidates_identity() {
         .unwrap();
     crate::identity::rebuild_cluster_keys(&store, None).unwrap();
 
-    repo.apply_album_list_page(
-        "s1",
-        "1",
-        &[album_summary("al1", Some("Deluxe Edition"))],
-    )
-    .unwrap();
+    repo.apply_album_list_page("s1", "1", &[album_summary("al1", Some("Deluxe Edition"))])
+        .unwrap();
 
     let (raw, album_raw, pending): (String, String, i64) = store
         .with_read_conn(|conn| {
@@ -483,9 +541,7 @@ fn sparse_omission_is_healed_by_the_next_album_list_page() {
     let raw: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert_eq!(raw["albumVersion"], json!("Fresh"));
     assert_eq!(raw["_psysonicAlbumVersionFromList"], json!(true));
-    assert!(raw
-        .get("_psysonicAlbumVersionNeedsListRefresh")
-        .is_none());
+    assert!(raw.get("_psysonicAlbumVersionNeedsListRefresh").is_none());
 
     repo.apply_album_list_page("s1", "1", &[album_summary("al1", None)])
         .unwrap();
@@ -537,9 +593,7 @@ fn authoritative_top_level_clear_removes_stale_tag_fallback() {
     let raw: serde_json::Value = serde_json::from_str(&raw).unwrap();
     assert!(raw.get("albumVersion").is_none());
     assert!(raw.pointer("/tags/albumversion").is_none());
-    assert!(raw
-        .get("_psysonicAlbumVersionNeedsListRefresh")
-        .is_none());
+    assert!(raw.get("_psysonicAlbumVersionNeedsListRefresh").is_none());
 
     let mut newly_inserted = row("s1", "t2", "Second");
     newly_inserted.raw_json = json!({

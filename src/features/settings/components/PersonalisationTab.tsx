@@ -1,6 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Disc3, LayoutGrid, ListOrdered, ListTodo, PanelLeft, RotateCcw, Users } from 'lucide-react';
+import { Disc, Disc3, Heart, LayoutGrid, ListOrdered, ListTodo, Maximize2, PanelLeft, RotateCcw, Users } from 'lucide-react';
+import { useAlbumHeaderLayoutStore } from '@/features/album';
 import { useArtistLayoutStore } from '@/features/artist';
+import { useThemeStore } from '@/store/themeStore';
+import { useFavoritesLayoutStore } from '@/features/favorites';
 import { useAuthStore } from '@/store/authStore';
 import type { QueueDisplayMode } from '@/store/authStoreTypes';
 import { useHomeStore } from '@/features/home';
@@ -13,7 +16,9 @@ import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
 import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
 import { SettingsSubCard, SettingsField } from '@/features/settings/components/SettingsSubCard';
+import { AlbumHeaderLayoutCustomizer } from '@/features/settings/components/AlbumHeaderLayoutCustomizer';
 import { ArtistLayoutCustomizer } from '@/features/settings/components/ArtistLayoutCustomizer';
+import { FavoritesLayoutCustomizer } from '@/features/settings/components/FavoritesLayoutCustomizer';
 import { HomeCustomizer } from '@/features/settings/components/HomeCustomizer';
 import { PlayerBarLayoutCustomizer } from '@/features/settings/components/PlayerBarLayoutCustomizer';
 import { PlaylistLayoutCustomizer } from '@/features/settings/components/PlaylistLayoutCustomizer';
@@ -26,7 +31,11 @@ export function PersonalisationTab() {
   const setQueueDisplayMode = useAuthStore(s => s.setQueueDisplayMode);
   const preservePlayNextOrder = useAuthStore(s => s.preservePlayNextOrder);
   const setPreservePlayNextOrder = useAuthStore(s => s.setPreservePlayNextOrder);
+  const queueRowFavoriteButton = useAuthStore(s => s.queueRowFavoriteButton);
+  const setQueueRowFavoriteButton = useAuthStore(s => s.setQueueRowFavoriteButton);
   const advancedSettingsEnabled = useAuthStore(s => s.advancedSettingsEnabled);
+  const buttonSize = useThemeStore(s => s.buttonSize);
+  const setButtonSize = useThemeStore(s => s.setButtonSize);
 
   const queueModeOptions: SegmentedOption<QueueDisplayMode>[] = [
     { id: 'queue', label: t('queue.title') },
@@ -83,6 +92,32 @@ export function PersonalisationTab() {
       </SettingsSubSection>
 
       <SettingsSubSection
+        title={t('settings.buttonSizeTitle')}
+        icon={<Maximize2 size={16} />}
+      >
+        <SettingsGroup>
+          <SettingsSubCard>
+            <SettingsField
+              label={t('settings.buttonSizeLabel')}
+              desc={t('settings.buttonSizeDesc')}
+            >
+              <div style={{ display: 'flex', gap: 8 }}>
+                {(['large', 'small'] as const).map(size => (
+                  <button
+                    key={size}
+                    className={`btn ${buttonSize === size ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => setButtonSize(size)}
+                  >
+                    {t(`settings.buttonSize_${size}`)}
+                  </button>
+                ))}
+              </div>
+            </SettingsField>
+          </SettingsSubCard>
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
         title={t('settings.artistLayoutTitle')}
         icon={<Users size={16} />}
         advanced
@@ -101,6 +136,49 @@ export function PersonalisationTab() {
       >
         <SettingsGroup>
           <ArtistLayoutCustomizer />
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('settings.albumHeaderLayoutTitle')}
+        icon={<Disc size={16} />}
+        advanced
+        action={
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 6px' }}
+            onClick={() => useAlbumHeaderLayoutStore.getState().reset()}
+            data-tooltip={t('settings.playlistLayoutReset')}
+            aria-label={t('settings.playlistLayoutReset')}
+          >
+            <RotateCcw size={14} />
+          </button>
+        }
+      >
+        <SettingsGroup>
+          <AlbumHeaderLayoutCustomizer />
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('settings.favoritesLayoutTitle')}
+        icon={<Heart size={16} />}
+        action={
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 6px' }}
+            onClick={() => useFavoritesLayoutStore.getState().reset()}
+            data-tooltip={t('settings.favoritesLayoutReset')}
+            aria-label={t('settings.favoritesLayoutReset')}
+          >
+            <RotateCcw size={14} />
+          </button>
+        }
+      >
+        <SettingsGroup>
+          <FavoritesLayoutCustomizer />
         </SettingsGroup>
       </SettingsSubSection>
 
@@ -131,6 +209,12 @@ export function PersonalisationTab() {
               desc={t('settings.preservePlayNextOrderDesc')}
               checked={preservePlayNextOrder}
               onChange={setPreservePlayNextOrder}
+            />
+            <SettingsToggle
+              label={t('settings.queueRowFavoriteButton')}
+              desc={t('settings.queueRowFavoriteButtonSub')}
+              checked={queueRowFavoriteButton}
+              onChange={setQueueRowFavoriteButton}
             />
           </SettingsGroup>
 

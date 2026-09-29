@@ -242,6 +242,11 @@ html[data-platform="windows"] .player-bar.floating {
   color: var(--player-control);
   transition: all var(--transition-fast);
   flex-shrink: 0;
+  /* The hover grows the button with a transform. On macOS the icon was seen snapping half a
+     pixel sideways about 80 ms after that transition ended. `will-change` keeps the button
+     on its own compositing layer throughout, so the end of the transition does not change
+     how it is drawn. */
+  will-change: transform;
 }
 
 .player-btn:hover {
@@ -260,6 +265,12 @@ html[data-platform="windows"] .player-bar.floating {
   margin: var(--space-1);
   color: var(--player-control);
   transition: color var(--transition-fast);
+}
+
+/* The Last.fm button is the last item in `.player-track-info`, whose overflow is hidden.
+   Growing by 12% on hover pushed its circle 1.7px past that edge, where it was cut off. */
+.player-love-btn {
+  margin-right: var(--space-1);
 }
 
 .player-star-btn:hover,

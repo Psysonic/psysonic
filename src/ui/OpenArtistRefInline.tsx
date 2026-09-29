@@ -19,9 +19,16 @@ interface Props {
 }
 
 /**
- * Renders OpenSubsonic `artists` / `albumArtists` refs as ·-separated names with
+ * Renders OpenSubsonic `artists` / `albumArtists` refs as •-separated names with
  * per-artist navigation when `id` is present (same interaction model as album
  * track rows).
+ *
+ * The names are trimmed on the way in: servers split a tagged credit string on
+ * its separator and keep the surrounding spaces, so a two-artist track arrives as
+ * `"Name "` + `" Other Name"`. The separator itself is an empty element that CSS
+ * draws and spaces — a bullet character sits wherever the font puts it relative
+ * to the baseline (it read as bottom-aligned), and literal spaces around it would
+ * collapse against the remnants in the names.
  */
 export function OpenArtistRefInline({
   refs,
@@ -36,11 +43,12 @@ export function OpenArtistRefInline({
 }: Props) {
   const list = refs.length > 0 ? refs : [{ name: fallbackName }];
   const linked = [plainClassName, linkClassName].filter(Boolean).join(' ') || undefined;
+  const nameOf = (a: { name?: string }) => (a.name ?? fallbackName).trim() || fallbackName;
   const inner = (
     <>
       {list.map((a, i) => (
         <Fragment key={a.id ?? `n:${a.name ?? ''}:${i}`}>
-          {i > 0 && <span className={separatorClassName} aria-hidden="true"> · </span>}
+          {i > 0 && <span className={separatorClassName} aria-hidden="true" />}
           {a.id ? (
             linkTag === 'span' ? (
               <span
@@ -59,7 +67,7 @@ export function OpenArtistRefInline({
                   }
                 }}
               >
-                {a.name ?? fallbackName}
+                {nameOf(a)}
               </span>
             ) : (
               <button
@@ -70,11 +78,11 @@ export function OpenArtistRefInline({
                   onGoArtist(a.id!);
                 }}
               >
-                {a.name ?? fallbackName}
+                {nameOf(a)}
               </button>
             )
           ) : (
-            <span className={plainClassName}>{a.name ?? fallbackName}</span>
+            <span className={plainClassName}>{nameOf(a)}</span>
           )}
         </Fragment>
       ))}

@@ -1,15 +1,16 @@
 import type { TFunction } from 'i18next';
 import { getSongForServer } from '@/lib/api/subsonicLibrary';
-import type { SubsonicAlbum, SubsonicArtist, SubsonicSong } from '@/lib/api/subsonicTypes';
+import type { SubsonicAlbum, SubsonicArtist, SubsonicPlaylist, SubsonicSong } from '@/lib/api/subsonicTypes';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { songToTrack } from '@/lib/media/songToTrack';
 import type { Track } from '@/lib/media/trackTypes';
 import { orbitBulkGuard } from '@/features/orbit';
-import { resolveAlbum, resolveArtist } from '@/store/mediaResolver';
+import { resolveAlbum, resolveArtist, resolvePlaylist } from '@/store/mediaResolver';
 import type {
   AlbumShareSearchPayload,
   ArtistShareSearchPayload,
   ComposerShareSearchPayload,
+  PlaylistShareSearchPayload,
   QueueableShareSearchPayload,
 } from '@/lib/share/shareSearch';
 import { showToast } from '@/lib/dom/toast';
@@ -18,6 +19,7 @@ import {
   lookupShareServer,
   type ShareServerLookupResult,
 } from '@/features/share/shareServerResolution';
+import { normalizeNavidromeExternalId } from '@/lib/server/navidromeCanonicalExternalId';
 
 const RESOLVE_QUEUE_CHUNK = 12;
 
@@ -37,6 +39,13 @@ export type ShareSearchAlbumResolveResult =
 
 export type ShareSearchArtistResolveResult =
   | { type: 'ok'; artist: SubsonicArtist }
+  | { type: 'not-logged-in' }
+  | { type: 'no-matching-server'; url: string }
+  | { type: 'unavailable' }
+  | { type: 'error' };
+
+export type ShareSearchPlaylistResolveResult =
+  | { type: 'ok'; playlist: SubsonicPlaylist }
   | { type: 'not-logged-in' }
   | { type: 'no-matching-server'; url: string }
   | { type: 'unavailable' }
@@ -76,7 +85,8 @@ export async function resolveShareSearchPayload(
   }
 
   try {
-    const ids = payload.k === 'track' ? [payload.id] : payload.ids;
+    const ids = (payload.k === 'track' ? [payload.id] : payload.ids)
+      .map(id => normalizeNavidromeExternalId(lookup.serverId, id));
     const resolved: SubsonicSong[] = [];
     for (let i = 0; i < ids.length; i += RESOLVE_QUEUE_CHUNK) {
       const chunk = ids.slice(i, i + RESOLVE_QUEUE_CHUNK);
@@ -109,7 +119,8 @@ export async function resolveShareSearchAlbum(
   }
 
   try {
-    const resolved = await resolveAlbum(lookup.serverId, payload.id);
+    const id = normalizeNavidromeExternalId(lookup.serverId, payload.id);
+    const resolved = await resolveAlbum(lookup.serverId, id);
     return resolved
       ? { type: 'ok', album: { ...resolved.album, serverId: lookup.serverId } }
       : { type: 'unavailable' };
@@ -130,9 +141,32 @@ export async function resolveShareSearchArtist(
   }
 
   try {
-    const resolved = await resolveArtist(lookup.serverId, payload.id);
+    const id = normalizeNavidromeExternalId(lookup.serverId, payload.id);
+    const resolved = await resolveArtist(lookup.serverId, id);
     return resolved
       ? { type: 'ok', artist: { ...resolved.artist, serverId: lookup.serverId } }
+      : { type: 'unavailable' };
+  } catch {
+    return { type: 'unavailable' };
+  }
+}
+
+export async function resolveShareSearchPlaylist(
+  payload: PlaylistShareSearchPayload,
+): Promise<ShareSearchPlaylistResolveResult> {
+  const lookup = lookupShareServer(payload.srv);
+  if (lookup.type === 'not-logged-in') {
+    return { type: 'not-logged-in' };
+  }
+  if (lookup.type === 'no-matching-server') {
+    return { type: 'no-matching-server', url: lookup.url };
+  }
+
+  try {
+    const id = normalizeNavidromeExternalId(lookup.serverId, payload.id);
+    const resolved = await resolvePlaylist(lookup.serverId, id);
+    return resolved
+      ? { type: 'ok', playlist: { ...resolved.playlist, serverId: lookup.serverId } }
       : { type: 'unavailable' };
   } catch {
     return { type: 'unavailable' };

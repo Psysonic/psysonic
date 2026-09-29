@@ -528,11 +528,30 @@
   top: var(--space-6);
   left: 14%;
   right: 14%;
-  bottom: 360px; /* ends above the song-info / cover block; tune */
+  /* Ends above the foot, whose height is measured and published as
+     `--fsp-foot-h` (useFsFootHeightVar). A constant cannot work here: the cover
+     is 24vh, the waveform 5vh, and the visualizer strip and "Next" line come
+     and go — the old 360px reserve was ~90px short whenever the visualizer was
+     on, so the overlay sat on the track title (issue #1546). The fallback keeps
+     the first paint sane until the measurement lands. */
+  bottom: calc(var(--fsp-foot-h, 360px) + var(--space-4));
   z-index: 4;
   background: rgba(0, 0, 0, 0.88);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  /* The scrolling lines used to be cut mid-glyph at the lower edge. Fading the
+     last 64px out reads as "there is more below" instead of as a clipping bug.
+     Masking takes the panel's own background with it, which is what makes the
+     edge look soft rather than shaded. */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 64px), transparent 100%);
+}
+
+/* Compositing-free mode has no working mask — keep the hard edge there rather
+   than a fully transparent panel (same handling as `.fsr-lyrics-overlay`). */
+html.no-compositing .fsp-lyrics-overlay {
+  -webkit-mask-image: none;
+  mask-image: none;
 }
 
 /* Centered lyrics text in the fullscreen overlay (FsLyricsApple defaults to

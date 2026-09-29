@@ -28,7 +28,7 @@ const ALL_STATIC_ROUTES = [
   '/lossless-albums', '/folders', '/statistics', '/player-stats', '/help',
   '/settings', '/whats-new', '/offline', '/radio', '/random',
   '/random/albums', '/random/mix', '/search', '/search/advanced',
-  '/now-playing', '/device-sync',
+  '/now-playing', '/device-sync', '/shared',
 ] as const;
 
 const DYNAMIC_ROUTE_TEMPLATES = [

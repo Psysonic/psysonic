@@ -12,7 +12,7 @@ pub(crate) async fn fetch_data(
     state: &AudioEngine,
     gen: u64,
     app: &AppHandle,
-) -> Result<Option<Vec<u8>>, String> {
+) -> Result<Option<(Vec<u8>, Option<bool>)>, String> {
     // Check completed streamed-track cache first (manual streaming fallback cache).
     let streamed_cached = {
         let mut streamed = state.stream_completed_cache.lock().unwrap();
@@ -20,7 +20,7 @@ pub(crate) async fn fetch_data(
             .as_ref()
             .is_some_and(|p| same_playback_target(&p.url, url))
         {
-            streamed.take().map(|p| p.data)
+            streamed.take().map(|p| (p.data, p.local_original_verified))
         } else {
             None
         }
@@ -46,7 +46,7 @@ pub(crate) async fn fetch_data(
                 path.display(),
                 data.len()
             );
-            return Ok(Some(data));
+            return Ok(Some((data, None)));
         }
     }
 
@@ -57,7 +57,9 @@ pub(crate) async fn fetch_data(
             .as_ref()
             .is_some_and(|p| same_playback_target(&p.url, url))
         {
-            preloaded.take().map(|p| p.data)
+            preloaded
+                .take()
+                .map(|p| (p.data, p.local_original_verified))
         } else {
             None
         }
@@ -70,10 +72,12 @@ pub(crate) async fn fetch_data(
     // Offline cache — local file written by download_track_offline.
     if let Some(path) = url.strip_prefix("psysonic-local://") {
         let data = tokio::fs::read(path).await.map_err(|e| e.to_string())?;
-        return Ok(Some(data));
+        return Ok(Some((data, None)));
     }
 
-    fetch_http_data(url, state, gen, app).await
+    Ok(fetch_http_data(url, state, gen, app)
+        .await?
+        .map(|data| (data, None)))
 }
 
 /// Fetch bytes directly from HTTP, bypassing preload/completed caches.

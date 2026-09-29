@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { AudioLines, ChevronRight, Play, Square, X } from 'lucide-react';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import { codecLabel } from '@/lib/format/playlistDetailHelpers';
+import { codecLabel, genresLabel, moodsLabel } from '@/lib/format/playlistDetailHelpers';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
 import i18n from '@/lib/i18n';
 import { formatTrackTime } from '@/lib/format/formatDuration';
@@ -11,11 +11,12 @@ import StarRating from '@/ui/StarRating';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
 import { resolveTrackArtistRefs } from '@/features/playback/utils/playback/trackArtistRefs';
+import { useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 
 export interface FavoriteSongRowCallbacks {
   activate: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
-  dblOrbit: (song: SubsonicSong, e: React.MouseEvent) => void;
+  doubleClick: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
   context: (song: SubsonicSong, e: React.MouseEvent) => void;
   mouseDownRow: (song: SubsonicSong, e: React.MouseEvent) => void;
   toggleSelect: (songId: string, index: number, shift: boolean) => void;
@@ -40,26 +41,31 @@ interface Props {
   ratingValue: number;
   isPreviewing: boolean;
   previewStarted: boolean;
-  orbitActive: boolean;
+  /** Double click does something (Orbit add, or play in double-click mode). */
+  doubleClickActive: boolean;
+  /** Set only on the list's cursor row (`useTrackListCursor`). */
+  cursorRowId?: string;
   cb: FavoriteSongRowCallbacks;
 }
 
 function FavoriteSongRow({
   song, index: i, visibleCols, gridStyle, showBitrate,
   isActive, showEq, isSelected, inSelectMode,
-  ratingValue, isPreviewing, previewStarted, orbitActive, cb,
+  ratingValue, isPreviewing, previewStarted, doubleClickActive, cursorRowId, cb,
 }: Props) {
   const { t } = useTranslation();
   // `song.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
+  const playStats = useTrackPlayStats(song);
 
   return (
     <div
-      className={`track-row track-row-va track-row-with-actions${isActive ? ' active' : ''}${isSelected ? ' bulk-selected' : ''}`}
+      id={cursorRowId}
+      className={`track-row track-row-va track-row-with-actions${isActive ? ' active' : ''}${isSelected ? ' bulk-selected' : ''}${cursorRowId ? ' track-row--cursor' : ''}`}
       style={gridStyle}
       role="row"
       onClick={e => cb.activate(song, i, e)}
-      onDoubleClick={orbitActive ? e => cb.dblOrbit(song, e) : undefined}
+      onDoubleClick={doubleClickActive ? e => cb.doubleClick(song, i, e) : undefined}
       onContextMenu={e => cb.context(song, e)}
       onMouseDown={e => cb.mouseDownRow(song, e)}
     >
@@ -127,6 +133,12 @@ function FavoriteSongRow({
           case 'genre': return (
             <div key="genre" className="track-genre">{song.genre ?? '—'}</div>
           );
+          case 'genres': return (
+            <div key="genres" className="track-genre">{genresLabel(song) || '—'}</div>
+          );
+          case 'mood': return (
+            <div key="mood" className="track-genre">{moodsLabel(song) || '—'}</div>
+          );
           case 'format': return (
             <div key="format" className="track-meta">
               {(song.suffix || (showBitrate && song.bitRate)) && <span className="track-codec">{codecLabel(song, showBitrate)}</span>}
@@ -135,10 +147,10 @@ function FavoriteSongRow({
           case 'rating': return <StarRating key="rating" value={ratingValue} onChange={r => cb.rate(song, r)} />;
           case 'duration': return <div key="duration" className="track-duration">{formatTrackTime(song.duration)}</div>;
           case 'playCount': return (
-            <div key="playCount" className="track-duration">{song.playCount ?? '—'}</div>
+            <div key="playCount" className="track-duration">{playStats.playCount ?? '—'}</div>
           );
           case 'lastPlayed': return (
-            <div key="lastPlayed" className="track-genre">{song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}</div>
+            <div key="lastPlayed" className="track-genre">{playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}</div>
           );
           case 'bpm': return (
             <div key="bpm" className="track-duration">{song.bpm && song.bpm > 0 ? song.bpm : '—'}</div>

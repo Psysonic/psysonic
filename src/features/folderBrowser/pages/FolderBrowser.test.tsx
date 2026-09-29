@@ -3,6 +3,7 @@ import { act, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { useAuthStore } from '@/store/authStore';
+import { useThemeStore } from '@/store/themeStore';
 import {
   resetServerReachabilitySnapshot,
   setServerReachability,
@@ -60,6 +61,7 @@ describe('FolderBrowser', () => {
     libraryScopeArtistDetailMock.mockReset();
     libraryScopeAlbumDetailMock.mockReset();
     playTrackMock.mockReset();
+    useThemeStore.setState({ trackRowPlayClick: 'single' });
     useAuthStore.setState({
       servers: [
         { id: 'server-a', name: 'Alpha', url: 'https://alpha.example', username: 'u', password: 'p' },
@@ -125,6 +127,28 @@ describe('FolderBrowser', () => {
     expect(playTrackMock).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'track-a', serverId: 'server-a', duration: 60 }),
       [expect.objectContaining({ id: 'track-a', serverId: 'server-a', duration: 60 })],
+    );
+  });
+
+  it('marks a track on a single click and plays it on a double click in double-click mode', async () => {
+    useThemeStore.setState({ trackRowPlayClick: 'double' });
+    const user = userEvent.setup();
+    renderWithProviders(<FolderBrowser />, { route: '/folders' });
+
+    await user.click(await screen.findByRole('button', { name: 'Alpha - Library A' }));
+    await user.click(await screen.findByRole('button', { name: 'Artist A' }));
+    await user.click(await screen.findByRole('button', { name: 'Album A' }));
+    const track = await screen.findByRole('button', { name: 'Track A' });
+
+    await user.click(track);
+    expect(playTrackMock).not.toHaveBeenCalled();
+    expect(track).toHaveClass('selected');
+
+    await user.dblClick(track);
+    expect(playTrackMock).toHaveBeenCalledOnce();
+    expect(playTrackMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'track-a', serverId: 'server-a' }),
+      [expect.objectContaining({ id: 'track-a', serverId: 'server-a' })],
     );
   });
 

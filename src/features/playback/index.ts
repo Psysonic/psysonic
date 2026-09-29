@@ -8,6 +8,7 @@ export { previewInputFromSong, usePreviewStore } from './store/previewStore';
 export { resolveTrackArtistRefs } from './utils/playback/trackArtistRefs';
 export { seedQueueResolver } from './store/queueTrackResolver';
 export { queueSongStar } from './store/pendingStarSync';
+export { BulkTrackRating } from './components/BulkTrackRating';
 export { getPlaybackProgressSnapshot, subscribePlaybackProgress } from './store/playbackProgress';
 export type { PlaybackProgressSnapshot } from './store/playbackProgress';
 export { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from './store/playbackProgressSmooth';
@@ -17,7 +18,9 @@ export {
   playbackProfileIdForTrack,
 } from './utils/playback/playbackServer';
 export { useVolumeToggle } from './hooks/useVolumeToggle';
+export { useTrackPlayStats } from './hooks/useTrackPlayStats';
 export { usePlaybackLibraryNavigate } from './hooks/usePlaybackLibraryNavigate';
+export { useDebouncedBuffering } from './hooks/useDebouncedBuffering';
 export { TrackArtistLinks } from './components/TrackArtistLinks';
 export { ScrobbleActionButton } from './components/playerBar/ScrobbleStatus';
 /** Visualizer tap and reactive availability for internet radio. */
@@ -29,3 +32,5 @@ export {
 export { sameQueueTrack } from './utils/playback/queueIdentity';
 export { queueTrackIdsForServerProfile } from './utils/playback/trackServerScope';
 export { playTimelineFromHere } from './utils/playTimelineHistoryTrack';
+export { enqueueAndPlay } from './utils/playback/playSong';
+export { usePlayQueueSyncSettingsStore } from './store/playQueueSyncSettingsStore';

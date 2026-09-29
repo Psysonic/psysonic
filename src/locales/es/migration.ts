@@ -12,6 +12,10 @@ export const migration = {
   genreTagsTitle: 'Actualizando índice de géneros…',
   genreTagsBody: 'Indexando géneros para exploración y filtros. Se ejecuta una vez tras la actualización.',
   genreTagsFailed: 'Error al actualizar el índice de géneros',
+  fileMoodTagsTitle: 'Actualizando el índice de estados de ánimo…',
+  fileMoodTagsBody:
+    'Se indexan las etiquetas de estado de ánimo de los archivos para explorar y filtrar. Esto se realiza una vez tras la actualización.',
+  fileMoodTagsFailed: 'No se pudo actualizar el índice de estados de ánimo',
   scopeBrowseProjectionTitle: 'Actualizando el índice de exploración de la biblioteca…',
   scopeBrowseProjectionBody: 'Preparando tu catálogo de álbumes para una exploración más rápida. Se ejecuta una vez tras actualizar.',
   scopeBrowseProjectionFailed: 'Error al actualizar el índice de exploración de la biblioteca',

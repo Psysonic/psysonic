@@ -41,3 +41,25 @@ fn original_download_url_replaces_endpoint_and_strips_transcode_params() {
     assert!(!download.contains("maxBitRate="));
     assert!(!download.contains("estimateContentLength="));
 }
+
+#[test]
+fn original_download_url_is_idempotent() {
+    let url = "https://s.example/rest/download.view?id=t1&u=a&t=tok";
+    assert_eq!(build_original_download_url(url).as_deref(), Some(url));
+}
+
+#[test]
+fn original_url_builders_reject_extensionless_endpoints() {
+    assert_eq!(
+        build_raw_probe_url("https://s.example/rest/stream?id=t1"),
+        None,
+    );
+    assert_eq!(
+        build_original_download_url("https://s.example/rest/stream?id=t1"),
+        None,
+    );
+    assert_eq!(
+        build_original_download_url("https://s.example/rest/download?id=t1"),
+        None,
+    );
+}

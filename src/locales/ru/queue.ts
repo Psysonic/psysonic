@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Копировать ссылку Navidrome share',
   shareNavidromePublicMissing: 'Ссылка Navidrome share недоступна.',
   shareQueueEmpty: 'Очередь пуста — нечем поделиться.',
+  multiServerShareTitle: 'Очередь с нескольких серверов',
+  multiServerShareHint: 'Выберите сервер, чтобы поделиться его треками.',
   emptyQueue: 'Очередь пуста.',
   crossServerEnqueueBlocked: 'Треки с другого сервера нельзя добавить в текущую очередь. Завершите или очистите очередь.',
   trackSingular: 'трек',

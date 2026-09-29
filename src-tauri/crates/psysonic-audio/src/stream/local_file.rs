@@ -27,6 +27,10 @@ impl Seek for LocalFileSource {
 }
 
 impl MediaSource for LocalFileSource {
-    fn is_seekable(&self) -> bool { true }
-    fn byte_len(&self) -> Option<u64> { Some(self.len) }
+    fn is_seekable(&self) -> bool {
+        true
+    }
+    fn byte_len(&self) -> Option<u64> {
+        Some(self.len)
+    }
 }

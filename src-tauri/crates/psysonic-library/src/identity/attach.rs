@@ -106,7 +106,11 @@ fn file_uri(cluster_path: &Path, query: &str) -> String {
         .collect();
     // Unix paths already start with `/` (→ `file://` + `/abs`); Windows paths
     // start with a drive letter and need the extra slash (`file:///C:/…`).
-    let prefix = if encoded.starts_with('/') { "file://" } else { "file:///" };
+    let prefix = if encoded.starts_with('/') {
+        "file://"
+    } else {
+        "file:///"
+    };
     if query.is_empty() {
         format!("{prefix}{encoded}")
     } else {
@@ -116,23 +120,18 @@ fn file_uri(cluster_path: &Path, query: &str) -> String {
 
 fn attach_file_write(conn: &Connection, cluster_path: &Path) -> rusqlite::Result<()> {
     if let Some(parent) = cluster_path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| {
-            rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-        })?;
+        std::fs::create_dir_all(parent)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     }
     let literal = escape_sqlite_literal(&cluster_path.display().to_string());
-    conn.execute_batch(&format!(
-        "ATTACH DATABASE '{literal}' AS {CLUSTER_SCHEMA}"
-    ))?;
+    conn.execute_batch(&format!("ATTACH DATABASE '{literal}' AS {CLUSTER_SCHEMA}"))?;
     if !cluster_schema_is_compatible(conn)? {
         crate::app_eprintln!(
             "[library-cluster] incompatible sidecar schema; recreating rebuildable database"
         );
         conn.execute_batch(&format!("DETACH DATABASE {CLUSTER_SCHEMA}"))?;
         remove_cluster_files(cluster_path);
-        conn.execute_batch(&format!(
-            "ATTACH DATABASE '{literal}' AS {CLUSTER_SCHEMA}"
-        ))?;
+        conn.execute_batch(&format!("ATTACH DATABASE '{literal}' AS {CLUSTER_SCHEMA}"))?;
     }
     initialize_cluster_schema(conn)
 }
@@ -201,9 +200,7 @@ fn attach_pair_once(
 /// In-memory cluster DB uses `cache=shared` so the read/write library pair see one identity store.
 fn attach_memory(conn: &Connection, cluster_uri: &str) -> rusqlite::Result<()> {
     let literal = escape_sqlite_literal(cluster_uri);
-    conn.execute_batch(&format!(
-        "ATTACH DATABASE '{literal}' AS {CLUSTER_SCHEMA}"
-    ))?;
+    conn.execute_batch(&format!("ATTACH DATABASE '{literal}' AS {CLUSTER_SCHEMA}"))?;
     Ok(())
 }
 
@@ -214,10 +211,7 @@ pub fn attach_cluster_write_file(
     attach_file_write(conn, &cluster_db_path_for_library(library_db_path))
 }
 
-pub fn attach_cluster_read_file(
-    conn: &Connection,
-    library_db_path: &Path,
-) -> rusqlite::Result<()> {
+pub fn attach_cluster_read_file(conn: &Connection, library_db_path: &Path) -> rusqlite::Result<()> {
     attach_file_read(conn, &cluster_db_path_for_library(library_db_path))
 }
 
@@ -283,9 +277,11 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         attach_cluster_write_file(&conn, &library_path).unwrap();
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM cluster.track_cluster_key", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*) FROM cluster.track_cluster_key",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         let version: i64 = conn
             .query_row("PRAGMA cluster.user_version", [], |row| row.get(0))
@@ -319,9 +315,11 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         attach_cluster_write_file(&conn, &library_path).unwrap();
         let key_count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM cluster.track_cluster_key", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*) FROM cluster.track_cluster_key",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         let obsolete_count: i64 = conn
             .query_row(
@@ -363,7 +361,11 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         attach_cluster_write_file(&conn, &library_path).unwrap();
         let key_count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM cluster.track_cluster_key", [], |row| row.get(0))
+            .query_row(
+                "SELECT COUNT(*) FROM cluster.track_cluster_key",
+                [],
+                |row| row.get(0),
+            )
             .unwrap();
         let rank_columns: i64 = conn
             .query_row(

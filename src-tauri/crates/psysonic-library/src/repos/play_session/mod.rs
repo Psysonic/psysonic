@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use rusqlite::{params, OptionalExtension};
 
 use crate::dto::{
-    PlaySessionDayDetailDto, PlaySessionDayTrackDto, PlaySessionDayTotalsDto,
+    PlaySessionDayDetailDto, PlaySessionDayTotalsDto, PlaySessionDayTrackDto,
     PlaySessionHeatmapDayDto, PlaySessionInputDto, PlaySessionRecapDayDto,
     PlaySessionRecapGenreDto, PlaySessionRecapItemDto, PlaySessionRecentDayDto,
     PlaySessionRecentTrackDto, PlaySessionYearBoundsDto, PlaySessionYearRecapDto,
@@ -21,9 +21,7 @@ use crate::lossless_formats::track_is_lossless_sql;
 use crate::store::LibraryStore;
 
 use cluster::{count_listening_sessions, PlaySpan};
-use completion::{
-    completion_from_position, effective_duration_sec, MIN_LISTENED_SEC,
-};
+use completion::{completion_from_position, effective_duration_sec, MIN_LISTENED_SEC};
 
 fn map_play_session_track_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<PlaySessionDayTrackDto> {
     Ok(PlaySessionDayTrackDto {

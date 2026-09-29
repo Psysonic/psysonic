@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Selectie aan wachtrij',
   playAll: 'Alles afspelen',
   playSelected: 'Selectie afspelen',
+  shuffleAll: 'Alles willekeurig afspelen',
+  shuffleSelected: 'Selectie willekeurig afspelen',
   removeSong: 'Verwijderen uit favorieten',
   stations: 'Radiostations',
   showingFiltered: 'Toont {{filtered}} van {{total}} ({{artist}})',

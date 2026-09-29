@@ -13,25 +13,12 @@ import type { Track } from '@/lib/media/trackTypes';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
 import { useZipDownloadStore } from '@/features/offline';
 import { useDownloadModalStore } from '@/features/offline';
-import type { EntityShareKind } from '@/lib/share/shareLink';
-import { copyEntityShareLink } from '@/lib/share/copyEntityShareLink';
 import { sanitizeFilename, shuffleArray } from '@/features/contextMenu/utils/contextMenuHelpers';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { showToast } from '@/lib/dom/toast';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 
 let contextRadioGeneration = 0;
-
-export async function copyShareLink(
-  kind: EntityShareKind,
-  id: string,
-  t: (key: string) => string,
-  serverId?: string,
-) {
-  const ok = await copyEntityShareLink(kind, id, { serverId });
-  if (ok) showToast(t('contextMenu.shareCopied'));
-  else showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
-}
 
 export async function startRadio(
   artistId: string,

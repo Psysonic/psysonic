@@ -203,7 +203,10 @@ pub(super) fn read_search_cli_response_blocking(max_wait: Duration) -> String {
             let trimmed = text.trim();
             if let Ok(v) = serde_json::from_str::<Value>(trimmed) {
                 let ready = v.get("ready").and_then(|x| x.as_bool()) == Some(true);
-                let has_err = v.get("error").and_then(|x| x.as_str()).is_some_and(|s| !s.is_empty());
+                let has_err = v
+                    .get("error")
+                    .and_then(|x| x.as_str())
+                    .is_some_and(|s| !s.is_empty());
                 if ready || has_err {
                     return text;
                 }
@@ -249,7 +252,8 @@ pub(super) fn read_benchmark_cli_response_blocking(max_wait: Duration) -> String
         if let Ok(text) = std::fs::read_to_string(&path) {
             if serde_json::from_str::<Value>(&text)
                 .ok()
-                .and_then(|value| value.get("ready").and_then(Value::as_bool)) == Some(true)
+                .and_then(|value| value.get("ready").and_then(Value::as_bool))
+                == Some(true)
             {
                 return text;
             }
@@ -281,7 +285,10 @@ pub(super) fn print_benchmark_cli_stdout(text: &str, json_out: bool) {
     if let Some(rows) = value.get("summary").and_then(Value::as_array) {
         for row in rows.iter().take(10) {
             let route = row.get("route").and_then(Value::as_str).unwrap_or("?");
-            let median = row.get("medianTotalMs").and_then(Value::as_u64).unwrap_or(0);
+            let median = row
+                .get("medianTotalMs")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
             let max = row.get("maxTotalMs").and_then(Value::as_u64).unwrap_or(0);
             println!("  {route:<24} median {median:>6} ms  max {max:>6} ms");
         }
@@ -291,7 +298,10 @@ pub(super) fn print_benchmark_cli_stdout(text: &str, json_out: bool) {
         for row in rows.iter().take(10) {
             let route = row.get("route").and_then(Value::as_str).unwrap_or("?");
             let delta = row.get("deltaMs").and_then(Value::as_i64).unwrap_or(0);
-            let percent = row.get("deltaPercent").and_then(Value::as_f64).unwrap_or(0.0);
+            let percent = row
+                .get("deltaPercent")
+                .and_then(Value::as_f64)
+                .unwrap_or(0.0);
             println!("  {route:<24} {delta:>+6} ms  {percent:>+6.0}%");
         }
     }

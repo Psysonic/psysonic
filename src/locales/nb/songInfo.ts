@@ -6,6 +6,7 @@ export const songInfo = {
   albumArtist: 'Albumartist',
   year: 'År',
   genre: 'Sjanger',
+  genres: 'Sjangere',
   duration: 'Varighet',
   track: 'Spor',
   bpm: 'BPM',

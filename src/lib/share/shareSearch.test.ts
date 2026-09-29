@@ -103,6 +103,23 @@ describe('share search parsing', () => {
     });
   });
 
+  it('detects playlist share links as playlist search results', () => {
+    const playlist = encodeSharePayload({
+      srv: 'https://music.example.com',
+      k: 'playlist',
+      id: 'playlist-1',
+    });
+
+    expect(parseShareSearchText(playlist)).toEqual({
+      type: 'playlist',
+      payload: {
+        srv: 'https://music.example.com',
+        k: 'playlist',
+        id: 'playlist-1',
+      },
+    });
+  });
+
   it('returns unsupported for invalid psysonic2 payloads', () => {
     expect(parseShareSearchText('psysonic2-not-valid-base64!!!')).toEqual({ type: 'unsupported' });
   });

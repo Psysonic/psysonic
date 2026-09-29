@@ -50,6 +50,7 @@ export const common = {
   updaterInstallHint: 'Zárd be a Psysonicot, és futtasd a telepítőt kézzel.',
   updaterAurHint: 'Telepítsd a frissítést az AUR-on keresztül:',
   updaterWingetHint: 'Vagy frissíts a WinGeten keresztül:',
+  updaterFlatpakHint: 'Futtasd ezt a parancsot, majd indítsd újra a Psysonicot:',
   updaterErrorMsg: 'A letöltés nem sikerült',
   updaterWinReady: 'A frissítés letöltődik, ellenőrzésre kerül és a háttérben települ — nincs kézi telepítés. A Psysonic bezárul, majd magától újraindul.',
   updaterWinInstallingTitle: 'Frissítés telepítése',

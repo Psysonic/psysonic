@@ -19,7 +19,7 @@ use crate::store::LibraryStore;
 use rusqlite::types::Value as SqlValue;
 
 const ARTIST_COLUMNS: &str = "ar.server_id, ar.id, ar.name, ar.name_sort, ar.album_count, \
-  ar.synced_at, ar.raw_json";
+  ar.starred_at, ar.synced_at, ar.raw_json";
 
 /// Letter bucket filter on `name_sort` (articles already stripped in column).
 pub(super) fn push_artist_letter_bucket(
@@ -189,6 +189,10 @@ pub(super) fn build_artist_from_table(
             if album_artist_credit_mode(req) {
                 applied.insert("artist_credit_mode".to_string());
             }
+            if req.starred_only == Some(true) {
+                filter.push_raw("ar.starred_at IS NOT NULL");
+                applied.insert("starred".to_string());
+            }
             let order = order_clause(&req.sort, EntityKind::Artist).unwrap_or_else(|| {
                 "ORDER BY COALESCE(ar.name_sort, ar.name) COLLATE NOCASE ASC, ar.id ASC".to_string()
             });
@@ -212,6 +216,10 @@ pub(super) fn build_artist_from_table(
     if album_artist_credit_mode(req) {
         w.push_raw("ar.album_count IS NOT NULL");
         applied.insert("artist_credit_mode".to_string());
+    }
+    if req.starred_only == Some(true) {
+        w.push_raw("ar.starred_at IS NOT NULL");
+        applied.insert("starred".to_string());
     }
     if let Some(bucket) = req.artist_letter_bucket.as_deref() {
         push_artist_letter_bucket(&mut w, bucket, applied);
@@ -248,14 +256,15 @@ pub(super) fn build_artist_from_table(
 }
 
 fn map_artist(r: &rusqlite::Row<'_>) -> rusqlite::Result<LibraryArtistDto> {
-    let raw: Option<String> = r.get(6)?;
+    let raw: Option<String> = r.get(7)?;
     Ok(LibraryArtistDto {
         server_id: r.get(0)?,
         id: r.get(1)?,
         name: r.get(2)?,
         name_sort: r.get(3)?,
         album_count: r.get(4)?,
-        synced_at: r.get(5)?,
+        starred_at: r.get(5)?,
+        synced_at: r.get(6)?,
         raw_json: parse_raw_json(raw),
     })
 }

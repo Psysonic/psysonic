@@ -23,6 +23,7 @@ export function cleanTrackTitle(title: string): string {
     /\s*\[remastered\]$/i,
     /\s*-\s*remasterizado\s+\d{4}$/i,
     /\s*-\s*remastered\s+\d{4}$/i,
+    /\s*-\s*\d{4}\s+remaster(ed)?$/i,
     /\s*\(\d{4}\s+remaster\)$/i,
     /\s*\(\d{4}\s+remastered\)$/i,
     // Live variants

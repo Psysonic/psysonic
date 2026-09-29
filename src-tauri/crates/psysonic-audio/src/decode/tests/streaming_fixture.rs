@@ -167,6 +167,7 @@ fn a_built_streaming_source_reports_what_it_delivers_not_the_server_hint() {
         0,
         0, // no device channel count in tests: leave the source as it is
         None,
+        false,
     )
     .expect("build_streaming_source must succeed for the LAME fixture");
 

@@ -72,9 +72,7 @@ impl DeltaSyncRunner<'_> {
                 let stats = TrackRepository::new(self.store)
                     .upsert_sparse_batch_with_remap(&rows, self.unstable_track_ids())
                     .map_err(SyncError::Storage)?;
-                report.changed_count = report
-                    .changed_count
-                    .saturating_add(rows.len() as u32);
+                report.changed_count = report.changed_count.saturating_add(rows.len() as u32);
                 report.remapped_count = report
                     .remapped_count
                     .saturating_add(stats.remapped.len() as u32);

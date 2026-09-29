@@ -81,6 +81,12 @@ export function createServerProfileActions(set: SetState, get: GetState): Pick<
           || libraryBrowseServerIds.some((serverId, index) => serverId !== s.libraryBrowseServerIds[index]);
         return {
           servers,
+          // Record the minted id so the analysis boundary can tell ephemeral
+          // profile identity from an address-derived key without guessing at
+          // its shape. Kept even after the profile is removed.
+          mintedServerProfileIds: s.mintedServerProfileIds.includes(id)
+            ? s.mintedServerProfileIds
+            : [...s.mintedServerProfileIds, id],
           libraryBrowseServerIds,
           ...(scopeChanged
             ? { libraryBrowseScopeVersion: s.libraryBrowseScopeVersion + 1 }

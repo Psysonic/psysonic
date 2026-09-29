@@ -29,6 +29,7 @@ export * from './store/artistBrowseSessionStore';
 export * from './store/artistLayoutStore';
 export * from './utils/artistBrowseRoutePrefetch';
 export * from './utils/artistsHelpers';
+export * from './utils/openFavoriteArtists';
 export * from './utils/runArtistDetailActions';
 export * from './utils/runArtistDetailPlay';
 export * from './utils/sortArtistAlbums';

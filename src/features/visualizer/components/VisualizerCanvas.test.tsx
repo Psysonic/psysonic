@@ -31,6 +31,7 @@ const hoisted = vi.hoisted(() => {
     colorSource: 'album',
     fps: 60,
     responsiveness: 0.65,
+    pauseWhenUnfocused: true,
   };
 
   return {
@@ -38,6 +39,7 @@ const hoisted = vi.hoisted(() => {
     feed,
     feedRef,
     visualizerState,
+    windowActivity: { hidden: false, blurred: false },
     palette: { current: { background: '#000', bars: ['#fff'] } },
     useSpectrumFeedMock: vi.fn(() => feedRef),
     renderFrameMock: vi.fn(),
@@ -48,6 +50,10 @@ const hoisted = vi.hoisted(() => {
 
 vi.mock('@/features/visualizer/hooks/useSpectrumFeed', () => ({
   useSpectrumFeed: hoisted.useSpectrumFeedMock,
+}));
+vi.mock('@/lib/hooks/useWindowVisibility', () => ({
+  useWindowVisibility: () => hoisted.windowActivity.hidden,
+  useWindowBlurred: () => hoisted.windowActivity.blurred,
 }));
 vi.mock('@/features/visualizer/hooks/useVisualizerPalette', () => ({
   useVisualizerPalette: () => hoisted.palette.current,
@@ -95,6 +101,9 @@ describe('VisualizerCanvas lifecycle', () => {
     hoisted.visualizerState.mode = 'bars';
     hoisted.visualizerState.sensitivity = 1;
     hoisted.visualizerState.showPeaks = true;
+    hoisted.visualizerState.pauseWhenUnfocused = true;
+    hoisted.windowActivity.hidden = false;
+    hoisted.windowActivity.blurred = false;
     hoisted.feed.sample.mockReset();
     hoisted.feed.subscribe.mockClear();
     hoisted.useSpectrumFeedMock.mockClear();
@@ -205,6 +214,49 @@ describe('VisualizerCanvas lifecycle', () => {
     expect(callbacks.size).toBe(1);
   });
 
+  it('releases the feed while the window is unfocused', () => {
+    const { rerender } = render(<VisualizerCanvas artUrl="" artKey="" />);
+    expect(hoisted.useSpectrumFeedMock).toHaveBeenLastCalledWith(true, {
+      fps: 60,
+      responsiveness: 0.65,
+    });
+
+    hoisted.windowActivity.blurred = true;
+    rerender(<VisualizerCanvas artUrl="" artKey="" />);
+
+    expect(hoisted.useSpectrumFeedMock).toHaveBeenLastCalledWith(false, {
+      fps: 60,
+      responsiveness: 0.65,
+    });
+    expect(callbacks.size).toBe(0);
+  });
+
+  it('keeps the feed active while unfocused when background pausing is off', () => {
+    hoisted.windowActivity.blurred = true;
+    hoisted.visualizerState.pauseWhenUnfocused = false;
+
+    render(<VisualizerCanvas artUrl="" artKey="" />);
+
+    expect(hoisted.useSpectrumFeedMock).toHaveBeenLastCalledWith(true, {
+      fps: 60,
+      responsiveness: 0.65,
+    });
+    expect(callbacks.size).toBe(1);
+  });
+
+  it('still releases the feed while hidden when background pausing is off', () => {
+    hoisted.windowActivity.hidden = true;
+    hoisted.visualizerState.pauseWhenUnfocused = false;
+
+    render(<VisualizerCanvas artUrl="" artKey="" />);
+
+    expect(hoisted.useSpectrumFeedMock).toHaveBeenLastCalledWith(false, {
+      fps: 60,
+      responsiveness: 0.65,
+    });
+    expect(callbacks.size).toBe(0);
+  });
+
   it('repaints once when mode, palette, or render settings change while idle', () => {
     const { rerender } = render(<VisualizerCanvas artUrl="" artKey="" />);
     flushFrame();
@@ -288,6 +340,50 @@ describe('VisualizerCanvas lifecycle', () => {
     flushFrame(1_016);
     expect(hoisted.renderFrameMock).toHaveBeenCalledTimes(2);
     expect(callbacks.size).toBe(0);
+  });
+
+  const lastDrawnFrame = (): { bands: Float32Array } => {
+    const calls = hoisted.renderFrameMock.mock.calls;
+    return calls[calls.length - 1]?.[3] as { bands: Float32Array };
+  };
+
+  it('keeps drawing a demo signal while the feed is idle, when asked to', () => {
+    const onLiveChange = vi.fn();
+    render(<VisualizerCanvas artUrl="" artKey="" demoWhenIdle onLiveChange={onLiveChange} />);
+
+    flushFrame(1_000);
+    const drawn = lastDrawnFrame();
+    expect(drawn).not.toBe(hoisted.feed.frame);
+    expect(Math.max(...drawn.bands)).toBeGreaterThan(0);
+    // An idle feed alone would let the loop go quiet; the demo keeps it running.
+    expect(callbacks.size).toBe(1);
+    expect(onLiveChange).toHaveBeenCalledExactlyOnceWith(false);
+  });
+
+  it('hands over to playback as soon as the feed carries audio, and back again', () => {
+    const onLiveChange = vi.fn();
+    render(<VisualizerCanvas artUrl="" artKey="" demoWhenIdle onLiveChange={onLiveChange} />);
+    flushFrame(1_000);
+
+    hoisted.feed.sample.mockImplementation(() => {
+      hoisted.feed.hasSignal = true;
+      hoisted.feed.shouldAnimate = true;
+    });
+    flushFrame(1_016);
+    flushFrame(1_033);
+    expect(lastDrawnFrame()).toBe(hoisted.feed.frame);
+
+    hoisted.feed.sample.mockImplementation(() => {
+      hoisted.feed.hasSignal = false;
+      hoisted.feed.shouldAnimate = false;
+    });
+    flushFrame(1_050);
+    flushFrame(1_066);
+    expect(lastDrawnFrame()).not.toBe(hoisted.feed.frame);
+    expect(callbacks.size).toBe(1);
+
+    // One report per switch, not one per frame.
+    expect(onLiveChange.mock.calls).toEqual([[false], [true], [false]]);
   });
 
   it('cleans up RAF, observers, visibility listener, and feed wake subscription', () => {

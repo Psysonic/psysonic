@@ -62,10 +62,7 @@ mod tests {
 
     #[test]
     fn custom_ignored_articles() {
-        assert_eq!(
-            sort_key_for_display_name("The Beatles", "The"),
-            "beatles"
-        );
+        assert_eq!(sort_key_for_display_name("The Beatles", "The"), "beatles");
     }
 
     #[test]

@@ -54,6 +54,10 @@ export function useAlbumDetailData(id: string | undefined): UseAlbumDetailDataRe
   const [loading, setLoading] = useState(true);
   const [starredSongs, setStarredSongs] = useState<Set<string>>(new Set());
   const loadGenerationRef = useRef(0);
+  // Identity of what is on screen. The effect also re-runs on every successful
+  // library sync, and those runs must refresh in place instead of blanking the
+  // page — a background sync tick is not a navigation.
+  const viewIdentityRef = useRef<string | null>(null);
   const favoritesOfflineEnabled = useAuthStore(s => s.favoritesOfflineEnabled);
   const activeServerId = useAuthStore(s => s.activeServerId);
   const libraryBrowseScopeVersion = useAuthStore(s => s.libraryBrowseScopeVersion);
@@ -67,14 +71,30 @@ export function useAlbumDetailData(id: string | undefined): UseAlbumDetailDataRe
     if (!id) return;
     const generation = ++loadGenerationRef.current;
     const isCurrent = () => loadGenerationRef.current === generation;
-    // React Compiler set-state-in-effect rule: state set from an async result resolved in this effect.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLoading(true);
-    setAlbum(null);
-    setRelatedAlbums([]);
-    setStarredSongs(new Set());
+
+    const viewIdentity = [
+      id,
+      detailServerId ?? '',
+      String(libraryBrowseScopeVersion),
+      String(offlineBrowseActive),
+      String(favoritesOfflineEnabled),
+      String(invalidExplicitServer),
+    ].join('|');
+    // Same album, same server, same scope: the re-run came from a sync tick, so
+    // keep showing what is there and swap it once the reload resolves.
+    const isBackgroundRefresh = viewIdentityRef.current === viewIdentity;
+    viewIdentityRef.current = viewIdentity;
+
+    if (!isBackgroundRefresh) {
+      setLoading(true);
+      setAlbum(null);
+      setRelatedAlbums([]);
+      setStarredSongs(new Set());
+    }
 
     if (invalidExplicitServer) {
+      // React Compiler set-state-in-effect rule: state set from an async result resolved in this effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoading(false);
       return () => {
         if (loadGenerationRef.current === generation) loadGenerationRef.current += 1;

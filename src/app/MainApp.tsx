@@ -34,6 +34,7 @@ import { useLibraryCoverBackfill } from '@/cover/useLibraryCoverBackfill';
 import { useCoverRevalidateScheduler } from '../cover/useCoverRevalidateScheduler';
 import { runCoverIdbUpgradeMigration } from '@/app/migrations/coverIdbUpgradeMigration';
 import { useMigrationOrchestrator } from '@/app/hooks/useMigrationOrchestrator';
+import { useHiddenSequence } from '@/app/hooks/useHiddenSequence';
 import { IS_WINDOWS } from '@/lib/util/platform';
 import TauriEventBridge from './TauriEventBridge';
 import AppShell from './AppShell';
@@ -70,6 +71,7 @@ export default function MainApp() {
   const migrationReady = migrationPhase === 'completed';
   const startupQueueReconcileStartedRef = useRef(false);
   useMigrationOrchestrator();
+  useHiddenSequence();
   useEffect(() => {
     if (!migrationReady) return;
     const shouldReconcileStartupQueue = !startupQueueReconcileStartedRef.current;

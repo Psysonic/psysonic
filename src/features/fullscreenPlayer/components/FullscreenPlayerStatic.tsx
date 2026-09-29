@@ -11,6 +11,7 @@ import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import { usePlaybackCoverArt } from '@/cover/usePlaybackCoverArt';
 import { useCachedUrl } from '@/ui/CachedImage';
 import { useFsArtistBackdrop } from '@/features/fullscreenPlayer/hooks/useFsArtistBackdrop';
+import { useFsElementHeightVar } from '@/features/fullscreenPlayer/hooks/useFsElementHeightVar';
 import { useFsIdleFade } from '@/features/fullscreenPlayer/hooks/useFsIdleFade';
 import { useQueueTrackAt } from '@/features/queue';
 import { WaveformSeek } from '@/features/waveform';
@@ -94,7 +95,18 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
   // One high-res cover (cucadmuh's fullRes 2000px path) feeds the foreground
   // thumbnail — crisp instead of the old low-res tier. It is no longer a
   // background source (see below).
-  const cover = usePlaybackCoverArt(playbackCoverRef, 2000, { fullRes: true });
+  const cover = usePlaybackCoverArt(playbackCoverRef, 2000, {
+    fullRes: true,
+    // Playback must arm the chain: an album playing without ever being opened
+    // on its page has only the backfill vinyl ladder on disk, and this tier-2000
+    // ensure is the one flight that can resolve real art before the fullscreen
+    // player falls back to it.
+    ensureOpts: {
+      artistName: currentTrack?.artist ?? '',
+      albumTitle: currentTrack?.album ?? '',
+      allowExternalAlbum: true,
+    },
+  });
   const coverUrl = useCachedUrl(cover.src, cover.cacheKey, true);
   const thumbUrl = currentTrack?.directCoverArtUrl ?? coverUrl;
   // Background (§28). The album cover is deliberately NOT a background source —
@@ -111,6 +123,11 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
 
   const { isIdle, handleMouseMove } = useFsIdleFade(onClose);
   const controlsRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const footRef = useRef<HTMLDivElement>(null);
+  // The lyrics overlay ends above this cluster, whose height moves with the
+  // cover, the waveform, the visualizer strip and the "Next" line.
+  useFsElementHeightVar(rootRef, footRef, '--fsp-foot-h');
   const [queueOpen, setQueueOpen] = useState(false);
   const [lyricsOpen, setLyricsOpen] = useState(false);
 
@@ -136,6 +153,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
   return (
     <div
       className="fsp"
+      ref={rootRef}
       role="dialog"
       aria-modal="true"
       aria-label={t('player.fullscreen')}
@@ -164,7 +182,7 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
       </button>
 
       {/* Bottom bar */}
-      <div className="fsp-foot">
+      <div className="fsp-foot" ref={footRef}>
         <div className="fsp-info-row">
           {/* Big cover — bottom-aligned with the text, top pokes above the bar */}
           <div className="fsp-cover">

@@ -1,4 +1,5 @@
 import i18n from '@/lib/i18n';
+import { usableLocale } from '@/lib/format/localeTag';
 
 /**
  * Totals / statistics: localized "N hours M minutes" (not track mm:ss).
@@ -41,7 +42,7 @@ export function formatPlayerStatsListeningTotal(seconds: number): string {
 export function formatPlayerStatsListenedSec(seconds: number): string {
   const sec = Math.max(0, seconds);
   if (sec >= 60) {
-    const minutes = (sec / 60).toLocaleString(i18n.resolvedLanguage ?? i18n.language, {
+    const minutes = (sec / 60).toLocaleString(usableLocale(i18n.resolvedLanguage ?? i18n.language), {
       minimumFractionDigits: 1,
       maximumFractionDigits: 1,
     });

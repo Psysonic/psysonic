@@ -3,10 +3,14 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   deviceSyncSourceKey,
+  sameDeviceSyncTranscode,
   useDeviceSyncStore,
   type DeviceSyncSource,
 } from '@/features/deviceSync/store/deviceSyncStore';
-import { useDeviceSyncJobStore } from '@/features/deviceSync/store/deviceSyncJobStore';
+import {
+  deviceSyncJobIsActive,
+  useDeviceSyncJobStore,
+} from '@/features/deviceSync/store/deviceSyncJobStore';
 
 import {
   type SourceTab,
@@ -15,7 +19,7 @@ import { useDeviceSyncDrives } from '@/features/deviceSync/hooks/useDeviceSyncDr
 import { useDeviceSyncSourceStatuses } from '@/features/deviceSync/hooks/useDeviceSyncSourceStatuses';
 import { useDeviceSyncBrowser } from '@/features/deviceSync/hooks/useDeviceSyncBrowser';
 import { useDeviceSyncDeviceScan } from '@/features/deviceSync/hooks/useDeviceSyncDeviceScan';
-import { useDeviceSyncJobEvents } from '@/features/deviceSync/hooks/useDeviceSyncJobEvents';
+import { useDeviceSyncOwnerRelocation } from '@/features/deviceSync/hooks/useDeviceSyncOwnerRelocation';
 import {
   runDeviceSyncMigrationPreview,
   runDeviceSyncMigrationExecute,
@@ -33,6 +37,7 @@ import DeviceSyncMigrationModal from '@/features/deviceSync/components/DeviceSyn
 import DeviceSyncBrowserPanel from '@/features/deviceSync/components/DeviceSyncBrowserPanel';
 import DeviceSyncDevicePanel from '@/features/deviceSync/components/DeviceSyncDevicePanel';
 import DeviceSyncLegacyRecovery from '@/features/deviceSync/components/DeviceSyncLegacyRecovery';
+import DeviceSyncOwnerRepair from '@/features/deviceSync/components/DeviceSyncOwnerRepair';
 
 // ─── component ───────────────────────────────────────────────────────────────
 
@@ -40,15 +45,25 @@ export default function DeviceSync() {
   const { t } = useTranslation();
 
   const targetDir        = useDeviceSyncStore(s => s.targetDir);
+  const layoutMode       = useDeviceSyncStore(s => s.layoutMode);
+  const playlistPathMode = useDeviceSyncStore(s => s.playlistPathMode);
+  const syncedLayoutMode = useDeviceSyncStore(s => s.syncedLayoutMode);
+  const syncedPlaylistPathMode = useDeviceSyncStore(s => s.syncedPlaylistPathMode);
+  const transcode        = useDeviceSyncStore(s => s.transcode);
+  const syncedTranscode  = useDeviceSyncStore(s => s.syncedTranscode);
   const sources          = useDeviceSyncStore(s => s.sources);
   const checkedIds       = useDeviceSyncStore(s => s.checkedIds);
   const pendingDeletion  = useDeviceSyncStore(s => s.pendingDeletion);
+  const pendingPlan      = useDeviceSyncStore(s => s.pendingPlan);
+  const targetDeviceId   = useDeviceSyncStore(s => s.targetDeviceId);
+  const pendingPlanDeviceId = useDeviceSyncStore(s => s.pendingPlanDeviceId);
+  const pendingPlanChecked = useDeviceSyncStore(s => s.pendingPlanChecked);
   const deviceFilePaths  = useDeviceSyncStore(s => s.deviceFilePaths);
   const scanning         = useDeviceSyncStore(s => s.scanning);
   const {
-    setTargetDir, addSource, removeSource,
+    setTargetDir, setLayoutMode, setPlaylistPathMode, setTranscode, addSource, removeSource,
     toggleChecked, setCheckedIds, markForDeletion,
-    unmarkDeletion, removeSources,
+    unmarkDeletion,
   } = useDeviceSyncStore.getState();
 
   const jobStatus = useDeviceSyncJobStore(s => s.status);
@@ -61,18 +76,27 @@ export default function DeviceSync() {
   const [search, setSearch]                 = useState('');
   const resetSearch = useCallback(() => setSearch(''), []);
   // ─── Removable drive detection ──────────────────────────────────────────
-  const { drives, drivesLoading, activeDrive, driveDetected, refreshDrives } =
+  const { drives, drivesLoading, activeDrive, driveDetected, targetIsLocal, refreshDrives } =
     useDeviceSyncDrives(targetDir);
 
   const [preSyncOpen, setPreSyncOpen] = useState(false);
   const [preSyncLoading, setPreSyncLoading] = useState(false);
   const [syncDelta, setSyncDelta] = useState<SyncDelta>({
+    planId: '',
+    deviceId: '',
     addBytes: 0,
     addCount: 0,
     delBytes: 0,
     delCount: 0,
+    reclaimableBytes: 0,
     availableBytes: 0,
     tracks: [] as SubsonicSong[],
+    deletePaths: [],
+    deferredDeletePaths: [],
+    moveCount: 0,
+    playlists: [],
+    manifestFiles: [],
+    manifestPlaylists: [],
     context: null,
   });
 
@@ -84,7 +108,16 @@ export default function DeviceSync() {
   const [migrationUnchanged, setMigrationUnchanged] = useState(0);
   const [migrationResult, setMigrationResult] = useState<MigrationResult | null>(null);
 
-  const isRunning = jobStatus === 'running';
+  const isRunning = deviceSyncJobIsActive(jobStatus);
+  // The M3U path style only matters where playlists point at shared tracks,
+  // or everywhere once full paths are involved.
+  const pathStyleMatters = layoutMode !== 'self-contained'
+    || playlistPathMode === 'absolute'
+    || syncedPlaylistPathMode === 'absolute';
+  const configurationDirty = layoutMode !== syncedLayoutMode
+    || (pathStyleMatters && playlistPathMode !== syncedPlaylistPathMode);
+  // A new format or bitrate touches every file, not just playlists.
+  const transcodeDirty = syncedTranscode !== null && !sameDeviceSyncTranscode(transcode, syncedTranscode);
 
   // Browser (playlists / albums / artists tabs + their loaders + debounced search)
   const {
@@ -93,6 +126,9 @@ export default function DeviceSync() {
     expandedArtistIds, artistAlbumsMap, loadingArtistIds,
     toggleArtistExpand,
     serverIndexKey: browserServerIndexKey,
+    serverProfileId: browserServerProfileId,
+    unresolvedOwnerKey,
+    loadFailed: browserLoadFailed,
   } = useDeviceSyncBrowser(activeTab, search, resetSearch);
 
   // ─── Device scan + manifest auto-import ─────────────────────────────────
@@ -101,16 +137,25 @@ export default function DeviceSync() {
     sources.length,
     driveDetected,
     t,
+    activeDrive
+      ? `${activeDrive.mount_point}\0${activeDrive.name}\0${activeDrive.total_space}\0${activeDrive.file_system}`
+      : targetIsLocal && targetDir ? `local\0${targetDir}` : null,
   );
+
+  // Follow the owning server when it changes address, before anything reads
+  // the now-stale owner key.
+  useDeviceSyncOwnerRelocation();
 
   // Source status (path map + derived synced/pending/deletion)
   const { sourcePathsMap, sourceStatuses } = useDeviceSyncSourceStatuses(
-    targetDir, sources, pendingDeletion, deviceFilePaths,
+    targetDir, sources, pendingDeletion, deviceFilePaths, layoutMode, configurationDirty,
+    transcode, transcodeDirty,
   );
 
   // ─── Desired State / Diff Logic ─────────────────────────────────────────
 
   const handleToggleSource = useCallback((source: DeviceSyncSource) => {
+    if (deviceSyncJobIsActive(useDeviceSyncJobStore.getState().status)) return;
     const sourceKey = deviceSyncSourceKey(source);
     const isSelected = sources.some(s => deviceSyncSourceKey(s) === sourceKey);
     const isPendingDeletion = pendingDeletion.includes(sourceKey);
@@ -121,7 +166,7 @@ export default function DeviceSync() {
       const isSynced = sourceStatuses.get(sourceKey) === 'synced';
       const pathsOnDisk = sourcePathsMap.get(sourceKey)?.filter(p => deviceFilePaths.includes(p)).length || 0;
       
-      if (pathsOnDisk > 0 || isSynced) {
+      if (configurationDirty || transcodeDirty || pathsOnDisk > 0 || isSynced) {
         // Source currently has physical footprint. Stage for deletion.
         markForDeletion([sourceKey]);
       } else {
@@ -136,10 +181,7 @@ export default function DeviceSync() {
         addSource(source); // Trigger clean pending install state
       }
     }
-  }, [sources, pendingDeletion, sourceStatuses, sourcePathsMap, deviceFilePaths, markForDeletion, removeSource, unmarkDeletion, addSource]);
-
-  // ─── Listen for background sync events ──────────────────────────────────
-  useDeviceSyncJobEvents(t, scanDevice);
+  }, [sources, pendingDeletion, sourceStatuses, sourcePathsMap, deviceFilePaths, configurationDirty, transcodeDirty, markForDeletion, removeSource, unmarkDeletion, addSource]);
 
   // ─── Migration handlers ─────────────────────────────────────────────────
 
@@ -171,13 +213,13 @@ export default function DeviceSync() {
   // ─── Sync (non-blocking) ────────────────────────────────────────────────
 
   const promptSyncSummary = () => runDeviceSyncSummaryPrompt({
-    targetDir, sources, pendingDeletion, t,
+    targetDir, sources, pendingDeletion, layoutMode, playlistPathMode, transcode, t,
     setPreSyncLoading, setPreSyncOpen, setSyncDelta,
   });
 
   const handleSyncExecution = () => runDeviceSyncExecute({
     syncDelta, t,
-    setPreSyncOpen, removeSources, scanDevice,
+    setPreSyncOpen, scanDevice,
   });
 
   // ─── Actions ────────────────────────────────────────────────────────────
@@ -206,8 +248,10 @@ export default function DeviceSync() {
     !targetDir ||
     sources.length === 0 ||
     isRunning ||
+    !pendingPlanChecked ||
+    (pendingPlan && pendingPlanDeviceId !== targetDeviceId) ||
     (!driveDetected && !!targetDir) ||
-    (pendingCount === 0 && deletionCount === 0);
+    (pendingCount === 0 && deletionCount === 0 && !pendingPlan);
 
   return (
     <div className="device-sync-page">
@@ -223,9 +267,18 @@ export default function DeviceSync() {
         scanDevice={scanDevice}
         handleChooseFolder={handleChooseFolder}
         startMigrationPreview={startMigrationPreview}
+        layoutMode={layoutMode}
+        playlistPathMode={playlistPathMode}
+        setLayoutMode={setLayoutMode}
+        setPlaylistPathMode={setPlaylistPathMode}
+        transcode={transcode}
+        setTranscode={setTranscode}
+        targetIsLocal={targetIsLocal}
+        isRunning={isRunning}
       />
 
       <DeviceSyncLegacyRecovery />
+      <DeviceSyncOwnerRepair />
 
       {/* ── Main ── */}
       <div className="device-sync-main">
@@ -246,9 +299,13 @@ export default function DeviceSync() {
           loadingArtistIds={loadingArtistIds}
           toggleArtistExpand={toggleArtistExpand}
           serverIndexKey={browserServerIndexKey}
+          serverProfileId={browserServerProfileId}
+          unresolvedOwnerKey={unresolvedOwnerKey}
+          loadFailed={browserLoadFailed}
           sources={sources}
           pendingDeletion={pendingDeletion}
           handleToggleSource={handleToggleSource}
+          disabled={isRunning}
         />
 
         <DeviceSyncDevicePanel

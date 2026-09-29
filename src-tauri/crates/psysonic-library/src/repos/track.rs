@@ -11,8 +11,8 @@ mod tests;
 
 use crate::store::LibraryStore;
 
-pub(crate) use row::{row_to_track_row, row_to_track_row_at, track_columns};
 pub(crate) use ingest::UPSERT_SQL;
+pub(crate) use row::{row_to_track_row, row_to_track_row_at, track_columns};
 pub use row::{RemapEntry, RemapStats, TrackRow};
 
 pub struct TrackRepository<'a> {

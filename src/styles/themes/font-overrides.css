@@ -59,6 +59,15 @@
   --font-display: 'JetBrains Mono Variable', monospace;
 }
 
+/* None of the bundled JetBrains Mono subsets covers ★/☆ (U+2605/U+2606), so rating stars
+   come from the fallback — `monospace` here, where every other choice falls back to
+   `system-ui`. On macOS that fallback draws a much smaller star. Take the stars from the
+   same fallback the other fonts use. OpenDyslexic ships its own stars and is left alone. */
+[data-font='jetbrains-mono'] .star-rating .star,
+[data-font='jetbrains-mono'] .album-card-rating-stars {
+  font-family: system-ui, sans-serif;
+}
+
 [data-font='golos-text'] {
   --font-sans: 'Golos Text Variable', system-ui, sans-serif;
   --font-display: 'Golos Text Variable', sans-serif;

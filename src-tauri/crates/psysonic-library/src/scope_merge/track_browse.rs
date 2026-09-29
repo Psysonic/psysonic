@@ -1,18 +1,50 @@
 use rusqlite::params_from_iter;
 use rusqlite::types::Value as SqlValue;
 
+use super::artist_album_counts::overlay_artist_album_counts;
 use super::browse_lists::{artist_row_to_dto, map_artist_list_row};
 use super::common::{
     album_row_to_dto, append_extra_where, ensure_cluster_keys_for_all_scopes,
     finish_scope_album_list, map_album_list_row, merge_binds, non_empty_scopes,
-    plain_track_columns_sql, random_window_offset, scope_cte_sql, scoped_track_join,
-    scoped_track_join_layer1, ALBUM_DEDUP_KEY, ALBUM_PICK_KEY, ARTIST_DEDUP_KEY, ARTIST_PICK_KEY,
-    TRACK_DEDUP_KEY, TRACK_FTS_BM25_RANK,
+    plain_track_columns_sql, scope_cte_sql, scoped_track_join, scoped_track_join_layer1,
+    ALBUM_DEDUP_KEY, ALBUM_PICK_KEY, ARTIST_DEDUP_KEY, ARTIST_PICK_KEY, TRACK_DEDUP_KEY,
+    TRACK_FTS_BM25_RANK,
 };
 use crate::dto::{LibraryAlbumDto, LibraryArtistDto, LibraryScopePair, LibraryTrackDto};
 use crate::repos::row_to_track_row;
 use crate::search::{aliased_track_columns, PAGE_LIMIT_MAX};
 use crate::store::LibraryStore;
+
+/// Ordering for the unfiltered random track sample across more than one scope.
+///
+/// The single-scope path samples by drawing a rowid pivot per row, which it can
+/// do because it queries `track` directly. Here the rows come out of the scope
+/// CTE, and that CTE is part of the statement: repeating it once per draw was
+/// measured at 9.2–10.1 s for thirteen rows across three folders of a 154k-track
+/// library, against 0.68–0.75 s for shuffling the CTE once (release build,
+/// `perf_probe::multi_folder_random_sample_shapes_on_a_real_library`). So this
+/// path shuffles.
+///
+/// What it replaces picked one offset into the matching set and returned an
+/// unordered page from it — a run of neighbouring rows, which is one album in
+/// track order once ingest has written the catalog album by album (#1446). That
+/// also needed a `COUNT(*)` to size the window; shuffling does not.
+const RANDOM_SAMPLE_ORDER_SQL: &str = "ORDER BY RANDOM()";
+
+/// Ordering for a track page: shuffled for the unfiltered random sample, the
+/// caller's clause otherwise.
+///
+/// Split out so the choice can be asserted directly. Asserting it through
+/// returned rows does not work — without an `ORDER BY`, SQLite guarantees no
+/// order at all, so an "is it shuffled" check on the output can pass while the
+/// clause is missing.
+pub(crate) fn random_sample_order_sql(random_window: bool, order_sql: &str) -> &str {
+    if random_window {
+        RANDOM_SAMPLE_ORDER_SQL
+    } else {
+        order_sql
+    }
+}
 
 /// Layer-1 scoped track browse — sargable join, no cross-library dedup window.
 #[allow(clippy::too_many_arguments)]
@@ -39,7 +71,7 @@ pub(crate) fn list_tracks_layer1_filtered(
         aliased_track_columns("t")
     };
 
-    let matching_total = if skip_totals && !random_window {
+    let matching_total = if skip_totals {
         0u32
     } else {
         let count_sql = format!("{cte} SELECT COUNT(*) {base_where}");
@@ -51,12 +83,8 @@ pub(crate) fn list_tracks_layer1_filtered(
     };
 
     let total = if skip_totals { 0 } else { matching_total };
-    let page_offset = if random_window {
-        random_window_offset(matching_total, limit)
-    } else {
-        offset
-    };
-    let page_order = if random_window { "" } else { order_sql };
+    let page_offset = if random_window { 0 } else { offset };
+    let page_order = random_sample_order_sql(random_window, order_sql);
 
     let sql = format!("{cte} SELECT {cols} {base_where} {page_order} LIMIT ? OFFSET ?");
     binds.push(SqlValue::Integer(i64::from(limit)));
@@ -194,13 +222,16 @@ pub(crate) fn list_artists_filtered(
     let sql = format!(
         "{cte}, \
          base AS ( \
-           SELECT t.server_id, t.artist_id, t.artist, t.album_id, t.synced_at, s.pr, \
+            SELECT t.server_id, t.artist_id, t.artist, t.album_id, \
+                   (SELECT ar.starred_at FROM artist ar \
+                    WHERE ar.server_id = t.server_id AND ar.id = t.artist_id) AS starred_at, \
+                   t.synced_at, s.pr, \
                   {ARTIST_DEDUP_KEY} AS artist_dedup \
            {base_where} \
          ) \
-         SELECT server_id, artist_id, artist, album_count, synced_at \
+         SELECT server_id, artist_id, artist, album_count, starred_at, synced_at \
          FROM ( \
-           SELECT server_id, artist_id, artist, synced_at, \
+            SELECT server_id, artist_id, artist, starred_at, synced_at, \
                   COUNT(DISTINCT album_id) AS album_count, \
                   MIN({ARTIST_PICK_KEY}) AS _pick \
            FROM base GROUP BY artist_dedup \
@@ -211,13 +242,14 @@ pub(crate) fn list_artists_filtered(
     binds.push(SqlValue::Integer(i64::from(limit)));
     binds.push(SqlValue::Integer(i64::from(offset)));
 
-    let artists = store.with_read_conn(|conn| {
+    let mut artists: Vec<LibraryArtistDto> = store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows.into_iter().map(artist_row_to_dto).collect())
     })?;
+    overlay_artist_album_counts(store, scopes, &mut artists)?;
     Ok((artists, total))
 }
 
@@ -247,7 +279,7 @@ pub(crate) fn list_tracks_filtered(
     };
     let plain_cols = plain_track_columns_sql();
 
-    let matching_total = if skip_totals && !random_window {
+    let matching_total = if skip_totals {
         0u32
     } else {
         let count_sql = format!(
@@ -263,12 +295,8 @@ pub(crate) fn list_tracks_filtered(
     };
 
     let total = if skip_totals { 0 } else { matching_total };
-    let page_offset = if random_window {
-        random_window_offset(matching_total, limit)
-    } else {
-        offset
-    };
-    let page_order = if random_window { "" } else { order_sql };
+    let page_offset = if random_window { 0 } else { offset };
+    let page_order = random_sample_order_sql(random_window, order_sql);
 
     let sql = format!(
         "{cte}, \

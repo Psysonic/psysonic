@@ -38,6 +38,14 @@ instead of 1152. That is fewer than the encoder delay, so the first packet is tr
 away *entirely*. It guards the case where an empty first buffer made the source report
 a zero-length span and the resampling path played nothing at all.
 
+## `isomp4_seek_normal.m4a` and `isomp4_seek_fragmented.m4a`
+
+Half-second 440 Hz AAC fixtures for the ISO/MP4 seek-after-EOF regression. The first
+uses an ordinary M4A layout with `moov` after `mdat`; the second uses fragmented MP4.
+Tests also derive a third shape by adding an unreferenced eight-byte `moof` marker
+inside the final `mdat`. That padded file catches unsafe fixes which replay all audio
+but then parse bytes from inside `mdat` as top-level atoms.
+
 ### `five_one_sine.flac`
 
 A 5.1 FLAC where every channel carries a different tone, so a stereo downmix can
@@ -71,6 +79,12 @@ ffmpeg -i half.wav -c:a libmp3lame -b:a 64k -write_xing 0 no_xing_sine.mp3
 
 ffmpeg -f lavfi -i "aevalsrc='0.5*sin(2*PI*440*t)':s=22050:d=1:c=mono" -c:a pcm_s16le lo.wav
 ffmpeg -i lo.wav -c:a libmp3lame -b:a 64k mpeg2_sine_22050.mp3
+
+ffmpeg -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=0.5" \
+  -c:a aac -b:a 64k isomp4_seek_normal.m4a
+ffmpeg -f lavfi -i "sine=frequency=440:sample_rate=44100:duration=0.5" \
+  -c:a aac -b:a 64k -movflags "+frag_keyframe+empty_moov+default_base_moof" \
+  isomp4_seek_fragmented.m4a
 ```
 
 Cut with `start_sample`/`end_sample`, not with timestamps — a time-based cut does not

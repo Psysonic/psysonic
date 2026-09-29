@@ -154,3 +154,28 @@ fn artist_detail_uses_scope_artist_key_index() {
         "expected track primary-key lookup, got: {plan:?}"
     );
 }
+
+#[test]
+fn participant_artist_lookup_uses_owner_projection_index() {
+    let store = LibraryStore::open_in_memory();
+    let plan: Vec<String> = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "EXPLAIN QUERY PLAN \
+                 SELECT track_id FROM artist_credit_projection \
+                 INDEXED BY idx_artist_credit_projection_owner \
+                 WHERE server_id = ?1 AND artist_id = ?2 AND is_primary = 0 AND library_id = ?3",
+            )?;
+            let rows = stmt.query_map(rusqlite::params!["s1", "artist-1", "lib-a"], |row| {
+                row.get(3)
+            })?;
+            rows.collect()
+        })
+        .unwrap();
+
+    assert!(
+        plan.iter()
+            .any(|detail| detail.contains("idx_artist_credit_projection_owner")),
+        "expected participant owner index lookup, got: {plan:?}"
+    );
+}

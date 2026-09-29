@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { ChevronRight, Folder, PlayCircle, Sparkles } from 'lucide-react';
 import { AlbumCoverArtImage } from '@/cover/AlbumCoverArtImage';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
-import { displayPlaylistName, isSmartPlaylistName } from '@/features/sidebar/utils/sidebarHelpers';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { usePlaylistStore } from '@/features/playlist';
 import { EMPTY_SERVER_FOLDERS, usePlaylistFolderStore } from '@/features/playlist';
@@ -12,6 +11,7 @@ import { groupPlaylistsByFolder } from '@/features/playlist';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import { playlistDetailPath, runLatestPlaylistServerIntent } from '@/features/playlist';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { isSmartPlaylist, playlistDisplayName } from '@/lib/format/playlistClassification';
 
 interface Props {
   playlists: SubsonicPlaylist[];
@@ -104,13 +104,13 @@ export default function SidebarPlaylistsSection({
     >
       {pl.coverArt
         ? <SidebarPlaylistCover coverArt={pl.coverArt} serverId={pl.serverId} />
-        : isSmartPlaylistName(pl.name) ? <Sparkles size={12} /> : <PlayCircle size={12} />}
+        : isSmartPlaylist(pl) ? <Sparkles size={12} /> : <PlayCircle size={12} />}
       {/* A cover replaces the icon, so a smart playlist that has one would lose
           its only marker. The card keeps both for the same reason. */}
-      {pl.coverArt && isSmartPlaylistName(pl.name) && (
+      {pl.coverArt && isSmartPlaylist(pl) && (
         <Sparkles size={12} className="sidebar-playlist-smart-marker" />
       )}
-      <span>{displayPlaylistName(pl.name)}</span>
+      <span>{playlistDisplayName(pl)}</span>
       {/* `aria-label` on a bare span is dropped — the element has no ARIA role
           to name. The digits are hidden from AT and the spoken form supplied
           separately, so the link reads "<name>, 5 songs". */}

@@ -229,6 +229,18 @@ export function DragDropProvider({ children }: { children: React.ReactNode }) {
       setState({ payload: null, position: { x: 0, y: 0 } });
     };
 
+    /**
+     * A `mouseup` that ends a drag is still followed by a `click` on whatever
+     * the browser considers the common ancestor of press and release — and for
+     * a reorder inside one list that is often the row itself, whose click
+     * handler plays the track. Dropping a song therefore started it (issue
+     * #1592). Swallowed in the capture phase so no row handler ever sees it.
+     */
+    const swallowClick = (e: MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+    };
+
     const onUp = () => endDrag(true);
     /** Wayland: webview may not get `mouseup` when the pointer leaves the surface — clear the ghost without a drop. */
     const onBlur = () => endDrag(false);
@@ -250,6 +262,7 @@ export function DragDropProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener('blur', onBlur);
     document.addEventListener('visibilitychange', onVisibility);
     document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener('click', swallowClick, true);
 
     document.body.classList.add('psy-dragging');
 
@@ -261,6 +274,11 @@ export function DragDropProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('blur', onBlur);
       document.removeEventListener('visibilitychange', onVisibility);
       document.removeEventListener('keydown', onKeyDown, true);
+      // The trailing `click` arrives after this cleanup — the drag is already
+      // over by the time the browser synthesises it — so the guard has to
+      // outlive the drag by one turn of the event loop. Anything longer would
+      // start eating real clicks.
+      window.setTimeout(() => document.removeEventListener('click', swallowClick, true), 0);
       document.body.classList.remove('psy-dragging');
     };
   }, [state.payload]);

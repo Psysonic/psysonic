@@ -76,6 +76,7 @@ export const usePlayerStore = create<PlayerState>()(
       networkLovedCache: initialNetworkLovedCache,
       starredOverrides: {},
       userRatingOverrides: {},
+      playStatsOverrides: {},
       isQueueVisible: readInitialQueueVisibility(),
       isFullscreenOpen: false,
       scheduledPauseAtMs: null,
@@ -242,5 +243,6 @@ usePlayerStore.subscribe((state, prev) => {
     currentTime: state.currentTime,
     progress: state.progress,
     buffered: state.buffered,
+    buffering: state.isPlaybackBuffering,
   });
 });

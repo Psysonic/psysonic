@@ -64,6 +64,7 @@ import {
   isQueuePushFailed,
   isQueueNaturallyEnded,
 } from '@/features/playback/store/queuePlaybackIdle';
+import { usePlayQueueSyncSettingsStore } from '@/features/playback/store/playQueueSyncSettingsStore';
 
 function track(id: string, serverId = 'srv-a'): Track {
   return { id, title: id, artist: 'A', album: 'X', albumId: 'X', duration: 100, serverId };
@@ -84,6 +85,7 @@ beforeEach(() => {
   playerState.currentRadio = null;
   progressSnapshot.currentTime = 0;
   _resetQueuePlaybackIdleForTest();
+  usePlayQueueSyncSettingsStore.setState({ enabled: true });
 });
 
 afterEach(() => {
@@ -98,6 +100,25 @@ describe('syncQueueToServer (debounced)', () => {
     isSubsonicServerReachableMock.mockReturnValue(false);
     syncQueueToServer(queue, track('a'), 30);
     vi.advanceTimersByTime(5000);
+    expect(savePlayQueueMock).not.toHaveBeenCalled();
+  });
+
+  it('does not schedule or push when queue sync is disabled for this device', () => {
+    usePlayQueueSyncSettingsStore.setState({ enabled: false });
+    syncQueueToServer(queue, track('a'), 30);
+    vi.advanceTimersByTime(5000);
+    expect(hasPendingQueueSync()).toBe(false);
+    expect(savePlayQueueMock).not.toHaveBeenCalled();
+  });
+
+  it('cancels a pending push when queue sync is disabled', () => {
+    syncQueueToServer(queue, track('a'), 30);
+    expect(hasPendingQueueSync()).toBe(true);
+
+    usePlayQueueSyncSettingsStore.getState().setEnabled(false);
+    vi.advanceTimersByTime(5000);
+
+    expect(hasPendingQueueSync()).toBe(false);
     expect(savePlayQueueMock).not.toHaveBeenCalled();
   });
 
@@ -131,6 +152,13 @@ describe('syncUserQueueMutationToServer (debounced)', () => {
     await Promise.resolve();
     expect(savePlayQueueMock).toHaveBeenCalled();
     expect(isIdleQueuePullSuspended()).toBe(true);
+  });
+
+  it('keeps local queue edits local when queue sync is disabled', () => {
+    usePlayQueueSyncSettingsStore.setState({ enabled: false });
+    syncUserQueueMutationToServer([], queue, track('a'), 30);
+    expect(isIdleQueuePullSuspended()).toBe(false);
+    expect(hasPendingQueueSync()).toBe(false);
   });
 
   it('keeps idle pull suspended and flags the failed push when debounced push fails', async () => {

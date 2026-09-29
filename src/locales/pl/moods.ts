@@ -1,0 +1,15 @@
+export const moods = {
+  title: 'Nastroje',
+  moodCount: 'nastrojów',
+  moodCount_one: 'nastrój',
+  moodCount_few: 'nastroje',
+  moodCount_many: 'nastrojów',
+  albumCount_one: '{{count}} album',
+  albumCount_few: '{{count}} albumy',
+  albumCount_many: '{{count}} albumów',
+  albumCount_other: '{{count}} albumów',
+  loading: 'Ładowanie nastrojów…',
+  empty: 'Nie znaleziono nastrojów.',
+  albumsEmpty: 'Nie znaleziono albumów dla tego nastroju.',
+  back: 'Powrót',
+};

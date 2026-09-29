@@ -226,7 +226,10 @@ fn query_artists(
            ORDER BY rank \
            LIMIT ?\
          ) \
-         SELECT t.server_id, t.artist_id, t.artist, t.synced_at, MIN(h.rank) AS best_rank \
+         SELECT t.server_id, t.artist_id, t.artist, \
+                MAX((SELECT ar.starred_at FROM artist ar \
+                     WHERE ar.server_id = t.server_id AND ar.id = t.artist_id)), \
+                t.synced_at, MIN(h.rank) AS best_rank \
          FROM fts_hits h \
          JOIN track t ON t.rowid = h.rowid \
          WHERE t.server_id = ? \
@@ -255,7 +258,8 @@ fn query_artists(
             name: r.get::<_, Option<String>>(2)?.unwrap_or_default(),
             name_sort: None,
             album_count: None,
-            synced_at: r.get(3)?,
+            starred_at: r.get(3)?,
+            synced_at: r.get(4)?,
             raw_json: serde_json::Value::Null,
         })
     })? {

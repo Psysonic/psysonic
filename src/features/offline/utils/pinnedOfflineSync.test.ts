@@ -16,7 +16,7 @@ import {
   syncPinnedArtistIfNeeded,
   syncPinnedPlaylistIfNeeded,
 } from '@/features/offline/utils/pinnedOfflineSync';
-import { SMART_PREFIX } from '@/lib/format/playlistDetailHelpers';
+import { LEGACY_SMART_PLAYLIST_PREFIX as SMART_PREFIX } from '@/lib/format/playlistClassification';
 import { cancelAllOfflinePins } from '@/features/offline/utils/offlinePinQueue';
 
 const getPlaylistMock = vi.fn();
@@ -118,6 +118,8 @@ describe('isManualOfflinePlaylist', () => {
 
   it('rejects smart playlist names', () => {
     expect(isManualOfflinePlaylist('pl-1', 'srv-a', `${SMART_PREFIX}Jazz`)).toBe(false);
+    expect(isManualOfflinePlaylist('pl-2', 'srv-a', 'Feishin mix', true)).toBe(false);
+    expect(isManualOfflinePlaylist('pl-3', 'srv-a', `${SMART_PREFIX}Regular`, false)).toBe(true);
   });
 
   it('allows regular playlist names', () => {
@@ -130,6 +132,8 @@ describe('schedulePinnedPlaylistSync', () => {
     vi.useFakeTimers();
     isReachableMock.mockReturnValue(true);
     getPlaylistMock.mockReset();
+    filterSongsMock.mockReset();
+    filterSongsMock.mockImplementation(async songs => songs);
     enqueueMock.mockReset();
     invokeMock.mockClear();
     useOfflineJobStoreReset();
@@ -213,6 +217,31 @@ describe('schedulePinnedPlaylistSync', () => {
       }),
     );
     expect(useOfflineStore.getState().albums['a.test:pl-1']?.trackIds).toEqual(['t2']);
+  });
+
+  it('keeps cached tracks when a narrower browse selection hides them', async () => {
+    getPlaylistMock.mockResolvedValue({
+      playlist: { id: 'pl-1', name: 'Road mix', songCount: 2 },
+      songs: [song('t1'), song('t2')],
+    });
+    filterSongsMock.mockImplementation(async songs => songs.filter(s => s.id === 't2'));
+
+    await syncPinnedPlaylistIfNeeded('pl-1', 'srv-a');
+
+    expect(invokeMock).not.toHaveBeenCalledWith('delete_media_file', expect.anything());
+    expect(useLocalPlaybackStore.getState().entries['a.test:t1']).toBeDefined();
+    expect(useOfflineStore.getState().albums['a.test:pl-1']?.trackIds).toEqual(['t2', 't1']);
+    expect(enqueueMock).toHaveBeenCalledWith(expect.objectContaining({
+      songs: [expect.objectContaining({ id: 't2' })], retainedTrackIds: ['t1'],
+    }));
+  });
+
+  it('does not prune on prefetched songs with unknown full membership', async () => {
+    await syncPinnedPlaylistIfNeeded('pl-1', 'srv-a', [song('t2')]);
+
+    expect(getPlaylistMock).not.toHaveBeenCalled();
+    expect(invokeMock).not.toHaveBeenCalledWith('delete_media_file', expect.anything());
+    expect(useOfflineStore.getState().albums['a.test:pl-1']?.trackIds).toEqual(['t2', 't1']);
   });
 
   it('does not resurrect a pin deleted while reconciliation is fetching', async () => {

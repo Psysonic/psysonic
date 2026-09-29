@@ -50,9 +50,9 @@ export interface LocalPlaybackEntry {
    */
   streamMaxBitRateKbps?: number;
   /**
-   * True only when native code verified these bytes against a capability-bound
-   * raw-original request. Legacy entries rehydrate as false and are refreshed
-   * on confirmed Navidrome profiles before being treated as originals.
+   * True only when native code verified these bytes against the server's
+   * trusted original endpoint. Legacy entries rehydrate as false and refresh
+   * before being treated as originals.
    */
   originalBytesVerified?: boolean;
 }

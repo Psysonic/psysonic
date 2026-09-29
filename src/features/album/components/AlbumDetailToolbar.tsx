@@ -2,6 +2,7 @@ import React from 'react';
 import { ListPlus, Search, X } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { useSelectionStore } from '@/store/selectionStore';
+import { BulkTrackRating } from '@/features/playback';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
@@ -18,6 +19,8 @@ interface Props {
   t: TFunction;
   actionPolicy?: OfflineActionPolicy;
   songs: SubsonicSong[];
+  ratings: Record<string, number>;
+  onRate: (song: SubsonicSong, rating: number) => void;
 }
 
 /**
@@ -39,6 +42,8 @@ export function AlbumDetailToolbar({
   t,
   actionPolicy,
   songs,
+  ratings,
+  onRate,
 }: Props) {
   const policy = actionPolicy ?? offlineActionPolicy('albumDetail', false);
   const selectedIds = useSelectionStore(s => s.selectedIds);
@@ -78,6 +83,9 @@ export function AlbumDetailToolbar({
             <span className="bulk-action-count">
               {t('common.bulkSelected', { count: selectedCount })}
             </span>
+            {policy.canRate && (
+              <BulkTrackRating tracks={selectedSongs} ratings={ratings} onRate={onRate} />
+            )}
             {canAddSelectionToPlaylist && (
               <div className="bulk-pl-picker-wrap">
                 <button

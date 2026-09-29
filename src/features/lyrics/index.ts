@@ -10,6 +10,12 @@
  * subsonic 'server' lyrics provider stays in `lib/api/subsonicLyrics`.
  */
 export { default as LyricsPane } from './components/LyricsPane';
+export { LyricsLineContent } from './components/LyricsLineContent';
 export { useLyrics } from './hooks/useLyrics';
+export { useLyricsRomanization } from './hooks/useLyricsRomanization';
 export { useWordLyricsSync } from './hooks/useWordLyricsSync';
+export {
+  usesContinuousWordHighlight,
+  wordHighlightClassName,
+} from './utils/wordLyricsProgress';
 export type { LrcLine, WordLyricsLine, WordLyricsWord, LyricsSource } from './types';

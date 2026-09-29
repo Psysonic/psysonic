@@ -86,8 +86,7 @@ pub fn expand_mood_groups(group_ids: &[String]) -> Result<Vec<String>, String> {
     }
     let mut out: Vec<String> = Vec::new();
     for gid in group_ids {
-        let group = lookup_mood_group(gid)
-            .ok_or_else(|| format!("unknown mood group `{gid}`"))?;
+        let group = lookup_mood_group(gid).ok_or_else(|| format!("unknown mood group `{gid}`"))?;
         for tag in group.tags {
             if !out.iter().any(|t| t == tag) {
                 out.push((*tag).to_string());
@@ -122,14 +121,46 @@ struct MoodVaAnchor {
 }
 
 const MOOD_VA_ANCHORS: &[MoodVaAnchor] = &[
-    MoodVaAnchor { id: "happy", v: 0.75, a: 0.72 },
-    MoodVaAnchor { id: "excited", v: 0.55, a: 0.88 },
-    MoodVaAnchor { id: "calm", v: 0.65, a: 0.22 },
-    MoodVaAnchor { id: "peaceful", v: 0.78, a: 0.12 },
-    MoodVaAnchor { id: "angry", v: -0.72, a: 0.82 },
-    MoodVaAnchor { id: "tense", v: -0.35, a: 0.68 },
-    MoodVaAnchor { id: "sad", v: -0.75, a: 0.28 },
-    MoodVaAnchor { id: "melancholic", v: -0.55, a: 0.18 },
+    MoodVaAnchor {
+        id: "happy",
+        v: 0.75,
+        a: 0.72,
+    },
+    MoodVaAnchor {
+        id: "excited",
+        v: 0.55,
+        a: 0.88,
+    },
+    MoodVaAnchor {
+        id: "calm",
+        v: 0.65,
+        a: 0.22,
+    },
+    MoodVaAnchor {
+        id: "peaceful",
+        v: 0.78,
+        a: 0.12,
+    },
+    MoodVaAnchor {
+        id: "angry",
+        v: -0.72,
+        a: 0.82,
+    },
+    MoodVaAnchor {
+        id: "tense",
+        v: -0.35,
+        a: 0.68,
+    },
+    MoodVaAnchor {
+        id: "sad",
+        v: -0.75,
+        a: 0.28,
+    },
+    MoodVaAnchor {
+        id: "melancholic",
+        v: -0.55,
+        a: 0.18,
+    },
 ];
 
 const MOOD_VA_MAX_DIST: f64 = 1.35;

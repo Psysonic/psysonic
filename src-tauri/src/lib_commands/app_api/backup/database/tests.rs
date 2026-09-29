@@ -6,21 +6,18 @@ use std::sync::{mpsc, Arc};
 use std::thread;
 use std::time::Duration;
 
-use psysonic_core::database_pair_admission::{
-    database_pair_read_scope, database_pair_write_scope,
-};
+use psysonic_core::database_pair_admission::{database_pair_read_scope, database_pair_write_scope};
 use rusqlite::Connection;
 
 use super::full_import_recovery::{
-    commit_full_import_recovery, finalize_full_import_recovery,
-    inspect_full_import_recovery, prepare_full_import_recovery,
-    recover_full_import_databases_with, FullImportRecoveryPaths,
+    commit_full_import_recovery, finalize_full_import_recovery, inspect_full_import_recovery,
+    prepare_full_import_recovery, recover_full_import_databases_with, FullImportRecoveryPaths,
     FullImportRecoveryPhase,
 };
 use super::recovery::BackupFinalizationStage;
 use super::{
-    finalize_import_backups_or_rollback_with, remove_db_with_sidecars,
-    restore_database_pair_with, validate_import_database,
+    finalize_import_backups_or_rollback_with, remove_db_with_sidecars, restore_database_pair_with,
+    validate_import_database,
 };
 
 static TEST_DB_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -135,13 +132,7 @@ fn prepare_durable_pair_recovery(
     write_marker(&active_library, "old");
     write_marker(&active_analysis, "old");
     let paths = FullImportRecoveryPaths::new(&sandbox.dir);
-    prepare_full_import_recovery(
-        &paths,
-        &active_library,
-        &active_analysis,
-        7,
-    )
-    .unwrap();
+    prepare_full_import_recovery(&paths, &active_library, &active_analysis, 7).unwrap();
     (paths, active_library, active_analysis)
 }
 
@@ -291,11 +282,19 @@ fn paired_restore_compensates_when_second_database_restore_fails() {
     assert_eq!(read_marker(&active_library).unwrap(), "imported");
     assert_eq!(read_marker(&active_analysis).unwrap(), "imported");
     assert!(old_library.exists(), "old library backup must be retained");
-    assert!(old_analysis.exists(), "old analysis backup must be retained");
+    assert!(
+        old_analysis.exists(),
+        "old analysis backup must be retained"
+    );
     let retained_recovery_files = fs::read_dir(&sandbox.dir)
         .unwrap()
         .filter_map(Result::ok)
-        .filter(|entry| entry.file_name().to_string_lossy().contains("import-recovery"))
+        .filter(|entry| {
+            entry
+                .file_name()
+                .to_string_lossy()
+                .contains("import-recovery")
+        })
         .count();
     assert!(retained_recovery_files >= 2);
 }
@@ -346,15 +345,13 @@ fn finalization_failure_restores_and_verifies_previous_pair() {
     assert!(!analysis_backup.exists());
     assert!(!library_final.exists());
     assert!(!analysis_final.exists());
-    assert!(
-        fs::read_dir(&sandbox.dir)
-            .unwrap()
-            .filter_map(Result::ok)
-            .all(|entry| !entry
-                .file_name()
-                .to_string_lossy()
-                .contains("import-recovery"))
-    );
+    assert!(fs::read_dir(&sandbox.dir)
+        .unwrap()
+        .filter_map(Result::ok)
+        .all(|entry| !entry
+            .file_name()
+            .to_string_lossy()
+            .contains("import-recovery")));
 }
 
 #[test]

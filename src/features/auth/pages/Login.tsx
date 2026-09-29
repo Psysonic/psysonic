@@ -25,7 +25,7 @@ import { scheduleStartupSplashDismiss } from '@/app/startupSplash';
 import { admitSuccessfulPingForProfile } from '@/lib/server/serverEndpoint';
 
 const PsysonicLogo = () => (
-  <img src="/logo-psysonic.png" width="64" height="64" alt="Psysonic" style={{ borderRadius: 18 }} />
+  <img src="/logo-psysonic.png" width="64" height="64" alt="Psysonic" draggable={false} style={{ borderRadius: 18 }} />
 );
 
 export default function Login() {

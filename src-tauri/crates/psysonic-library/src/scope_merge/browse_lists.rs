@@ -3,6 +3,7 @@ use rusqlite::types::Value as SqlValue;
 use serde_json::Value;
 
 use super::album_browse::list_albums_layer1_filtered;
+use super::artist_album_counts::overlay_artist_album_counts;
 use super::common::{
     album_order_sql, album_row_to_dto, artist_order_sql, clamp_limit, clamp_offset,
     ensure_cluster_keys_for_all_scopes, ensure_cluster_keys_for_scopes, map_album_list_row,
@@ -80,20 +81,28 @@ pub fn list_albums(
     })
 }
 
-pub(super) type ArtistListRow = (String, String, String, i64, i64);
+pub(super) type ArtistListRow = (String, String, String, i64, Option<i64>, i64);
 
 pub(super) fn map_artist_list_row(r: &rusqlite::Row<'_>) -> rusqlite::Result<ArtistListRow> {
-    Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+    Ok((
+        r.get(0)?,
+        r.get(1)?,
+        r.get(2)?,
+        r.get(3)?,
+        r.get(4)?,
+        r.get(5)?,
+    ))
 }
 
 pub(super) fn artist_row_to_dto(row: ArtistListRow) -> LibraryArtistDto {
-    let (server_id, id, name, album_count, synced_at) = row;
+    let (server_id, id, name, album_count, starred_at, synced_at) = row;
     LibraryArtistDto {
         server_id,
         id,
         name: name.clone(),
         name_sort: Some(sort_key_for_display_name(&name, DEFAULT_IGNORED_ARTICLES)),
         album_count: Some(album_count),
+        starred_at,
         synced_at,
         raw_json: Value::Null,
     }
@@ -114,13 +123,16 @@ pub fn list_artists(
     let sql = format!(
         "{cte}, \
          base AS ( \
-           SELECT t.server_id, t.artist_id, t.artist, t.album_id, t.synced_at, s.pr, \
+            SELECT t.server_id, t.artist_id, t.artist, t.album_id, \
+                   (SELECT ar.starred_at FROM artist ar \
+                    WHERE ar.server_id = t.server_id AND ar.id = t.artist_id) AS starred_at, \
+                   t.synced_at, s.pr, \
                   {ARTIST_DEDUP_KEY} AS artist_dedup \
            {scoped} AND t.artist_id IS NOT NULL AND t.artist_id != '' \
          ) \
-         SELECT server_id, artist_id, artist, album_count, synced_at \
+         SELECT server_id, artist_id, artist, album_count, starred_at, synced_at \
          FROM ( \
-           SELECT server_id, artist_id, artist, synced_at, \
+            SELECT server_id, artist_id, artist, starred_at, synced_at, \
                   COUNT(DISTINCT album_id) AS album_count, \
                   MIN({ARTIST_PICK_KEY}) AS _pick \
            FROM base GROUP BY artist_dedup \
@@ -132,11 +144,13 @@ pub fn list_artists(
     binds.push(SqlValue::Integer(i64::from(limit)));
     binds.push(SqlValue::Integer(i64::from(offset)));
 
-    store.with_read_conn(|conn| {
+    let mut artists: Vec<LibraryArtistDto> = store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(&sql)?;
         let rows = stmt
             .query_map(params_from_iter(binds.iter()), map_artist_list_row)?
             .collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(rows.into_iter().map(artist_row_to_dto).collect())
-    })
+    })?;
+    overlay_artist_album_counts(store, scopes, &mut artists)?;
+    Ok(artists)
 }

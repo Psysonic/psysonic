@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: '選択をキューに追加',
   playAll: 'すべて再生',
   playSelected: '選択を再生',
+  shuffleAll: 'すべてシャッフル再生',
+  shuffleSelected: '選択をシャッフル再生',
   removeSong: 'お気に入りから削除',
   stations: 'ラジオ局',
   showingFiltered: '{{total}} 件中 {{filtered}} 件を表示 ({{artist}})',

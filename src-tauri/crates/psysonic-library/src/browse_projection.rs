@@ -30,6 +30,22 @@ pub struct ScopeBrowseProjectionProgressEvent {
     pub total: u64,
 }
 
+pub(crate) fn logical_progress(
+    completed_work: u64,
+    total_work: u64,
+    total_tracks: u64,
+) -> ScopeBrowseProjectionProgressEvent {
+    let done = if total_work == 0 || completed_work >= total_work {
+        total_tracks
+    } else {
+        ((completed_work as u128 * total_tracks as u128) / total_work as u128) as u64
+    };
+    ScopeBrowseProjectionProgressEvent {
+        done,
+        total: total_tracks,
+    }
+}
+
 mod refresh;
 
 use refresh::add_scope;
@@ -92,16 +108,22 @@ fn inspect_album(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto
 pub fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, String> {
     let album = inspect_album(store)?;
     let composer = crate::composer_projection::inspect(store)?;
-    let identity_needed = crate::identity::identity_maintenance_needed(store)?;
-    let pending = [album.clone(), composer.clone()]
+    let artist_credit = crate::artist_credit_projection::inspect(store)?;
+    let pending = [album.clone(), composer.clone(), artist_credit.clone()]
         .into_iter()
         .filter(|item| item.needed)
         .collect::<Vec<_>>();
-    if pending.is_empty() && !identity_needed {
+    if pending.is_empty() {
         return Ok(ScopeBrowseProjectionInspectDto {
             needed: false,
-            total_tracks: album.total_tracks.max(composer.total_tracks),
-            done_tracks: album.done_tracks.max(composer.done_tracks),
+            total_tracks: album
+                .total_tracks
+                .max(composer.total_tracks)
+                .max(artist_credit.total_tracks),
+            done_tracks: album
+                .done_tracks
+                .max(composer.done_tracks)
+                .max(artist_credit.done_tracks),
         });
     }
     Ok(ScopeBrowseProjectionInspectDto {
@@ -110,32 +132,22 @@ pub fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, 
             .iter()
             .map(|item| item.total_tracks)
             .max()
-            .unwrap_or_else(|| album.total_tracks.max(composer.total_tracks)),
-        done_tracks: if identity_needed {
-            0
-        } else {
-            pending
-                .iter()
-                .map(|item| item.done_tracks)
-                .min()
-                .unwrap_or(0)
-        },
+            .unwrap_or_else(|| {
+                album
+                    .total_tracks
+                    .max(composer.total_tracks)
+                    .max(artist_credit.total_tracks)
+            }),
+        done_tracks: pending
+            .iter()
+            .map(|item| item.done_tracks)
+            .min()
+            .unwrap_or(0),
     })
 }
 
 pub fn is_ready(store: &LibraryStore) -> Result<bool, String> {
-    store
-        .with_read_conn(|conn| {
-            if migration_completed(conn)? {
-                return Ok(true);
-            }
-            conn.query_row(
-                "SELECT NOT EXISTS(SELECT 1 FROM track WHERE deleted = 0)",
-                [],
-                |r| r.get(0),
-            )
-        })
-        .map_err(|error| error.to_string())
+    inspect(store).map(|state| !state.needed)
 }
 
 pub fn run_backfill(store: &LibraryStore, app: &AppHandle) -> Result<(), String> {
@@ -143,6 +155,29 @@ pub fn run_backfill(store: &LibraryStore, app: &AppHandle) -> Result<(), String>
 }
 
 fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
+    let album_inspect = inspect_album(store)?;
+    let composer_inspect = crate::composer_projection::inspect(store)?;
+    let artist_credit_inspect = crate::artist_credit_projection::inspect(store)?;
+    let album_work = if album_inspect.needed {
+        album_inspect.total_tracks
+    } else {
+        0
+    };
+    let composer_work = if composer_inspect.needed {
+        composer_inspect.total_tracks
+    } else {
+        0
+    };
+    let artist_credit_work = if artist_credit_inspect.needed {
+        artist_credit_inspect.total_tracks
+    } else {
+        0
+    };
+    let total_work = album_work
+        .saturating_add(composer_work)
+        .saturating_add(artist_credit_work);
+    let total_tracks = album_work.max(composer_work).max(artist_credit_work);
+
     // Projection batches intentionally write physical fallback identities. Persist
     // a server rebuild request first so a crash can never leave a completed
     // projection marker without a later canonical reconcile.
@@ -160,13 +195,32 @@ fn run_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<()
         crate::identity::mark_cluster_keys_dirty(&tx, server_ids.iter().map(String::as_str))?;
         tx.commit()
     })?;
-    run_album_backfill_impl(store, app)?;
-    crate::composer_projection::run_backfill(store, app)?;
+    run_album_backfill_impl(store, app, 0, total_work, total_tracks)?;
+    crate::composer_projection::run_backfill_with_progress(
+        store,
+        app,
+        album_work,
+        total_work,
+        total_tracks,
+    )?;
+    crate::artist_credit_projection::run_backfill_with_progress(
+        store,
+        app,
+        album_work.saturating_add(composer_work),
+        total_work,
+        total_tracks,
+    )?;
     crate::identity::ensure_pending_cluster_keys(store)?;
     Ok(())
 }
 
-fn run_album_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
+fn run_album_backfill_impl(
+    store: &LibraryStore,
+    app: Option<&AppHandle>,
+    progress_offset: u64,
+    progress_total: u64,
+    total_tracks: u64,
+) -> Result<(), String> {
     let inspect_result = inspect_album(store)?;
     if !inspect_result.needed {
         return Ok(());
@@ -239,10 +293,11 @@ fn run_album_backfill_impl(store: &LibraryStore, app: Option<&AppHandle>) -> Res
         if let Some(app) = app {
             app.emit(
                 "scope_browse_projection:progress",
-                ScopeBrowseProjectionProgressEvent {
-                    done,
-                    total: inspect_result.total_tracks,
-                },
+                logical_progress(
+                    progress_offset.saturating_add(done),
+                    progress_total,
+                    total_tracks,
+                ),
             )
             .map_err(|error| error.to_string())?;
         }

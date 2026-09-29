@@ -11,6 +11,8 @@ vi.mock('@/lib/api/library', () => ({
 
 import {
   _resetPlaybackAlternativeStoreForTest,
+  clearUnavailablePlaybackFailures,
+  recordUnavailablePlaybackFailure,
   reportPlaybackSourceFailure,
   usePlaybackAlternativeStore,
 } from './playbackAlternativeStore';
@@ -137,5 +139,28 @@ describe('reportPlaybackSourceFailure', () => {
 
     await waitFor(() => expect(usePlaybackAlternativeStore.getState().status).toBe('ready'));
     expect(unavailable).not.toHaveBeenCalled();
+  });
+});
+
+describe('unavailable playback failure cycle', () => {
+  it('stops after every concrete queue slot failed once, including duplicate tracks', () => {
+    const queue = [
+      { serverId: 'srv-a', trackId: 'same' },
+      { serverId: 'srv-a', trackId: 'same' },
+    ];
+
+    expect(recordUnavailablePlaybackFailure(queue, 0)).toBe(false);
+    expect(recordUnavailablePlaybackFailure(queue, 1)).toBe(true);
+  });
+
+  it('resets after playback succeeds', () => {
+    const queue = [
+      { serverId: 'srv-a', trackId: 'one' },
+      { serverId: 'srv-a', trackId: 'two' },
+    ];
+
+    expect(recordUnavailablePlaybackFailure(queue, 0)).toBe(false);
+    clearUnavailablePlaybackFailures();
+    expect(recordUnavailablePlaybackFailure(queue, 1)).toBe(false);
   });
 });

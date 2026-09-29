@@ -79,7 +79,12 @@ pub(crate) fn mp4_needs_tail_prefetch(prefix: &[u8], hint: Option<&str>) -> bool
 }
 
 /// Scan `[scan_start, scan_end)` for a top-level atom fourcc (e.g. `moov`).
-fn find_atom_fourcc(data: &[u8], atom: &[u8; 4], scan_start: usize, scan_end: usize) -> Option<usize> {
+fn find_atom_fourcc(
+    data: &[u8],
+    atom: &[u8; 4],
+    scan_start: usize,
+    scan_end: usize,
+) -> Option<usize> {
     let end = scan_end.min(data.len());
     let start = scan_start.min(end);
     for i in start..end.saturating_sub(8) {
@@ -97,7 +102,14 @@ pub(crate) fn mp4_has_moov_atom(data: &[u8]) -> bool {
     }
     const TAIL_SCAN: usize = 8 * 1024 * 1024;
     const PREFIX_SCAN: usize = 32 * 1024 * 1024;
-    if find_atom_fourcc(data, b"moov", data.len().saturating_sub(TAIL_SCAN), data.len()).is_some() {
+    if find_atom_fourcc(
+        data,
+        b"moov",
+        data.len().saturating_sub(TAIL_SCAN),
+        data.len(),
+    )
+    .is_some()
+    {
         return true;
     }
     find_atom_fourcc(data, b"moov", 0, PREFIX_SCAN.min(data.len())).is_some()
@@ -119,8 +131,13 @@ pub(crate) fn mp4_suspect_zero_holes(data: &[u8]) -> bool {
     if data.len() < 256 * 1024 {
         return false;
     }
-    let moov_off = find_atom_fourcc(data, b"moov", data.len().saturating_sub(8 * 1024 * 1024), data.len())
-        .or_else(|| find_atom_fourcc(data, b"moov", 0, data.len().min(32 * 1024 * 1024)));
+    let moov_off = find_atom_fourcc(
+        data,
+        b"moov",
+        data.len().saturating_sub(8 * 1024 * 1024),
+        data.len(),
+    )
+    .or_else(|| find_atom_fourcc(data, b"moov", 0, data.len().min(32 * 1024 * 1024)));
     let Some(moov_off) = moov_off else {
         return false;
     };

@@ -2,13 +2,32 @@ use std::sync::Arc;
 
 use tauri::Manager;
 
+use super::plan::{carry_active_plan_cleanup, prepare_device_sync_plan, read_device_sync_plan};
 use super::{
-    estimate_track_size_bytes, fetch_subsonic_songs, inject_playlist_context,
-    track_sync_info_from_subsonic_json, DeviceSyncSourcePayload, SubsonicAuthPayload,
+    fetch_subsonic_song, fetch_subsonic_songs, subsonic_response_root, DeviceSyncLayoutMode,
+    DeviceSyncPlaylistPathMode, DeviceSyncSourcePayload, DeviceSyncTranscode, SubsonicAuthPayload,
     SyncDeltaResult,
 };
+
+/// A listing request per source. `required` is false for a source on its way
+/// off the device: it contributes no tracks to the desired state, and its
+/// listing only helps to recognise the copies it left behind, so a failure
+/// there must not stop the run.
+struct SourceFetchHandle {
+    source: DeviceSyncSourcePayload,
+    required: bool,
+    handle: tokio::task::JoinHandle<Result<Vec<serde_json::Value>, String>>,
+}
+use super::planner::{build_sync_plan_with_resume, FetchedDeviceSyncSource, SyncPlanOptions};
 use crate::file_transfer::{apply_server_http_get, subsonic_http_client};
-use crate::sync::device::{build_track_path, get_removable_drives, playlist_collision_key};
+use crate::sync::device::{
+    playlist_collision_key, read_device_manifest, target_available_space, validate_device_identity,
+};
+
+/// Upper bound on per-song lookups for tracks that left a source that is still
+/// synced; beyond it the remainder stays on the device as before.
+const MAX_DEPARTED_SONG_LOOKUPS: usize = 2_000;
+const DEPARTED_SONG_LOOKUP_CONCURRENCY: usize = 8;
 
 pub(super) fn device_sync_source_key(source: &DeviceSyncSourcePayload) -> String {
     serde_json::to_string(&(&source.server_index_key, &source.source_type, &source.id))
@@ -28,6 +47,18 @@ pub(super) fn validate_device_sync_source_owners(
     Ok(())
 }
 
+/// A source that is on its way off the device contributes no tracks to the
+/// desired state, so its listing is not required. It is still requested once,
+/// best effort, to recognise the copies it left behind; a failed request is
+/// ignored, which lets a delete-only run finish when the server has moved or
+/// is offline.
+pub(super) fn device_sync_source_requires_fetch(
+    source: &DeviceSyncSourcePayload,
+    deletion_keys: &std::collections::HashSet<String>,
+) -> bool {
+    !deletion_keys.contains(&device_sync_source_key(source))
+}
+
 pub(super) fn playlist_collision_source_keys(
     sources: &[DeviceSyncSourcePayload],
 ) -> std::collections::HashSet<String> {
@@ -44,7 +75,9 @@ pub(super) fn playlist_collision_source_keys(
         .filter(|source| {
             source.source_type == "playlist"
                 && name_counts
-                    .get(&playlist_collision_key(source.name.as_deref().unwrap_or("")))
+                    .get(&playlist_collision_key(
+                        source.name.as_deref().unwrap_or(""),
+                    ))
                     .copied()
                     .unwrap_or_default()
                     > 1
@@ -53,237 +86,311 @@ pub(super) fn playlist_collision_source_keys(
         .collect()
 }
 
+#[allow(clippy::too_many_arguments)] // Mirrors the command payload plus the captured device identity.
 pub(super) async fn calculate_sync_payload_impl(
     sources: Vec<DeviceSyncSourcePayload>,
     deletion_ids: Vec<String>,
     auth: SubsonicAuthPayload,
     target_dir: String,
+    layout_mode: DeviceSyncLayoutMode,
+    playlist_path_mode: DeviceSyncPlaylistPathMode,
+    transcode: DeviceSyncTranscode,
+    device_id: String,
+    expected_device_id: Option<String>,
     app: tauri::AppHandle,
 ) -> Result<SyncDeltaResult, String> {
     validate_device_sync_source_owners(&sources, &auth.server_index_key)?;
+    let deletion_keys = deletion_ids
+        .iter()
+        .cloned()
+        .collect::<std::collections::HashSet<_>>();
+    let desired_source_keys = sources
+        .iter()
+        .map(device_sync_source_key)
+        .filter(|key| !deletion_keys.contains(key))
+        .collect::<Vec<_>>();
+    let root = std::path::Path::new(&target_dir);
     let client = subsonic_http_client(std::time::Duration::from_secs(30))?;
     let http_registry = app
         .try_state::<Arc<psysonic_core::server_http::ServerHttpRegistry>>()
         .map(|s| Arc::clone(&*s));
 
-    let mut add_bytes = 0;
-    let mut add_count = 0;
-    let mut del_bytes = 0;
-    let mut del_count = 0;
-
-    let mut sync_tracks = Vec::new();
-    let (mut del_sources, mut add_sources) = (Vec::new(), Vec::new());
+    let mut handles: Vec<SourceFetchHandle> = Vec::new();
     for source in sources {
-        if deletion_ids.contains(&device_sync_source_key(&source)) {
-            del_sources.push(source);
-        } else {
-            add_sources.push(source);
-        }
-    }
-    let playlist_collision_sources = playlist_collision_source_keys(&add_sources);
-
-    let mut handles: Vec<(
-        DeviceSyncSourcePayload,
-        tokio::task::JoinHandle<Vec<serde_json::Value>>,
-    )> = Vec::new();
-    for source in add_sources {
+        let required = device_sync_source_requires_fetch(&source, &deletion_keys);
         let auth_clone = auth.clone();
         let cli = client.clone();
         let reg_for_task = http_registry.clone();
         let source_snapshot = source.clone();
         let handle = tokio::spawn(async move {
-            let registry = reg_for_task.as_deref();
-            let mut res_tracks = Vec::new();
-            if source.source_type == "album" {
-                if let Ok(tracks) =
-                    fetch_subsonic_songs(&cli, registry, &auth_clone, "getAlbum.view", &source.id)
-                        .await
-                {
-                    res_tracks.extend(tracks);
-                }
-            } else if source.source_type == "playlist" {
-                if let Ok(tracks) = fetch_subsonic_songs(
-                    &cli,
-                    registry,
-                    &auth_clone,
-                    "getPlaylist.view",
-                    &source.id,
-                )
+            fetch_device_sync_source_tracks(&cli, reg_for_task.as_deref(), &auth_clone, &source)
                 .await
-                {
-                    res_tracks.extend(tracks);
-                }
-            } else if source.source_type == "artist" {
-                let url = format!("{}/getArtist.view", auth_clone.base_url);
-                let query = vec![
-                    ("u", auth_clone.u.as_str()),
-                    ("t", auth_clone.t.as_str()),
-                    ("s", auth_clone.s.as_str()),
-                    ("v", auth_clone.v.as_str()),
-                    ("c", auth_clone.c.as_str()),
-                    ("f", auth_clone.f.as_str()),
-                    ("id", &source.id),
-                ];
-                if let Ok(response) =
-                    apply_server_http_get(&cli, registry, Some(&auth_clone.server_id), &url)
-                        .query(&query)
-                        .send()
-                        .await
-                {
-                    if let Ok(json) = response.json::<serde_json::Value>().await {
-                        if let Some(root) = json
-                            .get("subsonic-response")
-                            .and_then(|response| response.get("artist"))
-                            .and_then(|artist| artist.get("album"))
-                        {
-                            let albums = root.as_array().cloned().unwrap_or_else(|| {
-                                root.as_object()
-                                    .map(|album| vec![serde_json::Value::Object(album.clone())])
-                                    .unwrap_or_default()
-                            });
-                            for album in albums {
-                                if let Some(album_id) = album.get("id").and_then(|id| id.as_str()) {
-                                    if let Ok(tracks) = fetch_subsonic_songs(
-                                        &cli,
-                                        registry,
-                                        &auth_clone,
-                                        "getAlbum.view",
-                                        album_id,
-                                    )
-                                    .await
-                                    {
-                                        res_tracks.extend(tracks);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            res_tracks
         });
-        handles.push((source_snapshot, handle));
+        handles.push(SourceFetchHandle {
+            source: source_snapshot,
+            required,
+            handle,
+        });
     }
 
-    let mut del_handles = Vec::new();
-    for source in del_sources {
-        let auth_clone = auth.clone();
-        let cli = client.clone();
-        let reg_for_task = http_registry.clone();
-        del_handles.push(tokio::spawn(async move {
-            let registry = reg_for_task.as_deref();
-            let mut res_tracks = Vec::new();
-            if source.source_type == "album" {
-                if let Ok(tracks) =
-                    fetch_subsonic_songs(&cli, registry, &auth_clone, "getAlbum.view", &source.id)
-                        .await
-                {
-                    res_tracks.extend(tracks);
-                }
-            } else if source.source_type == "playlist" {
-                if let Ok(tracks) = fetch_subsonic_songs(
-                    &cli,
-                    registry,
-                    &auth_clone,
-                    "getPlaylist.view",
-                    &source.id,
-                )
+    let mut fetched = Vec::with_capacity(handles.len());
+    let mut retiring_tracks = Vec::new();
+    for SourceFetchHandle {
+        source,
+        required,
+        handle,
+    } in handles
+    {
+        let outcome = handle.await.map_err(|error| error.to_string());
+        if !required {
+            if let Ok(Ok(tracks)) = outcome {
+                retiring_tracks.extend(tracks);
+            }
+            fetched.push(FetchedDeviceSyncSource {
+                source,
+                tracks: Vec::new(),
+            });
+            continue;
+        }
+        let tracks = match outcome? {
+            Ok(tracks) => tracks,
+            Err(error) => {
+                let source_key = device_sync_source_key(&source);
+                return Err(format!(
+                    "DEVICE_SYNC_SOURCE_FETCH_FAILED:{source_key}:{error}"
+                ));
+            }
+        };
+        fetched.push(FetchedDeviceSyncSource { source, tracks });
+    }
+
+    let departed_songs = fetch_departed_songs(
+        &client,
+        http_registry.as_deref(),
+        &auth,
+        &target_dir,
+        &fetched,
+        retiring_tracks,
+        &deletion_keys,
+    )
+    .await;
+
+    validate_device_identity(root, &device_id)?;
+    super::plan::validate_active_device_sync_plan_binding(
+        root,
+        &device_id,
+        expected_device_id.as_deref(),
+    )?;
+    let existing_active = read_device_sync_plan(root)?.filter(|plan| plan.active);
+    if existing_active
+        .as_ref()
+        .is_some_and(|plan| !plan.matches_device_owner(&device_id, &auth.server_index_key))
+    {
+        return Err("DEVICE_SYNC_PENDING_PLAN_CONFLICT".to_string());
+    }
+
+    let mut result = build_sync_plan_with_resume(
+        &fetched,
+        &deletion_ids,
+        &target_dir,
+        SyncPlanOptions {
+            layout_mode,
+            playlist_path_mode,
+            transcode,
+        },
+        existing_active
+            .as_ref()
+            .map(|plan| plan.manifest_files.as_slice()),
+        &departed_songs,
+    )?;
+    if let Some(plan) = &existing_active {
+        carry_active_plan_cleanup(root, plan, &mut result);
+    }
+    result.device_id = device_id;
+    let result_device_id = result.device_id.clone();
+    validate_device_identity(root, &result_device_id)?;
+    super::plan::validate_active_device_sync_plan_binding(
+        root,
+        &result_device_id,
+        expected_device_id.as_deref(),
+    )?;
+    prepare_device_sync_plan(
+        root,
+        &result_device_id,
+        &auth.server_index_key,
+        desired_source_keys,
+        layout_mode,
+        playlist_path_mode,
+        &mut result,
+        existing_active,
+    )?;
+
+    if let Some(available) = target_available_space(root) {
+        result.available_bytes = available;
+    }
+    Ok(result)
+}
+
+/// Tracks of one source, as listed by the server.
+async fn fetch_device_sync_source_tracks(
+    client: &reqwest::Client,
+    registry: Option<&psysonic_core::server_http::ServerHttpRegistry>,
+    auth: &SubsonicAuthPayload,
+    source: &DeviceSyncSourcePayload,
+) -> Result<Vec<serde_json::Value>, String> {
+    match source.source_type.as_str() {
+        "album" => fetch_subsonic_songs(client, registry, auth, "getAlbum.view", &source.id).await,
+        "playlist" => {
+            fetch_subsonic_songs(client, registry, auth, "getPlaylist.view", &source.id).await
+        }
+        "artist" => {
+            let url = format!("{}/getArtist.view", auth.base_url);
+            let query = vec![
+                ("u", auth.u.as_str()),
+                ("t", auth.t.as_str()),
+                ("s", auth.s.as_str()),
+                ("v", auth.v.as_str()),
+                ("c", auth.c.as_str()),
+                ("f", auth.f.as_str()),
+                ("id", &source.id),
+            ];
+            let response = apply_server_http_get(client, registry, Some(&auth.server_id), &url)
+                .query(&query)
+                .send()
                 .await
-                {
-                    res_tracks.extend(tracks);
-                }
+                .map_err(|error| error.to_string())?;
+            if !response.status().is_success() {
+                return Err(format!("HTTP {}", response.status().as_u16()));
             }
-            res_tracks
-        }));
-    }
-
-    // Dedup key is (source_id, track_id) rather than just track_id — a track
-    // appearing in both an album and a playlist needs to end up on the device
-    // in both locations (album tree + playlist folder).
-    let mut seen_by_source: std::collections::HashSet<(String, String)> =
-        std::collections::HashSet::new();
-    for (source, handle) in handles {
-        if let Ok(tracks) = handle.await {
-            let is_playlist = source.source_type == "playlist";
-            let mut playlist_position: u32 = 0;
-            for track in tracks {
-                if let Some(track_id) = track.get("id").and_then(|id| id.as_str()) {
-                    let key = (device_sync_source_key(&source), track_id.to_string());
-                    if seen_by_source.contains(&key) {
-                        continue;
-                    }
-                    seen_by_source.insert(key);
-                    if is_playlist {
-                        playlist_position += 1;
-                    }
-                    let playlist_name = if is_playlist {
-                        source.name.clone()
-                    } else {
-                        None
-                    };
-                    let playlist_index = if is_playlist {
-                        Some(playlist_position)
-                    } else {
-                        None
-                    };
-                    let playlist_id = source.path_id.as_deref().or_else(|| {
-                        playlist_collision_sources
-                            .contains(&device_sync_source_key(&source))
-                            .then_some(source.id.as_str())
-                    });
-
-                    let sync_info = track_sync_info_from_subsonic_json(
-                        &track,
-                        track_id,
-                        playlist_name.as_deref(),
-                        playlist_id,
-                        playlist_index,
+            let json = response
+                .json::<serde_json::Value>()
+                .await
+                .map_err(|error| error.to_string())?;
+            let root = subsonic_response_root(&json)?
+                .get("artist")
+                .and_then(|artist| artist.get("album"));
+            let albums = root
+                .and_then(|value| value.as_array().cloned())
+                .or_else(|| {
+                    root.and_then(|value| value.as_object().cloned())
+                        .map(|album| vec![serde_json::Value::Object(album)])
+                })
+                .unwrap_or_default();
+            let mut tracks = Vec::new();
+            for album in albums {
+                if let Some(album_id) = album.get("id").and_then(|id| id.as_str()) {
+                    tracks.extend(
+                        fetch_subsonic_songs(client, registry, auth, "getAlbum.view", album_id)
+                            .await?,
                     );
-                    let already_exists = {
-                        let relative = build_track_path(&sync_info);
-                        let file_name = format!("{}.{}", relative, sync_info.suffix);
-                        std::path::Path::new(&target_dir).join(&file_name).exists()
-                    };
-                    if !already_exists {
-                        add_count += 1;
-                        add_bytes += estimate_track_size_bytes(&track);
-                        let mut track_with_ctx = track.clone();
-                        inject_playlist_context(
-                            &mut track_with_ctx,
-                            playlist_name.as_deref(),
-                            playlist_id,
-                            playlist_index,
-                        );
-                        sync_tracks.push(track_with_ctx);
-                    }
                 }
             }
+            Ok(tracks)
         }
+        other => Err(format!("DEVICE_SYNC_SOURCE_TYPE_INVALID:{other}")),
     }
+}
 
-    for handle in del_handles {
-        if let Ok(tracks) = handle.await {
-            for track in tracks {
-                del_count += 1;
-                del_bytes += estimate_track_size_bytes(&track);
+/// Track ids that need a `getSong` lookup: recorded in the previous manifest,
+/// absent from every listing, and owned by at least one source that stays on
+/// the device — a track that left a playlist that is still synced. Copies
+/// owned only by sources on their way off are covered by those sources' own
+/// listings, so they never cost a request per track.
+pub(super) fn departed_song_lookup_ids(
+    manifest_files: &[serde_json::Value],
+    listed: &std::collections::HashSet<&str>,
+    deletion_keys: &std::collections::HashSet<String>,
+) -> Vec<String> {
+    let mut ids = manifest_files
+        .iter()
+        .filter(|file| {
+            file.get("sourceKeys")
+                .and_then(serde_json::Value::as_array)
+                .is_some_and(|keys| {
+                    keys.iter()
+                        .filter_map(serde_json::Value::as_str)
+                        .any(|key| !deletion_keys.contains(key))
+                })
+        })
+        .filter_map(|file| file.get("trackId").and_then(serde_json::Value::as_str))
+        .filter(|id| !listed.contains(id))
+        .map(str::to_string)
+        .collect::<Vec<_>>();
+    ids.sort();
+    ids.dedup();
+    ids.truncate(MAX_DEPARTED_SONG_LOOKUPS);
+    ids
+}
+
+/// Songs the previous manifest recorded but no current source listing returns
+/// any more — a track removed from a playlist, or every track of a source on
+/// its way off the device. Their server metadata is what lets the planner
+/// prove a device path is one it created (see `authenticated_by_server_song`),
+/// so the stale copy can be removed or moved.
+///
+/// `retiring_tracks` are the listings of the sources on their way off, which
+/// already cover their tracks; only the rest is looked up one song at a time
+/// (see `departed_song_lookup_ids`). Lookups are best effort: a song the
+/// server no longer knows, or a server that is offline, keeps the old copy.
+async fn fetch_departed_songs(
+    client: &reqwest::Client,
+    registry: Option<&psysonic_core::server_http::ServerHttpRegistry>,
+    auth: &SubsonicAuthPayload,
+    target_dir: &str,
+    fetched: &[FetchedDeviceSyncSource],
+    retiring_tracks: Vec<serde_json::Value>,
+    deletion_keys: &std::collections::HashSet<String>,
+) -> std::collections::HashMap<String, serde_json::Value> {
+    let mut departed = retiring_tracks
+        .into_iter()
+        .filter_map(|track| {
+            let id = track.get("id")?.as_str()?.to_string();
+            Some((id, track))
+        })
+        .collect::<std::collections::HashMap<_, _>>();
+    if auth.base_url.is_empty() {
+        return departed;
+    }
+    let Some(files) = read_device_manifest(target_dir.to_string())
+        .as_ref()
+        .and_then(|manifest| manifest.get("files"))
+        .and_then(serde_json::Value::as_array)
+        .cloned()
+    else {
+        return departed;
+    };
+    let listed = fetched
+        .iter()
+        .flat_map(|entry| entry.tracks.iter())
+        .filter_map(|track| track.get("id").and_then(serde_json::Value::as_str))
+        .chain(departed.keys().map(String::as_str))
+        .collect::<std::collections::HashSet<_>>();
+    let missing = departed_song_lookup_ids(&files, &listed, deletion_keys);
+
+    let mut looked_up = std::collections::HashMap::new();
+    for chunk in missing.chunks(DEPARTED_SONG_LOOKUP_CONCURRENCY) {
+        let lookups = chunk
+            .iter()
+            .map(|id| fetch_subsonic_song(client, registry, auth, id));
+        let mut unreachable = false;
+        for (id, song) in chunk
+            .iter()
+            .zip(futures_util::future::join_all(lookups).await)
+        {
+            match song {
+                Ok(Some(song)) => {
+                    looked_up.insert(id.clone(), song);
+                }
+                Ok(None) => {}
+                // Stop at the first failure so an offline server cannot stall a
+                // delete-only run behind hundreds of timeouts.
+                Err(_) => unreachable = true,
             }
         }
-    }
-
-    let mut available_bytes = 0;
-    for drive in get_removable_drives() {
-        if target_dir.starts_with(&drive.mount_point) {
-            available_bytes = drive.available_space;
+        if unreachable {
             break;
         }
     }
-
-    Ok(SyncDeltaResult {
-        add_bytes,
-        add_count,
-        del_bytes,
-        del_count,
-        available_bytes,
-        tracks: sync_tracks,
-    })
+    departed.extend(looked_up);
+    departed
 }

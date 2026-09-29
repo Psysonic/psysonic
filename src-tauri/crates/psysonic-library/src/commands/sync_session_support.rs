@@ -159,80 +159,78 @@ async fn bind_sync_session_with_admission(
     admission.ensure_bind_allowed(runtime, &request.server_id)?;
     let migration_generation = admission.generation();
     let bind = async move {
-    let BindSessionRequest {
-        server_id,
-        base_url,
-        username,
-        password,
-        library_scope,
-    } = request;
-    let base_url = normalize_base_url(&base_url);
-    let _barrier = runtime
-        .cancel_and_drain_sync(None, Some(&server_id))
-        .await?;
-    admission.ensure_bind_allowed(runtime, &server_id)?;
+        let BindSessionRequest {
+            server_id,
+            base_url,
+            username,
+            password,
+            library_scope,
+        } = request;
+        let base_url = normalize_base_url(&base_url);
+        let _barrier = runtime
+            .cancel_and_drain_sync(None, Some(&server_id))
+            .await?;
+        admission.ensure_bind_allowed(runtime, &server_id)?;
 
-    // Prime the Navidrome native-API bearer at bind time (spec §6.1 + PR-5
-    // kickoff Q5) so N1 probe / ingest works without every command passing a
-    // token. `/auth/login` is flaky, so retry a few times; if it still fails,
-    // keep a bearer cached from a prior bind rather than dropping to
-    // Subsonic-only — a transient miss must not strip an N1-capable server
-    // (R7-15 Q3). Non-Navidrome servers stay `None` and sync via Subsonic.
-    let old_session = runtime.get_session(&server_id);
-    let token_result = tokio::time::timeout(
-        timeouts.token,
-        navidrome_token_with_retry(Some(http_registry), &base_url, &username, &password),
-    )
-    .await;
-    let navidrome_token_cached = match token_result {
-        Ok(Some(token)) => Some(token),
-        Ok(None) | Err(_) => old_session
-            .as_ref()
-            .and_then(|session| session.navidrome_token.clone()),
-    };
+        // Prime the Navidrome native-API bearer at bind time (spec §6.1 + PR-5
+        // kickoff Q5) so N1 probe / ingest works without every command passing a
+        // token. `/auth/login` is flaky, so retry a few times; if it still fails,
+        // keep a bearer cached from a prior bind rather than dropping to
+        // Subsonic-only — a transient miss must not strip an N1-capable server
+        // (R7-15 Q3). Non-Navidrome servers stay `None` and sync via Subsonic.
+        let old_session = runtime.get_session(&server_id);
+        let token_result = tokio::time::timeout(
+            timeouts.token,
+            navidrome_token_with_retry(Some(http_registry), &base_url, &username, &password),
+        )
+        .await;
+        let navidrome_token_cached = match token_result {
+            Ok(Some(token)) => Some(token),
+            Ok(None) | Err(_) => old_session
+                .as_ref()
+                .and_then(|session| session.navidrome_token.clone()),
+        };
 
-    let session = SyncSession {
-        server_id: server_id.clone(),
-        base_url: base_url.clone(),
-        username: username.clone(),
-        password: password.clone(),
-        navidrome_token: navidrome_token_cached.clone(),
-        library_scope: library_scope.clone(),
-    };
+        let session = SyncSession {
+            server_id: server_id.clone(),
+            base_url: base_url.clone(),
+            username: username.clone(),
+            password: password.clone(),
+            navidrome_token: navidrome_token_cached.clone(),
+            library_scope: library_scope.clone(),
+        };
 
-    // Run the probe + persist capability flags. Failure to probe is a
-    // bind-time error. Publish only after success so a failed replacement
-    // leaves the previous session available.
-    let subsonic = subsonic_client_with_registry(
-        Some(http_registry),
-        &server_id,
-        base_url.clone(),
-        username.clone(),
-        password.clone(),
-    );
-    let navidrome_creds = navidrome_token_cached.map(|tok| NavidromeProbeCredentials {
-        server_url: base_url,
-        bearer_token: tok,
-    });
-    let scope = library_scope.as_deref().unwrap_or_default();
-    probe_and_persist_with_timeout(
-        &runtime.store,
-        &subsonic,
-        navidrome_creds.as_ref(),
-        Some(http_registry),
-        &server_id,
-        scope,
-        timeouts.probe,
-    )
-    .await
-    .map_err(|e| format!("bind probe failed: {e}"))?;
-    runtime.set_session(session)?;
-    Ok(())
+        // Run the probe + persist capability flags. Failure to probe is a
+        // bind-time error. Publish only after success so a failed replacement
+        // leaves the previous session available.
+        let subsonic = subsonic_client_with_registry(
+            Some(http_registry),
+            &server_id,
+            base_url.clone(),
+            username.clone(),
+            password.clone(),
+        );
+        let navidrome_creds = navidrome_token_cached.map(|tok| NavidromeProbeCredentials {
+            server_url: base_url,
+            bearer_token: tok,
+        });
+        let scope = library_scope.as_deref().unwrap_or_default();
+        probe_and_persist_with_timeout(
+            &runtime.store,
+            &subsonic,
+            navidrome_creds.as_ref(),
+            Some(http_registry),
+            &server_id,
+            scope,
+            timeouts.probe,
+        )
+        .await
+        .map_err(|e| format!("bind probe failed: {e}"))?;
+        runtime.set_session(session)?;
+        Ok(())
     };
     match migration_generation {
-        Some(generation) => {
-            LibraryStore::scope_migration_write_generation(generation, bind).await
-        }
+        Some(generation) => LibraryStore::scope_migration_write_generation(generation, bind).await,
         None => bind.await,
     }
 }
@@ -373,103 +371,103 @@ async fn library_sync_start_with_admission(
     let runner_handle: tokio::task::JoinHandle<Result<(), String>> =
         tokio::task::spawn(async move {
             let run = async move {
-            let registry = app_for_runner.state::<Arc<ServerHttpRegistry>>();
-            let subsonic = subsonic_client_with_registry(
-                Some(registry.as_ref()),
-                &session_clone.server_id,
-                session_clone.base_url.clone(),
-                session_clone.username.clone(),
-                session_clone.password.clone(),
-            );
-            let navidrome_creds =
-                session_clone
-                    .navidrome_token
-                    .clone()
-                    .map(|tok| NavidromeProbeCredentials {
-                        server_url: session_clone.base_url.clone(),
-                        bearer_token: tok,
-                    });
+                let registry = app_for_runner.state::<Arc<ServerHttpRegistry>>();
+                let subsonic = subsonic_client_with_registry(
+                    Some(registry.as_ref()),
+                    &session_clone.server_id,
+                    session_clone.base_url.clone(),
+                    session_clone.username.clone(),
+                    session_clone.password.clone(),
+                );
+                let navidrome_creds =
+                    session_clone
+                        .navidrome_token
+                        .clone()
+                        .map(|tok| NavidromeProbeCredentials {
+                            server_url: session_clone.base_url.clone(),
+                            bearer_token: tok,
+                        });
 
-            let result: Result<(), String> = if kind_for_task == "initial_sync" {
-                let mut runner = InitialSyncRunner::new(
-                    &store,
-                    &subsonic,
-                    session_clone.server_id.clone(),
-                    scope_for_task.clone(),
-                    capability_flags,
-                )
-                .with_cancellation(Arc::clone(&cancel_for_task))
-                .with_progress(Arc::clone(&progress))
-                .with_parallelism_budget(parallelism)
-                .with_http_registry(Some(Arc::clone(&registry)));
-                if let Some(creds) = navidrome_creds.clone() {
-                    runner = runner.with_navidrome_credentials(creds);
-                }
-                let run = sync_outcome_to_result(runner.run().await, admission);
-                if run.is_ok() {
-                    run_tag_pass_best_effort(
+                let result: Result<(), String> = if kind_for_task == "initial_sync" {
+                    let mut runner = InitialSyncRunner::new(
                         &store,
                         &subsonic,
-                        &session_clone.server_id,
-                        Some(Arc::clone(&cancel_for_task)),
-                        Arc::clone(&progress),
-                        false,
+                        session_clone.server_id.clone(),
+                        scope_for_task.clone(),
+                        capability_flags,
                     )
-                    .await;
-                }
-                run
-            } else {
-                // Delta uses the mismatch budget when the local/server count gap
-                // crosses the threshold. Manual Verify is a separate stable full
-                // pass, so it cannot be skipped by an unchanged watermark or stop
-                // after one 200-row chunk.
-                let tombstone_budget = if force_full_tombstone {
-                    0
+                    .with_cancellation(Arc::clone(&cancel_for_task))
+                    .with_progress(Arc::clone(&progress))
+                    .with_parallelism_budget(parallelism)
+                    .with_http_registry(Some(Arc::clone(&registry)));
+                    if let Some(creds) = navidrome_creds.clone() {
+                        runner = runner.with_navidrome_credentials(creds);
+                    }
+                    let run = sync_outcome_to_result(runner.run().await, admission);
+                    if run.is_ok() {
+                        run_tag_pass_best_effort(
+                            &store,
+                            &subsonic,
+                            &session_clone.server_id,
+                            Some(Arc::clone(&cancel_for_task)),
+                            Arc::clone(&progress),
+                            false,
+                        )
+                        .await;
+                    }
+                    run
                 } else {
-                    compute_tombstone_budget(&store, &session_clone.server_id, &scope_for_task)
-                };
-                let mut runner = DeltaSyncRunner::new(
-                    &store,
-                    &subsonic,
-                    session_clone.server_id.clone(),
-                    scope_for_task.clone(),
-                    capability_flags,
-                )
-                .with_cancellation(Arc::clone(&cancel_for_task))
-                .with_progress(Arc::clone(&progress))
-                .with_http_registry(Some(Arc::clone(&registry)));
-                if force_full_tombstone {
-                    runner = runner.with_full_tombstone_pass();
-                } else if tombstone_budget > 0 {
-                    runner = runner.with_tombstone_budget(tombstone_budget);
-                }
-                if let Some(creds) = navidrome_creds.clone() {
-                    runner = runner.with_navidrome_credentials(creds);
-                }
-                let outcome = runner.run().await;
-                let require_untagged = outcome
-                    .as_ref()
-                    .map_or(true, |report| force_full_tombstone || report.up_to_date);
-                let run = sync_outcome_to_result(outcome, admission);
-                if run.is_ok() {
-                    run_tag_pass_best_effort(
+                    // Delta uses the mismatch budget when the local/server count gap
+                    // crosses the threshold. Manual Verify is a separate stable full
+                    // pass, so it cannot be skipped by an unchanged watermark or stop
+                    // after one 200-row chunk.
+                    let tombstone_budget = if force_full_tombstone {
+                        0
+                    } else {
+                        compute_tombstone_budget(&store, &session_clone.server_id, &scope_for_task)
+                    };
+                    let mut runner = DeltaSyncRunner::new(
                         &store,
                         &subsonic,
-                        &session_clone.server_id,
-                        Some(Arc::clone(&cancel_for_task)),
-                        Arc::clone(&progress),
-                        require_untagged,
+                        session_clone.server_id.clone(),
+                        scope_for_task.clone(),
+                        capability_flags,
                     )
-                    .await;
-                }
-                run
-            };
+                    .with_cancellation(Arc::clone(&cancel_for_task))
+                    .with_progress(Arc::clone(&progress))
+                    .with_http_registry(Some(Arc::clone(&registry)));
+                    if force_full_tombstone {
+                        runner = runner.with_full_tombstone_pass();
+                    } else if tombstone_budget > 0 {
+                        runner = runner.with_tombstone_budget(tombstone_budget);
+                    }
+                    if let Some(creds) = navidrome_creds.clone() {
+                        runner = runner.with_navidrome_credentials(creds);
+                    }
+                    let outcome = runner.run().await;
+                    let require_untagged = outcome
+                        .as_ref()
+                        .map_or(true, |report| force_full_tombstone || report.up_to_date);
+                    let run = sync_outcome_to_result(outcome, admission);
+                    if run.is_ok() {
+                        run_tag_pass_best_effort(
+                            &store,
+                            &subsonic,
+                            &session_clone.server_id,
+                            Some(Arc::clone(&cancel_for_task)),
+                            Arc::clone(&progress),
+                            require_untagged,
+                        )
+                        .await;
+                    }
+                    run
+                };
 
-            // Closing the mpsc sender by dropping `progress` so the
-            // orchestrator's drain loop terminates.
-            drop(progress);
-            let _ = job_id_for_task; // silence unused on Err
-            result
+                // Closing the mpsc sender by dropping `progress` so the
+                // orchestrator's drain loop terminates.
+                drop(progress);
+                let _ = job_id_for_task; // silence unused on Err
+                result
             };
             match migration_generation {
                 Some(generation) => {
@@ -560,10 +558,9 @@ async fn library_sync_start_with_admission(
                             .map(|_| ())
                     };
                     match migration_generation {
-                        Some(generation) => LibraryStore::scope_migration_write_generation_sync(
-                            generation,
-                            ensure,
-                        ),
+                        Some(generation) => {
+                            LibraryStore::scope_migration_write_generation_sync(generation, ensure)
+                        }
                         None => ensure(),
                     }
                 })
@@ -581,10 +578,9 @@ async fn library_sync_start_with_admission(
         if let Some(runtime) = app_for_emit.try_state::<LibraryRuntime>() {
             let checkpoint = || runtime.store.checkpoint_wal("sync.checkpoint");
             let _ = match migration_generation {
-                Some(generation) => LibraryStore::scope_migration_write_generation_sync(
-                    generation,
-                    checkpoint,
-                ),
+                Some(generation) => {
+                    LibraryStore::scope_migration_write_generation_sync(generation, checkpoint)
+                }
                 None => checkpoint(),
             };
         }

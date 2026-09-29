@@ -3,7 +3,8 @@ import { resolveAlbum, resolveMediaServerId } from '@/features/offline';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { useDragDrop, registerQueueDragHitTest } from '@/lib/dnd/DragDropContext';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
-import type { Track } from '@/lib/media/trackTypes';
+import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
+import { queueReorderIndices } from '@/features/queue/utils/queueReorderPayload';
 
 /** Drag types that may be dropped into the queue panel. */
 const QUEUE_DROP_TYPES = new Set(['song', 'album', 'queue_reorder']);
@@ -11,15 +12,16 @@ const QUEUE_DROP_TYPES = new Set(['song', 'album', 'queue_reorder']);
 interface Args {
   asideRef: React.RefObject<HTMLElement | null>;
   isQueueVisible: boolean;
-  reorderQueue: (from: number, to: number) => void;
+  moveQueueItems: (indices: readonly number[], gapIndex: number) => void;
   enqueueAt: (tracks: Track[], idx: number) => void;
   removeTrack: (idx: number) => void;
+  removeQueueItems: (refs: readonly QueueItemRef[]) => void;
 }
 
 /** Queue drag/drop wiring: hit-test registration, psy-drop dispatch for drops
  *  inside the panel, removal-on-drop-outside, and visual feedback refs. */
 export function useQueuePanelDrag({
-  asideRef, isQueueVisible, reorderQueue, enqueueAt, removeTrack,
+  asideRef, isQueueVisible, moveQueueItems, enqueueAt, removeTrack, removeQueueItems,
 }: Args) {
   const psyDragFromIdxRef = useRef<number | null>(null);
   const [externalDropTarget, setExternalDropTarget] = useState<{ idx: number; before: boolean } | null>(null);
@@ -60,6 +62,7 @@ export function useQueuePanelDrag({
       let parsedData: {
         type?: string;
         index?: number;
+        indices?: number[];
         track?: Track;
         tracks?: Track[];
         serverId?: string;
@@ -79,9 +82,8 @@ export function useQueuePanelDrag({
         : usePlayerStore.getState().queueItems.length;
 
       if (parsedData.type === 'queue_reorder') {
-        const fromIdx = parsedData.index as number;
         psyDragFromIdxRef.current = null;
-        if (fromIdx !== insertIdx) reorderQueue(fromIdx, insertIdx);
+        moveQueueItems(queueReorderIndices(parsedData), insertIdx);
       } else if (parsedData.type === 'song') {
         enqueueAt([parsedData.track as Track], insertIdx);
       } else if (parsedData.type === 'songs') {
@@ -100,7 +102,7 @@ export function useQueuePanelDrag({
 
     aside.addEventListener('psy-drop', onPsyDrop);
     return () => aside.removeEventListener('psy-drop', onPsyDrop);
-  }, [asideRef, enqueueAt, reorderQueue]);
+  }, [asideRef, enqueueAt, moveQueueItems]);
 
   // Drag a queue row outside the panel → remove (drop never reaches `aside`).
   useEffect(() => {
@@ -111,13 +113,15 @@ export function useQueuePanelDrag({
       const cx = d.clientX;
       const cy = d.clientY;
       if (typeof cx !== 'number' || typeof cy !== 'number') return;
-      let parsed: { type?: string; index?: number } | null;
+      let parsed: { type?: string; index?: number; indices?: number[] } | null;
       try {
         parsed = JSON.parse(d.data);
       } catch {
         return;
       }
-      if (parsed?.type !== 'queue_reorder' || typeof parsed.index !== 'number') return;
+      if (parsed?.type !== 'queue_reorder') return;
+      const indices = queueReorderIndices(parsed);
+      if (indices.length === 0) return;
       const aside = asideRef.current;
       if (!aside) return;
       const r = aside.getBoundingClientRect();
@@ -127,11 +131,16 @@ export function useQueuePanelDrag({
       psyDragFromIdxRef.current = null;
       externalDropTargetRef.current = null;
       setExternalDropTarget(null);
-      removeTrack(parsed.index);
+      if (indices.length > 1) {
+        const items = usePlayerStore.getState().queueItems;
+        removeQueueItems(indices.flatMap(i => (items[i] ? [items[i]] : [])));
+      } else {
+        removeTrack(indices[0]!);
+      }
     };
     document.addEventListener('psy-drop', onDocPsyDrop);
     return () => document.removeEventListener('psy-drop', onDocPsyDrop);
-  }, [asideRef, isQueueVisible, removeTrack]);
+  }, [asideRef, isQueueVisible, removeTrack, removeQueueItems]);
 
   return {
     psyDragFromIdxRef,

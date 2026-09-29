@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Selección a la cola',
   playAll: 'Reproducir todo',
   playSelected: 'Reproducir selección',
+  shuffleAll: 'Mezclar todo',
+  shuffleSelected: 'Mezclar selección',
   removeSong: 'Quitar de favoritos',
   stations: 'Estaciones de Radio',
   showingFiltered: 'Mostrando {{filtered}} de {{total}} ({{artist}})',

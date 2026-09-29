@@ -88,10 +88,13 @@ function QueuePanelHostOrSolo() {
   const isQueueVisible = usePlayerStore(s => s.isQueueVisible);
   const playTrack = usePlayerStore(s => s.playTrack);
   const clearQueue = usePlayerStore(s => s.clearQueue);
+  const clearQueueExceptCurrent = usePlayerStore(s => s.clearQueueExceptCurrent);
 
-  const reorderQueue = usePlayerStore(s => s.reorderQueue);
+  const moveQueueItems = usePlayerStore(s => s.moveQueueItems);
   const removeTrack = usePlayerStore(s => s.removeTrack);
-  const shuffleQueue = usePlayerStore(s => s.shuffleQueue);
+  const removeQueueItems = usePlayerStore(s => s.removeQueueItems);
+  const shuffleMode = usePlayerStore(s => s.shuffleMode);
+  const toggleShuffleMode = usePlayerStore(s => s.toggleShuffleMode);
   const enqueue = usePlayerStore(s => s.enqueue);
   const enqueueAt = usePlayerStore(s => s.enqueueAt);
   const contextMenu = usePlayerStore(s => s.contextMenu);
@@ -166,9 +169,10 @@ function QueuePanelHostOrSolo() {
   } = useQueuePanelDrag({
     asideRef,
     isQueueVisible,
-    reorderQueue,
+    moveQueueItems,
     enqueueAt,
     removeTrack,
+    removeQueueItems,
   });
 
   useQueueAutoScroll({
@@ -179,20 +183,15 @@ function QueuePanelHostOrSolo() {
     suppressNextAutoScrollRef,
   });
 
-  const {
-    serverOptions: queueServerOptions,
-    defaultServerId: defaultQueueServerId,
-    sharePickerOpen,
-    handleCopy: handleCopyQueueShare,
-    shareForServer,
-    closeSharePicker,
-  } = useQueueShare({
+  const queueShare = useQueueShare({
     queueItems,
     servers,
     activeServerId,
     publicShareQueueActive,
     navidromePublicSharePageUrl,
   });
+  const queueServerOptions = queueShare.serverOptions;
+  const defaultQueueServerId = queueShare.defaultServerId;
   const [activePlaylist, setActivePlaylist] = useState<{
     id: string;
     name: string;
@@ -241,15 +240,15 @@ function QueuePanelHostOrSolo() {
     setLoadModalOpen(true);
   };
 
-  const handleClear = () => {
+  const finishQueueClear = () => {
     playlistOperationGenerationRef.current += 1;
     activePlaylistSaveGenerationRef.current += 1;
     setSaveState('idle');
-    clearQueue();
     setActivePlaylist(null);
     setSaveModalOpen(false);
-    closeSharePicker();
   };
+  const handleClear = () => { clearQueue(); finishQueueClear(); };
+  const handleClearExceptCurrent = () => { clearQueueExceptCurrent(); finishQueueClear(); };
 
   // Queue mode shows upcoming tracks only — the current track lives in the
   // header and drops out of the list once played. Playlist mode keeps the full
@@ -360,20 +359,16 @@ function QueuePanelHostOrSolo() {
       {activeTab === 'queue' ? (<>
         {!isNowPlayingCollapsed && toolbarButtons.some(b => b.visible && b.id !== 'separator') && (
           <QueueToolbar
-            queue={queueItems}
             activePlaylist={activePlaylist}
             saveState={saveState}
             toolbarButtons={toolbarButtons}
-            shuffleQueue={shuffleQueue}
+            shuffleMode={shuffleMode}
+            toggleShuffleMode={toggleShuffleMode}
             handleSave={handleSave}
             handleLoad={handleLoad}
-            handleCopyQueueShare={handleCopyQueueShare}
-            sharePickerOpen={sharePickerOpen}
-            queueServerOptions={queueServerOptions}
-            defaultQueueServerId={defaultQueueServerId}
-            shareForServer={shareForServer}
-            closeSharePicker={closeSharePicker}
+            queueShare={queueShare}
             handleClear={handleClear}
+            handleClearExceptCurrent={handleClearExceptCurrent}
             publicShareQueueActive={publicShareQueueActive}
             gaplessEnabled={gaplessEnabled}
             crossfadeEnabled={crossfadeEnabled}

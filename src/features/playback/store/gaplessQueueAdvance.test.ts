@@ -139,6 +139,25 @@ describe('maybeReconcileGaplessFromProgress', () => {
     expect(usePlayerStore.getState().queueIndex).toBe(0);
   });
 
+  it('stays put when a mid-track position falls back to zero (#1486 resume)', () => {
+    // Paused a third of the way in; the released output stream is re-opened on
+    // resume and reports near zero while it rebuilds. No track ended here.
+    noteEngineProgressForGapless(64.9);
+    expect(maybeReconcileGaplessFromProgress(0.4, 200)).toBe(false);
+
+    expect(usePlayerStore.getState().currentTrack?.id).toBe('t1');
+    expect(usePlayerStore.getState().queueIndex).toBe(0);
+  });
+
+  it('still advances when the track has no known length', () => {
+    seedQueueResolver('s1', [track('t1', { duration: 0 }), track('t2', { title: 'Second' })]);
+    usePlayerStore.setState({ currentTrack: track('t1', { duration: 0 }) });
+    noteEngineProgressForGapless(64.9);
+
+    expect(maybeReconcileGaplessFromProgress(0.4, 200)).toBe(true);
+    expect(usePlayerStore.getState().currentTrack?.id).toBe('t2');
+  });
+
   it('does not double-advance after track_switched already moved the UI', () => {
     noteEngineProgressForGapless(170);
     applyGaplessQueueAdvance({ engineDurationHint: 210, source: 'track-switched' });

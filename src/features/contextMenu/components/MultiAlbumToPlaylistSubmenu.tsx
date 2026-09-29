@@ -15,7 +15,7 @@ interface Props {
   triggerId?: string;
 }
 
-export function MultiAlbumToPlaylistSubmenu({ albums, onDone, triggerId: _triggerId }: Props) {
+export function MultiAlbumToPlaylistSubmenu({ albums, onDone, triggerId }: Props) {
   const { t } = useTranslation();
   const [resolvedIds, setResolvedIds] = useState<string[] | null>(null);
   const [totalAlbums, setTotalAlbums] = useState(0);
@@ -108,7 +108,7 @@ export function MultiAlbumToPlaylistSubmenu({ albums, onDone, triggerId: _trigge
       : { left: '100%', right: 'auto', top: flipUp ? 'auto' : -4, bottom: flipUp ? 0 : 'auto' };
 
     return (
-      <div className="context-submenu" ref={subRef} style={{ ...subStyle, visibility: visible ? 'visible' : 'hidden' }}>
+      <div className="context-submenu" data-parent-submenu-id={triggerId ?? ''} ref={subRef} style={{ ...subStyle, visibility: visible ? 'visible' : 'hidden' }}>
         {!creating ? (
           <div className="context-menu-item context-submenu-new" onClick={e => { e.stopPropagation(); setCreating(true); }}>
             <Plus size={13} /> {t('playlists.newPlaylist')}

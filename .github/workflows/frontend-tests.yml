@@ -8,7 +8,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'vitest.config.ts'
-      - 'vite.config.ts'
+      - 'vite.config.mts'
       - 'tsconfig.json'
       - 'eslint.config.mjs'
       - '.github/workflows/frontend-tests.yml'
@@ -22,7 +22,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'vitest.config.ts'
-      - 'vite.config.ts'
+      - 'vite.config.mts'
       - 'tsconfig.json'
       - 'eslint.config.mjs'
       - '.github/workflows/frontend-tests.yml'
@@ -39,8 +39,8 @@ jobs:
     name: vitest run
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -52,8 +52,8 @@ jobs:
     name: tsc --noEmit
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -66,8 +66,8 @@ jobs:
     name: vitest --coverage (baseline + hot-path file gate)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 'lts/*'
           cache: 'npm'
@@ -79,7 +79,7 @@ jobs:
         run: npx vitest run --coverage
       - name: hot-path file coverage gate
         run: bash scripts/check-frontend-hot-path-coverage.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: frontend-coverage-lcov
           path: coverage/lcov.info

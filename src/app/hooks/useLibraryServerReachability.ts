@@ -17,6 +17,7 @@ import {
 import { usePerfProbeFlags } from '@/lib/perf/perfFlags';
 import { useLibraryIndexStore } from '@/store/libraryIndexStore';
 import { switchActiveServer } from '@/utils/server/switchActiveServer';
+import { scheduleInstantMixProbeForServer } from '@/lib/api/subsonic';
 
 const SERVER_REACHABILITY_POLL_MS = 120_000;
 
@@ -230,12 +231,39 @@ export function useLibraryServerReachability(): void {
         });
         try {
           const result = await ensureConnectUrlResolved(server);
+          if (result.ok) {
+            const identity = {
+              type: result.ping.type,
+              serverVersion: result.ping.serverVersion,
+              openSubsonic: result.ping.openSubsonic,
+            };
+            const auth = useAuthStore.getState();
+            const previousIdentity = auth.subsonicServerIdentityByServer[server.id];
+            if (
+              previousIdentity?.type !== identity.type
+              || previousIdentity?.serverVersion !== identity.serverVersion
+              || previousIdentity?.openSubsonic !== identity.openSubsonic
+            ) {
+              auth.setSubsonicServerIdentity(server.id, identity);
+            }
+            scheduleInstantMixProbeForServer(
+              server.id,
+              result.baseUrl,
+              server.username,
+              server.password,
+              identity,
+            );
+          }
           emitMultiServerDebug('reachability_probe_done', {
             serverId: server.id,
             durationMs: Math.round(performance.now() - probeStartedAt),
             ok: result.ok,
             ...(result.ok
-              ? { endpointKind: result.endpoint.kind, serverType: result.ping.type ?? null }
+              ? {
+                  endpointKind: result.endpoint.kind,
+                  serverType: result.ping.type ?? null,
+                  serverVersion: result.ping.serverVersion ?? null,
+                }
               : { reason: result.reason }),
           });
         } catch (error) {

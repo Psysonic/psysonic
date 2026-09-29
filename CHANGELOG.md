@@ -9,9 +9,517 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 >
 
 
+## [1.56.0]
+
+## Added
+
+### Device Sync can convert files on the server
+
+**By [@circle3451](https://github.com/circle3451), PR [#1643](https://github.com/Psysonic/psysonic/pull/1643)**
+
+* **Device Sync → Format** can store tracks as MP3, AAC or Opus with a maximum bitrate instead of the original files; your server converts them while syncing. The format must be enabled in the server's transcoding settings.
+* Copies are replaced in place when the format or bitrate changes, or when the file on the server changes. Devices synced before keep their original files until another format is chosen.
+
+### Track subtitles and album versions from Navidrome
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**
+
+* A track's subtitle (e.g. "Instrumental") now appears after its title in every track list, and an album's version (e.g. "Deluxe Edition") after the album name — also for libraries synced through Navidrome's own API, which previously showed them only in some places. Existing libraries are updated once in the background.
+* The album page shows the version under the album title when the title does not already include it.
+
+### Similar albums on the album page
+
+**By [@circle3451](https://github.com/circle3451), PR [#1663](https://github.com/Psysonic/psysonic/pull/1663)**
+
+* A **Similar albums** row below "More by artist" suggests albums that sound alike, found by AudioMuse from a few tracks of the open album. Albums by the same artist are left out.
+* Needs Navidrome 0.62 or newer with the AudioMuse plugin; the row stays hidden on other servers, offline, or when nothing is found.
+
+### Play songs from a list on a single or double click
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1668](https://github.com/Psysonic/psysonic/pull/1668)**
+
+* **Settings → Input → Mouse** chooses whether a song in a list plays on a single click or on a double click, so a stray click no longer replaces what is playing. The play button on a row always plays with one click.
+* Track lists now highlight a row: click it or move with the arrow keys, then press Enter to play it. Holding Ctrl adds more rows to a selection, including the highlighted one, and Escape clears the selection.
+* The Tracks page and search results now follow the same setting; before, songs there only played on a double click.
+
+### Device Sync playlists with absolute paths
+
+**By [@circle3451](https://github.com/circle3451), PR [#1669](https://github.com/Psysonic/psysonic/pull/1669)**
+
+* **Device Sync → M3U path style** gains **Absolute**, which writes full file paths into the playlists, for software that does not resolve relative entries. It is available for every layout.
+* Absolute paths include this computer's drive letter or mount point, so the playlists only resolve while the device appears under the same one.
+
+### Device Sync moves files instead of downloading them again
+
+**By [@circle3451](https://github.com/circle3451), PR [#1670](https://github.com/Psysonic/psysonic/pull/1670)**
+
+* When a playlist is reordered or the layout changes, copies already on the device are renamed to their new place instead of being downloaded again.
+* A track removed from a synced playlist, or from a source you remove from Device Sync, is now deleted from the device as well.
+
+### Device Sync to a folder on this computer
+
+**By [@circle3451](https://github.com/circle3451), PR [#1671](https://github.com/Psysonic/psysonic/pull/1671)**
+
+* Device Sync can now sync into an empty folder on the computer's own disk, for example to import the playlists into DJ software. Psysonic asks once before using the folder.
+* Only an empty folder can be chosen, and Psysonic never takes over or deletes files it did not write there.
+
+### Browse albums by the moods in your music files
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1675](https://github.com/Psysonic/psysonic/pull/1675)**
+
+* The new **Moods** page groups the mood tags exposed by your server for individual tracks. Pick a mood to browse its albums, with album counts, library selection and incremental loading for large collections.
+* Existing libraries build the local mood index from cached track metadata after upgrading. The index stays in sync when tracks change and rebuilds after a Navidrome ID migration. No music files or server tags are changed; servers that do not expose track moods have none to browse.
+
+## Fixed
+
+### Mouse-wheel scrolling resumes after a sideways swipe on track lists
+
+**By [@strecke](https://github.com/strecke), PR [#1635](https://github.com/Psysonic/psysonic/pull/1635)**
+
+* On macOS and Linux, scrolling sideways through a track list could leave the mouse wheel unable to scroll the page vertically. Vertical scrolling now works again after the sideways gesture without interrupting horizontal swipes or zoom gestures.
+
+### Navidrome smart playlists keep their cover on the Playlists page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1660](https://github.com/Psysonic/psysonic/pull/1660)**
+
+* Smart playlists created in Navidrome showed their cover briefly on the Playlists page and then switched to a collage of album art from their tracks, hiding custom artwork. They now keep their server cover there, as they already did in the sidebar and on the playlist page.
+
+### The queue's shuffle button is an on/off switch
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1661](https://github.com/Psysonic/psysonic/pull/1661)**
+
+* The shuffle button in the queue panel shuffled the whole queue once, including tracks already behind the current one, and there was no way to switch it back off. It now works like the shuffle button in the player bar: only upcoming tracks are reordered, and switching it off restores the original order.
+
+### Playlist view shows where you are in the queue
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1661](https://github.com/Psysonic/psysonic/pull/1661)**
+
+* In the queue panel's Playlist view, tracks before the one that is playing are now dimmed, so the current position in the full list is visible at a glance.
+
+### Command-line player controls work again
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1665](https://github.com/Psysonic/psysonic/pull/1665)**
+
+* Commands such as `--player play`, `pause`, and `next` work again after the shortcut registry moved. Playing a song by ID now starts that song even when it is not already in the queue.
+
+### Playlist downloads respect the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1667](https://github.com/Psysonic/psysonic/pull/1667)**
+
+* Server playlists no longer appear empty when **All libraries** or several music folders are selected in the sidebar. Their tracks follow the same library selection as the rest of browsing.
+* Changing the visible library scope no longer removes offline-pinned tracks that are merely hidden from the current view.
+
+## [1.55.0]
+
+## Added
+
+### Burn audio CDs from your library
+
+**By [@starrlord](https://github.com/starrlord), PR [#1538](https://github.com/Psysonic/psysonic/pull/1538)**
+
+* A new **CD Burner** page writes a running order from your library to a blank CD-R as a Red Book audio disc, on Windows, macOS and Linux. Gapless or with the usual two-second gaps, optional level matching across tracks, and CD-TEXT, so players that support it show track and artist names. Tracks you have not downloaded are fetched when the burn starts, without touching your offline library.
+* **Rehearse** runs the whole burn with the laser off, so a running order can be checked without spending a disc. After a real burn the disc itself is read back instead of trusting what the drive reported while writing.
+* Right-click a track, album or playlist and choose **Add to CD** to build the running order.
+
+### Album descriptions and comment tags on the album page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1569](https://github.com/Psysonic/psysonic/pull/1569)**
+
+* The album page now shows the description your server holds for a release, under the genre tags. Long ones are trimmed to two lines with a link to read the rest in place.
+* It also shows the comment tag from your files — notes like "Remaster 2024" that had nowhere to appear before. Shown only when every tagged track on the release says the same thing, so a note about a single track is never presented as one about the album.
+
+### Shuffle now applies to a list you start playing
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1576](https://github.com/Psysonic/psysonic/pull/1576)**
+
+* With shuffle switched on, double-clicking a track in an album, playlist or favourites now queues that whole list in random order, starting with the track you picked. Until now the list arrived in its own order while the shuffle button said otherwise.
+* Switching shuffle back off puts the list into the order it had when you started it.
+
+### Clear the queue without stopping the current track
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1581](https://github.com/Psysonic/psysonic/pull/1581)**
+
+* Right-click the queue's **Clear** button to remove its history and upcoming tracks while the current track keeps playing from the same position.
+
+### Browse all your favourite albums as a grid
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1583](https://github.com/Psysonic/psysonic/pull/1583)**
+
+* Clicking **Albums** on the Favorites page now opens All Albums showing only your favourites, so hundreds of them can be browsed as a grid with sorting and filters instead of scrolling one long row.
+
+### Create and manage Navidrome shares inside Psysonic
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1586](https://github.com/Psysonic/psysonic/pull/1586)**
+
+* Enable sharing in the new **Settings -> Integrations -> Navidrome** section, then create public links from supported tracks, albums, artists, playlists, composers and the play queue without opening the server website.
+* The new **ND Shares** page collects links from the selected servers with artwork, type and item counts. Play a share, add it to the queue, inspect its exact contents, copy or open the link, and remove it from the server in one place.
+* Pasting or searching a managed share opens the same preview flow, while mobile and desktop navigation keep the page available wherever sharing is enabled.
+
+### Finding the switch for the artist photo in fullscreen
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1590](https://github.com/Psysonic/psysonic/pull/1590)**
+
+* The artist photo behind the fullscreen player can be turned off for every style — the switch just lives on another tab, under **Integrations → Backgrounds**. Settings → Appearance now says so next to the style picker and offers a button that opens that section directly.
+
+### Every genre a track carries, and its mood tags
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1591](https://github.com/Psysonic/psysonic/pull/1591)**
+
+* **Song Info** now lists all of a track's genres instead of the first one. Files are often tagged with several, and the album header showed them while the dialog did not.
+* Two new tracklist columns, both **off until you pick them** in the column menu: **Genres** shows the complete set next to the existing single-genre column, and **Mood** shows the mood tags stored in the file (MOOD / TMOO).
+* Song Info also shows those mood tags now. Its mood row used to appear only for tracks the app had analysed, so a tagged file showed nothing.
+
+### The queue scrolls while you drag a track to its edge
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1598](https://github.com/Psysonic/psysonic/pull/1598)**
+
+* Hold a dragged track against the top or bottom of the queue and the list scrolls along, so a song can be moved further than one screenful in one go. Until now that meant dropping it, scrolling, picking it up again, and repeating. It speeds up the closer you get to the edge, and the mini player behaves the same way.
+
+### Keep the play queue local on one device
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1599](https://github.com/Psysonic/psysonic/pull/1599)**, closes [#1585](https://github.com/Psysonic/psysonic/issues/1585)
+
+* **Settings → Integrations → Navidrome → Play queue sync** can now stop this device from publishing or adopting the server queue, without changing local playback.
+* **Allow downloads** now appears as a nested option only when Navidrome sharing is enabled, making it clear which feature it belongs to.
+
+### Select several tracks in the queue and move or remove them together
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1602](https://github.com/Psysonic/psysonic/pull/1602)**
+
+* **Ctrl+click** (Cmd on macOS) picks several tracks in the queue, **Shift+click** picks everything between two of them. **Delete** (Backspace on macOS) removes the picked tracks, and Ctrl+Z brings them back.
+* Drag one of the picked tracks and all of them move together, in their order; drag them out of the queue and they are removed. A normal click still plays a track and lets go of the selection.
+
+### See the visualizer while you set it up
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1606](https://github.com/Psysonic/psysonic/pull/1606)**
+
+* **Settings → Appearance → Visualizer** now shows a preview above its controls, so the mode, colours, peak caps, sensitivity, responsiveness and frame rate can be judged right where they are changed.
+* It follows whatever is playing. While nothing is, it runs a short built-in demo track instead — beats, a bassline and a quieter break — and a line underneath says which of the two you are looking at.
+
+### Device Sync can put every track in one folder
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1611](https://github.com/Psysonic/psysonic/pull/1611)**
+
+* **Device Sync** has a third choice under **Layout**: **All files in one folder**. Every track goes straight into the main folder of the device, named `Album Artist - Album - Track number - Title`, for players that cannot browse folders.
+* Playlists are `.m3u8` files in the same folder that point at those tracks, so nothing is stored twice. On a device synced with folders before, the old copies are removed once the new ones are in place.
+
+### Browse all your favourite artists on the Artists page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@untitled-operator](https://github.com/untitled-operator), PR [#1613](https://github.com/Psysonic/psysonic/pull/1613)**
+
+* Clicking **Artists** on the Favorites page now opens the Artists page showing only your favourites, just as **Albums** opens All Albums. Your view, credit mode and artist-image setting stay as they are.
+
+### Similar artists from your server when Music Network has none
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@strecke](https://github.com/strecke), PR [#1617](https://github.com/Psysonic/psysonic/pull/1617)**
+
+* The artist page now lists the similar artists your server supplies whenever the service chosen under **Settings → Integrations → Music Network** finds none of its suggestions in your library, or when no service is set up there. Before, the section stayed empty in that case.
+* The service you picked still comes first, and servers with AudioMuse keep leading with their own list as before.
+
+### Arrange the Favorites page your way
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Padparadscha on Discord, PR [#1624](https://github.com/Psysonic/psysonic/pull/1624)**
+
+* **Settings → Personalisation → Favorites page sections** lets you reorder the sections of the Favorites page by dragging them and hide the ones you don't need, for example Top Artists by Favorites.
+* The **#** column of the favourite songs can be switched off in the column menu of the list, like the other columns. In narrow windows it stays visible.
+* **Shuffle all** sits next to **Play all** and plays the songs in the list in random order, filters included, or only the selected ones while a selection is active.
+
+### Search all of your Favorites without leaving the page
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1629](https://github.com/Psysonic/psysonic/pull/1629)**
+
+* The search box on **Favorites** now filters favourite artists, albums, radio stations, top artists and songs together. Compact result counts keep every category visible, and each non-song category can be expanded in place without navigating away.
+
+### Word-synced lyrics can flow without highlighting the whole word
+
+**By [@cucadmuh](https://github.com/cucadmuh), suggested by [@PeridotC](https://github.com/PeridotC), PR [#1640](https://github.com/Psysonic/psysonic/pull/1640)**, closes [#1620](https://github.com/Psysonic/psysonic/issues/1620)
+
+* **Settings → Lyrics → Word highlighting** now has a **Flow only** option. It keeps the continuous colour fill but removes the instant glow around the whole active word. **Step** remains the default, and the existing **Smooth** appearance stays unchanged.
+
+### Arrange the buttons on album and playlist pages
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1644](https://github.com/Psysonic/psysonic/pull/1644)**
+
+* Artist bio, download, offline and the other buttons next to **Play** on album and playlist pages are now compact icons, with their label in the tooltip.
+* **Settings → Personalisation → Album page layout** and **Playlist page layout** let you reorder these buttons by dragging and hide the ones you don't need. **Play** always stays first.
+* **Compact buttons** moved from Appearance to Personalisation.
+
+### Playlists explain why drag reordering is off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1647](https://github.com/Psysonic/psysonic/pull/1647)**
+
+* While a playlist is sorted by anything other than **ID** or filtered, dragging a track adds it to the queue instead of moving it. A short hint next to the sort menu now says so, and **Reset** returns to the order you can rearrange.
+
+### Move several playlist tracks at once
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1649](https://github.com/Psysonic/psysonic/pull/1649)**
+
+* Select several tracks in a playlist and drag one of them: the whole selection moves to the drop line as a block, in its order. Dragging the selection to the queue still adds it there.
+
+## Fixed
+
+### Navidrome migration progress keeps its styling during startup
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1577](https://github.com/Psysonic/psysonic/pull/1577)**
+
+* The startup screen shown during a large Navidrome canonical-ID migration could lose its layout and progress styling in packaged builds. It now stays readable and shows accessible progress throughout the blocking migration.
+
+### Artist top tracks can be dragged to the queue
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1580](https://github.com/Psysonic/psysonic/pull/1580)**
+
+* Tracks in the artist page's **Top** tab now support the same drag-to-queue interaction as the **All** tab, without turning the Play or Preview buttons into drag handles.
+
+### Navidrome share links copy reliably after creation
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1586](https://github.com/Psysonic/psysonic/pull/1586)**
+
+* Creating a Navidrome share no longer loses clipboard access while waiting for the server. Psysonic now uses the desktop clipboard directly and keeps the existing browser fallback for web builds.
+
+### Lyrics no longer sit on top of the track details in the fullscreen player
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1587](https://github.com/Psysonic/psysonic/pull/1587)**
+
+* In the **Minimal** style the lyrics panel could cover the track title, the artist and the "Next" line. It reserved a fixed amount of room for the block underneath, which is taller whenever the visualizer strip is shown — so with the strip on, the panel reached into the text. It now ends above however much room that block actually takes, and its lower edge fades out instead of cutting a line in half.
+* In the **Immersive** style the scrolling lyrics stayed visible behind the cover art and the title instead of fading away behind them. How much they showed through depended on the window size and on whether the visualizer was on; now it is the same everywhere.
+
+### The dot between two artists sits straight again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1595](https://github.com/Psysonic/psysonic/pull/1595)**
+
+* On a track credited to more than one artist, the dot between the names hung below them and stuck to the name in front of it. It is now drawn centred, with even spacing on both sides, and looks the same in a track row as in an album header.
+
+### Dropping a track in the queue no longer starts it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1598](https://github.com/Psysonic/psysonic/pull/1598)**
+
+* Moving a song within the queue could leave it playing the moment you let go, because the release still counted as a click on the row. Dropping now only moves. The same stray click was possible wherever something is dragged — from an album into the queue, between playlist folders, in the settings lists — and is gone in all of them.
+
+### Navidrome library migrations recover after a failed reload
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1600](https://github.com/Psysonic/psysonic/pull/1600)**
+
+* A canonical-ID migration could leave startup blocked after a restart when completed browse data looked unfinished or old track-ID history formed a stale loop. Retrying now keeps the live track owner, repairs obsolete aliases and completes the migration instead of failing again.
+
+### Tracks dragged down the queue land where the line shows
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1602](https://github.com/Psysonic/psysonic/pull/1602)**
+
+* Moving a track further down the queue put it one place below the line shown while dragging. It now lands exactly there; moving a track up was not affected.
+
+### The login logo stays put, and long names fit the cover cache table
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1604](https://github.com/Psysonic/psysonic/pull/1604)**
+
+* The Psysonic logo on the login screen could be picked up and dragged away like a loose image. It now stays where it is.
+* In **Settings → Offline & Cache → Cover art cache**, a server listed by its bare address or as `user@server` could run into the column next to it. Long names now wrap inside their own column.
+
+### Favourite artists and analysed BPM appear wherever you browse
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1605](https://github.com/Psysonic/psysonic/pull/1605)**, closes [#1582](https://github.com/Psysonic/psysonic/issues/1582)
+
+* The favourite filter on **Artists** now finds artists saved through any credit, instead of showing no results. The Favorites page follows the active server group and updates as soon as a favourite is changed.
+* Tracklists now use an analysed BPM when the file has no BPM tag, so Favorites and other lists agree with Song Info.
+
+### Album covers from Apple Music and Last.fm no longer replace your own
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1608](https://github.com/Psysonic/psysonic/pull/1608)**
+
+* The album artwork fallbacks under **Settings → Integrations → Album artwork** were meant for albums your server has no cover for, but they also replaced covers that were there — embedded in the files or as a `cover.jpg` — often with art from a different album of the same name. They now step in only when the server has no cover at all, and your own art is never replaced.
+* Covers they had already put in place are removed on the first start after the update, and the albums show your server's art again.
+* Apple Music and Last.fm are now off unless you switch them on, and they are switched off once for everyone who had them on by default. Switching one off later also removes the covers it supplied.
+
+### The Last.fm button on the artist page opens Last.fm
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1609](https://github.com/Psysonic/psysonic/pull/1609)**
+
+* Depending on how the server looks up artist information, the button could open the artist's own website instead of their Last.fm page. It now always leads to Last.fm, and it shows for every artist, also when the server sends no link.
+
+### Waveforms and loudness analysis now work beyond Navidrome
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1614](https://github.com/Psysonic/psysonic/pull/1614)**, closes [#1517](https://github.com/Psysonic/psysonic/issues/1517)
+
+* Other Subsonic servers could play normally but never kept waveform or loudness analysis, so the same work was repeated on every play. Psysonic now uses their standard original-file download and stores analysis only after verifying that the response matches the file the server advertised.
+* Existing Offline Library and Hot Cache files remain playable, but old files with no proof of origin do not write canonical analysis until they are revalidated or replaced. Navidrome still uses its raw-stream contract and never falls back to a potentially transcoded response.
+
+### Dropdown lists no longer shift when you move the mouse over them
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* On macOS, a short dropdown list could shift by a couple of pixels whenever the mouse moved between its first and last entry. The list was sized two pixels too short for its own frame, which let it scroll by that much. It now takes exactly the room it needs.
+
+### Player bar buttons stay put after hovering
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* On macOS, the icons in the player bar could jump slightly a moment after the mouse left them, once their hover animation had finished.
+
+### Rating stars keep their size with JetBrains Mono
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1618](https://github.com/Psysonic/psysonic/pull/1618)**
+
+* With **JetBrains Mono** selected under **Settings → Appearance**, rating stars were drawn much smaller on macOS. The font has no star of its own, and the stand-in came from a different source than for every other font. The stars now match the other fonts.
+
+### Your playlists show up under Add to Playlist again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@bcorporaal](https://github.com/bcorporaal), PR [#1619](https://github.com/Psysonic/psysonic/pull/1619)**
+
+* On some Navidrome setups, **Add to Playlist** said "No playlists yet" although the sidebar listed them all, and tracks inside a playlist could not be moved or removed. Psysonic could not ask Navidrome which playlists are smart playlists and, to be safe, treated all of them as read-only. It now falls back to what the server already reports for each playlist, so your own playlists can be edited again while smart playlists stay read-only.
+
+### The Last.fm button's hover circle is no longer cut off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622)**
+
+* Hovering the Last.fm button next to the track title could cut off the right edge of its highlight circle, because the button sat right at the edge of its area. It now keeps a little room on that side.
+
+### The Orbit button's label stays put when you hover it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical) and [@strecke](https://github.com/strecke), PR [#1622](https://github.com/Psysonic/psysonic/pull/1622), PR [#1623](https://github.com/Psysonic/psysonic/pull/1623)**
+
+* On macOS, the "Orbit" lettering in the top bar moved slightly to the left while the icon next to it turned on hover, and moved back when the mouse left.
+
+### A backup now restores all of your settings
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@bcorporaal](https://github.com/bcorporaal), PR [#1625](https://github.com/Psysonic/psysonic/pull/1625)**
+
+* Exporting a backup only carried part of your settings, so importing it left page layouts, tracklist columns, radio favourites, playlist folders, installed themes and the player bar at their defaults. Backups now carry all of them, and a backup taken before this release still restores what it holds instead of clearing the settings it never knew about.
+
+### Backups say up front that they hold your passwords
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1626](https://github.com/Psysonic/psysonic/pull/1626)**
+
+* A backup keeps your server passwords and scrobbler keys in readable form — that is what lets importing it put your logins back. So far that was only noted in the fine print of one of the three export modes, and not in the full export at all. **Settings → Backup & Restore** now shows it as a warning right next to the export buttons, for the modes that carry settings.
+
+### Device Sync settings survive a backup
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1628](https://github.com/Psysonic/psysonic/pull/1628)**
+
+* Restoring a backup brought your servers and preferences back but left Device Sync empty. The albums, playlists and artists you had picked, and the folder layout chosen for them, were never part of a backup and had to be set up again on every restore. They travel now.
+* The device itself deliberately stays behind: the folder a sync writes to, the drive it was attached to and anything queued for deletion describe the machine the backup came from, so a restore never points Device Sync at a drive the new machine has never seen. You pick the target again, the selection is already there.
+* **Settings → Backup & Restore** and the help entry now say what a backup does not include — downloaded music, caches and a connected sync device — instead of promising everything.
+
+### The search shortcut opens a collapsed search box again
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1629](https://github.com/Psysonic/psysonic/pull/1629)**
+
+* The search shortcut could focus a hidden desktop field while the header search was collapsed, leaving no visible place to type. It now opens the available desktop or mobile search control first.
+
+### Separate Navidrome libraries no longer collide during background sync
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1630](https://github.com/Psysonic/psysonic/pull/1630)**
+
+* Two Navidrome libraries can contain different tracks at the same relative file path. Background sync no longer mistakes those tracks for an ID change, repeatedly fails with an alias conflict or tries to fold one library's track into the other.
+
+### Participant-only artists open correctly from track credits
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@Psychotoxical](https://github.com/Psychotoxical), PR [#1631](https://github.com/Psysonic/psysonic/pull/1631)**
+
+* Opening a guest performer, orchestra, choir or other artist credited alongside the primary artist could lead to **Artist not found** when library filtering was active. Their credited albums and tracks now appear within the selected library scope, with complete album counts and working artist links.
+
+### Seeking in streamed lossless tracks stays responsive
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1633](https://github.com/Psysonic/psysonic/pull/1633)**
+
+* Jumping through a streamed FLAC track could freeze playback while the audio thread waited for remote data. Seeks now prepare and buffer away from that thread, then switch over once audio is ready.
+* Rapid timeline scrubbing keeps only the latest request and no longer lets an older seek, timeout or track transition overwrite the final position.
+
+### Cover buffering spinner no longer flickers on fast seeks
+
+**By [@strecke](https://github.com/strecke), PR [#1634](https://github.com/Psysonic/psysonic/pull/1634)**
+
+* Seeking or scrubbing through buffered audio no longer flashes the buffering spinner over the cover art in the player bar and queue panel. The overlay now uses a short 150 ms delay before showing, and clears immediately once playback data is ready.
+
+### Background library sync no longer fails while assigning music folders
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1637](https://github.com/Psysonic/psysonic/pull/1637)**
+
+* Assigning newly indexed tracks to their Navidrome music folder could occasionally abort a background sync with a duplicate artist-credit database key. Artist-credit partitions are now cleared together before they are rebuilt, so folder tagging completes regardless of processing order.
+
+### Server upgrades are recognised across the whole server group
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1639](https://github.com/Psysonic/psysonic/pull/1639)**
+
+* When several servers are selected together, Psysonic now refreshes the reported type and version for every reachable member instead of only the active one. Upgrading an inactive Navidrome server no longer leaves old capabilities in place until you switch to it or test its connection manually.
+
+### Tracks dragged in a playlist land where the line shows
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1645](https://github.com/Psysonic/psysonic/pull/1645)**
+
+* Reordering a playlist by drag and drop placed the track one position below the drop line whenever it was dropped above a row. It now lands exactly where the line shows, in both directions.
+
+### Playlist CSV import finds titles with punctuation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Koda on Discord, PR [#1646](https://github.com/Psysonic/psysonic/pull/1646)**
+
+* Tracks whose title contained brackets, a colon, `&`, `%` or a lone dash, such as **Song (Part 2)** or **Title - 2011 Remaster**, were reported as not found without being searched. They are now searched and matched like any other title.
+
+### Playlists stay in place after reordering or removing a track
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1648](https://github.com/Psysonic/psysonic/pull/1648)**
+
+* Moving or removing a track made the whole playlist page reload behind a spinner. The list now stays as it is, while changes made from elsewhere, such as **Add to Playlist**, still refresh it.
+
+### Smart playlist custom fields accept names in any script
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by stefnto on Discord, PR [#1650](https://github.com/Psysonic/psysonic/pull/1650)**
+
+* Custom tag and role names in **Settings → Smart playlist custom fields** were limited to Latin letters, so Greek or Cyrillic tag names were rejected as invalid. Names in any script are now accepted; they still start with a letter and contain no spaces.
+
+### Generated romaji skips lines that are already in Latin script
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Padparadscha on Discord, PR [#1651](https://github.com/Psysonic/psysonic/pull/1651)**
+
+* In Japanese songs with generated romaji, English lines were shown a second time underneath with extra spaces around the punctuation. Only lines with Japanese script now get a romaji line.
+
+### Long album titles fit in the home page hero
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1652](https://github.com/Psysonic/psysonic/pull/1652)**
+
+* A long album title in the featured-album banner on the home page was cut off at the top. The title now gets smaller until it fits, and only very long titles are shortened to three lines.
+
+### Genre browsing stays responsive in large libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1653](https://github.com/Psysonic/psysonic/pull/1653)**
+
+* The Genres page could take minutes to count tracks in a large library. It now reads the maintained genre catalogue directly, and existing libraries repair stale catalogue rows once on the first start after the update.
+
+## [1.54.0]
+
+## Fixed
+
+### Settings open again after importing a backup
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1561](https://github.com/Psysonic/psysonic/pull/1561)**
+
+* Opening Settings → Themes could replace the whole Settings page with an error message, on any platform, for anyone who had ever imported a settings backup. Root cause: the import wrote the stored interface language back with quotation marks around it, which is not a language code the date and time formatting accepts.
+* Affected installs repair the value themselves on the next start, and exporting a backup from one now produces a clean file. The language dropdown shows the language name again instead of a raw value.
+
+### Card grids no longer overlap on wide windows
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1565](https://github.com/Psysonic/psysonic/pull/1565)**
+
+* On a wide window with a low column setting, each row of album, artist, playlist, radio and Offline Library cards was drawn over the row above it: titles were hidden and the bottom of every card was cut off. Rows are now as tall as the cards they hold, at any tile size.
+* The bigger the screen, the sooner it appeared — a 4K display overlapped at seven columns and fewer, while a narrower window or more columns looked correct. Both render the same now.
+
+### Navidrome 0.64 migrations start earlier and finish faster
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1570](https://github.com/Psysonic/psysonic/pull/1570)**
+
+* Upgrading an existing Navidrome server to 0.64 now starts the canonical-ID migration before library writers and unrelated background servers can hold it up. The startup screen shows responsive progress for each stage instead of appearing stuck during long operations.
+* Native ID rewrites, library projections and the final full sync do less repeated work and reuse authenticated bulk connections, substantially reducing the migration time on large libraries.
+* A clean Psysonic setup connected directly to Navidrome 0.64 skips the blocking migration pipeline entirely. When a migration is needed, its details identify the configured server by name.
+
 ## [1.53.0]
 
 ## Added
+
+### Native Navidrome smart playlists — detect, edit, and refresh
+
+**By [@JayDawgThaGOAT](https://github.com/JayDawgThaGOAT), PR [#1428](https://github.com/Psysonic/psysonic/pull/1428)**
+
+* Smart playlists created in Navidrome or other clients now appear with a sparkle marker and keep their server-evaluated tracks read-only instead of exposing manual membership controls.
+* The Playlists page can create and edit native rules in Basic, Advanced, or lossless JSON mode, preview matching tracks, refresh results, and preserve nested groups and server-specific fields.
+* Feature availability follows the connected Navidrome version, with warnings when the server drops unsupported clauses after saving.
 
 ### Scrobbles are no longer lost when a service is unreachable
 
@@ -21,19 +529,118 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Each destination in Settings → Integrations shows how many plays are still waiting to be sent, so a service that has quietly fallen behind is visible.
 * Plays are kept for 14 days, which is as far back as the services accept them.
 
-### Psysonic Rewind — your year in music as a shareable poster
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1485](https://github.com/Psysonic/psysonic/pull/1485)**
-
-* The statistics page gains a Psysonic Rewind card: play your year back as a story, then save it as a poster. Four layouts — overview, artist spotlight, album spotlight, and nerd stats — each in story (9:16) and square (1:1) format, drawn in a dedicated dark poster style with a live preview.
-* Everything is computed locally from your own play history — your data never leaves your device, and the poster says so.
-
 ### Windows updates install from inside the app
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1487](https://github.com/Psysonic/psysonic/pull/1487)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1487](https://github.com/Psysonic/psysonic/pull/1487) and PR [#1488](https://github.com/Psysonic/psysonic/pull/1488)**
 
 * On Windows the update dialog now installs the new version itself, the way it already does on macOS: the installer is downloaded, its signature is checked against the key built into the app, and it runs in the background. Psysonic closes and reopens by itself when it is done.
 * Until now Windows only offered the installer as a download to run by hand. Installs of this version and later update in place; an older install still downloads the next installer once.
+* Long translated button labels stay inside the update dialog: the window is wider, and the controls wrap onto another row when needed.
+
+### Device Sync playlists reuse songs already on the device
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1501](https://github.com/Psysonic/psysonic/pull/1501)**
+
+* Albums and playlists now share one physical copy of each song instead of placing another copy inside every playlist folder. Playlist files point to the shared artist and album path, saving device space, transfer time, and duplicate entries in portable-player libraries.
+* Existing Device Sync layouts migrate on the next sync. Interrupted work keeps a recovery plan and only resumes or removes old files when the same removable device is connected again.
+
+### Choose where missing album covers come from
+
+**By [@enncoded](https://github.com/enncoded), PR [#1502](https://github.com/Psysonic/psysonic/pull/1502)**
+
+* Settings → Integrations → Album artwork lets you order and switch the sources Psysonic falls back to when your server has no cover for an album: the server itself, Apple Music, and now Last.fm. The first enabled source that returns an image wins, and dragging reorders them.
+* Discord keeps its own separate switch under Rich Presence and still publishes nothing until you pick an option there.
+
+### Rate the current track with a global shortcut
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1503](https://github.com/Psysonic/psysonic/pull/1503)**
+
+* Settings → Input → Global shortcuts now offers separate, unbound actions for assigning 1–5 stars to the current track, even while Psysonic is out of focus.
+
+### Psysonic follows your desktop's theme
+
+**By [@Manwe-777](https://github.com/Manwe-777), PR [#1507](https://github.com/Psysonic/psysonic/pull/1507)**
+
+* On a Linux desktop that publishes its colours — Omarchy does out of the box — Psysonic now themes itself to match, and re-themes itself within a couple of seconds when you switch your desktop theme. No restart, nothing to keep in sync by hand.
+* The generated theme appears in Settings → Themes as `Desktop — <your theme's name>`, next to a **Follow desktop theme** switch. Existing installs keep the theme they already had and start with the switch off; picking any other theme by hand also turns following off, so your choice sticks.
+* Any other desktop works too: point `PSYSONIC_PALETTE_FILE` at a file of `name = "#rrggbb"` lines. Naming only a background, a foreground and an accent is enough — the rest of the theme is derived from those three.
+
+### Servers that refuse browser-style requests can be added
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1511](https://github.com/Psysonic/psysonic/pull/1511)**
+
+* Some Subsonic servers — Bandcamp's among them — answer requests normally but do not permit them from an app window. Adding one failed with "Could not connect: Network Error" even though the server was reachable the whole time. Psysonic now recognises this and sends those servers' requests the same way it already sends streams and cover art.
+* Servers that work today are unaffected: they keep the exact request path they had.
+
+### Dismiss the tour dates prompt in the info tab
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by [@Trip7274](https://github.com/Trip7274), PR [#1513](https://github.com/Psysonic/psysonic/pull/1513)**
+
+* The info tab in the right sidebar offers tour dates as an optional feature, but the prompt could not be turned down. It now has a close button that hides it for good, and a short message points to **Settings → Integrations** in case you want the feature later.
+
+### Rate several tracks at once
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1522](https://github.com/Psysonic/psysonic/pull/1522)**
+
+* Picking more than one track in an album, in Favourites or in a playlist now offers a star rating next to the selection count, and a right-click on the selection opens a menu for all of the picked tracks — play them, queue them, add them to a playlist, favourite them or rate them in one go.
+* The stars show a rating only when every selected track already carries the same one, so a click always means "give all of them this rating".
+* Ratings set through a context menu now stay visible after the server confirms them instead of falling back to the value the page first loaded.
+
+### Favourite a track straight from the queue
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1522](https://github.com/Psysonic/psysonic/pull/1522)**
+
+* A track in the queue could only be favourited by leaving the queue or going through its context menu. Every row now ends in a heart you can click.
+* An unset heart stays visible as a faint outline, so the control is there when you look for it without cluttering a long queue.
+* **Settings → Personalisation → Queue settings** has a switch for it, on by default.
+
+### Artists remember the selected view
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@MrSunshine1988](https://github.com/MrSunshine1988), PR [#1523](https://github.com/Psysonic/psysonic/pull/1523)**
+
+* Switching Artists between the grid and list now keeps that choice when you leave the page or restart Psysonic, instead of returning to the grid every time.
+
+### Signed Flatpak updates with stable and RC channels
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1525](https://github.com/Psysonic/psysonic/pull/1525)**
+
+* Supported per-user Flatpak installs now follow a signed Psysonic update repository, with separate stable and release-candidate channels so testing builds cannot replace stable releases.
+* The update dialog follows the installed branch, shows its matching release notes, and gives the exact `flatpak update` command to run.
+
+### Windows: hide the title bar on the mini player
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Doctor Hoen on Discord, PR [#1528](https://github.com/Psysonic/psysonic/pull/1528)**
+
+* **Settings → Appearance** has a new switch that takes the system title bar off the mini player, so a small always-on-top window is not framed by buttons it does not need. Minimise makes little sense there, and both of the others lead back to the main window, which the player's own toolbar already does.
+* Without the system bar the mini player uses its own slim one: drag it by the track title, with pin, main window and close beside it.
+* Off by default, and it takes effect straight away — no restart. Windows only; Linux has always looked this way and macOS keeps its traffic lights.
+
+### Flatpak updates retain rollback history
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1537](https://github.com/Psysonic/psysonic/pull/1537)**
+
+* The signed stable repository now keeps the current release and four previous releases, so a recent version can be selected again with Flatpak's commit rollback command instead of disappearing when the next update is published.
+
+### Global shortcuts can favourite the current track and use Command
+
+**By [@cucadmuh](https://github.com/cucadmuh), suggested by Rain on Discord, PR [#1540](https://github.com/Psysonic/psysonic/pull/1540)**
+
+* **Settings → Input → Global shortcuts** now offers an unbound action for adding the current track to favourites, even while Psysonic is out of focus.
+* On macOS, shortcut capture and labels now call the ⌘ modifier **Command** instead of Super. Existing shortcuts continue to work without being rebound.
+
+### Pronunciation beneath lyrics, with offline Japanese romaji
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1541](https://github.com/Psysonic/psysonic/pull/1541)**
+
+* **Settings → Lyrics → Pronunciation** can show pronunciation supplied by the server beneath the original lyrics. When Japanese lyrics have no pronunciation layer, Psysonic can generate Hepburn romaji locally without contacting another service.
+* Pronunciation follows the sidebar and both fullscreen lyric layouts. Word-timed lyrics fill the second line in step with the original, and auto-scroll keeps the current line in position when it appears.
+
+### Smooth word-by-word lyrics highlighting
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1548](https://github.com/Psysonic/psysonic/pull/1548)**
+
+* **Settings → Lyrics → Word highlighting** can gradually fill each timed word as it is sung in the sidebar and both fullscreen lyric layouts. The existing step-by-step style remains the default.
+* Pronunciation and generated romaji follow the same smooth progress as the original lyric line.
 
 ## Fixed
 
@@ -51,11 +658,150 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The picture created from Statistics → Most Played Albums drew every album as an empty tile, showing only the rank and the play count. The New Albums export lost its covers the same way.
 * Covers now come from the same place the album cards get theirs, so a shared picture also reuses artwork that is already on screen instead of fetching it a second time.
 
-### Update dialog buttons stay inside the dialog
+### Navidrome libraries get their ISRC and MusicBrainz ids back, and analysis no longer fails on a stray server key
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1488](https://github.com/Psysonic/psysonic/pull/1488)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1490](https://github.com/Psysonic/psysonic/pull/1490)**
 
-* In languages with long button labels, such as German, the "Install now" button of the update dialog ran past the right edge of the dialog. The dialog is wider now, and should the labels still not fit side by side, the buttons move to a second row instead of being cut off.
+* Libraries indexed from Navidrome's native API kept the ISRC and MusicBrainz recording id of every track out of the local index, because the importer looked for field names Navidrome does not send. Both are read under their real names now, and a one-time background pass fills them in for existing libraries and links the tracks that were never linked, in small batches while Psysonic is idle.
+* Since 1.51.0 the audio analysis could write its results under a server key the library index did not know, and every attempt then failed with a foreign-key error in the log. An unresolved generated server-profile id is now rejected at the analysis boundary, so analysis is skipped for that track instead of failing without rejecting valid keys used by other storage features.
+
+### Library rebuilds remove tracks deleted from Navidrome again
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1497](https://github.com/Psysonic/psysonic/pull/1497)**
+
+* Albums and tracks deleted from a Navidrome server no longer remain as fragmented ghost entries after rebuilding a selected library.
+
+### Multi-disc album subtitles appear again
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@BjarneMJ](https://github.com/BjarneMJ), PR [#1498](https://github.com/Psysonic/psysonic/pull/1498)**
+
+* Album Detail now shows OpenSubsonic per-disc subtitles returned by Navidrome, such as "The demos", instead of falling back to only "Disc 3" and "Disc 4" after loading the album from the local library index.
+
+### Playlist pages return to where you left off
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by MrMiniblock on Discord, PR [#1499](https://github.com/Psysonic/psysonic/pull/1499)**
+
+* Opening an album or artist from a long playlist and then going back now restores the previous scroll position instead of returning to the top.
+
+### Unfocused visualizers stop drawing in the background
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@netherguy4](https://github.com/netherguy4), PR [#1505](https://github.com/Psysonic/psysonic/pull/1505)**
+
+* Switching to another application no longer leaves the Now Playing visualizer consuming rendering time in the background. It pauses by default and resumes when Psysonic regains focus.
+* The behaviour can be changed under **Settings → Appearance → Visualizer**. Waveform progress continues to update while the window is unfocused.
+
+### Linux playback stays clean under PipeWire again
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@thiagonl](https://github.com/thiagonl), PR [#1509](https://github.com/Psysonic/psysonic/pull/1509)**
+
+* Since 1.51.0, some Linux systems played every track with continuous crackling, dropouts and a dragging sound while flooding the log with buffer-underrun errors. PipeWire output now keeps the stable buffer used by earlier releases while retaining the corrected ALSA sample-rate handling.
+
+### Release years and dates from servers that report them differently
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1512](https://github.com/Psysonic/psysonic/pull/1512)**
+
+* Albums from servers whose album data carries no year showed no release year at all, even though the tracks had one. The year from the tracks is now kept instead of being overwritten with nothing.
+* The same servers often report dates in a different standard format, which was discarded on import. That left "recently added" and the New Releases page empty for them. Both formats are now understood. Albums already in your library pick their date up on the next full library sync.
+
+### Navidrome initial sync no longer leaves every artist and album "not found"
+
+**By [@starrlord](https://github.com/starrlord), PR [#1514](https://github.com/Psysonic/psysonic/pull/1514)**
+
+* Some Navidrome servers, including 0.63.2, rejected the initial song-list request because one filter was sent as a JSON boolean instead of the string its API expects. The sync then stopped with an empty local library, making every artist and album appear missing.
+* Psysonic now sends the accepted filter format. Existing installs stuck with an empty initial sync recover on the next pass without resetting the library.
+
+### Lyrics edited on the server can be reloaded
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1516](https://github.com/Psysonic/psysonic/pull/1516)**
+
+* Lyrics were kept locally for 90 days once fetched, and nothing refreshed them — editing them on the server, rescanning and even a full library sync all left the old version on screen. The lyrics pane now has a "Refresh lyrics" action below the text that discards the stored copy for that track and fetches it again.
+* Useful for switching a track to word-synced lyrics, fixing a typo, or picking up lyrics added after Psysonic already looked and found none.
+
+### Album pages stop rebuilding themselves while you read them
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1520](https://github.com/Psysonic/psysonic/pull/1520)**
+
+* An album page cleared itself and loaded again at irregular intervals, as if you had just opened it. Every completed library sync did this — including syncs of a different server than the album belongs to. The page now keeps what it shows and updates it quietly in the background.
+
+### The playlists header fits on one row again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1521](https://github.com/Psysonic/psysonic/pull/1521)**
+
+* Filtering playlists by owner took four buttons on a row of their own, and they looked exactly like the actions above them even though only one can be active. It is now a single dropdown next to the sort control, showing the bucket you are in.
+
+### Recommendation cards no longer collapse at certain window widths
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1524](https://github.com/Psysonic/psysonic/pull/1524)**
+
+* In a narrow range of window widths — one a default-sized window happened to land in — the "Because you listened to …" cards squeezed three across instead of two. The cover took almost the whole card, and title, artist and details ran over the artwork.
+* The cards now step down to two in good time, so there is no width left where they overlap, and the placeholders shown while the row loads follow the same rule.
+
+### A play now shows up on the list you started it from
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1527](https://github.com/Psysonic/psysonic/pull/1527)**
+
+* Playing a track left the play count and the last-played date of its row untouched until you left the page and came back. Both now update while you are still looking at the list — the date as soon as the play is recorded, the count once your server confirms its new total.
+* Applies to album pages, favourites, an artist's full track list, playlists and playlist suggestions.
+
+### Resuming after a long pause no longer skips the display ahead
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@moldavia](https://github.com/moldavia), PR [#1529](https://github.com/Psysonic/psysonic/pull/1529)**
+
+* Pausing for more than a minute and then resuming could occasionally move Now Playing to a later track while the audio kept playing the current one.
+* Root cause: a pause that long releases the audio output stream, and rebuilding it on resume briefly reports a position near the start. That looked like the next track beginning, so the queue moved on. A track that has not even reached its halfway mark is no longer treated that way.
+
+### Discover Songs draws from the whole library again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1532](https://github.com/Psysonic/psysonic/pull/1532)**
+
+* The rail often showed a run of consecutive tracks from one album instead of a spread across your collection. It now picks each track independently, whether one music folder is selected or several: on a library of roughly 154,000 tracks, thirteen cards came from thirteen different albums in every test run, against fewer than two albums before.
+* Measured on the same library, the rail takes as long to fill as it did before.
+
+### Mainstage rows no longer stop halfway across a wide window
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1536](https://github.com/Psysonic/psysonic/pull/1536)**
+
+* On a 4K or dual-screen window the album rows stopped after twelve entries, left the rest of the row empty, and both arrows stayed greyed out — with no way to reach the rest of the section.
+* Root cause: a row only loaded more entries while it was being scrolled, and a row wide enough to show a full page has nothing to scroll. Rows now keep pulling until they are actually full, and the arrows are re-checked when the row itself changes width, such as when the queue panel opens beside it.
+
+### Infinite Queue stays inside the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1539](https://github.com/Psysonic/psysonic/pull/1539)**
+
+* Infinite Queue could add tracks from unselected music folders, especially when Navidrome AudioMuse returned recommendations from the whole server. Similar songs, artist top tracks and the random fallback are now validated against the libraries selected in the sidebar.
+
+### M4A tracks can be replayed after reaching the end
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1542](https://github.com/Psysonic/psysonic/pull/1542)**
+
+* Seeking or replaying an AAC/M4A track after its decoder reached the end no longer fails with an ISO/MP4 atom error.
+
+### Repeat All stops after every unplayable track fails
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1542](https://github.com/Psysonic/psysonic/pull/1542)**
+
+* A queue of unsupported or broken tracks no longer cycles forever under Repeat All. Automatic skipping stops after every concrete queue slot has failed once, including duplicate tracks.
+
+### Navidrome's library migration no longer repeats after visiting Home
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1547](https://github.com/Psysonic/psysonic/pull/1547)**
+
+* Opening Home could recreate recommendation history that the migration then mistook for leftover legacy data, causing the full library migration to run again. Rebuilt history is now accepted when its ids are already canonical.
+
+### Random Mix stays inside the selected libraries
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1549](https://github.com/Psysonic/psysonic/pull/1549)**
+
+* Random Mix and Genre Mix no longer draw tracks or genres from unselected music folders or from a different active server. Changing the sidebar library selection refreshes the mix against the new scope.
+
+### Device Sync survives the music server changing its address
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1552](https://github.com/Psysonic/psysonic/pull/1552)**
+
+* Giving the server a new address used to break Device Sync for good: the Playlists, Albums and Artists lists stayed empty next to a perfectly healthy connection, and reconnecting the device brought the broken state back. Device Sync now recognizes the server at its new address and follows it, keeping the files already on the device.
+* A device set up before this version cannot be recognized that way and offers to be reassigned to a server instead, which also moves the files already on it.
+* Removing content from a device no longer needs the server at all, so a device can be cleaned up while the server is unreachable — and a failure there no longer reports a problem fetching tracks.
+* The browser now says why a list is empty instead of showing nothing, and the Playlist storage choice is no longer reset by a device that has no layout of its own recorded.
 
 ## [1.52.0]
 

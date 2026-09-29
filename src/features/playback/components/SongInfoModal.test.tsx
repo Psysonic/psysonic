@@ -68,4 +68,68 @@ describe('SongInfoModal server ownership', () => {
     );
     expect(await view.findByText('/owner/music/song.flac')).toBeInTheDocument();
   });
+
+  /**
+   * `genre` holds one name even where the file carries several; the full set
+   * arrives in OpenSubsonic's `genres`. Reported from a library where a track
+   * tagged with two genres showed only the first one here, while the album chips
+   * and the server's own dialog showed both.
+   */
+  it('lists every genre a track carries', async () => {
+    mocks.getSongForServer.mockResolvedValue({
+      id: 'shared',
+      serverId: 'srv-owner',
+      title: 'Owner Song',
+      artist: 'Owner Artist',
+      album: 'Owner Album',
+      duration: 120,
+      genre: 'First',
+      genres: [{ name: 'First' }, { name: 'Second' }],
+    });
+
+    usePlayerStore.getState().openSongInfo('shared', 'srv-owner');
+    const view = renderWithProviders(<SongInfoModal />);
+
+    expect(await view.findByText('First · Second')).toBeInTheDocument();
+    expect(view.getByText('Genres')).toBeInTheDocument();
+  });
+
+  /**
+   * The mood row used to come only from the analysis facts, so a file tagged
+   * with MOOD/TMOO showed nothing until it had been analysed.
+   */
+  it('shows the mood tags the file carries', async () => {
+    mocks.getSongForServer.mockResolvedValue({
+      id: 'shared',
+      serverId: 'srv-owner',
+      title: 'Owner Song',
+      artist: 'Owner Artist',
+      album: 'Owner Album',
+      duration: 120,
+      moods: ['Love', 'Emotional'],
+    });
+
+    usePlayerStore.getState().openSongInfo('shared', 'srv-owner');
+    const view = renderWithProviders(<SongInfoModal />);
+
+    expect(await view.findByText('Love · Emotional')).toBeInTheDocument();
+  });
+
+  it('keeps the singular label for a single genre', async () => {
+    mocks.getSongForServer.mockResolvedValue({
+      id: 'shared',
+      serverId: 'srv-owner',
+      title: 'Owner Song',
+      artist: 'Owner Artist',
+      album: 'Owner Album',
+      duration: 120,
+      genre: 'Only',
+    });
+
+    usePlayerStore.getState().openSongInfo('shared', 'srv-owner');
+    const view = renderWithProviders(<SongInfoModal />);
+
+    expect(await view.findByText('Only')).toBeInTheDocument();
+    expect(view.getByText('Genre')).toBeInTheDocument();
+  });
 });

@@ -48,6 +48,7 @@ import { useLibraryServerReachability } from '@/app/hooks/useLibraryServerReacha
 import { useMusicFoldersDiscovery } from '@/app/hooks/useMusicFoldersDiscovery';
 import { useQueueResizer } from '@/features/queue';
 import { useGlobalDndAndSelectionBlockers } from '@/lib/hooks/useGlobalDndAndSelectionBlockers';
+import { useTracklistWheelChaining } from '@/lib/hooks/useTracklistWheelChaining';
 import { useAppActivityTracking } from '@/app/hooks/useAppActivityTracking';
 import { useMainScrollingIndicator } from '@/app/hooks/useMainScrollingIndicator';
 import { useCoverNavigationPriority } from '@/cover/useCoverNavigationPriority';
@@ -59,6 +60,7 @@ import { AppShellQueueResizerSeam } from '@/app/AppShellQueueResizerSeam';
 import { IS_LINUX, IS_MACOS } from '@/lib/util/platform';
 import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus';
 import { useIdlePlayQueuePull } from '@/app/hooks/useIdlePlayQueuePull';
+import { useShareBootstrap } from '@/features/share';
 import { DiscordBanner, useAccumulatedUsage } from '@/features/discordBanner';
 import { useAuthStore } from '../store/authStore';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
@@ -100,6 +102,7 @@ export function AppShell() {
   useServerCapabilitiesProbe();
   useLibraryServerReachability();
   useMusicFoldersDiscovery();
+  useShareBootstrap();
   useAccumulatedUsage();
   const isFullscreenOpen = usePlayerStore(s => s.isFullscreenOpen);
   const toggleFullscreen = usePlayerStore(s => s.toggleFullscreen);
@@ -234,6 +237,7 @@ export function AppShell() {
   } = useQueueResizer({ isMobile, isSidebarCollapsed, isQueueVisible, toggleQueue });
 
   useGlobalDndAndSelectionBlockers();
+  useTracklistWheelChaining();
   useAppActivityTracking();
 
   const isMobilePlayer = isMobile && location.pathname === '/now-playing';

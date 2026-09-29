@@ -109,95 +109,94 @@ pub fn resolve_album_overlay(
         ));
     }
 
-    let ((resolutions, phases), timing) = store
-        .with_mainstage_read_conn_timed(|conn| {
-            let mut group_by_identity = HashMap::<String, u32>::new();
-            let mut representative_group_keys = HashMap::<u32, String>::new();
-            let mut direct_representatives = HashMap::<u32, (String, String)>::new();
-            let mut groups = Vec::with_capacity(request.albums.len());
-            let mut phases = OverlayPhases::default();
+    let ((resolutions, phases), timing) = store.with_mainstage_read_conn_timed(|conn| {
+        let mut group_by_identity = HashMap::<String, u32>::new();
+        let mut representative_group_keys = HashMap::<u32, String>::new();
+        let mut direct_representatives = HashMap::<u32, (String, String)>::new();
+        let mut groups = Vec::with_capacity(request.albums.len());
+        let mut phases = OverlayPhases::default();
 
-            for album in &request.albums {
-                let server_id = album.server_id.trim();
-                let album_id = album.id.trim();
-                let name = album.name.trim();
-                if server_id.is_empty() || album_id.is_empty() || name.is_empty() {
-                    return Err(rusqlite::Error::InvalidParameterName(
-                        "overlay album server_id, id, and name are required".into(),
-                    ));
-                }
-
-                let lookup_started = std::time::Instant::now();
-                let indexed_key = lookup_album_key(conn, server_id, album_id)?;
-                phases.lookup_key_ms += lookup_started.elapsed().as_millis();
-                // Written out rather than short-circuited with `||`, so the
-                // fallback probe is only timed when it is actually run.
-                let exists = match indexed_key.is_some() {
-                    true => true,
-                    false => {
-                        let started = std::time::Instant::now();
-                        let found = indexed_album_exists(conn, server_id, album_id)?;
-                        phases.exists_ms += started.elapsed().as_millis();
-                        phases.exists_calls += 1;
-                        found
-                    }
-                };
-                let artist = album
-                    .artist
-                    .as_deref()
-                    .map(str::trim)
-                    .filter(|value| !value.is_empty());
-                let normalized_key = (!exists)
-                    .then(|| {
-                        crate::identity::build_album_key_with_version(
-                            artist,
-                            name,
-                            album.version.as_deref(),
-                        )
-                    })
-                    .flatten();
-                let identity_key = indexed_key
-                    .clone()
-                    .or_else(|| normalized_key.clone())
-                    .unwrap_or_else(|| {
-                        crate::identity::concrete_physical_album_key(server_id, album_id)
-                    });
-                let next_group = u32::try_from(group_by_identity.len()).unwrap_or(u32::MAX);
-                let group = *group_by_identity
-                    .entry(identity_key.clone())
-                    .or_insert(next_group);
-                if indexed_key.is_some() || normalized_key.is_some() {
-                    representative_group_keys
-                        .entry(group)
-                        .or_insert(identity_key);
-                } else if exists {
-                    direct_representatives
-                        .entry(group)
-                        .or_insert_with(|| (server_id.to_string(), album_id.to_string()));
-                }
-                groups.push(group);
+        for album in &request.albums {
+            let server_id = album.server_id.trim();
+            let album_id = album.id.trim();
+            let name = album.name.trim();
+            if server_id.is_empty() || album_id.is_empty() || name.is_empty() {
+                return Err(rusqlite::Error::InvalidParameterName(
+                    "overlay album server_id, id, and name are required".into(),
+                ));
             }
 
-            let representative_groups = representative_group_keys.into_iter().collect::<Vec<_>>();
-            phases.representative_groups = representative_groups.len();
-            let representatives_started = std::time::Instant::now();
-            let representatives = resolve_representatives(conn, scopes, &representative_groups)?;
-            phases.representatives_ms = representatives_started.elapsed().as_millis();
-            let resolutions = groups
-                .into_iter()
-                .map(|group| {
-                    let representative = representatives
-                        .get(&group)
-                        .or_else(|| direct_representatives.get(&group));
-                    LibraryAlbumOverlayResolutionDto {
-                        group,
-                        representative_server_id: representative.map(|value| value.0.clone()),
-                        representative_id: representative.map(|value| value.1.clone()),
-                    }
+            let lookup_started = std::time::Instant::now();
+            let indexed_key = lookup_album_key(conn, server_id, album_id)?;
+            phases.lookup_key_ms += lookup_started.elapsed().as_millis();
+            // Written out rather than short-circuited with `||`, so the
+            // fallback probe is only timed when it is actually run.
+            let exists = match indexed_key.is_some() {
+                true => true,
+                false => {
+                    let started = std::time::Instant::now();
+                    let found = indexed_album_exists(conn, server_id, album_id)?;
+                    phases.exists_ms += started.elapsed().as_millis();
+                    phases.exists_calls += 1;
+                    found
+                }
+            };
+            let artist = album
+                .artist
+                .as_deref()
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            let normalized_key = (!exists)
+                .then(|| {
+                    crate::identity::build_album_key_with_version(
+                        artist,
+                        name,
+                        album.version.as_deref(),
+                    )
                 })
-                .collect::<Vec<_>>();
-            Ok((resolutions, phases))
-        })?;
+                .flatten();
+            let identity_key = indexed_key
+                .clone()
+                .or_else(|| normalized_key.clone())
+                .unwrap_or_else(|| {
+                    crate::identity::concrete_physical_album_key(server_id, album_id)
+                });
+            let next_group = u32::try_from(group_by_identity.len()).unwrap_or(u32::MAX);
+            let group = *group_by_identity
+                .entry(identity_key.clone())
+                .or_insert(next_group);
+            if indexed_key.is_some() || normalized_key.is_some() {
+                representative_group_keys
+                    .entry(group)
+                    .or_insert(identity_key);
+            } else if exists {
+                direct_representatives
+                    .entry(group)
+                    .or_insert_with(|| (server_id.to_string(), album_id.to_string()));
+            }
+            groups.push(group);
+        }
+
+        let representative_groups = representative_group_keys.into_iter().collect::<Vec<_>>();
+        phases.representative_groups = representative_groups.len();
+        let representatives_started = std::time::Instant::now();
+        let representatives = resolve_representatives(conn, scopes, &representative_groups)?;
+        phases.representatives_ms = representatives_started.elapsed().as_millis();
+        let resolutions = groups
+            .into_iter()
+            .map(|group| {
+                let representative = representatives
+                    .get(&group)
+                    .or_else(|| direct_representatives.get(&group));
+                LibraryAlbumOverlayResolutionDto {
+                    group,
+                    representative_server_id: representative.map(|value| value.0.clone()),
+                    representative_id: representative.map(|value| value.1.clone()),
+                }
+            })
+            .collect::<Vec<_>>();
+        Ok((resolutions, phases))
+    })?;
     if psysonic_core::logging::should_log_debug() {
         // This runs on the same connection as the chronological feeds and their
         // genre counts. A large `lockWaitMs` here means the overlay was ready

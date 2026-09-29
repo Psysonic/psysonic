@@ -121,7 +121,7 @@ describe('useArtistDetailData — multi-library selection', () => {
 
     await waitFor(() => expect(result.current.info).toMatchObject({ biography: 'Formed in 2016.' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-1', { similarArtistCount: undefined });
+    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-1', { similarArtistCount: 24 });
     expect(getArtistInfoForServer).toHaveBeenCalledTimes(1);
     expect(getArtistInfo).not.toHaveBeenCalled();
   });
@@ -158,7 +158,7 @@ describe('useArtistDetailData — multi-library selection', () => {
 
     await waitFor(() => expect(result.current.info).toMatchObject({ biography: 'Formed in 2016.' }));
     // Server and id come from the same resolved row — the active server never answers.
-    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-2', { similarArtistCount: undefined });
+    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-2', { similarArtistCount: 24 });
     expect(getArtistInfo).not.toHaveBeenCalled();
   });
 
@@ -227,7 +227,7 @@ describe('useArtistDetailData — multi-library selection', () => {
     await waitFor(() => expect(result.current.info).toMatchObject({
       biography: 'Owned by the second server.',
     }));
-    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-2', { similarArtistCount: undefined });
+    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-2', { similarArtistCount: 24 });
 
     // srv-2 leaves the selection and the refreshed load resolves to nothing at all —
     // the branch that returns without ever entering the result handler, so only an
@@ -247,16 +247,10 @@ describe('useArtistDetailData — multi-library selection', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
 
     // A retained owner leaves the info effect's inputs untouched, so it simply does not
-    // re-run and the damage stays latent. Any later re-trigger is what surfaces it — the
-    // similar-artists toggle is one the store really drives. It has to name the *stale*
-    // owner: that flag is read for the resolved target, so toggling any other server
-    // would leave the unfixed dependencies unchanged and the test would pass on both
-    // sides. With the owner correctly dropped there is no target, so nothing is asked.
-    act(() => {
-      useAuthStore.setState({ audiomuseNavidromeByServer: { 'srv-2': true } });
-    });
-    await act(async () => { await Promise.resolve(); });
-
+    // re-run and no request count can show the damage — it stays latent until something
+    // else re-triggers the effect. The resolved target is what gives it away: with the
+    // owner correctly dropped there is nobody left to ask.
+    expect(result.current.infoServerId).toBeNull();
     expect(getArtistInfoForServer).not.toHaveBeenCalled();
     expect(getArtistInfo).not.toHaveBeenCalled();
     expect(result.current.info).toBeNull();
@@ -286,14 +280,14 @@ describe('useArtistDetailData — multi-library selection', () => {
     await waitFor(() => expect(result.current.info).toMatchObject({
       biography: 'Owned by the second server.',
     }));
-    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-7', { similarArtistCount: undefined });
+    expect(getArtistInfoForServer).toHaveBeenCalledWith('srv-2', 'art-7', { similarArtistCount: 24 });
     expect(getArtistInfo).not.toHaveBeenCalled();
   });
 
   it('reads the AudioMuse flag for the owning server, not the active one', async () => {
-    // The flag both decides the requested similar-artist count and, in the page, whether
-    // that list is rendered at all. Keyed on the active server it would ask the owner for
-    // a default-sized set and then refuse to show it.
+    // The flag decides in the page whether the server's similar artists come before the
+    // Music Network lookup. Keyed on the active server, that order would follow a server
+    // that never answered for this artist.
     useAuthStore.setState({ audiomuseNavidromeByServer: { 'srv-2': true } });
     tryLoadArtistDetailMultiScopeMock.mockResolvedValue({
       artist: { id: 'art-2', name: 'Merged', serverId: 'srv-2' },

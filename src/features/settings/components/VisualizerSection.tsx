@@ -5,7 +5,13 @@ import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
 import { SettingsSubCard, SettingsField, SettingsValue } from '@/features/settings/components/SettingsSubCard';
 import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
-import { useVisualizerStore, VISUALIZER_FPS_OPTIONS, MAX_SENSITIVITY, MIN_SENSITIVITY } from '@/features/visualizer';
+import {
+  useVisualizerStore,
+  VisualizerPreview,
+  VISUALIZER_FPS_OPTIONS,
+  MAX_SENSITIVITY,
+  MIN_SENSITIVITY,
+} from '@/features/visualizer';
 import type { VisualizerColorSource, VisualizerMode } from '@/features/visualizer';
 
 interface Props {
@@ -19,9 +25,9 @@ interface Props {
 export function VisualizerSection({ t }: Props) {
   const {
     enabledNowPlaying, enabledFullscreen,
-    mode, sensitivity, responsiveness, fps, showPeaks, colorSource,
+    mode, sensitivity, responsiveness, fps, showPeaks, colorSource, pauseWhenUnfocused,
     setSurfaceEnabled, setMode, setSensitivity, setResponsiveness, setFps,
-    setShowPeaks, setColorSource,
+    setShowPeaks, setColorSource, setPauseWhenUnfocused,
   } = useVisualizerStore();
 
   // The settings below apply to every surface, so one switched-on surface is
@@ -75,6 +81,8 @@ export function VisualizerSection({ t }: Props) {
 
           {anySurfaceEnabled && (
             <>
+              <VisualizerPreview />
+
               {/* Two sub-cards, not one per control: what the visualizer looks
                   like, then what it costs to run. */}
               <SettingsSubCard>
@@ -108,6 +116,12 @@ export function VisualizerSection({ t }: Props) {
               </SettingsSubCard>
 
               <SettingsSubCard>
+                <SettingsToggle
+                  label={t('visualizer.settings.pauseWhenUnfocused')}
+                  desc={t('visualizer.settings.pauseWhenUnfocusedHint')}
+                  checked={pauseWhenUnfocused}
+                  onChange={setPauseWhenUnfocused}
+                />
                 <SettingsField
                   label={t('visualizer.settings.sensitivity')}
                   desc={t('visualizer.settings.sensitivityHint')}

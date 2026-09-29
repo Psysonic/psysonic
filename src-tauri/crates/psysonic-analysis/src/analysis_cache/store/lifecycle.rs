@@ -26,9 +26,7 @@ impl AnalysisCache {
 
     pub fn init_with_migration_barrier<R: tauri::Runtime>(
         app: &tauri::AppHandle<R>,
-        migration_write_barrier: Arc<
-            psysonic_core::migration_write_barrier::MigrationWriteBarrier,
-        >,
+        migration_write_barrier: Arc<psysonic_core::migration_write_barrier::MigrationWriteBarrier>,
     ) -> Result<Self, String> {
         let db_path = analysis_db_path(app)?;
         if let Some(parent) = db_path.parent() {
@@ -73,9 +71,7 @@ impl AnalysisCache {
     }
 
     pub fn open_in_memory_with_migration_barrier(
-        migration_write_barrier: Arc<
-            psysonic_core::migration_write_barrier::MigrationWriteBarrier,
-        >,
+        migration_write_barrier: Arc<psysonic_core::migration_write_barrier::MigrationWriteBarrier>,
     ) -> Self {
         let mut conn = Connection::open_in_memory().expect("in-memory connection");
         conn.pragma_update(None, "foreign_keys", "ON")

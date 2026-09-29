@@ -14,7 +14,7 @@ import { useCachedUrl } from '@/ui/CachedImage';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/lib/hooks/useIsMobile';
-import { useWindowVisibility } from '@/lib/hooks/useWindowVisibility';
+import { useWindowBlurred, useWindowVisibility } from '@/lib/hooks/useWindowVisibility';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { filterAlbumsByMixRatings, getMixMinRatingsConfigFromAuth } from '@/features/playback/utils/mixRatingFilter';
@@ -25,6 +25,7 @@ import { LongPressWaveOverlay } from '@/ui/LongPressWaveOverlay';
 import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
+import { useHeroTitleFit } from '@/features/home/hooks/useHeroTitleFit';
 
 const INTERVAL_MS = 10000;
 const HERO_ALBUM_COUNT = 8;
@@ -139,7 +140,7 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
   const [activeIdx, setActiveIdx] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const windowHidden = useWindowVisibility();
-  const [windowBlurred, setWindowBlurred] = useState<boolean>(() => Boolean(window.__psyBlurred));
+  const windowBlurred = useWindowBlurred();
   const heroRef = useRef<HTMLDivElement | null>(null);
   const heroScrollRootRef = useRef<HTMLElement | null>(null);
   const visibilityRafRef = useRef<number | null>(null);
@@ -216,20 +217,6 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
       window.cancelAnimationFrame(layoutRaf);
     };
   }, [updateHeroVisibility, albums.length]);
-
-  useEffect(() => {
-    const updateBlurState = () => {
-      setWindowBlurred(Boolean(window.__psyBlurred));
-    };
-    window.addEventListener('focus', updateBlurState);
-    window.addEventListener('blur', updateBlurState);
-    updateBlurState();
-    return () => {
-      window.removeEventListener('focus', updateBlurState);
-      window.removeEventListener('blur', updateBlurState);
-    };
-  }, []);
-
 
   useEffect(() => {
     if (heroInView || windowHidden) return;
@@ -321,6 +308,9 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
     () => (album ? albumArtistDisplayName(album) : ''),
     [album],
   );
+  // `.hero-content` remounts per album (keyed), dropping any fitted size — so the
+  // fit keys on the album as well as its title.
+  useHeroTitleFit(heroRef, album ? `${albumOwnerKey}\n${album.name}` : undefined);
 
   // Lazily fetch format label for the currently-visible album (cached by owner + id)
   const [albumFormats, setAlbumFormats] = useState<Record<string, string>>({});

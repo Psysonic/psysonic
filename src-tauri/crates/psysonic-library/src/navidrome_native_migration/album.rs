@@ -35,7 +35,13 @@ pub(super) fn preflight(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Resu
     let mut cursor_rowid = 0;
     let mut scanned = 0u64;
     loop {
-        let rows = load_batch(tx, server_id, cursor_rowid, upper_rowid, super::MAX_BATCH_LIMIT)?;
+        let rows = load_batch(
+            tx,
+            server_id,
+            cursor_rowid,
+            upper_rowid,
+            super::MAX_BATCH_LIMIT,
+        )?;
         let Some(last_rowid) = rows.last().map(|row| row.rowid) else {
             break;
         };
@@ -185,7 +191,10 @@ fn ensure_equivalent(destination: &AlbumOwner, source: &AlbumOwner) -> rusqlite:
         return Ok(());
     }
     let compatible_metadata = !destination.name.trim().is_empty()
-        && destination.name.trim().eq_ignore_ascii_case(source.name.trim())
+        && destination
+            .name
+            .trim()
+            .eq_ignore_ascii_case(source.name.trim())
         && canonical_optional_id(destination.artist_id.clone())
             == canonical_optional_id(source.artist_id.clone())
         && destination.artist_id.is_some()
@@ -208,11 +217,8 @@ fn canonicalize_owner(
     source.id = destination_id;
     source.artist_id = canonical_optional_id(source.artist_id);
     source.cover_art_id = canonical_optional_artwork(source.cover_art_id);
-    source.raw_json = canonical_payload(
-        source.raw_json.as_deref(),
-        NavidromePayloadKind::Album,
-    )
-    .map_err(migration_error)?;
+    source.raw_json = canonical_payload(source.raw_json.as_deref(), NavidromePayloadKind::Album)
+        .map_err(migration_error)?;
     Ok(source)
 }
 
@@ -232,9 +238,7 @@ fn merge_owner(
         duration_sec: max_optional(destination.duration_sec, source.duration_sec),
         year: destination.year.or(source.year),
         genre: destination.genre.or(source.genre),
-        cover_art_id: canonical_optional_artwork(
-            destination.cover_art_id.or(source.cover_art_id),
-        ),
+        cover_art_id: canonical_optional_artwork(destination.cover_art_id.or(source.cover_art_id)),
         starred_at: if source_is_newer {
             source.starred_at
         } else {
@@ -250,11 +254,7 @@ fn merge_owner(
     })
 }
 
-fn write_owner(
-    tx: &Transaction<'_>,
-    server_id: &str,
-    owner: &AlbumOwner,
-) -> rusqlite::Result<()> {
+fn write_owner(tx: &Transaction<'_>, server_id: &str, owner: &AlbumOwner) -> rusqlite::Result<()> {
     tx.execute(
         "INSERT INTO album \
            (server_id, id, name, artist, artist_id, song_count, duration_sec, year, genre, \

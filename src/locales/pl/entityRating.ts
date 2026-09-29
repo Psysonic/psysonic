@@ -5,5 +5,6 @@ export const entityRating = {
   artistAriaLabel: 'Ocena wykonawcy',
   selectedArtistsRatingAriaLabel: 'Ocena gwiazdkowa dla {{count}} wybranych wykonawców',
   selectedAlbumsRatingAriaLabel: 'Ocena gwiazdkowa dla {{count}} wybranych albumów',
+  selectedSongsRatingAriaLabel: 'Ocena gwiazdkowa dla {{count}} wybranych utworów',
   saveFailed: 'Nie udało się zapisać oceny.',
 };

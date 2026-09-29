@@ -123,7 +123,9 @@ fn sync_outcome_treats_cancellation_as_silent_success() {
     // Cancellation (user cancel, or a newer sync_start superseding this
     // job) must not surface as a failure on the sync-idle event.
     assert!(sync_outcome_to_result::<()>(Ok(()), SyncAdmission::Ordinary).is_ok());
-    assert!(sync_outcome_to_result::<()>(Err(SyncError::Cancelled), SyncAdmission::Ordinary).is_ok());
+    assert!(
+        sync_outcome_to_result::<()>(Err(SyncError::Cancelled), SyncAdmission::Ordinary).is_ok()
+    );
     assert_eq!(
         sync_outcome_to_result::<()>(Err(SyncError::Cancelled), SyncAdmission::Migration(7)),
         Err("migration sync cancelled".to_string())

@@ -68,7 +68,7 @@ export default function MoveToFolderSubmenu({ playlistId, serverId, onDone, trig
     : { left: '100%', right: 'auto', top: flipUp ? 'auto' : -4, bottom: flipUp ? 0 : 'auto' };
 
   return (
-    <div ref={subRef} className="context-submenu" data-submenu-for={triggerId} style={{ ...subStyle, minWidth: 190 }}>
+    <div ref={subRef} className="context-submenu" data-parent-submenu-id={triggerId} style={{ ...subStyle, minWidth: 190 }}>
       {!creating ? (
         <div className="context-menu-item context-submenu-new" onClick={e => { e.stopPropagation(); setCreating(true); }}>
           <Plus size={13} /> {t('playlists.folders.newFolder')}

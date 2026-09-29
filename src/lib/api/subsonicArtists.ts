@@ -222,7 +222,7 @@ export async function getTopSongsForServer(
     const raw = data.topSongs?.song ?? [];
     const filtered = options.filterToLibrary === false
       ? raw
-      : await filterSongsToServerLibrary(raw, serverId);
+      : await filterSongsToServerLibrary(raw, serverId, options.libraryIds);
     return filtered.slice(0, limit).map(song => ({ ...song, serverId }));
   } catch {
     return [];
@@ -239,16 +239,24 @@ export async function getSimilarSongs2ForServer(
   serverId: string,
   id: string,
   count = 50,
+  explicitLibraryIds?: readonly string[],
 ): Promise<SubsonicSong[]> {
   try {
-    const requestCount = similarSongsRequestCount(count, serverId);
+    const requestCount = explicitLibraryIds === undefined
+      ? similarSongsRequestCount(count, serverId)
+      : similarSongsRequestCount(count, serverId, explicitLibraryIds);
+    const libraryParams = explicitLibraryIds === undefined
+      ? libraryFilterParamsForServer(serverId)
+      : explicitLibraryIds.length === 0
+        ? {}
+        : { musicFolderId: explicitLibraryIds.length === 1 ? explicitLibraryIds[0]! : [...explicitLibraryIds] };
     const data = await apiForServer<{ similarSongs2: { song: SubsonicSong[] } }>(
       serverId,
       'getSimilarSongs2.view',
-      { id, count: requestCount, ...libraryFilterParamsForServer(serverId) },
+      { id, count: requestCount, ...libraryParams },
     );
     const raw = data.similarSongs2?.song ?? [];
-    const filtered = await filterSongsToServerLibrary(raw, serverId);
+    const filtered = await filterSongsToServerLibrary(raw, serverId, explicitLibraryIds);
     return filtered.slice(0, count).map(song => ({ ...song, serverId }));
   } catch {
     return [];
@@ -300,19 +308,51 @@ export async function getSonicSimilarTracksForServer(
   id: string,
   count = 50,
 ): Promise<SubsonicSong[]> {
+  const matches = await getSonicSimilarMatchesForServer(serverId, id, count);
+  return matches.map(m => m.song);
+}
+
+/** One `sonicMatch` entry: the track plus the server's 0–1 similarity score, when sent. */
+export interface SonicSimilarMatch {
+  song: SubsonicSong;
+  similarity?: number;
+}
+
+/**
+ * Same request as `getSonicSimilarTracksForServer`, keeping each match's
+ * `similarity` score for callers that rank or weight results.
+ */
+export async function getSonicSimilarMatchesForServer(
+  serverId: string,
+  id: string,
+  count = 50,
+): Promise<SonicSimilarMatch[]> {
   try {
     const requestCount = similarSongsRequestCount(count);
-    const data = await apiForServer<{ sonicMatch: Array<{ entry?: SubsonicSong }> | { entry?: SubsonicSong } }>(
+    const data = await apiForServer<{
+      sonicMatch: Array<{ entry?: SubsonicSong; similarity?: number }> | { entry?: SubsonicSong; similarity?: number };
+    }>(
       serverId,
       'getSonicSimilarTracks.view',
       { id, count: requestCount, ...libraryFilterParamsForServer(serverId) },
     );
     const raw = data.sonicMatch;
     const list = Array.isArray(raw) ? raw : raw ? [raw] : [];
-    const songs = list.map(m => m.entry).filter((e): e is SubsonicSong => !!e);
+    const similarityById = new Map<string, number | undefined>();
+    const songs: SubsonicSong[] = [];
+    for (const m of list) {
+      if (!m.entry) continue;
+      songs.push(m.entry);
+      similarityById.set(m.entry.id, typeof m.similarity === 'number' ? m.similarity : undefined);
+    }
     if (songs.length === 0) return [];
     const filtered = await filterSongsToServerLibrary(songs, serverId);
-    return filtered.slice(0, count).map(song => ({ ...song, serverId }));
+    return filtered.slice(0, count).map(song => {
+      const similarity = similarityById.get(song.id);
+      return similarity === undefined
+        ? { song: { ...song, serverId } }
+        : { song: { ...song, serverId }, similarity };
+    });
   } catch {
     return [];
   }

@@ -143,6 +143,22 @@ describe('computeAuthStoreRehydration — Library browse scope', () => {
 
     expect(patch.libraryBrowseServerIds).toEqual([server.id]);
   });
+
+  it('repairs a stale legacy audiobook filter from the sidebar scope for rollback', async () => {
+    const server = { id: 'a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' };
+    const old = { ...useAuthStore.getState(), servers: [server], activeServerId: 'a',
+      libraryBrowseServerIds: ['a'], libraryBrowseSelectionByServer: { a: [] },
+      musicLibrarySelectionByServer: { a: [] }, musicLibraryFilterByServer: { a: 'audiobooks' } };
+    localStorage.setItem('psysonic-auth', JSON.stringify({ state: old, version: 1 }));
+
+    await useAuthStore.persist.rehydrate();
+
+    expect(useAuthStore.getState().musicLibraryFilterByServer.a).toBe('all');
+    expect(useAuthStore.getState().musicLibrarySelectionByServer.a).toEqual([]);
+    const stored = JSON.parse(localStorage.getItem('psysonic-auth') ?? '{}');
+    expect(stored.version).toBe(2);
+    expect(stored.state.musicLibraryFilterByServer.a).toBe('all');
+  });
 });
 
 describe('computeAuthStoreRehydration — lyrics', () => {
@@ -231,26 +247,30 @@ describe('computeAuthStoreRehydration — lyrics', () => {
   });
 });
 
-describe('computeAuthStoreRehydration — discordCoverSource server-revival (PR #1299)', () => {
+describe('computeAuthStoreRehydration — discordCoverSource → Discord gate (PR #1299 / review of #1502)', () => {
   const SENTINEL_KEY = 'psysonic-discord-server-cover-revival-v1';
 
   beforeEach(() => {
     resetAuthStore();
     localStorage.clear();
+    // The in-app chain's own one-time reset is covered below; keep it out of
+    // these cases so they see only what the Discord migration writes.
+    localStorage.setItem('psysonic-cover-sources-external-off-v1', '1');
   });
 
-  it('coerces a stale pre-#1246 "server" value to "none" exactly once', () => {
+  it('coerces a stale pre-#1246 "server" value to the Discord gate off, exactly once', () => {
     const base = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: 'server' } as AuthState);
     expect(patch.discordCoverSource).toBe('none');
+    expect('coverSources' in patch).toBe(false);
     expect(localStorage.getItem(SENTINEL_KEY)).toBe('1');
   });
 
-  it('does not coerce "server" once the sentinel is already set (post-revival user choice)', () => {
+  it('honors a post-revival "server" choice once the sentinel is already set', () => {
     localStorage.setItem(SENTINEL_KEY, '1');
     const base = useAuthStore.getState();
     const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: 'server' } as AuthState);
-    expect(patch.discordCoverSource).toBeUndefined();
+    expect(patch.discordCoverSource).toBe('server');
   });
 
   it('sets the sentinel on first rehydrate even when the value is not "server"', () => {
@@ -259,11 +279,119 @@ describe('computeAuthStoreRehydration — discordCoverSource server-revival (PR 
     expect(localStorage.getItem(SENTINEL_KEY)).toBe('1');
   });
 
-  it('does not touch "apple" or "none"', () => {
+  it('maps "apple" and "none" onto the Discord gate without touching the in-app chain', () => {
     const base = useAuthStore.getState();
-    for (const source of ['apple', 'none'] as const) {
-      const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: source } as AuthState);
-      expect(patch.discordCoverSource).toBeUndefined();
+    const apple = computeAuthStoreRehydration({ ...base, discordCoverSource: 'apple' } as AuthState);
+    expect(apple.discordCoverSource).toBe('apple');
+    const none = computeAuthStoreRehydration({ ...base, discordCoverSource: 'none' } as AuthState);
+    expect(none.discordCoverSource).toBe('none');
+    expect('coverSources' in apple).toBe(false);
+    expect('coverSources' in none).toBe(false);
+  });
+
+  it('never derives coverSources from the legacy Discord value', () => {
+    // The chain is app artwork, not a Discord disclosure: whatever the legacy
+    // Discord value was, this migration must not write the chain.
+    const base = useAuthStore.getState();
+    for (const legacy of ['server', 'apple', 'none', 'garbage']) {
+      const patch = computeAuthStoreRehydration({ ...base, discordCoverSource: legacy } as unknown as AuthState);
+      expect('coverSources' in patch).toBe(false);
     }
+  });
+
+  it('is a no-op when no legacy discordCoverSource is present (never clobbers persisted gate)', () => {
+    // Once the legacy field is gone the migration must not force the Discord
+    // gate back to 'none' — doing so would overwrite the user's persisted
+    // choice on every rehydrate.
+    const withGate = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...withGate,
+      discordCoverSource: undefined,
+    } as unknown as AuthState);
+    expect('discordCoverSource' in patch).toBe(false);
+    expect('coverSources' in patch).toBe(false);
+  });
+});
+
+describe('computeAuthStoreRehydration — album-cover fallbacks reset to off once', () => {
+  const RESET_KEY = 'psysonic-cover-sources-external-off-v1';
+  const allOn = [
+    { source: 'lastfm', enabled: true },
+    { source: 'server', enabled: true },
+    { source: 'apple', enabled: true },
+  ] as const;
+
+  beforeEach(() => {
+    resetAuthStore();
+    localStorage.clear();
+  });
+
+  it('switches Apple Music and Last.fm off and keeps the order and the server row', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({ ...base, coverSources: [...allOn] } as AuthState);
+    expect(patch.coverSources).toEqual([
+      { source: 'lastfm', enabled: false },
+      { source: 'server', enabled: true },
+      { source: 'apple', enabled: false },
+    ]);
+    expect(localStorage.getItem(RESET_KEY)).toBe('1');
+  });
+
+  it('runs only once, so a later opt-in survives restarts', () => {
+    const base = useAuthStore.getState();
+    computeAuthStoreRehydration({ ...base, coverSources: [...allOn] } as AuthState);
+    const later = computeAuthStoreRehydration({ ...base, coverSources: [...allOn] } as AuthState);
+    expect('coverSources' in later).toBe(false);
+  });
+
+  it('leaves a missing chain to the defaults, which have both fallbacks off', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({ ...base, coverSources: undefined } as unknown as AuthState);
+    expect('coverSources' in patch).toBe(false);
+    expect(localStorage.getItem(RESET_KEY)).toBe('1');
+    expect(base.coverSources.filter(s => s.source !== 'server').every(s => !s.enabled)).toBe(true);
+  });
+});
+
+describe('computeAuthStoreRehydration — minted server profile ids', () => {
+  beforeEach(resetAuthStore);
+
+  it('seeds the record from configured servers on installs that predate it', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+        { id: 'profile-b', name: 'B', url: 'https://b.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: [],
+    } as AuthState);
+    expect(patch.mintedServerProfileIds).toEqual(['profile-a', 'profile-b']);
+  });
+
+  it('keeps ids of removed profiles instead of subtracting them', () => {
+    // A removed profile must stay on record: without it, its id would read as
+    // an address again and could reach analysis storage.
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: ['profile-gone'],
+    } as AuthState);
+    expect(patch.mintedServerProfileIds).toEqual(['profile-gone', 'profile-a']);
+  });
+
+  it('is a no-op once every configured id is already on record', () => {
+    const base = useAuthStore.getState();
+    const patch = computeAuthStoreRehydration({
+      ...base,
+      servers: [
+        { id: 'profile-a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+      ],
+      mintedServerProfileIds: ['profile-a'],
+    } as AuthState);
+    expect('mintedServerProfileIds' in patch).toBe(false);
   });
 });

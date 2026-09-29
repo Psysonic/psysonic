@@ -22,6 +22,7 @@ import { FsLyricsMenu } from './FsLyricsMenu';
 import { FsPlayBtn } from './FsPlayBtn';
 import { FsVolume } from './FsVolume';
 import { useFsDynamicAccent } from '@/features/fullscreenPlayer/hooks/useFsDynamicAccent';
+import { useFsElementHeightVar } from '@/features/fullscreenPlayer/hooks/useFsElementHeightVar';
 import { useFsIdleFade } from '@/features/fullscreenPlayer/hooks/useFsIdleFade';
 import { useQueueTrackAt } from '@/features/queue';
 import { VisualizerPanel } from '@/features/visualizer';
@@ -62,10 +63,22 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
   const playbackCoverRef =
     useAlbumCoverRef(currentTrack?.albumId, undefined, undefined, { libraryResolve: false }) ?? undefined;
 
-  const artCover = usePlaybackCoverArt(playbackCoverRef, 300);
+  const artCover = usePlaybackCoverArt(playbackCoverRef, 300, {
+    ensureOpts: {
+      artistName: currentTrack?.artist ?? '',
+      albumTitle: currentTrack?.album ?? '',
+      allowExternalAlbum: true,
+    },
+  });
   const artUrl = artCover.src;
   const artKey = artCover.cacheKey;
-  const portraitCover = usePlaybackCoverArt(playbackCoverRef, 500);
+  const portraitCover = usePlaybackCoverArt(playbackCoverRef, 500, {
+    ensureOpts: {
+      artistName: currentTrack?.artist ?? '',
+      albumTitle: currentTrack?.album ?? '',
+      allowExternalAlbum: true,
+    },
+  });
   const coverUrl = portraitCover.src;
   const coverKey = portraitCover.cacheKey;
   const directCover = currentTrack?.directCoverArtUrl;
@@ -111,6 +124,12 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
   const closeLyricsMenu = useCallback(() => setLyricsMenuOpen(false), []);
   const lyricsMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const fsControlsRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const clusterRef = useRef<HTMLDivElement>(null);
+  // The bottom fade darkens the scrolling lyrics behind this cluster, so it has
+  // to know how tall the cluster actually is (issue #1546 is the same mistake in
+  // the other player).
+  useFsElementHeightVar(rootRef, clusterRef, '--fs-cluster-h');
 
   // Idle-fade system — hides controls after 3 s of inactivity; Esc closes.
   const { isIdle, handleMouseMove } = useFsIdleFade(onClose);
@@ -130,6 +149,7 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
   return (
     <div
       className="fs-player"
+      ref={rootRef}
       role="dialog"
       aria-modal="true"
       aria-label={t('player.fullscreen')}
@@ -179,7 +199,7 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
       {showFullscreenLyrics && fsLyricsStyle === 'rail'  && <FsLyricsRail  currentTrack={currentTrack} />}
 
       {/* Layer 3 — info cluster, bottom-left */}
-      <div className="fs-cluster">
+      <div className="fs-cluster" ref={clusterRef}>
 
         {/* Album art */}
         <div className="fs-art-wrap">

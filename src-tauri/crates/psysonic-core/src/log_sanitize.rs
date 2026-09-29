@@ -2,14 +2,36 @@
 //! are stored or exported (PsyLab / Settings log export).
 
 const SENSITIVE_QUERY_KEYS: &[&str] = &[
-    "t", "s", "p", "token", "password", "passwd", "secret", "api_key", "apikey",
-    "access_token", "refresh_token", "auth",
+    "t",
+    "s",
+    "p",
+    "token",
+    "password",
+    "passwd",
+    "secret",
+    "api_key",
+    "apikey",
+    "access_token",
+    "refresh_token",
+    "auth",
 ];
 
 const SENSITIVE_KV_KEYS: &[&str] = &[
-    "password", "passwd", "token", "secret", "api_key", "apikey", "access_token",
-    "refresh_token", "authorization", "auth", "cookie", "x-api-key",
-    "cf-access-client-secret", "cf-access-client-id", "x-auth-token",
+    "password",
+    "passwd",
+    "token",
+    "secret",
+    "api_key",
+    "apikey",
+    "access_token",
+    "refresh_token",
+    "authorization",
+    "auth",
+    "cookie",
+    "x-api-key",
+    "cf-access-client-secret",
+    "cf-access-client-id",
+    "x-auth-token",
 ];
 
 /// Sanitize one runtime log line for display and export.
@@ -91,7 +113,9 @@ fn redact_sensitive_key_values(line: &str) -> String {
                 let ws = slice.len().saturating_sub(trimmed.len());
                 let val_start = val_start + ws;
                 let end = trimmed
-                    .find(|c: char| c.is_whitespace() || c == '&' || c == ',' || c == ';' || c == ')')
+                    .find(|c: char| {
+                        c.is_whitespace() || c == '&' || c == ',' || c == ';' || c == ')'
+                    })
                     .unwrap_or(trimmed.len());
                 if end > 0 {
                     out.replace_range(val_start..val_start + end, "REDACTED");
@@ -136,7 +160,11 @@ fn redact_urls_in_text(line: &str) -> String {
         out.push_str(&slice[..rel]);
         let url_start = cursor + rel;
         let url_slice = &line[url_start..];
-        let scheme_len = if url_slice.starts_with("https://") { 8 } else { 7 };
+        let scheme_len = if url_slice.starts_with("https://") {
+            8
+        } else {
+            7
+        };
         let mut url_end = scheme_len;
         for (off, ch) in url_slice[scheme_len..].char_indices() {
             let abs = scheme_len + off;
@@ -254,12 +282,13 @@ fn is_lan_ipv4(ip: &str) -> bool {
     if parts.len() != 4 {
         return false;
     }
-    let Ok(a) = parts[0].parse::<u8>() else { return false };
-    let Ok(b) = parts[1].parse::<u8>() else { return false };
-    a == 127
-        || a == 10
-        || (a == 172 && (16..=31).contains(&b))
-        || (a == 192 && b == 168)
+    let Ok(a) = parts[0].parse::<u8>() else {
+        return false;
+    };
+    let Ok(b) = parts[1].parse::<u8>() else {
+        return false;
+    };
+    a == 127 || a == 10 || (a == 172 && (16..=31).contains(&b)) || (a == 192 && b == 168)
 }
 
 fn is_lan_ipv6(host: &str) -> bool {
@@ -267,7 +296,8 @@ fn is_lan_ipv6(host: &str) -> bool {
     if h == "::1" {
         return true;
     }
-    if h.starts_with("fe8") || h.starts_with("fe9") || h.starts_with("fea") || h.starts_with("feb") {
+    if h.starts_with("fe8") || h.starts_with("fe9") || h.starts_with("fea") || h.starts_with("feb")
+    {
         return true;
     }
     if h.starts_with("fc") || h.starts_with("fd") {
@@ -305,7 +335,9 @@ pub fn is_lan_host(host: &str) -> bool {
     if stripped.contains(':') {
         return is_lan_ipv6(stripped);
     }
-    if stripped.chars().all(|c| c.is_ascii_digit() || c == '.') && stripped.matches('.').count() == 3 {
+    if stripped.chars().all(|c| c.is_ascii_digit() || c == '.')
+        && stripped.matches('.').count() == 3
+    {
         return is_lan_ipv4(stripped);
     }
     false
@@ -340,7 +372,9 @@ fn mask_hostname(host: &str) -> String {
         return host.to_string();
     }
 
-    if stripped.chars().all(|c| c.is_ascii_digit() || c == '.') && stripped.matches('.').count() == 3 {
+    if stripped.chars().all(|c| c.is_ascii_digit() || c == '.')
+        && stripped.matches('.').count() == 3
+    {
         return mask_public_ipv4(stripped);
     }
 

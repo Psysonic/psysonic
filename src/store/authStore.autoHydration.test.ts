@@ -36,7 +36,7 @@ describe('authStore first automatic hydration', () => {
       state?: { libraryBrowseServerIds?: string[] };
       version?: number;
     };
-    expect(persisted.version).toBe(1);
+    expect(persisted.version).toBe(2);
     expect(persisted.state?.libraryBrowseServerIds).toEqual([server.id]);
   });
 });

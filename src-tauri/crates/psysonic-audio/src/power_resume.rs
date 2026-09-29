@@ -6,9 +6,7 @@ use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, Manager};
 
-use super::device_watcher::{
-    reopen_output_stream_with_retry, ReopenNotify, ReopenOutcome,
-};
+use super::device_watcher::{reopen_output_stream_with_retry, ReopenNotify, ReopenOutcome};
 use super::engine::{
     request_stream_release_after_attachments_locked, wait_for_stream_attachments_locked,
     AudioEngine,

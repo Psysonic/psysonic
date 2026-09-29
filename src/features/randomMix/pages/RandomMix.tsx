@@ -9,7 +9,9 @@ import { useAuthStore } from '@/store/authStore';
 import { useLibraryIndexStore } from '@/store/libraryIndexStore';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/lib/hooks/useIsMobile';
+import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import { useOrbitSongRowBehavior } from '@/features/orbit';
+import { getLibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
 import {
   fetchRandomMixSongsUntilFull,
   getMixMinRatingsConfigFromAuth,
@@ -30,7 +32,7 @@ export default function RandomMix() {
   const [songs, setSongs] = useState<SubsonicSong[]>([]);
   const [loading, setLoading] = useState(true);
   const playTrack = usePlayerStore(s => s.playTrack);
-  const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
   const openContextMenu = usePlayerStore(s => s.openContextMenu);
   const contextMenuOpen = usePlayerStore(s => s.contextMenu.isOpen);
   const currentTrack = usePlayerStore(s => s.currentTrack);
@@ -64,8 +66,10 @@ export default function RandomMix() {
     [mixMinRatingFilterEnabled, mixMinRatingSong, mixMinRatingAlbum, mixMinRatingArtist]
   );
   const musicLibraryFilterVersion = useAuthStore(s => s.musicLibraryFilterVersion);
+  const libraryBrowseScopeVersion = useAuthStore(s => s.libraryBrowseScopeVersion);
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
-  const indexEnabled = useLibraryIndexStore(s => s.isIndexEnabled(activeServerId));
+  const browseServerId = getLibraryBrowseScope().anchorServerId ?? activeServerId;
+  const indexEnabled = useLibraryIndexStore(s => s.isIndexEnabled(browseServerId));
   const [addedGenre, setAddedGenre] = useState<string | null>(null);
   const [addedArtist, setAddedArtist] = useState<string | null>(null);
 
@@ -113,7 +117,7 @@ export default function RandomMix() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSongs();
     setGenresLoading(true);
-    void fetchGenreCatalog(activeServerId, indexEnabled)
+    void fetchGenreCatalog(browseServerId, indexEnabled)
       .then(data => {
         setServerGenres(data);
         const audiobookLower = AUDIOBOOK_GENRES.map(g => g.toLowerCase());
@@ -133,7 +137,7 @@ export default function RandomMix() {
     // fetchSongs is a local helper recreated each render; the mix reload is keyed
     // on the library filter / server / index, not on the function identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [musicLibraryFilterVersion, activeServerId, indexEnabled]);
+  }, [musicLibraryFilterVersion, libraryBrowseScopeVersion, browseServerId, indexEnabled]);
 
   const filteredSongs = filterRandomMixSongs(songs, { excludeAudiobooks, customGenreBlacklist, mixRatingCfg });
   const filteredGenreMixSongs = filterRandomMixSongs(genreMixSongs, {
@@ -145,6 +149,18 @@ export default function RandomMix() {
   const selectedGenreLabel = selectedGenres.length === 1
     ? selectedGenres[0]
     : `${selectedGenres.length} ${t('genres.genreCount')}`;
+
+  // Only one of the two tracklists is on screen at a time, so they share one cursor.
+  const cursorSongs = hasSelectedGenres ? filteredGenreMixSongs : filteredSongs;
+  const cursor = useTrackListCursor({
+    keys: cursorSongs.map(song => song.id),
+    onActivate: index => {
+      const song = cursorSongs[index];
+      if (!song) return;
+      if (orbitActive) addTrackToOrbit(song.id);
+      else playTrack(songToTrack(song), cursorSongs.map(songToTrack));
+    },
+  });
 
   const handlePlayAll = () => {
     if (hasSelectedGenres && filteredGenreMixSongs.length > 0) {
@@ -299,7 +315,7 @@ export default function RandomMix() {
               {t('randomMix.noSongsMatchFilters')}
             </div>
           ) : (
-            <div className="tracklist" data-preview-loc="randomMix">
+            <div className="tracklist" data-preview-loc="randomMix" {...cursor.listProps}>
               <div className="tracklist-header" style={{ gridTemplateColumns: '60px minmax(150px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) 70px 65px' }}>
                 <div></div>
                 <div>{t('randomMix.trackTitle')}</div>
@@ -324,6 +340,9 @@ export default function RandomMix() {
                     isPlaying={isPlaying}
                     isContextActive={contextMenuSongId === song.id}
                     orbitActive={orbitActive}
+                    doubleClickToPlay={doubleClickToPlay}
+                    cursorRowId={cursor.cursorIndex === idx ? cursor.cursorRowId : undefined}
+                    onCursorClick={e => cursor.setCursorFromClick(idx, e)}
                     previewingId={previewingId}
                     previewAudioStarted={previewAudioStarted}
                     starredOverrides={starredOverrides}
@@ -367,7 +386,7 @@ export default function RandomMix() {
           {t('randomMix.noSongsMatchFilters')}
         </div>
       ) : (
-        <div className="tracklist" data-preview-loc="randomMix">
+        <div className="tracklist" data-preview-loc="randomMix" {...cursor.listProps}>
           <div className="tracklist-header" style={{ gridTemplateColumns: '60px minmax(150px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) 120px 70px 65px' }}>
             <div></div>
             <div>{t('randomMix.trackTitle')}</div>
@@ -401,6 +420,9 @@ export default function RandomMix() {
                 isPlaying={isPlaying}
                 isContextActive={contextMenuSongId === song.id}
                 orbitActive={orbitActive}
+                doubleClickToPlay={doubleClickToPlay}
+                cursorRowId={cursor.cursorIndex === idx ? cursor.cursorRowId : undefined}
+                onCursorClick={e => cursor.setCursorFromClick(idx, e)}
                 previewingId={previewingId}
                 previewAudioStarted={previewAudioStarted}
                 starredOverrides={starredOverrides}

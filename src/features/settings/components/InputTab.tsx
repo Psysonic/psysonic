@@ -1,22 +1,52 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, RotateCcw, X } from 'lucide-react';
+import { Keyboard, MousePointerClick, RotateCcw, X } from 'lucide-react';
 import { IN_APP_SHORTCUT_ACTIONS, GLOBAL_SHORTCUT_ACTIONS } from '@/config/shortcutActions';
+import { IS_MACOS } from '@/lib/util/platform';
 import { useGlobalShortcutsStore, type GlobalAction, buildGlobalShortcut, formatGlobalShortcut } from '@/store/globalShortcutsStore';
 import { useKeybindingsStore, type KeyAction, buildInAppBinding, formatBinding } from '@/store/keybindingsStore';
+import { useThemeStore, type TrackRowPlayClick } from '@/store/themeStore';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
-import { SettingsSubCard } from '@/features/settings/components/SettingsSubCard';
+import { SettingsField, SettingsSubCard } from '@/features/settings/components/SettingsSubCard';
+import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
 
 export function InputTab() {
   const { t } = useTranslation();
   const kb = useKeybindingsStore();
   const gs = useGlobalShortcutsStore();
+  const trackRowPlayClick = useThemeStore(s => s.trackRowPlayClick);
+  const setTrackRowPlayClick = useThemeStore(s => s.setTrackRowPlayClick);
   const [listeningFor, setListeningFor] = useState<KeyAction | null>(null);
   const [listeningForGlobal, setListeningForGlobal] = useState<GlobalAction | null>(null);
+  const trackRowPlayClickOptions: SegmentedOption<TrackRowPlayClick>[] = [
+    { id: 'single', label: t('settings.trackRowPlayClickSingle') },
+    { id: 'double', label: t('settings.trackRowPlayClickDouble') },
+  ];
 
   return (
     <>
+      <SettingsSubSection
+        title={t('settings.inputMouseTitle')}
+        icon={<MousePointerClick size={16} />}
+      >
+        <div className="settings-card">
+          <SettingsGroup>
+            <SettingsField
+              label={t('settings.trackRowPlayClick')}
+              desc={t('settings.trackRowPlayClickDesc')}
+            >
+              <SettingsSegmented
+                options={trackRowPlayClickOptions}
+                value={trackRowPlayClick}
+                onChange={setTrackRowPlayClick}
+                ariaLabel={t('settings.trackRowPlayClick')}
+              />
+            </SettingsField>
+          </SettingsGroup>
+        </div>
+      </SettingsSubSection>
+
       <SettingsSubSection
         title={t('settings.inputKeybindingsTitle')}
         icon={<Keyboard size={16} />}
@@ -107,7 +137,7 @@ export function InputTab() {
       <SettingsSubSection
         title={t('settings.globalShortcutsTitle')}
         icon={<Keyboard size={16} />}
-        description={t('settings.globalShortcutsNote')}
+        description={t('settings.globalShortcutsNote', { metaModifier: IS_MACOS ? 'Command' : 'Super' })}
         action={
           <button
             type="button"

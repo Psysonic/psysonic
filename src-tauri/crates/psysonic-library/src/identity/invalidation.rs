@@ -69,7 +69,9 @@ pub(crate) fn record_artists<'a>(
     record(
         tx,
         ARTIST_KIND,
-        artist_ids.into_iter().map(|artist_id| (server_id, artist_id)),
+        artist_ids
+            .into_iter()
+            .map(|artist_id| (server_id, artist_id)),
     )
 }
 

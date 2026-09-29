@@ -116,7 +116,11 @@ pub fn database_pair_write_scope() -> DatabasePairWriteGuard {
         );
     });
     WRITE_DEPTH.with(|depth| {
-        assert_eq!(depth.get(), 0, "database-pair write scopes are not reentrant");
+        assert_eq!(
+            depth.get(),
+            0,
+            "database-pair write scopes are not reentrant"
+        );
     });
 
     let mut state = lock_state();

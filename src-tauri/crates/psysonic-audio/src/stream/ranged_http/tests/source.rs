@@ -26,6 +26,9 @@ fn ready_source(data: &[u8]) -> RangedHttpSource {
         gen_arc,
         gen: 7,
         on_demand: None,
+        sequential_read_end: None,
+        sequential_read_bytes: 0,
+        superseded_reported: false,
     }
 }
 
@@ -70,6 +73,9 @@ fn read_returns_zero_when_superseded_by_gen_change() {
     src.gen_arc.store(99, Ordering::SeqCst); // generation moved on
     let mut out = [0u8; 4];
     assert_eq!(src.read(&mut out).unwrap(), 0);
+    assert!(src.superseded_reported);
+    assert_eq!(src.read(&mut out).unwrap(), 0);
+    assert!(src.superseded_reported, "subsequent EOF reads stay quiet");
 }
 
 #[test]
@@ -94,6 +100,9 @@ fn read_returns_partial_when_done_with_only_some_data() {
         gen_arc,
         gen: 1,
         on_demand: None,
+        sequential_read_end: None,
+        sequential_read_bytes: 0,
+        superseded_reported: false,
     };
     let mut out = [0u8; 8];
     let n = src.read(&mut out).unwrap();
@@ -125,6 +134,9 @@ fn read_blocks_until_download_progress_reaches_seek_target() {
         gen_arc,
         gen: 1,
         on_demand: None,
+        sequential_read_end: None,
+        sequential_read_bytes: 0,
+        superseded_reported: false,
     };
     let mut out = [0u8; 2];
     let n = src.read(&mut out).unwrap();
@@ -150,6 +162,9 @@ fn read_returns_zero_when_done_with_no_data_ahead_of_cursor() {
         gen_arc,
         gen: 1,
         on_demand: None,
+        sequential_read_end: None,
+        sequential_read_bytes: 0,
+        superseded_reported: false,
     };
     let mut out = [0u8; 8];
     assert_eq!(src.read(&mut out).unwrap(), 0);

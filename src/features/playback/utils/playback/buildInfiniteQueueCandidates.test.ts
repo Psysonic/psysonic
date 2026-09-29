@@ -39,6 +39,22 @@ import {
 } from '@/features/playback/utils/mixRatingFilter';
 import { makeSubsonicSong } from '@/test/helpers/factories';
 import { queueTrackIdentityKey } from '@/features/playback/utils/playback/queueIdentity';
+import type { LibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
+
+const { getLibraryBrowseScopeMock } = vi.hoisted(() => ({
+  getLibraryBrowseScopeMock: vi.fn<() => LibraryBrowseScope>(() => ({
+    anchorServerId: null,
+    serverIds: [],
+    pairs: [],
+    fingerprint: '',
+    multiServer: false,
+  })),
+}));
+
+vi.mock('@/lib/library/libraryBrowseScope', async importOriginal => ({
+  ...await importOriginal<typeof import('@/lib/library/libraryBrowseScope')>(),
+  getLibraryBrowseScope: getLibraryBrowseScopeMock,
+}));
 
 const SERVER_ID = 'server-a';
 
@@ -74,6 +90,13 @@ beforeEach(() => {
   vi.mocked(getSimilarSongs2ForServer).mockResolvedValue([]);
   vi.mocked(getTopSongsForServer).mockResolvedValue([]);
   vi.mocked(getRandomSongsForServer).mockResolvedValue([]);
+  getLibraryBrowseScopeMock.mockReturnValue({
+    anchorServerId: null,
+    serverIds: [],
+    pairs: [],
+    fingerprint: '',
+    multiServer: false,
+  });
   // Default: filter disabled — the function then short-circuits the enrich path.
   vi.mocked(getMixMinRatingsConfigFromAuth).mockReturnValue({
     enabled: false,
@@ -98,6 +121,33 @@ describe('buildInfiniteQueueCandidates', () => {
 
     expect(getSimilarSongs2ForServer).toHaveBeenCalledWith(SERVER_ID, 'ar-A');
     expect(getTopSongsForServer).toHaveBeenCalledWith(SERVER_ID, 'Artist A');
+  });
+
+  it('uses the selected browse libraries for every infinite-queue source', async () => {
+    getLibraryBrowseScopeMock.mockReturnValue({
+      anchorServerId: SERVER_ID,
+      serverIds: [SERVER_ID],
+      pairs: [{ serverId: SERVER_ID, libraryId: 'music' }],
+      fingerprint: 'music',
+      multiServer: false,
+    });
+    vi.mocked(getSimilarSongs2ForServer).mockResolvedValue([]);
+    vi.mocked(getTopSongsForServer).mockResolvedValue([]);
+    vi.mocked(getRandomSongsForServer).mockResolvedValue([]);
+
+    await buildCandidates(seed());
+
+    expect(getSimilarSongs2ForServer).toHaveBeenCalledWith(SERVER_ID, 'ar-A', 50, ['music']);
+    expect(getTopSongsForServer).toHaveBeenCalledWith(SERVER_ID, 'Artist A', {
+      libraryIds: ['music'],
+    });
+    expect(getRandomSongsForServer).toHaveBeenCalledWith(
+      SERVER_ID,
+      expect.any(Number),
+      'Rock',
+      15000,
+      ['music'],
+    );
   });
 
   it('skips similar when artistId is missing', async () => {

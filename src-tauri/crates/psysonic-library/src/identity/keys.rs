@@ -10,7 +10,10 @@ pub struct TrackClusterKeys {
 }
 
 /// `album_artist` when non-empty, else `artist`.
-fn album_identity_source<'a>(album_artist: Option<&'a str>, artist: Option<&'a str>) -> Option<&'a str> {
+fn album_identity_source<'a>(
+    album_artist: Option<&'a str>,
+    artist: Option<&'a str>,
+) -> Option<&'a str> {
     album_artist
         .map(str::trim)
         .filter(|s| !s.is_empty())
@@ -55,17 +58,20 @@ fn album_name_without_appended_version<'a>(album: &'a str, version: &str) -> &'a
             continue;
         };
         let mut depth = 1usize;
-        let open_index = without_close.char_indices().rev().find_map(|(index, character)| {
-            if character == *close {
-                depth = depth.saturating_add(1);
-                None
-            } else if character == *open {
-                depth = depth.saturating_sub(1);
-                (depth == 0).then_some(index)
-            } else {
-                None
-            }
-        });
+        let open_index = without_close
+            .char_indices()
+            .rev()
+            .find_map(|(index, character)| {
+                if character == *close {
+                    depth = depth.saturating_add(1);
+                    None
+                } else if character == *open {
+                    depth = depth.saturating_sub(1);
+                    (depth == 0).then_some(index)
+                } else {
+                    None
+                }
+            });
         let Some(open_index) = open_index else {
             continue;
         };
@@ -194,15 +200,13 @@ mod tests {
     #[test]
     fn album_version_distinguishes_releases() {
         let standard = build_album_key_with_version(Some("Artist"), "Album", Some("Standard"));
-        let deluxe =
-            build_album_key_with_version(Some("Artist"), "Album", Some("Deluxe Edition"));
+        let deluxe = build_album_key_with_version(Some("Artist"), "Album", Some("Deluxe Edition"));
         assert_ne!(standard, deluxe);
     }
 
     #[test]
     fn appended_album_version_matches_the_plain_album_name() {
-        let plain =
-            build_album_key_with_version(Some("Artist"), "Album", Some("Deluxe Edition"));
+        let plain = build_album_key_with_version(Some("Artist"), "Album", Some("Deluxe Edition"));
         let appended = build_album_key_with_version(
             Some("Artist"),
             "Album (Deluxe Edition)",
@@ -253,11 +257,8 @@ mod tests {
     #[test]
     fn appended_album_version_matches_unicode_case_variants() {
         let plain = build_album_key_with_version(Some("Artist"), "Album", Some("[ÉDITION]"));
-        let appended = build_album_key_with_version(
-            Some("Artist"),
-            "Album [édition]",
-            Some("[ÉDITION]"),
-        );
+        let appended =
+            build_album_key_with_version(Some("Artist"), "Album [édition]", Some("[ÉDITION]"));
         assert_eq!(plain, appended);
     }
 
@@ -274,11 +275,7 @@ mod tests {
 
     #[test]
     fn appended_album_version_matches_nested_wrappers() {
-        let plain = build_album_key_with_version(
-            Some("Artist"),
-            "Album",
-            Some("Deluxe (2024)"),
-        );
+        let plain = build_album_key_with_version(Some("Artist"), "Album", Some("Deluxe (2024)"));
         let appended = build_album_key_with_version(
             Some("Artist"),
             "Album (Deluxe (2024))",

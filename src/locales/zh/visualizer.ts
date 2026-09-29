@@ -17,6 +17,8 @@ export const visualizer = {
     enableNowPlayingHint: '在“正在播放”页面中以卡片形式添加可视化效果。',
     enableFullscreen: '在全屏播放器中显示',
     enableFullscreenHint: '为所有全屏播放器样式添加可视化效果。',
+    pauseWhenUnfocused: 'Psysonic 非活动时暂停',
+    pauseWhenUnfocusedHint: '当其他窗口处于活动状态时停止渲染可视化效果，以降低 CPU 和 GPU 使用率。',
     mode: '默认模式',
     sensitivity: '灵敏度',
     sensitivityHint: '增强安静段落，同时避免响亮段落削波。',
@@ -32,5 +34,8 @@ export const visualizer = {
     frameRate: '帧率',
     frameRateHint: '较低的帧率会减少 CPU 占用，同时保持动画流畅。',
     radioNote: '电台连接到均衡器音频图后即可显示网络电台可视化。部分音频流不支持此路径。',
+    preview: '预览',
+    previewDemo: '未播放时显示演示信号。',
+    previewLive: '正在显示当前播放内容。',
   },
 };

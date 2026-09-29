@@ -1,22 +1,25 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useEffectEvent, useState, useRef } from 'react';
 import { listen } from '@tauri-apps/api/event';
 import { dirname } from '@tauri-apps/api/path';
 import { commands } from '@/generated/bindings';
 import { useTranslation } from 'react-i18next';
 import { version as currentVersion } from '../../../../package.json';
 import { IS_LINUX, IS_MACOS, IS_WINDOWS } from '@/lib/util/platform';
-import { SKIP_KEY, isNewer, isWithinModerationWindow, pickAsset, type ReleaseData, type DlState } from '@/lib/util/appUpdaterHelpers';
+import { SKIP_KEY, isNewerRelease, isWithinModerationWindow, pickAsset, type ReleaseData, type DlState } from '@/lib/util/appUpdaterHelpers';
 
 /** Platforms where the Tauri Updater plugin installs the update from inside
  * the app. Linux stays on the manual download: deb/rpm/AppImage/AUR/Nix have
  * no sensible in-place path. */
 export type UpdaterPlatform = 'macos' | 'windows' | null;
+export type FlatpakBranch = 'stable' | 'rc';
 
 /** All update-modal state, the GitHub release probe and the download/relaunch
  * handlers. The component owns only the early-return guard and the JSX. */
 export function useAppUpdater() {
   const { t } = useTranslation();
+  const isFlatpakBuild = import.meta.env.VITE_PSYSONIC_FLATPAK === '1';
   const [release, setRelease] = useState<ReleaseData | null>(null);
+  const [flatpakBranch, setFlatpakBranch] = useState<FlatpakBranch | null>(null);
   const [dismissed, setDismissed] = useState(false);
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [isArch, setIsArch] = useState(false);
@@ -30,39 +33,58 @@ export function useAppUpdater() {
   const relaunchFnRef = useRef<(() => Promise<void>) | null>(null);
   const updaterPlatform: UpdaterPlatform = IS_MACOS ? 'macos' : IS_WINDOWS ? 'windows' : null;
 
-  const fetchRelease = async (preview = false) => {
+  const fetchRelease = useEffectEvent(async (preview = false) => {
     try {
-      const res = await fetch('https://api.github.com/repos/Psysonic/psysonic/releases/latest');
-      if (!res.ok) return;
-      const data = await res.json();
-      const tag: string = data.tag_name ?? '';
-      const version = tag.replace(/^[^0-9]*/, '');
+      let version: string;
+      let tag: string;
+      let body: string;
+      let assets: ReleaseData['assets'];
+      let publishedAt: string | undefined;
+
+      if (isFlatpakBuild) {
+        const info = await commands.flatpakUpdateInfo();
+        if (!info || (info.branch !== 'stable' && info.branch !== 'rc')) return;
+        version = info.version;
+        tag = info.tag;
+        body = info.body.trim();
+        assets = [];
+        setFlatpakBranch(info.branch);
+      } else {
+        const res = await fetch('https://api.github.com/repos/Psysonic/psysonic/releases/latest');
+        if (!res.ok) return;
+        const data = await res.json();
+        tag = data.tag_name ?? '';
+        version = tag.replace(/^[^0-9]*/, '');
+        body = (data.body ?? '').trim();
+        assets = data.assets ?? [];
+        publishedAt = data.published_at;
+      }
       if (!version) return;
       if (!preview) {
-        if (!isNewer(version, currentVersion)) return;
+        if (!isNewerRelease(version, currentVersion)) return;
         const skipped = localStorage.getItem(SKIP_KEY);
         if (skipped === version) return;
         // Windows updates go through WinGet moderation; hold the notice until
         // the release clears the moderation window so users aren't pointed at a
         // version WinGet hasn't published yet. macOS/Linux use other channels.
-        if (IS_WINDOWS && isWithinModerationWindow(data.published_at, Date.now())) return;
+        if (IS_WINDOWS && isWithinModerationWindow(publishedAt, Date.now())) return;
       }
       setDismissed(false);
       setDlState('idle');
       setRelease({
         version,
         tag,
-        body: (data.body ?? '').trim(),
-        assets: data.assets ?? [],
+        body,
+        assets,
       });
-      if (IS_LINUX) {
+      if (IS_LINUX && !isFlatpakBuild) {
         const arch = await commands.checkArchLinux();
         setIsArch(arch);
       }
     } catch {
       // No network or rate-limited — stay idle
     }
-  };
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -117,7 +139,10 @@ export function useAppUpdater() {
     await relaunchFnRef.current?.();
   };
 
-  const asset = pickAsset(release?.assets ?? []);
+  const asset = isFlatpakBuild ? undefined : pickAsset(release?.assets ?? []);
+  const flatpakUpdateCommand = flatpakBranch
+    ? `flatpak update --user io.github.psysonic.psysonic//${flatpakBranch}`
+    : '';
 
   const handleDownload = async () => {
     // macOS and Windows use the Tauri Updater plugin: it downloads the update
@@ -208,7 +233,7 @@ export function useAppUpdater() {
     if (res.status === 'error') throw new Error(res.error);
   };
 
-  const showAurHint = IS_LINUX && isArch;
+  const showAurHint = IS_LINUX && !isFlatpakBuild && isArch;
   // Windows can also update through WinGet once a release clears moderation
   // (the notice itself is held back for that window, see #1200). Shown next to
   // the in-app install, not instead of it — a WinGet user may prefer to keep
@@ -226,7 +251,8 @@ export function useAppUpdater() {
   return {
     release, dismissed, setDismissed, changelogOpen, setChangelogOpen,
     dlState, dlProgress, dlError, countdown,
-    asset, showAurHint, showWingetHint, updaterPlatform, useTauriUpdater, showInstallBtn, pct,
+    asset, isFlatpakBuild, flatpakBranch, flatpakUpdateCommand,
+    showAurHint, showWingetHint, updaterPlatform, useTauriUpdater, showInstallBtn, pct,
     handleSkip, handleRestartNow, handleDownload, handleShowFolder,
   };
 }

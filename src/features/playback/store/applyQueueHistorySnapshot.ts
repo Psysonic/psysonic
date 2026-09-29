@@ -32,6 +32,7 @@ import { analysisTrackRef } from '@/features/playback/store/analysisTrackRef';
 import { stopRadio } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
 import { syncUserQueueMutationToServer } from '@/features/playback/store/queueSync';
+import { resetSeekRequestForPlaybackChange } from '@/features/playback/store/seekRequestState';
 
 type SetState = (
   partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
@@ -186,6 +187,7 @@ export function applyQueueHistorySnapshot(
   let gen = getPlayGeneration();
   const resyncEngine = Boolean(nextTrack) && !keepPlaybackFromPrior;
   if (resyncEngine || !nextTrack) {
+    resetSeekRequestForPlaybackChange();
     gen = bumpPlayGeneration();
     if (resyncEngine) {
       setIsAudioPaused(false);

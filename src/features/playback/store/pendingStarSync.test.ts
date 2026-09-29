@@ -89,9 +89,24 @@ describe('pendingStarSync', () => {
 
     setActiveServerReachable(false);
     setActiveServerReachable(true);
-    await vi.advanceTimersByTimeAsync(0);
+    // The flush is spaced like any other first attempt, so a server that just
+    // came back does not take the whole backlog in one burst.
+    await vi.advanceTimersByTimeAsync(200);
 
     expect(starMock.mock.calls.length).toBeGreaterThan(1);
+  });
+
+  it('spaces a bulk of ratings instead of firing them all at once', async () => {
+    queueSongRating('t1', 3);
+    queueSongRating('t2', 3);
+    queueSongRating('t3', 3);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(setRatingMock).toHaveBeenCalledTimes(1);
+
+    await vi.runAllTimersAsync();
+    expect(setRatingMock).toHaveBeenCalledTimes(3);
+    expect(setRatingMock.mock.calls.map(call => call[0])).toEqual(['t1', 't2', 't3']);
   });
 
   it('passes serverId through to star/unstar for cross-server favorites', async () => {
@@ -123,7 +138,7 @@ describe('pendingStarSync', () => {
     expect(usePlayerStore.getState().currentTrack?.starred).toBeFalsy();
   });
 
-  it('rates optimistically (track patched), clears override on success', async () => {
+  it('rates optimistically (track patched) and keeps the override on success', async () => {
     queueSongRating('t1', 4);
     // setUserRatingOverride patches the track immediately:
     expect(usePlayerStore.getState().currentTrack?.userRating).toBe(4);
@@ -133,7 +148,9 @@ describe('pendingStarSync', () => {
 
     expect(setRatingMock).toHaveBeenCalledWith('t1', 4);
     const s = usePlayerStore.getState();
-    expect('t1' in s.userRatingOverrides).toBe(false); // cleared
+    // Kept, like the star override: list views read it, and the rows they
+    // render still carry the rating the server sent when the page loaded.
+    expect(s.userRatingOverrides.t1).toBe(4);
     expect(s.currentTrack?.userRating).toBe(4); // track stays patched
   });
 
@@ -149,6 +166,18 @@ describe('pendingStarSync', () => {
     await vi.runAllTimersAsync();
 
     expect(setRatingMock).toHaveBeenCalledWith('shared', 5, { serverId: 'srv-b' });
-    expect(usePlayerStore.getState().userRatingOverrides['srv-b:shared']).toBeUndefined();
+    expect(usePlayerStore.getState().userRatingOverrides['srv-b:shared']).toBe(5);
+    expect(usePlayerStore.getState().userRatingOverrides.shared).toBeUndefined();
+  });
+
+  it('leaves a rating visible to list views after the server confirmed it', async () => {
+    // The context menu writes only through this queue — it cannot reach the
+    // per-page map a row click fills. Dropping the override on success made a
+    // menu rating flash and fall back to the value the page loaded with.
+    queueSongRating('t1', 5);
+    await vi.runAllTimersAsync();
+
+    expect(setRatingMock).toHaveBeenCalledWith('t1', 5);
+    expect(usePlayerStore.getState().userRatingOverrides.t1).toBe(5);
   });
 });

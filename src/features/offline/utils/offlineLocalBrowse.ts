@@ -1,5 +1,10 @@
 import type { ArtistCreditMode, LibraryTrackDto } from '@/lib/api/library';
-import { libraryAdvancedSearch, libraryGetTracksBatchChunked, libraryGetTracksByAlbum } from '@/lib/api/library';
+import {
+  libraryAdvancedSearch,
+  libraryGetTracksBatchChunked,
+  libraryGetTracksByAlbum,
+  libraryListStarred,
+} from '@/lib/api/library';
 import type { SubsonicAlbum, SubsonicArtist, SubsonicGenre, SubsonicSong } from '@/lib/api/subsonicTypes';
 import { useAuthStore } from '@/store/authStore';
 import { useLibraryIndexStore } from '@/store/libraryIndexStore';
@@ -7,6 +12,7 @@ import type { LocalPlaybackEntry } from '@/store/localPlaybackStore';
 import { useLocalPlaybackStore } from '@/store/localPlaybackStore';
 import {
   albumToAlbum,
+  artistToArtist,
   resolveTrackCoverArtId,
   trackToSong,
 } from '@/lib/library/advancedSearchLocal';
@@ -226,54 +232,6 @@ function aggregateArtistsFromTracksForCreditMode(
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function starredIsoFromTrackTimestamps(timestamps: number[]): string {
-  const max = timestamps.length > 0 ? Math.max(...timestamps) : Date.now();
-  return new Date(max).toISOString();
-}
-
-function attachStarredFromTracks(
-  artists: SubsonicArtist[],
-  tracks: LibraryTrackDto[],
-  creditMode: ArtistCreditMode,
-): SubsonicArtist[] {
-  const starredAtByArtistId = new Map<string, number[]>();
-  if (creditMode === 'track') {
-    for (const track of tracks) {
-      if (!track.artistId || track.starredAt == null) continue;
-      const list = starredAtByArtistId.get(track.artistId) ?? [];
-      list.push(track.starredAt);
-      starredAtByArtistId.set(track.artistId, list);
-    }
-  } else {
-    const byAlbum = new Map<string, LibraryTrackDto[]>();
-    for (const track of tracks) {
-      const albumId = track.albumId;
-      if (!albumId) continue;
-      const list = byAlbum.get(albumId) ?? [];
-      list.push(track);
-      byAlbum.set(albumId, list);
-    }
-    for (const albumTracks of byAlbum.values()) {
-      const artistId = resolveAlbumCreditArtistId(
-        albumTracks,
-        pickAlbumGroupArtistFromTrackDtos(albumTracks),
-      );
-      if (!artistId) continue;
-      const starredTs = albumTracks
-        .map(t => t.starredAt)
-        .filter((v): v is number => v != null);
-      if (starredTs.length === 0) continue;
-      const list = starredAtByArtistId.get(artistId) ?? [];
-      list.push(...starredTs);
-      starredAtByArtistId.set(artistId, list);
-    }
-  }
-  return artists.map(artist => ({
-    ...artist,
-    starred: starredIsoFromTrackTimestamps(starredAtByArtistId.get(artist.id) ?? []),
-  }));
-}
-
 function localTracksForArtist(
   tracks: LibraryTrackDto[],
   artistId: string,
@@ -371,12 +329,14 @@ export async function fetchOfflineLocalStarredArtists(
   creditMode: ArtistCreditMode = 'album',
 ): Promise<SubsonicArtist[] | null> {
   if (!offlineLocalBrowseEnabled(serverId)) return null;
-  const tracks = (await fetchBrowsableLocalTrackDtos(serverId)).filter(t => t.starredAt != null);
-  return attachStarredFromTracks(
-    aggregateArtistsFromTracksForCreditMode(tracks, serverId, creditMode),
-    tracks,
-    creditMode,
+  const tracks = await fetchBrowsableLocalTrackDtos(serverId);
+  const availableIds = new Set(
+    aggregateArtistsFromTracksForCreditMode(tracks, serverId, creditMode).map(artist => artist.id),
   );
+  const { artists } = await libraryListStarred(serverId);
+  return artists
+    .map(artistToArtist)
+    .filter(artist => availableIds.has(artist.id));
 }
 
 function filterArtistsByLetterBucket(

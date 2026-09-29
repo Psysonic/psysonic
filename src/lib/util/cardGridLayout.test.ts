@@ -33,16 +33,16 @@ describe('estimateRowHeightPx', () => {
   });
 
   describe('image variants scale with cell width', () => {
-    it('artist grows roughly linearly with cell width, clamped to its band', () => {
+    it('artist grows linearly with cell width above its floor', () => {
       expect(estimateRowHeightPx(200, 'artist')).toBe(272);
       expect(estimateRowHeightPx(50, 'artist')).toBe(200);   // min clamp
-      expect(estimateRowHeightPx(1_000, 'artist')).toBe(520); // max clamp
+      expect(estimateRowHeightPx(1_000, 'artist')).toBe(1_072);
     });
 
-    it('album grows roughly linearly with cell width, clamped to its band', () => {
+    it('album grows linearly with cell width above its floor', () => {
       expect(estimateRowHeightPx(200, 'album')).toBe(308);
       expect(estimateRowHeightPx(50, 'album')).toBe(260);    // min clamp
-      expect(estimateRowHeightPx(1_000, 'album')).toBe(560);  // max clamp
+      expect(estimateRowHeightPx(1_000, 'album')).toBe(1_108);
     });
 
     it('playlist behaves like album', () => {
@@ -52,6 +52,34 @@ describe('estimateRowHeightPx', () => {
     it('offline is taller than album for the track-count footer', () => {
       expect(estimateRowHeightPx(200, 'offline')).toBe(340);
       expect(estimateRowHeightPx(200, 'album')).toBe(308);
+    });
+
+    // The cards these rows carry were measured against the real stylesheets at
+    // tile widths from 180px to 870px: an image tile is `cellWidth + <fixed
+    // text block>` tall, and that block does not grow with the tile. `artist`
+    // sits over an avatar inset 34px from the cell, hence its smaller figure.
+    //
+    // A row estimated shorter than its card is not cosmetic: `VirtualCardGrid`
+    // places rows from this number and never measures them, so the next row is
+    // drawn on top of the previous one. That is what a height cap here used to
+    // do — on a 4K screen at six columns every album row overlapped the one
+    // above it, while eight columns looked fine.
+    const MEASURED_TEXT_BLOCK_PX = {
+      album: 101,
+      playlist: 68,
+      offline: 114,
+      artist: 52,
+    } as const;
+
+    it('never reserves less than the card needs, however wide the tile', () => {
+      for (const [variant, textBlock] of Object.entries(MEASURED_TEXT_BLOCK_PX)) {
+        for (const cellWidth of [200, 452, 600, 870, 1_200]) {
+          expect(
+            estimateRowHeightPx(cellWidth, variant as keyof typeof MEASURED_TEXT_BLOCK_PX),
+            `${variant} at ${cellWidth}px`,
+          ).toBeGreaterThanOrEqual(cellWidth + textBlock);
+        }
+      }
     });
   });
 });

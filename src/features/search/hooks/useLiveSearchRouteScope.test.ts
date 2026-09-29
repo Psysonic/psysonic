@@ -17,6 +17,9 @@ describe('syncLiveSearchRouteScope', () => {
     syncLiveSearchRouteScope('/composers');
     expect(useLiveSearchScopeStore.getState().scope).toBe('composers');
 
+    syncLiveSearchRouteScope('/favorites');
+    expect(useLiveSearchScopeStore.getState().scope).toBe('favorites');
+
     syncLiveSearchRouteScope('/playlists');
     expect(useLiveSearchScopeStore.getState().scope).toBe('playlists');
   });

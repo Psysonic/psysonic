@@ -1,10 +1,11 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, X } from 'lucide-react';
+import { Info, Search, X } from 'lucide-react';
 import SortDropdown, { type SortOption } from '@/ui/SortDropdown';
 import type { PlaylistSortKey, PlaylistSortDir } from '@/features/playlist/utils/playlistDisplayedSongs';
 
 type PlaylistSortValue =
+  | 'default'
   | 'added-newest'
   | 'added-oldest'
   | 'title'
@@ -16,6 +17,7 @@ type PlaylistSortValue =
   | 'plays';
 
 const SORT_MAP: Record<PlaylistSortValue, { key: PlaylistSortKey; dir: PlaylistSortDir }> = {
+  default: { key: 'natural', dir: 'asc' },
   'added-newest': { key: 'position', dir: 'desc' },
   'added-oldest': { key: 'position', dir: 'asc' },
   title: { key: 'title', dir: 'asc' },
@@ -45,6 +47,8 @@ interface Props {
   setSortKey: (k: PlaylistSortKey) => void;
   setSortDir: (d: PlaylistSortDir) => void;
   setSortClickCount: (n: number) => void;
+  /** Whether drag reordering exists for this playlist at all (false for read-only ones). */
+  canReorder?: boolean;
 }
 
 export default function PlaylistFilterToolbar({
@@ -55,25 +59,31 @@ export default function PlaylistFilterToolbar({
   setSortKey,
   setSortDir,
   setSortClickCount,
+  canReorder = false,
 }: Props) {
   const { t } = useTranslation();
+  // Same condition under which `getDisplayedSongs` returns a derived list and a
+  // row drag turns into a queue drag instead of a reorder.
+  const reorderBlocked = canReorder && (sortKey !== 'natural' || filterText.trim() !== '');
 
   // The dropdown and the column-header clicks drive the same (sortKey, sortDir)
-  // state. Map the current state back to a dropdown value so the two stay in
-  // sync; playlist load order (natural) shows as "date added (oldest)" since
-  // they are the same ordering.
+  // state. `natural` is the server/rule order (Feishin-style ID/default).
+  // Position sorts remain the date-added proxy and stay separate.
   const currentSortValue: PlaylistSortValue =
-    sortKey === 'position'
-      ? sortDir === 'desc'
-        ? 'added-newest'
-        : 'added-oldest'
-      : sortKey === 'playCount'
-        ? 'plays'
-        : DIRECT_COLUMN_SORTS.has(sortKey)
-          ? (sortKey as PlaylistSortValue)
-          : 'added-oldest';
+    sortKey === 'natural'
+      ? 'default'
+      : sortKey === 'position'
+        ? sortDir === 'desc'
+          ? 'added-newest'
+          : 'added-oldest'
+        : sortKey === 'playCount'
+          ? 'plays'
+          : DIRECT_COLUMN_SORTS.has(sortKey)
+            ? (sortKey as PlaylistSortValue)
+            : 'default';
 
   const sortOptions: SortOption<PlaylistSortValue>[] = [
+    { value: 'default', label: t('playlists.sortDefaultServerOrder') },
     { value: 'added-newest', label: t('playlists.sortDateAddedNewest') },
     { value: 'added-oldest', label: t('playlists.sortDateAddedOldest') },
     { value: 'title', label: t('albumDetail.trackTitle') },
@@ -114,6 +124,22 @@ export default function PlaylistFilterToolbar({
           </button>
         )}
       </div>
+      {reorderBlocked && (
+        <div className="playlist-reorder-hint" role="status">
+          <Info size={14} aria-hidden="true" />
+          <span>{t('playlists.reorderHint', { order: t('playlists.sortDefaultServerOrder') })}</span>
+          <button
+            type="button"
+            className="btn btn-ghost playlist-reorder-hint-reset"
+            onClick={() => {
+              setFilterText('');
+              onSortChange('default');
+            }}
+          >
+            {t('playlists.reorderHintReset')}
+          </button>
+        </div>
+      )}
       <div style={{ marginLeft: 'auto' }}>
         <SortDropdown
           value={currentSortValue}

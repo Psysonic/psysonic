@@ -67,9 +67,10 @@ describe('hot-cache prefetch producer', () => {
     ).toBe(true));
   });
 
-  it('revalidates a legacy unverified Navidrome hot-cache entry', async () => {
+  it('revalidates a legacy-key unverified non-Navidrome hot-cache entry in place', async () => {
+    useAuthStore.setState({ subsonicServerIdentityByServer: { 'srv-a': { type: 'gonic' } } });
     useLocalPlaybackStore.getState().upsertEntry({
-      serverIndexKey: 'a.test',
+      serverIndexKey: 'srv-a',
       trackId: 'next',
       localPath: '/media/cache/a.test/next.flac',
       sizeBytes: 789,
@@ -83,11 +84,12 @@ describe('hot-cache prefetch producer', () => {
 
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith(
       'download_track_local',
-      expect.objectContaining({ trackId: 'next' }),
+      expect.objectContaining({ trackId: 'next', serverIndexKey: 'srv-a' }),
     ));
     await waitFor(() => expect(
-      useLocalPlaybackStore.getState().getEntry('next', 'a.test')?.originalBytesVerified,
+      useLocalPlaybackStore.getState().getEntry('next', 'srv-a')?.originalBytesVerified,
     ).toBe(true));
+    expect(useLocalPlaybackStore.getState().getEntry('next', 'a.test')).toBeNull();
   });
 });
 

@@ -50,6 +50,7 @@ export const common = {
   updaterInstallHint: 'Psysonic を閉じて、インストーラーを手動で実行してください。',
   updaterAurHint: 'AUR からアップデートをインストール:',
   updaterWingetHint: 'または WinGet で更新:',
+  updaterFlatpakHint: 'このコマンドを実行してから Psysonic を再起動してください:',
   updaterErrorMsg: 'ダウンロードに失敗しました',
   updaterWinReady: 'アップデートはバックグラウンドでダウンロード・検証・インストールされます。手動の操作は不要で、Psysonic は自動的に終了して再起動します。',
   updaterWinInstallingTitle: 'アップデートをインストール中',

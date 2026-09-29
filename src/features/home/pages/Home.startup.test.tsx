@@ -12,6 +12,7 @@ const homeMocks = vi.hoisted(() => ({
   mainstageTrace: { enabled: false, revision: 0 },
   reportCachedHomeDiagnostics: vi.fn(),
   scope: { key: 'scope', version: 1 },
+  startupSplashDismiss: vi.fn(),
   unavailableServerIds: new Set<string>(),
 }));
 
@@ -122,7 +123,9 @@ vi.mock('@/features/home/pages/homeDiagnosticHelpers', () => ({
   preserveDisabledHomeSections: (snapshot: HomeFeedSnapshot) => snapshot,
   reportCachedHomeDiagnostics: homeMocks.reportCachedHomeDiagnostics,
 }));
-vi.mock('@/app/startupSplash', () => ({ scheduleStartupSplashDismiss: vi.fn() }));
+vi.mock('@/app/startupSplash', () => ({
+  scheduleStartupSplashDismiss: homeMocks.startupSplashDismiss,
+}));
 
 import Home from '@/features/home/pages/Home';
 import {
@@ -184,6 +187,7 @@ describe('Home startup feed loading', () => {
     homeMocks.mainstageTrace.enabled = false;
     homeMocks.mainstageTrace.revision = 0;
     homeMocks.reportCachedHomeDiagnostics.mockReset();
+    homeMocks.startupSplashDismiss.mockReset();
     homeMocks.loadHomeChronologicalFeed.mockResolvedValue({
       status: 'success', albums: [], hasMore: false, durationMs: 0,
     });
@@ -197,6 +201,22 @@ describe('Home startup feed loading', () => {
       musicFoldersByServer: { [server.id]: [] },
       libraryBrowseSelectionByServer: { [server.id]: [] },
       libraryBrowseScopeVersion: 1,
+    });
+  });
+
+  it('reveals the application before the cold home feed resolves', async () => {
+    const coldFeed = deferred<{ snapshot: HomeFeedSnapshot; emptySnapshotReliable: boolean }>();
+    homeMocks.loadHomeFeedWithStatus.mockReturnValue(coldFeed.promise);
+    useMigrationStore.setState({ phase: 'completed' });
+
+    renderWithProviders(<Home />);
+
+    await waitFor(() => expect(homeMocks.loadHomeFeedWithStatus).toHaveBeenCalledTimes(1));
+    expect(homeMocks.startupSplashDismiss).toHaveBeenCalled();
+
+    await act(async () => {
+      coldFeed.resolve({ snapshot: snapshot('fresh'), emptySnapshotReliable: true });
+      await coldFeed.promise;
     });
   });
 

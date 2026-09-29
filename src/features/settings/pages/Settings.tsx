@@ -15,6 +15,7 @@ import { LibraryTab } from '@/features/settings/components/LibraryTab';
 import { LyricsTab } from '@/features/settings/components/LyricsTab';
 import { PersonalisationTab } from '@/features/settings/components/PersonalisationTab';
 import { ServersTab } from '@/features/settings/components/ServersTab';
+import { SettingsBottomSpacer } from '@/features/settings/components/SettingsBottomSpacer';
 import { StorageTab } from '@/features/settings/components/StorageTab';
 import { SystemTab } from '@/features/settings/components/SystemTab';
 import { searchSettings, type SettingsSearchHit } from '@/features/settings/components/settingsSearch';
@@ -44,7 +45,7 @@ export default function Settings() {
   const searchResultsListRef = useRef<HTMLUListElement>(null);
 
   useEffect(() => {
-    const st = routeState as { openAddServerInvite?: ServerMagicPayload; tab?: Tab } | null;
+    const st = routeState as { openAddServerInvite?: ServerMagicPayload; tab?: Tab; focus?: string } | null;
     const inv = st?.openAddServerInvite;
     if (inv) {
       // React Compiler set-state-in-effect rule: local state synced with store/prop inputs when the effect’s dependencies change.
@@ -58,6 +59,9 @@ export default function Settings() {
       return;
     }
     if (st?.tab) setActiveTab(st.tab);
+    // A caller can name the sub-section it means, which lands on the same
+    // scroll-and-flash path the settings search uses.
+    if (st?.focus) setPendingFocusTitle(st.focus);
   }, [routeState, location.pathname, location.search, location.hash, navigate]);
 
   // Settings-Suche: matcht SETTINGS_INDEX gegen den Query (Substring + Fuzzy).
@@ -347,6 +351,8 @@ export default function Settings() {
       {activeTab === 'system' && <SystemTab />}
 
       </>}
+
+      <SettingsBottomSpacer />
     </div>
   );
 }

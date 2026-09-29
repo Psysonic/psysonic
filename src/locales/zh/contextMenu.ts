@@ -25,9 +25,10 @@ export const contextMenu = {
   addToPlaylist: '添加到播放列表',
   selectedPlaylists: '已选择 {{count}} 个播放列表',
   selectedAlbums: '已选择 {{count}} 个专辑',
+  selectedSongs: '已选择 {{count}} 首曲目',
   selectedArtists: '已选择 {{count}} 个艺术家',
   songInfo: '歌曲信息',
-  shareLink: '复制分享链接',
+  shareLink: '分享链接',
   shareCopied: '分享链接已复制到剪贴板。',
   shareCopyFailed: '无法复制到剪贴板。',
 };

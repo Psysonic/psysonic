@@ -36,6 +36,33 @@
   min-height: 140px;
 }
 
+/* ─── Settings preview ───
+   The configured visualizer above its controls, running on playback or on the
+   demo signal; the line underneath says which of the two it is showing. */
+
+.psy-viz-preview {
+  margin-bottom: var(--space-3);
+}
+
+/* Without a set height the canvas keeps its default 2:1 box, which on a wide
+   settings page makes the preview taller than the controls it previews. */
+.psy-viz-preview .psy-viz-panel {
+  height: 150px;
+  min-height: 0;
+}
+
+.psy-viz-preview .psy-viz-canvas {
+  height: 100%;
+  min-height: 0;
+}
+
+.psy-viz-preview-source {
+  margin: var(--space-1) 0 0;
+  padding-left: 0;
+  padding-right: 0;
+  color: var(--text-secondary);
+}
+
 /* ─── Controls ─── */
 
 .psy-viz-controls {

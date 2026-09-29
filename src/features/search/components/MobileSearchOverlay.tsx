@@ -213,7 +213,15 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
   const showEmpty = !query && !scope;
 
   return createPortal(
-    <div className="mobile-search-overlay">
+    <div
+      className="mobile-search-overlay"
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return;
+        event.preventDefault();
+        event.stopPropagation();
+        onClose();
+      }}
+    >
       {/* ── Search bar ── */}
       <div className="mobile-search-bar">
         <div className={`mobile-search-field${scope ? ' mobile-search-field--scoped' : ''}`}>
@@ -343,6 +351,7 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
             onOpenAlbum={share.openShareAlbum}
             onOpenArtist={share.openShareArtist}
             onOpenComposer={share.openShareComposer}
+            onOpenPlaylist={share.openSharePlaylist}
             shareTrackSong={share.shareTrackSong}
             shareTrackResolving={share.shareTrackResolving}
             shareTrackUnavailable={share.shareTrackUnavailable}
@@ -355,6 +364,9 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
             shareComposer={share.shareComposer}
             shareComposerResolving={share.shareComposerResolving}
             shareComposerUnavailable={share.shareComposerUnavailable}
+            sharePlaylist={share.sharePlaylist}
+            sharePlaylistResolving={share.sharePlaylistResolving}
+            sharePlaylistUnavailable={share.sharePlaylistUnavailable}
             navidromeShareInfo={share.navidromeShareInfo}
             navidromeShareResolving={share.navidromeShareResolving}
             navidromeShareError={share.navidromeShareError}
@@ -406,6 +418,7 @@ export default function MobileSearchOverlay({ onClose }: { onClose: () => void }
                         displayCssPx={MOBILE_SEARCH_THUMB_CSS_PX}
                         surface="dense"
                         className="mobile-search-thumb"
+                        album={a}
                         alt=""
                         ensurePriority="high"
                       />

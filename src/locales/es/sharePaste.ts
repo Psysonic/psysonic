@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'No se encontró este álbum en el servidor.',
   artistUnavailable: 'No se encontró este artista en el servidor.',
   composerUnavailable: 'No se encontró este compositor en el servidor.',
+  playlistUnavailable: 'No se encontró esta lista de reproducción en el servidor.',
   openedTrack: 'Reproduciendo la canción compartida.',
   openedAlbum: 'Abriendo el álbum compartido.',
   openedArtist: 'Abriendo el artista compartido.',
   openedComposer: 'Abriendo el compositor compartido.',
+  openedPlaylist: 'Abriendo la lista de reproducción compartida.',
   openedQueue_one: 'Reproduciendo {{count}} pista del enlace para compartir.',
   openedQueue_other: 'Reproduciendo {{count}} pistas del enlace para compartir.',
   openedQueuePartial:

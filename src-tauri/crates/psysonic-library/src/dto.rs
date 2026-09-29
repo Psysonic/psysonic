@@ -477,6 +477,15 @@ pub struct GenreAlbumCountDto {
     pub song_count: u32,
 }
 
+/// Per-file-mood album/track totals from the local mood index.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct MoodAlbumCountDto {
+    pub value: String,
+    pub album_count: u32,
+    pub song_count: u32,
+}
+
 /// `library_list_albums_by_genre` request — paginated genre album browse (local index).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -508,6 +517,42 @@ fn default_genre_album_limit() -> u32 {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LibraryGenreAlbumsResponse {
+    pub albums: Vec<LibraryAlbumDto>,
+    pub has_more: bool,
+    pub total: Option<u32>,
+    pub source: String,
+}
+
+/// `library_list_albums_by_mood` request — paginated file-mood album browse.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryMoodAlbumsRequest {
+    pub server_id: String,
+    pub mood: String,
+    #[serde(default)]
+    pub library_scope: Option<String>,
+    #[serde(default)]
+    pub library_scopes: Option<Vec<LibraryScopePair>>,
+    #[serde(default)]
+    pub sort: Vec<LibrarySortClause>,
+    #[serde(default = "default_mood_album_limit")]
+    pub limit: u32,
+    #[serde(default)]
+    pub offset: u32,
+    #[serde(default)]
+    pub include_total: bool,
+    #[serde(default)]
+    pub count_only: bool,
+}
+
+fn default_mood_album_limit() -> u32 {
+    50
+}
+
+/// `library_list_albums_by_mood` response.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryMoodAlbumsResponse {
     pub albums: Vec<LibraryAlbumDto>,
     pub has_more: bool,
     pub total: Option<u32>,
@@ -571,6 +616,7 @@ pub struct LibraryArtistDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub name_sort: Option<String>,
     pub album_count: Option<i64>,
+    pub starred_at: Option<i64>,
     pub synced_at: i64,
     pub raw_json: Value,
 }
@@ -1305,7 +1351,10 @@ mod tests {
         let mut row = sample_row();
         row.raw_json = "{not valid json}".into();
         let dto = LibraryTrackDto::from_row(&row);
-        assert!(dto.raw_json.is_null(), "invalid JSON must surface as Value::Null");
+        assert!(
+            dto.raw_json.is_null(),
+            "invalid JSON must surface as Value::Null"
+        );
     }
 
     #[test]
@@ -1380,10 +1429,7 @@ mod tests {
             n1_bulk_unreliable: None,
         };
         let json = serde_json::to_value(dto).unwrap();
-        assert_eq!(
-            json.get("syncPhase").and_then(|v| v.as_str()),
-            Some("idle")
-        );
+        assert_eq!(json.get("syncPhase").and_then(|v| v.as_str()), Some("idle"));
         // `null` survives as JSON null, not omitted — explicit shape
         // for the WebView so it can distinguish "missing" from
         // "unset".

@@ -15,15 +15,15 @@ use super::helpers::*;
 use super::hi_res_blend::{self, OutgoingBlendSnapshot};
 use super::ipc::{maybe_emit_normalization_state, NormalizationStatePayload};
 use super::play_input::{select_play_input, url_format_hint, PlayInputContext};
+use super::playback_rate::{preserve_pitch_will_run, raw_counter_samples_for_content_position};
 use super::preload_commands::{publish_preloaded_if_current, PreloadSnapshot};
-use super::source_build::{build_playback_source_with_probe_fallback, BuildSourceArgs};
+use super::preview::preview_clear_for_new_main_playback;
+use super::progress_task::spawn_progress_task;
 use super::sink_swap::{
     spawn_legacy_stream_start_when_armed, swap_in_new_sink, LegacyStreamStartWhenArmed,
     SinkSwapInputs,
 };
-use super::playback_rate::{preserve_pitch_will_run, raw_counter_samples_for_content_position};
-use super::preview::preview_clear_for_new_main_playback;
-use super::progress_task::spawn_progress_task;
+use super::source_build::{build_playback_source_with_probe_fallback, BuildSourceArgs};
 use super::sources::CancellableSource;
 use super::state::{install_current_source_done, ChainedInfo, PreloadedTrack};
 
@@ -34,6 +34,7 @@ fn restore_chain_preload_if_current(
     snapshot: PreloadSnapshot,
     url: &str,
     raw_bytes: &Arc<Vec<u8>>,
+    local_original_verified: Option<bool>,
 ) {
     let _ = publish_preloaded_if_current(
         &state.generation,
@@ -43,6 +44,7 @@ fn restore_chain_preload_if_current(
         PreloadedTrack {
             url: url.to_string(),
             data: (**raw_bytes).clone(),
+            local_original_verified,
         },
     );
 }
@@ -60,7 +62,7 @@ fn restore_chain_preload_if_current(
 /// file extension, so this helps pick a Symphonia `format_hint` for ranged HTTP.
 #[tauri::command]
 // NOTE: excluded from tauri-specta collect_commands! — specta's SpectaFn is only
-// implemented up to 10 args and this has 24. Typing it needs the args bundled into
+// implemented up to 10 args and this has 25. Typing it needs the args bundled into
 // a struct (a behaviour/contract change), tracked for the D4 flip; stays on
 // generate_handler! for now.
 #[allow(clippy::too_many_arguments)]
@@ -75,9 +77,10 @@ pub async fn audio_play(
     fallback_db: f32,
     manual: bool, // true = user-initiated skip → bypass crossfade, start immediately
     hi_res_enabled: bool, // false = safe 44.1 kHz mode; true = native rate (alpha)
-  hi_res_crossfade_resample_hz: Option<u32>, // 44100 / 88200 / 96000 when hi-res + crossfade
+    hi_res_crossfade_resample_hz: Option<u32>, // 44100 / 88200 / 96000 when hi-res + crossfade
     analysis_track_id: Option<String>,
     server_id: Option<String>,
+    local_original_verified: Option<bool>,
     stream_format_suffix: Option<String>,
     // Silent load: no `audio:playing`, sink stays paused. Optional + defaults to
     // `false` so older/external `audio_play` callers that omit it still work.
@@ -138,7 +141,10 @@ pub async fn audio_play(
     // the current source is still playing until the chain drains. User-initiated
     // play must clear the chain and start this URL immediately (standard path).
     if gapless && !manual {
-        let already_chained = state.chained_info.lock().unwrap()
+        let already_chained = state
+            .chained_info
+            .lock()
+            .unwrap()
             .as_ref()
             .map(|c| same_playback_target(&c.url, &url))
             .unwrap_or(false);
@@ -155,7 +161,9 @@ pub async fn audio_play(
     // chained_info (avoids a race where it sees current_done + empty chain).
     let gen = {
         let _commit_guard = state.playback_commit_lock.lock().unwrap();
-        state.generation.fetch_add(1, Ordering::SeqCst) + 1
+        let gen = state.generation.fetch_add(1, Ordering::SeqCst) + 1;
+        state.invalidate_pending_seek();
+        gen
     };
     // Ranged/legacy HTTP paths reset this to false in `select_play_input`.
     state.stream_playback_armed.store(true, Ordering::SeqCst);
@@ -163,11 +171,17 @@ pub async fn audio_play(
     // Manual skip onto the gapless-pre-chained track: reuse raw bytes (no HTTP;
     // preload cache was already consumed when the chain was built). Otherwise
     // clear any stale chain metadata.
-    let reuse_chained_bytes: Option<Vec<u8>> = if gapless && manual {
+    let reuse_chained_bytes: Option<(Vec<u8>, Option<bool>)> = if gapless && manual {
         let mut ci = state.chained_info.lock().unwrap();
-        if ci.as_ref().is_some_and(|c| same_playback_target(&c.url, &url)) {
+        if ci
+            .as_ref()
+            .is_some_and(|c| same_playback_target(&c.url, &url))
+        {
             ci.take().map(|info| {
-                Arc::try_unwrap(info.raw_bytes).unwrap_or_else(|a| (*a).clone())
+                (
+                    Arc::try_unwrap(info.raw_bytes).unwrap_or_else(|a| (*a).clone()),
+                    info.local_original_verified,
+                )
             })
         } else {
             *ci = None;
@@ -194,7 +208,10 @@ pub async fn audio_play(
     *state.current_analysis_track_id.lock().unwrap() = logical_trim.clone();
     let cache_id_for_tasks = analysis_cache_track_id(logical_trim.as_deref(), &url);
     // Playback server scope for the analysis-cache write key (empty → legacy '').
-    let analysis_server_id = server_id.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let analysis_server_id = server_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
     // Pin it so the gain-resolution + replay-gain-update + device-resume reads
     // scope to this server too (mirrors `current_analysis_track_id`).
     *state.current_playback_server_id.lock().unwrap() = analysis_server_id.map(str::to_string);
@@ -217,12 +234,15 @@ pub async fn audio_play(
             format_hint: format_hint.as_deref(),
             cache_id_for_tasks: cache_id_for_tasks.as_deref(),
             server_id: analysis_server_id,
+            local_original_verified,
             needs_partial_loudness: gain_inputs.needs_partial_loudness(),
             reuse_chained_bytes,
         },
         &state,
         &app,
-    ).await? {
+    )
+    .await?
+    {
         Some(input) => input,
         None => {
             crate::app_deprintln!(
@@ -233,11 +253,12 @@ pub async fn audio_play(
         }
     };
 
-
     if state.generation.load(Ordering::SeqCst) != gen {
         crate::app_deprintln!(
             "[audio] audio_play superseded after select_play_input: gen={} cur={} track_id={:?}",
-            gen, state.generation.load(Ordering::SeqCst), cache_id_for_tasks
+            gen,
+            state.generation.load(Ordering::SeqCst),
+            cache_id_for_tasks
         );
         return Ok(());
     }
@@ -283,8 +304,7 @@ pub async fn audio_play(
     let crossfade_secs_val = if let Some(override_secs) = crossfade_secs_override {
         override_secs.clamp(0.5, 30.0)
     } else {
-        f32::from_bits(state.crossfade_secs.load(Ordering::Relaxed))
-            .clamp(0.5, 12.0)
+        f32::from_bits(state.crossfade_secs.load(Ordering::Relaxed)).clamp(0.5, 12.0)
     };
 
     // Measure how much audio Track A actually has left right now.
@@ -364,12 +384,16 @@ pub async fn audio_play(
         } else {
             crate::app_deprintln!(
                 "[audio] suppressed audio:error for superseded play (gen={} cur={}): {}",
-                gen, state.generation.load(Ordering::SeqCst), e
+                gen,
+                state.generation.load(Ordering::SeqCst),
+                e
             );
         }
         e
     })?;
-    state.current_is_seekable.store(playback_source.is_seekable, Ordering::SeqCst);
+    state
+        .current_is_seekable
+        .store(playback_source.is_seekable, Ordering::SeqCst);
     let source_seekable = playback_source.is_seekable;
     let built = playback_source.built;
     let mut source = built.source;
@@ -377,10 +401,15 @@ pub async fn audio_play(
     let output_rate = built.output_rate;
     let output_channels = built.output_channels;
     let resolved_format = built.resolved_format;
+    let streaming_seek = built.streaming_seek.clone();
 
     // Store the actual output rate/channels for position calculation.
-    state.current_sample_rate.store(output_rate, Ordering::Relaxed);
-    state.current_channels.store(output_channels as u32, Ordering::Relaxed);
+    state
+        .current_sample_rate
+        .store(output_rate, Ordering::Relaxed);
+    state
+        .current_channels
+        .store(output_channels as u32, Ordering::Relaxed);
 
     if state.generation.load(Ordering::SeqCst) != gen {
         return Ok(());
@@ -391,34 +420,33 @@ pub async fn audio_play(
     // the server transcodes). Emitted before the play/deferred-start branching
     // so it fires on both paths. The frontend stamps it onto the current track.
     if let Some(fmt) = resolved_format.as_ref() {
-        let ev = crate::decode::AudioFormatEvent::from_info(fmt, crate::decode::AudioFormatIdentity {
-            track_id: logical_trim.clone(),
-            server_id: analysis_server_id.map(str::to_string),
-            generation: Some(gen),
-            stream_cap_kbps: crate::play_input::url_stream_cap_kbps(&url),
-        });
+        let ev = crate::decode::AudioFormatEvent::from_info(
+            fmt,
+            crate::decode::AudioFormatIdentity {
+                track_id: logical_trim.clone(),
+                server_id: analysis_server_id.map(str::to_string),
+                generation: Some(gen),
+                stream_cap_kbps: crate::play_input::url_stream_cap_kbps(&url),
+            },
+        );
         app.emit("audio:format", ev).ok();
     }
 
     let current_stream_rate = state.stream_sample_rate.load(Ordering::Relaxed);
     let current_requested_rate = state.stream_requested_rate.load(Ordering::Relaxed);
-    let outgoing_blend: Option<OutgoingBlendSnapshot> =
-        if let Some(blend) = blend_rate {
-            if crossfade_enabled
-                && current_requested_rate > 0
-                && current_requested_rate != blend
-            {
-                hi_res_blend::capture_outgoing_blend_snapshot(
-                    &state,
-                    outgoing_fade_secs,
-                    actual_fade_secs,
-                )
-            } else {
-                None
-            }
+    let outgoing_blend: Option<OutgoingBlendSnapshot> = if let Some(blend) = blend_rate {
+        if crossfade_enabled && current_requested_rate > 0 && current_requested_rate != blend {
+            hi_res_blend::capture_outgoing_blend_snapshot(
+                &state,
+                outgoing_fade_secs,
+                actual_fade_secs,
+            )
         } else {
             None
-        };
+        }
+    } else {
+        None
+    };
 
     if outgoing_blend.is_some() {
         hi_res_blend::detach_current_sink_for_blend_reopen(&state);
@@ -472,14 +500,8 @@ pub async fn audio_play(
     }
 
     if let (Some(snap), Some(blend)) = (&outgoing_blend, blend_rate) {
-        if let Err(e) = hi_res_blend::spawn_outgoing_blend_resample(
-            &app,
-            &state,
-            snap,
-            blend,
-            gen,
-        )
-        .await
+        if let Err(e) =
+            hi_res_blend::spawn_outgoing_blend_resample(&app, &state, snap, blend, gen).await
         {
             crate::app_eprintln!("{e}");
         }
@@ -549,7 +571,34 @@ pub async fn audio_play(
     // re-seed `samples_played` + `seek_offset` explicitly after the swap (below)
     // so the seekbar and the crossfade-remaining math are content-relative.
     let did_start_seek = if start_secs > 0.05 && source_seekable {
-        source.try_seek(Duration::from_secs_f64(start_secs)).is_ok()
+        let target = Duration::from_secs_f64(start_secs);
+        let prepared = if let Some(handle) = streaming_seek.clone() {
+            match tokio::task::spawn_blocking(move || {
+                handle.prepare_seek(target, Duration::ZERO, Duration::from_millis(700))
+            })
+            .await
+            {
+                Ok(Ok(ticket)) => ticket,
+                Ok(Err(error)) => {
+                    crate::app_deprintln!("[seek] B-head prepare skipped: {error}");
+                    None
+                }
+                Err(error) => {
+                    crate::app_deprintln!("[seek] B-head worker join failed: {error}");
+                    None
+                }
+            }
+        } else {
+            None
+        };
+        if let Some(ticket) = prepared {
+            let target_reached = ticket.target_error().is_none();
+            source.try_seek(ticket.commit_position()).is_ok() && target_reached
+        } else if streaming_seek.is_none() {
+            source.try_seek(target).is_ok()
+        } else {
+            false
+        }
     } else {
         false
     };
@@ -557,11 +606,7 @@ pub async fn audio_play(
     sink.append(source);
 
     if needs_prefill {
-        let prefill_ms = if needs_preserve_prefill {
-            800
-        } else {
-            500
-        };
+        let prefill_ms = if needs_preserve_prefill { 800 } else { 500 };
         tokio::time::sleep(Duration::from_millis(prefill_ms)).await;
         if state.generation.load(Ordering::SeqCst) != gen {
             return Ok(()); // skipped during pre-fill — abort silently
@@ -576,18 +621,23 @@ pub async fn audio_play(
         return Ok(());
     }
 
-    swap_in_new_sink(&state, SinkSwapInputs {
-        sink,
-        duration_secs,
-        volume,
-        gain_linear,
-        fadeout_trigger: built.fadeout_trigger,
-        fadeout_samples: built.fadeout_samples,
-        crossfade_enabled,
-        actual_fade_secs,
-        outgoing_fade_secs,
-        start_paused,
-    });
+    swap_in_new_sink(
+        &state,
+        SinkSwapInputs {
+            generation: gen,
+            sink,
+            duration_secs,
+            volume,
+            gain_linear,
+            fadeout_trigger: built.fadeout_trigger,
+            fadeout_samples: built.fadeout_samples,
+            crossfade_enabled,
+            actual_fade_secs,
+            outgoing_fade_secs,
+            start_paused,
+            streaming_seek,
+        },
+    );
     drop(stream_attach);
 
     // B-head: `swap_in_new_sink` resets `seek_offset` to 0 and starts the play
@@ -657,6 +707,8 @@ pub async fn audio_play(
         state.gapless_switch_at.clone(),
         state.current_playback_url.clone(),
         state.stream_playback_armed.clone(),
+        state.pending_seek.clone(),
+        state.source_transition_lock.clone(),
         state.playback_rate.clone(),
     );
 
@@ -673,7 +725,7 @@ pub async fn audio_play(
 /// audio_play() checks chained_info.url on arrival: if it matches, it returns
 /// immediately without touching the Sink (pure no-op on the audio path).
 #[tauri::command]
-// NOTE: excluded from tauri-specta collect_commands! — 13 args exceed specta's
+// NOTE: excluded from tauri-specta collect_commands! — 14 args exceed specta's
 // 10-arg SpectaFn limit; needs arg-bundling for the D4 flip. Stays on
 // generate_handler! for now.
 #[allow(clippy::too_many_arguments)]
@@ -690,13 +742,17 @@ pub async fn audio_chain_preload(
     hi_res_crossfade_resample_hz: Option<u32>,
     analysis_track_id: Option<String>,
     server_id: Option<String>,
+    local_original_verified: Option<bool>,
     app: AppHandle,
     state: State<'_, AudioEngine>,
 ) -> Result<(), String> {
     // Idempotent: already chained this track → nothing to do.
     {
         let chained = state.chained_info.lock().unwrap();
-        if chained.as_ref().is_some_and(|c| same_playback_target(&c.url, &url)) {
+        if chained
+            .as_ref()
+            .is_some_and(|c| same_playback_target(&c.url, &url))
+        {
             return Ok(());
         }
     }
@@ -709,28 +765,31 @@ pub async fn audio_chain_preload(
     let snapshot = PreloadSnapshot::capture(&state);
 
     // Fetch bytes — use preload cache if available, otherwise HTTP.
-    let data: Vec<u8> = {
+    let (data, retained_local_original_verified): (Vec<u8>, Option<bool>) = {
         let cached = {
             let mut preloaded = state.preloaded.lock().unwrap();
-            if preloaded.as_ref().is_some_and(|p| same_playback_target(&p.url, &url)) {
-                preloaded.take().map(|p| p.data)
+            if preloaded
+                .as_ref()
+                .is_some_and(|p| same_playback_target(&p.url, &url))
+            {
+                preloaded
+                    .take()
+                    .map(|p| (p.data, p.local_original_verified))
             } else {
                 None
             }
         };
-        if let Some(d) = cached {
-            d
+        if let Some(retained) = cached {
+            retained
         } else if let Some(path) = url.strip_prefix("psysonic-local://") {
-            tokio::fs::read(path).await.map_err(|e| e.to_string())?
-        } else {
-            let resp = crate::engine::playback_scoped_get(
-                &state,
-                &app,
-                &url,
-                server_id.as_deref(),
+            (
+                tokio::fs::read(path).await.map_err(|e| e.to_string())?,
+                local_original_verified,
             )
-            .send()
-            .await
+        } else {
+            let resp = crate::engine::playback_scoped_get(&state, &app, &url, server_id.as_deref())
+                .send()
+                .await
                 .map_err(|e| e.to_string())?;
             if !resp.status().is_success() {
                 return Ok(()); // silently fail — audio_play will retry
@@ -744,8 +803,13 @@ pub async fn audio_chain_preload(
                 }
                 buf.extend_from_slice(&chunk.map_err(|e| e.to_string())?);
             }
-            buf
+            (buf, None)
         }
+    };
+    let local_original_verified = if url.starts_with("psysonic-local://") {
+        retained_local_original_verified
+    } else {
+        local_original_verified
     };
 
     // Bail if the user skipped to a different track while we were downloading.
@@ -759,28 +823,33 @@ pub async fn audio_chain_preload(
         .as_ref()
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
-    let analysis_server_id = server_id.as_deref().map(str::trim).filter(|s| !s.is_empty());
+    let analysis_server_id = server_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
 
-    if let Some(track_id) = analysis_cache_track_id(logical_trim.as_deref(), &url) {
-        let (sid, priority) = crate::analysis_dispatch::prepare_playback_analysis(
-            &app,
-            &state,
-            analysis_server_id,
-            &track_id,
-            Some(psysonic_analysis::analysis_runtime::AnalysisBackfillPriority::Middle),
-        );
-        let bytes = (*raw_bytes).clone();
-        crate::analysis_dispatch::spawn_track_analysis_bytes(
-            app.clone(),
-            crate::analysis_dispatch::TrackAnalysisOrigin::GaplessChainReady,
-            sid,
-            track_id,
-            bytes,
-            Some(url.clone()),
-            priority,
-            Some((snapshot.generation, state.generation.clone())),
-            None,
-        );
+    if crate::analysis_dispatch::source_analysis_allowed(&url, local_original_verified) {
+        if let Some(track_id) = analysis_cache_track_id(logical_trim.as_deref(), &url) {
+            let (sid, priority) = crate::analysis_dispatch::prepare_playback_analysis(
+                &app,
+                &state,
+                analysis_server_id,
+                &track_id,
+                Some(psysonic_analysis::analysis_runtime::AnalysisBackfillPriority::Middle),
+            );
+            let bytes = (*raw_bytes).clone();
+            crate::analysis_dispatch::spawn_track_analysis_bytes(
+                app.clone(),
+                crate::analysis_dispatch::TrackAnalysisOrigin::GaplessChainReady,
+                sid,
+                track_id,
+                bytes,
+                Some(url.clone()),
+                priority,
+                Some((snapshot.generation, state.generation.clone())),
+                None,
+            );
+        }
     }
 
     // Only `gain_linear` is needed — `effective_volume` is intentionally NOT
@@ -788,7 +857,13 @@ pub async fn audio_chain_preload(
     // current track ends, and `Sink::set_volume` affects the WHOLE Sink (incl.
     // the still-playing current source). Volume for the chained track is
     // applied at the gapless transition in `spawn_progress_task`, not here.
-    let gain_inputs = resolve_track_gain_inputs(&state, &app, &url, logical_trim.as_deref(), loudness_gain_db);
+    let gain_inputs = resolve_track_gain_inputs(
+        &state,
+        &app,
+        &url,
+        logical_trim.as_deref(),
+        loudness_gain_db,
+    );
     let (gain_linear, _effective_volume) = compute_gain(
         gain_inputs.norm_mode,
         replay_gain_db,
@@ -804,7 +879,8 @@ pub async fn audio_chain_preload(
     // samples_played when the chained track becomes active.
     let chain_counter = Arc::new(AtomicU64::new(0));
     // Always 0 unless hi-res gapless blend resampling is active.
-    let blend_rate = hi_res_blend::blend_rate_hz(hi_res_enabled, hi_res_enabled, hi_res_crossfade_resample_hz);
+    let blend_rate =
+        hi_res_blend::blend_rate_hz(hi_res_enabled, hi_res_enabled, hi_res_crossfade_resample_hz);
     let target_rate: u32 = blend_rate.unwrap_or(0);
     let format_hint = url_format_hint(&url);
     let built = build_source(
@@ -823,7 +899,8 @@ pub async fn audio_chain_preload(
         crate::engine::output_device_channels(&state),
         format_hint.as_deref(),
         hi_res_enabled,
-    ).map_err(|e| e.to_string())?;
+    )
+    .map_err(|e| e.to_string())?;
     let output_rate = built.output_rate;
     let output_channels = built.output_channels;
     let source = built.source;
@@ -840,6 +917,10 @@ pub async fn audio_chain_preload(
     let requested_stream_rate = state.stream_requested_rate.load(Ordering::Relaxed);
     if let Some(br) = blend_rate {
         if super::engine::stream_rate_needs_switch(br, requested_stream_rate) {
+            let _source_transition = state.source_transition_lock.write().await;
+            if !snapshot.is_current(&state) {
+                return Ok(());
+            }
             if let Some(snap) = hi_res_blend::capture_outgoing_blend_snapshot(&state, 0.0, 0.0) {
                 hi_res_blend::detach_current_sink_for_blend_reopen(&state);
                 let dev = state.selected_device.lock().unwrap().clone();
@@ -858,7 +939,13 @@ pub async fn audio_chain_preload(
                         .await
                         {
                             crate::app_eprintln!("{e}");
-                            restore_chain_preload_if_current(&state, snapshot, &url, &raw_bytes);
+                            restore_chain_preload_if_current(
+                                &state,
+                                snapshot,
+                                &url,
+                                &raw_bytes,
+                                local_original_verified,
+                            );
                             return Ok(());
                         }
                     } else {
@@ -868,27 +955,50 @@ pub async fn audio_chain_preload(
                     crate::app_eprintln!(
                         "[psysonic] gapless blend stream reopen failed (wanted {br} Hz, had {stream_rate} Hz)"
                     );
-                    restore_chain_preload_if_current(&state, snapshot, &url, &raw_bytes);
+                    restore_chain_preload_if_current(
+                        &state,
+                        snapshot,
+                        &url,
+                        &raw_bytes,
+                        local_original_verified,
+                    );
                     return Ok(());
                 }
             } else {
                 crate::app_eprintln!(
                     "[psysonic] gapless blend skipped: current track not cached for realign"
                 );
-                restore_chain_preload_if_current(&state, snapshot, &url, &raw_bytes);
+                restore_chain_preload_if_current(
+                    &state,
+                    snapshot,
+                    &url,
+                    &raw_bytes,
+                    local_original_verified,
+                );
                 return Ok(());
             }
         }
     } else {
-        let next_rate = if hi_res_enabled { built.output_rate } else { 44_100 };
+        let next_rate = if hi_res_enabled {
+            built.output_rate
+        } else {
+            44_100
+        };
         if hi_res_enabled
             && super::engine::stream_rate_needs_switch(next_rate, requested_stream_rate)
         {
             crate::app_eprintln!(
                 "[psysonic] gapless chain skipped: next track rate {} Hz ≠ stream {} Hz",
-                next_rate, requested_stream_rate
+                next_rate,
+                requested_stream_rate
             );
-            restore_chain_preload_if_current(&state, snapshot, &url, &raw_bytes);
+            restore_chain_preload_if_current(
+                &state,
+                snapshot,
+                &url,
+                &raw_bytes,
+                local_original_verified,
+            );
             return Ok(());
         }
     }
@@ -915,6 +1025,7 @@ pub async fn audio_chain_preload(
         url,
         analysis_track_id: logical_trim,
         server_id: analysis_server_id.map(str::to_string),
+        local_original_verified,
         generation: snapshot.generation,
         raw_bytes,
         resolved_format: built.resolved_format,

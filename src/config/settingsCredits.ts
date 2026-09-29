@@ -220,6 +220,15 @@ const CONTRIBUTOR_ENTRIES = [
       'Timeline — replay listening history from any selected point (PR #1423)',
       'Offline downloads — slow-server tolerance, resumable transfers, owner-safe pins, and coordinated cancellation and maintenance (report: jsongerber, PR #1457)',
       'Navidrome canonical-ID upgrade — resumable migration for library, analysis, offline, cache, and persisted app state (PR #1464)',
+      'Device Sync — shared album and playlist files with crash-safe device recovery (PR #1501)',
+      'Global shortcuts for 1–5-star ratings and favouriting the current track, with macOS Command naming (PR #1503, #1540)',
+      'Signed stable and RC Flatpak update channels (PR #1525)',
+      'Lyrics pronunciation and offline Japanese Hepburn romaji (PR #1541)',
+      'Smooth word-synced lyrics highlighting in sidebar and fullscreen views (PR #1548)',
+      'Navidrome share creation, management, preview and playback workflow (PR #1586)',
+      'Favorites scoped search and reliable collapsed search entry (PR #1629)',
+      'Artist credits — scoped browse and detail support for guest and participant artists (PR #1631)',
+      'Responsive off-thread seeking for streamed lossless audio (PR #1633)',
     ],
   },
   {
@@ -451,8 +460,27 @@ const CONTRIBUTOR_ENTRIES = [
       'Playlists — a header switch separating your own playlists from the ones shared with you (PR #1454)',
       'Sidebar — playlist covers and song counts, plus sorting by name, creation date or size (PR #1455)',
       'Artist pages — an All Tracks tab listing everything an artist performs on, with pickable sortable columns (PR #1458)',
-      'Psysonic Rewind — a year-in-review story and shareable posters in four layouts (PR #1485)',
       'Windows — updates install from inside the app, signed and verified like on macOS (PR #1487)',
+      'Servers that refuse browser-style requests can be added and browsed (PR #1511)',
+      'Info tab — the tour dates prompt can be dismissed for good (PR #1513)',
+      'Rate a whole track selection at once, and favourite a track from the queue (PR #1522)',
+      'Windows — the mini player can drop the system title bar for its own slim one (PR #1528)',
+      'Album page — shows the release description and the comment tag from your files (PR #1569)',
+      'Shuffle applies to a list you start playing, beginning with the track you picked (PR #1576)',
+      'Favorites — the albums heading opens the full grid, filtered to your favourites (PR #1583)',
+      'Appearance — the fullscreen style picker points at the switch for the artist photo behind it (PR #1590)',
+      'Tracklists and Song Info show every genre a track carries, plus its mood tags, as optional columns (PR #1591)',
+      'Queue — pick several tracks with Ctrl/Shift+click, then move them as one block or remove them with Delete (PR #1602)',
+      'Visualizer settings — a live preview above the controls, with a demo signal while nothing plays (PR #1606)',
+      'Device Sync — a flat layout that puts every track and playlist in the main folder of the device (PR #1611)',
+      'Favorites — the artists heading opens the Artists page, filtered to your favourites (PR #1613)',
+      'Artist page — similar artists from your server fill in when Music Network finds none in your library (PR #1617)',
+      'Favorites — reorder and hide the page sections, hide the # column, shuffle all songs (PR #1624)',
+      'Album and playlist pages — icon-only action buttons you can reorder and hide (PR #1644)',
+      'Playlists — hint and reset when drag reordering is off in a sorted or filtered view (PR #1647)',
+      'Playlists — drag a selection of tracks as one block (PR #1649)',
+      'Library — track subtitles and album versions from Navidrome, with the version shown under the album title (PR #1662)',
+      'Tracklists — play songs on a single or double click, with a row highlight you move by keyboard (PR #1668)',
     ],
   },
   {
@@ -520,6 +548,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Now-playing badge shows the real decoded stream format on server transcode (PR #1338)',
       'Audio visualizer across Now Playing, radio and fullscreen player surfaces (PR #1375)',
       'Per-address Navidrome streaming quality with original-stream analysis and cache isolation (PR #1334)',
+      'Theme that follows the palette your desktop publishes, live (PR #1507)',
     ],
   },
   {
@@ -527,6 +556,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.51.0',
     contributions: [
       'Clickable artist credits in the fullscreen, mini and mobile players (PR #1371)',
+      'Configurable album cover source chain with a Last.fm provider (PR #1502)',
     ],
   },
   {
@@ -548,6 +578,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.52.0',
     contributions: [
       'Configurable scrobble threshold and force-scrobble action (PR #1425)',
+      'Native Navidrome smart-playlist detection and rule editors (PR #1428)',
     ],
   },
   {
@@ -562,6 +593,40 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.52.0',
     contributions: [
       'Ukrainian translation, with Ukrainian Cyrillic folding in library identity keys (PR #1465)',
+    ],
+  },
+  {
+    github: 'starrlord',
+    since: '1.53.0',
+    contributions: [
+      'Navidrome song-list filter fix that unblocked native library sync (PR #1514)',
+      'Audio CD burning with CD-TEXT on Windows, macOS and Linux (PR #1538)',
+    ],
+  },
+  {
+    github: 'strecke',
+    since: '1.55.0',
+    contributions: [
+      'Seek buffering indicator polish for player and queue cover art (PR #1634)',
+      'Track-list mouse-wheel scrolling after horizontal swipes on WebKit (PR #1635)',
+    ],
+  },
+  {
+    github: 'circle3451',
+    since: '1.56.0',
+    contributions: [
+      'Device Sync — transcode to MP3, AAC or Opus on the server (PR #1643)',
+      'Album page — similar albums from AudioMuse (PR #1663)',
+      'Device Sync — absolute M3U path style (PR #1669)',
+      'Device Sync — move relocated copies, remove departed tracks (PR #1670)',
+      'Device Sync — sync to a local folder (PR #1671)',
+    ],
+  },
+  {
+    github: 'Puppies-On-Acid',
+    since: '1.56.0',
+    contributions: [
+      'Browse albums by file mood tags (PR #1675)',
     ],
   },
 ] as const;

@@ -6,6 +6,7 @@ export const songInfo = {
   albumArtist: 'Album előadója',
   year: 'Év',
   genre: 'Műfaj',
+  genres: 'Műfajok',
   duration: 'Hossz',
   track: 'Szám',
   bpm: 'BPM',

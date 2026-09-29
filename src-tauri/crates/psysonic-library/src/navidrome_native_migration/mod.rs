@@ -161,8 +161,10 @@ pub fn finalize(
         let mut removed = 0u64;
         for (table, column) in [
             ("track_genre", "server_id"),
+            ("track_mood", "server_id"),
             ("album_browse_projection", "server_id"),
             ("composer_album_projection", "server_id"),
+            ("artist_credit_projection", "server_id"),
             ("artist_artwork_lookup", "server_id"),
             ("identity_invalidation", "server_id"),
             ("library_tag_state", "server_id"),
@@ -189,11 +191,15 @@ pub fn finalize(
             params![server_id],
         )?;
         tx.execute(
-            "DELETE FROM library_data_migration WHERE id IN (?1, ?2, ?3)",
+            // The tags backfills are global: after a server's IDs and library/album
+            // ownership change, rerun them from raw_json for all live tracks.
+            "DELETE FROM library_data_migration WHERE id IN (?1, ?2, ?3, ?4, ?5)",
             params![
                 crate::genre_tags_backfill::GENRE_TAGS_MIGRATION_ID,
+                crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID,
                 crate::browse_projection::MIGRATION_ID,
-                crate::composer_projection::MIGRATION_ID
+                crate::composer_projection::MIGRATION_ID,
+                crate::artist_credit_projection::MIGRATION_ID,
             ],
         )?;
         verify_no_legacy_library_ids(&tx, server_id)?;
@@ -321,6 +327,50 @@ pub fn verify(store: &LibraryStore, server_id: &str) -> Result<(), String> {
     validate_server_id(server_id)?;
     store
         .with_read_conn(|conn| verify_no_legacy_library_ids(conn, server_id))
+        .map_err(|error| error.to_string())
+}
+
+pub fn has_rebuildable_state(store: &LibraryStore, server_id: &str) -> Result<bool, String> {
+    validate_server_id(server_id)?;
+    store
+        .with_read_conn(|conn| {
+            let main_state = conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM track_genre WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM track_mood WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM album_browse_projection WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM composer_album_projection WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM artist_artwork_lookup WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM identity_invalidation WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM library_tag_state WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM library_tag_cursor WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM sync_state WHERE server_id = ?1)",
+                params![server_id],
+                |row| row.get::<_, bool>(0),
+            )?;
+            if main_state {
+                return Ok(true);
+            }
+
+            let cluster_attached = {
+                let mut statement = conn.prepare("PRAGMA database_list")?;
+                let names = statement
+                    .query_map([], |row| row.get::<_, String>(1))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                names.iter().any(|name| name == "cluster")
+            };
+            if !cluster_attached {
+                return Ok(false);
+            }
+
+            conn.query_row(
+                "SELECT \
+                   EXISTS(SELECT 1 FROM cluster.track_cluster_key WHERE server_id = ?1) OR \
+                   EXISTS(SELECT 1 FROM cluster.cluster_meta WHERE key = ?2)",
+                params![server_id, format!("dirty_server:{server_id}")],
+                |row| row.get::<_, bool>(0),
+            )
+        })
         .map_err(|error| error.to_string())
 }
 
@@ -477,11 +527,11 @@ pub(super) fn record_mapping(
     old_id: &str,
     new_id: &str,
 ) -> rusqlite::Result<()> {
-    tx.execute(
+    tx.prepare_cached(
         "INSERT INTO navidrome_id_batch_mapping (entity_kind, source_rowid, old_id, new_id) \
          VALUES (?1, ?2, ?3, ?4)",
-        params![entity_kind, source_rowid, old_id, new_id],
-    )?;
+    )?
+    .execute(params![entity_kind, source_rowid, old_id, new_id])?;
     Ok(())
 }
 

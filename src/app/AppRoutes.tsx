@@ -36,6 +36,7 @@ const Statistics = lazy(() => import('@/features/stats/pages/Statistics'));
 const Help = lazy(() => import('@/features/help/pages/Help'));
 const WhatsNew = lazy(() => import('@/features/whatsNew/pages/WhatsNew'));
 const DeviceSync = lazy(() => import('@/features/deviceSync/pages/DeviceSync'));
+const Burner = lazy(() => import('@/features/burner/pages/Burner'));
 const OfflineLibrary = lazy(() => import('@/features/offline/pages/OfflineLibrary'));
 const LabelAlbums = lazy(() => import('@/features/album/pages/LabelAlbums'));
 const SearchBrowsePage = lazy(() => import('@/features/search/pages/SearchBrowsePage'));
@@ -43,6 +44,9 @@ const FolderBrowser = lazy(() => import('@/features/folderBrowser/pages/FolderBr
 const InternetRadio = lazy(() => import('@/features/radio/pages/InternetRadio'));
 const Genres = lazy(() => import('@/features/genre/pages/Genres'));
 const GenreDetail = lazy(() => import('@/features/genre/pages/GenreDetail'));
+const Moods = lazy(() => import('@/features/mood/pages/Moods'));
+const MoodDetail = lazy(() =>import('@/features/mood/pages/MoodDetail'));
+const Shared = lazy(() => import('@/features/share/pages/Shared'));
 
 /**
  * Index route ("/") = Mainstage. When the user has hidden Mainstage from the
@@ -117,11 +121,15 @@ export default function AppRoutes() {
       <Route path="/offline" element={<OfflineLibrary />} />
       <Route path="/genres" element={<Genres />} />
       <Route path="/genres/:name" element={<GenreDetail />} />
+      <Route path="/moods" element={<Moods />} />
+      <Route path="/moods/:name" element={<MoodDetail />} />
       <Route path="/playlists" element={<Playlists />} />
       <Route path="/playlists/:id" element={<PlaylistDetail />} />
+      <Route path="/shared" element={<Shared />} />
       <Route path="/radio" element={<InternetRadio />} />
       <Route path="/folders" element={<FolderBrowser />} />
       <Route path="/device-sync" element={<DeviceSync />} />
+      <Route path="/burn" element={<Burner />} />
       <Route path="/__benchmark-transition" element={null} />
     </Routes>
     </Profiler>

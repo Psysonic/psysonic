@@ -12,6 +12,60 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
         run: echo "value=${TAG#app-v}" >> "$GITHUB_OUTPUT"
 
+      # The submit step below has failed with "does not have the correct
+      # permissions to execute `CreateRef`" since 1.53.0, and GitHub's error
+      # names only the acting account, never the repository it was refused on.
+      # komac resolves the target itself: KOMAC_FORK_OWNER (the repository
+      # owner, via the action's fork-user default) picks <owner>/winget-pkgs,
+      # and createRef runs against that repository id with the upstream default
+      # branch oid. Replay those three calls here so the log says which
+      # repository is addressed and whether the ref can be created at all.
+      # Never fails the release: a broken probe must not hold back a publish.
+      - name: Probe createRef before submitting
+        continue-on-error: true
+        env:
+          TOKEN: ${{ secrets.WINGET_TOKEN }}
+          FORK_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -u -o pipefail
+          set +e  # a failed probe call must still print the calls around it
+
+          graphql() {
+            curl -sS -X POST https://api.github.com/graphql \
+              -H "Authorization: bearer $TOKEN" \
+              -H "Content-Type: application/json" \
+              --data "$(jq -n --arg q "$1" '{query: $q}')"
+          }
+
+          scopes=$(curl -sS -o /dev/null -D - https://api.github.com/user \
+            -H "Authorization: bearer $TOKEN" \
+            | tr -d '\r' | sed -n 's/^[Xx]-[Oo][Aa]uth-[Ss]copes: //p')
+          echo "token scopes: ${scopes:-<none reported>}"
+          echo "fork owner passed to komac: $FORK_OWNER"
+
+          fork=$(graphql "query { repository(owner: \"$FORK_OWNER\", name: \"winget-pkgs\") { id nameWithOwner isFork viewerPermission parent { nameWithOwner } } }")
+          echo "fork lookup: $(jq -c '.data.repository // .errors' <<< "$fork")"
+          fork_id=$(jq -r '.data.repository.id // empty' <<< "$fork")
+
+          upstream=$(graphql 'query { repository(owner: "microsoft", name: "winget-pkgs") { defaultBranchRef { name target { oid } } } }')
+          oid=$(jq -r '.data.repository.defaultBranchRef.target.oid // empty' <<< "$upstream")
+          echo "upstream default branch oid: ${oid:-<none>}"
+
+          if [ -z "$fork_id" ] || [ -z "$oid" ]; then
+            echo "probe stopped: fork id or upstream oid could not be resolved"
+            exit 0
+          fi
+
+          branch="refs/heads/createref-probe-$GITHUB_RUN_ID"
+          created=$(graphql "mutation { createRef(input: {repositoryId: \"$fork_id\", name: \"$branch\", oid: \"$oid\"}) { ref { id name } } }")
+          echo "createRef on $(jq -r '.data.repository.nameWithOwner // empty' <<< "$fork"): $(jq -c '.data.createRef // .errors' <<< "$created")"
+
+          ref_id=$(jq -r '.data.createRef.ref.id // empty' <<< "$created")
+          if [ -n "$ref_id" ]; then
+            deleted=$(graphql "mutation { deleteRef(input: {refId: \"$ref_id\"}) { clientMutationId } }")
+            echo "probe ref cleanup: $(jq -c 'if .errors then .errors else "deleted" end' <<< "$deleted")"
+          fi
+
       - name: Submit to WinGet Community Repository
         uses: vedantmgoyal9/winget-releaser@v2
         with:

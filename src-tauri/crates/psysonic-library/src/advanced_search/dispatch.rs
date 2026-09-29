@@ -141,6 +141,19 @@ fn build_layer1_scope_artist(
     skip_totals: bool,
     applied: &mut BTreeSet<String>,
 ) -> Result<(Vec<LibraryArtistDto>, u32), String> {
+    if req.starred_only == Some(true) && !scalar_requires_track_derived_entities(scalar) {
+        return build_scoped_starred_artists(
+            store,
+            req,
+            scopes,
+            text,
+            scalar,
+            limit,
+            offset,
+            skip_totals,
+            applied,
+        );
+    }
     if !scalar_requires_track_derived_entities(scalar) {
         applied.insert("library_scope".to_string());
         if album_artist_credit_mode(req) {
@@ -361,6 +374,19 @@ fn build_multi_scope_artist(
     skip_totals: bool,
     applied: &mut BTreeSet<String>,
 ) -> Result<(Vec<LibraryArtistDto>, u32), String> {
+    if req.starred_only == Some(true) && !scalar_requires_track_derived_entities(scalar) {
+        return build_scoped_starred_artists(
+            store,
+            req,
+            scopes,
+            text,
+            scalar,
+            limit,
+            offset,
+            skip_totals,
+            applied,
+        );
+    }
     if album_artist_credit_mode(req) && !scalar_requires_track_derived_entities(scalar) {
         applied.insert("library_scope".to_string());
         applied.insert("artist_credit_mode".to_string());
@@ -374,6 +400,10 @@ fn build_multi_scope_artist(
                 SqlValue::Text(like_contains_folded(query)),
             );
             applied.insert("text".to_string());
+        }
+        if req.starred_only == Some(true) {
+            filter.push_raw("ar.starred_at IS NOT NULL");
+            applied.insert("starred".to_string());
         }
         for clause in scalar {
             if let Some(fragment) = resolve_clause(clause, EntityKind::Artist)? {
@@ -408,6 +438,50 @@ fn build_multi_scope_artist(
         scopes,
         &extra_where,
         &extra_params,
+        &order,
+        limit,
+        offset,
+        skip_totals,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn build_scoped_starred_artists(
+    store: &LibraryStore,
+    req: &LibraryAdvancedSearchRequest,
+    scopes: &[LibraryScopePair],
+    text: Option<&str>,
+    scalar: &[&LibraryFilterClause],
+    limit: u32,
+    offset: u32,
+    skip_totals: bool,
+    applied: &mut BTreeSet<String>,
+) -> Result<(Vec<LibraryArtistDto>, u32), String> {
+    let mut filter = WhereBuilder::new();
+    if let Some(bucket) = req.artist_letter_bucket.as_deref() {
+        push_artist_letter_bucket(&mut filter, bucket, applied);
+    }
+    if let Some(query) = text {
+        filter.push_param(
+            "ar.name_fold LIKE ? ESCAPE '\\'",
+            SqlValue::Text(like_contains_folded(query)),
+        );
+        applied.insert("text".to_string());
+    }
+    for clause in scalar {
+        if let Some(fragment) = resolve_clause(clause, EntityKind::Artist)? {
+            applied.insert(clause.field.clone());
+            filter.push(fragment);
+        }
+    }
+    applied.insert("library_scope".to_string());
+    applied.insert("starred".to_string());
+    let order = deduped_artist_order_sql(&req.sort);
+    scope_merge::list_index_starred_artists_filtered(
+        store,
+        scopes,
+        &filter.where_sql(),
+        filter.params(),
         &order,
         limit,
         offset,

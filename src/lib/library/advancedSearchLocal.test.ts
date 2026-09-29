@@ -5,6 +5,7 @@ import { useLibraryIndexStore } from '@/store/libraryIndexStore';
 import { resetAuthStore } from '@/test/helpers/storeReset';
 import {
   albumToAlbum,
+  artistToArtist,
   resolveTrackCoverArtId,
   runLocalAdvancedSearch,
   runLocalSongBrowse,
@@ -26,6 +27,23 @@ const opts = (over: Partial<Parameters<typeof runLocalAdvancedSearch>[1]> = {}) 
   losslessOnly: false,
   resultType: 'all' as const,
   ...over,
+});
+
+describe('artistToArtist', () => {
+  it('maps the hot starred timestamp and lets it override stale raw_json', () => {
+    const artist = artistToArtist({
+      serverId: 's1',
+      id: 'ar1',
+      name: 'Artist',
+      nameSort: 'artist',
+      albumCount: 2,
+      starredAt: 1_700_000_000_000,
+      syncedAt: 0,
+      rawJson: { starred: '2020-01-01T00:00:00.000Z' },
+    });
+
+    expect(artist.starred).toBe('2023-11-14T22:13:20.000Z');
+  });
 });
 
 const ready = () =>

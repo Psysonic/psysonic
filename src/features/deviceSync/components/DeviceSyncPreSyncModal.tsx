@@ -39,16 +39,22 @@ export default function DeviceSyncPreSyncModal({
               <span>{t('deviceSync.filesToDelete')}</span>
               <span className="color-error">-{syncDelta.delCount} ({formatMb(syncDelta.delBytes)})</span>
             </div>
+            {syncDelta.moveCount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                <span>{t('deviceSync.filesToMove')}</span>
+                <span>{syncDelta.moveCount}</span>
+              </div>
+            )}
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
               <span>{t('deviceSync.netChange')}</span>
               <span>{formatMb(syncDelta.addBytes - syncDelta.delBytes)}</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: syncDelta.addBytes > syncDelta.availableBytes + syncDelta.delBytes ? 'var(--danger)' : 'inherit', marginTop: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', color: syncDelta.addBytes > syncDelta.availableBytes ? 'var(--danger)' : 'inherit', marginTop: '10px' }}>
               <span>{t('deviceSync.availableSpace')}</span>
               <span>{formatMb(syncDelta.availableBytes)}</span>
             </div>
-            {syncDelta.addBytes > syncDelta.availableBytes + syncDelta.delBytes && (
+            {syncDelta.addBytes > syncDelta.availableBytes && (
               <div className="sync-warning error" style={{ background: 'color-mix(in srgb, var(--danger) 15%, transparent)', padding: '10px', borderRadius: 'var(--radius-md)', marginTop: '15px', display: 'flex', gap: '10px', color: 'var(--danger)', alignItems: 'flex-start' }}>
                 <AlertCircle size={16} style={{ flexShrink: 0, marginTop: '2px' }} />
                 <span>{t('deviceSync.spaceWarning')}</span>
@@ -65,7 +71,7 @@ export default function DeviceSyncPreSyncModal({
             <button
               className="btn btn-primary"
               onClick={onProceed}
-              disabled={syncDelta.addBytes > syncDelta.availableBytes + syncDelta.delBytes}
+              disabled={syncDelta.addBytes > syncDelta.availableBytes}
             >
               {t('deviceSync.proceed')}
             </button>

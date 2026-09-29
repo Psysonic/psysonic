@@ -640,9 +640,14 @@ export default function BecauseYouLikeRail({
     if (!refreshing && (!anchor || recs.length === 0)) {
       return <div ref={containerRef} />;
     }
+    // The skeleton is the same wide-card row as the loaded state, so it has to
+    // follow the same narrow swap. Rendering it below the swap width squeezed
+    // the cards around their fixed 160px cover with no room left for text.
     return (
       <div ref={containerRef}>
-        <BecauseYouLikeSkeleton title={t('home.becauseYouLike')} slotCount={skeletonSlots} />
+        {narrow ? null : (
+          <BecauseYouLikeSkeleton title={t('home.becauseYouLike')} slotCount={skeletonSlots} />
+        )}
       </div>
     );
   }

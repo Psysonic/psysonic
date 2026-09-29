@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Kijelöltek hozzáadása a sorhoz',
   playAll: 'Összes lejátszása',
   playSelected: 'Kijelöltek lejátszása',
+  shuffleAll: 'Összes keverése',
+  shuffleSelected: 'Kijelöltek keverése',
   removeSong: 'Eltávolítás a kedvencekből',
   stations: 'Rádióállomások',
   showingFiltered: '{{filtered}}/{{total}} megjelenítve ({{artist}})',

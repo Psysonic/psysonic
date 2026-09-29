@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Cast, Heart, Maximize2, Music } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { queueSongRating } from '@/features/playback/store/pendingStarSync';
@@ -15,6 +16,7 @@ import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
 import StarRating from '@/ui/StarRating';
 import { PlaybackBufferingOverlay } from '@/features/playback/components/PlaybackBufferingOverlay';
+import { useDebouncedBuffering } from '@/features/playback/hooks/useDebouncedBuffering';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { renderPresetIcon, useEnrichmentPrimaryIcon, useEnrichmentPrimaryLabel } from '@/music-network/ui';
 import {
@@ -60,13 +62,24 @@ export function PlayerTrackInfo({
   userRatingOverrides, toggleFullscreen,
   navigate, openContextMenu, t,
 }: Props) {
-  const showBufferingOverlay = usePlayerStore(s => s.isPlaybackBuffering);
+  const isPlaybackBuffering = usePlayerStore(s => s.isPlaybackBuffering);
+  const showBufferingOverlay = useDebouncedBuffering(isPlaybackBuffering);
   // `track.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
   const networkLabel = useEnrichmentPrimaryLabel() ?? '';
   const networkIcon = useEnrichmentPrimaryIcon();
   const playbackCoverRef = usePlaybackTrackCoverRef(
     showPreviewMeta ? null : currentTrack ?? undefined,
+  );
+  // Stable identity: an inline literal here re-fired the cover ensure effect on
+  // every playback-tick re-render of the player bar (observed as flashing).
+  const coverEnsureOpts = useMemo(
+    () => ({
+      artistName: currentTrack?.artist ?? '',
+      albumTitle: currentTrack?.album ?? '',
+      allowExternalAlbum: true as const,
+    }),
+    [currentTrack?.artist, currentTrack?.album],
   );
   const previewCoverRef = useAlbumCoverRef(
     showPreviewMeta ? coverArtId : null,
@@ -121,6 +134,7 @@ export function PlayerTrackInfo({
             displayCssPx={128}
             surface="sparse"
             ensurePriority="high"
+            ensureOpts={coverEnsureOpts}
             alt={showPreviewMeta ? `${previewingTrack!.title} Cover` : `${currentTrack?.album ?? ''} Cover`}
           />
           ) : (

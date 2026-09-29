@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'Този албум не е намерен на сървъра.',
   artistUnavailable: 'Този изпълнител не е намерен на сървъра.',
   composerUnavailable: 'Този композитор не е намерен на сървъра.',
+  playlistUnavailable: 'Този плейлист не е намерен на сървъра.',
   openedTrack: 'Пуска се споделена песен.',
   openedAlbum: 'Отваряне на споделен албум.',
   openedArtist: 'Отваряне на споделен изпълнител.',
   openedComposer: 'Отваряне на споделен композитор.',
+  openedPlaylist: 'Отваряне на споделен плейлист.',
   openedQueue_one: 'Пуска се {{count}} песен от линка за споделяне.',
   openedQueue_other: 'Пускат се {{count}} песни от линка за споделяне.',
   openedQueuePartial:

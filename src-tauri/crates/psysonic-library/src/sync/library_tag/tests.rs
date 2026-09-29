@@ -287,22 +287,12 @@ async fn empty_folder_list_persists_completion_and_skips_the_next_tick() {
     let client = test_client(&server.uri());
     let progress = Arc::new(super::super::progress::NoopProgress);
 
-    let first = tag_library_membership(
-        &store,
-        &client,
-        "srv",
-        None,
-        progress.clone(),
-        false,
-    )
-    .await
-    .unwrap();
+    let first = tag_library_membership(&store, &client, "srv", None, progress.clone(), false)
+        .await
+        .unwrap();
     assert!(first.skipped);
     assert_eq!(
-        read_tag_state(&store, "srv")
-            .unwrap()
-            .unwrap()
-            .folders_hash,
+        read_tag_state(&store, "srv").unwrap().unwrap().folders_hash,
         "2|"
     );
 
@@ -459,10 +449,7 @@ async fn pending_version_refresh_retries_after_a_completed_tag_pass() {
         .upsert_sparse_batch_initial_ingest_timed(&[sparse], None)
         .unwrap();
     assert_eq!(
-        read_tag_state(&store, "srv")
-            .unwrap()
-            .unwrap()
-            .folders_hash,
+        read_tag_state(&store, "srv").unwrap().unwrap().folders_hash,
         ALBUM_LIST_DIRTY_STATE
     );
 
@@ -578,16 +565,9 @@ async fn tag_library_membership_resumes_from_persisted_page_cursor() {
     let client = test_client(&server.uri());
     let progress = Arc::new(super::super::progress::NoopProgress);
 
-    let first = tag_library_membership(
-        &store,
-        &client,
-        "srv",
-        None,
-        progress.clone(),
-        false,
-    )
-    .await
-    .unwrap();
+    let first = tag_library_membership(&store, &client, "srv", None, progress.clone(), false)
+        .await
+        .unwrap();
     assert!(!first.completed);
     assert_eq!(first.albums_processed, resume_offset);
     let persisted_offset: i64 = store
@@ -601,21 +581,16 @@ async fn tag_library_membership_resumes_from_persisted_page_cursor() {
         .unwrap();
     assert_eq!(persisted_offset, i64::from(resume_offset));
 
-    let second = tag_library_membership(
-        &store,
-        &client,
-        "srv",
-        None,
-        progress.clone(),
-        false,
-    )
-    .await
-    .unwrap();
+    let second = tag_library_membership(&store, &client, "srv", None, progress.clone(), false)
+        .await
+        .unwrap();
     assert!(second.completed);
     assert_eq!(second.albums_processed, 1);
     let cursor_count: i64 = store
         .with_read_conn(|conn| {
-            conn.query_row("SELECT COUNT(*) FROM library_tag_cursor", [], |row| row.get(0))
+            conn.query_row("SELECT COUNT(*) FROM library_tag_cursor", [], |row| {
+                row.get(0)
+            })
         })
         .unwrap();
     assert_eq!(cursor_count, 0);
@@ -660,16 +635,9 @@ async fn tag_library_membership_finishes_metadata_cursor_when_tracks_are_tagged(
     let client = test_client(&server.uri());
     let progress = Arc::new(super::super::progress::NoopProgress);
 
-    let first = tag_library_membership(
-        &store,
-        &client,
-        "srv",
-        None,
-        progress.clone(),
-        false,
-    )
-    .await
-    .unwrap();
+    let first = tag_library_membership(&store, &client, "srv", None, progress.clone(), false)
+        .await
+        .unwrap();
     assert!(!first.completed);
     assert_eq!(first.tracks_tagged, 1);
     assert_eq!(first.untagged_remaining, 0);
@@ -806,10 +774,7 @@ async fn tag_library_membership_restarts_a_legacy_cursor_from_the_first_page() {
     assert!(report.completed);
     assert!(read_tag_cursor(&store, "srv").unwrap().is_none());
     assert_eq!(
-        read_tag_state(&store, "srv")
-            .unwrap()
-            .unwrap()
-            .folders_hash,
+        read_tag_state(&store, "srv").unwrap().unwrap().folders_hash,
         "2|1:Main"
     );
     let raw: String = store

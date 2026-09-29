@@ -2,7 +2,7 @@ import type { LibraryTrackDto } from '@/lib/api/library';
 import { libraryGetTrack, libraryGetTracksBatchChunked } from '@/lib/api/library';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import type { CoverServerScope } from '@/cover/types';
-import { serverSupportsRawStream, useAuthStore } from '@/store/authStore';
+import { useAuthStore } from '@/store/authStore';
 import type { LocalPlaybackEntry, PinnedGroup, PinSource } from '@/store/localPlaybackStore';
 import {
   localPlaybackEntryHasPinSource,
@@ -28,13 +28,13 @@ export interface OfflineLibraryCard {
   year?: number;
 }
 
-/** Legacy Navidrome pins are usable offline but must refresh before qualifying as original. */
+/** Legacy pins remain playable offline but must refresh before qualifying as original. */
 export function localEntrySatisfiesOriginalRequirement(
   entry: LocalPlaybackEntry | null,
-  serverId: string,
+  _serverId: string,
 ): boolean {
   if (!entry?.localPath) return false;
-  return !serverSupportsRawStream(serverId) || entry.originalBytesVerified === true;
+  return entry.originalBytesVerified === true;
 }
 
 export function resolveOfflineAlbumMeta(

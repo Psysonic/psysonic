@@ -8,14 +8,12 @@ import { ArtistHeroCover } from '@/cover/artistHero';
 import { artistCoverRef } from '@/cover/ref';
 import { coverServerScopeForServerId } from '@/cover';
 import { useCoverLightboxSrc } from '@/cover/lightbox';
-import { ArrowLeft, Users, Heart, Feather, Share2 } from 'lucide-react';
+import { ArrowLeft, Users, Heart, Feather } from 'lucide-react';
 import WikipediaIcon from '@/ui/WikipediaIcon';
 import { open } from '@tauri-apps/plugin-shell';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
-import { copyEntityShareLink } from '@/lib/share/copyEntityShareLink';
-import { showToast } from '@/lib/dom/toast';
 import { sanitizeHtml } from '@/lib/util/sanitizeHtml';
 import { usePerfProbeFlags } from '@/lib/perf/perfFlags';
 import { albumGridWarmCovers } from '@/cover/layoutSizes';
@@ -27,6 +25,7 @@ import { useLibraryScopeSyncRevision } from '@/store/offlineLocalLibrarySyncRevi
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { useLibraryIndexStore } from '@/store/libraryIndexStore';
 import { loadNetworkComposerAlbums } from '@/lib/library/composerBrowse';
+import { ShareMethodMenuButton } from '@/features/share';
 
 export default function ComposerDetail() {
   const { t } = useTranslation();
@@ -181,17 +180,6 @@ export default function ComposerDetail() {
     setTimeout(() => setOpenedLink(null), 2500);
   };
 
-  const handleShareComposer = async () => {
-    if (!id || !artist) return;
-    try {
-      const ok = await copyEntityShareLink('composer', artist.id, { serverId: artist.serverId });
-      if (ok) showToast(t('contextMenu.shareCopied'));
-      else showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
-    } catch {
-      showToast(t('contextMenu.shareCopyFailed'), 4000, 'error');
-    }
-  };
-
   if (loading) {
     return (
       <div className="content-body" style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
@@ -291,15 +279,16 @@ export default function ComposerDetail() {
             )}
 
             {artist && (
-              <button
-                type="button"
+              <ShareMethodMenuButton
+                request={{
+                  kind: 'composer',
+                  resourceIds: [artist.id],
+                  serverIds: artist.serverId ? [artist.serverId] : ownerServerId ? [ownerServerId] : [],
+                }}
                 className="artist-ext-link"
-                onClick={handleShareComposer}
-                aria-label={t('composerDetail.shareComposer')}
-                data-tooltip={t('composerDetail.shareComposer')}
-              >
-                <Share2 size={14} />
-              </button>
+                label={t('composerDetail.shareComposer')}
+                iconSize={14}
+              />
             )}
           </div>
         </div>

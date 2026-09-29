@@ -48,9 +48,7 @@ pub(super) struct FullImportRecoveryPaths {
 
 impl FullImportRecoveryPaths {
     pub(super) fn new(app_data_dir: &Path) -> Self {
-        let root = app_data_dir
-            .join("databases")
-            .join("full-import-recovery");
+        let root = app_data_dir.join("databases").join("full-import-recovery");
         Self {
             prepared_marker: root.join("prepared.json"),
             restored_marker: root.join("databases-restored.json"),
@@ -113,7 +111,9 @@ pub(super) fn prepare_full_import_recovery(
     migration_generation: u64,
 ) -> Result<(), String> {
     if read_full_import_marker(paths)?.is_some() {
-        return Err("an incomplete full backup import must be recovered before retrying".to_string());
+        return Err(
+            "an incomplete full backup import must be recovered before retrying".to_string(),
+        );
     }
     fs::create_dir_all(&paths.root).map_err(|error| error.to_string())?;
     cleanup_database_paths(&paths.cleanup_paths())?;
@@ -170,16 +170,12 @@ where
         return Ok(());
     }
 
-    let library_restore = copy_database_artifact(
-        &[paths.library_snapshot.as_path()],
-        &paths.library_work,
-    )
-    .and_then(|_| restore_library(&paths.library_work, active_library));
-    let analysis_restore = copy_database_artifact(
-        &[paths.analysis_snapshot.as_path()],
-        &paths.analysis_work,
-    )
-    .and_then(|_| restore_analysis(&paths.analysis_work, active_analysis));
+    let library_restore =
+        copy_database_artifact(&[paths.library_snapshot.as_path()], &paths.library_work)
+            .and_then(|_| restore_library(&paths.library_work, active_library));
+    let analysis_restore =
+        copy_database_artifact(&[paths.analysis_snapshot.as_path()], &paths.analysis_work)
+            .and_then(|_| restore_analysis(&paths.analysis_work, active_analysis));
     let verification = verify_pair();
     combine_results(
         "durable full import database recovery",
@@ -236,7 +232,9 @@ pub(super) fn finalize_full_import_recovery(
         .as_ref()
         .is_some_and(|marker| marker.phase == FullImportRecoveryPhase::Prepared)
     {
-        return Err("full import databases must be restored or committed before cleanup".to_string());
+        return Err(
+            "full import databases must be restored or committed before cleanup".to_string(),
+        );
     }
 
     let mut cleanup_paths = extra_cleanup_paths.to_vec();

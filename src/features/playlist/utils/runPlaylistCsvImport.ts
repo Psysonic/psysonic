@@ -3,6 +3,7 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { readTextFile } from '@tauri-apps/plugin-fs';
 import { search, searchForServer } from '@/lib/api/subsonicSearch';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
+import { toFtsSafeSearchQuery } from '@/lib/library/searchQueryFtsSafe';
 import { showToast } from '@/lib/dom/toast';
 import { parseSpotifyCsv, type SpotifyCsvTrack } from '@/features/playlist/utils/spotifyCsvImport';
 import {
@@ -71,8 +72,10 @@ export async function runPlaylistCsvImport(deps: RunPlaylistCsvImportDeps): Prom
         let attempts = 0;
         const maxAttempts = 2;
 
-        // Clean title before search to find matches despite version suffixes
-        const cleanTitleForSearch = cleanTrackTitle(track.trackName);
+        // Clean title before search to find matches despite version suffixes. The
+        // search layer refuses any query with syntax characters, so punctuation in a
+        // title would otherwise report the track as not found without asking the server.
+        const cleanTitleForSearch = toFtsSafeSearchQuery(cleanTrackTitle(track.trackName));
 
         while (attempts < maxAttempts) {
           try {

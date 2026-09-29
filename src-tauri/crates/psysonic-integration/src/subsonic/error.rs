@@ -62,7 +62,10 @@ mod tests {
 
     #[test]
     fn display_includes_error_code_for_api_variant() {
-        let e = SubsonicError::Api { code: 40, message: "Wrong username or password".into() };
+        let e = SubsonicError::Api {
+            code: 40,
+            message: "Wrong username or password".into(),
+        };
         let s = e.to_string();
         assert!(s.contains("40"));
         assert!(s.contains("Wrong username"));

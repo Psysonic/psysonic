@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, State};
 
 use super::engine::{AudioCurrent, AudioEngine};
+use super::preserve_worker::StreamingSeekHandle;
 
 /// Args for [`spawn_legacy_stream_start_when_armed`].
 pub(super) struct LegacyStreamStartWhenArmed {
@@ -74,7 +75,9 @@ pub(super) fn spawn_legacy_stream_start_when_armed(args: LegacyStreamStartWhenAr
                 }
                 sink.play();
                 app.emit("audio:playing", duration_secs).ok();
-                crate::app_deprintln!("[stream] legacy track-stream: playback started after buffer ready");
+                crate::app_deprintln!(
+                    "[stream] legacy track-stream: playback started after buffer ready"
+                );
             }
         }
     });
@@ -82,6 +85,7 @@ pub(super) fn spawn_legacy_stream_start_when_armed(args: LegacyStreamStartWhenAr
 
 /// State + decisions audio_play computed before the sink swap.
 pub(crate) struct SinkSwapInputs {
+    pub(crate) generation: u64,
     pub(crate) sink: Arc<rodio::Player>,
     pub(crate) duration_secs: f64,
     pub(crate) volume: f32,
@@ -94,6 +98,7 @@ pub(crate) struct SinkSwapInputs {
     /// `0` ⇒ don't fade A — it rides its own recorded fade-out (scenario A).
     pub(crate) outgoing_fade_secs: f32,
     pub(crate) start_paused: bool,
+    pub(crate) streaming_seek: Option<StreamingSeekHandle>,
 }
 
 /// Hand off the outgoing sink to a sample-level fade-out, then stop it after
@@ -139,6 +144,7 @@ fn handoff_old_sink_fade_out(
 /// task that drops the old sink ~`actual_fade_secs + 0.5 s` later.
 pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapInputs) {
     let SinkSwapInputs {
+        generation,
         sink,
         duration_secs,
         volume,
@@ -149,6 +155,7 @@ pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapI
         actual_fade_secs,
         outgoing_fade_secs,
         start_paused,
+        streaming_seek,
     } = inputs;
 
     let (old_sink, old_fadeout_trigger, old_fadeout_samples) = {
@@ -171,6 +178,10 @@ pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapI
         cur.base_volume = volume.clamp(0.0, 1.0);
         cur.fadeout_trigger = Some(new_fadeout_trigger);
         cur.fadeout_samples = Some(new_fadeout_samples);
+        cur.streaming_seek = streaming_seek;
+        state
+            .current_generation
+            .store(generation, Ordering::Release);
         (old, old_fo_trigger, old_fo_samples)
     };
 
@@ -189,10 +200,7 @@ pub(crate) fn swap_in_new_sink(state: &State<'_, AudioEngine>, inputs: SinkSwapI
         } else if let Some(old) = old_sink {
             // Prep already volume-ducked A; scenario-A keeps sample gain at 1.0
             // so clamp the handoff sink or A blasts over B's fade-in.
-            if state
-                .interrupt_outgoing_duck_active
-                .load(Ordering::Relaxed)
-            {
+            if state.interrupt_outgoing_duck_active.load(Ordering::Relaxed) {
                 old.set_volume(0.0);
             }
             *state.fading_out_sink.lock().unwrap() = Some(old);

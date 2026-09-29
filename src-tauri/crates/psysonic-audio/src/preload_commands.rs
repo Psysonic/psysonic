@@ -14,8 +14,8 @@ use tauri::{AppHandle, Emitter, State};
 use psysonic_analysis::analysis_runtime::AnalysisBackfillPriority;
 
 use super::analysis_dispatch::{
-    prepare_playback_analysis, spawn_track_analysis_bytes, spawn_track_analysis_file,
-    TrackAnalysisOrigin,
+    prepare_playback_analysis, source_analysis_allowed, spawn_track_analysis_bytes,
+    spawn_track_analysis_file, TrackAnalysisOrigin,
 };
 use super::engine::AudioEngine;
 use super::helpers::{analysis_cache_track_id, same_playback_target};
@@ -80,13 +80,7 @@ fn publish_fresh_preload_if_current(
     emit_ready: impl FnOnce(),
     spawn_analysis: impl FnOnce(),
 ) -> bool {
-    if !publish_preloaded_if_current(
-        generation,
-        preload_epoch,
-        snapshot,
-        preloaded,
-        value,
-    ) {
+    if !publish_preloaded_if_current(generation, preload_epoch, snapshot, preloaded, value) {
         return false;
     }
     emit_ready();
@@ -163,22 +157,13 @@ fn seed_preload_analysis_file(
 }
 
 fn emit_preload_ready(app: &AppHandle, url: String, track_id: Option<String>) {
-    let _ = app.emit(
-        "audio:preload-ready",
-        PreloadEventPayload {
-            url,
-            track_id,
-        },
-    );
+    let _ = app.emit("audio:preload-ready", PreloadEventPayload { url, track_id });
 }
 
 fn emit_preload_cancelled(app: &AppHandle, url: String, track_id: Option<String>) {
     let _ = app.emit(
         "audio:preload-cancelled",
-        PreloadEventPayload {
-            url,
-            track_id,
-        },
+        PreloadEventPayload { url, track_id },
     );
 }
 
@@ -199,20 +184,18 @@ fn invalidate_preload_state(
 #[tauri::command]
 #[specta::specta]
 pub fn audio_invalidate_preloads(state: State<'_, AudioEngine>) {
-    invalidate_preload_state(
-        &state.preload_epoch,
-        &state.preloaded,
-        &state.chained_info,
-    );
+    invalidate_preload_state(&state.preload_epoch, &state.preloaded, &state.chained_info);
 }
 
 #[tauri::command]
 #[specta::specta]
+#[allow(clippy::too_many_arguments)]
 pub async fn audio_preload(
     url: String,
     duration_hint: f64,
     analysis_track_id: Option<String>,
     server_id: Option<String>,
+    local_original_verified: Option<bool>,
     eager: Option<bool>,
     app: AppHandle,
     state: State<'_, AudioEngine>,
@@ -242,14 +225,16 @@ pub async fn audio_preload(
             emit_preload_cancelled(&app, url, track_id_for_events);
             return Ok(());
         }
-        seed_preload_analysis_file(
-            &app,
-            &state,
-            &url,
-            path,
-            logical_trim.as_deref(),
-            server_id.as_deref(),
-        );
+        if source_analysis_allowed(&url, local_original_verified) {
+            seed_preload_analysis_file(
+                &app,
+                &state,
+                &url,
+                path,
+                logical_trim.as_deref(),
+                server_id.as_deref(),
+            );
+        }
         if !snapshot.is_current(&state) {
             emit_preload_cancelled(&app, url, track_id_for_events);
             return Ok(());
@@ -303,15 +288,10 @@ pub async fn audio_preload(
         }
     }
 
-    let response = crate::engine::playback_scoped_get(
-        &state,
-        &app,
-        &url,
-        server_id.as_deref(),
-    )
-    .send()
-    .await
-    .map_err(|e| e.to_string())?;
+    let response = crate::engine::playback_scoped_get(&state, &app, &url, server_id.as_deref())
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
     if !response.status().is_success() {
         emit_preload_cancelled(&app, url, track_id_for_events);
         return Ok(());
@@ -334,6 +314,7 @@ pub async fn audio_preload(
         PreloadedTrack {
             url: url.clone(),
             data,
+            local_original_verified: None,
         },
         || emit_preload_ready(&app, ready_url, ready_track_id),
         || {
@@ -371,11 +352,15 @@ mod tests {
         let published = publish_fresh_preload_if_current(
             &generation,
             &preload_epoch,
-            PreloadSnapshot { generation: 4, epoch: 2 },
+            PreloadSnapshot {
+                generation: 4,
+                epoch: 2,
+            },
             &preloaded,
             PreloadedTrack {
                 url: "https://example.test/stream".to_string(),
                 data: vec![1, 2, 3],
+                local_original_verified: None,
             },
             || {
                 assert!(preloaded.lock().unwrap().is_some());
@@ -403,11 +388,15 @@ mod tests {
         let published = publish_fresh_preload_if_current(
             &generation,
             &preload_epoch,
-            PreloadSnapshot { generation: 4, epoch: 2 },
+            PreloadSnapshot {
+                generation: 4,
+                epoch: 2,
+            },
             &preloaded,
             PreloadedTrack {
                 url: "https://example.test/stale".to_string(),
                 data: vec![9, 9, 9],
+                local_original_verified: None,
             },
             || ready_emitted.store(true, Ordering::SeqCst),
             || analysis_started.store(true, Ordering::SeqCst),
@@ -428,11 +417,15 @@ mod tests {
         let published = publish_preloaded_if_current(
             &generation,
             &preload_epoch,
-            PreloadSnapshot { generation: 4, epoch: 2 },
+            PreloadSnapshot {
+                generation: 4,
+                epoch: 2,
+            },
             &preloaded,
             PreloadedTrack {
                 url: "https://example.test/stale-epoch".to_string(),
                 data: vec![1],
+                local_original_verified: None,
             },
         );
 
@@ -448,12 +441,14 @@ mod tests {
         let preloaded = Mutex::new(Some(PreloadedTrack {
             url: "https://example.test/preloaded".into(),
             data: vec![1, 2, 3],
+            local_original_verified: None,
         }));
         let cancel = std::sync::Arc::new(AtomicBool::new(false));
         let chained = Mutex::new(Some(ChainedInfo {
             url: "https://example.test/chained".into(),
             analysis_track_id: Some("next".into()),
             server_id: Some("server".into()),
+            local_original_verified: None,
             generation: 8,
             raw_bytes: std::sync::Arc::new(vec![4, 5, 6]),
             resolved_format: None,

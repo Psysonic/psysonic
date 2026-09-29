@@ -4,13 +4,12 @@ import type { InternetRadioStation } from '@/lib/api/subsonicTypes';
 
 const hoisted = vi.hoisted(() => ({
   getRadio: vi.fn(),
-  getStarred: vi.fn(),
+  loadStarredFromAllServersOnline: vi.fn(),
 }));
 
 vi.mock('@/lib/api/subsonicRadio', () => ({
   getInternetRadioStationsForServersSettled: hoisted.getRadio,
 }));
-vi.mock('@/lib/api/subsonicStarRating', () => ({ getStarred: hoisted.getStarred }));
 vi.mock('@/features/playback/store/playerStore', () => ({
   usePlayerStore: Object.assign(
     (selector: (state: { starredOverrides: Record<string, boolean> }) => unknown) => (
@@ -32,7 +31,7 @@ vi.mock('@/features/offline', () => ({
   useOfflineBrowseContext: () => ({ active: false }),
   useOfflineBrowseReloadToken: () => 0,
   loadStarredFromAllLibraryIndexes: vi.fn(async () => ({ albums: [], artists: [], songs: [] })),
-  loadStarredFromAllServersOnline: vi.fn(async () => ({ albums: [], artists: [], songs: [] })),
+  loadStarredFromAllServersOnline: (...args: unknown[]) => hoisted.loadStarredFromAllServersOnline(...args),
 }));
 vi.mock('@/lib/library/favoritesBrowseDebug', () => ({
   beginFavoritesBrowseTrace: vi.fn(),
@@ -43,6 +42,7 @@ vi.mock('@/lib/library/favoritesBrowseDebug', () => ({
 import { useFavoritesData } from './useFavoritesData';
 import { resetAuthStore } from '@/test/helpers/storeReset';
 import { useAuthStore } from '@/store/authStore';
+import { notifyFavoritesChanged } from '@/lib/library/favoritesRevision';
 
 const STATION: InternetRadioStation = {
   id: 'shared',
@@ -56,7 +56,11 @@ describe('useFavoritesData radio ownership', () => {
     resetAuthStore();
     localStorage.clear();
     hoisted.getRadio.mockReset();
-    hoisted.getStarred.mockReset().mockResolvedValue({ albums: [], artists: [], songs: [] });
+    hoisted.loadStarredFromAllServersOnline.mockReset().mockResolvedValue({
+      albums: [],
+      artists: [],
+      songs: [],
+    });
     useAuthStore.setState({
       isLoggedIn: true,
       servers: [{
@@ -92,5 +96,59 @@ describe('useFavoritesData radio ownership', () => {
 
     await waitFor(() => expect(result.current.radioStations).toEqual([]));
     expect(JSON.parse(localStorage.getItem('psysonic_radio_favorites') ?? '[]')).toEqual([]);
+  });
+
+  it('loads online favorites from the whole configured browse cluster', async () => {
+    useAuthStore.setState(state => ({
+      servers: [
+        ...state.servers,
+        {
+          id: 'srv-b',
+          name: 'Remote',
+          url: 'https://b.test',
+          username: 'b',
+          password: 'p',
+        },
+      ],
+      libraryBrowseServerIds: ['srv-a', 'srv-b'],
+    }));
+    hoisted.loadStarredFromAllServersOnline.mockResolvedValue({
+      albums: [],
+      artists: [{ id: 'artist-b', name: 'Remote Artist', serverId: 'srv-b' }],
+      songs: [{
+        id: 'song-b',
+        title: 'Remote Song',
+        artist: 'Remote Artist',
+        duration: 1,
+        serverId: 'srv-b',
+      }],
+    });
+
+    const { result } = renderHook(() => useFavoritesData());
+
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(hoisted.loadStarredFromAllServersOnline).toHaveBeenCalledWith(['srv-a', 'srv-b']);
+    expect(result.current.artists.map(artist => artist.id)).toEqual(['artist-b']);
+    expect(result.current.songs.map(song => song.id)).toEqual(['song-b']);
+  });
+
+  it('reloads the cluster snapshot after a confirmed favorite mutation', async () => {
+    hoisted.loadStarredFromAllServersOnline
+      .mockResolvedValueOnce({ albums: [], artists: [], songs: [] })
+      .mockResolvedValueOnce({
+        albums: [],
+        artists: [{ id: 'artist-new', name: 'New Artist', serverId: 'srv-a' }],
+        songs: [],
+      });
+    const { result } = renderHook(() => useFavoritesData());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    act(() => notifyFavoritesChanged());
+
+    expect(result.current.loading).toBe(false);
+    await waitFor(() => expect(result.current.artists.map(artist => artist.id)).toEqual([
+      'artist-new',
+    ]));
+    expect(hoisted.loadStarredFromAllServersOnline).toHaveBeenCalledTimes(2);
   });
 });

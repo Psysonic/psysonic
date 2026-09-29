@@ -377,18 +377,14 @@ mod tests {
     #[test]
     fn song_picks_up_music_brainz_id_from_either_alias() {
         // OpenSubsonic shape — `musicBrainzId`.
-        let from_subsonic: Song = serde_json::from_str(
-            r#"{"id":"a","title":"t","musicBrainzId":"abc-123"}"#,
-        )
-        .unwrap();
+        let from_subsonic: Song =
+            serde_json::from_str(r#"{"id":"a","title":"t","musicBrainzId":"abc-123"}"#).unwrap();
         assert_eq!(from_subsonic.mbid_recording.as_deref(), Some("abc-123"));
 
         // Schema-column shape — direct `mbid_recording`. Lets callers
         // round-trip a row through `serde_json` without renaming.
-        let from_schema: Song = serde_json::from_str(
-            r#"{"id":"a","title":"t","mbid_recording":"xyz-789"}"#,
-        )
-        .unwrap();
+        let from_schema: Song =
+            serde_json::from_str(r#"{"id":"a","title":"t","mbid_recording":"xyz-789"}"#).unwrap();
         assert_eq!(from_schema.mbid_recording.as_deref(), Some("xyz-789"));
     }
 
@@ -444,10 +440,9 @@ mod tests {
 
     #[test]
     fn album_summary_tolerates_optional_albumversion_shapes() {
-        let scalar: AlbumSummary = serde_json::from_str(
-            r#"{"id":"a","name":"Album","tags":{"albumversion":"Deluxe"}}"#,
-        )
-        .unwrap();
+        let scalar: AlbumSummary =
+            serde_json::from_str(r#"{"id":"a","name":"Album","tags":{"albumversion":"Deluxe"}}"#)
+                .unwrap();
         assert_eq!(
             scalar.tags.unwrap().albumversion,
             vec!["Deluxe".to_string()]
@@ -468,9 +463,7 @@ mod tests {
             r#"{"id":"a","name":"Album","tags":{"albumversion":null}}"#,
         ] {
             let summary: AlbumSummary = serde_json::from_str(malformed).unwrap();
-            assert!(summary
-                .tags
-                .is_none_or(|tags| tags.albumversion.is_empty()));
+            assert!(summary.tags.is_none_or(|tags| tags.albumversion.is_empty()));
         }
     }
 

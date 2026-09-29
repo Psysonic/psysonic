@@ -39,12 +39,16 @@ const ROUTE_LOADERS: Array<[string, () => Promise<{ default: unknown }>]> = [
   ['@/features/help/pages/Help', () => import('@/features/help/pages/Help')],
   ['@/features/whatsNew/pages/WhatsNew', () => import('@/features/whatsNew/pages/WhatsNew')],
   ['@/features/deviceSync/pages/DeviceSync', () => import('@/features/deviceSync/pages/DeviceSync')],
+  ['@/features/burner/pages/Burner', () => import('@/features/burner/pages/Burner')],
   ['@/features/offline/pages/OfflineLibrary', () => import('@/features/offline/pages/OfflineLibrary')],
   ['@/features/search/pages/SearchBrowsePage', () => import('@/features/search/pages/SearchBrowsePage')],
   ['@/features/folderBrowser/pages/FolderBrowser', () => import('@/features/folderBrowser/pages/FolderBrowser')],
   ['@/features/radio/pages/InternetRadio', () => import('@/features/radio/pages/InternetRadio')],
   ['@/features/genre/pages/Genres', () => import('@/features/genre/pages/Genres')],
   ['@/features/genre/pages/GenreDetail', () => import('@/features/genre/pages/GenreDetail')],
+  ['@/features/mood/pages/Moods', () => import('@/features/mood/pages/Moods')],
+  ['@/features/mood/pages/MoodDetail', () => import('@/features/mood/pages/MoodDetail')],
+  ['@/features/share/pages/Shared', () => import('@/features/share/pages/Shared')],
   ['@/features/auth/pages/Login', () => import('@/features/auth/pages/Login')],
 ];
 

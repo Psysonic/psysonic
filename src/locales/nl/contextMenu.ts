@@ -25,9 +25,10 @@ export const contextMenu = {
   addToPlaylist: 'Toevoegen aan playlist',
   selectedPlaylists: '{{count}} playlists geselecteerd',
   selectedAlbums: '{{count}} albums geselecteerd',
+  selectedSongs: '{{count}} nummers geselecteerd',
   selectedArtists: '{{count}} artiesten geselecteerd',
   songInfo: 'Nummerinfo',
-  shareLink: 'Deellink kopiëren',
+  shareLink: 'Link delen',
   shareCopied: 'Deellink gekopieerd naar het klembord.',
   shareCopyFailed: 'Kopiëren naar het klembord is mislukt.',
 };

@@ -26,9 +26,10 @@ export const contextMenu = {
   addToPlaylist: 'Добави в плейлист',
   selectedPlaylists: 'Избрани {{count}} плейлиста',
   selectedAlbums: 'Избрани {{count}} албума',
+  selectedSongs: '{{count}} избрани песни',
   selectedArtists: 'Избрани {{count}} изпълнители',
   songInfo: 'Информация за песента',
-  shareLink: 'Копирай връзка за споделяне',
+  shareLink: 'Сподели връзка',
   shareCopied: 'Връзката за споделяне е копирана в клипборда.',
   shareCopyFailed: 'Не може да се копира в клипборда.',
 };

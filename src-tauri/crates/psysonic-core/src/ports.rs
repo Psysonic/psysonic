@@ -71,7 +71,9 @@ impl ContentHashSink {
     where
         F: Fn(&str, &str, &str) + Send + Sync + 'static,
     {
-        Self { record: Arc::new(record) }
+        Self {
+            record: Arc::new(record),
+        }
     }
 
     /// Record `md5_16kb` as the library `content_hash` for `(server_id, track_id)`.
@@ -106,7 +108,9 @@ impl AnalysisReadinessQuery {
     where
         F: Fn(&str, &str, &str) -> (bool, bool) + Send + Sync + 'static,
     {
-        Self { query: Arc::new(query) }
+        Self {
+            query: Arc::new(query),
+        }
     }
 
     /// `(waveform_ready, loudness_ready)` for `(server_id, track_id, md5_16kb)`.

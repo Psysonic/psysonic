@@ -83,7 +83,7 @@ describe('offlineLibraryHelpers', () => {
     expect(countFavoriteAutoTracks()).toBe(1);
   });
 
-  it('pendingOfflinePinSongs skips already pinned tracks', () => {
+  it('pendingOfflinePinSongs skips already verified pinned tracks', () => {
     useLocalPlaybackStore.setState({
       entries: {
         'a.test:t1': {
@@ -95,14 +95,14 @@ describe('offlineLibraryHelpers', () => {
           tier: 'library',
           cachedAt: 1,
           suffix: 'mp3',
+          originalBytesVerified: true,
         },
       },
     });
     expect(pendingOfflinePinSongs([{ id: 't1' }, { id: 't2' }], 'a')).toEqual([{ id: 't2' }]);
   });
 
-  it('refreshes legacy Navidrome pins until native verification is persisted', () => {
-    useAuthStore.getState().setSubsonicServerIdentity('a', { type: 'navidrome' });
+  it('refreshes legacy pins on every server until native verification is persisted', () => {
     const entry = {
       serverIndexKey: 'a.test',
       trackId: 't1',
@@ -138,6 +138,7 @@ describe('offlineLibraryHelpers', () => {
           tier: 'library',
           cachedAt: 1,
           suffix: 'mp3',
+          originalBytesVerified: true,
         },
       },
     });
@@ -157,6 +158,7 @@ describe('offlineLibraryHelpers', () => {
           cachedAt: 1,
           suffix: 'mp3',
           pinSource: { kind: 'album', sourceId: 'al1' },
+          originalBytesVerified: true,
         },
       },
     });

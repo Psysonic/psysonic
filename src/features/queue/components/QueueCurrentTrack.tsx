@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { ChevronDown, FolderOpen, HardDrive, Music, Waves } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import type { Track } from '@/lib/media/trackTypes';
@@ -15,6 +15,7 @@ import { formatQueueBpmTech, formatQueueMoodLabels } from '@/lib/library/trackEn
 import { useQueueTrackEnrichment } from '@/features/queue/hooks/useQueueTrackEnrichment';
 import { QueueLufsTargetMenu } from '@/features/queue/components/QueueLufsTargetMenu';
 import { PlaybackBufferingOverlay } from '@/features/playback/components/PlaybackBufferingOverlay';
+import { useDebouncedBuffering } from '@/features/playback';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
@@ -56,10 +57,21 @@ export function QueueCurrentTrack({
   reanalyzeLoudnessForTrack, setLoudnessTargetLufs, lufsTgtOpen, setLufsTgtOpen,
   lufsTgtBtnRef, lufsTgtMenuRef, lufsTgtPopStyle, t,
 }: Props) {
-  const showBufferingOverlay = usePlayerStore(s => s.isPlaybackBuffering);
+  const isPlaybackBuffering = usePlayerStore(s => s.isPlaybackBuffering);
+  const showBufferingOverlay = useDebouncedBuffering(isPlaybackBuffering);
   const resolvedStreamFormat = usePlayerStore(s => s.resolvedStreamFormat);
   const coverRef = usePlaybackTrackCoverRef(currentTrack);
   const directCoverUrl = currentTrack?.directCoverArtUrl;
+  // Stable identity: an inline literal here re-fired the cover ensure effect on
+  // every playback-tick re-render of the queue (observed as thumbnail flashing).
+  const coverEnsureOpts = useMemo(
+    () => ({
+      artistName: currentTrack?.artist ?? '',
+      albumTitle: currentTrack?.album ?? '',
+      allowExternalAlbum: true as const,
+    }),
+    [currentTrack?.artist, currentTrack?.album],
+  );
   const artistRefs = resolveTrackArtistRefs(currentTrack);
   // `track.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
@@ -230,6 +242,7 @@ export function QueueCurrentTrack({
               displayCssPx={128}
               surface="sparse"
               ensurePriority="high"
+              ensureOpts={coverEnsureOpts}
               alt=""
               loading="eager"
             />

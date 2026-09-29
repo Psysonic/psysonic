@@ -47,6 +47,7 @@ import {
   summarizeMultiServerProfiles,
   summarizeMusicFoldersByServer,
 } from '@/lib/library/multiServerDebug';
+import { useShareSettingsStore } from '@/features/share';
 
 const EMPTY_LIBRARY_IDS: string[] = [];
 
@@ -59,6 +60,7 @@ export default function Sidebar({
   toggleCollapse?: () => void;
 }) {
   const { t } = useTranslation();
+  const navidromeSharingEnabled = useShareSettingsStore(s => s.navidromeSharingEnabled);
   const location = useLocation();
   const isPlaying   = usePlayerStore(s => s.isPlaying);
   const currentTrack = usePlayerStore(s => s.currentTrack);
@@ -188,6 +190,8 @@ export default function Sidebar({
     () =>
       libraryItemsForReorder.filter(c => {
         if (!c.visible) return false;
+        if (c.id === 'shared' && !navidromeSharingEnabled) return false;
+        if (c.id === 'shared') return true;
         if (c.id === 'luckyMix' && !luckyMixAvailable) return false;
         if (isServerOffline && !isOfflineSidebarNavAllowed(
           c.id,
@@ -200,7 +204,7 @@ export default function Sidebar({
         }
         return true;
       }),
-    [libraryItemsForReorder, luckyMixAvailable, isServerOffline, offlineNav],
+    [libraryItemsForReorder, luckyMixAvailable, isServerOffline, navidromeSharingEnabled, offlineNav],
   );
   const visibleSystemConfigs = useMemo(
     () => systemItemsForReorder.filter(c => {

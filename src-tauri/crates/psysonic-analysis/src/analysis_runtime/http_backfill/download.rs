@@ -213,46 +213,41 @@ pub(in crate::analysis_runtime) async fn analysis_backfill_download<R: tauri::Ru
     max_bytes: usize,
 ) -> Result<AnalysisBackfillDownload, AnalysisBackfillJobError> {
     let operation_generation = next_trusted_generation();
-    let mut effective_generation = operation_generation;
     let registry = app
         .try_state::<Arc<ServerHttpRegistry>>()
         .map(|s| Arc::clone(&*s));
     let raw_supported =
         crate::raw_probe::raw_stream_supported(registry.as_deref(), Some(server_id), url);
-    let mut trusted = if raw_supported {
-        match probe_backfill_trusted_identity(
-            app,
-            registry.as_deref(),
-            server_id,
-            track_id,
-            url,
-            operation_generation,
-        )
-        .await
-        {
-            Ok(Some(hash)) => {
-                effective_generation = register_trusted_revision_generation(
-                    server_id,
-                    track_id,
-                    &hash,
-                    operation_generation,
-                );
-                Some(hash)
-            }
-            Ok(None) => {
-                crate::app_deprintln!(
-                    "[analysis] raw identity probe unavailable track_id={track_id}; falling back to original download"
-                );
-                None
-            }
-            Err(error) => return Err(error),
+    let (mut trusted, mut effective_generation) = match probe_backfill_trusted_identity(
+        app,
+        registry.as_deref(),
+        server_id,
+        track_id,
+        url,
+        operation_generation,
+    )
+    .await
+    {
+        Ok(Some(hash)) => {
+            let generation = register_trusted_revision_generation(
+                server_id,
+                track_id,
+                &hash,
+                operation_generation,
+            );
+            (hash, generation)
         }
-    } else {
-        None
+        Ok(None) => {
+            return Err(AnalysisBackfillJobError::Retryable(
+                "trusted original identity unavailable for analysis backfill".to_string(),
+            ));
+        }
+        Err(error) => return Err(error),
     };
 
     let fetch_started = std::time::Instant::now();
-    if let Some(initial_trusted_md5_16kb) = trusted.clone() {
+    if raw_supported {
+        let initial_trusted_md5_16kb = trusted.clone();
         let transcode_result = crate::raw_probe::fetch_bounded_stream_bytes(
             analysis_http_client(),
             registry.as_deref(),
@@ -279,7 +274,7 @@ pub(in crate::analysis_runtime) async fn analysis_backfill_download<R: tauri::Ru
                     operation_generation,
                 );
                 let unchanged = hash == initial_trusted_md5_16kb;
-                trusted = Some(hash.clone());
+                trusted = hash.clone();
                 if unchanged {
                     match transcode_result {
                         Ok(bytes) => {
@@ -310,83 +305,61 @@ pub(in crate::analysis_runtime) async fn analysis_backfill_download<R: tauri::Ru
                         }
                         Err(error) => {
                             crate::app_deprintln!(
-                                "[analysis] transcode unavailable track_id={track_id}: {error}; falling back to original download"
+                                "[analysis] transcode unavailable track_id={track_id}: {error}; falling back to trusted original"
                             );
                         }
                     }
                 } else {
                     crate::app_deprintln!(
-                        "[analysis] original changed during transcode fetch track_id={track_id}; falling back to original download"
+                        "[analysis] original changed during transcode fetch track_id={track_id}; falling back to trusted original"
                     );
                 }
             }
             Ok(None) => {
-                trusted = None;
-                crate::app_deprintln!(
-                    "[analysis] raw identity revalidation unavailable track_id={track_id}; falling back to original download"
-                );
+                return Err(AnalysisBackfillJobError::Retryable(
+                    "trusted original identity unavailable during analysis revalidation"
+                        .to_string(),
+                ));
             }
             Err(error) => return Err(error),
         }
     }
 
-    let download_url = crate::raw_probe::build_original_download_url(url).ok_or_else(|| {
-        AnalysisBackfillJobError::Retryable(
-            "original download endpoint unavailable for analysis fallback".to_string(),
-        )
-    })?;
-    let trusted_fetch_permit = if let Some(revision) = trusted.as_deref() {
-        let permit = reserve_trusted_analysis_fetch(server_id, track_id, revision).await;
-        if permit.waited()
-            && (analysis_revision_in_cpu_pipeline(server_id, track_id, revision)
-                || !crate::track_analysis_plan::plan_track_analysis(
-                    app, server_id, track_id, revision,
-                )
+    let permit = reserve_trusted_analysis_fetch(server_id, track_id, &trusted).await;
+    if permit.waited()
+        && (analysis_revision_in_cpu_pipeline(server_id, track_id, &trusted)
+            || !crate::track_analysis_plan::plan_track_analysis(app, server_id, track_id, &trusted)
                 .any())
-        {
-            return Err(AnalysisBackfillJobError::Superseded);
-        }
-        Some(permit)
-    } else {
-        None
-    };
-    let bytes = match crate::raw_probe::fetch_bounded_stream_bytes(
+    {
+        return Err(AnalysisBackfillJobError::Superseded);
+    }
+    let trusted_fetch_permit = Some(permit);
+    let bytes = match crate::raw_probe::fetch_trusted_original_bytes_result(
         analysis_http_client(),
         registry.as_deref(),
         Some(server_id),
-        &download_url,
+        url,
+        &trusted,
         max_bytes,
     )
     .await
     {
         Ok(bytes) => bytes,
         Err(crate::raw_probe::BoundedStreamFetchError::TooLarge { md5_16kb }) => {
-            if trusted
-                .as_deref()
-                .is_some_and(|trusted_md5_16kb| trusted_md5_16kb != md5_16kb)
-            {
+            if trusted != md5_16kb {
                 return Err(AnalysisBackfillJobError::Retryable(
-                    "oversized original download does not match raw-probed identity".to_string(),
+                    "oversized trusted original does not match the probed identity".to_string(),
                 ));
-            }
-            let original_md5_16kb = trusted.as_deref().unwrap_or(&md5_16kb);
-            if trusted.is_none() {
-                effective_generation = register_trusted_revision_generation(
-                    server_id,
-                    track_id,
-                    original_md5_16kb,
-                    operation_generation,
-                );
             }
             record_oversized_trusted_analysis(
                 app,
                 server_id,
                 track_id,
-                original_md5_16kb,
+                &trusted,
                 effective_generation,
             )?;
             return Err(AnalysisBackfillJobError::Terminal(format!(
-                "original download exceeds analysis cap of {max_bytes} bytes"
+                "trusted original exceeds analysis cap of {max_bytes} bytes"
             )));
         }
         Err(crate::raw_probe::BoundedStreamFetchError::SubsonicApi(error))
@@ -401,7 +374,7 @@ pub(in crate::analysis_runtime) async fn analysis_backfill_download<R: tauri::Ru
             ));
         }
         Err(error) => {
-            let message = format!("original download unavailable: {error}");
+            let message = format!("trusted original unavailable: {error}");
             return Err(if error.is_permanent_http() {
                 AnalysisBackfillJobError::Terminal(message)
             } else {
@@ -409,14 +382,7 @@ pub(in crate::analysis_runtime) async fn analysis_backfill_download<R: tauri::Ru
             });
         }
     };
-    if let Some(trusted_md5_16kb) = trusted.as_deref() {
-        if !crate::raw_probe::bytes_match_trusted(&bytes, trusted_md5_16kb) {
-            return Err(AnalysisBackfillJobError::Retryable(
-                "original download does not match raw-probed identity".to_string(),
-            ));
-        }
-    }
-    let md5_16kb = trusted.unwrap_or_else(|| analysis_cache::md5_first_16kb(&bytes));
+    let md5_16kb = trusted;
     effective_generation =
         register_trusted_revision_generation(server_id, track_id, &md5_16kb, operation_generation);
     let trusted_revision = Some(TrustedAnalysisRevision {

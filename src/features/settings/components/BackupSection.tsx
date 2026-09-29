@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Clock3, Download, Upload } from 'lucide-react';
+import { AlertTriangle, Clock3, Download, Upload } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { SettingsSubCard, SettingsField } from '@/features/settings/components/SettingsSubCard';
@@ -168,6 +168,26 @@ export function BackupSection() {
             </button>
           ))}
         </div>
+
+        {/* The library archive carries SQLite snapshots only, so the warning
+            belongs to the two modes that write the settings stores. */}
+        {mode !== 'library' && (
+          <div
+            className="settings-privacy-notice"
+            role="note"
+            aria-label={t('settings.backupCredentialsNoticeTitle')}
+          >
+            <AlertTriangle size={16} className="settings-privacy-notice-icon" aria-hidden="true" />
+            <div>
+              <div className="settings-privacy-notice-title">
+                {t('settings.backupCredentialsNoticeTitle')}
+              </div>
+              <div className="settings-privacy-notice-body">
+                {t('settings.backupCredentialsNoticeBody')}
+              </div>
+            </div>
+          </div>
+        )}
 
         <SettingsSubCard>
           <SettingsField label={modeTitle} desc={modeDesc}>

@@ -239,6 +239,7 @@ export function artistToArtist(ar: LibraryArtistDto): SubsonicArtist {
     nameSort: ar.nameSort ?? undefined,
     albumCount: ar.albumCount ?? undefined,
     coverArt: ar.id,
+    starred: ar.starredAt != null ? new Date(ar.starredAt).toISOString() : undefined,
   };
   const merged = mergeArtistRawJson(base, raw as Partial<SubsonicArtist>);
   return merged;

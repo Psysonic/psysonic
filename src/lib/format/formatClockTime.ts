@@ -1,4 +1,5 @@
 import type { ClockFormat } from '@/store/authStoreTypes';
+import { usableLocale } from '@/lib/format/localeTag';
 
 /**
  * Localized wall-clock `HH:MM` for a timestamp (sleep-timer / queue-ETA labels).
@@ -9,7 +10,7 @@ import type { ClockFormat } from '@/store/authStoreTypes';
  */
 export function formatClockTime(timestampMs: number, clockFormat?: ClockFormat, locale?: string): string {
   const hour12 = clockFormat === '24h' ? false : clockFormat === '12h' ? true : undefined;
-  return new Date(timestampMs).toLocaleTimeString(locale, {
+  return new Date(timestampMs).toLocaleTimeString(usableLocale(locale), {
     hour: '2-digit',
     minute: '2-digit',
     hour12,

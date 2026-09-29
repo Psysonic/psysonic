@@ -16,9 +16,8 @@ interface Args {
   setKeyboardRating: React.Dispatch<React.SetStateAction<KeyboardRating | null>>;
   getRatingValueByKind: (kind: RatingKind, id: string) => number;
   commitRatingByKind: (kind: RatingKind, id: string, rating: number) => void;
-  playlistSubmenuOpen: boolean;
-  setPlaylistSubmenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  setPlaylistSongIds: React.Dispatch<React.SetStateAction<string[]>>;
+  activeSubmenuId: string | null;
+  setActiveSubmenuId: React.Dispatch<React.SetStateAction<string | null>>;
   pendingSubmenuKeyboardFocus: boolean;
   setPendingSubmenuKeyboardFocus: React.Dispatch<React.SetStateAction<boolean>>;
 }
@@ -32,7 +31,7 @@ interface Result {
 export function useContextMenuKeyboardNav({
   menuRef, isOpen, closeContextMenu,
   keyboardRating, setKeyboardRating, getRatingValueByKind, commitRatingByKind,
-  playlistSubmenuOpen, setPlaylistSubmenuOpen, setPlaylistSongIds,
+  activeSubmenuId, setActiveSubmenuId,
   pendingSubmenuKeyboardFocus, setPendingSubmenuKeyboardFocus,
 }: Args): Result {
   const getMenuNavItems = useCallback(
@@ -93,7 +92,7 @@ export function useContextMenuKeyboardNav({
 
   // After opening a submenu via keyboard, wait for it to render then focus first item.
   useEffect(() => {
-    if (!pendingSubmenuKeyboardFocus || !playlistSubmenuOpen) return;
+    if (!pendingSubmenuKeyboardFocus || !activeSubmenuId) return;
     let cancelled = false;
     const tryFocus = (attemptsLeft: number) => {
       if (cancelled) return;
@@ -111,7 +110,7 @@ export function useContextMenuKeyboardNav({
     };
     requestAnimationFrame(() => tryFocus(8));
     return () => { cancelled = true; };
-  }, [pendingSubmenuKeyboardFocus, playlistSubmenuOpen, getMenuNavItems, focusMenuItemAt, setPendingSubmenuKeyboardFocus]);
+  }, [pendingSubmenuKeyboardFocus, activeSubmenuId, getMenuNavItems, focusMenuItemAt, setPendingSubmenuKeyboardFocus]);
 
   const onMenuKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const active = document.activeElement as HTMLElement | null;
@@ -160,12 +159,11 @@ export function useContextMenuKeyboardNav({
     }
     if (e.key === 'ArrowRight') {
       const trigger = active?.closest('.context-menu-item--submenu') as HTMLElement | null;
-      const triggerId = trigger?.dataset.playlistTriggerId;
+      const triggerId = trigger?.dataset.submenuId;
       if (!trigger || !triggerId) return;
       e.preventDefault();
       e.stopPropagation();
-      setPlaylistSongIds([triggerId]);
-      setPlaylistSubmenuOpen(true);
+      setActiveSubmenuId(triggerId);
       setPendingSubmenuKeyboardFocus(true);
       return;
     }
@@ -174,12 +172,12 @@ export function useContextMenuKeyboardNav({
       if (!sub) return;
       e.preventDefault();
       e.stopPropagation();
-      const triggerId = sub.dataset.parentTriggerId;
-      setPlaylistSubmenuOpen(false);
+      const triggerId = sub.dataset.parentSubmenuId;
+      setActiveSubmenuId(null);
       requestAnimationFrame(() => {
         const trigger = triggerId
           ? Array.from(menuRef.current?.querySelectorAll<HTMLElement>('.context-menu-item--submenu') ?? [])
-              .find(el => el.dataset.playlistTriggerId === triggerId) ?? null
+              .find(el => el.dataset.submenuId === triggerId) ?? null
           : null;
         if (trigger) {
           menuRef.current
@@ -206,7 +204,7 @@ export function useContextMenuKeyboardNav({
   }, [
     closeContextMenu, keyboardRating, getRatingValueByKind, commitRatingByKind,
     getMenuNavItems, focusMenuItemAt, menuRef,
-    setKeyboardRating, setPlaylistSubmenuOpen, setPlaylistSongIds, setPendingSubmenuKeyboardFocus,
+    setKeyboardRating, setActiveSubmenuId, setPendingSubmenuKeyboardFocus,
   ]);
 
   return { onMenuKeyDown, getMenuNavItems, focusMenuItemAt };

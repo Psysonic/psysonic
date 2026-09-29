@@ -1,6 +1,21 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@/lib/i18n';
+import { version as appVersion } from '../../../../package.json';
+
+/**
+ * A release the hook must treat as newer than whatever the app currently is.
+ *
+ * Derived rather than written down: the hook compares against the version in
+ * `package.json`, so a fixed string only stays newer until the next version
+ * bump moves the app past it. That is not hypothetical — a literal `1.54.0`
+ * here survived the bump to `1.54.0-dev` (same numbers, and a final release
+ * outranks its own `-dev` prerelease) and then failed the bump to `1.55.0-dev`,
+ * where it was a minor version behind.
+ */
+const [major, minor] = appVersion.split('.');
+const NEWER_VERSION = `${major}.${Number(minor) + 1}.0`;
+const NEWER_RC_VERSION = `${NEWER_VERSION}-rc.2`;
 
 const platform = vi.hoisted(() => ({ IS_LINUX: false, IS_MACOS: false, IS_WINDOWS: false }));
 vi.mock('@/lib/util/platform', () => platform);
@@ -9,11 +24,13 @@ const plugin = vi.hoisted(() => ({
   check: vi.fn(),
   relaunch: vi.fn(async () => {}),
 }));
+const flatpakUpdateInfo = vi.hoisted(() => vi.fn());
 vi.mock('@tauri-apps/plugin-updater', () => ({ check: plugin.check }));
 vi.mock('@tauri-apps/plugin-process', () => ({ relaunch: plugin.relaunch }));
 vi.mock('@/generated/bindings', () => ({
   commands: {
     checkArchLinux: vi.fn(async () => false),
+    flatpakUpdateInfo,
     downloadUpdate: vi.fn(),
     openFolder: vi.fn(),
   },
@@ -47,13 +64,17 @@ describe('useAppUpdater in-app install', () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false })));
     plugin.check.mockReset();
     plugin.relaunch.mockClear();
+    flatpakUpdateInfo.mockReset();
+    flatpakUpdateInfo.mockResolvedValue(null);
     platform.IS_LINUX = false;
     platform.IS_MACOS = false;
     platform.IS_WINDOWS = false;
+    vi.stubEnv('VITE_PSYSONIC_FLATPAK', '');
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.useRealTimers();
   });
 
@@ -117,5 +138,54 @@ describe('useAppUpdater in-app install', () => {
     const { result } = renderHook(() => useAppUpdater());
     expect(result.current.updaterPlatform).toBeNull();
     expect(result.current.useTauriUpdater).toBe(false);
+  });
+
+  it('Flatpak keeps the release notice without offering another Linux package', async () => {
+    platform.IS_LINUX = true;
+    vi.stubEnv('VITE_PSYSONIC_FLATPAK', '1');
+    flatpakUpdateInfo.mockResolvedValue({
+      branch: 'stable',
+      version: NEWER_VERSION,
+      tag: `app-v${NEWER_VERSION}`,
+      body: 'Release notes',
+    });
+    const { result } = renderHook(() => useAppUpdater());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+
+    expect(flatpakUpdateInfo).toHaveBeenCalledTimes(1);
+    expect(result.current.release?.version).toBe(NEWER_VERSION);
+    expect(result.current.release?.body).toBe('Release notes');
+    expect(result.current.flatpakBranch).toBe('stable');
+    expect(result.current.flatpakUpdateCommand).toBe(
+      'flatpak update --user io.github.psysonic.psysonic//stable',
+    );
+    expect(result.current.showAurHint).toBe(false);
+    expect(result.current.asset).toBeUndefined();
+    expect(result.current.showInstallBtn).toBe(false);
+  });
+
+  it('Flatpak RC follows the metadata published for the RC branch', async () => {
+    platform.IS_LINUX = true;
+    vi.stubEnv('VITE_PSYSONIC_FLATPAK', '1');
+    flatpakUpdateInfo.mockResolvedValue({
+      branch: 'rc',
+      version: NEWER_RC_VERSION,
+      tag: `app-v${NEWER_RC_VERSION}`,
+      body: 'RC notes',
+    });
+    const { result } = renderHook(() => useAppUpdater());
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(4_000);
+    });
+
+    expect(result.current.release?.version).toBe(NEWER_RC_VERSION);
+    expect(result.current.flatpakBranch).toBe('rc');
+    expect(result.current.flatpakUpdateCommand).toBe(
+      'flatpak update --user io.github.psysonic.psysonic//rc',
+    );
   });
 });

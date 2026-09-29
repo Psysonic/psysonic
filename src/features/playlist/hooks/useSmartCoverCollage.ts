@@ -2,14 +2,17 @@ import { useEffect, useState } from 'react';
 import { filterSongsToServerLibrary } from '@/lib/api/subsonicLibrary';
 import { getPlaylistForServer } from '@/lib/api/subsonicPlaylists';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
-import { isSmartPlaylistName } from '@/features/playlist';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { hasLegacySmartPlaylistName } from '@/lib/format/playlistClassification';
 
 /**
- * Build the 2×2 cover collage for each smart playlist. Pulls each smart
+ * Build the 2×2 cover collage for each legacy `psy-smart-` playlist. Pulls each
  * playlist's tracks (filtered to the active library scope) and collects up
  * to four unique cover-art IDs. Re-runs when the playlist list changes or
  * when the active library filter version bumps.
+ *
+ * Native Navidrome smart playlists are left out on purpose: their server cover
+ * may be user-uploaded artwork, and the collage would replace it on the card.
  */
 export function useSmartCoverCollage(
   playlists: SubsonicPlaylist[],
@@ -20,7 +23,7 @@ export function useSmartCoverCollage(
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
-      const smart = playlists.filter(pl => isSmartPlaylistName(pl.name));
+      const smart = playlists.filter(pl => hasLegacySmartPlaylistName(pl.name));
       if (smart.length === 0) {
         if (!cancelled) setSmartCoverIdsByPlaylist({});
         return;

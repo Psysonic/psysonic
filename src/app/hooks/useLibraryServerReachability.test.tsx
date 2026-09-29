@@ -7,13 +7,25 @@ import { useLibraryServerReachability } from './useLibraryServerReachability';
 
 const switchActiveServerMock = vi.hoisted(() => vi.fn());
 const bootstrapIndexedServerMock = vi.hoisted(() => vi.fn());
+const ensureConnectUrlResolvedMock = vi.hoisted(() => vi.fn());
+const scheduleInstantMixProbeForServerMock = vi.hoisted(() => vi.fn());
+const perfFlags = vi.hoisted(() => ({ disableBackgroundPolling: true }));
 
 vi.mock('@/utils/server/switchActiveServer', () => ({
   switchActiveServer: switchActiveServerMock,
 }));
 
 vi.mock('@/lib/perf/perfFlags', () => ({
-  usePerfProbeFlags: () => ({ disableBackgroundPolling: true }),
+  usePerfProbeFlags: () => perfFlags,
+}));
+
+vi.mock('@/lib/server/serverEndpoint', () => ({
+  ensureConnectUrlResolved: ensureConnectUrlResolvedMock,
+  invalidateReachableEndpointCache: vi.fn(),
+}));
+
+vi.mock('@/lib/api/subsonic', () => ({
+  scheduleInstantMixProbeForServer: scheduleInstantMixProbeForServerMock,
 }));
 
 vi.mock('@/lib/library/librarySession', () => ({
@@ -24,6 +36,9 @@ beforeEach(() => {
   resetAuthStore();
   switchActiveServerMock.mockReset();
   bootstrapIndexedServerMock.mockReset().mockResolvedValue('bound');
+  ensureConnectUrlResolvedMock.mockReset();
+  scheduleInstantMixProbeForServerMock.mockReset();
+  perfFlags.disableBackgroundPolling = true;
   switchActiveServerMock.mockImplementation(async (server: { id: string }) => {
     useAuthStore.getState().setActiveServer(server.id);
     return true;
@@ -116,5 +131,37 @@ describe('useLibraryServerReachability', () => {
     ));
     expect(useAuthStore.getState().activeServerId).toBe('a');
     expect(switchActiveServerMock).not.toHaveBeenCalled();
+  });
+
+  it('refreshes identities for every selected server from the reachability probes', async () => {
+    perfFlags.disableBackgroundPolling = false;
+    useAuthStore.setState({
+      subsonicServerIdentityByServer: {
+        a: { type: 'navidrome', serverVersion: '0.63.2', openSubsonic: true },
+        b: { type: 'navidrome', serverVersion: '0.63.2', openSubsonic: true },
+      },
+    });
+    ensureConnectUrlResolvedMock.mockImplementation(async (server: { url: string }) => ({
+      ok: true,
+      baseUrl: server.url,
+      endpoint: { kind: 'public', url: server.url },
+      ping: { ok: true, type: 'navidrome', serverVersion: '0.64.0', openSubsonic: true },
+    }));
+
+    renderHook(() => useLibraryServerReachability());
+
+    await waitFor(() => expect(ensureConnectUrlResolvedMock).toHaveBeenCalledTimes(2));
+    expect(useAuthStore.getState().subsonicServerIdentityByServer).toMatchObject({
+      a: { serverVersion: '0.64.0' },
+      b: { serverVersion: '0.64.0' },
+    });
+    expect(scheduleInstantMixProbeForServerMock).toHaveBeenCalledTimes(2);
+    expect(scheduleInstantMixProbeForServerMock).toHaveBeenCalledWith(
+      'b',
+      'https://b.test',
+      'u',
+      'p',
+      { type: 'navidrome', serverVersion: '0.64.0', openSubsonic: true },
+    );
   });
 });

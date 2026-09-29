@@ -216,10 +216,16 @@ impl std::fmt::Display for FilterError {
                 write!(f, "unknown filter field `{field}` (known: {known})")
             }
             FilterError::NotQueryable(field) => {
-                write!(f, "filter field `{field}` is registered but not queryable in v1")
+                write!(
+                    f,
+                    "filter field `{field}` is registered but not queryable in v1"
+                )
             }
             FilterError::UnsupportedOp { field, op } => {
-                write!(f, "operator `{op}` is not supported for filter field `{field}`")
+                write!(
+                    f,
+                    "operator `{op}` is not supported for filter field `{field}`"
+                )
             }
             FilterError::BadValue { field, detail } => {
                 write!(f, "bad value for filter field `{field}`: {detail}")
@@ -377,7 +383,10 @@ mod tests {
     fn op_from_wire_rejects_unbuilt_operators() {
         // Spec §5.13.2 lists these but the v1 builder doesn't implement them.
         for wire in ["neq", "contains", "is_false", "nope"] {
-            assert!(FilterOp::from_wire(wire).is_none(), "`{wire}` must not parse");
+            assert!(
+                FilterOp::from_wire(wire).is_none(),
+                "`{wire}` must not parse"
+            );
         }
     }
 
@@ -419,7 +428,10 @@ mod tests {
         )
         .unwrap();
         assert_eq!(frag.sql, "t.year BETWEEN ? AND ?");
-        assert_eq!(frag.params, vec![Value::Integer(2000), Value::Integer(2010)]);
+        assert_eq!(
+            frag.params,
+            vec![Value::Integer(2000), Value::Integer(2010)]
+        );
     }
 
     #[test]
@@ -438,7 +450,8 @@ mod tests {
 
     #[test]
     fn compare_fragment_is_true_ignores_value() {
-        let frag = compare_fragment("starred", "t.starred_at", FilterOp::IsTrue, None, None).unwrap();
+        let frag =
+            compare_fragment("starred", "t.starred_at", FilterOp::IsTrue, None, None).unwrap();
         assert_eq!(frag.sql, "t.starred_at IS NOT NULL");
         assert!(frag.params.is_empty());
     }

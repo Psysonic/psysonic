@@ -7,7 +7,7 @@ use windows::Win32::{
     Foundation::{ERROR_SUCCESS, HANDLE},
     System::Power::{PowerRegisterSuspendResumeNotification, DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS},
     UI::WindowsAndMessaging::{
-        DEVICE_NOTIFY_CALLBACK, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESUSPEND, PBT_APMRESUMESTANDBY,
+        DEVICE_NOTIFY_CALLBACK, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMESTANDBY, PBT_APMRESUMESUSPEND,
     },
 };
 
@@ -75,7 +75,9 @@ pub fn register(app: AppHandle) {
         return;
     }
 
-    crate::app_eprintln!("[psysonic] Windows power suspend/resume notifications registered for audio");
+    crate::app_eprintln!(
+        "[psysonic] Windows power suspend/resume notifications registered for audio"
+    );
     // `registration` is an opaque handle returned by Win32 API. It does not own
     // Rust resources, so dropping the local copy is fine; callback context is
     // intentionally leaked above for process-lifetime notifications.

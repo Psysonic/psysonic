@@ -11,7 +11,10 @@ const SERVER_PROFILE_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab]
 /**
  * Resolve a durable storage key from a profile UUID, primary URL, or existing
  * index key. Unknown UUIDs are rejected rather than leaking ephemeral profile
- * identity into library/cover/analysis storage.
+ * identity into storage. A base36 profile id cannot be told apart from a valid
+ * single-label hostname by its shape, so callers that must refuse ephemeral
+ * identity check the store's record of minted ids at their own boundary — see
+ * `resolveAnalysisServerIndexKey` in `features/playback/store/analysisTrackRef`.
  */
 export function resolveStorageServerIndexKey(serverIdOrKey: string): string | null {
   const candidate = serverIdOrKey.trim();
@@ -19,6 +22,7 @@ export function resolveStorageServerIndexKey(serverIdOrKey: string): string | nu
   const servers = useAuthStore.getState().servers;
   const server = servers?.find(s => s.id === candidate);
   if (server) return serverIndexKeyForProfile(server) || null;
+  if (servers?.some(s => serverIndexKeyForProfile(s) === candidate)) return candidate;
   if (SERVER_PROFILE_UUID_RE.test(candidate)) return null;
   return serverIndexKeyFromUrl(candidate) || null;
 }

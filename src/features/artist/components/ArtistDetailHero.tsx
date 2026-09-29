@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAlbumDetailBack } from '@/features/album';
 import {
   ArrowLeft, Camera, Check, HardDriveDownload, Heart,
-  ListPlus, Loader2, Play, Radio, Share2, Shuffle, Users,
+  ListPlus, Loader2, Play, Radio, Shuffle, Users,
 } from 'lucide-react';
 import type { SubsonicAlbum, SubsonicArtist, SubsonicArtistInfo } from '@/lib/api/subsonicTypes';
 import { useOfflineStore } from '@/features/offline';
@@ -20,6 +20,7 @@ import { useCoverLightboxSrc } from '@/cover/lightbox';
 import type { CoverArtRef } from '@/cover/types';
 import LastfmIcon from '@/ui/LastfmIcon';
 import WikipediaIcon from '@/ui/WikipediaIcon';
+import { lastFmArtistUrl } from '@/features/artist/utils/lastFmArtistUrl';
 import StarRating from '@/ui/StarRating';
 import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
@@ -28,6 +29,7 @@ import type { LibraryScopePair } from '@/lib/api/library';
 import type { MusicFolder, ServerProfile } from '@/store/authStoreTypes';
 import { useLocation, useNavigate } from 'react-router';
 import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
+import { ShareMethodMenuButton } from '@/features/share';
 
 interface Props {
   artist: SubsonicArtist;
@@ -42,7 +44,6 @@ interface Props {
   handleShuffle: () => void;
   handleEnqueueAll: () => void;
   handleStartRadio: () => void;
-  handleShareArtist: () => void;
   handleImageUpload: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>;
   playAllLoading: boolean;
   radioLoading: boolean;
@@ -110,7 +111,7 @@ function ArtistHeaderBg({ url, position }: { url: string; position?: string }) {
 
 export default function ArtistDetailHero({
   artist, id, albums, info, isStarred, artistEntityRating, handleArtistEntityRating,
-  toggleStar, handlePlayAll, handleShuffle, handleEnqueueAll, handleStartRadio, handleShareArtist,
+  toggleStar, handlePlayAll, handleShuffle, handleEnqueueAll, handleStartRadio,
   handleImageUpload, playAllLoading, radioLoading, uploading,
   openedLink, openLink,
   coverId, coverRef, coverRevision, headerCoverFailed, setHeaderCoverFailed,
@@ -174,6 +175,7 @@ export default function ArtistDetailHero({
   const showHeaderBackdrop = artistDetailBackdrop.enabled;
 
   const wikiUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(artist.name)}`;
+  const lastFmUrl = lastFmArtistUrl(info?.lastFmUrl, artist.name);
 
   return (
     <>
@@ -268,12 +270,12 @@ export default function ArtistDetailHero({
           </div>
 
           <div className="compact-action-bar" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {(info?.lastFmUrl || artist.name) && (
+            {(lastFmUrl || artist.name) && (
               <div className="artist-detail-links">
-                {info?.lastFmUrl && (
+                {lastFmUrl && (
                   <button
                     className="artist-ext-link"
-                    onClick={() => openLink(info.lastFmUrl!, 'lastfm')}
+                    onClick={() => openLink(lastFmUrl, 'lastfm')}
                     {...tooltipAttrs(t('artistDetail.lastfmTooltip'))}
                   >
                     <LastfmIcon size={14} />
@@ -346,17 +348,13 @@ export default function ArtistDetailHero({
               {radioLoading ? <div className="spinner" style={{ width: 16, height: 16, borderTopColor: 'currentColor' }} /> : <Radio size={16} />}
               {!isMobile && <span className="compact-btn-label">{radioLoading ? t('artistDetail.loading') : t('artistDetail.radio')}</span>}
             </button>
-            {id && artist && (
-              <button
-                type="button"
-                className="btn btn-surface"
-                onClick={handleShareArtist}
-                aria-label={t('artistDetail.shareArtist')}
-                data-tooltip={t('artistDetail.shareArtist')}
-              >
-                <Share2 size={16} />
-              </button>
-            )}
+             {id && artist && (
+               <ShareMethodMenuButton
+                 request={{ kind: 'artist', resourceIds: [artist.id], serverIds: [artist.serverId ?? serverId].filter(Boolean) }}
+                 className="btn btn-surface"
+                 label={t('artistDetail.shareArtist')}
+               />
+             )}
             {policy.canCacheDiscography && albums.length > 0 && (
               <button
                 className="btn btn-surface"

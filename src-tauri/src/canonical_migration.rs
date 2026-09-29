@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use psysonic_core::database_pair_admission::database_pair_read_scope;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Manager, State};
 
 #[derive(Debug, Clone, serde::Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
@@ -18,6 +18,16 @@ pub struct AnalysisMigrationBatchRequest {
 }
 
 const ANALYSIS_MIGRATION_ADMISSION_TIMEOUT: Duration = Duration::from_secs(120);
+
+async fn migration_spawn_blocking<F, R>(f: F) -> Result<R, String>
+where
+    F: FnOnce() -> Result<R, String> + Send + 'static,
+    R: Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(f)
+        .await
+        .map_err(|error| format!("migration blocking worker failed: {error}"))?
+}
 
 /// Canonical migration lock order:
 /// 1. library migration admission and generation state;
@@ -207,86 +217,105 @@ pub fn library_migration_write_device_manifest(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_analysis_upper_rowid(
+pub async fn library_migration_analysis_upper_rowid(
+    app: AppHandle,
     runtime: State<'_, psysonic_library::LibraryRuntime>,
-    analysis_cache: State<'_, psysonic_analysis::analysis_cache::AnalysisCache>,
     generation: u64,
     server_id: String,
     step: psysonic_analysis::analysis_cache::AnalysisMigrationStep,
 ) -> Result<i64, String> {
-    let server_id = server_id.trim();
+    let server_id = server_id.trim().to_string();
     runtime.ensure_migration_phase(
         generation,
-        server_id,
+        &server_id,
         psysonic_library::runtime::MigrationPhase::Analysis,
     )?;
-    analysis_cache.migration_upper_rowid(server_id, step)
+    migration_spawn_blocking(move || {
+        app.state::<psysonic_analysis::analysis_cache::AnalysisCache>()
+            .migration_upper_rowid(&server_id, step)
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_analysis_batch(
+pub async fn library_migration_analysis_batch(
+    app: AppHandle,
     runtime: State<'_, psysonic_library::LibraryRuntime>,
-    analysis_cache: State<'_, psysonic_analysis::analysis_cache::AnalysisCache>,
     request: AnalysisMigrationBatchRequest,
 ) -> Result<psysonic_analysis::analysis_cache::AnalysisMigrationBatchDto, String> {
-    let server_id = request.server_id.trim();
+    let server_id = request.server_id.trim().to_string();
     runtime.ensure_migration_phase(
         request.generation,
-        server_id,
+        &server_id,
         psysonic_library::runtime::MigrationPhase::Analysis,
     )?;
-    psysonic_analysis::analysis_cache::AnalysisCache::scope_migration_write_generation_sync(
-        request.generation,
-        || {
-            analysis_cache.migration_run_batch(
-                server_id,
-                request.step,
-                request.cursor_rowid,
-                request.upper_rowid,
-                request.limit.unwrap_or(2_000),
-            )
-        },
-    )
+    migration_spawn_blocking(move || {
+        psysonic_analysis::analysis_cache::AnalysisCache::scope_migration_write_generation_sync(
+            request.generation,
+            || {
+                app.state::<psysonic_analysis::analysis_cache::AnalysisCache>()
+                    .migration_run_batch(
+                        &server_id,
+                        request.step,
+                        request.cursor_rowid,
+                        request.upper_rowid,
+                        request.limit.unwrap_or(2_000),
+                    )
+            },
+        )
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_analysis_finalize(
+pub async fn library_migration_analysis_finalize(
+    app: AppHandle,
     runtime: State<'_, psysonic_library::LibraryRuntime>,
-    analysis_cache: State<'_, psysonic_analysis::analysis_cache::AnalysisCache>,
     generation: u64,
     server_id: String,
 ) -> Result<psysonic_analysis::analysis_cache::AnalysisMigrationFinalizeDto, String> {
-    let server_id = server_id.trim();
+    let server_id = server_id.trim().to_string();
     runtime.ensure_migration_phase(
         generation,
-        server_id,
+        &server_id,
         psysonic_library::runtime::MigrationPhase::Analysis,
     )?;
-    psysonic_analysis::analysis_cache::AnalysisCache::scope_migration_write_generation_sync(
-        generation,
-        || analysis_cache.migration_finalize(server_id),
-    )
+    migration_spawn_blocking(move || {
+        psysonic_analysis::analysis_cache::AnalysisCache::scope_migration_write_generation_sync(
+            generation,
+            || {
+                app.state::<psysonic_analysis::analysis_cache::AnalysisCache>()
+                    .migration_finalize(&server_id)
+            },
+        )
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_verify(
+pub async fn library_migration_verify(
+    app: AppHandle,
     runtime: State<'_, psysonic_library::LibraryRuntime>,
-    analysis_cache: State<'_, psysonic_analysis::analysis_cache::AnalysisCache>,
     generation: u64,
     server_id: String,
 ) -> Result<(), String> {
-    let server_id = server_id.trim();
+    let server_id = server_id.trim().to_string();
     runtime.ensure_migration_phase(
         generation,
-        server_id,
+        &server_id,
         psysonic_library::runtime::MigrationPhase::Cleanup,
     )?;
-    let _pair_scope = database_pair_read_scope();
-    psysonic_library::navidrome_native_migration::verify(&runtime.store, server_id)?;
-    analysis_cache.migration_verify(server_id)
+    let store = Arc::clone(&runtime.store);
+    migration_spawn_blocking(move || {
+        let _pair_scope = database_pair_read_scope();
+        psysonic_library::navidrome_native_migration::verify(&store, &server_id)?;
+        app.state::<psysonic_analysis::analysis_cache::AnalysisCache>()
+            .migration_verify(&server_id)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -294,28 +323,49 @@ pub fn library_migration_verify(
 pub async fn library_migration_inventory(
     app: AppHandle,
     runtime: State<'_, psysonic_library::LibraryRuntime>,
-    analysis_cache: State<'_, psysonic_analysis::analysis_cache::AnalysisCache>,
     server_id: String,
     server_index_key: String,
     custom_offline_dir: Option<String>,
     custom_hot_cache_dir: Option<String>,
 ) -> Result<(), String> {
-    let server_id = server_id.trim();
-    let server_index_key = server_index_key.trim();
-    {
+    let server_id = server_id.trim().to_string();
+    let server_index_key = server_index_key.trim().to_string();
+    let store = Arc::clone(&runtime.store);
+    let app_for_verify = app.clone();
+    let verify_server_id = server_id.clone();
+    migration_spawn_blocking(move || {
         let _pair_scope = database_pair_read_scope();
-        psysonic_library::navidrome_native_migration::verify(&runtime.store, server_id)?;
-        analysis_cache.migration_verify(server_id)?;
-    }
-    crate::cover_cache::verify_navidrome_cover_ids(&app, server_index_key).await?;
+        psysonic_library::navidrome_native_migration::verify(&store, &verify_server_id)?;
+        app_for_verify
+            .state::<psysonic_analysis::analysis_cache::AnalysisCache>()
+            .migration_verify(&verify_server_id)
+    })
+    .await?;
+    crate::cover_cache::verify_navidrome_cover_ids(&app, &server_index_key).await?;
     psysonic_syncfs::cache::id_migration::verify_navidrome_filesystem_ids(
         &app,
         runtime.store.clone(),
-        server_id,
-        server_index_key,
+        &server_id,
+        &server_index_key,
         custom_offline_dir,
         custom_hot_cache_dir,
     )
+    .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn library_migration_has_rebuildable_state(
+    runtime: State<'_, psysonic_library::LibraryRuntime>,
+    server_id: String,
+) -> Result<bool, String> {
+    let store = Arc::clone(&runtime.store);
+    migration_spawn_blocking(move || {
+        psysonic_library::navidrome_native_migration::has_rebuildable_state(
+            &store,
+            server_id.trim(),
+        )
+    })
     .await
 }
 
@@ -347,31 +397,37 @@ mod tests {
             .await
         });
 
-        loop {
-            match psysonic_syncfs::filesystem_write_guard().await {
-                Ok(guard) => {
-                    drop(guard);
-                    tokio::task::yield_now().await;
+        // Probe without waiting: this task still holds a reader, so a blocking
+        // read queued behind the migration writer would wait on itself.
+        tokio::time::timeout(Duration::from_secs(5), async {
+            loop {
+                match psysonic_syncfs::filesystem_write_guard_now() {
+                    Ok(guard) => drop(guard),
+                    Err(error) if error.contains("migration generation 41") => break,
+                    // The writer is queued; its generation is visible on the next probe.
+                    Err(error) if error.contains("filesystem migration blocks") => {}
+                    Err(error) => panic!("unexpected filesystem admission error: {error}"),
                 }
-                Err(error) if error.contains("migration generation 41") => break,
-                Err(error) => panic!("unexpected filesystem admission error: {error}"),
+                tokio::task::yield_now().await;
             }
-        }
+        })
+        .await
+        .expect("migration must block ordinary filesystem admission");
 
         // This models an in-flight filesystem operation that discovers it must
         // enqueue enrichment after migration begin has started.
-        let analysis_reader = tokio::time::timeout(
-            Duration::from_secs(1),
-            analysis.clone().read_owned(),
-        )
-        .await
-        .expect("filesystem holder must reach ordinary analysis admission");
+        let analysis_reader =
+            tokio::time::timeout(Duration::from_secs(1), analysis.clone().read_owned())
+                .await
+                .expect("filesystem holder must reach ordinary analysis admission");
         drop(filesystem_reader);
 
         tokio::pin!(migration);
-        assert!(tokio::time::timeout(Duration::from_millis(20), &mut migration)
-            .await
-            .is_err());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(20), &mut migration)
+                .await
+                .is_err()
+        );
         drop(analysis_reader);
         let analysis_writer = migration.await.unwrap().unwrap();
         drop(analysis_writer);
@@ -380,7 +436,9 @@ mod tests {
 
     #[tokio::test]
     async fn filesystem_activation_failure_rolls_back_created_library_generation() {
-        let runtime = Arc::new(LibraryRuntime::new(Arc::new(LibraryStore::open_in_memory())));
+        let runtime = Arc::new(LibraryRuntime::new(
+            Arc::new(LibraryStore::open_in_memory()),
+        ));
         let runtime_for_rollback = Arc::clone(&runtime);
 
         let error = begin_migration_generation_serialized(

@@ -33,10 +33,7 @@ async fn acquire_sync_drain_barrier(
     runtime.cancel_and_drain_sync(None, None).await
 }
 
-async fn acquire_import_barrier(
-    app: &AppHandle,
-    migration_generation: u64,
-) -> Result<(), String> {
+async fn acquire_import_barrier(app: &AppHandle, migration_generation: u64) -> Result<(), String> {
     let runtime = app
         .try_state::<psysonic_library::LibraryRuntime>()
         .ok_or_else(|| "library runtime unavailable".to_string())?;
@@ -272,8 +269,9 @@ fn canonicalize_staged_databases(
             psysonic_library::navidrome_native_migration::NavidromeNativeMigrationStep::Album,
             psysonic_library::navidrome_native_migration::NavidromeNativeMigrationStep::Track,
         ] {
-            let upper =
-                psysonic_library::navidrome_native_migration::upper_rowid(&library, server_id, step)?;
+            let upper = psysonic_library::navidrome_native_migration::upper_rowid(
+                &library, server_id, step,
+            )?;
             let mut cursor = 0;
             while cursor < upper {
                 let batch = psysonic_library::navidrome_native_migration::run_batch(

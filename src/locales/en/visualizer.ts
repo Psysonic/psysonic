@@ -18,6 +18,9 @@ export const visualizer = {
     enableNowPlayingHint: 'Adds the visualizer as a card on the Now Playing page.',
     enableFullscreen: 'Show in the fullscreen player',
     enableFullscreenHint: 'Adds the visualizer to every fullscreen player style.',
+    pauseWhenUnfocused: 'Pause when Psysonic is unfocused',
+    pauseWhenUnfocusedHint:
+      'Stops visualizer rendering while another window is active to reduce CPU and GPU use.',
     mode: 'Default mode',
     sensitivity: 'Sensitivity',
     sensitivityHint: 'Lifts quiet passages without clipping loud ones.',
@@ -35,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Lower rates cost less CPU. The animation stays smooth either way.',
     radioNote:
       'Internet radio can be visualized after the station connects to the equalizer audio graph. Some streams do not support that route.',
+    preview: 'Preview',
+    previewDemo: 'Showing a demo signal while nothing is playing.',
+    previewLive: 'Showing the current playback.',
   },
 };

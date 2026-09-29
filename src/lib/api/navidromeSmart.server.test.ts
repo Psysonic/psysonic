@@ -25,7 +25,15 @@ vi.mock('@/store/authStore', () => ({
   },
 }));
 
-import { ndCreateSmartPlaylist, ndUpdateSmartPlaylist } from '@/lib/api/navidromeSmart';
+import {
+  ndCreateSmartPlaylist,
+  ndGetSmartPlaylist,
+  ndGetPlaylistTracks,
+  ndListPlaylists,
+  ndPreviewSmartPlaylist,
+  ndUpdatePlaylistMeta,
+  ndUpdateSmartPlaylist,
+} from '@/lib/api/navidromeSmart';
 
 describe('Navidrome smart playlist owner routing', () => {
   beforeEach(() => {
@@ -43,6 +51,113 @@ describe('Navidrome smart playlist owner routing', () => {
     }));
     expect(invokeMock).toHaveBeenNthCalledWith(2, 'nd_update_playlist', expect.objectContaining({
       serverUrl: 'https://b.test', token: 'token-b', id: 'smart',
+    }));
+  });
+
+  it('omits the smart query when listing native playlist metadata', async () => {
+    invokeMock.mockResolvedValueOnce([
+      { id: 'regular', name: 'Regular', songCount: 1, rules: null },
+      { id: 'smart', name: 'Native smart', songCount: 2, rules: { any: [] } },
+    ]);
+
+    await expect(ndListPlaylists('b')).resolves.toEqual([
+      expect.objectContaining({ id: 'regular', rules: undefined }),
+      expect.objectContaining({ id: 'smart', rules: { any: [] } }),
+    ]);
+    expect(invokeMock).toHaveBeenCalledWith('nd_list_playlists', {
+      serverUrl: 'https://b.test',
+      token: 'token-b',
+    });
+    expect(invokeMock.mock.calls[0]?.[1]).not.toHaveProperty('smart');
+  });
+
+  it('parses native playlist comments and ownerName metadata', async () => {
+    invokeMock.mockResolvedValueOnce({
+      id: 'smart',
+      name: 'Commented mix',
+      songCount: 0,
+      comment: 'Existing comment',
+      ownerName: 'jalen',
+      rules: { all: [] },
+    });
+
+    await expect(ndGetSmartPlaylist('smart', 'b')).resolves.toEqual(expect.objectContaining({
+      comment: 'Existing comment',
+      owner: 'jalen',
+    }));
+  });
+
+  it('resends existing rules with a native metadata update', async () => {
+    invokeMock
+      .mockResolvedValueOnce({
+        id: 'smart',
+        name: 'Smart',
+        songCount: 0,
+        rules: { all: [{ contains: { title: 'live' } }] },
+      })
+      .mockResolvedValueOnce({ id: 'smart', name: 'Renamed', songCount: 0 });
+
+    await ndUpdatePlaylistMeta('smart', { name: 'Renamed', comment: 'Hi', public: false }, 'b');
+    expect(invokeMock).toHaveBeenNthCalledWith(1, 'nd_get_playlist', {
+      serverUrl: 'https://b.test',
+      token: 'token-b',
+      id: 'smart',
+    });
+    expect(invokeMock).toHaveBeenNthCalledWith(2, 'nd_update_playlist', {
+      serverUrl: 'https://b.test',
+      token: 'token-b',
+      id: 'smart',
+      body: {
+        name: 'Renamed',
+        comment: 'Hi',
+        public: false,
+        rules: { all: [{ contains: { title: 'live' } }] },
+      },
+    });
+    const body = invokeMock.mock.calls[1]?.[1]?.body as Record<string, unknown>;
+    expect(body).not.toHaveProperty('sync');
+  });
+
+  it('does not issue a destructive metadata PUT when rules are unavailable', async () => {
+    invokeMock.mockResolvedValueOnce({ id: 'smart', name: 'Smart', songCount: 0 });
+
+    await expect(ndUpdatePlaylistMeta('smart', { name: 'Renamed' }, 'b'))
+      .rejects.toThrow('Smart playlist rules unavailable');
+    expect(invokeMock).toHaveBeenCalledTimes(1);
+    expect(invokeMock).toHaveBeenCalledWith('nd_get_playlist', expect.objectContaining({ id: 'smart' }));
+  });
+
+  it('omits sync on REST create unless explicitly requested', async () => {
+    await ndCreateSmartPlaylist('Smart', { all: [{ contains: { title: 'a' } }] }, { serverId: 'b' });
+
+    expect(invokeMock).toHaveBeenCalledWith('nd_create_playlist', expect.objectContaining({
+      body: { name: 'Smart', rules: { all: [{ contains: { title: 'a' } }] } },
+    }));
+    expect(invokeMock.mock.calls[0]?.[1].body).not.toHaveProperty('sync');
+  });
+
+  it('previews existing playlists via tracks and unsaved rules via a temporary playlist', async () => {
+    invokeMock.mockResolvedValueOnce([{ id: 't1', title: 'One' }]);
+    await expect(ndGetPlaylistTracks('pl-1', 'b', { start: 0, end: 50 })).resolves.toEqual([
+      { id: 't1', title: 'One' },
+    ]);
+    expect(invokeMock).toHaveBeenCalledWith('nd_get_playlist_tracks', expect.objectContaining({
+      id: 'pl-1',
+      start: 0,
+      end: 50,
+    }));
+
+    invokeMock.mockResolvedValueOnce([{ id: 't2', title: 'Two' }]);
+    await expect(ndPreviewSmartPlaylist({
+      owner: 'user-b',
+      rules: { all: [{ contains: { title: 'a' } }] },
+    }, 'b')).resolves.toEqual([{ id: 't2', title: 'Two' }]);
+    expect(invokeMock).toHaveBeenCalledWith('nd_preview_playlist', expect.objectContaining({
+      body: expect.objectContaining({
+        owner: 'user-b',
+        rules: { all: [{ contains: { title: 'a' } }] },
+        public: false,
+      }),
     }));
   });
 });

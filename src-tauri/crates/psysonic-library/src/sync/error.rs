@@ -32,9 +32,7 @@ pub enum SyncError {
 
     /// Strategy is enumerated but not implemented for v1
     /// (currently only `S3`).
-    StrategyUnsupported {
-        strategy: &'static str,
-    },
+    StrategyUnsupported { strategy: &'static str },
 
     /// Cancellation token tripped — caller asked us to abort.
     /// Cursor stays where it was so the next run resumes the batch.
@@ -107,7 +105,11 @@ mod tests {
 
     #[test]
     fn subsonic_api_error_carries_code_through() {
-        let e: SyncError = SubsonicError::Api { code: 40, message: "bad creds".into() }.into();
+        let e: SyncError = SubsonicError::Api {
+            code: 40,
+            message: "bad creds".into(),
+        }
+        .into();
         match e {
             SyncError::Subsonic { code, message } => {
                 assert_eq!(code, 40);
@@ -119,7 +121,8 @@ mod tests {
 
     #[test]
     fn http_status_collapses_into_transport() {
-        let e: SyncError = SubsonicError::HttpStatus(reqwest::StatusCode::SERVICE_UNAVAILABLE).into();
+        let e: SyncError =
+            SubsonicError::HttpStatus(reqwest::StatusCode::SERVICE_UNAVAILABLE).into();
         assert!(matches!(e, SyncError::Transport(ref m) if m.contains("503")));
     }
 

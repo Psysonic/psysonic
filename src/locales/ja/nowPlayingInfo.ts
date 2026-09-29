@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: '任意です。公開 Bandsintown API から現在のアーティストの公演情報を読み込みます。',
   enableBandsintownPrivacy: '有効にすると、ツアー日程取得のため現在再生中のアーティスト名が Bandsintown API に送信されます。アカウント情報や個人データはデバイス外へ送信されません。',
   enableBandsintownAction: '有効化',
+  dismissBandsintownPrompt: '今後は表示しない',
+  bandsintownPromptDismissed: 'ツアー日程は非表示のままです。設定 → 連携 から有効にできます。',
   role: {
     artist: 'アーティスト',
     albumArtist: 'アルバムアーティスト',

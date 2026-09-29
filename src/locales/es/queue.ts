@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'La cola está vacía — no hay nada que compartir.',
+  multiServerShareTitle: 'Cola de varios servidores',
+  multiServerShareHint: 'Elige un servidor para compartir sus pistas.',
   emptyQueue: 'La cola está vacía.',
   crossServerEnqueueBlocked: 'No se pueden añadir pistas de otro servidor a la cola actual. Termina o vacía la cola primero.',
   trackSingular: 'pista',

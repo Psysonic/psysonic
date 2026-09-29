@@ -7,6 +7,8 @@ mod connection;
 mod filesystem;
 mod lifecycle;
 mod migrations;
+mod native_display_suffix_reconcile;
+mod native_strong_keys_reconcile;
 mod open;
 mod reconciles;
 mod track_timestamp_reconcile;
@@ -26,15 +28,20 @@ pub(crate) use migrations::{
     MIGRATION_021_SCOPE_BROWSE_TRACKS, MIGRATION_022_ARTIST_NAME_FOLD,
     MIGRATION_023_STARRED_BROWSE_INDEXES, MIGRATION_024_COMPOSER_BROWSE_PROJECTION,
     MIGRATION_025_IDENTITY_INVALIDATION, MIGRATION_026_LIBRARY_TAG_CURSOR,
+    MIGRATION_027_ARTIST_STARRED,
 };
 pub use migrations::{LIBRARY_DB_MIN_COMPATIBLE_VERSION, LIBRARY_DB_SCHEMA_VERSION};
-pub use track_timestamp_reconcile::TrackTimestampBackfillStep;
+pub use native_display_suffix_reconcile::NativeDisplaySuffixBatch;
 #[allow(unused_imports)]
 pub(crate) use reconciles::{
     ARTIST_NAME_FOLD_RECONCILE_ID, ARTIST_NAME_SORT_RECONCILE_ID,
-    DURATION_SEC_BACKFILL_RECONCILE_ID, LIBRARY_ID_BACKFILL_RECONCILE_ID,
-    ORPHAN_BROWSE_RECONCILE_ID, REPLAY_GAIN_PEAK_RECONCILE_ID,
+    DURATION_SEC_BACKFILL_RECONCILE_ID, GENRE_CATALOG_PROJECTION_RECONCILE_ID,
+    LIBRARY_ID_BACKFILL_RECONCILE_ID, ORPHAN_BROWSE_RECONCILE_ID, REPLAY_GAIN_PEAK_RECONCILE_ID,
 };
+pub use track_timestamp_reconcile::TrackTimestampBackfillStep;
+/// Every idle-scheduler backfill reports the same three steps; the timestamp
+/// name above stays for its existing callers.
+pub use track_timestamp_reconcile::TrackTimestampBackfillStep as LibraryBackfillStep;
 
 pub struct LibraryStore {
     /// Writes, migrations, and sync ingest (single writer).

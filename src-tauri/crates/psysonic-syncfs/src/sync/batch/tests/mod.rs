@@ -22,6 +22,8 @@ fn fake_auth(base_url: String) -> SubsonicAuthPayload {
 }
 
 mod filesystem;
+mod local_target;
+mod planner;
 mod source_identity;
 mod subsonic;
 mod track_mapping;

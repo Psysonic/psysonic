@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Play, ListPlus, Heart, Download, ChevronRight, ChevronsRight, User, ListMusic, Star, Share2 } from 'lucide-react';
+import { Play, ListPlus, Heart, Download, ChevronRight, ChevronsRight, User, ListMusic, Star, Flame } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { resolveAlbum, resolveMediaServerId } from '@/features/offline';
 import { star, unstar } from '@/lib/api/subsonicStarRating';
@@ -9,21 +9,26 @@ import StarRating from '@/ui/StarRating';
 import { AlbumToPlaylistSubmenu } from '@/features/contextMenu/components/AlbumArtistToPlaylistSubmenu';
 import { MultiAlbumToPlaylistSubmenu } from '@/features/contextMenu/components/MultiAlbumToPlaylistSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
+import { addTracksToBurnList } from '@/features/burner';
+import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
+import { ContextShareMenuItem } from '@/features/share';
 
 export default function AlbumContextItems(props: ContextMenuItemsProps) {
   const {
     type, item, playNext, enqueue, closeContextMenu,
     setStarredOverride, userRatingOverrides, setKeyboardRating, keyboardRating,
-    playlistSubmenuOpen, setPlaylistSubmenuOpen, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
-    playlistSongIds, setPlaylistSongIds,
+    activeSubmenuId, setActiveSubmenuId, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
     entityRatingSupport, applyAlbumRating,
-    handleAction, downloadAlbum, copyShareLink, isStarred,
+    handleAction, downloadAlbum, isStarred,
     pinToPlaybackServer, navigateLibrary, offlinePolicy,
   } = props;
   const { t } = useTranslation();
   const navigate = useNavigate();
+  // Top level, not inside the `type === 'album'` body: that body is an IIFE
+  // inside JSX, and a hook cannot live there.
+  const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
   const goLibrary = pinToPlaybackServer ? navigateLibrary : (path: string) => { navigate(path); };
 
   return (
@@ -102,9 +107,42 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
                 </div>
               )}
               <div className="context-menu-divider" />
-              <div className="context-menu-item" onClick={() => handleAction(() => copyShareLink('album', album.id, album.serverId))}>
-                <Share2 size={14} /> {t('contextMenu.shareLink')}
-              </div>
+              {/* Disabled, not hidden, while a job owns the queue: the running job
+                  already took its track list, so a queue that grew behind it
+                  would describe a disc nobody is burning — and an item that
+                  vanishes from a menu the user just used reads as a bug. */}
+              {burnAvailable && (
+                <div
+                  className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+                  aria-disabled={burnBusy || undefined}
+                  {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+                  onClick={burnBusy ? undefined : () => handleAction(async () => {
+                    const serverId = resolveMediaServerId(album.serverId);
+                    if (!serverId) return;
+                    const albumData = await resolveAlbum(serverId, album.id);
+                    // Silent on a failed resolve, exactly as "Play Next" and
+                    // "Enqueue Album" above: nothing was queued, and a toast for
+                    // an album that would not load says nothing actionable.
+                    if (!albumData) return;
+                    // The resolver already hands songs back in album order (disc,
+                    // then track) and `burnListStore.add` appends, so the running
+                    // order comes out as the album plays — no sort needed here.
+                    addTracksToBurnList(albumData.songs, serverId);
+                  })}
+                >
+                  <Flame size={14} /> {t('burner.addToCd')}
+                </div>
+              )}
+              <ContextShareMenuItem
+                request={{ kind: 'album', resourceIds: [album.id], serverIds: album.serverId ? [album.serverId] : [] }}
+                triggerId={`share:album:${album.id}`}
+                label={t('contextMenu.shareLink')}
+                activeSubmenuId={activeSubmenuId}
+                setActiveSubmenuId={setActiveSubmenuId}
+                cancelSubmenuCloseTimer={cancelPlaylistSubmenuCloseTimer}
+                onSubmenuTriggerMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
+                onDone={closeContextMenu}
+              />
               {offlinePolicy.canDownload && (
                 <div className="context-menu-item" onClick={() => handleAction(() => downloadAlbum(album.name, album.id, album.serverId))}>
                   <Download size={14} /> {t('contextMenu.download')}
@@ -112,15 +150,15 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
               )}
               {offlinePolicy.canAddToPlaylist && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `album:${album.id}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`album:${album.id}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`album:${album.id}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `album:${album.id}` ? 'active' : ''}`}
+                  data-submenu-id={`album:${album.id}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`album:${album.id}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `album:${album.id}` && (
-                    <AlbumToPlaylistSubmenu albumId={album.id} serverId={album.serverId} triggerId={`album:${album.id}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `album:${album.id}` && (
+                    <AlbumToPlaylistSubmenu albumId={album.id} serverId={album.serverId} triggerId={`album:${album.id}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}
@@ -161,15 +199,15 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
               </div>
               {offlinePolicy.canAddToPlaylist && albumServerIds.size <= 1 && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `multi-album:${albumIds.join(',')}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`multi-album:${albumIds.join(',')}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`multi-album:${albumIds.join(',')}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `multi-album:${albumIds.join(',')}` ? 'active' : ''}`}
+                  data-submenu-id={`multi-album:${albumIds.join(',')}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`multi-album:${albumIds.join(',')}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `multi-album:${albumIds.join(',')}` && (
-                    <MultiAlbumToPlaylistSubmenu albums={albums} triggerId={`multi-album:${albumIds.join(',')}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `multi-album:${albumIds.join(',')}` && (
+                    <MultiAlbumToPlaylistSubmenu albums={albums} triggerId={`multi-album:${albumIds.join(',')}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}

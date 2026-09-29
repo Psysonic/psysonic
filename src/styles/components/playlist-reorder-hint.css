@@ -1,0 +1,22 @@
+/* ─ Playlist reorder hint ─
+   Shown in the playlist filter toolbar while a sort or filter is active: row
+   drags then go to the queue instead of reordering, and nothing else tells the
+   user why. */
+.playlist-reorder-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.playlist-reorder-hint > svg {
+  flex-shrink: 0;
+}
+
+.playlist-reorder-hint-reset {
+  padding: 2px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+}

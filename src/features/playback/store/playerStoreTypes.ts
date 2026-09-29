@@ -74,6 +74,15 @@ export interface PlayerState {
   /** Optimistic track ratings (e.g. skip→1★ while UI lists still have stale `song.userRating`). */
   userRatingOverrides: Record<string, number>;
   setUserRatingOverride: (id: string, rating: number) => void;
+  /**
+   * Play statistics of tracks played this session, merged over the values a list
+   * was loaded with. Unlike a star or a rating these are not the listener's
+   * intent but the server's own tally, so they are written when a scrobble
+   * settles rather than when it is queued — the play timestamp right away, the
+   * count once the server has been asked what it now is.
+   */
+  playStatsOverrides: Record<string, { playCount?: number; played?: string }>;
+  setPlayStatsOverride: (id: string, stats: { playCount?: number; played?: string }) => void;
 
   playRadio: (station: InternetRadioStation) => void;
   /** `_orbitConfirmed` is an internal bypass flag — callers outside the
@@ -130,6 +139,8 @@ export interface PlayerState {
    * constrains a mixed-server session to its selected Navidrome host. */
   retainQueueForServer: (serverId: string) => void;
   clearQueue: () => void;
+  /** Clear queue history and upcoming tracks while keeping the active track playing. */
+  clearQueueExceptCurrent: () => void;
 
   isQueueVisible: boolean;
   toggleQueue: () => void;
@@ -150,6 +161,18 @@ export interface PlayerState {
 
   reorderQueue: (startIndex: number, endIndex: number) => void;
   removeTrack: (index: number) => void;
+  /**
+   * Remove several queue entries as one edit: one undo step, one server sync.
+   * Entries are matched by object identity, so two copies of the same track
+   * are told apart. The playing entry is never removed.
+   */
+  removeQueueItems: (refs: readonly QueueItemRef[]) => void;
+  /**
+   * Move the entries at `indices` as one block, keeping their order, so they
+   * land in the gap before `gapIndex` (both counted in the queue as it is now;
+   * `gapIndex === queueItems.length` means the end). One undo step.
+   */
+  moveQueueItems: (indices: readonly number[], gapIndex: number) => void;
   /** Replace one frozen queue slot only when its concrete owner/id still match. */
   replaceQueueItemSource: (
     index: number,
@@ -189,7 +212,7 @@ export interface PlayerState {
     x: number;
     y: number;
     item: unknown;
-    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-album' | 'multi-artist' | 'multi-playlist' | null;
+    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-song' | 'multi-album' | 'multi-artist' | 'multi-playlist' | null;
     queueIndex?: number;
     playlistId?: string;
     playlistSongIndex?: number;
@@ -207,7 +230,7 @@ export interface PlayerState {
     x: number,
     y: number,
     item: unknown,
-    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-album' | 'multi-artist' | 'multi-playlist',
+    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-song' | 'multi-album' | 'multi-artist' | 'multi-playlist',
     queueIndex?: number,
     playlistId?: string,
     playlistSongIndex?: number,

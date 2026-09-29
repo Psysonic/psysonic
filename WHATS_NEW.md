@@ -8,74 +8,115 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 `CHANGELOG.md` keeps strict PR order inside Added / Changed / Fixed.
 
 
-## [1.52.0]
+## [1.55.0]
 
 ## Highlights
 
-### Offline downloads — resume safely on slow connections
+### Burn audio CDs from your library
 
-- Original-quality downloads no longer fail merely because a slow server needs more than two minutes. Transfers can continue for as long as data keeps arriving.
-- An interrupted download resumes from a verified partial file instead of starting over. Changed or unsafe responses discard the partial cleanly, while cancellation, disk-space reservations, and concurrent attempts remain protected.
-- Album, artist, playlist, and favourites pins keep every server owner, survive restarts and server-address migrations, and stay cancelled when you remove them.
+- The new **CD Burner** page writes albums, playlists, tracks, or a custom running order to a Red Book audio CD on Windows, macOS, and Linux.
+- Choose gapless playback or the usual two-second gaps, add CD-TEXT, and optionally match levels across tracks. Music that is not downloaded yet is fetched for the burn without changing your Offline Library.
+- **Rehearse** checks the whole job with the laser off, and a completed disc is read back for verification instead of relying only on the drive's report.
 
-### Album catalogue — switch between cards and a detailed table
+### Favorites — search, arrange, and browse at scale
 
-- **All Albums, New Releases**, and **Lossless** can switch independently between the familiar card grid and a table. Each page remembers its own choice.
-- The table shows cover, title, artist, song count, year, duration, and date added, removes columns gracefully on narrower windows, and sorts from the title and year headers.
-- Song counts, durations, and added dates now remain available across filtered album views. Albums added in the last two days also carry the new-release ribbon on the **All Albums** grid.
+- Search now covers favourite artists, albums, radio stations, top artists, and songs together, with expandable results on the same page.
+- **Settings → Personalisation → Favorites page sections** can reorder or hide sections. The song list can hide its **#** column, and **Shuffle all** respects filters and selections.
+- The **Albums** and **Artists** headings open their full browse pages with the favourites filter already applied, so large collections keep their normal grids, sorting, and view controls.
 
-### Playlists — know what is yours and sort it everywhere
+### Navidrome shares inside Psysonic
 
-- When a server mixes your playlists with everyone else's public lists, the **Playlists** page and sidebar can separate your own, the ones you share, and the ones shared with you. The filter appears only when shared playlists exist.
-- Sidebar playlists show their cover and song count, while playlists without artwork keep the simple list icon.
-- Order the page and sidebar together by name, creation date, or song count. The choice is remembered and still works with folders and search.
+- Enable sharing under **Settings → Integrations → Navidrome**, then create public links from tracks, albums, artists, playlists, composers, or the play queue without opening the server website.
+- The new **ND Shares** page gathers links from the selected servers with artwork and item details. Preview or play a share, add it to the queue, copy or open its link, and remove it from the server.
+- Pasted and searched share links open the same preview flow, while share creation now copies links reliably through the desktop clipboard.
 
-### Artist pages — every track they perform on
+### Queue — select and move several tracks at once
 
-- Artist pages now pair the familiar **Popular tracks** ranking with an **All tracks** tab containing every song that artist performs on, including compilations and guest appearances.
-- The complete list is ordered by album, disc, and track number, supports sorting from every column, and lets you choose which metadata columns to show. It loads from the local index only when you open the tab, so the page remains quick to enter.
+- Ctrl+click (Command on macOS) selects individual tracks, Shift+click selects a range, and Delete removes the selection. Ctrl+Z restores it.
+- Drag one selected track to move the whole selection together. Holding tracks at the top or bottom edge scrolls long queues automatically, including in the mini player.
+- Right-click **Clear** to remove queue history and upcoming tracks without interrupting the current song.
 
-### Scrobbling — choose the threshold or send it now
+### Playlists — move several tracks at once
 
-- **Settings → Integrations → Music Network** now lets you choose a **25–90%** scrobble threshold; the default remains 50%.
-- Advanced settings can add **Force scrobble** to the player bar and fullscreen player. It shows listening progress and can submit the current track immediately to the media server and every enabled Music Network destination.
+- Select several tracks in a playlist and drag one of them to move the whole selection to the drop line as a block, in its order. Dragging the selection to the queue still adds it there.
+- Reordered tracks land exactly where the drop line shows, and the list stays in place after moving or removing tracks instead of reloading.
+- While a playlist is sorted or filtered, a short hint next to the sort menu explains why dragging adds to the queue instead of reordering. **Reset** returns to the order you can rearrange.
 
-### Full Ukrainian interface
+### Arrange the buttons on album and playlist pages
 
-- Ukrainian (**Українська**) is available from the language picker on the Login and Settings screens, with the full interface translated.
-- Counts use the correct one, few, and many forms, and Ukrainian Cyrillic is folded consistently when matching the same release across several servers.
+- The buttons next to **Play** on album and playlist pages are now compact icons, with their label in the tooltip.
+- **Settings → Personalisation → Album page layout** and **Playlist page layout** let you reorder these buttons by dragging and hide the ones you don't need. **Play** always stays first.
+- **Compact buttons** moved from Appearance to Personalisation.
 
-### Navidrome upgrades — keep local data intact
+### Device Sync — every track in one folder
 
-- When a newer Navidrome switches albums, artists, and tracks to canonical IDs, Psysonic safely migrates the local library, analysis results, offline downloads, cached covers, and saved app state before completing a full verification sync.
-- The migration resumes after interruption and prevents playback, sync, imports, or background work from seeing a half-converted library. Navidrome 0.63.2 and older servers, and other Subsonic servers, continue as before.
+- **Device Sync → Layout → All files in one folder** puts music directly in the device's main folder for players that cannot browse directories.
+- Predictable filenames keep tracks distinct, while `.m3u8` playlists point to the same files instead of storing duplicates. When an existing device switches to this layout, old folder copies are removed after the new files are in place.
+
+### More album and track metadata
+
+- Album pages show server descriptions and consistent comment tags such as remaster notes, with long descriptions expandable in place.
+- **Song Info** shows every genre and mood stored in a file. Optional **Genres** and **Mood** tracklist columns expose the same tags while staying off until selected.
+
+### Preview the visualizer while configuring it
+
+- **Settings → Appearance → Visualizer** now shows the active visualizer above its controls, so colours, sensitivity, responsiveness, peak caps, and frame rate can be judged immediately.
+- It follows current playback, or uses a short built-in demo signal when nothing is playing.
+
+### Word-synced lyrics — continuous flow without the full-word glow
+
+- **Settings → Lyrics → Word highlighting → Flow only** keeps the continuous colour fill while removing the instant glow around the whole active word. **Step** remains the default, and **Smooth** is unchanged.
 
 ## Improved
 
-- Hovering a shortened card title or artist now reveals the complete text across album, artist, playlist, radio, song, and offline cards. The tooltip appears only when text is actually truncated and can be disabled under **Settings → Appearance → Display**.
-- Album cards and the offline play button now use the selected language for screen-reader labels instead of always announcing a German word.
-- **Windows:** update notices now wait 12 hours for WinGet moderation instead of two days, making new releases visible roughly a day and a half sooner without pointing at a version WinGet cannot install yet.
-- Help now covers multi-server browsing, Timeline playback, per-address streaming quality, album tables, shared playlists, composers, the visualizer, themes, and background sources, while outdated answers and settings paths have been removed.
+- Starting an album, playlist, or favourites list while shuffle is enabled now queues that list in random order from the track you chose. Turning shuffle off restores its original order.
+- **Settings → Integrations → Navidrome → Play queue sync** can keep the queue local to this device without affecting playback. The related **Allow downloads** option now appears only when sharing is enabled.
+- Artist pages fall back to similar artists supplied by the server when the selected Music Network service has no matches in your library.
+- The fullscreen style picker now points directly to the separate switch that controls the artist photo backdrop.
 
 ## Fixed
 
 ### Playback and audio
 
-- Synced lyrics now follow playback continuously instead of lighting up inconsistently or nearly a second late. Every lyrics view uses the same position, including after seeking while paused.
-- Tracks played in Psysonic update their play count and last played date as soon as the server records the scrobble, including native Navidrome connections.
+- Seeking and rapid scrubbing through streamed lossless tracks no longer freeze playback or allow an older seek to overwrite the final position.
+- Waveform and loudness analysis now persist on compatible Subsonic servers beyond Navidrome, after Psysonic verifies that the downloaded audio is the original file.
+- Fast seeks no longer flash the buffering spinner over cover art when audio is already ready.
+
+### Queue, lyrics, and search
+
+- Dropping a track only moves it instead of also starting playback, and tracks moved down the queue land exactly where the insertion line shows.
+- Tracks under **Artist → Top** can be dragged to the queue just like tracks under **All**.
+- Fullscreen lyrics no longer cover track details in **Minimal** mode or remain visible through the cover and title in **Immersive** mode.
+- The search shortcut opens a collapsed desktop or mobile search field before focusing it, so typing is always visible.
+- In Japanese songs with generated romaji, lines already in Latin script are no longer repeated underneath.
 
 ### Browse and library
 
-- Albums, queue rows, playlists, favourites, search results, Random Mix, and Home song cards no longer start dragging after a held press loses or replaces its original row.
-- **Live Search** no longer shows the same artist, album, or song twice when the local index and server response use different forms of the same server identity.
-- Navidrome background sync preserves structured multi-artist credits instead of collapsing them into one comma-joined name.
-- The library selector can choose an individual music folder again after updating from Psysonic 1.50 to 1.51, with invalid saved scope repaired during startup.
-- Album, artist, favourites, and playlist tracklists now show and sort by locally analysed BPM when it is available.
-- Navidrome timestamps with negative UTC offsets populate **New Releases**, favourites, and last played dates again, with safe legacy values repaired gradually in the background.
-- Standard, deluxe, remastered, and other physical versions of an album stay separate, while matching copies of the same version can still merge across servers.
+- The Genres page no longer takes minutes to count tracks in large libraries. Existing libraries repair their genre catalogue once on the first start after updating.
+- Favourite artist filters now include every credited role and update with the active server group. Tracklists also use analysed BPM when the file has no BPM tag.
+- **Add to Playlist** shows editable Navidrome playlists again when native smart-playlist metadata is unavailable, while smart playlists remain read-only.
+- Playlist CSV import now finds tracks whose titles contain brackets, colons, ampersands, or a lone dash, such as remaster suffixes.
+- **Settings → Library → Smart Playlist Custom Fields** accepts tag and role names in any script, such as Greek or Cyrillic.
+- Guest performers, orchestras, choirs, and other participant-only artists open correctly from track credits within the selected library scope.
+- Separate Navidrome libraries can contain tracks at the same relative path without colliding during background sync.
+- Background sync no longer aborts with duplicate artist-credit keys while assigning music folders.
+- Navidrome canonical-ID migrations recover after an interrupted reload, and their startup progress screen keeps its layout and styling in packaged builds.
+- In a multi-server group, capability and version changes are refreshed for every reachable server, including inactive ones.
+
+### Backups and Device Sync
+
+- Backups now restore all stored settings, including page layouts, columns, radio favourites, playlist folders, installed themes, and player-bar preferences. Older backups do not clear settings they never contained.
+- Device Sync selections and layout survive backup and restore, while the machine-specific target device deliberately stays unassigned until you choose it again.
+- **Settings → Backup & Restore** now warns beside the relevant export buttons that settings backups contain server passwords and scrobbler keys in readable form.
+
+### Themes and integrations
+
+- Apple Music and Last.fm artwork fallbacks no longer replace covers already supplied by your server. Existing incorrect fallback covers are removed after updating, and external fallbacks now start disabled.
+- The artist-page Last.fm button always opens Last.fm, and its hover highlight is no longer clipped at the edge.
 
 ### Other
 
-- **Linux/KDE Plasma:** Space, F11, and other shortcuts work immediately after returning to Psysonic with Alt+Tab, without requiring an extra click inside the window.
-- Turning off **Show Tray Icon** also disables tray-dependent minimise settings, and unsafe saved combinations are repaired so closing Psysonic cannot leave it hidden with no way to reopen it.
-- Ukrainian settings descriptions include their full security, privacy, source, and playback warnings again.
+- Long album titles in the home page banner shrink to fit instead of being cut off at the top.
+- Multi-artist separators are centred and spaced consistently in track rows and album headers.
+- **macOS:** dropdowns, player-bar buttons, the Orbit label, and rating stars remain steady and correctly sized while hovering or using JetBrains Mono.
+- The login logo can no longer be dragged away, and long server names wrap correctly in the cover cache table.

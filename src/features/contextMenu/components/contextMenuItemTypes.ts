@@ -38,12 +38,10 @@ export interface ContextMenuItemsProps {
   userRatingOverrides: Record<string, number>;
   setKeyboardRating: React.Dispatch<React.SetStateAction<KeyboardRating | null>>;
   keyboardRating: KeyboardRating | null;
-  playlistSubmenuOpen: boolean;
-  setPlaylistSubmenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  activeSubmenuId: string | null;
+  setActiveSubmenuId: React.Dispatch<React.SetStateAction<string | null>>;
   cancelPlaylistSubmenuCloseTimer: () => void;
   onPlaylistSubmenuTriggerMouseLeave: (e: React.MouseEvent<HTMLElement>) => void;
-  playlistSongIds: string[];
-  setPlaylistSongIds: React.Dispatch<React.SetStateAction<string[]>>;
   orbitRole: 'host' | 'guest' | null;
   entityRatingSupport: 'full' | 'track_only' | 'unknown';
   audiomuseNavidromeEnabled: boolean;
@@ -54,7 +52,6 @@ export interface ContextMenuItemsProps {
   startRadio: (artistId: string, artistName: string, seedTrack?: Track, serverId?: string) => void;
   startInstantMix: (song: Track) => void;
   downloadAlbum: (albumName: string, albumId: string, serverId?: string) => Promise<void>;
-  copyShareLink: (kind: EntityShareKind, id: string, serverId?: string) => void;
   isStarred: (id: string, itemStarred?: string, serverId?: string) => boolean;
   /** When true, album/artist links switch to the queue server before routing. */
   pinToPlaybackServer: boolean;

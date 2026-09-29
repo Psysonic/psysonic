@@ -1,8 +1,8 @@
 //! Audio-stage settings commands: volume, replay-gain / loudness normalization,
 //! 10-band EQ, crossfade, gapless.
 
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use tauri::{AppHandle, State};
 
@@ -17,7 +17,8 @@ pub fn audio_set_volume(volume: f32, state: State<'_, AudioEngine>) {
     cur.base_volume = volume.clamp(0.0, 1.0);
     if let Some(sink) = &cur.sink {
         let prev_effective = sink_volume_now(sink);
-        let next_effective = (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM).clamp(0.0, 1.0);
+        let next_effective =
+            (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM).clamp(0.0, 1.0);
         ramp_sink_volume(Arc::clone(sink), prev_effective, next_effective);
     }
 }
@@ -74,12 +75,10 @@ pub fn audio_update_replay_gain(
                 true,
                 loudness_gain_db,
             ),
-            None => {
-                loudness_gain_db.or(Some(loudness_gain_placeholder_until_cache(
-                    target_lufs,
-                    pre_analysis_db,
-                )))
-            }
+            None => loudness_gain_db.or(Some(loudness_gain_placeholder_until_cache(
+                target_lufs,
+                pre_analysis_db,
+            ))),
         }
     } else {
         loudness_gain_db
@@ -106,10 +105,7 @@ pub fn audio_update_replay_gain(
         volume,
         effective
     );
-    if state
-        .interrupt_outgoing_duck_active
-        .load(Ordering::Relaxed)
-    {
+    if state.interrupt_outgoing_duck_active.load(Ordering::Relaxed) {
         // Interrupt prep ducked the outgoing sink; syncing B's loudness here would
         // ramp A back to full gain before the handoff swap.
         return;
@@ -136,7 +132,9 @@ pub fn audio_update_replay_gain(
 #[specta::specta]
 pub fn audio_set_eq(gains: [f32; 10], enabled: bool, pre_gain: f32, state: State<'_, AudioEngine>) {
     state.eq_enabled.store(enabled, Ordering::Relaxed);
-    state.eq_pre_gain.store(pre_gain.clamp(-30.0, 6.0).to_bits(), Ordering::Relaxed);
+    state
+        .eq_pre_gain
+        .store(pre_gain.clamp(-30.0, 6.0).to_bits(), Ordering::Relaxed);
     for (i, &gain) in gains.iter().enumerate() {
         state.eq_gains[i].store(gain.clamp(-12.0, 12.0).to_bits(), Ordering::Relaxed);
     }
@@ -146,7 +144,9 @@ pub fn audio_set_eq(gains: [f32; 10], enabled: bool, pre_gain: f32, state: State
 #[specta::specta]
 pub fn audio_set_crossfade(enabled: bool, secs: f32, state: State<'_, AudioEngine>) {
     state.crossfade_enabled.store(enabled, Ordering::Relaxed);
-    state.crossfade_secs.store(secs.clamp(0.1, 12.0).to_bits(), Ordering::Relaxed);
+    state
+        .crossfade_secs
+        .store(secs.clamp(0.1, 12.0).to_bits(), Ordering::Relaxed);
 }
 
 #[tauri::command]
@@ -196,8 +196,7 @@ pub fn audio_set_playback_rate(
 ) {
     use crate::playback_rate::{
         content_position_from_samples, is_effect_active, raw_counter_samples_for_content_position,
-        uses_preserve_dsp, STRATEGY_PRESERVE_PITCH, STRATEGY_SPEED_CORRECTED,
-        STRATEGY_VARISPEED,
+        uses_preserve_dsp, STRATEGY_PRESERVE_PITCH, STRATEGY_SPEED_CORRECTED, STRATEGY_VARISPEED,
     };
 
     let clamped_speed = speed.clamp(0.5, 2.0);

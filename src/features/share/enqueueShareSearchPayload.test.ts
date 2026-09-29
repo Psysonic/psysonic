@@ -15,10 +15,12 @@ const mocks = vi.hoisted(() => ({
   resolveAlbum: vi.fn(),
   getArtist: vi.fn(),
   resolveArtist: vi.fn(),
+  resolvePlaylist: vi.fn(),
   getSongForServer: vi.fn(),
   orbitBulkGuard: vi.fn(),
   showToast: vi.fn(),
   songToTrack: vi.fn(),
+  normalizeNavidromeExternalId: vi.fn((_serverId: string, id: string) => id),
 }));
 
 vi.mock('@/lib/api/subsonicLibrary', () => ({
@@ -33,6 +35,7 @@ vi.mock('@/lib/api/subsonicArtists', () => ({
 vi.mock('@/store/mediaResolver', () => ({
   resolveAlbum: mocks.resolveAlbum,
   resolveArtist: mocks.resolveArtist,
+  resolvePlaylist: mocks.resolvePlaylist,
 }));
 
 vi.mock('@/store/authStore', () => ({
@@ -59,12 +62,17 @@ vi.mock('@/lib/dom/toast', () => ({
   showToast: mocks.showToast,
 }));
 
+vi.mock('@/lib/server/navidromeCanonicalExternalId', () => ({
+  normalizeNavidromeExternalId: mocks.normalizeNavidromeExternalId,
+}));
+
 import {
   activateShareSearchServer,
   enqueueShareSearchPayload,
   resolveShareSearchAlbum,
   resolveShareSearchArtist,
   resolveShareSearchPayload,
+  resolveShareSearchPlaylist,
 } from '@/features/share/enqueueShareSearchPayload';
 
 const sharedServer = {
@@ -113,12 +121,24 @@ describe('share search payload resolution', () => {
       artist: { id: 'artist-1', name: 'Shared Artist' },
       albums: [],
     });
+    mocks.resolvePlaylist.mockResolvedValue({
+      playlist: {
+        id: 'playlist-1',
+        name: 'Shared Playlist',
+        songCount: 1,
+        duration: 180,
+        created: '',
+        changed: '',
+      },
+      songs: [],
+    });
     mocks.songToTrack.mockImplementation(song => ({
       id: song.id,
       title: song.title,
       serverId: song.serverId,
     }));
     mocks.orbitBulkGuard.mockResolvedValue(true);
+    mocks.normalizeNavidromeExternalId.mockImplementation((_serverId: string, id: string) => id);
   });
 
   it('resolves a shared track preview through its explicit server without switching active server', async () => {
@@ -169,6 +189,52 @@ describe('share search payload resolution', () => {
     expect(result.type).toBe('ok');
     expect(mocks.resolveArtist).toHaveBeenCalledWith('shared', 'composer-1');
     expect(mocks.authState.current.setActiveServer).not.toHaveBeenCalled();
+  });
+
+  it('resolves playlist previews without switching active server', async () => {
+    const result = await resolveShareSearchPlaylist({
+      srv: 'https://shared.example.com',
+      k: 'playlist',
+      id: 'playlist-1',
+    });
+
+    expect(mocks.resolvePlaylist).toHaveBeenCalledWith('shared', 'playlist-1');
+    expect(result).toMatchObject({
+      type: 'ok',
+      playlist: { id: 'playlist-1', serverId: 'shared' },
+    });
+    expect(mocks.authState.current.setActiveServer).not.toHaveBeenCalled();
+  });
+
+  it('normalizes durable IDs before resolving every payload kind', async () => {
+    mocks.normalizeNavidromeExternalId.mockImplementation((_serverId: string, id: string) => `canonical-${id}`);
+
+    await resolveShareSearchPayload({
+      srv: 'https://shared.example.com',
+      k: 'queue',
+      ids: ['song-1', 'song-2'],
+    });
+    await resolveShareSearchAlbum({
+      srv: 'https://shared.example.com',
+      k: 'album',
+      id: 'album-1',
+    });
+    await resolveShareSearchArtist({
+      srv: 'https://shared.example.com',
+      k: 'composer',
+      id: 'composer-1',
+    });
+    await resolveShareSearchPlaylist({
+      srv: 'https://shared.example.com',
+      k: 'playlist',
+      id: 'playlist-1',
+    });
+
+    expect(mocks.getSongForServer).toHaveBeenNthCalledWith(1, 'shared', 'canonical-song-1');
+    expect(mocks.getSongForServer).toHaveBeenNthCalledWith(2, 'shared', 'canonical-song-2');
+    expect(mocks.resolveAlbum).toHaveBeenCalledWith('shared', 'canonical-album-1');
+    expect(mocks.resolveArtist).toHaveBeenCalledWith('shared', 'canonical-composer-1');
+    expect(mocks.resolvePlaylist).toHaveBeenCalledWith('shared', 'canonical-playlist-1');
   });
 
   it('returns not-logged-in without calling the API', async () => {

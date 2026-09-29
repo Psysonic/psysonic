@@ -6,7 +6,7 @@ pub const BANDSINTOWN_APP_ID: &str = "js_app_id";
 
 #[derive(serde::Serialize, Default, specta::Type)]
 pub struct BandsintownEvent {
-    datetime: String,        // ISO 8601 (e.g. "2026-04-23T20:30:00")
+    datetime: String, // ISO 8601 (e.g. "2026-04-23T20:30:00")
     venue_name: String,
     venue_city: String,
     venue_region: String,
@@ -21,7 +21,9 @@ pub struct BandsintownEvent {
 /// just hides the section in that case.
 #[tauri::command]
 #[specta::specta]
-pub async fn fetch_bandsintown_events(artist_name: String) -> Result<Vec<BandsintownEvent>, String> {
+pub async fn fetch_bandsintown_events(
+    artist_name: String,
+) -> Result<Vec<BandsintownEvent>, String> {
     let trimmed = artist_name.trim();
     if trimmed.is_empty() {
         return Ok(vec![]);
@@ -57,20 +59,55 @@ pub async fn fetch_bandsintown_events(artist_name: String) -> Result<Vec<Bandsin
     };
     let mut out: Vec<BandsintownEvent> = Vec::with_capacity(arr.len().min(20));
     for item in arr.iter().take(20) {
-        let venue = item.get("venue").cloned().unwrap_or(serde_json::Value::Null);
+        let venue = item
+            .get("venue")
+            .cloned()
+            .unwrap_or(serde_json::Value::Null);
         let lineup = item
             .get("lineup")
             .and_then(|v| v.as_array())
-            .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|s| s.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default();
         out.push(BandsintownEvent {
-            datetime: item.get("datetime").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            venue_name: venue.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            venue_city: venue.get("city").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            venue_region: venue.get("region").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            venue_country: venue.get("country").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            url: item.get("url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            on_sale_datetime: item.get("on_sale_datetime").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            datetime: item
+                .get("datetime")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            venue_name: venue
+                .get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            venue_city: venue
+                .get("city")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            venue_region: venue
+                .get("region")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            venue_country: venue
+                .get("country")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            url: item
+                .get("url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            on_sale_datetime: item
+                .get("on_sale_datetime")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
             lineup,
         });
     }

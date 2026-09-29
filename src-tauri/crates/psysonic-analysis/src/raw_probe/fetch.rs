@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use psysonic_core::server_http::{apply_optional_registry_headers, ServerHttpRegistry};
 
-use super::format::capability_gated_raw_url;
+use super::format::trusted_original_url;
 use super::protocol::{
     bytes_match_trusted, expected_prefix_len, looks_like_subsonic_error,
     parse_subsonic_stream_error, BoundedStreamFetchError, TrustedOriginalProbeResult,
@@ -12,15 +12,15 @@ use super::protocol::{
 const RAW_PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 const RAW_FULL_FETCH_TIMEOUT: Duration = Duration::from_secs(120);
 
-/// Fetch the original file's first 16 KiB via `format=raw` and fingerprint it,
-/// preserving structured Subsonic errors for background analysis handling.
+/// Fetch the original file's first 16 KiB through the server's trusted original
+/// transport and fingerprint it, preserving structured Subsonic errors.
 pub async fn probe_trusted_original_md5(
     client: &reqwest::Client,
     registry: Option<&ServerHttpRegistry>,
     server_id: Option<&str>,
     stream_url: &str,
 ) -> TrustedOriginalProbeResult {
-    let Some(probe_url) = capability_gated_raw_url(registry, server_id, stream_url) else {
+    let Some(probe_url) = trusted_original_url(registry, server_id, stream_url) else {
         return TrustedOriginalProbeResult::Unavailable;
     };
     // Same reverse-proxy gate headers as playback itself — a probe through
@@ -51,7 +51,7 @@ pub async fn probe_trusted_original_md5(
         expected_len
     } else {
         crate::app_deprintln!(
-            "[analysis][raw-probe] rejected pre-body status={status} content_range={content_range:?} content_length={content_length:?}"
+            "[analysis][original-probe] rejected pre-body status={status} content_range={content_range:?} content_length={content_length:?}"
         );
         return TrustedOriginalProbeResult::Unavailable;
     };
@@ -81,7 +81,7 @@ pub async fn probe_trusted_original_md5(
     }
     if !valid_len || looks_like_subsonic_error(&body) {
         crate::app_deprintln!(
-            "[analysis][raw-probe] rejected body_len={} target={target_len}",
+            "[analysis][original-probe] rejected body_len={} target={target_len}",
             body.len()
         );
         return TrustedOriginalProbeResult::Unavailable;
@@ -103,9 +103,9 @@ pub async fn fetch_trusted_original_md5(
     }
 }
 
-/// Fetch the complete verified original through `format=raw`, bounded by the
-/// caller's existing analysis-size cap. The full body must still match the
-/// trusted prefix to protect against a revision change between requests.
+/// Fetch the complete verified original through the same trusted transport,
+/// bounded by the caller's analysis-size cap. The full body must still match
+/// the trusted prefix to protect against a revision change between requests.
 pub async fn fetch_trusted_original_bytes(
     client: &reqwest::Client,
     registry: Option<&ServerHttpRegistry>,
@@ -210,9 +210,10 @@ pub async fn fetch_trusted_original_bytes_result(
     if max_bytes == 0 || trusted_md5_16kb.is_empty() {
         return Err(BoundedStreamFetchError::InvalidResponse);
     }
-    let raw_url = capability_gated_raw_url(registry, server_id, stream_url)
+    let original_url = trusted_original_url(registry, server_id, stream_url)
         .ok_or(BoundedStreamFetchError::InvalidResponse)?;
-    let body = fetch_bounded_stream_bytes(client, registry, server_id, &raw_url, max_bytes).await?;
+    let body =
+        fetch_bounded_stream_bytes(client, registry, server_id, &original_url, max_bytes).await?;
     if !bytes_match_trusted(&body, trusted_md5_16kb) {
         return Err(BoundedStreamFetchError::InvalidResponse);
     }

@@ -25,7 +25,7 @@ fs4 = "1"
 sysinfo = { version = "0.39", default-features = false, features = ["disk"] }
 url = "2"
 md5 = "0.8"
-lofty = "0.24"
+lofty = "0.25"
 id3 = "1.17"
 
 [target.'cfg(windows)'.dependencies]

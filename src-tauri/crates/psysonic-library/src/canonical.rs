@@ -189,8 +189,7 @@ mod tests {
             link_track(tx, "s1", "t1", Some("USRC1"), Some("mbid-1"), 1).unwrap()
         });
         assert_eq!(cid.as_deref(), Some("isrc:USRC1"));
-        let stored =
-            with_tx(&store, |tx| canonical_id_for(tx, "s1", "t1").unwrap());
+        let stored = with_tx(&store, |tx| canonical_id_for(tx, "s1", "t1").unwrap());
         assert_eq!(stored.as_deref(), Some("isrc:USRC1"));
     }
 
@@ -213,7 +212,11 @@ mod tests {
         });
         assert!(cid.is_none());
         let count: i64 = store
-            .with_conn("misc", |c| c.query_row("SELECT COUNT(*) FROM track_canonical_link", [], |r| r.get(0)))
+            .with_conn("misc", |c| {
+                c.query_row("SELECT COUNT(*) FROM track_canonical_link", [], |r| {
+                    r.get(0)
+                })
+            })
             .unwrap();
         assert_eq!(count, 0);
     }
@@ -230,9 +233,14 @@ mod tests {
         });
         assert_eq!(a, b);
         let canon_count: i64 = store
-            .with_conn("misc", |c| c.query_row("SELECT COUNT(*) FROM canonical_track", [], |r| r.get(0)))
+            .with_conn("misc", |c| {
+                c.query_row("SELECT COUNT(*) FROM canonical_track", [], |r| r.get(0))
+            })
             .unwrap();
-        assert_eq!(canon_count, 1, "one canonical row shared across two servers");
+        assert_eq!(
+            canon_count, 1,
+            "one canonical row shared across two servers"
+        );
     }
 
     #[test]
@@ -257,7 +265,11 @@ mod tests {
         assert_eq!(cid, "isrc:USRCnew");
         assert_eq!(method, "isrc");
         let link_count: i64 = store
-            .with_conn("misc", |c| c.query_row("SELECT COUNT(*) FROM track_canonical_link", [], |r| r.get(0)))
+            .with_conn("misc", |c| {
+                c.query_row("SELECT COUNT(*) FROM track_canonical_link", [], |r| {
+                    r.get(0)
+                })
+            })
             .unwrap();
         assert_eq!(link_count, 1, "re-link updates in place, no duplicate");
     }

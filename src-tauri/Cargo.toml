@@ -3,7 +3,7 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-version = "1.53.0-dev"
+version = "1.56.0-dev"
 edition = "2021"
 rust-version = "1.95"
 license = "GPL-3.0-or-later"
@@ -43,6 +43,7 @@ psysonic-audio = { path = "crates/psysonic-audio" }
 psysonic-library = { path = "crates/psysonic-library" }
 psysonic-syncfs = { path = "crates/psysonic-syncfs" }
 psysonic-integration = { path = "crates/psysonic-integration" }
+psysonic-burn = { path = "crates/psysonic-burn" }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "image-png"] }
 specta = "=2.0.0-rc.25"
 specta-typescript = "=0.0.12"
@@ -56,7 +57,7 @@ tauri-plugin-fs = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 rodio = { version = "0.22", default-features = false, features = ["playback"] }
-symphonia = { version = "0.6", default-features = false, features = ["flac", "mp3", "pcm", "aac", "alac", "isomp4", "vorbis", "ogg", "wav", "aiff", "adpcm", "all-meta"] }
+symphonia = { version = "=0.6.1", default-features = false, features = ["flac", "mp3", "pcm", "aac", "alac", "isomp4", "vorbis", "ogg", "wav", "aiff", "adpcm", "all-meta"] }
 reqwest = { version = "0.13", default-features = false, features = ["stream", "json", "multipart", "query", "form", "rustls", "blocking", "gzip", "brotli"] }
 futures-util = "0.3"
 md5 = "0.8"
@@ -70,7 +71,7 @@ souvlaki = { version = "0.8", default-features = false, features = ["use_zbus"] 
 discord-rich-presence = "1.1"
 url = "2"
 thread-priority = "3"
-lofty = "0.24"
+lofty = "0.25"
 sysinfo = { version = "0.39", default-features = false, features = ["disk", "system"] }
 id3 = "1.17"
 symphonia-adapter-libopus = "0.3"
@@ -80,18 +81,19 @@ dasp_sample = "0.11.0"
 zip = "8"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 webp = "0.3"
+tauri-plugin-clipboard-manager = "2"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
-mach2 = "0.5"
+mach2 = "0.7"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "5.16", default-features = false, features = ["blocking-api", "async-io"] }
 # Match wry/tauri’s WebKitGTK stack — used only to turn off kinetic wheel scrolling.
 webkit2gtk = { version = "2.0", default-features = false, features = ["v2_40"] }
-webkit2gtk-nvidia-quirk = "1.3"
+webkit2gtk-nvidia-quirk = "2.1"
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [
@@ -106,10 +108,11 @@ windows = { version = "0.62", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
-# NOTE: The local `symphonia-format-isomp4` path patch (0.5-based) was removed for
-# the Symphonia 0.6 migration. Symphonia 0.6 upstream already covers the esds
-# missing-descriptor and SL predefined=null fixes. The malformed-trak skip and
-# moov-at-end tail scan are validated against the fixture corpus on stock 0.6; if a
-# case regresses, re-create the patch from the 0.6 isomp4 source and re-add the
-# [patch.crates-io] entry here. See workdocs task 2026-05-symphonia-0.6-migration.
-
+# Preserve the current `mdat` boundary when a seekable ISO/MP4 reader reaches EOF.
+# Stock Symphonia loses its pending atom there, so a later seek fails with
+# `isomp4: no atom pending read`. This patch deliberately keeps the raw-read guard
+# intact; the looser upstream PR #536 condition can parse padded `mdat` payload as
+# top-level atoms after replay. Fixture tests cover ordinary, fragmented, padded,
+# repeated-EOF, and seekable-stream paths. Revalidate them before updating 0.6.1.
+[patch.crates-io]
+symphonia-format-isomp4 = { path = "patches/symphonia-format-isomp4" }

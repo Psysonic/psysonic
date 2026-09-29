@@ -27,9 +27,13 @@ interface Props {
   loadingArtistIds: Set<string>;
   toggleArtistExpand: (artistId: string) => Promise<void>;
   serverIndexKey: string | null;
+  serverProfileId: string | null;
+  unresolvedOwnerKey: string | null;
+  loadFailed: boolean;
   sources: DeviceSyncSource[];
   pendingDeletion: string[];
   handleToggleSource: (source: DeviceSyncSource) => void;
+  disabled: boolean;
 }
 
 export default function DeviceSyncBrowserPanel({
@@ -37,8 +41,8 @@ export default function DeviceSyncBrowserPanel({
   playlists, randomAlbums, albumSearchResults, albumSearchLoading,
   artists, loadingBrowser,
   expandedArtistIds, artistAlbumsMap, loadingArtistIds, toggleArtistExpand,
-  serverIndexKey,
-  sources, pendingDeletion, handleToggleSource,
+  serverIndexKey, serverProfileId, unresolvedOwnerKey, loadFailed,
+  sources, pendingDeletion, handleToggleSource, disabled,
 }: Props) {
   const { t } = useTranslation();
 
@@ -51,6 +55,26 @@ export default function DeviceSyncBrowserPanel({
   const q = search.toLowerCase();
   const filteredPlaylists = useMemo(() => playlists.filter(p => p.name.toLowerCase().includes(q)), [playlists, q]);
   const filteredArtists   = useMemo(() => artists.filter(a => a.name.toLowerCase().includes(q)), [artists, q]);
+
+  // Without this the panel renders a blank list for every reason it can fail —
+  // a moved server, a request that threw, no server at all — all of which look
+  // exactly like a library that happens to be empty.
+  const busy = loadingBrowser || albumSearchLoading;
+  const visibleCount = activeTab === 'playlists'
+    ? filteredPlaylists.length
+    : activeTab === 'artists'
+      ? filteredArtists.length
+      : (search.trim() ? albumSearchResults : randomAlbums).length;
+  let notice: string | null = null;
+  if (unresolvedOwnerKey) {
+    notice = t('deviceSync.browserOwnerUnresolved', { server: unresolvedOwnerKey });
+  } else if (serverIndexKey == null) {
+    notice = t('deviceSync.browserNoServer');
+  } else if (loadFailed) {
+    notice = t('deviceSync.browserLoadFailed');
+  } else if (!busy && visibleCount === 0) {
+    notice = t('deviceSync.browserEmpty');
+  }
 
   return (
     <div className="device-sync-browser">
@@ -79,8 +103,11 @@ export default function DeviceSyncBrowserPanel({
         )}
       </div>
       <div className="device-sync-list">
-        {(loadingBrowser || albumSearchLoading) && (
+        {busy && (
           <div className="device-sync-loading"><Loader2 size={16} className="spin" /></div>
+        )}
+        {notice && (
+          <p className="device-sync-browser-notice" role="status">{notice}</p>
         )}
         {activeTab === 'albums' && !search.trim() && !loadingBrowser && randomAlbums.length > 0 && (
           <div className="device-sync-section-label">
@@ -91,18 +118,18 @@ export default function DeviceSyncBrowserPanel({
           <BrowserRow key={pl.id} name={pl.name} meta={`${pl.songCount} tracks`}
             selected={serverIndexKey != null && sources.some(s =>
               deviceSyncSourceKey(s) === deviceSyncSourceKey({ serverIndexKey, type: 'playlist', id: pl.id }) &&
-              !pendingDeletion.includes(deviceSyncSourceKey(s)))}
+              !pendingDeletion.includes(deviceSyncSourceKey(s)))} disabled={disabled}
             onToggle={() => serverIndexKey && handleToggleSource({
-              type: 'playlist', id: pl.id, name: pl.name, serverIndexKey,
+              type: 'playlist', id: pl.id, name: pl.name, serverIndexKey, ...(serverProfileId ? { serverProfileId } : {}),
             })} />
         ))}
         {activeTab === 'albums' && (search.trim() ? albumSearchResults : randomAlbums).map(al => (
           <BrowserRow key={al.id} name={al.name} meta={al.artist}
             selected={serverIndexKey != null && sources.some(s =>
               deviceSyncSourceKey(s) === deviceSyncSourceKey({ serverIndexKey, type: 'album', id: al.id }) &&
-              !pendingDeletion.includes(deviceSyncSourceKey(s)))}
+              !pendingDeletion.includes(deviceSyncSourceKey(s)))} disabled={disabled}
             onToggle={() => serverIndexKey && handleToggleSource({
-              type: 'album', id: al.id, name: al.name, artist: al.artist, serverIndexKey,
+              type: 'album', id: al.id, name: al.name, artist: al.artist, serverIndexKey, ...(serverProfileId ? { serverProfileId } : {}),
             })} />
         ))}
         {activeTab === 'artists' && filteredArtists.map(ar => (
@@ -128,9 +155,9 @@ export default function DeviceSyncBrowserPanel({
                   selected={serverIndexKey != null && sources.some(s =>
                     deviceSyncSourceKey(s) === deviceSyncSourceKey({ serverIndexKey, type: 'album', id: al.id }) &&
                     !pendingDeletion.includes(deviceSyncSourceKey(s)))}
-                  indent
+                  indent disabled={disabled}
                   onToggle={() => serverIndexKey && handleToggleSource({
-                    type: 'album', id: al.id, name: al.name, artist: al.artist || ar.name, serverIndexKey,
+                    type: 'album', id: al.id, name: al.name, artist: al.artist || ar.name, serverIndexKey, ...(serverProfileId ? { serverProfileId } : {}),
                   })} />
               ))
             }

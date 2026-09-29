@@ -18,8 +18,13 @@ import {
   clearQueuePushFailed,
   isQueuePushFailed,
   markQueueNaturallyEnded,
+  clearAllQueuePushFailures,
 } from '@/features/playback/store/queuePlaybackIdle';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import {
+  isPlayQueueSyncEnabled,
+  usePlayQueueSyncSettingsStore,
+} from '@/features/playback/store/playQueueSyncSettingsStore';
 
 /**
  * Server-side play-queue persistence. Subsonic's `savePlayQueue` accepts
@@ -46,6 +51,14 @@ const QUEUE_ID_LIMIT = 1000;
 
 const syncTimeoutByServer = new Map<string, ReturnType<typeof setTimeout>>();
 const lastQueueHeartbeatAtByServer = new Map<string, number>();
+
+usePlayQueueSyncSettingsStore.subscribe(state => {
+  if (state.enabled) return;
+  for (const timeout of syncTimeoutByServer.values()) clearTimeout(timeout);
+  syncTimeoutByServer.clear();
+  clearAllQueuePushFailures();
+  resumeIdleQueuePull();
+});
 
 function isQueueServerReachable(serverId: string): boolean {
   if (!serverId || serverId === NAVIDROME_PUBLIC_SHARE_SERVER_ID) return false;
@@ -82,6 +95,7 @@ function pushRefsForServer(
   currentTime: number,
   serverId: string,
 ): Promise<boolean> {
+  if (!isPlayQueueSyncEnabled()) return Promise.resolve(true);
   if (!serverId || refs.length === 0) return Promise.resolve(true);
   const ids = refs.slice(0, QUEUE_ID_LIMIT).map(r => r.trackId);
   const ownsCurrentTrack = currentTrack != null && playbackProfileIdForTrack(currentTrack) === serverId;
@@ -110,11 +124,13 @@ function scheduleQueueSyncToServer(
   currentTrack: Track | null,
   currentTime: number,
 ): void {
+  if (!isPlayQueueSyncEnabled()) return;
   if (!isPlaybackServerReachable()) return;
   const serverId = getPlaybackServerId();
   cancelPendingQueueSync(serverId);
   const timeout = setTimeout(() => {
     syncTimeoutByServer.delete(serverId);
+    if (!isPlayQueueSyncEnabled()) return;
     if (!isQueueServerReachable(serverId)) return;
     const refs = filterQueueRefsForServerProfile(queue, serverId);
     void pushRefsForServer(refs, currentTrack, currentTime, serverId);
@@ -128,6 +144,7 @@ function scheduleQueueSyncByServer(
   currentTrack: Track | null,
   currentTime: number,
 ): void {
+  if (!isPlayQueueSyncEnabled()) return;
   const previousByServer = queueRefsByServer(previousQueue);
   const nextByServer = queueRefsByServer(nextQueue);
   const serverIds = new Set([...previousByServer.keys(), ...nextByServer.keys()]);
@@ -141,6 +158,7 @@ function scheduleQueueSyncByServer(
     if (!isQueueServerReachable(serverId)) continue;
     const timeout = setTimeout(() => {
       syncTimeoutByServer.delete(serverId);
+      if (!isPlayQueueSyncEnabled()) return;
       if (!isQueueServerReachable(serverId)) return;
       void pushRefsForServer(refs, currentTrack, currentTime, serverId);
     }, SYNC_DEBOUNCE_MS);
@@ -150,9 +168,11 @@ function scheduleQueueSyncByServer(
 
 function scheduleQueueClearForServer(serverId: string): void {
   cancelPendingQueueSync(serverId);
+  if (!isPlayQueueSyncEnabled()) return;
   if (!isQueueServerReachable(serverId)) return;
   const timeout = setTimeout(() => {
     syncTimeoutByServer.delete(serverId);
+    if (!isPlayQueueSyncEnabled()) return;
     if (!isQueueServerReachable(serverId)) return;
     void savePlayQueue([], undefined, undefined, serverId).then(
       () => clearQueuePushFailed(serverId),
@@ -174,6 +194,7 @@ export function syncUserQueueMutationToServer(
   currentTrack: Track | null,
   currentTime: number,
 ): void {
+  if (!isPlayQueueSyncEnabled()) return;
   touchQueueMutationClock();
   scheduleQueueSyncByServer(previousQueue, nextQueue, currentTrack, currentTime);
 }
@@ -190,6 +211,7 @@ export function syncAutomaticQueueMutationToServers(
 
 /** Debounced remote clear for every server represented by the removed local refs. */
 export function syncUserQueueClearToServers(previousQueue: QueueItemRef[]): void {
+  if (!isPlayQueueSyncEnabled()) return;
   touchQueueMutationClock();
   for (const serverId of queueRefsByServer(previousQueue).keys()) {
     scheduleQueueClearForServer(serverId);
@@ -204,6 +226,7 @@ export function flushQueueSyncToServer(
 ): Promise<boolean> {
   const serverId = getPlaybackServerId();
   cancelPendingQueueSync(serverId);
+  if (!isPlayQueueSyncEnabled()) return Promise.resolve(true);
   if (!isPlaybackServerReachable()) {
     if (serverId && serverId !== NAVIDROME_PUBLIC_SHARE_SERVER_ID) {
       markQueuePushFailed(serverId);
@@ -222,6 +245,7 @@ export function flushQueueSyncToServer(
  */
 export function flushPlayQueueForServer(serverProfileId: string): Promise<boolean> {
   cancelPendingQueueSync(serverProfileId);
+  if (!isPlayQueueSyncEnabled()) return Promise.resolve(true);
   if (!serverProfileId) return Promise.resolve(false);
   if (!isSubsonicServerReachable(serverProfileId)) {
     markQueuePushFailed(serverProfileId);
@@ -237,6 +261,7 @@ export function flushPlayQueueForServer(serverProfileId: string): Promise<boolea
 
 /** True while a debounced savePlayQueue is scheduled. */
 export function hasPendingQueueSync(serverId?: string): boolean {
+  if (!isPlayQueueSyncEnabled()) return false;
   return serverId === undefined
     ? syncTimeoutByServer.size > 0
     : syncTimeoutByServer.has(serverId);
@@ -283,6 +308,7 @@ export function pushQueueOnPlaybackStart(
   currentTrack: Track | null,
   currentTime: number,
 ): void {
+  if (!isPlayQueueSyncEnabled()) return;
   if (!currentTrack || queue.length === 0) return;
   const serverId = getPlaybackServerId();
   if (isIdleQueuePullSuspended() || isQueuePushFailed(serverId)) {
@@ -295,6 +321,7 @@ export function pushQueueOnPlaybackStart(
 }
 
 export function flushLocalQueueWhenTakingPlayback(): Promise<void> {
+  if (!isPlayQueueSyncEnabled()) return Promise.resolve();
   const serverId = getPlaybackServerId();
   if (!isIdleQueuePullSuspended() && !isQueuePushFailed(serverId)) return Promise.resolve();
   const s = usePlayerStore.getState();

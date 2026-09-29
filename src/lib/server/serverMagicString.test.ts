@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { isTauri } from '@tauri-apps/api/core';
+import { writeText as writeClipboardText } from '@tauri-apps/plugin-clipboard-manager';
 import {
   SERVER_MAGIC_STRING_PREFIX,
   DECODED_PASSWORD_VISUAL_MASK,
@@ -212,6 +214,9 @@ describe('copyTextToClipboard', () => {
 
   beforeEach(() => {
     // setup.ts already installs a clipboard mock — start each test fresh.
+    vi.mocked(isTauri).mockReturnValue(false);
+    vi.mocked(writeClipboardText).mockClear();
+    vi.mocked(writeClipboardText).mockResolvedValue();
     vi.mocked(navigator.clipboard.writeText).mockResolvedValue();
   });
 
@@ -223,6 +228,26 @@ describe('copyTextToClipboard', () => {
     const ok = await copyTextToClipboard('hello');
     expect(ok).toBe(true);
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('hello');
+  });
+
+  it('uses the native clipboard inside Tauri without browser user activation', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+
+    const ok = await copyTextToClipboard('native');
+
+    expect(ok).toBe(true);
+    expect(writeClipboardText).toHaveBeenCalledWith('native');
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the browser clipboard when the native command fails', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(writeClipboardText).mockRejectedValueOnce(new Error('native unavailable'));
+
+    const ok = await copyTextToClipboard('browser-fallback');
+
+    expect(ok).toBe(true);
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('browser-fallback');
   });
 
   it('falls back to execCommand("copy") when clipboard API rejects', async () => {

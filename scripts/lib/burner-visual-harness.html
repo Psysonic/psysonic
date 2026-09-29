@@ -1,0 +1,667 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>burner geometry harness</title>
+<!--
+  A static stand-in for the CD Burner page, used only to look at its geometry.
+
+  The real page needs a Navidrome connection, a queue and an optical drive, so
+  it cannot be rendered in a browser on its own. Every bug this exists to catch
+  is a layout bug, and layout does not need any of that — it needs the real
+  stylesheet and the real DOM shape. Both are here verbatim; only the content is
+  invented.
+-->
+<!-- THEME-ATTR -->
+<link rel="stylesheet" href="./base.css">
+<link rel="stylesheet" href="./theme.css">
+<link rel="stylesheet" href="./burner.css">
+<style>
+  html, body { margin: 0; height: 100%; background: var(--bg-app); color: var(--text-primary);
+                font-family: system-ui, sans-serif; }
+  #root { position: fixed; inset: 0; display: flex; }
+  /* Stands in for the app shell's sidebar + queue panel, which is precisely why
+     a window media query is the wrong instrument on this page. */
+  .fake-sidebar { width: 200px; background: var(--bg-sidebar); flex: none; }
+  .fake-queue { width: 340px; background: var(--bg-sidebar); flex: none; }
+  .content-body { flex: 1; min-width: 0; }
+  /* The shell rule this harness used to be blind to. `main-content.css` is not
+     one of the sheets loaded above — only base, theme and burner are — so for
+     as long as this line was missing the harness rendered the page WITH its
+     right padding intact, which is to say it rendered the fixed geometry and
+     could never have shown the bug. Copied here verbatim, at its real
+     specificity, so the gutter assertions measure the page the app ships. */
+  .content-body.mainstage-inpage-split { padding-right: 0; }
+  /* Out of flow entirely. A real portal is a child of document.body and takes
+     no space from the page; as a flex sibling it stole width and squeezed the
+     running order, which read as the page's fault. */
+  #portal { position: absolute; left: -9999px; top: 0; }
+</style>
+
+<div id="root">
+  <div class="fake-sidebar"></div>
+  <div class="content-body mainstage-inpage-split burner-page"
+       data-stage="committing" data-expanded="1" data-cols="3" data-rehearsal="true"
+       style="--burner-side-w: 420px">
+
+    <div class="burner-chassis">
+      <div class="burner-chassis-title">
+        <h1>CD Burner</h1>
+        <span class="burner-chassis-title-static">Blink 182</span>
+        <span class="burner-mode-pill is-rehearsal">Rehearsal</span>
+      </div>
+      <div class="burner-chassis-drive">
+        <div class="burner-chassis-drive-inner">
+          <label class="burner-drive-label">Recorder</label>
+          <select class="burner-drive-select"><option>HL-DT-ST DVDRAM GP65NB60 (H:)</option></select>
+          <button class="burner-icon-btn">R</button>
+          <!-- The labelled variant, which only appears for a stranded CD-R and
+               was a hard 30px square with words inside it. -->
+          <button class="burner-icon-btn is-labelled"><span>Reload disc</span></button>
+          <dl class="burner-media-facts">
+            <div><dt>Media</dt><dd>CD-R, blank</dd></div>
+            <div><dt>Capacity</dt><dd>79:58</dd></div>
+          </dl>
+        </div>
+      </div>
+    </div>
+
+    <div class="burner-alert is-idle">
+      <span class="burner-alert-text">Ready &middot; 16 tracks &middot; 54:25 &middot; 25:33 free</span>
+    </div>
+
+    <div class="burner-split">
+      <section class="burner-rail">
+        <div class="burn-metrics" id="metrics"></div>
+        <div class="burner-panel burner-panel--options">
+          <div class="burner-panel-head"><h2>Burn options</h2></div>
+        </div>
+      </section>
+
+      <section class="burner-stage">
+        <div class="burner-stage-disc">
+          <!-- `--burn-lead` is an inline style on the real .burn-disc, set to
+               the track being written. Without it here the head's glow and the
+               disc's bloom both fall back to --accent, and a laser that had
+               gone white on every track would measure as correct. -->
+          <div class="burn-disc is-writing" style="--burn-lead: var(--ctp-green)">
+            <div class="burn-disc-bloom"></div>
+            <div class="burn-disc-surface">
+              <!-- The disc's own three optical layers, in the component's
+                   order: diffraction under the data, then the groove texture
+                   and the specular highlight over it. They were missing here,
+                   which meant every wedge in every screenshot was read without
+                   the light that actually falls on it. -->
+              <div class="burn-disc-iris"></div>
+              <!-- Filled in by the script below. The ring used to be an empty
+                   <svg>, which meant the one thing on this page that carries a
+                   burn's PROGRESS — how far apart a written wedge and an
+                   unwritten one read — was the one thing the harness could not
+                   see, in any theme, at any size. -->
+              <svg class="burn-disc-ring" viewBox="0 0 100 100" aria-hidden="true"></svg>
+              <div class="burn-disc-grooves"></div>
+              <div class="burn-disc-sheen"></div>
+            </div>
+            <!-- The two particle canvases. They carry no drawing here — this
+                 harness never runs the frame loop — but their BOXES are the
+                 point: the waveform stays inscribed in the disc and the spark
+                 canvas is deliberately inflated past it, and nothing but a
+                 rendered page can tell whether either is still true. -->
+            <canvas class="burn-disc-wave"></canvas>
+            <canvas class="burn-disc-sparks"></canvas>
+            <div class="burn-disc-hub">
+              <div class="burn-disc-hub-shock"></div>
+              <div class="burn-disc-hub-pulse-ring"></div>
+              <div class="burn-disc-hub-content"><small>Rehearsing</small><strong>32%</strong><span>Track 6 of 16</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="burner-mode" id="mode"></div>
+        <div class="burner-transport">
+          <span></span>
+          <button class="burner-btn is-danger">Stop</button>
+          <span></span>
+        </div>
+        <div class="burner-stage-note" id="note"></div>
+      </section>
+
+      <div class="burner-seam" role="separator"></div>
+
+      <section class="burner-side">
+        <div class="burner-panel burner-panel--list">
+          <div class="burner-panel-head"><h2>Running order</h2><span class="burner-panel-meta">16 tracks &middot; 54:25</span></div>
+          <div class="burner-rows-head" aria-hidden="true">
+            <span></span>
+            <span class="col-number">#</span>
+            <span class="col-track">Track</span>
+            <span class="col-artist">Artist</span>
+            <span class="col-time">Time</span>
+            <span class="col-start">Start</span>
+            <span></span>
+            <span></span>
+          </div>
+          <div class="burner-rows" role="list" id="rows"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- The real five-cell readout from Burner.tsx, not a placeholder. An
+         empty `.burner-readout` is a 2px grid; the shipped one is a ~50px dl,
+         and it is the last thing in the flex column, so the height it takes is
+         height the stage above it does not get. -->
+    <dl class="burner-readout">
+      <div>
+        <dt>Phase</dt>
+        <dd class="is-accent">Writing</dd>
+      </div>
+      <div>
+        <dt>Write mode</dt>
+        <dd>DAO / 2352</dd>
+      </div>
+      <div>
+        <dt>Position (MSF)</dt>
+        <dd>09:23:21</dd>
+      </div>
+      <div>
+        <dt>Sectors</dt>
+        <dd>42,180 / 244,825</dd>
+      </div>
+      <div>
+        <dt>Buffer</dt>
+        <dd class="is-good">97%</dd>
+      </div>
+    </dl>
+  </div>
+  <div class="fake-queue"></div>
+
+  <!-- The track-listing modal portals to document.body, so its buttons render
+       OUTSIDE .burner-page and get none of the tokens declared there. This
+       stands in for that: a primary button as a sibling of the page, not a
+       descendant. -->
+  <div id="portal">
+    <button class="burner-btn is-primary" type="button">Print</button>
+    <button class="burner-btn is-danger" type="button">Abort burn</button>
+  </div>
+</div>
+
+<script>
+  // Two shapes matter: an editable row, and a row mid-burn where the grip and
+  // the remove control have given way to empty cells. If those two do not put
+  // the title in the same column, the running order collapses the moment a
+  // burn starts — which is the bug this harness was written for.
+  // The same six the ring uses, in the same order as arcColor().
+  const ARC = ['var(--ctp-mauve)', 'var(--ctp-peach)', 'var(--ctp-sky)',
+               'var(--ctp-green)', 'var(--ctp-pink)', 'var(--ctp-yellow)'];
+  const TRACKS = [
+    ['Hold on to the Light (film version)', 'Jack Johnson', '00:02:00', 'written'],
+    ['Journals', 'Jack Johnson', '03:24:00', 'written'],
+    ['Ghost on the Dance Floor', 'blink-182', '05:05:57', 'written'],
+    ['Natives', 'blink-182', '09:23:21', 'active'],
+    ['Up All Night', 'blink-182', '13:18:33', ''],
+    ['Heart’s All Gone (interlude)', 'blink-182', '24:31:61', ''],
+  ];
+  // ── The ring ───────────────────────────────────────────────────────────
+  // The same radii, the same hairline and the same annular-sector path as
+  // `BurnDisc.tsx` and `discGeometry.ts`, because the whole question this
+  // answers is whether the CSS makes a written wedge read apart from an
+  // unwritten one — and it cannot answer that about wedges that are not there.
+  const R_IN = 22.8, R_OUT = 48.5, R_LEADIN = 21.5;
+  const WEDGE_GAP_DEG = 0.34;
+  const polar = (r, deg) => {
+    const a = ((deg - 90) * Math.PI) / 180;
+    return [50 + r * Math.cos(a), 50 + r * Math.sin(a)];
+  };
+  const sector = (ri, ro, from, to) => {
+    const end = to - from < 0.02 ? from + 0.02 : to;
+    const large = end - from > 180 ? 1 : 0;
+    const [ox0, oy0] = polar(ro, from), [ox1, oy1] = polar(ro, end);
+    const [ix1, iy1] = polar(ri, end), [ix0, iy0] = polar(ri, from);
+    const n = v => v.toFixed(3);
+    return `M${n(ox0)} ${n(oy0)}A${ro} ${ro} 0 ${large} 1 ${n(ox1)} ${n(oy1)}`
+      + `L${n(ix1)} ${n(iy1)}A${ri} ${ri} 0 ${large} 0 ${n(ix0)} ${n(iy0)}Z`;
+  };
+  // Six equal wedges and a head at 115deg, so the first two are written, the
+  // third is part-written and the last three are not. One sector of each kind
+  // is what the contrast check needs, and a part-written one is what catches a
+  // written overlay that has drifted off its wedge.
+  const HEAD_DEG = 115;
+  const WEDGES = [0, 60, 120, 180, 240, 300].map((from, i) => ({
+    from, to: from + 60, color: ARC[i % ARC.length],
+  }));
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const svgEl = (name, attrs, cls) => {
+    const el = document.createElementNS(SVG_NS, name);
+    if (cls) el.setAttribute('class', cls);
+    for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+    return el;
+  };
+  {
+    const ring = document.querySelector('.burn-disc-ring');
+    const defs = svgEl('defs', {});
+    const grad = svgEl('radialGradient',
+      { id: 'burnRest', gradientUnits: 'userSpaceOnUse', cx: 50, cy: 50, r: 50 });
+    grad.appendChild(svgEl('stop',
+      { offset: R_IN / 50, 'stop-color': 'var(--border)', 'stop-opacity': '0.34' }));
+    grad.appendChild(svgEl('stop',
+      { offset: R_OUT / 50, 'stop-color': 'var(--border)', 'stop-opacity': '0.14' }));
+    defs.appendChild(grad);
+    ring.appendChild(defs);
+    for (const [cls, r] of [['burn-disc-bezel', 17.6], ['burn-disc-clamp', 18.6],
+                            ['burn-disc-mirror', 19.9]]) {
+      ring.appendChild(svgEl('circle', { cx: 50, cy: 50, r, fill: 'none' }, cls));
+    }
+    ring.appendChild(svgEl('circle',
+      { cx: 50, cy: 50, r: (R_IN + R_OUT) / 2, fill: 'none', 'stroke-width': R_OUT - R_IN },
+      'burn-ring-rest'));
+    ring.appendChild(svgEl('circle',
+      { cx: 50, cy: 50, r: R_LEADIN, fill: 'none' }, 'burn-ring-leadin'));
+
+    const arcs = svgEl('g', {}, 'burn-ring-arcs');
+    for (const w of WEDGES) {
+      const end = w.to - Math.min(WEDGE_GAP_DEG, (w.to - w.from) * 0.25);
+      const path = svgEl('path', { d: sector(R_IN, R_OUT, w.from, end) }, 'burn-ring-arc');
+      path.style.fill = w.color;
+      path.style.stroke = w.color;
+      arcs.appendChild(path);
+    }
+    ring.appendChild(arcs);
+
+    const done = svgEl('g', {}, 'burn-ring-written');
+    for (const w of WEDGES) {
+      if (w.from >= HEAD_DEG) break;
+      const end = Math.min(w.to - Math.min(WEDGE_GAP_DEG, (w.to - w.from) * 0.25), HEAD_DEG);
+      const path = svgEl('path', { d: sector(R_IN, R_OUT, w.from, end) });
+      path.style.fill = w.color;
+      path.style.stroke = w.color;
+      done.appendChild(path);
+    }
+    ring.appendChild(done);
+
+    for (const [cls, r] of [['burn-disc-rim-in', 48.95], ['burn-disc-rim', 49.6]]) {
+      ring.appendChild(svgEl('circle', { cx: 50, cy: 50, r, fill: 'none' }, cls));
+    }
+    // The head, at the same three widths and — since the fix — from R_IN
+    // rather than R_IN - 1.5, which used to put its inner end at 21.3, inside
+    // the 21.5 lead-in ring it is meant to clear.
+    const head = svgEl('g', {}, 'burn-ring-head');
+    const [hx1, hy1] = polar(R_IN, HEAD_DEG);
+    const [hx2, hy2] = polar(R_OUT + 1.5, HEAD_DEG);
+    for (const [key, width] of [['haze', 3.2], ['glow', 1.4], ['core', 0.55]]) {
+      head.appendChild(svgEl('line',
+        { x1: hx1, y1: hy1, x2: hx2, y2: hy2, 'stroke-width': width },
+        `burn-ring-head-${key}`));
+    }
+    ring.appendChild(head);
+  }
+
+  const stage = document.querySelector('.burner-page').dataset.stage;
+  const locked = stage === 'committing' || stage === 'settled';
+
+  // The metrics box shows a different set per stage, which is exactly why it
+  // carries a min-height: it sits above the burn options in a fixed column, so
+  // a stage that made it taller would shove them about.
+  const METRICS = {
+    building: [['Disc runtime', '54:25'], ['Headroom', '25:33'], ['To fetch', '422.5 MB']],
+    preparing: [['Disc runtime', '54:25'], ['To fetch', '422.5 MB']],
+    committing: [['Time elapsed', '01:24'], ['Time remaining', '02:35'], ['Total time', '03:59']],
+    settled: [['Written', '16'], ['Took', '3:59']],
+  };
+  // The note carries a one-liner in three stages and a whole outcome block in
+  // the fourth. That difference is the point: it is why the slot reserves its
+  // height, and a harness that showed the same line everywhere could not tell
+  // whether it did.
+  const NOTE = {
+    building: '<p class="burner-blocker">Over capacity by 3:12. Remove a track.</p>',
+    preparing: '<p class="burner-advisory">Nothing has been written yet — stopping now costs nothing.</p>',
+    committing: '<p class="burner-blocker">The CD-R is being burned now. Stopping leaves the disc unusable.</p>',
+    settled: '<div class="burner-outcome is-bad">'
+      + '<p class="burner-outcome-line">The burn failed.</p>'
+      + '<p class="burner-outcome-disc">This CD-R has been partly written and cannot be reused.</p>'
+      + '<p class="burner-outcome-disc">The drive ran out of audio to write.</p>'
+      + '<pre class="burner-outcome-detail">SEND CUE SHEET failed: 5/24/00 invalid field in CDB</pre>'
+      + '</div>',
+  };
+  document.getElementById('note').innerHTML = NOTE[stage] ?? NOTE.building;
+
+  // The switch while the order is still editable; a static word once a job owns
+  // the drive. Both occupy the same 28px row so nothing below them moves.
+  document.getElementById('mode').innerHTML = stage === 'building'
+    ? '<div class="burner-mode-switch is-rehearse" role="radiogroup">'
+      + '<span class="burner-mode-slider"></span>'
+      + '<button class="burner-mode-option" role="radio" aria-checked="false">Burn</button>'
+      + '<button class="burner-mode-option" role="radio" aria-checked="true">Rehearse</button>'
+      + '</div>'
+    : '<span class="burner-mode-static">Rehearse</span>';
+
+  document.getElementById('metrics').innerHTML =
+    (METRICS[stage] ?? METRICS.building)
+      .map(([label, value]) => `<div class="burn-metric"><span>${label}</span><strong>${value}</strong></div>`)
+      .join('')
+    + (stage === 'committing'
+      ? '<p class="burn-metric-rate">Writing at 14.3x</p>'
+        + '<svg class="burn-speed-trace" viewBox="0 0 100 28" preserveAspectRatio="none">'
+        + '<polyline class="burn-speed-trace-line" points="0,20 25,12 50,14 75,8 100,10"></polyline></svg>'
+      : '');
+  document.getElementById('rows').innerHTML = TRACKS.map(([title, artist, msf, state], i) => `
+    <div role="listitem" data-reorder-id="t${i}" class="burner-row ${state === 'active' ? 'is-active' : ''} ${state === 'written' ? 'is-written' : ''}" style="--row-color: ${ARC[i % ARC.length]}">
+      ${locked ? '<span class="burner-row-grip is-locked"></span>' : '<span class="burner-row-grip">::</span>'}
+      <span class="burner-row-n">${i + 1}</span>
+      <span class="burner-row-title">${title}</span>
+      <span class="burner-row-artist">${artist}</span>
+      ${state === 'active' ? '<span class="burner-row-state">Writing</span>'
+        : state === 'written' ? '<span class="burner-row-state">✓</span>'
+        : '<span class="burner-row-dur">3:22</span>'}
+      <span class="burner-row-msf">${msf}</span>
+      <span class="burner-row-fetch"></span>
+      ${locked ? '<span class="burner-row-remove is-locked"></span>' : '<button class="burner-row-remove">x</button>'}
+    </div>`).join('');
+
+  // The column regime, decided the way useBurnerSplit decides it: from the
+  // measured width of .burner-split, never from the window. The app shell puts
+  // a sidebar and a queue panel either side of this page, so a 1280px window
+  // can leave the split about 700px — and a harness that assumed three columns
+  // there would report a squeeze the real page never has.
+  const COLS3_MIN_PX = 940;
+  const COLS2_MIN_PX = 640;
+  const page = document.querySelector('.burner-page');
+  const applyCols = () => {
+    const w = document.querySelector('.burner-split').getBoundingClientRect().width;
+    page.dataset.cols = String(w >= COLS3_MIN_PX ? 3 : w >= COLS2_MIN_PX ? 2 : 1);
+  };
+  applyCols();
+
+  // The hub's pulse, started the way BurnDisc starts it.
+  //
+  // It is driven from the Web Animations API rather than a CSS keyframe, so a
+  // static copy of the markup cannot show whether it runs, whether its
+  // keyframes parse, or whether it stops when asked. The three calls below are
+  // the component's, verbatim, behind the component's own guard — the same
+  // reason this file carries the page's DOM shape verbatim. What the check
+  // reads back is the number of animations each layer ended up with: one each
+  // normally, none at all under reduced motion.
+  //
+  // Verbatim means verbatim: these keyframes are a COPY, and a copy drifts.
+  // When `BurnDisc.tsx` changes them, change them here in the same edit — a
+  // stale copy still reports three running animations and still passes every
+  // assertion, while the screenshots quietly show a hub the app no longer
+  // draws.
+  const HUB_PULSE_MS = 2300;
+  const HUB_PEAK = 0.42;
+  const HUB_SETTLE = 0.58;
+  const HUB_GLOW = 'color-mix(in srgb, var(--accent, #cba6f7) 62%, transparent)';
+  const HUB_GLOW_REST = 'color-mix(in srgb, var(--accent, #cba6f7) 30%, transparent)';
+  let hubPulseError = null;
+  try {
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      const timing = { duration: HUB_PULSE_MS, iterations: Infinity, easing: 'ease-in-out' };
+      document.querySelector('.burn-disc-hub').animate([
+        { offset: 0, filter: `brightness(1) drop-shadow(0 0 7px ${HUB_GLOW_REST})` },
+        { offset: HUB_PEAK, filter: `brightness(1.09) drop-shadow(0 0 16px ${HUB_GLOW})` },
+        { offset: HUB_SETTLE, filter: `brightness(1.03) drop-shadow(0 0 10px ${HUB_GLOW})` },
+        { offset: 1, filter: `brightness(1) drop-shadow(0 0 7px ${HUB_GLOW_REST})` },
+      ], timing);
+      document.querySelector('.burn-disc-hub-pulse-ring').animate([
+        { offset: 0, transform: 'scale(0.985)', opacity: 0.85 },
+        { offset: HUB_PEAK, transform: 'scale(1.04)', opacity: 1 },
+        { offset: HUB_SETTLE, transform: 'scale(1.015)', opacity: 0.92 },
+        { offset: 1, transform: 'scale(0.985)', opacity: 0.85 },
+      ], timing);
+      document.querySelector('.burn-disc-hub-shock').animate([
+        { offset: 0, transform: 'scale(0.84)', opacity: 0 },
+        { offset: HUB_PEAK, transform: 'scale(1.08)', opacity: 0.35 },
+        { offset: HUB_SETTLE, transform: 'scale(1.2)', opacity: 0.18 },
+        { offset: 1, transform: 'scale(1.35)', opacity: 0 },
+      ], timing);
+    }
+  } catch (err) {
+    // Reported rather than thrown: a keyframe the engine rejects would
+    // otherwise kill this script before it measures anything, and the check
+    // would blame the harness for never reporting instead of naming the pulse.
+    hubPulseError = String((err && err.message) || err);
+  }
+
+  // Measured synchronously, deliberately.
+  //
+  // This used to wait for two animation frames so layout could "settle". Under
+  // --virtual-time-budget those callbacks are not reliably delivered, so about
+  // one run in four dumped the DOM with the title untouched and the check
+  // reported a failure that had nothing to do with the page. A flaky check is
+  // worse than no check: it teaches you to ignore it.
+  //
+  // Nothing here needs a frame. getBoundingClientRect forces layout on the
+  // spot, the styles are link-loaded before this script runs, and the harness
+  // uses system fonts, so there is no later reflow to wait for.
+  const box = el => {
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    // A `display: none` element still answers, with zeros. Absent and
+    // zero-sized are the same thing to every check here, and treating them
+    // differently made a correctly hidden drive row read as present.
+    if (r.width === 0 && r.height === 0) return null;
+    return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) };
+  };
+  const one = sel => box(document.querySelector(sel));
+  const all = sel => [...document.querySelectorAll(sel)].map(box);
+  /**
+   * An element's resolved stroke as 0-255 channels.
+   *
+   * Chromium hands back `rgb(r, g, b)` for a plain colour and
+   * `color(srgb x y z)` for anything that went through `color-mix`, with the
+   * channels 0-1. Both shapes have to become the same numbers or the two are
+   * not comparable, which is how a white laser passed a check for a coloured
+   * one.
+   */
+  const rgbOf = sel => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const raw = getComputedStyle(el).stroke;
+    const nums = (raw.match(/-?[\d.]+/g) || []).map(Number);
+    if (nums.length < 3) return null;
+    return raw.startsWith('color(') ? nums.slice(0, 3).map(v => v * 255) : nums.slice(0, 3);
+  };
+
+  document.title = 'MEASURED ' + JSON.stringify({
+    stage: one('.burner-stage'),
+    well: one('.burner-stage-disc'),
+    disc: one('.burn-disc'),
+    // The laid-out width, before `transform: scale()`. The rect above is the
+    // scaled one, and the recess is compared against this instead — otherwise
+    // a correct recess reads as wrong at every stage but `committing`.
+    discCss: (() => {
+      const el = document.querySelector('.burn-disc');
+      if (!el) return null;
+      const w = parseFloat(getComputedStyle(el).width);
+      return Number.isFinite(w) ? { w: Math.round(w) } : null;
+    })(),
+    // The particle canvases. The waveform must still be inscribed in the disc
+    // and the spark canvas must still overflow it by the same margin at every
+    // angle — an inflation done with `inset` alone, without dropping the
+    // `width`/`height` that go with it, is over-constrained and grows on ONE
+    // side, which reads as a working effect that is quietly off-centre.
+    waveCanvas: one('.burn-disc-wave'),
+    sparkCanvas: one('.burn-disc-sparks'),
+    // The hub, its text and its two decorative layers. The layers are the
+    // pulse; if they are ever renamed or dropped, this is what says so.
+    hub: one('.burn-disc-hub'),
+    hubContent: one('.burn-disc-hub-content'),
+    hubPulse: (() => {
+      const ring = document.querySelector('.burn-disc-hub-pulse-ring');
+      const shock = document.querySelector('.burn-disc-hub-shock');
+      if (!ring || !shock) return null;
+      const ringCs = getComputedStyle(ring);
+      const shockCs = getComputedStyle(shock);
+      return {
+        error: hubPulseError,
+        ring: box(ring),
+        shock: box(shock),
+        // One running animation per layer, and the hub itself makes three.
+        // Zero everywhere is what reduced motion is owed.
+        running: document.querySelector('.burn-disc-hub').getAnimations().length
+          + ring.getAnimations().length + shock.getAnimations().length,
+        pointerEvents: [ringCs.pointerEvents, shockCs.pointerEvents],
+        radius: [ringCs.borderRadius, shockCs.borderRadius],
+        position: [ringCs.position, shockCs.position],
+      };
+    })(),
+    // How far apart a written wedge and an unwritten one read.
+    //
+    // The disc is the page's showpiece and this is the only thing on it that
+    // carries progress, yet it was tuned for a darker palette than the one
+    // that shipped: at 0.42 fill over Catppuccin pastels an unwritten wedge
+    // was nearly as bright as a written one and a disc at 14% looked like a
+    // disc at 90%. Numbers rather than a screenshot, because a screenshot only
+    // catches it if somebody looks at it.
+    //
+    // `hot` is the hover highlight and `dim` is what its neighbours drop to;
+    // they are here because they are stacked on the same base and silently
+    // invert their own meaning if that base moves without them.
+    ring: (() => {
+      const arc = document.querySelector('.burn-ring-arc');
+      const done = document.querySelector('.burn-ring-written path');
+      if (!arc || !done) return null;
+      const arcs = document.querySelector('.burn-ring-arcs');
+      const num = (el, prop) => parseFloat(getComputedStyle(el)[prop]);
+      const read = () => ({ fill: num(arc, 'fillOpacity'), stroke: num(arc, 'strokeOpacity') });
+      // The wedge TRANSITIONS its opacity over 140ms, and getComputedStyle
+      // reports where the transition currently is — which, one line after the
+      // class is added, is still the value it started from. Read that way all
+      // three states came back identical and the two hover assertions failed
+      // on a page where hover works perfectly. The transition is suppressed
+      // for the length of this measurement and put back afterwards.
+      const keep = arc.style.transition;
+      arc.style.transition = 'none';
+      const rest = read();
+      arcs.classList.add('has-hover');
+      const dim = read();
+      arc.classList.add('is-hot');
+      const hot = read();
+      arc.classList.remove('is-hot');
+      arcs.classList.remove('has-hover');
+      arc.style.transition = keep;
+      return {
+        rest, dim, hot,
+        written: { fill: num(done, 'fillOpacity'), stroke: num(done, 'strokeOpacity') },
+        // The head's three strokes as NUMBERS, not as strings.
+        //
+        // The middle one has to be the TRACK's colour and not a second white
+        // one. Compared as text it cannot be: a computed `color-mix` comes back
+        // as `color(srgb 1 1 1)` where a plain colour comes back as
+        // `rgb(255, 255, 255)`, so a laser that had gone pure white still read
+        // as "different from the core" and the check passed on the exact fault
+        // it was written for. The haze is the resolved value of `--burn-lead`,
+        // which is what gives the runner something true to measure against.
+        headGlow: rgbOf('.burn-ring-head-glow'),
+        headHaze: rgbOf('.burn-ring-head-haze'),
+        headCore: rgbOf('.burn-ring-head-core'),
+      };
+    })(),
+    transport: one('.burner-transport'),
+    side: one('.burner-side'),
+    // The two boxes the page's own gutter is read from. `pageBox` and not
+    // `page`, because `page` is already the element const above and shadowing
+    // it here would measure the wrong thing quietly.
+    readout: one('.burner-readout'),
+    pageBox: one('.burner-page'),
+    // Hidden entirely at one column, so the runner must cope with null here
+    // rather than assume a box.
+    seam: one('.burner-seam'),
+    cols: Number(page.dataset.cols),
+    // Whether the page is the fixed-height, non-scrolling grid. The short-window
+    // escape hatch turns scrolling on at any column count, so the column count
+    // alone does not answer this.
+    scrolls: getComputedStyle(page).overflowY !== 'hidden',
+    metrics: one('.burn-metrics'),
+    rail: one('.burner-rail'),
+    driveRow: one('.burner-chassis-drive'),
+    discSurface: (() => {
+      const el = document.querySelector('.burn-disc-surface');
+      return el ? { background: getComputedStyle(el).backgroundImage } : null;
+    })(),
+    dangerBtn: (() => {
+      const el = document.querySelector('#portal .burner-btn.is-danger');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return {
+        background: cs.backgroundColor,
+        color: cs.color,
+        bodyColor: getComputedStyle(document.body).color,
+      };
+    })(),
+    // A primary button rendered outside the page, as the modal's is.
+    portaledPrimary: (() => {
+      const el = document.querySelector('#portal .burner-btn.is-primary');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return { background: cs.backgroundImage, color: cs.color };
+    })(),
+    // The mode slider leans on `--bg-elevated`, which only one of the six
+    // shipped themes defines. An unresolvable background computes to
+    // transparent rather than failing, so the pill that says BURN or REHEARSE
+    // simply loses its fill — invisibly, on five themes.
+    slider: (() => {
+      const el = document.querySelector('.burner-mode-slider');
+      if (!el) return null;
+      const cs = getComputedStyle(el);
+      return { background: cs.backgroundColor, transition: cs.transitionProperty };
+    })(),
+    // The note reserves its height in every stage; `min-height` alone let a
+    // settled outcome grow it and shrink the disc above it by ~60px.
+    note: one('.burner-stage-note'),
+    // The locked cells keep the row's columns but must not keep the cursors of
+    // the controls they replaced, or every row mid-burn advertises a grab
+    // handle and a delete chip that do nothing.
+    lockedCursors: (() => {
+      const grip = document.querySelector('.burner-row-grip.is-locked');
+      const remove = document.querySelector('.burner-row-remove.is-locked');
+      if (!grip || !remove) return null;
+      return {
+        grip: getComputedStyle(grip).cursor,
+        remove: getComputedStyle(remove).cursor,
+      };
+    })(),
+    // The seam must stop accepting the pointer for the whole of a row drag, or
+    // dropping a track near the gutter starts a resize instead. Simulated by
+    // putting the drag layer's own body class on and reading the result back —
+    // two wrong class names shipped here before this was checked rather than
+    // asserted.
+    seamPointerEvents: (() => {
+      const seam = document.querySelector('.burner-seam');
+      if (!seam) return null;
+      const idle = getComputedStyle(seam).pointerEvents;
+      document.body.classList.add('psy-dragging');
+      const dragging = getComputedStyle(seam).pointerEvents;
+      document.body.classList.remove('psy-dragging');
+      return { idle, dragging };
+    })(),
+    // The LABEL, not the button. Overflow does not grow the button's box, so
+    // measuring the button caught nothing — the words spilled out of a 30px
+    // square and the rect still read 30px.
+    labelledBtn: one('.burner-icon-btn.is-labelled span'),
+    labelledBox: one('.burner-icon-btn.is-labelled'),
+    mediaFacts: one('.burner-media-facts'),
+    // Measured through a pseudo-element's own box is impossible, so the well's
+    // ::before is read from its computed width instead.
+    recess: (() => {
+      const well = document.querySelector('.burner-stage-disc');
+      if (!well) return null;
+      const w = parseFloat(getComputedStyle(well, '::before').width);
+      return Number.isFinite(w) ? { w: Math.round(w) } : null;
+    })(),
+    titles: all('.burner-row-title'),
+    states: all('.burner-row-state, .burner-row-dur'),
+    // The header is a separate grid that only lines up because it shares the
+    // same template. Nothing enforces that but this measurement.
+    head: {
+      number: one('.burner-rows-head .col-number'),
+      track: one('.burner-rows-head .col-track'),
+      artist: one('.burner-rows-head .col-artist'),
+      time: one('.burner-rows-head .col-time'),
+      start: one('.burner-rows-head .col-start'),
+    },
+    firstRow: {
+      number: one('.burner-row .burner-row-n'),
+      track: one('.burner-row .burner-row-title'),
+      artist: one('.burner-row .burner-row-artist'),
+      time: one('.burner-row .burner-row-state, .burner-row .burner-row-dur'),
+      start: one('.burner-row .burner-row-msf'),
+    },
+  });
+</script>

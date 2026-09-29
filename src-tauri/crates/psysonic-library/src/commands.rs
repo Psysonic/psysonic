@@ -30,9 +30,8 @@ use crate::dto::{
     LibraryStatisticsDto, LibraryStatisticsRequest, LibraryTrackDto, LibraryTracksEnvelope,
     OfflinePathDto, PlaySessionDayDetailDto, PlaySessionHeatmapDayDto, PlaySessionInputDto,
     PlaySessionRecentDayDto, PlaySessionRecentTrackDto, PlaySessionYearBoundsDto,
-    PlaySessionYearRecapDto, PlaySessionYearSummaryDto, PurgeReportDto, SyncJobDto,
-    SyncStateDto, TrackArtifactDto,
-    TrackFactDto, TrackRefDto,
+    PlaySessionYearRecapDto, PlaySessionYearSummaryDto, PurgeReportDto, SyncJobDto, SyncStateDto,
+    TrackArtifactDto, TrackFactDto, TrackRefDto,
 };
 use crate::live_search;
 use crate::navidrome_native_migration::{
@@ -768,6 +767,18 @@ pub async fn library_list_albums_by_genre(
     .await
 }
 
+// NOT specta-collected: response contains LibraryAlbumDto.raw_json (serde_json::Value).
+#[tauri::command]
+pub async fn library_list_albums_by_mood(
+    runtime: State<'_, LibraryRuntime>,
+    request: crate::dto::LibraryMoodAlbumsRequest,
+) -> Result<crate::dto::LibraryMoodAlbumsResponse, String> {
+    let store = Arc::clone(&runtime.store);
+
+    library_spawn_blocking(move || crate::mood_album_browse::list_albums_by_mood(&store, &request))
+        .await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn library_genre_tags_inspect(
@@ -787,6 +798,25 @@ pub async fn library_genre_tags_run(
         crate::genre_tags_backfill::run_genre_tags_backfill(&store, &app)
     })
     .await
+}
+#[tauri::command]
+#[specta::specta]
+pub fn library_file_mood_tags_inspect(
+    runtime: State<'_, LibraryRuntime>,
+) -> Result<crate::mood_tags_backfill::MoodTagsInspectDto, String> {
+    crate::mood_tags_backfill::inspect_mood_tags_backfill(&runtime.store)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn library_file_mood_tags_run(
+    app: tauri::AppHandle,
+    runtime: State<'_, LibraryRuntime>,
+) -> Result<(), String> {
+    let store = Arc::clone(&runtime.store);
+
+    library_spawn_blocking(move || crate::mood_tags_backfill::run_mood_tags_backfill(&store, &app))
+        .await
 }
 
 /// Ensure precomputed cluster identity keys are current without blocking Tauri's main thread.
@@ -1090,34 +1120,42 @@ pub fn library_migration_finish_server(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_native_upper_rowid(
+pub async fn library_migration_native_upper_rowid(
     runtime: State<'_, LibraryRuntime>,
     generation: u64,
     server_id: String,
     step: NavidromeNativeMigrationStep,
 ) -> Result<i64, String> {
-    let server_id = server_id.trim();
-    runtime.ensure_migration_phase(generation, server_id, MigrationPhase::Native)?;
-    crate::navidrome_native_migration::upper_rowid(&runtime.store, server_id, step)
+    let server_id = server_id.trim().to_string();
+    runtime.ensure_migration_phase(generation, &server_id, MigrationPhase::Native)?;
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        crate::navidrome_native_migration::upper_rowid(&store, &server_id, step)
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_native_preflight(
+pub async fn library_migration_native_preflight(
     runtime: State<'_, LibraryRuntime>,
     generation: u64,
     server_id: String,
 ) -> Result<NavidromeNativeMigrationPreflightDto, String> {
-    let server_id = server_id.trim();
-    runtime.ensure_migration_phase(generation, server_id, MigrationPhase::Native)?;
-    crate::store::LibraryStore::scope_migration_write_generation_sync(generation, || {
-        crate::navidrome_native_migration::preflight(&runtime.store, server_id)
+    let server_id = server_id.trim().to_string();
+    runtime.ensure_migration_phase(generation, &server_id, MigrationPhase::Native)?;
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        crate::store::LibraryStore::scope_migration_write_generation_sync(generation, || {
+            crate::navidrome_native_migration::preflight(&store, &server_id)
+        })
     })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_native_batch(
+pub async fn library_migration_native_batch(
     runtime: State<'_, LibraryRuntime>,
     generation: u64,
     server_id: String,
@@ -1126,32 +1164,40 @@ pub fn library_migration_native_batch(
     upper_rowid: i64,
     limit: Option<u32>,
 ) -> Result<NavidromeNativeMigrationBatchDto, String> {
-    let server_id = server_id.trim();
-    runtime.ensure_migration_phase(generation, server_id, MigrationPhase::Native)?;
-    crate::store::LibraryStore::scope_migration_write_generation_sync(generation, || {
-        crate::navidrome_native_migration::run_batch(
-            &runtime.store,
-            server_id,
-            step,
-            cursor_rowid,
-            upper_rowid,
-            limit.unwrap_or(1_000),
-        )
+    let server_id = server_id.trim().to_string();
+    runtime.ensure_migration_phase(generation, &server_id, MigrationPhase::Native)?;
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        crate::store::LibraryStore::scope_migration_write_generation_sync(generation, || {
+            crate::navidrome_native_migration::run_batch(
+                &store,
+                &server_id,
+                step,
+                cursor_rowid,
+                upper_rowid,
+                limit.unwrap_or(1_000),
+            )
+        })
     })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_migration_native_finalize(
+pub async fn library_migration_native_finalize(
     runtime: State<'_, LibraryRuntime>,
     generation: u64,
     server_id: String,
 ) -> Result<NavidromeNativeMigrationFinalizeDto, String> {
-    let server_id = server_id.trim();
-    runtime.ensure_migration_phase(generation, server_id, MigrationPhase::Native)?;
-    crate::store::LibraryStore::scope_migration_write_generation_sync(generation, || {
-        crate::navidrome_native_migration::finalize(&runtime.store, server_id)
+    let server_id = server_id.trim().to_string();
+    runtime.ensure_migration_phase(generation, &server_id, MigrationPhase::Native)?;
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        crate::store::LibraryStore::scope_migration_write_generation_sync(generation, || {
+            crate::navidrome_native_migration::finalize(&store, &server_id)
+        })
     })
+    .await
 }
 
 #[tauri::command]

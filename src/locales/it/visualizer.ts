@@ -18,6 +18,9 @@ export const visualizer = {
     enableNowPlayingHint: 'Aggiunge il visualizzatore come scheda nella pagina In Riproduzione.',
     enableFullscreen: 'Mostra nel lettore a schermo intero',
     enableFullscreenHint: 'Aggiunge il visualizzatore a tutti gli stili del lettore a schermo intero.',
+    pauseWhenUnfocused: 'Metti in pausa quando Psysonic non è attivo',
+    pauseWhenUnfocusedHint:
+      'Interrompe il rendering del visualizzatore mentre è attiva un’altra finestra per ridurre l’uso di CPU e GPU.',
     mode: 'Modalità predefinita',
     sensitivity: 'Sensibilità',
     sensitivityHint: 'Amplifica i passaggi silenziosi senza tagliare quelli più forti.',
@@ -35,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Valori più bassi usano meno CPU mantenendo comunque fluida l’animazione.',
     radioNote:
       'La radio Internet può essere visualizzata dopo il collegamento della stazione al grafo audio dell’equalizzatore. Alcuni flussi non supportano questo percorso.',
+    preview: 'Anteprima',
+    previewDemo: 'Mostra un segnale dimostrativo finché non è in riproduzione nulla.',
+    previewLive: 'Mostra la riproduzione in corso.',
   },
 };

@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'Køen er tom — ingenting å dele.',
+  multiServerShareTitle: 'Kø fra flere servere',
+  multiServerShareHint: 'Velg en server for å dele sporene derfra.',
   emptyQueue: 'Køen er tom.',
   crossServerEnqueueBlocked: 'Spor fra en annen server kan ikke legges til i den nåværende køen. Tøm eller avslutt køen først.',
   trackSingular: 'spor',

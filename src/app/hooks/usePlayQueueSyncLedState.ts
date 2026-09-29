@@ -12,12 +12,17 @@ import {
 } from '@/features/playback/store/queuePlaybackIdle';
 import { clearQueueHandoffPending } from '@/features/playback/store/queueSyncUiState';
 import { showToast } from '@/lib/dom/toast';
+import {
+  isPlayQueueSyncEnabled,
+  usePlayQueueSyncSettingsStore,
+} from '@/features/playback/store/playQueueSyncSettingsStore';
 
 export function usePlayQueueSyncLedState(status: ConnectionStatus) {
   const { t } = useTranslation();
   const orbitRole = useOrbitStore(s => s.role);
   const isPlaying = usePlayerStore(s => s.isPlaying);
   const currentRadio = usePlayerStore(s => s.currentRadio);
+  const playQueueSyncEnabled = usePlayQueueSyncSettingsStore(s => s.enabled);
   const [pullInFlight, setPullInFlight] = useState(false);
   const idlePullSuspended = useSyncExternalStore(
     subscribeIdleQueuePullSuspended,
@@ -61,6 +66,7 @@ export function usePlayQueueSyncLedState(status: ConnectionStatus) {
         : 'connected';
 
   const pullFromQueueServers = useCallback(async () => {
+    if (!playQueueSyncEnabled) return;
     if (status !== 'connected' || pullInFlight) return;
     if (orbitRole === 'host' || orbitRole === 'guest') return;
     if (currentRadio) return;
@@ -92,7 +98,7 @@ export function usePlayQueueSyncLedState(status: ConnectionStatus) {
     } finally {
       setPullInFlight(false);
     }
-  }, [currentRadio, orbitRole, pullInFlight, queueServerIds, status, t]);
+  }, [currentRadio, orbitRole, playQueueSyncEnabled, pullInFlight, queueServerIds, status, t]);
 
   const syncRingVisible = status === 'connected' && (needsQueuePull || pullInFlight);
 
@@ -111,6 +117,7 @@ export function canAutoIdlePlayQueuePull(
   status: ConnectionStatus,
   orbitRole: string | null,
 ): boolean {
+  if (!isPlayQueueSyncEnabled()) return false;
   if (status !== 'connected') return false;
   if (orbitRole === 'host' || orbitRole === 'guest') return false;
   if (usePlayerStore.getState().currentRadio) return false;

@@ -66,10 +66,7 @@ fn repaired_offset_timestamp(current: Option<i64>, timestamp: Option<&str>) -> O
     Some(corrected)
 }
 
-fn repaired_created_timestamp(
-    current: Option<i64>,
-    raw: &serde_json::Value,
-) -> Option<i64> {
+fn repaired_created_timestamp(current: Option<i64>, raw: &serde_json::Value) -> Option<i64> {
     if let Some(created_at) = raw.get("createdAt") {
         return repaired_offset_timestamp(current, created_at.as_str());
     }
@@ -164,9 +161,7 @@ fn reconcile_track_timestamp_backfill_batch(
 impl LibraryStore {
     /// Restore one physical-row batch of server timestamps affected by the old
     /// offset parser. The background scheduler calls this only while idle.
-    pub fn run_track_timestamp_backfill_batch(
-        &self,
-    ) -> Result<TrackTimestampBackfillStep, String> {
+    pub fn run_track_timestamp_backfill_batch(&self) -> Result<TrackTimestampBackfillStep, String> {
         if self.bulk_ingest_active() {
             return Ok(TrackTimestampBackfillStep::Deferred);
         }

@@ -122,3 +122,16 @@ describe('trackToSong last played from a native payload', () => {
     expect(song.played).toBeUndefined();
   });
 });
+
+describe('trackToSong title and album from a native payload', () => {
+  it('keeps the suffixed columns over the bare native snapshot', () => {
+    const song = trackToSong(dto({
+      title: 'Song (Instrumental)',
+      album: 'Album (Deluxe)',
+      rawJson: { title: 'Song', album: 'Album', tags: { subtitle: ['Instrumental'], albumversion: ['Deluxe'] } },
+    }));
+
+    expect(song.title).toBe('Song (Instrumental)');
+    expect(song.album).toBe('Album (Deluxe)');
+  });
+});

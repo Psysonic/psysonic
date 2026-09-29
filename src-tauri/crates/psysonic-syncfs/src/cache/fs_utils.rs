@@ -190,7 +190,12 @@ mod tests {
     #[test]
     fn prune_empty_subdirs_under_removes_nested_empty_tree() {
         let root = tempfile::tempdir().unwrap();
-        let cache = root.path().join("cache").join("srv").join("Artist").join("Album");
+        let cache = root
+            .path()
+            .join("cache")
+            .join("srv")
+            .join("Artist")
+            .join("Album");
         std::fs::create_dir_all(&cache).unwrap();
         prune_empty_subdirs_under(&root.path().join("cache"));
         assert!(!cache.exists());

@@ -75,6 +75,10 @@ function genreDetailStashKey(serverId: string, genreName: string): string {
   return `${serverId}:genre-detail:${genreName}`;
 }
 
+function moodDetailStashKey(serverId: string, moodName: string): string {
+  return `${serverId}:mood-detail:${moodName}`;
+}
+
 function sortEntryFor(
   sortByServer: Record<string, AlbumBrowseSort>,
   serverId: string,
@@ -199,6 +203,70 @@ export function peekGenreDetailScrollRestore(
   };
 }
 
+/** Mood detail leave-restore (scoped per mood name). */
+export function stashMoodDetailReturnFilters(
+  serverId: string,
+  moodName: string,
+  filters: AlbumBrowseReturnFilters,
+): void {
+  if (!serverId || !moodName) return;
+  const key = moodDetailStashKey(serverId, moodName);
+  useAlbumBrowseSessionStore.setState((s) => ({
+    returnStashByKey: {
+      ...s.returnStashByKey,
+      [key]: cloneReturnFilters(filters),
+    },
+  }));
+}
+
+export function clearMoodDetailReturnStash(
+  serverId: string,
+  moodName: string,
+): void {
+  if (!serverId || !moodName) return;
+  const key = moodDetailStashKey(serverId, moodName);
+  useAlbumBrowseSessionStore.setState((s) => {
+    const next = { ...s.returnStashByKey };
+    delete next[key];
+    return { returnStashByKey: next };
+  });
+}
+
+export function peekMoodDetailReturnStash(
+  serverId: string,
+  moodName: string,
+): AlbumBrowseReturnFilters | null {
+  if (!serverId || !moodName) return null;
+  const stash =
+    useAlbumBrowseSessionStore.getState().returnStashByKey[
+      moodDetailStashKey(serverId, moodName)
+    ];
+  if (!stash) return null;
+  return cloneReturnFilters(stash);
+}
+
+export function peekMoodDetailScrollRestore(
+  serverId: string,
+  moodName: string,
+): { scrollTop: number; displayCount: number } | null {
+  const stash = peekMoodDetailReturnStash(
+    serverId,
+    moodName,
+  );
+  if (!stash) return null;
+  if (
+    typeof stash.scrollTop !== 'number' ||
+    typeof stash.displayCount !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    scrollTop: Math.max(0, stash.scrollTop),
+    displayCount: Math.max(0, stash.displayCount),
+  };
+}
+
 export function albumBrowseSortForServer(
   sortByServer: Record<string, AlbumBrowseSort>,
   serverId: string,
@@ -236,6 +304,32 @@ export function genreDetailGenreFromPath(pathname: string): string | null {
   const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
   const match = path.match(/^\/genres\/([^/]+)$/);
   return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** Single mood detail route (`/moods/:name`), not the mood cloud (`/moods`). */
+export function isMoodDetailPath(
+  pathname: string,
+): boolean {
+  const path =
+    pathname.split('?')[0]?.replace(/\/$/, '') ||
+    pathname;
+
+  return /^\/moods\/[^/]+$/.test(path);
+}
+
+export function moodDetailMoodFromPath(
+  pathname: string,
+): string | null {
+  const path =
+    pathname.split('?')[0]?.replace(/\/$/, '') ||
+    pathname;
+
+  const match =
+    path.match(/^\/moods\/([^/]+)$/);
+
+  return match
+    ? decodeURIComponent(match[1])
+    : null;
 }
 
 export function isAdvancedSearchLeaveTargetPath(pathname: string): boolean {

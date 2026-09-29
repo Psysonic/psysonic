@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { apiForServerMock, authState, guardMock } = vi.hoisted(() => ({
+const { apiForServerMock, authState, guardMock, selectionMock } = vi.hoisted(() => ({
   apiForServerMock: vi.fn(),
+  selectionMock: vi.fn(() => ['folder-1']),
   authState: {
     activeServerId: 'active',
     musicLibraryFilterByServer: {} as Record<string, string>,
@@ -22,7 +23,7 @@ vi.mock('@/lib/api/subsonicClient', () => ({
   apiForServer: apiForServerMock,
   libraryFilterParams: () => ({}),
   libraryFilterParamsForServer: () => ({ musicFolderId: 'folder-1' }),
-  librarySelectionForServer: () => ['folder-1'],
+  librarySelectionForServer: selectionMock,
 }));
 
 vi.mock('@/lib/network/subsonicNetworkGuard', () => ({
@@ -43,6 +44,7 @@ import {
   getAlbumListForServer,
   getRandomSongsForServer,
   getSongForServer,
+  filterSongsToServerLibrary,
   similarSongsRequestCount,
 } from '@/lib/api/subsonicLibrary';
 
@@ -56,6 +58,7 @@ describe('explicit-server library wrappers', () => {
     guardMock.mockReturnValue(true);
     authState.activeServerId = 'active';
     authState.musicLibraryFilterByServer = {};
+    selectionMock.mockReturnValue(['folder-1']);
     authState.servers = [
       { id: 'srv-a', url: 'https://a.example/rest' },
       { id: 'srv-random', url: 'https://random.example' },
@@ -138,6 +141,55 @@ describe('explicit-server library wrappers', () => {
       expect.objectContaining({ size: 8, musicFolderId: 'browse-b' }),
       2468,
     );
+  });
+
+  it('filters server-global recommendations to an explicit multi-library browse scope', async () => {
+    apiForServerMock.mockImplementation(async (_serverId: string, endpoint: string, params: Record<string, unknown>) => {
+      if (endpoint !== 'getAlbumList2.view') return {};
+      if (params.musicFolderId === 'browse-a') {
+        return { albumList2: { album: [album] } };
+      }
+      if (params.musicFolderId === 'browse-b') {
+        return { albumList2: { album: [{ ...album, id: 'album-3' }] } };
+      }
+      return { albumList2: { album: [] } };
+    });
+
+    await expect(filterSongsToServerLibrary([
+      song,
+      { ...song, id: 'song-2', albumId: 'album-2' },
+      { ...song, id: 'song-3', albumId: 'album-3' },
+    ], 'srv-random', ['browse-a', 'browse-b'])).resolves.toEqual([
+      song,
+      { ...song, id: 'song-3', albumId: 'album-3' },
+    ]);
+  });
+
+  it('does not fail open when an explicitly selected library has no albums', async () => {
+    apiForServerMock.mockResolvedValue({ albumList2: { album: [] } });
+
+    await expect(filterSongsToServerLibrary([song], 'srv-random', ['empty-library']))
+      .resolves.toEqual([]);
+  });
+
+  it('shows all playlist songs when selection is all despite a stale legacy folder', async () => {
+    selectionMock.mockReturnValue([]);
+    authState.musicLibraryFilterByServer = { 'srv-random': 'audiobooks' };
+
+    await expect(filterSongsToServerLibrary([song], 'srv-random')).resolves.toEqual([song]);
+    expect(apiForServerMock).not.toHaveBeenCalled();
+  });
+
+  it('honours multiple selected folders instead of falling back to the first legacy folder', async () => {
+    selectionMock.mockReturnValue(['music', 'books']);
+    authState.musicLibraryFilterByServer = { 'srv-random': 'books' };
+    apiForServerMock.mockImplementation(async (_serverId: string, _endpoint: string, params: Record<string, unknown>) => ({
+      albumList2: { album: params.musicFolderId === 'music' ? [album] : [] },
+    }));
+
+    await expect(filterSongsToServerLibrary([song], 'srv-random')).resolves.toEqual([song]);
+    expect(apiForServerMock.mock.calls.map(call => (call[2] as { musicFolderId: string }).musicFolderId))
+      .toEqual(['music', 'books']);
   });
 
   it('skips random-song network calls when the server guard fails', async () => {

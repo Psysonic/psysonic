@@ -121,7 +121,7 @@ export function AddToPlaylistSubmenu({ songIds, resolveSongIds, onDone, dropDown
   return (
     <div
       className="context-submenu"
-      data-parent-trigger-id={triggerId ?? ''}
+      data-parent-submenu-id={triggerId ?? ''}
       ref={subRef}
       style={subStyle}
       onMouseDown={dropDown ? (e) => e.stopPropagation() : undefined}

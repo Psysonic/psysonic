@@ -21,7 +21,7 @@ jobs:
     name: cargo test --workspace
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: install Linux build dependencies
         run: |
           sudo apt-get update
@@ -35,6 +35,11 @@ jobs:
       - name: cargo test --workspace
         working-directory: src-tauri
         run: cargo test --workspace --all-targets
+      - name: isolated library performance budgets
+        working-directory: src-tauri
+        run: >-
+          cargo test -p psysonic-library --lib rows_meets_perf_budget --
+          --ignored --nocapture --test-threads=1
 
   # Windows is the second platform the app ships on, and parts of the backend
   # are cfg-gated to it — SQLite locking behaviour, path handling, and the
@@ -45,7 +50,7 @@ jobs:
     name: cargo test --workspace (windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -53,12 +58,17 @@ jobs:
       - name: cargo test --workspace
         working-directory: src-tauri
         run: cargo test --workspace --all-targets
+      - name: isolated library performance budgets
+        working-directory: src-tauri
+        run: >-
+          cargo test -p psysonic-library --lib rows_meets_perf_budget --
+          --ignored --nocapture --test-threads=1
 
   clippy:
     name: cargo clippy --workspace
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: install Linux build dependencies
         run: |
           sudo apt-get update
@@ -67,10 +77,13 @@ jobs:
             libasound2-dev cmake
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy
+          components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - name: cargo fmt --all --check
+        working-directory: src-tauri
+        run: cargo fmt --all --check
       - name: cargo clippy --workspace
         working-directory: src-tauri
         run: cargo clippy --workspace --all-targets -- -D warnings
@@ -81,7 +94,7 @@ jobs:
     name: cargo clippy --workspace (windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
@@ -96,7 +109,7 @@ jobs:
     name: cargo llvm-cov (baseline + hot-path file gate)
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: install Linux build dependencies
         run: |
           sudo apt-get update
@@ -120,7 +133,7 @@ jobs:
           cargo llvm-cov --workspace --json --output-path target/llvm-cov/cov.json
       - name: hot-path file coverage gate
         run: bash scripts/check-hot-path-coverage.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: rust-coverage-lcov
           path: src-tauri/lcov.info

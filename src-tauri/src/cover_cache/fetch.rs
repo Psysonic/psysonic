@@ -1,5 +1,5 @@
-use reqwest::Client;
 use psysonic_core::server_http::ServerHttpRegistry;
+use reqwest::Client;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use url::Url;
 
@@ -73,6 +73,36 @@ pub fn build_cover_art_url(
         password,
         &[("id", cover_art_id), ("size", &size_s)],
     )
+}
+
+/// Navidrome's "no artwork" image as `(byte length, MD5)`. Every release from
+/// 0.50 to 0.64 answers `getCoverArt` for an album without art with the raw
+/// resource file, unresized, whatever size was asked for: `placeholder.png`
+/// (0.53 and earlier), the first `album-placeholder.webp` (0.54–0.55) and the
+/// current one (0.56 onwards). Sources: `resources/` at those tags, and the
+/// bytes a 0.63.2 and a 0.64.0 server actually returned.
+///
+/// The cover id cannot tell: `al-<id>_0` also names albums that have art, and
+/// a `Cache-Control: no-store` (Navidrome 0.64 sets it on the placeholder) can
+/// just as well come from a proxy in front of real art. Only these bytes are
+/// proof. A future placeholder we do not know yet reads as real art, which
+/// keeps the server's image — the safe side to be wrong on.
+const NAVIDROME_ALBUM_PLACEHOLDERS: [(usize, &str); 3] = [
+    (300_162, "7aa122cd523ed1f6a77aa512df21644d"),
+    (17_464, "4b0f367782816e4fc2f30c1fb2ecbf06"),
+    (69_228, "83d193cefca2810f217cffd533241508"),
+];
+
+/// True when `bytes` is Navidrome's placeholder rather than the album's art.
+pub(crate) fn is_navidrome_album_placeholder(bytes: &[u8]) -> bool {
+    matches_known_file(bytes, &NAVIDROME_ALBUM_PLACEHOLDERS)
+}
+
+/// Length first, so real covers of other sizes are never hashed.
+fn matches_known_file(bytes: &[u8], known: &[(usize, &str)]) -> bool {
+    known
+        .iter()
+        .any(|(len, digest)| bytes.len() == *len && format!("{:x}", md5::compute(bytes)) == *digest)
 }
 
 /// Outcome of a single fetch attempt: transient errors are worth retrying,
@@ -169,8 +199,33 @@ pub async fn fetch_cover_bytes(
 
 #[cfg(test)]
 mod tests {
-    use super::{build_cover_art_url, cover_http_status_is_transient};
+    use super::{
+        build_cover_art_url, cover_http_status_is_transient, is_navidrome_album_placeholder,
+        matches_known_file,
+    };
     use reqwest::StatusCode;
+
+    #[test]
+    fn known_file_needs_both_length_and_digest() {
+        let placeholder = b"no artwork here".to_vec();
+        let digest = format!("{:x}", md5::compute(&placeholder));
+        let known = [(placeholder.len(), digest.as_str())];
+
+        assert!(matches_known_file(&placeholder, &known));
+        // Same length, other bytes: real art that happens to match in size.
+        assert!(!matches_known_file(b"real album art!", &known));
+        assert!(!matches_known_file(b"no artwork here, longer", &known));
+        assert!(!matches_known_file(b"", &known));
+    }
+
+    #[test]
+    fn real_covers_are_not_navidrome_placeholders() {
+        // Lengths of all three known placeholders, other content.
+        for len in [300_162usize, 17_464, 69_228] {
+            assert!(!is_navidrome_album_placeholder(&vec![0u8; len]));
+        }
+        assert!(!is_navidrome_album_placeholder(b"\x89PNG\r\n\x1a\n"));
+    }
 
     #[test]
     fn gate_and_throttle_statuses_are_transient() {
@@ -180,9 +235,13 @@ mod tests {
         assert!(cover_http_status_is_transient(StatusCode::FORBIDDEN));
         assert!(cover_http_status_is_transient(StatusCode::REQUEST_TIMEOUT));
         assert!(cover_http_status_is_transient(StatusCode::TOO_EARLY));
-        assert!(cover_http_status_is_transient(StatusCode::TOO_MANY_REQUESTS));
+        assert!(cover_http_status_is_transient(
+            StatusCode::TOO_MANY_REQUESTS
+        ));
         assert!(cover_http_status_is_transient(StatusCode::BAD_GATEWAY));
-        assert!(cover_http_status_is_transient(StatusCode::SERVICE_UNAVAILABLE));
+        assert!(cover_http_status_is_transient(
+            StatusCode::SERVICE_UNAVAILABLE
+        ));
     }
 
     #[test]
@@ -196,13 +255,7 @@ mod tests {
 
     #[test]
     fn cover_url_from_host_root() {
-        let url = build_cover_art_url(
-            "http://navidrome.local:4533",
-            "u",
-            "p",
-            "al-1",
-            800,
-        );
+        let url = build_cover_art_url("http://navidrome.local:4533", "u", "p", "al-1", 800);
         assert!(url.starts_with("http://navidrome.local:4533/rest/getCoverArt.view?"));
         assert!(url.contains("id=al-1"));
         assert!(url.contains("size=800"));
@@ -210,13 +263,7 @@ mod tests {
 
     #[test]
     fn cover_url_when_rest_suffix_already_present() {
-        let url = build_cover_art_url(
-            "http://navidrome.local:4533/rest",
-            "u",
-            "p",
-            "al-1",
-            128,
-        );
+        let url = build_cover_art_url("http://navidrome.local:4533/rest", "u", "p", "al-1", 128);
         assert!(url.starts_with("http://navidrome.local:4533/rest/getCoverArt.view?"));
         assert!(!url.contains("/rest/rest/"));
     }

@@ -5,7 +5,7 @@
  * pointing at the highlighted option.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CustomSelect from '@/ui/CustomSelect';
 
@@ -52,9 +52,9 @@ describe('CustomSelect keyboard operation', () => {
     const active = trigger.getAttribute('aria-activedescendant');
     expect(document.getElementById(active!)?.textContent).toBe('Gamma');
     expect(document.getElementById(active!)?.className).toContain('active');
-    expect(screen.getByRole('option', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'false');
+    expect(screen.getByRole('option', { name: 'Alpha' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('option', { name: 'Beta' })).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByRole('option', { name: 'Gamma' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('option', { name: 'Gamma' })).toHaveAttribute('aria-selected', 'false');
   });
 
   it('Enter selects the highlighted option and closes the list', async () => {
@@ -89,5 +89,82 @@ describe('CustomSelect keyboard operation', () => {
     expect(onChange).toHaveBeenCalledWith('c');
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     expect(after).toHaveFocus();
+  });
+
+  it('supports searchable options without treating the active result as selected', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <CustomSelect
+        value="a"
+        options={OPTIONS}
+        onChange={onChange}
+        ariaLabel="pick"
+        searchable
+        searchPlaceholder="Search"
+      />,
+    );
+
+    const input = screen.getByRole('combobox', { name: 'pick' });
+    await user.click(input);
+    await user.type(input, 'gam');
+
+    const gamma = screen.getByRole('option', { name: 'Gamma' });
+    expect(gamma).toHaveAttribute('aria-selected', 'false');
+    expect(input).toHaveAttribute('aria-activedescendant', gamma.id);
+    expect(fireEvent.keyDown(input, { key: 'Home' })).toBe(true);
+    await user.keyboard('{Enter}');
+    expect(onChange).toHaveBeenCalledWith('c');
+    expect(input).toHaveFocus();
+  });
+
+  it('leaves a list that fits at its natural height', async () => {
+    // Capping it at scrollHeight left out the border: the box came out 2px short and the
+    // list scrolled by that much whenever the highlight moved between first and last option.
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(80);
+    try {
+      const user = userEvent.setup();
+      const { trigger } = renderSelect();
+      await user.click(trigger);
+      const listbox = screen.getByRole('listbox');
+      expect(listbox.style.maxHeight).toBe('');
+      expect(listbox.style.overflowY).toBe('hidden');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
+  it('still caps and scrolls a list that is taller than the room below it', async () => {
+    const scrollHeight = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(900);
+    try {
+      const user = userEvent.setup();
+      const { trigger } = renderSelect();
+      await user.click(trigger);
+      const listbox = screen.getByRole('listbox');
+      expect(listbox.style.maxHeight).toBe('320px');
+      expect(listbox.style.overflowY).toBe('auto');
+    } finally {
+      scrollHeight.mockRestore();
+    }
+  });
+
+  it('keeps focus on a searchable combobox when Escape closes its list', async () => {
+    const user = userEvent.setup();
+    render(
+      <CustomSelect
+        value="a"
+        options={OPTIONS}
+        onChange={vi.fn()}
+        ariaLabel="pick"
+        searchable
+      />,
+    );
+
+    const input = screen.getByRole('combobox', { name: 'pick' });
+    await user.click(input);
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(input).toHaveFocus();
   });
 });

@@ -44,6 +44,15 @@ const TABLE_STYLE = {
   tableLayout: 'fixed',
 } as const;
 
+// Fixed layout never widens a column, so an unbroken label (a bare host,
+// `user@host:port`) would otherwise run into the strategy column.
+const FIRST_COL_TD: CSSProperties = {
+  padding: '10px',
+  paddingLeft: 0,
+  fontSize: 13,
+  overflowWrap: 'anywhere',
+};
+
 const STRATEGY_GAP_TH: CSSProperties = { ...TH_STYLE, padding: '8px 10px' };
 const STRATEGY_GAP_TD: CSSProperties = { padding: '10px' };
 
@@ -249,7 +258,7 @@ export default function CoverCacheStrategySection() {
             </thead>
             <tbody>
               <tr>
-                <td style={{ padding: '10px', paddingLeft: 0, fontSize: 13, color: 'var(--text-primary)' }}>
+                <td style={{ ...FIRST_COL_TD, color: 'var(--text-primary)' }}>
                   {t('settings.imageCacheSubTitle')}
                 </td>
                 <td style={STRATEGY_GAP_TD} aria-hidden="true" />
@@ -303,7 +312,7 @@ export default function CoverCacheStrategySection() {
                 const label = serverListDisplayLabel(server, servers);
                 return (
                   <tr key={server.id} style={ROW_BORDER}>
-                    <td style={{ padding: '10px', paddingLeft: 0, fontSize: 13, color: 'var(--text-primary)' }}>{label}</td>
+                    <td style={{ ...FIRST_COL_TD, color: 'var(--text-primary)' }}>{label}</td>
                     <td style={{ padding: '10px' }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {COVER_CACHE_STRATEGIES.map(s => (
@@ -342,7 +351,7 @@ export default function CoverCacheStrategySection() {
               })}
               {removedServerKeys.map(key => (
                 <tr key={`removed-${key}`} style={ROW_BORDER}>
-                  <td style={{ padding: '10px', paddingLeft: 0, fontSize: 13, color: 'var(--text-muted)' }}>
+                  <td style={{ ...FIRST_COL_TD, color: 'var(--text-muted)' }}>
                     {key}
                     <span style={{ marginLeft: 6, fontSize: 11 }}>({t('settings.coverCacheStrategyServerRemoved')})</span>
                   </td>

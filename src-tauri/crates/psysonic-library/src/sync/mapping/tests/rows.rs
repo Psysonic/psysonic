@@ -29,6 +29,20 @@ fn subsonic_song_maps_hot_columns_and_keeps_raw_json() {
 }
 
 #[test]
+fn subsonic_song_maps_rfc1123_created_into_server_created_at() {
+    // Some Subsonic servers report `created` in RFC 1123 rather than ISO 8601.
+    // Dropping it leaves `server_created_at` NULL, which empties "recently
+    // added" and the new-releases feed for every track from that server.
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "artist": "World",
+        "created": "30 Apr 2017 08:44:05 GMT"
+    });
+    let song: Song = serde_json::from_value(raw.clone()).unwrap();
+    let row = subsonic_song_to_track_row("s1", &song, &raw, 1_000, None);
+    assert_eq!(row.server_created_at, Some(1_493_541_845_000));
+}
+
+#[test]
 fn sparse_typed_fallback_does_not_invent_explicit_nulls() {
     let song: Song = serde_json::from_value(json!({ "id": "tr_1", "title": "Hello" })).unwrap();
     let raw = sparse_song_raw_fallback(&song);
@@ -60,6 +74,41 @@ fn navidrome_song_maps_native_field_shape() {
     assert_eq!(row.library_id.as_deref(), Some("1"));
     assert!(row.server_created_at.unwrap_or(0) > 0);
     assert!(row.server_updated_at.unwrap_or(0) > 0);
+}
+
+#[test]
+fn navidrome_song_appends_subtitle_and_album_version_like_the_subsonic_api() {
+    let raw = json!({
+        "id": "tr_1", "title": "Song", "album": "Album",
+        "tags": { "subtitle": ["Instrumental"], "albumversion": ["Deluxe Edition"] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    assert_eq!(row.title, "Song (Instrumental)");
+    assert_eq!(row.album, "Album (Deluxe Edition)");
+}
+
+#[test]
+fn navidrome_song_keeps_a_bracketed_suffix_and_skips_blank_tags() {
+    let raw = json!({
+        "id": "tr_1", "title": "Song", "album": "Album",
+        "tags": { "subtitle": ["  ", "[Live]"], "albumversion": [""] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    assert_eq!(row.title, "Song [Live]");
+    assert_eq!(row.album, "Album");
+}
+
+#[test]
+fn navidrome_suffix_is_not_appended_twice() {
+    assert_eq!(
+        append_navidrome_suffix("Song (Instrumental)", Some("Instrumental")),
+        "Song (Instrumental)"
+    );
+    assert_eq!(
+        append_navidrome_suffix("Song [Live]", Some("[Live]")),
+        "Song [Live]"
+    );
+    assert_eq!(append_navidrome_suffix("Song", None), "Song");
 }
 
 #[test]
@@ -229,7 +278,10 @@ fn navidrome_song_reads_the_play_date_under_its_own_name() {
     });
     let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
 
-    assert!(row.played_at.is_some(), "the play date has to survive the mapper");
+    assert!(
+        row.played_at.is_some(),
+        "the play date has to survive the mapper"
+    );
     assert_eq!(row.play_count, Some(4));
     assert!(row.starred_at.is_some());
     assert_eq!(row.user_rating, Some(5));
@@ -259,5 +311,43 @@ fn an_empty_play_date_falls_through_to_the_next_name() {
     });
     let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
 
-    assert!(row.played_at.is_some(), "an unusable first name must not end the search");
+    assert!(
+        row.played_at.is_some(),
+        "an unusable first name must not end the search"
+    );
+}
+
+#[test]
+fn navidrome_song_reads_strong_keys_under_their_native_names() {
+    // Navidrome's MediaFile serializes the recording id as `mbzRecordingID` and
+    // delivers ISRCs inside `tags` as a string array (model/mediafile.go at
+    // v0.62.0). Reading only `mbzTrackId` / `musicBrainzId` / top-level `isrc`
+    // left both columns NULL across a whole library, so the canonical layer had
+    // nothing to link (#1434).
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "album": "An Album", "duration": 240,
+        "mbzRecordingID": "12345678-1234-4123-8123-123456789abc",
+        "tags": { "isrc": ["USRC17607839", "GBUM71029604"], "genre": ["Ambient"] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
+
+    assert_eq!(row.isrc.as_deref(), Some("USRC17607839"));
+    assert_eq!(
+        row.mbid_recording.as_deref(),
+        Some("12345678-1234-4123-8123-123456789abc")
+    );
+}
+
+#[test]
+fn navidrome_song_treats_blank_strong_keys_as_absent() {
+    // An empty key must not become a canonical identity: `link_track` keys
+    // `canonical_track` on the value, so a blank would merge unrelated rows.
+    let raw = json!({
+        "id": "tr_1", "title": "Hello", "album": "An Album", "duration": 240,
+        "isrc": "   ", "mbzRecordingID": "", "tags": { "isrc": ["", "  "] }
+    });
+    let row = navidrome_song_to_track_row("s1", &raw, 9_999, None).unwrap();
+
+    assert_eq!(row.isrc, None);
+    assert_eq!(row.mbid_recording, None);
 }

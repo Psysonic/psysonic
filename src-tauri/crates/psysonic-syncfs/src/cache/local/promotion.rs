@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager, State};
 
 use crate::file_transfer::acquire_download_destination_lock;
 
-use super::download::read_raw_probe_prefix;
+use super::super::provenance::read_original_prefix;
 use super::paths::{resolve_media_dir, track_row_to_path_input, unique_part_path};
 use super::LocalTrackDownloadResult;
 
@@ -36,6 +36,31 @@ async fn retain_consumed_spill_if_trusted(
             spill_path.display()
         )),
     }
+}
+
+async fn enqueue_verified_local_analysis(
+    app: &AppHandle,
+    server_index_key: &str,
+    library_server_id: &str,
+    track_id: &str,
+    file_path: &Path,
+) {
+    let priority = psysonic_analysis::analysis_runtime::analysis_backfill_resolve_priority(
+        app,
+        server_index_key,
+        track_id,
+        None,
+    );
+    let _ = enqueue_offline_library_analysis_from_file(
+        app,
+        server_index_key,
+        library_server_id,
+        track_id,
+        file_path,
+        Some(priority),
+        true,
+    )
+    .await;
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -69,40 +94,12 @@ pub(super) async fn promote_stream_cache_to_local(
     ensure_track_path_within_tier(&media_root, LocalTier::Ephemeral, &file_path)
         .map_err(|e| e.to_string())?;
 
-    if file_path.is_file() {
-        let size = tokio::fs::metadata(&file_path)
-            .await
-            .map(|m| m.len())
-            .unwrap_or(0);
-        return Ok(Some(LocalTrackDownloadResult {
-            path: path_str,
-            size,
-            layout_fingerprint: fingerprint,
-            original_bytes_verified: false,
-        }));
-    }
-
     if let Some(parent) = file_path.parent() {
         tokio::fs::create_dir_all(parent)
             .await
             .map_err(|error| error.to_string())?;
     }
     let _destination_guard = acquire_download_destination_lock(&file_path, None).await?;
-
-    if file_path.is_file() {
-        let size = tokio::fs::metadata(&file_path)
-            .await
-            .map(|m| m.len())
-            .unwrap_or(0);
-        return Ok(Some(LocalTrackDownloadResult {
-            path: path_str,
-            size,
-            layout_fingerprint: fingerprint,
-            original_bytes_verified: false,
-        }));
-    }
-
-    let part_path = unique_part_path(&file_path, &track_id);
 
     // Provenance gate: only promote bytes that match the verified original.
     let registry = app
@@ -111,7 +108,7 @@ pub(super) async fn promote_stream_cache_to_local(
     let trusted = match psysonic_analysis::raw_probe::resolve_trusted_identity(
         &reqwest::Client::new(),
         registry.as_deref(),
-        Some(library_server_id.as_str()),
+        Some(server_index_key.as_str()),
         &url,
     )
     .await
@@ -121,6 +118,37 @@ pub(super) async fn promote_stream_cache_to_local(
             return Ok(None);
         }
     };
+
+    if file_path.is_file() {
+        let prefix = read_original_prefix(&file_path)
+            .await
+            .map_err(|error| error.to_string())?;
+        if psysonic_analysis::raw_probe::bytes_match_trusted(&prefix, &trusted) {
+            enqueue_verified_local_analysis(
+                &app,
+                &server_index_key,
+                &library_server_id,
+                &track_id,
+                &file_path,
+            )
+            .await;
+            let size = tokio::fs::metadata(&file_path)
+                .await
+                .map(|m| m.len())
+                .unwrap_or(0);
+            return Ok(Some(LocalTrackDownloadResult {
+                path: path_str,
+                size,
+                layout_fingerprint: fingerprint,
+                original_bytes_verified: true,
+            }));
+        }
+        tokio::fs::remove_file(&file_path)
+            .await
+            .map_err(|error| format!("remove stale unverified local file: {error}"))?;
+    }
+
+    let part_path = unique_part_path(&file_path, &track_id);
 
     if let Some(bytes) = audio::take_stream_completed_for_url(&state, &url) {
         if !psysonic_analysis::raw_probe::bytes_match_trusted(&bytes, &trusted) {
@@ -134,7 +162,7 @@ pub(super) async fn promote_stream_cache_to_local(
             .await
             .map_err(|e| e.to_string())?;
     } else if let Some(spill_path) = audio::take_stream_completed_spill_for_url(&state, &url) {
-        let prefix = read_raw_probe_prefix(&spill_path).await;
+        let prefix = read_original_prefix(&spill_path).await;
         if !retain_consumed_spill_if_trusted(&spill_path, prefix, &trusted).await? {
             return Ok(None);
         }
@@ -149,20 +177,12 @@ pub(super) async fn promote_stream_cache_to_local(
         return Ok(None);
     }
 
-    let priority = psysonic_analysis::analysis_runtime::analysis_backfill_resolve_priority(
-        &app,
-        &server_index_key,
-        &track_id,
-        None,
-    );
-    let _ = enqueue_offline_library_analysis_from_file(
+    enqueue_verified_local_analysis(
         &app,
         &server_index_key,
         &library_server_id,
         &track_id,
         &file_path,
-        Some(priority),
-        true,
     )
     .await;
 
@@ -191,7 +211,7 @@ mod tests {
         bytes.extend(std::iter::repeat_n(0x22, 4096));
         tokio::fs::write(&spill, bytes).await.unwrap();
 
-        let prefix = read_raw_probe_prefix(&spill).await.unwrap();
+        let prefix = read_original_prefix(&spill).await.unwrap();
 
         assert_eq!(prefix.len(), limit);
         assert!(prefix.iter().all(|byte| *byte == 0x11));
@@ -202,7 +222,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let spill = dir.path().join("mismatch.complete");
         tokio::fs::write(&spill, vec![0x33; 1024]).await.unwrap();
-        let prefix = read_raw_probe_prefix(&spill).await;
+        let prefix = read_original_prefix(&spill).await;
         let trusted = psysonic_analysis::analysis_cache::md5_first_16kb(&vec![0x44; 1024]);
 
         let retained = retain_consumed_spill_if_trusted(&spill, prefix, &trusted)
@@ -234,7 +254,7 @@ mod tests {
         let spill = dir.path().join("trusted.complete");
         let bytes = vec![0x66; 1024];
         tokio::fs::write(&spill, &bytes).await.unwrap();
-        let prefix = read_raw_probe_prefix(&spill).await;
+        let prefix = read_original_prefix(&spill).await;
         let trusted = psysonic_analysis::analysis_cache::md5_first_16kb(&bytes);
 
         let retained = retain_consumed_spill_if_trusted(&spill, prefix, &trusted)

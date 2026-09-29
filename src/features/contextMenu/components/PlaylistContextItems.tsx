@@ -1,22 +1,36 @@
 import { useTranslation } from 'react-i18next';
-import { Play, ChevronsRight, ChevronRight, FolderTree, ListMusic, ListPlus, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router';
+import { Play, ChevronsRight, ChevronRight, Flame, FolderTree, ListMusic, ListPlus, Sparkles, Trash2 } from 'lucide-react';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
-import { usePlaylistStore, resolvePlaylistTracks } from '@/features/playlist';
+import {
+  deleteOwnedPlaylist,
+  playlistsOpenSmartEditorState,
+  resolvePlaylistTracks,
+  usePlaylistStore,
+} from '@/features/playlist';
+import { addTracksToBurnList } from '@/features/burner';
+import { resolveMediaServerId } from '@/features/offline';
+import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
+import { isSmartPlaylist } from '@/lib/format/playlistClassification';
 import { MultiPlaylistToPlaylistSubmenu, SinglePlaylistToPlaylistSubmenu } from '@/features/contextMenu/components/PlaylistToPlaylistSubmenus';
 import MoveToFolderSubmenu from '@/features/contextMenu/components/MoveToFolderSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { ContextShareMenuItem } from '@/features/share';
 
 export default function PlaylistContextItems(props: ContextMenuItemsProps) {
   const {
     type, item, closeContextMenu,
     playTrack, playNext, enqueue,
-    playlistSubmenuOpen, setPlaylistSubmenuOpen, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
-    playlistSongIds, setPlaylistSongIds,
+    activeSubmenuId, setActiveSubmenuId, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
     handleAction,
     offlinePolicy,
   } = props;
   const { t } = useTranslation();
+  const navigate = useNavigate();
+  // Top level: the per-type bodies below are IIFEs inside JSX, which is no
+  // place for a hook.
+  const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
 
   return (
     <>
@@ -48,41 +62,87 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
               <div className="context-menu-divider" />
               {offlinePolicy.canAddToPlaylist && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `playlist:${playlist.id}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`playlist:${playlist.id}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`playlist:${playlist.id}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `playlist:${playlist.id}` ? 'active' : ''}`}
+                  data-submenu-id={`playlist:${playlist.id}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`playlist:${playlist.id}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `playlist:${playlist.id}` && (
-                    <SinglePlaylistToPlaylistSubmenu playlist={playlist} triggerId={`playlist:${playlist.id}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `playlist:${playlist.id}` && (
+                    <SinglePlaylistToPlaylistSubmenu playlist={playlist} triggerId={`playlist:${playlist.id}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}
               {/* Folder assignment is local-only state, so it stays available offline. */}
               {playlist.serverId && <div
-                className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `folder:${playlist.id}` ? 'active' : ''}`}
-                data-playlist-trigger-id={`folder:${playlist.id}`}
-                onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`folder:${playlist.id}`]); setPlaylistSubmenuOpen(true); }}
+                className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `folder:${playlist.id}` ? 'active' : ''}`}
+                data-submenu-id={`folder:${playlist.id}`}
+                onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`folder:${playlist.id}`); }}
                 onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
               >
                 <FolderTree size={14} /> {t('playlists.folders.moveToFolder')}
                 <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                {playlistSubmenuOpen && playlistSongIds[0] === `folder:${playlist.id}` && (
-                  <MoveToFolderSubmenu playlistId={playlist.id} serverId={playlist.serverId} triggerId={`folder:${playlist.id}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                {activeSubmenuId === `folder:${playlist.id}` && (
+                  <MoveToFolderSubmenu playlistId={playlist.id} serverId={playlist.serverId} triggerId={`folder:${playlist.id}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                 )}
               </div>}
+              {offlinePolicy.canEditPlaylist && isSmartPlaylist(playlist) && (
+                <div className="context-menu-item" onClick={() => handleAction(() => {
+                  const dest = playlistsOpenSmartEditorState(playlist);
+                  if (dest) navigate(dest.pathname, { state: dest.state });
+                })}>
+                  <Sparkles size={14} /> {t('playlists.editRules')}
+                </div>
+              )}
+              {/* Last in this group, deliberately — do not move it up beside
+                  "Add to Playlist" to match the song menu. This menu has
+                  hover-opening submenus on "Add to Playlist" and "Move to
+                  folder"; wedged between them, a mouse sliding off either
+                  trigger lands on a control that queues an entire playlist.
+                  Here it also leaves those two and "Edit rules" on exactly the
+                  rows they occupied before this item existed. */}
+              {/* Disabled, not hidden, while a job owns the queue: the job took
+                  its track list when it started, and an item that vanishes from
+                  a menu the user just used reads as a bug. */}
+              {burnAvailable && (
+                <div
+                  className={`context-menu-item${burnBusy ? ' is-disabled' : ''}`}
+                  aria-disabled={burnBusy || undefined}
+                  {...(burnBusy ? { 'data-tooltip': t('burner.toastBurnInProgress') } : {})}
+                  onClick={burnBusy ? undefined : () => handleAction(async () => {
+                    const tracks = await resolvePlaylistTracks(playlist.id, playlist.serverId);
+                    // `resolvePlaylistTracks` swallows its own failures to `[]`, so an
+                    // empty result covers both "playlist would not load" and "playlist
+                    // is empty" — nothing to queue, and nothing worth a toast.
+                    if (tracks.length === 0) return;
+                    // Each resolved track already carries its owner; the playlist's
+                    // own server is only the fallback for rows without one.
+                    addTracksToBurnList(tracks, resolveMediaServerId(playlist.serverId) ?? '');
+                  })}
+                >
+                  <Flame size={14} /> {t('burner.addToCd')}
+                </div>
+              )}
+              <ContextShareMenuItem
+                request={{ kind: 'playlist', resourceIds: [playlist.id], serverIds: playlist.serverId ? [playlist.serverId] : [] }}
+                triggerId={`share:playlist:${playlist.id}`}
+                label={t('contextMenu.shareLink')}
+                activeSubmenuId={activeSubmenuId}
+                setActiveSubmenuId={setActiveSubmenuId}
+                cancelSubmenuCloseTimer={cancelPlaylistSubmenuCloseTimer}
+                onSubmenuTriggerMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
+                onDone={closeContextMenu}
+              />
               {offlinePolicy.canEditPlaylist && (
                 <>
               <div className="context-menu-divider" />
               <div className="context-menu-item" style={{ color: 'var(--danger)' }} onClick={() => handleAction(async () => {
                 const { showToast } = await import('@/lib/dom/toast');
-                const { deletePlaylist } = await import('@/lib/api/subsonicPlaylists');
                 const { removeId } = usePlaylistStore.getState();
                 try {
                   if (!playlist.serverId) throw new Error('Playlist owner unavailable');
-                  await deletePlaylist(playlist.id, playlist.serverId);
+                  await deleteOwnedPlaylist(playlist);
                   removeId(playlist.id, playlist.serverId);
                   // Update local playlist state without page reload to preserve audio playback state
                   usePlaylistStore.setState((s) => ({
@@ -115,28 +175,27 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
               <div className="context-menu-divider" />
               {offlinePolicy.canAddToPlaylist && oneServerSelection && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `multi-playlist:${playlistIds.join(',')}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`multi-playlist:${playlistIds.join(',')}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`multi-playlist:${playlistIds.join(',')}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `multi-playlist:${playlistIds.join(',')}` ? 'active' : ''}`}
+                  data-submenu-id={`multi-playlist:${playlistIds.join(',')}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`multi-playlist:${playlistIds.join(',')}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `multi-playlist:${playlistIds.join(',')}` && (
-                    <MultiPlaylistToPlaylistSubmenu playlists={selectedPlaylists} triggerId={`multi-playlist:${playlistIds.join(',')}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `multi-playlist:${playlistIds.join(',')}` && (
+                    <MultiPlaylistToPlaylistSubmenu playlists={selectedPlaylists} triggerId={`multi-playlist:${playlistIds.join(',')}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}
               {offlinePolicy.canEditPlaylist && (
               <div className="context-menu-item" style={{ color: 'var(--danger)' }} onClick={() => handleAction(async () => {
                 const { showToast } = await import('@/lib/dom/toast');
-                const { deletePlaylist } = await import('@/lib/api/subsonicPlaylists');
                 const { removeId } = usePlaylistStore.getState();
                 const deletedKeys = new Set<string>();
                 for (const pl of selectedPlaylists) {
                   try {
                     if (!pl.serverId) throw new Error('Playlist owner unavailable');
-                    await deletePlaylist(pl.id, pl.serverId);
+                    await deleteOwnedPlaylist(pl);
                     removeId(pl.id, pl.serverId);
                     deletedKeys.add(ownedEntityKey(pl));
                   } catch {

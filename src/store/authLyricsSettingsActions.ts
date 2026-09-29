@@ -16,11 +16,15 @@ export function createLyricsSettingsActions(set: SetState): Pick<
   | 'setEnableNeteaselyrics'
   | 'setLyricsSources'
   | 'setLyricsStaticOnly'
+  | 'setLyricsRomanizationEnabled'
+  | 'setLyricsWordHighlightMode'
 > {
   return {
     setLyricsServerFirst: (v) => set({ lyricsServerFirst: v }),
     setEnableNeteaselyrics: (v) => set({ enableNeteaselyrics: v }),
     setLyricsSources: (sources) => set({ lyricsSources: sources }),
     setLyricsStaticOnly: (v) => set({ lyricsStaticOnly: v }),
+    setLyricsRomanizationEnabled: (v) => set({ lyricsRomanizationEnabled: v }),
+    setLyricsWordHighlightMode: (v) => set({ lyricsWordHighlightMode: v }),
   };
 }

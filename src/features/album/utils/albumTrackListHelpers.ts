@@ -17,12 +17,19 @@ export const COLUMNS: readonly ColDef[] = [
   { key: 'duration',   i18nKey: 'trackDuration',   minWidth: 72,  defaultWidth: 92,  required: false },
   { key: 'format',     i18nKey: 'trackFormat',     minWidth: 60,  defaultWidth: 90,  required: false },
   { key: 'genre',      i18nKey: 'trackGenre',      minWidth: 60,  defaultWidth: 90,  required: false },
+  // Every genre the track carries, next to the single-value column above. Off by
+  // default: most libraries tag one genre, and the pair only earns its width
+  // where files carry several.
+  { key: 'genres',     i18nKey: 'trackGenres',     minWidth: 80,  defaultWidth: 150, required: false, defaultHidden: true },
+  // Mood tags from the file (MOOD / TMOO). Off by default like the genres pair:
+  // most libraries have none, and an empty column is worse than no column.
+  { key: 'mood',       i18nKey: 'trackMood',       minWidth: 80,  defaultWidth: 150, required: false, defaultHidden: true },
   { key: 'playCount',  i18nKey: 'trackPlayCount', minWidth: 60,  defaultWidth: 80,  required: false },
   { key: 'lastPlayed', i18nKey: 'trackLastPlayed', minWidth: 90,  defaultWidth: 130, required: false },
   { key: 'bpm',        i18nKey: 'trackBpm',        minWidth: 50,  defaultWidth: 70,  required: false },
 ];
 
-export type ColKey = 'num' | 'title' | 'artist' | 'favorite' | 'rating' | 'duration' | 'format' | 'genre' | 'playCount' | 'lastPlayed' | 'bpm';
+export type ColKey = 'num' | 'title' | 'artist' | 'favorite' | 'rating' | 'duration' | 'format' | 'genre' | 'genres' | 'mood' | 'playCount' | 'lastPlayed' | 'bpm';
 
 export const CENTERED_COLS = new Set<ColKey>(['favorite', 'rating', 'duration', 'playCount', 'bpm']);
 

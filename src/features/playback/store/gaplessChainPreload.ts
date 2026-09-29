@@ -8,7 +8,10 @@ import {
   getPlaybackIndexKey,
   playbackCacheKeyForRef,
 } from '@/features/playback/utils/playback/playbackServer';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
 import {
   getGaplessPreloadingId,
@@ -83,6 +86,7 @@ function invokeGaplessChainPreload(
     ...audioPlayHiResBlendArgs(authState),
     analysisTrackId: prepared.id,
     serverId: analysisServerId || null,
+    localOriginalVerified: localPlaybackOriginalVerifiedForUrl(prepared.id, serverId, nextUrl),
   }).catch(() => {});
 }
 

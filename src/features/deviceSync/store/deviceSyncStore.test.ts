@@ -5,12 +5,16 @@ import {
   deviceSyncOwnerKey,
   deviceSyncSourceKey,
   deviceSyncSourcesFromManifest,
+  deviceSyncOwnerRelocation,
+  deviceSyncUnresolvedOwnerKey,
   migrateDeviceSyncPersistedState,
   useDeviceSyncStore,
   type DeviceSyncSource,
 } from './deviceSyncStore';
 import { canonicalNavidromeId } from '@/lib/server/navidromeCanonicalId';
 import { NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY } from '@/lib/server/navidromeCanonicalCheckpointStatus';
+import { useAuthStore } from '@/store/authStore';
+import { resetAuthStore } from '@/test/helpers/storeReset';
 
 const sourceA: DeviceSyncSource = {
   type: 'album',
@@ -28,6 +32,9 @@ const sourceB: DeviceSyncSource = {
 describe('deviceSyncStore ownership', () => {
   beforeEach(() => {
     localStorage.clear();
+    // Cases below seed server profiles; without this the next case inherits
+    // them and its owner resolution silently changes meaning.
+    resetAuthStore();
     useDeviceSyncStore.setState({
       targetDir: null,
       sources: [],
@@ -35,8 +42,35 @@ describe('deviceSyncStore ownership', () => {
       legacyTargetDir: null,
       checkedIds: [],
       pendingDeletion: [],
+      pendingPlan: false,
+      targetDeviceId: null,
+      pendingPlanDeviceId: null,
+      pendingPlanChecked: false,
+      targetRevision: 0,
       deviceFilePaths: [],
       scanning: false,
+    });
+  });
+
+  it('preserves the device binding while a changed mount path is rechecked', () => {
+    useDeviceSyncStore.setState({
+      targetDir: '/old-mount',
+      targetDeviceId: 'device-1',
+      pendingPlan: true,
+      pendingPlanDeviceId: 'device-1',
+      pendingPlanChecked: true,
+      targetRevision: 4,
+    });
+
+    useDeviceSyncStore.getState().setTargetDir('/new-mount');
+
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      targetDir: '/new-mount',
+      targetDeviceId: 'device-1',
+      pendingPlan: false,
+      pendingPlanDeviceId: null,
+      pendingPlanChecked: false,
+      targetRevision: 5,
     });
   });
 
@@ -92,7 +126,305 @@ describe('deviceSyncStore ownership', () => {
       schema: 'fixed-v1',
       ownerServerIndexKey: sourceA.serverIndexKey,
       sources: [],
-    })).toEqual({ ownerServerIndexKey: sourceA.serverIndexKey, sources: [] });
+    })).toEqual({
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [],
+      layoutMode: 'self-contained',
+      playlistPathMode: 'playlist-relative',
+      files: [],
+      playlists: [],
+      hasMaterializedPlan: false,
+      transcode: null,
+      declaresConfiguration: false,
+    });
+  });
+
+  it('imports the shared layout and materialized ownership plan from v4', () => {
+    const sourceKey = deviceSyncSourceKey(sourceA);
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      files: [{
+        trackId: 'track-1',
+        relativePath: 'Artist/Album/01 - Song.flac',
+        sourceKeys: [sourceKey],
+        sizeBytes: 100,
+      }],
+      playlists: [],
+    })).toEqual(expect.objectContaining({
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      hasMaterializedPlan: true,
+      declaresConfiguration: true,
+    }));
+  });
+
+  it('imports the flat layout from v4', () => {
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'flat',
+      playlistPathMode: 'playlist-relative',
+      files: [],
+      playlists: [],
+    })).toEqual(expect.objectContaining({ layoutMode: 'flat', declaresConfiguration: true }));
+  });
+
+  it('rejects a manifest with a layout it does not know', () => {
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'nested-by-genre' as never,
+      files: [],
+      playlists: [],
+    })).toBeNull();
+  });
+
+  it('imports the recorded transcode profile', () => {
+    const sourceKey = deviceSyncSourceKey(sourceA);
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      files: [{
+        trackId: 'track-1',
+        relativePath: 'Artist/Album/01 - Song.mp3',
+        sourceKeys: [sourceKey],
+        sizeBytes: 100,
+        transcode: { format: 'mp3', maxBitRateKbps: 192 },
+        source: { size: 900, suffix: 'flac', bitRate: 1000 },
+      }],
+      playlists: [],
+    })).toEqual(expect.objectContaining({
+      playlistPathMode: 'device-rooted',
+      transcode: { format: 'mp3', maxBitRateKbps: 192 },
+    }));
+  });
+
+  it('adopts a recorded transcode profile from the manifest as synced and desired', () => {
+    useDeviceSyncStore.getState().applyManifestConfiguration(
+      'shared-album-tree', 'device-rooted', true, { format: 'mp3', maxBitRateKbps: 192 },
+    );
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      playlistPathMode: 'device-rooted',
+      transcode: { format: 'mp3', maxBitRateKbps: 192 },
+      syncedTranscode: { format: 'mp3', maxBitRateKbps: 192 },
+    });
+  });
+
+  it('migrates v4 state to original files and keeps the chosen format', () => {
+    const fromV4 = migrateDeviceSyncPersistedState({ playlistPathMode: 'device-rooted' });
+    expect(fromV4.transcode).toEqual({ format: 'original', maxBitRateKbps: 320 });
+    expect(fromV4.syncedTranscode).toBeNull();
+
+    const migrated = migrateDeviceSyncPersistedState({
+      playlistPathMode: 'device-rooted',
+      syncedPlaylistPathMode: 'device-rooted',
+      transcode: { format: 'mp3', maxBitRateKbps: 192 },
+    } as never);
+    expect(migrated.playlistPathMode).toBe('device-rooted');
+    expect(migrated.syncedPlaylistPathMode).toBe('device-rooted');
+    expect(migrated.transcode).toEqual({ format: 'mp3', maxBitRateKbps: 192 });
+
+    const invalid = migrateDeviceSyncPersistedState({
+      transcode: { format: 'wav', maxBitRateKbps: 7 },
+    } as never);
+    expect(invalid.transcode).toEqual({ format: 'original', maxBitRateKbps: 320 });
+  });
+
+  it('imports and migrates the absolute playlist path mode', () => {
+    expect(deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'absolute',
+      files: [],
+      playlists: [],
+    })).toEqual(expect.objectContaining({ playlistPathMode: 'absolute' }));
+
+    const migrated = migrateDeviceSyncPersistedState({
+      playlistPathMode: 'absolute',
+      syncedPlaylistPathMode: 'absolute',
+    } as never);
+    expect(migrated.playlistPathMode).toBe('absolute');
+    expect(migrated.syncedPlaylistPathMode).toBe('absolute');
+  });
+
+  it('keeps a persisted flat layout across the store migration', () => {
+    const migrated = migrateDeviceSyncPersistedState({
+      layoutMode: 'flat',
+      syncedLayoutMode: 'flat',
+    });
+    expect(migrated.layoutMode).toBe('flat');
+    expect(migrated.syncedLayoutMode).toBe('flat');
+  });
+
+  it('keeps the chosen layout when a manifest states none of its own', () => {
+    useDeviceSyncStore.getState().setLayoutMode('shared-album-tree');
+    useDeviceSyncStore.getState().setPlaylistPathMode('device-rooted');
+
+    const imported = deviceSyncManifestImport({
+      version: 3,
+      schema: 'fixed-v1',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+    });
+    useDeviceSyncStore.getState().applyManifestConfiguration(
+      imported!.layoutMode,
+      imported!.playlistPathMode,
+      imported!.declaresConfiguration,
+    );
+
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      // The device predates the layout modes, so it is laid out the old way —
+      // the mismatch is what marks the configuration dirty.
+      syncedLayoutMode: 'self-contained',
+      syncedPlaylistPathMode: 'playlist-relative',
+    });
+  });
+
+  it('adopts the layout a manifest states as both desired and synced', () => {
+    useDeviceSyncStore.getState().setLayoutMode('self-contained');
+    useDeviceSyncStore.getState().setPlaylistPathMode('playlist-relative');
+
+    const imported = deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      files: [],
+      playlists: [],
+    });
+    useDeviceSyncStore.getState().applyManifestConfiguration(
+      imported!.layoutMode,
+      imported!.playlistPathMode,
+      imported!.declaresConfiguration,
+    );
+
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      syncedLayoutMode: 'shared-album-tree',
+      syncedPlaylistPathMode: 'device-rooted',
+    });
+  });
+
+  it('follows the owning profile to its new address and carries the plan with it', () => {
+    // The device was written before the server moved, so its recorded address
+    // is stale by definition — the profile id is what still identifies it.
+    const movedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+    useAuthStore.setState({ servers: [movedServer] } as never);
+    const staleKey = sourceA.serverIndexKey;
+    const staleSourceKey = JSON.stringify([staleKey, 'album', sourceA.id]);
+
+    const imported = deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: staleKey,
+      ownerServerProfileId: 'profile-1',
+      sources: [sourceA],
+      layoutMode: 'shared-album-tree',
+      playlistPathMode: 'device-rooted',
+      files: [{
+        trackId: 'track-1',
+        relativePath: 'Artist/Album/01 - Song.flac',
+        sourceKeys: [staleSourceKey],
+        sizeBytes: 100,
+      }],
+      playlists: [{ sourceKey: staleSourceKey, relativePath: 'Playlists/Mix/Mix.m3u8' }],
+    });
+
+    const movedSourceKey = JSON.stringify(['server-c.test', 'album', sourceA.id]);
+    expect(imported?.ownerServerIndexKey).toBe('server-c.test');
+    expect(imported?.sources).toEqual([
+      { ...sourceA, serverIndexKey: 'server-c.test', serverProfileId: 'profile-1' },
+    ]);
+    // Without this the device's files look unclaimed and get downloaded again.
+    expect(imported?.files[0]?.sourceKeys).toEqual([movedSourceKey]);
+    expect(imported?.playlists[0]?.sourceKey).toBe(movedSourceKey);
+  });
+
+  it('keeps the recorded address when the owning profile is gone', () => {
+    useAuthStore.setState({ servers: [] } as never);
+
+    const imported = deviceSyncManifestImport({
+      version: 3,
+      schema: 'fixed-v1',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      ownerServerProfileId: 'profile-1',
+      sources: [sourceA],
+    });
+
+    expect(imported?.ownerServerIndexKey).toBe(sourceA.serverIndexKey);
+  });
+
+  it('reports a relocation only while the profile identity is unambiguous', () => {
+    const movedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+    const owned = { ...sourceA, serverProfileId: 'profile-1' };
+
+    expect(deviceSyncOwnerRelocation([owned], [movedServer]))
+      .toEqual({ from: sourceA.serverIndexKey, to: 'server-c.test' });
+    // Already current.
+    expect(deviceSyncOwnerRelocation(
+      [{ ...owned, serverIndexKey: 'server-c.test' }], [movedServer],
+    )).toBeNull();
+    // Recorded before the profile id existed — only manual repair can fix this.
+    expect(deviceSyncOwnerRelocation([sourceA], [movedServer])).toBeNull();
+    // Profile no longer configured.
+    expect(deviceSyncOwnerRelocation([owned], [])).toBeNull();
+  });
+
+  it('does not ask for a repair decision when the owner can simply relocate', () => {
+    const movedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+    const owned = { ...sourceA, serverProfileId: 'profile-1' };
+
+    expect(deviceSyncUnresolvedOwnerKey([owned], [movedServer])).toBeNull();
+    expect(deviceSyncUnresolvedOwnerKey([sourceA], [movedServer])).toBe(sourceA.serverIndexKey);
+  });
+
+  it('reports an owner that no configured server resolves to', () => {
+    const movedServer = { id: 'profile-1', url: 'http://server-a.test', name: 'A' } as never;
+    const relocatedServer = { id: 'profile-1', url: 'http://server-c.test', name: 'A' } as never;
+
+    expect(deviceSyncUnresolvedOwnerKey([sourceA], [movedServer])).toBeNull();
+    expect(deviceSyncUnresolvedOwnerKey([sourceA], [relocatedServer])).toBe(sourceA.serverIndexKey);
+    expect(deviceSyncUnresolvedOwnerKey([], [])).toBeNull();
+  });
+
+  it('carries the selection and pending deletions onto the new owner keys', () => {
+    const previousKey = deviceSyncSourceKey(sourceA);
+    useDeviceSyncStore.setState({
+      sources: [sourceA],
+      checkedIds: [previousKey],
+      pendingDeletion: [previousKey],
+    });
+
+    useDeviceSyncStore.getState().reassignSourceOwner('server-c.test');
+
+    const nextKey = deviceSyncSourceKey({ ...sourceA, serverIndexKey: 'server-c.test' });
+    expect(nextKey).not.toBe(previousKey);
+    expect(useDeviceSyncStore.getState()).toMatchObject({
+      sources: [{ ...sourceA, serverIndexKey: 'server-c.test' }],
+      checkedIds: [nextKey],
+      pendingDeletion: [nextKey],
+    });
   });
 
   it('rejects a non-empty owned manifest with malformed sources instead of clearing state', () => {
@@ -106,7 +438,7 @@ describe('deviceSyncStore ownership', () => {
 
   it('rejects future and partially understood manifests without dropping entries', () => {
     expect(deviceSyncManifestImport({
-      version: 4,
+      version: 5,
       schema: 'fixed-v2',
       ownerServerIndexKey: sourceA.serverIndexKey,
       sources: [sourceA],
@@ -135,6 +467,16 @@ describe('deviceSyncStore ownership', () => {
 
     useDeviceSyncStore.getState().clearSources();
     expect(useDeviceSyncStore.getState().legacySources).toEqual([legacy]);
+  });
+
+  it('preserves pending deletion keys for crash-safe finalization retry', () => {
+    const sourceKey = deviceSyncSourceKey(sourceA);
+    const migrated = migrateDeviceSyncPersistedState({
+      sources: [sourceA],
+      pendingDeletion: [sourceKey, sourceKey, 42],
+    });
+
+    expect(migrated.pendingDeletion).toEqual([sourceKey]);
   });
 
   it('keeps quarantined legacy sources scoped to their originating device', () => {
@@ -190,6 +532,49 @@ describe('deviceSyncStore ownership', () => {
       name: 'Legacy',
       serverIndexKey: sourceA.serverIndexKey,
     }]);
+  });
+
+  it('canonicalizes materialized manifest ownership when the checkpoint is ready', () => {
+    const legacyTrackId = '123e4567-e89b-12d3-a456-426614174000';
+    const legacyPlaylistId = '223e4567-e89b-12d3-a456-426614174000';
+    localStorage.setItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY, JSON.stringify({
+      version: 1,
+      servers: {
+        [sourceA.serverIndexKey]: {
+          canonicalVersion: 1,
+          phase: 'ready',
+          checkedVersion: '0.64.0',
+        },
+      },
+    }));
+    const legacySourceKey = JSON.stringify([
+      sourceA.serverIndexKey, 'playlist', legacyPlaylistId,
+    ]);
+
+    const imported = deviceSyncManifestImport({
+      version: 4,
+      schema: 'fixed-v2',
+      ownerServerIndexKey: sourceA.serverIndexKey,
+      sources: [{
+        type: 'playlist', id: legacyPlaylistId, name: 'Mix', serverIndexKey: sourceA.serverIndexKey,
+      }],
+      files: [{
+        trackId: legacyTrackId,
+        relativePath: 'Artist/Album/01 - Song.flac',
+        sourceKeys: [legacySourceKey],
+        sizeBytes: 100,
+      }],
+      playlists: [{ sourceKey: legacySourceKey, relativePath: 'Playlists/Mix/Mix.m3u8' }],
+    });
+    const canonicalSourceKey = JSON.stringify([
+      sourceA.serverIndexKey, 'playlist', canonicalNavidromeId(legacyPlaylistId),
+    ]);
+
+    expect(imported?.files[0]).toMatchObject({
+      trackId: canonicalNavidromeId(legacyTrackId),
+      sourceKeys: [canonicalSourceKey],
+    });
+    expect(imported?.playlists[0].sourceKey).toBe(canonicalSourceKey);
   });
 
   it('defers old manifest import while the owner canonical migration is pending', () => {

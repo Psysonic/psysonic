@@ -84,8 +84,9 @@ export function libraryAdvancedSearch(
   }));
 }
 
-/** Persisted album/track stars for the Favorites initial local snapshot. */
+/** Persisted artist/album/track stars for the Favorites initial local snapshot. */
 export function libraryListStarred(serverId: string): Promise<{
+  artists: LibraryArtistDto[];
   albums: LibraryAlbumDto[];
   tracks: LibraryTrackDto[];
   readLockWaitMs: number;
@@ -94,6 +95,7 @@ export function libraryListStarred(serverId: string): Promise<{
 }> {
   const indexKey = serverIndexKeyForId(serverId);
   return invoke<{
+    artists: LibraryArtistDto[];
     albums: LibraryAlbumDto[];
     tracks: LibraryTrackDto[];
     readLockWaitMs: number;
@@ -102,6 +104,10 @@ export function libraryListStarred(serverId: string): Promise<{
   }>('library_list_starred', {
     serverId: indexKey,
   }).then(response => ({
+    artists: response.artists.map(artist => ({
+      ...artist,
+      serverId: mapServerIdFromIndexKey(artist.serverId, serverId),
+    })),
     albums: response.albums.map(album => ({
       ...album,
       serverId: mapServerIdFromIndexKey(album.serverId, serverId),

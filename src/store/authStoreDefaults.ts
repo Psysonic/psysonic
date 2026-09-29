@@ -1,9 +1,11 @@
 import type {
+  DiscordCoverSource,
   LoudnessLufsPreset,
   LyricsSourceConfig,
   TrackPreviewLocation,
   TrackPreviewLocations,
 } from './authStoreTypes';
+import type { CoverSourcePref } from '@/cover/coverSources';
 
 export const LOUDNESS_LUFS_PRESETS: LoudnessLufsPreset[] = [-16, -14, -12, -10];
 
@@ -36,6 +38,17 @@ export const DEFAULT_LYRICS_SOURCES: LyricsSourceConfig[] = [
   { id: 'lrclib',  enabled: false },
   { id: 'netease', enabled: false },
 ];
+
+/** Server art only. Apple Music and Last.fm are opt-in fallbacks for albums
+ *  the server has no cover for — they send album and artist names out. */
+export const DEFAULT_COVER_SOURCES: CoverSourcePref[] = [
+  { source: 'server', enabled: true },
+  { source: 'apple',  enabled: false },
+  { source: 'lastfm', enabled: false },
+];
+
+/** Discord publishing opt-in default: app icon only (#1299 — server URLs are published to Discord's image proxy, so this stays off until the user opts in). */
+export const DEFAULT_DISCORD_COVER_SOURCE: DiscordCoverSource = 'none';
 
 /** Upper bound for mix min-rating thresholds (UI shows five stars, only 1…this many are selectable). */
 export const MIX_MIN_RATING_FILTER_MAX_STARS = 3;

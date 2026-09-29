@@ -99,6 +99,18 @@ fn browse_albums(
 }
 
 #[test]
+fn combined_projection_work_reports_one_logical_track_total() {
+    let first_quarter = logical_progress(50_000, 200_000, 100_000);
+    assert_eq!((first_quarter.done, first_quarter.total), (25_000, 100_000));
+
+    let second_pass = logical_progress(100_000, 200_000, 100_000);
+    assert_eq!((second_pass.done, second_pass.total), (50_000, 100_000));
+
+    let complete = logical_progress(200_000, 200_000, 100_000);
+    assert_eq!((complete.done, complete.total), (100_000, 100_000));
+}
+
+#[test]
 fn ingest_refreshes_only_affected_album_projection() {
     let store = LibraryStore::open_in_memory();
     TrackRepository::new(&store)
@@ -371,6 +383,43 @@ fn completed_backfill_reconciles_physical_projection_keys_before_readiness() {
         .unwrap();
     assert_eq!(keys.len(), 1);
     assert!(!keys[0].starts_with("physical:"));
+}
+
+#[test]
+fn completed_projection_ignores_later_identity_maintenance() {
+    let store = LibraryStore::open_in_memory();
+    insert_artist(&store, "s1", "artist-1", "Artist");
+    insert_artist(&store, "s2", "artist-2", "Artist");
+    TrackRepository::new(&store)
+        .upsert_batch(&[album_track(
+            "s1", "t1", "Artist", "artist-1", "a1", "Shared", "Artist", "lib-a",
+        )])
+        .unwrap();
+    run_backfill_impl(&store, None).unwrap();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[album_track(
+            "s2", "t2", "Artist", "artist-2", "a2", "Shared", "Artist", "lib-b",
+        )])
+        .unwrap();
+
+    assert!(crate::identity::identity_maintenance_needed(&store).unwrap());
+    assert!(!inspect(&store).unwrap().needed);
+    let albums = browse_albums(
+        &store,
+        vec![
+            LibraryScopePair {
+                server_id: "s1".into(),
+                library_id: Some("lib-a".into()),
+            },
+            LibraryScopePair {
+                server_id: "s2".into(),
+                library_id: Some("lib-b".into()),
+            },
+        ],
+    );
+    assert_eq!(albums.len(), 1);
+    assert!(!crate::identity::identity_maintenance_needed(&store).unwrap());
 }
 
 #[test]

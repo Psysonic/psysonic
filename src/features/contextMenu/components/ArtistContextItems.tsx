@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Radio, Heart, ChevronRight, ListMusic, Star, Share2 } from 'lucide-react';
+import { Radio, Heart, ChevronRight, ListMusic, Star } from 'lucide-react';
 import { star, unstar } from '@/lib/api/subsonicStarRating';
 import type { SubsonicArtist } from '@/lib/api/subsonicTypes';
 import StarRating from '@/ui/StarRating';
@@ -7,15 +7,15 @@ import { ArtistToPlaylistSubmenu } from '@/features/contextMenu/components/Album
 import { MultiArtistToPlaylistSubmenu } from '@/features/contextMenu/components/MultiArtistToPlaylistSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
+import { ContextShareMenuItem } from '@/features/share';
 
 export default function ArtistContextItems(props: ContextMenuItemsProps) {
   const {
     type, item, shareKindOverride, closeContextMenu,
     setStarredOverride, userRatingOverrides, setKeyboardRating, keyboardRating,
-    playlistSubmenuOpen, setPlaylistSubmenuOpen, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
-    playlistSongIds, setPlaylistSongIds,
+    activeSubmenuId, setActiveSubmenuId, cancelPlaylistSubmenuCloseTimer, onPlaylistSubmenuTriggerMouseLeave,
     entityRatingSupport, applyArtistRating,
-    handleAction, startRadio, copyShareLink, isStarred,
+    handleAction, startRadio, isStarred,
     offlinePolicy,
   } = props;
   const { t } = useTranslation();
@@ -38,25 +38,32 @@ export default function ArtistContextItems(props: ContextMenuItemsProps) {
               </div>}
               {!isComposer && offlinePolicy.canAddToPlaylist && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `artist:${artist.id}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`artist:${artist.id}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`artist:${artist.id}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `artist:${artist.id}` ? 'active' : ''}`}
+                  data-submenu-id={`artist:${artist.id}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`artist:${artist.id}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `artist:${artist.id}` && (
-                    <ArtistToPlaylistSubmenu artistId={artist.id} serverId={artist.serverId} triggerId={`artist:${artist.id}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `artist:${artist.id}` && (
+                    <ArtistToPlaylistSubmenu artistId={artist.id} serverId={artist.serverId} triggerId={`artist:${artist.id}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}
-              <div className="context-menu-item" onClick={() => handleAction(() => copyShareLink(
-                shareKindOverride ?? 'artist',
-                artist.id,
-                artist.serverId,
-              ))}>
-                <Share2 size={14} /> {t('contextMenu.shareLink')}
-              </div>
+              <ContextShareMenuItem
+                request={{
+                  kind: shareKindOverride ?? 'artist',
+                  resourceIds: [artist.id],
+                  serverIds: artist.serverId ? [artist.serverId] : [],
+                }}
+                triggerId={`share:${shareKindOverride ?? 'artist'}:${artist.id}`}
+                label={t('contextMenu.shareLink')}
+                activeSubmenuId={activeSubmenuId}
+                setActiveSubmenuId={setActiveSubmenuId}
+                cancelSubmenuCloseTimer={cancelPlaylistSubmenuCloseTimer}
+                onSubmenuTriggerMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
+                onDone={closeContextMenu}
+              />
               {(offlinePolicy.canFavorite || offlinePolicy.canRate) && (
                 <>
                   <div className="context-menu-divider" />
@@ -122,15 +129,15 @@ export default function ArtistContextItems(props: ContextMenuItemsProps) {
               <div className="context-menu-divider" />
               {offlinePolicy.canAddToPlaylist && artistServerIds.size <= 1 && (
                 <div
-                  className={`context-menu-item context-menu-item--submenu ${playlistSubmenuOpen && playlistSongIds[0] === `multi-artist:${artistIds.join(',')}` ? 'active' : ''}`}
-                  data-playlist-trigger-id={`multi-artist:${artistIds.join(',')}`}
-                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setPlaylistSongIds([`multi-artist:${artistIds.join(',')}`]); setPlaylistSubmenuOpen(true); }}
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `multi-artist:${artistIds.join(',')}` ? 'active' : ''}`}
+                  data-submenu-id={`multi-artist:${artistIds.join(',')}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`multi-artist:${artistIds.join(',')}`); }}
                   onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
                 >
                   <ListMusic size={14} /> {t('contextMenu.addToPlaylist')}
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
-                  {playlistSubmenuOpen && playlistSongIds[0] === `multi-artist:${artistIds.join(',')}` && (
-                    <MultiArtistToPlaylistSubmenu artists={artists} triggerId={`multi-artist:${artistIds.join(',')}`} onDone={() => { setPlaylistSubmenuOpen(false); closeContextMenu(); }} />
+                  {activeSubmenuId === `multi-artist:${artistIds.join(',')}` && (
+                    <MultiArtistToPlaylistSubmenu artists={artists} triggerId={`multi-artist:${artistIds.join(',')}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
                   )}
                 </div>
               )}

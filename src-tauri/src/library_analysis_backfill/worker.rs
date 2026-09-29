@@ -77,7 +77,11 @@ impl LibraryAnalysisBackfillWorker {
         self.wake.notify_waiters();
     }
 
-    pub async fn set_session(&self, enabled: bool, session: Option<LibraryAnalysisBackfillSession>) {
+    pub async fn set_session(
+        &self,
+        enabled: bool,
+        session: Option<LibraryAnalysisBackfillSession>,
+    ) {
         self.enabled.store(enabled, Ordering::Relaxed);
         *self.session.lock().await = session;
         if !enabled {
@@ -133,8 +137,7 @@ struct EnqueueBatchSummary {
 impl EnqueueBatchSummary {
     fn observe(&mut self, outcome: EnqueueSeedFromUrlOutcome) {
         match outcome {
-            EnqueueSeedFromUrlOutcome::Enqueued
-            | EnqueueSeedFromUrlOutcome::AlreadyReserved => {
+            EnqueueSeedFromUrlOutcome::Enqueued | EnqueueSeedFromUrlOutcome::AlreadyReserved => {
                 self.admitted_or_reserved += 1;
             }
             EnqueueSeedFromUrlOutcome::Unsupported => self.unsupported += 1,
@@ -231,11 +234,12 @@ async fn coordinator_tick(
 
     let store = runtime.store.clone();
     let lib_id = session.library_server_id.clone();
-    let ready = tauri::async_runtime::spawn_blocking(move || library_server_is_ready(&store, &lib_id))
-        .await
-        .ok()
-        .and_then(|r| r.ok())
-        .unwrap_or(false);
+    let ready =
+        tauri::async_runtime::spawn_blocking(move || library_server_is_ready(&store, &lib_id))
+            .await
+            .ok()
+            .and_then(|r| r.ok())
+            .unwrap_or(false);
     if !ready {
         return CoordinatorStep::Sleep(Duration::from_millis(READY_POLL_MS));
     }

@@ -26,7 +26,11 @@ impl Default for Backoff {
 
 impl Backoff {
     pub fn new(base: Duration, cap: Duration) -> Self {
-        Self { attempt: 0, base, cap }
+        Self {
+            attempt: 0,
+            base,
+            cap,
+        }
     }
 
     /// Reset after a successful batch — the next failure starts at
@@ -140,7 +144,10 @@ mod tests {
         let hi = base.as_millis() as u64 + span_ms / 2; // 10000 ms
         for salt in 0u64..1000 {
             let j = with_jitter(base, salt).as_millis() as u64;
-            assert!(j >= lo && j <= hi, "salt {salt} → {j}ms outside [{lo},{hi}]");
+            assert!(
+                j >= lo && j <= hi,
+                "salt {salt} → {j}ms outside [{lo},{hi}]"
+            );
         }
     }
 

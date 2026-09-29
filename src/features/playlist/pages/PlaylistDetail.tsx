@@ -29,6 +29,8 @@ import type { PlaylistSortKey, PlaylistSortDir } from '@/features/playlist/utils
 import { runPlaylistZipDownload } from '@/features/playlist/utils/runPlaylistZipDownload';
 import { runPlaylistSaveMeta } from '@/features/playlist/utils/runPlaylistSaveMeta';
 import { runPlaylistLoad } from '@/features/playlist/utils/runPlaylistLoad';
+import { isOwnPlaylistTouch } from '@/features/playlist/utils/playlistSelfTouch';
+import { runPlaylistRefreshSmart } from '@/features/playlist/utils/runPlaylistRefreshSmart';
 import { startPlaylistRowDrag } from '@/features/playlist/utils/startPlaylistRowDrag';
 import { usePlaylistCovers } from '@/features/playlist/hooks/usePlaylistCovers';
 import { usePlaylistSelection } from '@/features/playlist/hooks/usePlaylistSelection';
@@ -46,7 +48,10 @@ import { useOfflineBrowseContext } from '@/features/offline';
 import { offlineActionPolicy } from '@/features/offline';
 import { readDetailServerId } from '@/lib/navigation/detailServerScope';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { playlistDetailControls } from '@/features/playlist/utils/playlistSmartUx';
+import { showToast } from '@/lib/dom/toast';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
+import { usePlaylistDetailScrollRestore } from '@/features/playlist/hooks/usePlaylistDetailScrollRestore';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 const PL_COLUMNS: readonly ColDef[] = [
@@ -95,6 +100,7 @@ export default function PlaylistDetail() {
   const { resolvedOfflineStatus, offlineProgress } = useAlbumOfflineState(id ?? '', serverId, offlineSongIds);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [refreshingSmart, setRefreshingSmart] = useState(false);
   const [ratings, setRatings] = useState<Record<string, number>>({});
   const [editingMeta, setEditingMeta] = useState(false);
   const [customCoverId, setCustomCoverId] = useState<string | null>(null);
@@ -111,6 +117,7 @@ export default function PlaylistDetail() {
   const saveChainRef = useRef<Promise<void>>(Promise.resolve());
   const saveOwnerGenerationRef = useRef(0);
   const saveSequenceRef = useRef(0);
+  const selfTouchedAtRef = useRef<number | undefined>(undefined);
 
   // ── CSV Import ───────────────────────────────────────────────────
   const [csvImporting, setCsvImporting] = useState(false);
@@ -126,6 +133,7 @@ export default function PlaylistDetail() {
   // ── Save ──────────────────────────────────────────────────────
   const savePlaylist = useCallback((updatedSongs: SubsonicSong[], prevCount = 0) => {
     if (!id || !serverId) return Promise.resolve();
+    if (playlist && playlistDetailControls(playlist).tracksReadOnly) return Promise.resolve();
     const ownerGeneration = saveOwnerGenerationRef.current;
     const sequence = ++saveSequenceRef.current;
     setSaving(true);
@@ -137,6 +145,9 @@ export default function PlaylistDetail() {
         if (saveOwnerGenerationRef.current !== ownerGeneration) return;
         usePlaylistMembershipStore.getState().replacePlaylistSongIds(id, songIds, serverId);
         touchPlaylist(id, serverId);
+        // The page already shows what it just saved; remember the stamp so the load
+        // effect does not answer our own touch with a full reload.
+        selfTouchedAtRef.current = usePlaylistStore.getState().lastModified[ownedEntityKey({ id, serverId })];
       } catch {
         if (saveOwnerGenerationRef.current === ownerGeneration) {
           usePlaylistMembershipStore.getState().invalidatePlaylistSongIds(id, serverId);
@@ -150,9 +161,10 @@ export default function PlaylistDetail() {
         && saveSequenceRef.current === sequence
       ) {
         setSaving(false);
+        setRefreshingSmart(false);
       }
     });
-  }, [id, serverId, touchPlaylist]);
+  }, [id, serverId, touchPlaylist, playlist]);
 
   // ── Bulk select ───────────────────────────────────────────────────
   const [showBulkPlPicker, setShowBulkPlPicker] = useState(false);
@@ -176,11 +188,16 @@ export default function PlaylistDetail() {
     usePlaylistSuggestions(songs, playlist?.id, serverId || undefined);
 
   // ── Column resize/visibility ──────────────────────────────────────────────
+  const tracksReadOnly = playlist ? playlistDetailControls(playlist).tracksReadOnly : false;
+  const detailColumns = useMemo(
+    () => (tracksReadOnly ? PL_COLUMNS.filter(col => col.key !== 'delete') : PL_COLUMNS),
+    [tracksReadOnly],
+  );
   const {
     colVisible, visibleCols, gridStyle,
     startResize, startFlexColumnResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
-  } = useTracklistColumns(PL_COLUMNS, 'psysonic_playlist_columns');
+  } = useTracklistColumns(detailColumns, 'psysonic_playlist_columns');
   const resolvedBpmSongs = useResolvedTracklistBpm(
     songs,
     colVisible.has('bpm') || sortKey === 'bpm',
@@ -198,11 +215,18 @@ export default function PlaylistDetail() {
 
   const loadGenerationRef = useRef(0);
   const loadedOwnerKeyRef = useRef<string | null>(null);
+  const loadedOfflineBrowseRef = useRef<boolean | null>(null);
   useEffect(() => {
     if (!id) return;
-    const generation = ++loadGenerationRef.current;
     const ownerKey = ownedEntityKey({ id, serverId });
     const ownerChanged = loadedOwnerKeyRef.current !== ownerKey;
+    const offlineModeChanged = loadedOfflineBrowseRef.current !== offlineBrowseActive;
+    loadedOfflineBrowseRef.current = offlineBrowseActive;
+    // Checked before the generation bump so a load already in flight stays current.
+    if (isOwnPlaylistTouch({
+      ownerChanged, offlineModeChanged, lastModified, selfTouchedAt: selfTouchedAtRef.current,
+    })) return;
+    const generation = ++loadGenerationRef.current;
     loadedOwnerKeyRef.current = ownerKey;
     if (ownerChanged) {
       saveOwnerGenerationRef.current += 1;
@@ -262,6 +286,35 @@ export default function PlaylistDetail() {
     });
   };
 
+  const handleRefreshSmart = async () => {
+    if (!id || !serverId || refreshingSmart) return;
+    setRefreshingSmart(true);
+    try {
+      const ownerKey = ownedEntityKey({ id, serverId });
+      await runPlaylistRefreshSmart({
+        id,
+        serverId,
+        reload: () => runPlaylistLoad({
+          id,
+          serverId,
+          setLoading,
+          setPlaylist,
+          setSongs,
+          setCustomCoverId,
+          setRatings,
+          setStarredSongs,
+          soft: true,
+          isCurrent: () => loadedOwnerKeyRef.current === ownerKey,
+        }),
+      });
+      showToast(t('playlists.refreshSmartSuccess'), 2500, 'info');
+    } catch {
+      showToast(t('playlists.refreshSmartError'), 3500, 'error');
+    } finally {
+      setRefreshingSmart(false);
+    }
+  };
+
   // ── CSV Import ────────────────────────────────────────────────
   const handleImportCsv = async () => {
     if (!id || csvImporting) return;
@@ -289,11 +342,12 @@ export default function PlaylistDetail() {
 
   // ── DnD reorder listener + drag-over visual feedback ──────────
   const { dropTargetIdx, handleRowMouseEnter } = usePlaylistDnDReorder({
-    tracklistRef, songs, savePlaylist, setSongs,
+    tracklistRef, songs, savePlaylist, setSongs, enabled: !tracksReadOnly,
   });
 
   // ── Row mousedown: threshold drag for reorder (from anywhere on the row) ──
   const handleRowMouseDown = (e: React.MouseEvent, idx: number) => {
+    if (tracksReadOnly) return;
     dragPress.arm(e, {
       canStart: (ev) => !(ev.target as HTMLElement).closest('button, input'),
       onStart: (me) => startPlaylistRowDrag({ me, idx, songs, selectedIds, isFiltered, startDrag }),
@@ -309,6 +363,8 @@ export default function PlaylistDetail() {
   const { handlePlayAll, handleShuffleAll, handleEnqueueAll } = usePlaylistBulkPlayCallbacks({
     songsLength: songs.length, id, tracks, playTrack, enqueue,
   });
+
+  usePlaylistDetailScrollRestore(!loading && playlist !== null);
 
   // ── Render ────────────────────────────────────────────────────
   if (loading) {
@@ -335,6 +391,7 @@ export default function PlaylistDetail() {
         coverQuadIds={coverQuadIds}
         resolvedBgUrl={resolvedBgUrl}
         saving={saving}
+        refreshingSmart={refreshingSmart}
         searchOpen={searchOpen}
         csvImporting={csvImporting}
         activeZip={activeZip}
@@ -353,12 +410,13 @@ export default function PlaylistDetail() {
         handleEnqueueAll={handleEnqueueAll}
         handleImportCsv={handleImportCsv}
         handleDownload={handleDownload}
+        handleRefreshSmart={handleRefreshSmart}
         deleteAlbum={deleteAlbum}
         downloadPlaylist={downloadPlaylist}
       />
 
       {/* ── Song search panel ── */}
-      {searchOpen && (
+      {searchOpen && !tracksReadOnly && (
         <PlaylistSongSearchPanel
           query={searchQuery}
           setQuery={setSearchQuery}
@@ -386,6 +444,7 @@ export default function PlaylistDetail() {
           setSortKey={setSortKey}
           setSortDir={setSortDir}
           setSortClickCount={setSortClickCount}
+          canReorder={!tracksReadOnly}
         />
       )}
 
@@ -432,13 +491,14 @@ export default function PlaylistDetail() {
         handleRate={handleRate}
         handleToggleStar={handleToggleStar}
         handleRowMouseDown={handleRowMouseDown}
-        handleRowMouseEnter={handleRowMouseEnter}
+        handleRowMouseEnter={tracksReadOnly ? () => undefined : handleRowMouseEnter}
         removeSong={removeSong}
         setSearchOpen={setSearchOpen}
+        tracksReadOnly={tracksReadOnly}
       />
 
       {/* ── Suggestions ── */}
-      <PlaylistSuggestions
+      {!tracksReadOnly && <PlaylistSuggestions
         songs={songs}
         suggestions={suggestions}
         existingIds={existingIds}
@@ -457,7 +517,7 @@ export default function PlaylistDetail() {
         handleRate={handleRate}
         handleToggleStar={handleToggleStar}
         serverId={serverId || undefined}
-      />
+      />}
 
       {editingMeta && playlist && (
         <PlaylistEditModal

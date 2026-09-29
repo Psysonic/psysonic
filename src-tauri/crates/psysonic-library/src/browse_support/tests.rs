@@ -6,8 +6,9 @@ use crate::store::LibraryStore;
 
 use super::{
     apply_album_patch, catalog_year_bounds_for_server, genre_album_counts_for_server,
+    genre_album_counts_query, mood_album_counts_for_server, mood_album_counts_query,
     overlay_album_artist_links, overlay_album_level_starred_at, reconcile_album_stars,
-    StarredAlbumReconcileItem,
+    reconcile_artist_stars, StarredAlbumReconcileItem, StarredArtistReconcileItem,
 };
 use crate::dto::LibraryAlbumDto;
 
@@ -362,27 +363,127 @@ fn genre_album_counts_drop_genre_after_track_retag() {
 }
 
 #[test]
-fn genre_album_counts_ignore_orphan_track_genre_rows() {
+fn genre_album_counts_drop_deleted_tracks_through_ingest_projection() {
     let store = Arc::new(LibraryStore::open_in_memory());
     let mut live = make_row("s1", "live", "al1", 1);
     live.genre = Some("Rock".into());
     let mut stale = make_row("s1", "gone", "al_stale", 1);
     stale.genre = Some("ruspop".into());
     TrackRepository::new(&store)
-        .upsert_batch(&[live, stale])
+        .upsert_batch(&[live, stale.clone()])
         .unwrap();
-    store
-        .with_conn("test", |conn| {
-            conn.execute(
-                "UPDATE track SET deleted = 1 WHERE server_id = 's1' AND id = 'gone'",
-                [],
-            )
-        })
-        .unwrap();
+    stale.deleted = true;
+    TrackRepository::new(&store).upsert_batch(&[stale]).unwrap();
 
     let counts = genre_album_counts_for_server(&store, "s1", &[]).unwrap();
     assert_eq!(counts.len(), 1);
     assert_eq!(counts[0].value, "Rock");
+}
+
+#[test]
+fn genre_album_counts_query_reads_only_the_genre_projection() {
+    let store = LibraryStore::open_in_memory();
+    let (sql, params) = genre_album_counts_query("s1", &[]);
+    let plan = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                    row.get::<_, String>(3)
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .unwrap();
+
+    assert!(
+        plan.iter()
+            .any(|detail| detail.contains("idx_track_genre_browse")),
+        "query plan did not use the genre browse projection: {plan:?}"
+    );
+    assert!(
+        plan.iter()
+            .all(|detail| !detail.contains("sqlite_autoindex_track_1")
+                && !detail.contains("idx_track_server")),
+        "query plan unexpectedly joined the track table: {plan:?}"
+    );
+}
+
+#[test]
+fn mood_album_counts_group_distinct_albums_per_mood() {
+    let store = Arc::new(LibraryStore::open_in_memory());
+
+    let mut t1 = make_row("s1", "t1", "al_a", 1);
+    t1.raw_json = serde_json::json!({
+        "moods": ["Atmospheric", "Dreamy"]
+    })
+    .to_string();
+
+    let mut t2 = make_row("s1", "t2", "al_a", 2);
+    t2.raw_json = serde_json::json!({
+        "moods": ["Atmospheric"]
+    })
+    .to_string();
+
+    let mut t3 = make_row("s1", "t3", "al_b", 1);
+    t3.raw_json = serde_json::json!({
+        "moods": ["Atmospheric", "Nocturnal"]
+    })
+    .to_string();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[t1, t2, t3])
+        .unwrap();
+
+    let counts = mood_album_counts_for_server(&store, "s1", &[]).unwrap();
+
+    assert_eq!(counts.len(), 3);
+
+    assert_eq!(counts[0].value, "Atmospheric");
+    assert_eq!(counts[0].album_count, 2);
+    assert_eq!(counts[0].song_count, 3);
+
+    assert_eq!(counts[1].value, "Dreamy");
+    assert_eq!(counts[1].album_count, 1);
+    assert_eq!(counts[1].song_count, 1);
+
+    assert_eq!(counts[2].value, "Nocturnal");
+    assert_eq!(counts[2].album_count, 1);
+    assert_eq!(counts[2].song_count, 1);
+}
+
+#[test]
+fn mood_album_counts_query_reads_only_the_mood_projection() {
+    let store = LibraryStore::open_in_memory();
+
+    let (sql, params) = mood_album_counts_query("s1", &[]);
+
+    let plan = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
+
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                    row.get::<_, String>(3)
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+
+            Ok(rows)
+        })
+        .unwrap();
+
+    assert!(
+        plan.iter()
+            .any(|detail| { detail.contains("idx_track_mood_browse") }),
+        "query plan did not use the mood browse projection: {plan:?}"
+    );
+
+    assert!(
+        plan.iter().all(|detail| {
+            !detail.contains("sqlite_autoindex_track_1") && !detail.contains("idx_track_server")
+        }),
+        "query plan unexpectedly joined the track table: {plan:?}"
+    );
 }
 
 #[test]
@@ -405,6 +506,88 @@ fn reconcile_album_stars_clears_all_when_server_list_empty() {
                 "SELECT starred_at FROM album WHERE server_id = 's1' AND id = 'al1'",
                 [],
                 |r| r.get(0),
+            )
+        })
+        .unwrap();
+    assert!(starred_at.is_none());
+}
+
+#[test]
+fn reconcile_artist_stars_updates_only_known_rows_and_preserves_server_isolation() {
+    let store = Arc::new(LibraryStore::open_in_memory());
+    store
+        .with_conn("test.seed_artist_stars", |conn| {
+            conn.execute_batch(
+                "INSERT INTO artist (server_id, id, name, name_sort, starred_at, synced_at) VALUES
+                   ('s1', 'old', 'Old', 'old', 1, 1),
+                   ('s1', 'keep', 'Keep', 'keep', 2, 1),
+                   ('s1', 'new', 'New', 'new', NULL, 1),
+                   ('s2', 'old', 'Other Old', 'other old', 8, 1);",
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    reconcile_artist_stars(
+        &runtime(store.clone()),
+        "s1",
+        &[
+            StarredArtistReconcileItem {
+                id: "keep".into(),
+                starred_at: 20,
+            },
+            StarredArtistReconcileItem {
+                id: "new".into(),
+                starred_at: 30,
+            },
+            StarredArtistReconcileItem {
+                id: "unknown".into(),
+                starred_at: 40,
+            },
+        ],
+    )
+    .unwrap();
+
+    let rows: Vec<(String, String, Option<i64>)> = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn
+                .prepare("SELECT server_id, id, starred_at FROM artist ORDER BY server_id, id")?;
+            let rows = stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+            rows.collect()
+        })
+        .unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            ("s1".into(), "keep".into(), Some(20)),
+            ("s1".into(), "new".into(), Some(30)),
+            ("s1".into(), "old".into(), None),
+            ("s2".into(), "old".into(), Some(8)),
+        ]
+    );
+}
+
+#[test]
+fn reconcile_artist_stars_clears_server_when_list_is_empty() {
+    let store = Arc::new(LibraryStore::open_in_memory());
+    store
+        .with_conn("test.seed_artist_star", |conn| {
+            conn.execute(
+                "INSERT INTO artist (server_id, id, name, starred_at, synced_at) \
+                 VALUES ('s1', 'ar1', 'Artist', 5, 1)",
+                [],
+            )
+        })
+        .unwrap();
+
+    reconcile_artist_stars(&runtime(store.clone()), "s1", &[]).unwrap();
+
+    let starred_at: Option<i64> = store
+        .with_read_conn(|conn| {
+            conn.query_row(
+                "SELECT starred_at FROM artist WHERE server_id = 's1' AND id = 'ar1'",
+                [],
+                |row| row.get(0),
             )
         })
         .unwrap();
@@ -463,7 +646,10 @@ fn overlay_album_size_and_added_fills_totals_and_arrival_date() {
     assert_eq!(albums[0].duration_sec, Some(400));
     // The oldest track decides: the column reports when the album arrived, so a
     // later addition must not move the date forward.
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(1_000));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(1_000)
+    );
 }
 
 // A release from years back that gains one track today — a late rip, or a re-tag
@@ -486,7 +672,10 @@ fn overlay_album_size_and_added_keeps_the_arrival_date_when_a_track_lands_later(
         })
         .unwrap();
 
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(1_000));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(1_000)
+    );
 }
 
 // A row whose `raw_json` is neither absent nor an object carries a shape this
@@ -534,7 +723,10 @@ fn overlay_album_size_and_added_keeps_values_the_query_computed() {
 
     assert_eq!(albums[0].song_count, Some(1));
     assert_eq!(albums[0].duration_sec, Some(200));
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(42));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(42)
+    );
 }
 
 #[test]
@@ -552,7 +744,10 @@ fn overlay_album_size_and_added_keeps_other_raw_json_fields() {
         })
         .unwrap();
 
-    assert_eq!(albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()), Some(7_000));
+    assert_eq!(
+        albums[0].raw_json.get("createdMs").and_then(|v| v.as_i64()),
+        Some(7_000)
+    );
     assert!(albums[0].raw_json.get("releaseTypes").is_some());
 }
 

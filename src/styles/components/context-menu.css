@@ -28,6 +28,20 @@
   color: var(--menu-item-active-text);
 }
 
+/* An item that is present but cannot act right now — "Add to CD" while a burn
+   is running, and the orbit-muted entries that have used this class all along.
+   It carried no rule until now, so a disabled item was pixel-identical to a live
+   one and a click on it simply did nothing: the least explicable failure a menu
+   can offer. The hover override has to come after `:hover` above to win, and the
+   cursor is the part people actually read. */
+.context-menu-item.is-disabled,
+.context-menu-item.is-disabled:hover {
+  opacity: 0.45;
+  cursor: not-allowed;
+  background: transparent;
+  color: inherit;
+}
+
 .context-menu-item.context-menu-keyboard-active,
 .context-menu-rating-row.context-menu-keyboard-active {
   background: var(--menu-item-hover);
@@ -97,5 +111,13 @@
   justify-content: center;
   min-width: 1em;
   min-height: 1em;
+}
+
+/* Caption above a multi-selection menu ("N tracks selected"). */
+.context-menu-header {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
 }
 

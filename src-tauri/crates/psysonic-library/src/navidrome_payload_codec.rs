@@ -168,7 +168,10 @@ fn rewrite_track(value: &mut Value) {
         }
     }
 
-    if let Some(participants) = object.get_mut("participants").and_then(Value::as_object_mut) {
+    if let Some(participants) = object
+        .get_mut("participants")
+        .and_then(Value::as_object_mut)
+    {
         for entries in participants.values_mut().filter_map(Value::as_array_mut) {
             for entry in entries {
                 let Some(entry) = entry.as_object_mut() else {
@@ -234,9 +237,7 @@ fn reject_unknown_transformable_values(
                 return Ok(());
             }
             if canonical_id(text) != *text || canonical_artwork_id(text) != *text {
-                return Err(format!(
-                    "unclassified transformable Navidrome ID at {path}"
-                ));
+                return Err(format!("unclassified transformable Navidrome ID at {path}"));
             }
         }
         _ => {}
@@ -347,9 +348,11 @@ mod tests {
     #[test]
     fn blocks_unknown_transformable_paths_and_malformed_payloads() {
         let unknown = serde_json::json!({ "futureOwner": { "id": LEGACY_TRACK } }).to_string();
-        assert!(canonical_payload(Some(&unknown), NavidromePayloadKind::Track)
-            .unwrap_err()
-            .contains("futureOwner.id"));
+        assert!(
+            canonical_payload(Some(&unknown), NavidromePayloadKind::Track)
+                .unwrap_err()
+                .contains("futureOwner.id")
+        );
         assert!(canonical_payload(Some("{"), NavidromePayloadKind::Track).is_err());
         assert!(canonical_payload(Some("[]"), NavidromePayloadKind::Track).is_err());
     }

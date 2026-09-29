@@ -18,6 +18,9 @@ export const visualizer = {
     enableNowPlayingHint: 'Legger visualiseringen til som et kort på Spilles nå-siden.',
     enableFullscreen: 'Vis i fullskjermspilleren',
     enableFullscreenHint: 'Legger visualiseringen til i alle stilene for fullskjermspilleren.',
+    pauseWhenUnfocused: 'Sett på pause når Psysonic ikke er aktivt',
+    pauseWhenUnfocusedHint:
+      'Stopper tegning av visualiseringen mens et annet vindu er aktivt, for å redusere CPU- og GPU-bruk.',
     mode: 'Standardmodus',
     sensitivity: 'Følsomhet',
     sensitivityHint: 'Løfter stille partier uten å klippe de sterke.',
@@ -35,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Lavere verdier bruker mindre prosessor. Animasjonen forblir jevn.',
     radioNote:
       'Nettradio kan visualiseres etter at stasjonen er koblet til equalizerens lydgraf. Enkelte strømmer støtter ikke denne ruten.',
+    preview: 'Forhåndsvisning',
+    previewDemo: 'Viser et demosignal så lenge ingenting spilles av.',
+    previewLive: 'Viser avspillingen som pågår.',
   },
 };

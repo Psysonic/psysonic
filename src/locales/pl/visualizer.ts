@@ -18,6 +18,9 @@ export const visualizer = {
     enableNowPlayingHint: 'Dodaje wizualizator jako kartę na stronie Teraz odtwarzane.',
     enableFullscreen: 'Pokaż w odtwarzaczu pełnoekranowym',
     enableFullscreenHint: 'Dodaje wizualizator do wszystkich stylów odtwarzacza pełnoekranowego.',
+    pauseWhenUnfocused: 'Wstrzymaj, gdy Psysonic nie jest aktywny',
+    pauseWhenUnfocusedHint:
+      'Zatrzymuje renderowanie wizualizatora, gdy aktywne jest inne okno, aby zmniejszyć użycie procesora i GPU.',
     mode: 'Tryb domyślny',
     sensitivity: 'Czułość',
     sensitivityHint: 'Wzmacnia ciche fragmenty bez obcinania głośnych.',
@@ -35,5 +38,8 @@ export const visualizer = {
     frameRateHint: 'Niższe wartości zużywają mniej procesora, zachowując płynną animację.',
     radioNote:
       'Radio internetowe można wizualizować po połączeniu stacji z grafem audio korektora. Niektóre strumienie nie obsługują tej ścieżki.',
+    preview: 'Podgląd',
+    previewDemo: 'Pokazuje sygnał demonstracyjny, dopóki nic nie jest odtwarzane.',
+    previewLive: 'Pokazuje bieżące odtwarzanie.',
   },
 };

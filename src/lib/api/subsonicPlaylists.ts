@@ -3,8 +3,12 @@ import { useAuthStore } from '@/store/authStore';
 import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGuard';
 import { api, apiForServer } from '@/lib/api/subsonicClient';
 import type { SubsonicPlaylist, SubsonicSong } from '@/lib/api/subsonicTypes';
+import { ndListPlaylists, type NdSmartPlaylist } from '@/lib/api/navidromeSmart';
 import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
 import { connectBaseUrlForServer } from '@/lib/server/serverEndpoint';
+import { isNavidromeServer } from '@/lib/server/subsonicServerIdentity';
+import { hasNavidromeSmartRules } from '@/lib/format/playlistClassification';
+import { frontendDebugLog } from '@/lib/api/debugLog';
 
 /** Max song-id params per Subsonic GET call (auth + ~8 KiB URL ceiling). */
 export const PLAYLIST_SONG_ID_GET_BATCH = 150;
@@ -59,6 +63,49 @@ function callPlaylistApi<T>(
   return serverId ? apiForServer<T>(serverId, endpoint, params) : api<T>(endpoint, params);
 }
 
+export function applyNativePlaylistSmartMetadata(
+  playlists: readonly SubsonicPlaylist[],
+  nativePlaylists: readonly Pick<NdSmartPlaylist, 'id' | 'rules'>[],
+): SubsonicPlaylist[] {
+  const nativeById = new Map(nativePlaylists.map(playlist => [playlist.id, playlist]));
+  return playlists.map(playlist => {
+    const native = nativeById.get(playlist.id);
+    if (!native) return { ...playlist, smartMetadataUnavailable: true };
+    return {
+      ...playlist,
+      smart: hasNavidromeSmartRules(native.rules),
+      smartMetadataUnavailable: false,
+      smartRules: native.rules,
+    };
+  });
+}
+
+function shouldFetchNativePlaylistMetadata(serverId: string | undefined): boolean {
+  const auth = useAuthStore.getState();
+  const server = serverId ? findServerByIdOrIndexKey(serverId) : auth.getActiveServer();
+  return Boolean(server && isNavidromeServer(auth.subsonicServerIdentityByServer[server.id]));
+}
+
+async function addNativePlaylistSmartMetadata(
+  playlists: SubsonicPlaylist[],
+  serverId: string | undefined,
+): Promise<SubsonicPlaylist[]> {
+  if (!shouldFetchNativePlaylistMetadata(serverId)) return playlists;
+  try {
+    const classified = applyNativePlaylistSmartMetadata(playlists, await ndListPlaylists(serverId));
+    const missing = classified.filter(playlist => playlist.smartMetadataUnavailable).length;
+    if (missing > 0) {
+      frontendDebugLog('playlists', `native playlist list is missing ${missing} of ${classified.length} playlists`);
+    }
+    return classified;
+  } catch (err) {
+    // Every playlist falls back to the Subsonic `readonly` flag now; the reason the native
+    // lookup failed is otherwise invisible, and it is the only lead on why it fails.
+    frontendDebugLog('playlists', `native playlist metadata unavailable: ${err instanceof Error ? err.message : String(err)}`);
+    return playlists.map(playlist => ({ ...playlist, smartMetadataUnavailable: true }));
+  }
+}
+
 async function clearPlaylistSongs(id: string, prevCount: number, serverId?: string): Promise<void> {
   for (const indices of chunkIndicesForSubsonicGet(prevCount)) {
     await callPlaylistApi(serverId, 'updatePlaylist.view', { playlistId: id, songIndexToRemove: indices });
@@ -72,7 +119,8 @@ export async function getPlaylists(includeOrbit = false): Promise<SubsonicPlayli
   // so guests can reach them, which means they leak into every UI picker and
   // even into the Navidrome web client. Filter them out of every UI call;
   // orbit's own sweep passes `includeOrbit=true`.
-  return includeOrbit ? all : all.filter(p => !p.name.startsWith('__psyorbit_'));
+  const visible = includeOrbit ? all : all.filter(p => !p.name.startsWith('__psyorbit_'));
+  return addNativePlaylistSmartMetadata(visible, useAuthStore.getState().activeServerId ?? undefined);
 }
 
 export async function getPlaylistsForServer(
@@ -87,7 +135,10 @@ export async function getPlaylistsForServer(
   );
   const all = data.playlists?.playlist ?? [];
   const visible = includeOrbit ? all : all.filter(p => !p.name.startsWith('__psyorbit_'));
-  return visible.map(playlist => ({ ...playlist, serverId }));
+  return addNativePlaylistSmartMetadata(
+    visible.map(playlist => ({ ...playlist, serverId })),
+    serverId,
+  );
 }
 
 export interface PlaylistsForServersResult {

@@ -19,10 +19,22 @@ fn trusted_prefix_distinguishes_original_from_transcoded_capture() {
 }
 
 #[test]
-fn raw_original_fetch_requires_work_outside_the_same_revision_cpu_pipeline() {
+fn trusted_original_fetch_requires_work_outside_the_same_revision_cpu_pipeline() {
     assert!(should_fetch_trusted_original(false, true));
     assert!(!should_fetch_trusted_original(true, true));
     assert!(!should_fetch_trusted_original(false, false));
+}
+
+#[test]
+fn local_analysis_requires_positive_original_provenance() {
+    let local = "psysonic-local:///cache/t1.flac";
+    assert!(source_analysis_allowed(local, Some(true)));
+    assert!(!source_analysis_allowed(local, Some(false)));
+    assert!(!source_analysis_allowed(local, None));
+    assert!(source_analysis_allowed(
+        "https://example.test/rest/stream.view?id=t1",
+        None,
+    ));
 }
 
 #[test]
@@ -45,7 +57,7 @@ fn stream_spill_above_the_ram_capture_cap_remains_eligible_for_analysis() {
 }
 
 #[test]
-fn spill_analysis_keeps_raw_http_refetch_at_the_ram_cap() {
+fn spill_analysis_keeps_trusted_http_refetch_at_the_ram_cap() {
     assert_eq!(
         max_http_fetch_bytes_for_dispatch(),
         TRACK_STREAM_PROMOTE_MAX_BYTES

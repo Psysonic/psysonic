@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { isTilingWmCmd } from '@/lib/api/platformShell';
-import { LayoutGrid, Maximize2, Palette, Sliders, Type, ZoomIn } from 'lucide-react';
+import { LayoutGrid, Palette, Sliders, Type, ZoomIn } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import {
   LIBRARY_GRID_MAX_COLUMNS_MAX,
@@ -22,6 +23,7 @@ import { VisualizerSection } from '@/features/settings/components/VisualizerSect
 
 export function AppearanceTab() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const auth = useAuthStore();
   const theme = useThemeStore();
   const fontStore = useFontStore();
@@ -160,6 +162,17 @@ export function AppearanceTab() {
                   desc={t('settings.preloadMiniPlayerDesc')}
                   checked={auth.preloadMiniPlayer}
                   onChange={auth.setPreloadMiniPlayer}
+                />
+              </>
+            )}
+            {IS_WINDOWS && (
+              <>
+                <div className="settings-section-divider" />
+                <SettingsToggle
+                  label={t('settings.miniPlayerCustomTitlebar')}
+                  desc={t('settings.miniPlayerCustomTitlebarDesc')}
+                  checked={auth.miniPlayerCustomTitlebar}
+                  onChange={auth.setMiniPlayerCustomTitlebar}
                 />
               </>
             )}
@@ -312,6 +325,24 @@ export function AppearanceTab() {
                 ariaLabel={t('settings.fullscreenPlayerStyle')}
               />
             </SettingsField>
+            {/* The artist photo behind every style is governed by the per-surface
+                backdrop switch, which lives on another tab — people look for it
+                here and conclude the photo can only be turned off in the
+                immersive style, where a second toggle happens to sit. A plain
+                description line sits too quietly between two full-width
+                controls, so this one carries the tab's info styling. */}
+            <div className="settings-hint settings-hint-info settings-hint-action">
+              <span>{t('settings.fsBackdropPointerDesc')}</span>
+              <button
+                type="button"
+                className="btn btn-sm btn-surface"
+                onClick={() => navigate('/settings', {
+                  state: { tab: 'integrations', focus: t('settings.backdropSourcesTitle') },
+                })}
+              >
+                {t('settings.fsBackdropPointerAction')}
+              </button>
+            </div>
           </SettingsGroup>
           {auth.fullscreenPlayerStyle === 'immersive' && (
             <SettingsGroup>
@@ -362,34 +393,6 @@ export function AppearanceTab() {
                       selected={auth.seekbarStyle === style}
                       onClick={() => auth.setSeekbarStyle(style)}
                     />
-                  ))}
-                </div>
-              </SettingsField>
-            </SettingsSubCard>
-          </SettingsGroup>
-        </div>
-      </SettingsSubSection>
-
-      <SettingsSubSection
-        title={t('settings.buttonSizeTitle')}
-        icon={<Maximize2 size={16} />}
-      >
-        <div className="settings-card">
-          <SettingsGroup>
-            <SettingsSubCard>
-              <SettingsField
-                label={t('settings.buttonSizeLabel')}
-                desc={t('settings.buttonSizeDesc')}
-              >
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {(['large', 'small'] as const).map(size => (
-                    <button
-                      key={size}
-                      className={`btn ${theme.buttonSize === size ? 'btn-primary' : 'btn-ghost'}`}
-                      onClick={() => theme.setButtonSize(size)}
-                    >
-                      {t(`settings.buttonSize_${size}`)}
-                    </button>
                   ))}
                 </div>
               </SettingsField>

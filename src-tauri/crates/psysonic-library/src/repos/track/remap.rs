@@ -2,7 +2,7 @@ use rusqlite::{params, OptionalExtension};
 
 use super::ingest::{
     invalidate_album_list_completion, normalize_sparse_album_version_provenance,
-    sync_persisted_track_genre_rows, UPSERT_SQL,
+    sync_persisted_track_tag_rows, UPSERT_SQL,
 };
 use super::retarget::retarget_track_references;
 use super::{RemapEntry, RemapStats, TrackRepository, TrackRow};
@@ -11,7 +11,7 @@ impl TrackRepository<'_> {
     /// Batch upsert with optional §6.9 id-remap detection. When
     /// `unstable_track_ids` is `true`, each incoming row is checked
     /// against the existing `track` table for a collision via
-    /// `content_hash` or `server_path` carrying a different id. On
+    /// `content_hash` or library-scoped `server_path` carrying a different id. On
     /// collision, child tables (`track_offline` and the FK-bound
     /// extension / fact / artifact / canonical_link tables) are
     /// retargeted onto the new id, a `track_id_history` row is
@@ -222,7 +222,7 @@ impl TrackRepository<'_> {
                     }
                     invalidate_album_list_completion(&tx, rows)?;
                 }
-                sync_persisted_track_genre_rows(&tx, rows)?;
+                sync_persisted_track_tag_rows(&tx, rows)?;
                 crate::identity::record_tracks(
                     &tx,
                     rows.iter()
@@ -382,6 +382,7 @@ SELECT id FROM track
    AND server_path != ''
    AND server_path = ?2
    AND id != ?3
+   AND COALESCE(NULLIF(library_id, ''), '') = COALESCE(NULLIF(?4, ''), '')
  LIMIT 1
 "#;
 
@@ -412,9 +413,10 @@ fn detect_remap_target_cached(
 
     if let Some(path) = path {
         let old = by_path
-            .query_row(params![incoming.server_id, path, incoming.id], |row| {
-                row.get::<_, String>(0)
-            })
+            .query_row(
+                params![incoming.server_id, path, incoming.id, incoming.library_id],
+                |row| row.get::<_, String>(0),
+            )
             .optional()?;
         if old.is_some() {
             return Ok(old);

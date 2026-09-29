@@ -176,6 +176,7 @@ export async function audioPreload(args: {
   durationHint: number | null;
   analysisTrackId: string | null;
   serverId: string | null;
+  localOriginalVerified: boolean | null;
   eager?: boolean | null;
 }): Promise<void> {
   const res = await commands.audioPreload(
@@ -183,6 +184,7 @@ export async function audioPreload(args: {
     args.durationHint,
     args.analysisTrackId,
     args.serverId,
+    args.localOriginalVerified,
     args.eager ?? null,
   );
   if (res.status === 'error') throw new Error(res.error);

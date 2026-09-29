@@ -1,6 +1,7 @@
 import { api, apiForServer } from '@/lib/api/subsonicClient';
 import type { PlaybackReportState, SubsonicNowPlaying } from '@/lib/api/subsonicTypes';
 import { libraryPatchReachesIndex, patchLibraryTrackOnUse } from '@/lib/library/patchOnUse';
+import type { TrackPlayStats } from '@/lib/media/trackPlayStats';
 import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGuard';
 
 /**
@@ -78,8 +79,17 @@ async function readServerPlayStats(
   }
 }
 
-export async function scrobbleSong(id: string, time: number, serverId: string): Promise<void> {
-  if (!serverId) return;
+/**
+ * Submit one play. Resolves with the server's own play statistics when it was
+ * asked for them, so the caller can show the new tally on rows that are already
+ * on screen; `null` whenever nothing fresh was read.
+ */
+export async function scrobbleSong(
+  id: string,
+  time: number,
+  serverId: string,
+): Promise<TrackPlayStats | null> {
+  if (!serverId) return null;
   let reachedServer = false;
   try {
     reachedServer = await scrobbleOnServer(serverId, id, true, time);
@@ -106,17 +116,17 @@ export async function scrobbleSong(id: string, time: number, serverId: string): 
   // server tally untouched, and re-reading it would just rewrite the value the
   // row already has. And only when there is an index to write it to — otherwise
   // the request is paid for and handed to a patch that returns immediately.
-  if (!reachedServer || !libraryPatchReachesIndex(serverId)) return;
+  if (!reachedServer || !libraryPatchReachesIndex(serverId)) return null;
 
   const generation = beginStatsRefresh(serverId, id);
   const refreshed = await readServerPlayStats(serverId, id);
-  if (refreshed?.playCount == null) return;
+  if (refreshed?.playCount == null) return null;
   // Two plays of the same track in quick succession each read the count back,
   // and the responses can land out of order — the older one would then write a
   // smaller total over the newer. Nothing in the row can tell the two apart,
   // because both are legitimate server values; only the order they were asked
   // in can, and that is what this holds.
-  if (!isNewestStatsRefresh(serverId, id, generation)) return;
+  if (!isNewestStatsRefresh(serverId, id, generation)) return null;
 
   const playedAt = refreshed.played != null ? Date.parse(refreshed.played) : NaN;
   patchLibraryTrackOnUse(serverId, id, {
@@ -125,6 +135,10 @@ export async function scrobbleSong(id: string, time: number, serverId: string): 
     // to the local time written above rather than clearing it.
     ...(Number.isFinite(playedAt) ? { playedAt } : {}),
   });
+  return {
+    playCount: refreshed.playCount,
+    ...(Number.isFinite(playedAt) ? { played: refreshed.played } : {}),
+  };
 }
 
 export async function reportNowPlaying(id: string, serverId: string): Promise<void> {

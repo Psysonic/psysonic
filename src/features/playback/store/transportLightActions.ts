@@ -8,7 +8,7 @@ import { playbackReportPaused, playbackReportStopped } from '@/features/playback
 import { pauseRadio, stopRadio } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
-import { clearSeekFallbackRetry } from '@/features/playback/store/seekFallbackState';
+import { resetSeekStateForPlaybackChange } from '@/features/playback/store/seekFallbackState';
 import { clearSeekTarget } from '@/features/playback/store/seekTargetState';
 import { tryAcquireTogglePlayLock } from '@/features/playback/store/togglePlayLock';
 import { refreshWaveformForTrack } from '@/features/playback/store/waveformRefresh';
@@ -49,7 +49,7 @@ export function createTransportLightActions(set: SetState, get: GetState): Pick<
         audioStop().catch(console.error);
       }
       setIsAudioPaused(false);
-      clearSeekFallbackRetry();
+      resetSeekStateForPlaybackChange();
       clearSeekDebounce(); clearSeekTarget();
       // Stop keeps `currentTrack` (the bar still shows the stopped song), so its
       // waveform stays valid. Radio has no analysis waveform — drop the bins.

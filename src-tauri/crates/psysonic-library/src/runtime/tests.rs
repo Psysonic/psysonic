@@ -342,7 +342,9 @@ async fn migration_generation_blocks_ordinary_store_writes_but_allows_matching_s
         runtime
             .store
             .with_conn("test.count_after_release", |conn| {
-                conn.query_row("SELECT COUNT(*) FROM artist", [], |row| row.get::<_, i64>(0))
+                conn.query_row("SELECT COUNT(*) FROM artist", [], |row| {
+                    row.get::<_, i64>(0)
+                })
             })
             .unwrap(),
         1

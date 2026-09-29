@@ -30,6 +30,11 @@ export async function setMiniPlayerAlwaysOnTop(args: { onTop: boolean }): Promis
   if (res.status === 'error') throw new Error(res.error);
 }
 
+export async function setMiniPlayerDecorations(args: { decorations: boolean }): Promise<void> {
+  const res = await commands.setMiniPlayerDecorations(args.decorations);
+  if (res.status === 'error') throw new Error(res.error);
+}
+
 export async function resizeMiniPlayer(args: {
   width: number | null;
   height: number | null;

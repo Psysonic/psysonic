@@ -1,11 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListPlus, Play, SlidersHorizontal, X } from 'lucide-react';
+import { ListPlus, Play, Shuffle, SlidersHorizontal, X } from 'lucide-react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
+import { shuffleArray } from '@/lib/util/shuffleArray';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useSelectionStore } from '@/store/selectionStore';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
+import { BulkTrackRating } from '@/features/playback';
+import { offlineActionPolicy, useOfflineBrowseContext } from '@/features/offline';
 import GenreFilterBar from '@/ui/GenreFilterBar';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { useAuthStore } from '@/store/authStore';
@@ -13,6 +16,7 @@ import { useAuthStore } from '@/store/authStore';
 interface Props {
   visibleSongs: SubsonicSong[];
   songs: SubsonicSong[];
+  titleCount?: number;
   selectedArtist: string | null;
   selectedArtistName: string | null;
   setSelectedArtist: React.Dispatch<React.SetStateAction<string | null>>;
@@ -34,17 +38,22 @@ interface Props {
   selectedIds: ReadonlySet<string>;
   showPlPicker: boolean;
   setShowPlPicker: React.Dispatch<React.SetStateAction<boolean>>;
+  ratings: Record<string, number>;
+  onRate: (song: SubsonicSong, rating: number) => void;
 }
 
 export default function FavoritesSongsSectionHeader({
-  visibleSongs, songs, selectedArtist, selectedArtistName, setSelectedArtist,
+  visibleSongs, songs, titleCount, selectedArtist, selectedArtistName, setSelectedArtist,
   selectedGenres, setSelectedGenres, yearRange, setYearRange,
   showFilters, setShowFilters, setSortKey, setSortClickCount,
   playTrack, enqueue, starredOverrides, minYear, currentYear,
   inSelectMode, selectedCount, selectedIds, showPlPicker, setShowPlPicker,
+  ratings, onRate,
 }: Props) {
   const { t } = useTranslation();
   const activeServerId = useAuthStore(s => s.activeServerId);
+  const { active: offlineBrowseActive } = useOfflineBrowseContext();
+  const policy = offlineActionPolicy('trackRow', offlineBrowseActive);
 
   const targetSongs = useMemo(() => {
     if (!inSelectMode) return visibleSongs;
@@ -63,7 +72,9 @@ export default function FavoritesSongsSectionHeader({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '0.75rem' }}>
       {/* Title Row with showing X of Y indicator */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-        <h2 className="section-title" style={{ margin: 0 }}>{t('favorites.songs')}</h2>
+        <h2 className="section-title" style={{ margin: 0 }}>
+          {t('favorites.songs')}{titleCount == null ? '' : ` (${titleCount})`}
+        </h2>
         {(selectedArtist || selectedGenres.length > 0 || yearRange[0] !== minYear || yearRange[1] !== currentYear) && (
           <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
             {selectedArtist
@@ -88,6 +99,20 @@ export default function FavoritesSongsSectionHeader({
         >
           <Play size={15} />
           <span className="compact-btn-label">{inSelectMode ? t('favorites.playSelected') : t('favorites.playAll')}</span>
+        </button>
+        <button
+          className="btn btn-surface"
+          disabled={targetSongs.length === 0}
+          aria-label={inSelectMode ? t('favorites.shuffleSelected') : t('favorites.shuffleAll')}
+          data-tooltip={inSelectMode ? t('favorites.shuffleSelected') : t('favorites.shuffleAll')}
+          onClick={() => {
+            if (targetSongs.length === 0) return;
+            const tracks = shuffleArray(targetSongs.map(songToTrack));
+            playTrack(tracks[0], tracks);
+          }}
+        >
+          <Shuffle size={15} />
+          <span className="compact-btn-label">{inSelectMode ? t('favorites.shuffleSelected') : t('favorites.shuffleAll')}</span>
         </button>
         <button
           className="btn btn-surface"
@@ -140,6 +165,9 @@ export default function FavoritesSongsSectionHeader({
             <span className="bulk-action-count">
               {t('common.bulkSelected', { count: selectedCount })}
             </span>
+            {policy.canRate && (
+              <BulkTrackRating tracks={targetSongs} ratings={ratings} onRate={onRate} />
+            )}
             {playlistSourceServerId && <div className="bulk-pl-picker-wrap">
               <button
                 className="btn btn-surface btn-sm"

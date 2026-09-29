@@ -5,7 +5,12 @@ pub use psysonic_core::cover_cache_layout;
 pub const DERIVE_TIERS: [u32; 4] = [128, 256, 512, 800];
 
 /// Delegates to [`cover_cache_layout::cover_dir`] — disk path format lives in `psysonic-core`.
-pub fn cover_dir(root: &Path, server_index_key: &str, cache_kind: &str, cache_entity_id: &str) -> PathBuf {
+pub fn cover_dir(
+    root: &Path,
+    server_index_key: &str,
+    cache_kind: &str,
+    cache_entity_id: &str,
+) -> PathBuf {
     cover_cache_layout::cover_dir(root, server_index_key, cache_kind, cache_entity_id)
 }
 
@@ -36,7 +41,25 @@ pub fn meta_path(dir: &Path) -> PathBuf {
 
 pub fn tier_exists(dir: &Path, tier: u32) -> Option<PathBuf> {
     let p = tier_path(dir, tier);
-    if p.is_file() { Some(p) } else { None }
+    if p.is_file() {
+        Some(p)
+    } else {
+        None
+    }
+}
+
+/// Version stamp for a tier file: mtime in epoch seconds, `0` when the file is
+/// unreadable. The webview appends it to the asset URL (`?v=`) so a tier that
+/// was overwritten IN PLACE (chain art replacing backfill vinyl) gets a fresh
+/// URL — otherwise the webview image cache keeps serving the old bytes for the
+/// unchanged path, which was the observed queue/playbar vinyl flash.
+pub(super) fn tier_version(path: &Path) -> u64 {
+    std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 /// Write missing WebP tiers up to `max_tier` (used by library bulk backfill).

@@ -266,7 +266,7 @@ mod tests {
         let mut s = PollStats::default();
         s.set_artist_count(1000);
         s.observe(50_000, 9_000); // 3× the 3000ms target
-        // 5 min * 3 (load_factor) = 15 min.
+                                  // 5 min * 3 (load_factor) = 15 min.
         let ms = next_interval_ms(&s);
         assert!(
             (14 * 60_000..=16 * 60_000).contains(&ms),

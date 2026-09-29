@@ -1,12 +1,19 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  AlertCircle, FolderOpen, HardDriveUpload, RefreshCw, Usb,
+  AlertCircle, Folder, FolderOpen, HardDriveUpload, RefreshCw, Usb,
 } from 'lucide-react';
 import CustomSelect from '@/ui/CustomSelect';
 import type { RemovableDrive } from '@/features/deviceSync/utils/deviceSyncHelpers';
 import { formatBytes } from '@/features/deviceSync/utils/deviceSyncHelpers';
-import type { DeviceSyncSource } from '@/features/deviceSync/store/deviceSyncStore';
+import {
+  DEVICE_SYNC_TRANSCODE_BITRATES,
+  type DeviceSyncLayoutMode,
+  type DeviceSyncPlaylistPathMode,
+  type DeviceSyncSource,
+  type DeviceSyncTranscode,
+  type DeviceSyncTranscodeFormat,
+} from '@/features/deviceSync/store/deviceSyncStore';
 
 interface Props {
   targetDir: string | null;
@@ -19,13 +26,46 @@ interface Props {
   scanDevice: () => Promise<void>;
   handleChooseFolder: () => Promise<void>;
   startMigrationPreview: () => Promise<void>;
+  layoutMode: DeviceSyncLayoutMode;
+  playlistPathMode: DeviceSyncPlaylistPathMode;
+  setLayoutMode: (mode: DeviceSyncLayoutMode) => void;
+  setPlaylistPathMode: (mode: DeviceSyncPlaylistPathMode) => void;
+  transcode: DeviceSyncTranscode;
+  setTranscode: (transcode: DeviceSyncTranscode) => void;
+  targetIsLocal: boolean;
+  isRunning: boolean;
+}
+
+const TRANSCODE_FORMAT_LABEL_KEYS: Record<DeviceSyncTranscodeFormat, string> = {
+  original: 'deviceSync.transcodeOriginal',
+  mp3: 'deviceSync.transcodeMp3',
+  aac: 'deviceSync.transcodeAac',
+  opus: 'deviceSync.transcodeOpus',
+};
+
+function folderName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path;
 }
 
 export default function DeviceSyncHeader({
   targetDir, setTargetDir, sources, drives, drivesLoading, activeDrive,
   refreshDrives, scanDevice, handleChooseFolder, startMigrationPreview,
+  layoutMode, playlistPathMode, setLayoutMode, setPlaylistPathMode,
+  transcode, setTranscode, targetIsLocal, isRunning,
 }: Props) {
   const { t } = useTranslation();
+  // Self-contained playlists sit next to their files, so only absolute paths
+  // change anything there.
+  const pathStyleOptions = [
+    { value: 'playlist-relative', label: t('deviceSync.playlistPathRelative') },
+    ...(layoutMode !== 'self-contained' || playlistPathMode === 'device-rooted'
+      ? [{ value: 'device-rooted', label: t('deviceSync.playlistPathRooted') }]
+      : []),
+    { value: 'absolute', label: t('deviceSync.playlistPathAbsolute') },
+  ];
+  const localTargetOption = targetIsLocal && targetDir
+    ? [{ value: targetDir, label: `${t('deviceSync.localTargetBadge')}: ${folderName(targetDir)}` }]
+    : [];
 
   return (
     <div className="device-sync-header">
@@ -40,17 +80,91 @@ export default function DeviceSyncHeader({
         <div className="device-sync-schema-section">
           <span className="device-sync-label-inline">{t('deviceSync.schemaLabel', { defaultValue: 'Naming scheme' })}</span>
           <code className="device-sync-schema-code">
-            {'{AlbumArtist}/{Album}/{TrackNum} - {Title}.{ext}'}
+            {layoutMode === 'flat'
+              ? '{AlbumArtist} - {Album} - {TrackNum} - {Title}.{ext}'
+              : '{AlbumArtist}/{Album}/{TrackNum} - {Title}.{ext}'}
           </code>
           <span className="device-sync-schema-hint">
-            {t('deviceSync.schemaHint', {
-              defaultValue: 'Fixed scheme for reliable cross-OS sync. Playlists are written as .m3u8 that reference the album tracks — no duplicates on the device.',
-            })}
+            {layoutMode === 'flat'
+              ? t('deviceSync.flatLayoutHint')
+              : layoutMode === 'shared-album-tree'
+                ? t('deviceSync.sharedLayoutHint')
+                : t('deviceSync.selfContainedLayoutHint')}
           </span>
+          <div className="device-sync-playlist-options">
+            <label>
+              <span className="device-sync-label-inline">{t('deviceSync.layout')}</span>
+              <CustomSelect
+                className="input device-sync-layout-select"
+                value={layoutMode}
+                onChange={value => setLayoutMode(value as DeviceSyncLayoutMode)}
+                disabled={isRunning}
+                ariaLabel={t('deviceSync.layout')}
+                options={[
+                  { value: 'self-contained', label: t('deviceSync.playlistStorageSelfContained') },
+                  { value: 'shared-album-tree', label: t('deviceSync.playlistStorageShared') },
+                  { value: 'flat', label: t('deviceSync.layoutFlat') },
+                ]}
+              />
+            </label>
+            <label>
+              <span className="device-sync-label-inline">{t('deviceSync.playlistPathStyle')}</span>
+              <CustomSelect
+                className="input device-sync-layout-select"
+                value={playlistPathMode}
+                onChange={value => setPlaylistPathMode(value as DeviceSyncPlaylistPathMode)}
+                disabled={isRunning}
+                ariaLabel={t('deviceSync.playlistPathStyle')}
+                options={pathStyleOptions}
+              />
+            </label>
+            <label>
+              <span className="device-sync-label-inline">{t('deviceSync.transcodeFormat')}</span>
+              <CustomSelect
+                className="input device-sync-layout-select"
+                value={transcode.format}
+                onChange={value => setTranscode({ ...transcode, format: value as DeviceSyncTranscodeFormat })}
+                disabled={isRunning}
+                ariaLabel={t('deviceSync.transcodeFormat')}
+                options={(Object.keys(TRANSCODE_FORMAT_LABEL_KEYS) as DeviceSyncTranscodeFormat[]).map(format => ({
+                  value: format,
+                  label: t(TRANSCODE_FORMAT_LABEL_KEYS[format]),
+                }))}
+              />
+            </label>
+            {transcode.format !== 'original' && (
+              <label>
+                <span className="device-sync-label-inline">{t('deviceSync.transcodeBitrate')}</span>
+                <CustomSelect
+                  className="input device-sync-layout-select"
+                  value={String(transcode.maxBitRateKbps)}
+                  onChange={value => setTranscode({ ...transcode, maxBitRateKbps: Number(value) })}
+                  disabled={isRunning}
+                  ariaLabel={t('deviceSync.transcodeBitrate')}
+                  options={DEVICE_SYNC_TRANSCODE_BITRATES.map(kbps => ({
+                    value: String(kbps),
+                    label: kbps === 0
+                      ? t('deviceSync.transcodeBitrateServer')
+                      : t('deviceSync.transcodeBitrateValue', { kbps }),
+                  }))}
+                />
+              </label>
+            )}
+          </div>
+          {playlistPathMode === 'absolute' && (
+            <span className="device-sync-schema-hint">{t('deviceSync.playlistPathAbsoluteHint')}</span>
+          )}
+          {transcode.format !== 'original' && (
+            <span className="device-sync-schema-hint">{t('deviceSync.transcodeHint')}</span>
+          )}
+          {targetIsLocal && (
+            <span className="device-sync-schema-hint">{t('deviceSync.localTargetHint')}</span>
+          )}
           {targetDir && sources.length > 0 && (
             <button
               className="btn btn-ghost device-sync-migrate-btn"
               onClick={startMigrationPreview}
+              disabled={isRunning}
               data-tooltip={t('deviceSync.migrateTooltip', {
                 defaultValue: 'Rename existing files on the device into the new scheme (from the old filename template).',
               })}
@@ -69,25 +183,28 @@ export default function DeviceSyncHeader({
               {/* Row 1: Controls */}
               <div className="device-sync-drive-controls">
                 {/* Fallback manual folder picker & Refresh */}
-                <button className="btn btn-ghost" onClick={handleChooseFolder} data-tooltip={t('deviceSync.browseManual')}>
+                <button className="btn btn-ghost" onClick={handleChooseFolder} disabled={isRunning} data-tooltip={t('deviceSync.browseManual')}>
                   <FolderOpen size={18} />
                 </button>
                 <button
                   className="btn btn-ghost device-sync-refresh-btn"
                   onClick={refreshDrives}
-                  disabled={drivesLoading}
+                  disabled={drivesLoading || isRunning}
                   data-tooltip={t('deviceSync.refreshDrives')}
                 >
                   <RefreshCw size={18} className={drivesLoading ? 'spin' : ''} />
                 </button>
 
                 {/* Dropdown element */}
-                {drives.length > 0 ? (
+                {drives.length > 0 || localTargetOption.length > 0 ? (
                   <>
-                    <Usb size={18} className="device-sync-drive-icon" />
+                    {activeDrive || !targetIsLocal
+                      ? <Usb size={18} className="device-sync-drive-icon" />
+                      : <Folder size={18} className="device-sync-drive-icon" />}
                     <CustomSelect
                       className="input device-sync-drive-select"
                       value={targetDir ?? ''}
+                      disabled={isRunning}
                       onChange={v => {
                         setTargetDir(v);
                         if (v) {
@@ -96,6 +213,7 @@ export default function DeviceSyncHeader({
                       }}
                       options={[
                         { value: '', label: t('deviceSync.selectDrive') },
+                        ...localTargetOption,
                         ...drives.map(d => ({ value: d.mount_point, label: d.name || d.mount_point }))
                       ]}
                     />
@@ -113,6 +231,9 @@ export default function DeviceSyncHeader({
               <div className="device-sync-drive-meta">
                 {formatBytes(activeDrive.available_space)} {t('deviceSync.free')} / {formatBytes(activeDrive.total_space)} &bull; {activeDrive.file_system}
               </div>
+            )}
+            {!activeDrive && targetIsLocal && targetDir && (
+              <div className="device-sync-drive-meta">{targetDir}</div>
             )}
           </div>
         </div>

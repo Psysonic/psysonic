@@ -16,7 +16,7 @@ import { serverIndexKeyFromUrl } from '@/lib/server/serverIndexKey';
 import { useShareSearchPreview } from '@/features/search/hooks/useShareSearchPreview';
 import { useNavidromePublicSharePreview } from '@/features/search/hooks/useNavidromePublicSharePreview';
 import { playNavidromePublicShare } from '@/features/share';
-import { buildComposerDetailPath } from '@/lib/navigation/detailServerScope';
+import { buildComposerDetailPath, buildPlaylistDetailPath } from '@/lib/navigation/detailServerScope';
 
 export function useShareSearch(query: string, onSuccess?: () => void) {
   const { t } = useTranslation();
@@ -67,13 +67,16 @@ export function useShareSearch(query: string, onSuccess?: () => void) {
     shareMatch?.type === 'artist' && !!preview.shareArtist && !preview.shareArtistResolving;
   const canOpenShareComposer =
     shareMatch?.type === 'composer' && !!preview.shareComposer && !preview.shareComposerResolving;
+  const canOpenSharePlaylist =
+    shareMatch?.type === 'playlist' && !!preview.sharePlaylist && !preview.sharePlaylistResolving;
 
   const hasShareKeyboardTarget =
     canQueueShareMatch ||
     canPlayNavidromePublic ||
     canOpenShareAlbum ||
     canOpenShareArtist ||
-    canOpenShareComposer;
+    canOpenShareComposer ||
+    canOpenSharePlaylist;
 
   const openShareAlbum = useCallback(() => {
     if (shareMatch?.type !== 'album' || !preview.shareAlbum) return;
@@ -95,6 +98,13 @@ export function useShareSearch(query: string, onSuccess?: () => void) {
     navigate(buildComposerDetailPath(preview.shareComposer.id, { serverId: shareServerId }));
     onSuccess?.();
   }, [shareMatch, preview.shareComposer, navigate, shareServerId, t, onSuccess]);
+
+  const openSharePlaylist = useCallback(() => {
+    if (shareMatch?.type !== 'playlist' || !preview.sharePlaylist) return;
+    if (!activateShareSearchServer(shareMatch.payload.srv, t)) return;
+    navigate(buildPlaylistDetailPath(preview.sharePlaylist.id, { serverId: shareServerId }));
+    onSuccess?.();
+  }, [shareMatch, preview.sharePlaylist, navigate, shareServerId, t, onSuccess]);
 
   const playNavidromePublic = useCallback(async () => {
     if (
@@ -137,10 +147,12 @@ export function useShareSearch(query: string, onSuccess?: () => void) {
     canOpenShareAlbum,
     canOpenShareArtist,
     canOpenShareComposer,
+    canOpenSharePlaylist,
     hasShareKeyboardTarget,
     openShareAlbum,
     openShareArtist,
     openShareComposer,
+    openSharePlaylist,
     enqueueShareMatch,
     playNavidromePublic,
     ...preview,

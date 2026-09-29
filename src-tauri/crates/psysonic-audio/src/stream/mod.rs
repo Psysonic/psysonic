@@ -50,8 +50,8 @@ pub(crate) fn container_hint_is_aiff(hint: Option<&str>) -> bool {
     matches!(h.to_ascii_lowercase().as_str(), "aiff" | "aif" | "aifc")
 }
 pub(crate) use local_file::LocalFileSource;
-pub(crate) use radio::{RadioLiveState, RadioSharedFlags, radio_download_task};
-pub(crate) use ranged_http::{OnDemand, RangedHttpSource, ranged_download_task};
+pub(crate) use radio::{radio_download_task, RadioLiveState, RadioSharedFlags};
+pub(crate) use ranged_http::{ranged_download_task, OnDemand, RangedHttpSource};
 pub(crate) use reader::AudioStreamReader;
 pub(crate) use track_stream::track_download_task;
 
@@ -169,7 +169,8 @@ impl AnalysisSeedHoldGuard {
 impl Drop for AnalysisSeedHoldGuard {
     fn drop(&mut self) {
         if let Ok(mut guard) = self.slot.lock() {
-            if matches!(&*guard, Some((track_id, token)) if track_id == &self.track_id && *token == self.token) {
+            if matches!(&*guard, Some((track_id, token)) if track_id == &self.track_id && *token == self.token)
+            {
                 *guard = None;
             }
         }
@@ -208,7 +209,10 @@ pub(crate) const TRACK_READ_TIMEOUT_SECS: u64 = 120;
 pub(crate) const TRACK_STREAM_PLAY_START_BYTES: u64 = 384 * 1024;
 
 /// Arm deferred playback / progress once enough of the file is buffered.
-pub(crate) fn maybe_arm_stream_playback(downloaded: u64, playback_armed: &std::sync::atomic::AtomicBool) {
+pub(crate) fn maybe_arm_stream_playback(
+    downloaded: u64,
+    playback_armed: &std::sync::atomic::AtomicBool,
+) {
     use std::sync::atomic::Ordering;
     if !playback_armed.load(Ordering::Relaxed) && downloaded >= TRACK_STREAM_PLAY_START_BYTES {
         playback_armed.store(true, Ordering::SeqCst);
@@ -255,7 +259,9 @@ pub(crate) struct RangedMp4ProbeGate {
 /// Block until moov is reachable: tail prefetch completed or moov already in the
 /// downloaded prefix (fast-start). Avoids Symphonia probing moov-at-end M4A before
 /// the tail range is filled (format probe failed: end of stream).
-pub(crate) async fn wait_for_ranged_mp4_probe_ready(gate: &RangedMp4ProbeGate) -> Result<(), String> {
+pub(crate) async fn wait_for_ranged_mp4_probe_ready(
+    gate: &RangedMp4ProbeGate,
+) -> Result<(), String> {
     use std::sync::atomic::Ordering;
     use std::time::{Duration, Instant};
 

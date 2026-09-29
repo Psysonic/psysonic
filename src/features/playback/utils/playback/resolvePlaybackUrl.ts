@@ -1,5 +1,9 @@
 import { buildStreamUrlForServer } from '@/lib/api/subsonicStreamUrl';
-import { findLocalPlaybackUrl, ephemeralServeableAtQuality } from '@/store/localPlaybackResolve';
+import {
+  findLocalPlaybackUrl,
+  ephemeralServeableAtQuality,
+  localPlaybackOriginalVerifiedForUrl,
+} from '@/store/localPlaybackResolve';
 import { effectiveStreamCapKbps, effectiveStreamFormat } from '@/features/playback/utils/playback/streamQualityResolve';
 import { resolveServerIdForIndexKey } from '@/lib/server/serverLookup';
 import { getPlaybackCacheServerKey, getPlaybackServerId } from '@/features/playback/utils/playback/playbackServer';
@@ -8,6 +12,8 @@ import { queueTrackIdentityMatches } from '@/features/playback/utils/playback/qu
 
 /** Same resolution order as {@link resolvePlaybackUrl} — for UI hints only. */
 export type PlaybackSourceKind = 'offline' | 'hot' | 'stream';
+
+export { localPlaybackOriginalVerifiedForUrl };
 
 /**
  * Subsonic `buildStreamUrl()` rotates `t`/`s` on every call; Rust matches by `id` (see `playback_identity`).

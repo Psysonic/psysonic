@@ -115,6 +115,19 @@ describe('getSmoothPlaybackTime', () => {
     off();
   });
 
+  it('holds a nonzero pending-seek target while buffering', () => {
+    usePlayerStore.setState({ currentTrack: { id: 'a' } as never });
+    const off = subscribeSmoothPlaybackTime(() => {});
+    emitPlaybackProgress({ currentTime: 60, progress: 0.3, buffered: 0 });
+
+    emitPlaybackProgress({ currentTime: 180, progress: 0.9, buffered: 0, buffering: true });
+    expect(getSmoothPlaybackTime()).toBeCloseTo(180, 3);
+
+    advance(1000);
+    expect(getSmoothPlaybackTime()).toBeCloseTo(180, 3);
+    off();
+  });
+
   it('scales with the playback rate when one is active', () => {
     usePlaybackRateStore.setState({ enabled: true, speed: 1.5 });
     const off = subscribeSmoothPlaybackTime(() => {});
@@ -363,11 +376,15 @@ describe('seeking', () => {
     off();
   });
 
-  it('keeps advancing from the seeked position while playing', () => {
+  it('holds the seeked position until real playback progress resumes', () => {
     const off = subscribeSmoothPlaybackTime(() => {});
     emitPlaybackProgress({ currentTime: 30, progress: 0.3, buffered: 0 });
 
     emitPlaybackSeek(90);
+    advance(500);
+    expect(getSmoothPlaybackTime()).toBeCloseTo(90, 3);
+
+    emitPlaybackProgress({ currentTime: 90, progress: 0.9, buffered: 0 });
     advance(500);
     expect(getSmoothPlaybackTime()).toBeCloseTo(90.5, 3);
     off();

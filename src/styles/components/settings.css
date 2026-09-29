@@ -645,6 +645,23 @@ span.settings-server-use-active-slot {
   color: var(--text-secondary);
 }
 
+/* A hint that carries its own action, e.g. one pointing at a setting that lives
+   on another tab. The button keeps its own width so it does not read as another
+   full-width control in the stack; the text wraps it onto a second line when the
+   pane gets narrow. */
+.settings-hint-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-top: var(--space-3);
+}
+
+.settings-hint-action > span {
+  flex: 1 1 240px;
+}
+
 /* Dim the non-toggle content of a settings row when its toggle is off.
  * `:not(:disabled)` excludes mutex-disabled toggles (e.g. Crossfade/Gapless)
  * whose row already carries an inline opacity — avoids dim-stacking. */

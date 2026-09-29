@@ -25,7 +25,10 @@ import {
   playbackProfileIdForRef,
   playbackProfileIdForTrack,
 } from '@/features/playback/utils/playback/playbackServer';
-import { resolvePlaybackUrlForTrack } from '@/features/playback/utils/playback/resolvePlaybackUrl';
+import {
+  localPlaybackOriginalVerifiedForUrl,
+  resolvePlaybackUrlForTrack,
+} from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { requestGaplessChainPreload } from '@/features/playback/store/gaplessChainPreload';
 import {
   applyGaplessQueueAdvance,
@@ -99,10 +102,13 @@ import { armCrossfadeDynamicOverlap, getCrossfadeTransition } from '@/features/p
 import { armAutodjMixing } from '@/features/playback/store/autodjTransitionUi';
 import {
   queueItemIdentityKey,
-  sameQueueItemRef,
   sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
-import { reportPlaybackSourceFailure } from '@/features/playback/store/playbackAlternativeStore';
+import {
+  clearUnavailablePlaybackFailures,
+  reportPlaybackSourceFailure,
+  shouldAutoAdvanceAfterUnavailableFailure,
+} from '@/features/playback/store/playbackAlternativeStore';
 import type { StreamProvenance } from '@/lib/media/streamFormat';
 
 // Silence-aware crossfade (A-tail): guards the early advance to once per play
@@ -132,6 +138,7 @@ export type NormalizationStatePayload = {
 };
 
 export function handleAudioPlaying(duration: number): void {
+  clearUnavailablePlaybackFailures();
   clearQueueNaturallyEnded();
   setDeferHotCachePrefetch(false);
   resetProgressEmitThrottles();
@@ -291,9 +298,7 @@ export function handleAudioProgress(
     );
     if (reconciled) return;
   }
-  if (!store.currentRadio && store.isPlaybackBuffering !== buffering) {
-    usePlayerStore.setState({ isPlaybackBuffering: buffering });
-  }
+  const bufferingChanged = !store.currentRadio && store.isPlaybackBuffering !== buffering;
   // Some backends can emit stale progress ticks shortly after pause/stop.
   // Ignoring them avoids reactivating UI redraw loops while transport is idle.
   const transportActive = store.isPlaying || store.currentRadio != null;
@@ -303,7 +308,10 @@ export function handleAudioProgress(
     setSeekFallbackVisualTarget(null);
     visualTarget = null;
   }
-  let displayTime = buffering ? 0 : current_time;
+  // Startup buffering reports zero, while an off-thread streaming seek reports
+  // its optimistic target. Preserve that nonzero target so every progress view
+  // stays pinned to the requested position until decoded PCM is committed.
+  let displayTime = current_time;
   if (visualTarget && visualTarget.trackId === track.id) {
     const nearTarget = Math.abs(current_time - visualTarget.seconds) <= 2.0;
     if (nearTarget) {
@@ -323,6 +331,8 @@ export function handleAudioProgress(
     noteEngineProgressForGapless(current_time);
   }
   const progress = displayTime / dur;
+  // The session tracker uses buffering ticks to rebaseline wall time and exits
+  // before recording the optimistic position.
   playListenSessionOnProgress(current_time, buffering, dur).catch(() => {});
   if (!progressUiDisabled) {
     const nowLive = Date.now();
@@ -331,11 +341,12 @@ export function handleAudioProgress(
     if (
       nowLive - getLastLiveProgressEmitAt() >= LIVE_PROGRESS_EMIT_MIN_MS ||
       liveTimeDelta >= LIVE_PROGRESS_EMIT_MIN_DELTA_SEC ||
+      live.buffering !== buffering ||
       visualTarget != null
     ) {
       emitPlaybackProgress({
         currentTime: displayTime,
-        progress: buffering ? 0 : progress,
+        progress,
         buffered: 0,
         buffering,
       });
@@ -345,7 +356,7 @@ export function handleAudioProgress(
   // Heartbeat: push current position to the server every 15 s while playing so
   // cross-device resume works even on a hard close — pause() and the close
   // handler flush on top of this for clean shutdowns.
-  if (store.isPlaying && !store.currentRadio) {
+  if (!buffering && store.isPlaying && !store.currentRadio) {
     const now = Date.now();
     if (now - getLastQueueHeartbeatAt() >= 15_000) {
       void flushQueueSyncToServer(store.queueItems, track, displayTime);
@@ -357,23 +368,35 @@ export function handleAudioProgress(
 
   // Scrobble at the configured percentage: Music Network + Navidrome
   const threshold = useAuthStore.getState().scrobbleThresholdPercent / 100;
-  if (progress >= threshold && !store.scrobbled) {
+  if (!buffering && progress >= threshold && !store.scrobbled) {
     usePlayerStore.setState({ scrobbled: true });
     submitPlaybackTrackScrobble(track, store.queueItems, store.queueIndex);
   }
-  if (progressUiDisabled) return;
+  if (progressUiDisabled) {
+    if (bufferingChanged) usePlayerStore.setState({ isPlaybackBuffering: buffering });
+    return;
+  }
   // Critical architectural guard: avoid high-frequency writes to the persisted
   // Zustand store (each write serializes queue state). Keep only coarse commits.
   const nowCommit = Date.now();
   const commitDelta = Math.abs(store.currentTime - displayTime);
   const shouldCommitStore =
     visualTarget != null ||
+    bufferingChanged ||
     nowCommit - getLastStoreProgressCommitAt() >= STORE_PROGRESS_COMMIT_MIN_MS ||
     commitDelta >= STORE_PROGRESS_COMMIT_MIN_DELTA_SEC;
   if (shouldCommitStore) {
-    usePlayerStore.setState({ currentTime: displayTime, progress, buffered: 0 });
+    usePlayerStore.setState({
+      currentTime: displayTime,
+      progress,
+      buffered: 0,
+      ...(bufferingChanged ? { isPlaybackBuffering: buffering } : {}),
+    });
     markStoreProgressCommit(nowCommit);
   }
+  // A pending seek target is display-only. Do not preload, crossfade, scrobble,
+  // or report remote progress until the engine confirms decoded PCM is audible.
+  if (buffering) return;
 
   // Pre-buffer / pre-chain next track for gapless and crossfade.
   const {
@@ -539,6 +562,11 @@ export function handleAudioProgress(
           durationHint: nextTrack.duration,
           analysisTrackId: nextTrack.id,
           serverId: analysisServerId || null,
+          localOriginalVerified: localPlaybackOriginalVerifiedForUrl(
+            nextTrack.id,
+            serverId,
+            nextUrl,
+          ),
         }).catch(() => {});
       }
 
@@ -670,14 +698,12 @@ export function handleAudioError(message: string): void {
     setTimeout(() => {
       if (getPlayGeneration() !== gen) return;
       const live = usePlayerStore.getState();
-      const liveRef = live.queueItems[live.queueIndex];
-      const failedRef = store.queueItems[store.queueIndex];
-      if (
-        live.queueIndex !== store.queueIndex ||
-        !liveRef ||
-        !failedRef ||
-        !sameQueueItemRef(liveRef, failedRef)
-      ) return;
+      if (!shouldAutoAdvanceAfterUnavailableFailure({
+        failedQueueItems: store.queueItems,
+        failedQueueIndex: store.queueIndex,
+        liveQueueItems: live.queueItems,
+        liveQueueIndex: live.queueIndex,
+      })) return;
       live.next(false);
     }, 1500);
   });

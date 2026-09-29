@@ -304,22 +304,29 @@ describe('buildOriginalStreamUrlForServer', () => {
     useAuthStore.getState().setSubsonicServerIdentity(serverId, { type: 'navidrome' });
     useAuthStore.getState().setStreamQualityForAddress('https://music.example.com', 64);
 
-    const url = new URL(buildOriginalStreamUrlForServer('music.example.com', 'track-raw'));
+    const url = new URL(buildOriginalStreamUrlForServer('music.example.com', 'track-raw')!);
     expect(url.searchParams.get('format')).toBe('raw');
     expect(url.searchParams.has('maxBitRate')).toBe(false);
   });
 
-  it('keeps the ordinary uncapped URL for unknown and non-Navidrome profiles', () => {
+  it('uses the standard download endpoint for registered non-Navidrome profiles', () => {
     const serverId = setUpServer();
 
-    const unknown = new URL(buildOriginalStreamUrlForServer(serverId, 'track-unknown'));
+    const unknown = new URL(buildOriginalStreamUrlForServer(serverId, 'track-unknown')!);
+    expect(unknown.pathname).toBe('/rest/download.view');
     expect(unknown.searchParams.has('format')).toBe(false);
     expect(unknown.searchParams.has('maxBitRate')).toBe(false);
 
     useAuthStore.getState().setSubsonicServerIdentity(serverId, { type: 'gonic' });
-    const nonNavidrome = new URL(buildOriginalStreamUrlForServer(serverId, 'track-gonic'));
+    const nonNavidrome = new URL(buildOriginalStreamUrlForServer(serverId, 'track-gonic')!);
+    expect(nonNavidrome.pathname).toBe('/rest/download.view');
     expect(nonNavidrome.searchParams.has('format')).toBe(false);
     expect(nonNavidrome.searchParams.has('maxBitRate')).toBe(false);
+  });
+
+  it('does not borrow the active server for a missing profile', () => {
+    setUpServer();
+    expect(buildOriginalStreamUrlForServer('missing-server', 'track-missing')).toBeNull();
   });
 });
 

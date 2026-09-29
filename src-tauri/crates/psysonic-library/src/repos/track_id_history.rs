@@ -21,11 +21,7 @@ impl<'a> TrackIdHistoryRepository<'a> {
     /// remap was recorded. Returns `None` when no row exists. Analysis
     /// cache lookups (Phase E) go through this so cached waveform /
     /// loudness rows stay reachable after the server's id space shifts.
-    pub fn lookup_new_id(
-        &self,
-        server_id: &str,
-        old_id: &str,
-    ) -> Result<Option<String>, String> {
+    pub fn lookup_new_id(&self, server_id: &str, old_id: &str) -> Result<Option<String>, String> {
         self.store.with_conn("track_id_history.lookup", |conn| {
             conn.query_row(
                 "SELECT new_id FROM track_id_history \
@@ -92,7 +88,10 @@ mod tests {
     #[test]
     fn lookup_scopes_by_server_id() {
         let store = LibraryStore::open_in_memory();
-        seed_history(&store, &[("s1", "tr_x", "tr_new1"), ("s2", "tr_x", "tr_new2")]);
+        seed_history(
+            &store,
+            &[("s1", "tr_x", "tr_new1"), ("s2", "tr_x", "tr_new2")],
+        );
         let repo = TrackIdHistoryRepository::new(&store);
         assert_eq!(
             repo.lookup_new_id("s1", "tr_x").unwrap().as_deref(),
@@ -109,11 +108,7 @@ mod tests {
         let store = LibraryStore::open_in_memory();
         seed_history(
             &store,
-            &[
-                ("s1", "a", "b"),
-                ("s1", "c", "d"),
-                ("s2", "e", "f"),
-            ],
+            &[("s1", "a", "b"), ("s1", "c", "d"), ("s2", "e", "f")],
         );
         let repo = TrackIdHistoryRepository::new(&store);
         assert_eq!(repo.count_for_server("s1").unwrap(), 2);

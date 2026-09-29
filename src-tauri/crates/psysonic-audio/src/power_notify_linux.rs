@@ -40,9 +40,7 @@ fn run_listener(app: AppHandle) {
     })() {
         Ok(r) => r,
         Err(e) => {
-            crate::app_eprintln!(
-                "[psysonic] MatchRule for logind PrepareForSleep failed: {e}"
-            );
+            crate::app_eprintln!("[psysonic] MatchRule for logind PrepareForSleep failed: {e}");
             return;
         }
     };
@@ -55,7 +53,9 @@ fn run_listener(app: AppHandle) {
         }
     };
 
-    crate::app_eprintln!("[psysonic] logind PrepareForSleep listener registered (post-sleep audio recovery)");
+    crate::app_eprintln!(
+        "[psysonic] logind PrepareForSleep listener registered (post-sleep audio recovery)"
+    );
 
     loop {
         let Some(result) = iter.next() else {

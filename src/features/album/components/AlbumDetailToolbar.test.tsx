@@ -35,6 +35,8 @@ function renderToolbar(songs: SubsonicSong[]) {
       setShowPlPicker={vi.fn()}
       t={t}
       songs={songs}
+      ratings={{}}
+      onRate={vi.fn()}
     />,
   );
 }
@@ -65,6 +67,8 @@ describe('AlbumDetailToolbar owner-safe playlist actions', () => {
         setShowPlPicker={setShowPlPicker}
         t={t}
         songs={songs}
+        ratings={{}}
+        onRate={vi.fn()}
       />,
     );
 

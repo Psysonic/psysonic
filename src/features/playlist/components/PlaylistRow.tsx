@@ -3,17 +3,18 @@ import { useTranslation } from 'react-i18next';
 import { AudioLines, ChevronRight, Heart, Play, Square, Trash2 } from 'lucide-react';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import { codecLabel } from '@/lib/format/playlistDetailHelpers';
+import { codecLabel, genresLabel, moodsLabel } from '@/lib/format/playlistDetailHelpers';
 import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
 import i18n from '@/lib/i18n';
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import StarRating from '@/ui/StarRating';
 import { PlaylistArtistCell } from '@/features/playlist/components/PlaylistArtistCell';
+import { useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 
 export interface PlaylistRowCallbacks {
   activate: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
-  dblOrbit: (song: SubsonicSong, e: React.MouseEvent) => void;
+  doubleClick: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
   context: (song: SubsonicSong, realIdx: number, e: React.MouseEvent) => void;
   mouseDownRow: (realIdx: number, e: React.MouseEvent) => void;
   mouseEnterRow: (index: number, e: React.MouseEvent) => void;
@@ -42,26 +43,31 @@ interface Props {
   ratingValue: number;
   isPreviewing: boolean;
   previewStarted: boolean;
-  orbitActive: boolean;
+  /** Double click does something (Orbit add, or play in double-click mode). */
+  doubleClickActive: boolean;
+  /** Set only on the list's cursor row (`useTrackListCursor`). */
+  cursorRowId?: string;
   cb: PlaylistRowCallbacks;
 }
 
 function PlaylistRow({
   song, index: i, realIdx, visibleCols, gridStyle, showBitrate,
   isActive, showEq, isContextActive, isSelected, inSelectMode,
-  isStarred, ratingValue, isPreviewing, previewStarted, orbitActive, cb,
+  isStarred, ratingValue, isPreviewing, previewStarted, doubleClickActive, cursorRowId, cb,
 }: Props) {
   const { t } = useTranslation();
+  const playStats = useTrackPlayStats(song);
 
   return (
     <div
+      id={cursorRowId}
       data-track-idx={realIdx}
-      className={`track-row track-row-va track-row-with-actions tracklist-playlist${isActive ? ' active' : ''}${isContextActive ? ' context-active' : ''}${isSelected ? ' bulk-selected' : ''}`}
+      className={`track-row track-row-va track-row-with-actions tracklist-playlist${isActive ? ' active' : ''}${isContextActive ? ' context-active' : ''}${isSelected ? ' bulk-selected' : ''}${cursorRowId ? ' track-row--cursor' : ''}`}
       style={gridStyle}
       onMouseEnter={e => cb.mouseEnterRow(i, e)}
       onMouseDown={e => cb.mouseDownRow(realIdx, e)}
       onClick={e => cb.activate(song, i, e)}
-      onDoubleClick={orbitActive ? e => cb.dblOrbit(song, e) : undefined}
+      onDoubleClick={doubleClickActive ? e => cb.doubleClick(song, i, e) : undefined}
       onContextMenu={e => cb.context(song, realIdx, e)}
     >
       {visibleCols.map(colDef => {
@@ -129,11 +135,17 @@ function PlaylistRow({
           case 'genre': return (
             <div key="genre" className="track-genre">{song.genre ?? '—'}</div>
           );
+          case 'genres': return (
+            <div key="genres" className="track-genre">{genresLabel(song) || '—'}</div>
+          );
+          case 'mood': return (
+            <div key="mood" className="track-genre">{moodsLabel(song) || '—'}</div>
+          );
           case 'playCount': return (
-            <div key="playCount" className="track-duration">{song.playCount ?? '—'}</div>
+            <div key="playCount" className="track-duration">{playStats.playCount ?? '—'}</div>
           );
           case 'lastPlayed': return (
-            <div key="lastPlayed" className="track-genre">{song.played ? formatLastSeen(song.played, i18n.language, '—') : '—'}</div>
+            <div key="lastPlayed" className="track-genre">{playStats.played ? formatLastSeen(playStats.played, i18n.language, '—') : '—'}</div>
           );
           case 'bpm': return (
             <div key="bpm" className="track-duration">{song.bpm && song.bpm > 0 ? song.bpm : '—'}</div>

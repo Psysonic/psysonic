@@ -16,6 +16,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Optional. Lädt Tourdaten der aktuellen Künstler*in über die öffentliche Bandsintown-API.',
   enableBandsintownPrivacy: 'Beim Aktivieren wird der Name der aktuell gespielten Künstler*in an die Bandsintown-API übertragen, um Tourdaten abzurufen. Es werden keine Konto- oder persönlichen Daten gesendet.',
   enableBandsintownAction: 'Aktivieren',
+  dismissBandsintownPrompt: 'Nicht mehr anzeigen',
+  bandsintownPromptDismissed: 'Tourdaten bleiben ausgeblendet. Du kannst sie unter Einstellungen → Integrationen aktivieren.',
   role: {
     artist: 'Hauptkünstler*in',
     albumArtist: 'Album-Künstler*in',

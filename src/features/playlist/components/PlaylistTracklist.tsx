@@ -5,7 +5,8 @@ import { TracklistColumnPicker } from '@/ui/TracklistColumnPicker';
 import { useTranslation } from 'react-i18next';
 import { APP_MAIN_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
 import { useElementClientHeightById } from '@/lib/hooks/useResizeClientHeight';
-import { useNavigate } from 'react-router';
+import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
+import { useLocation, useNavigate } from 'react-router';
 import {
   ListPlus, Search, Trash2, X,
 } from 'lucide-react';
@@ -20,11 +21,14 @@ import { useOrbitSongRowBehavior } from '@/features/orbit';
 import { songToTrack } from '@/lib/media/songToTrack';
 import type { PlaylistSortKey, PlaylistSortDir } from '@/features/playlist/utils/playlistDisplayedSongs';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
+import { BulkTrackRating } from '@/features/playback';
+import { offlineActionPolicy, useOfflineBrowseContext } from '@/features/offline';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
-import { appendServerQuery } from '@/lib/navigation/detailServerScope';
+import { navigateToAlbumDetail } from '@/lib/navigation/albumDetailNavigation';
+import { usePlaylistTracklistScrollReset } from '@/features/playlist/hooks/usePlaylistTracklistScrollReset';
 
 const PL_CENTERED = new Set(['favorite', 'rating', 'duration', 'playCount', 'bpm']);
 
@@ -89,6 +93,7 @@ interface Props {
 
   // Empty state
   setSearchOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  tracksReadOnly?: boolean;
 }
 
 export default function PlaylistTracklist({
@@ -101,10 +106,11 @@ export default function PlaylistTracklist({
   contextMenuSongId, setContextMenuSongId, dropTargetIdx,
   ratings, starredSongs, handleRate, handleToggleStar,
   handleRowMouseDown, handleRowMouseEnter, removeSong,
-  setSearchOpen,
+  setSearchOpen, tracksReadOnly = false,
 }: Props) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const currentTrack = usePlayerStore(s => s.currentTrack);
   const isPlaying = usePlayerStore(s => s.isPlaying);
   const playTrack = usePlayerStore(s => s.playTrack);
@@ -116,13 +122,34 @@ export default function PlaylistTracklist({
   const showBitrate = useThemeStore(s => s.showBitrate);
   const trackListCoversOn = useTrackListCoverArtEnabled('pages');
   const { isDragging } = useDragDrop();
-  const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { active: offlineBrowseActive } = useOfflineBrowseContext();
+  const policy = offlineActionPolicy('playlistDetail', offlineBrowseActive);
+  const selectedSongs = useMemo(
+    () => songs.filter(song => selectedIds.has(song.id)),
+    [songs, selectedIds],
+  );
+
+  const cursorKeys = useMemo(() => displayedSongs.map(song => song.id), [displayedSongs]);
+  const cursor = useTrackListCursor({
+    keys: cursorKeys,
+    onActivate: index => {
+      const song = displayedSongs[index];
+      if (!song) return;
+      if (orbitActive) addTrackToOrbit(song.id, song.serverId);
+      else playTrack(displayedTracks[index], displayedTracks);
+    },
+    // `rowVirtualizer` is declared further down; this only runs on a key press, after render.
+    scrollToIndex: index => rowVirtualizer.scrollToIndex(index, { align: 'auto' }),
+  });
+  const { setCursorFromClick } = cursor;
 
   const latestVals = {
-    selectedIds, orbitActive, displayedTracks, isFiltered, id, songs, serverId,
+    selectedIds, orbitActive, doubleClickToPlay, displayedTracks, isFiltered, id, songs, serverId,
     toggleSelect, handleRowMouseDown, handleRowMouseEnter, handleToggleStar,
     handleRate, removeSong, playTrack, openContextMenu, setContextMenuSongId,
-    navigate, queueHint, addTrackToOrbit,
+    navigate, location, queueHint, addTrackToOrbit, tracksReadOnly, setCursorFromClick,
+    displayedSongs, cursorIndex: cursor.cursorIndex,
   };
   const latest = useRef(latestVals);
   latest.current = latestVals;
@@ -131,20 +158,39 @@ export default function PlaylistTracklist({
     activate: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
       const L = latest.current;
-      if (e.ctrlKey || e.metaKey) L.toggleSelect(song.id, index, false);
-      else if (L.selectedIds.size > 0) L.toggleSelect(song.id, index, e.shiftKey);
-      else if (L.orbitActive) L.queueHint();
-      else L.playTrack(L.displayedTracks[index], L.displayedTracks);
+      if (e.ctrlKey || e.metaKey) {
+        // A Ctrl click that starts a multi-selection takes the highlighted row along.
+        const at = L.cursorIndex;
+        if (L.selectedIds.size === 0 && at !== null && at !== index) {
+          L.toggleSelect(L.displayedSongs[at].id, at, false);
+        }
+        L.toggleSelect(song.id, index, false);
+        return;
+      }
+      if (L.selectedIds.size > 0) { L.toggleSelect(song.id, index, e.shiftKey); return; }
+      L.setCursorFromClick(index, e);
+      if (L.orbitActive) L.queueHint();
+      else if (!L.doubleClickToPlay) L.playTrack(L.displayedTracks[index], L.displayedTracks);
     },
-    dblOrbit: (song, e) => {
+    doubleClick: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
       const L = latest.current;
       if (e.ctrlKey || e.metaKey || L.selectedIds.size > 0) return;
-      L.addTrackToOrbit(song.id, song.serverId);
+      if (L.orbitActive) L.addTrackToOrbit(song.id, song.serverId);
+      else L.playTrack(L.displayedTracks[index], L.displayedTracks);
     },
     context: (song, rIdx, e) => {
       e.preventDefault();
       const L = latest.current;
+      // A right-click inside a multi-row selection addresses the whole
+      // selection (same as the album/artist grids); one row keeps its own menu.
+      if (L.selectedIds.size > 1) {
+        const selected = L.songs.filter(s => L.selectedIds.has(s.id));
+        if (selected.length > 1) {
+          L.openContextMenu(e.clientX, e.clientY, selected.map(songToTrack), 'multi-song');
+          return;
+        }
+      }
       L.setContextMenuSongId(song.id);
       L.openContextMenu(
         e.clientX,
@@ -156,10 +202,12 @@ export default function PlaylistTracklist({
         rIdx,
         undefined,
         undefined,
-        () => {
-          const sourceIndex = latest.current.songs.findIndex(candidate => candidate.id === song.id);
-          if (sourceIndex >= 0) latest.current.removeSong(sourceIndex);
-        },
+        L.tracksReadOnly
+          ? undefined
+          : () => {
+            const sourceIndex = latest.current.songs.findIndex(candidate => candidate.id === song.id);
+            if (sourceIndex >= 0) latest.current.removeSong(sourceIndex);
+          },
       );
     },
     mouseDownRow: (rIdx, e) => latest.current.handleRowMouseDown(e, rIdx),
@@ -178,8 +226,8 @@ export default function PlaylistTracklist({
     rate: (songId, r) => latest.current.handleRate(songId, r),
     remove: (rIdx) => latest.current.removeSong(rIdx),
     navAlbum: (albumId) => {
-      const query = appendServerQuery(undefined, latest.current.serverId);
-      latest.current.navigate(`/album/${albumId}${query ? `?${query}` : ''}`);
+      const L = latest.current;
+      navigateToAlbumDetail(L.navigate, L.location, albumId, { serverId: L.serverId });
     },
   }), []);
 
@@ -218,13 +266,7 @@ export default function PlaylistTracklist({
     getItemKey: i => `${displayedSongs[i].id}:${i}`,
   });
 
-  const firstRender = useRef(true);
-  useEffect(() => {
-    if (firstRender.current) { firstRender.current = false; return; }
-    const sc = document.getElementById(APP_MAIN_SCROLL_VIEWPORT_ID);
-    if (sc) sc.scrollTop = scrollMargin;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, hasActiveFilter]);
+  usePlaylistTracklistScrollReset({ id, hasActiveFilter, scrollMargin });
 
   const autoScrollRef = useRef(0);
   const pointerYRef = useRef(0);
@@ -266,7 +308,7 @@ export default function PlaylistTracklist({
   });
 
   let dropIndicatorY: number | null = null;
-  if (isDragging && !isFiltered && dropTargetIdx) {
+  if (isDragging && !isFiltered && !tracksReadOnly && dropTargetIdx) {
     const vi = virtualItems.find(v => v.index === dropTargetIdx.idx);
     const start = vi ? vi.start : dropTargetIdx.idx * 48 + scrollMargin;
     const size = vi ? vi.size : 48;
@@ -285,7 +327,7 @@ export default function PlaylistTracklist({
         resetColumns={resetColumns}
         t={t}
       />
-    <div className="tracklist" data-preview-loc="playlists" ref={tracklistRef}>
+    <div className="tracklist" data-preview-loc="playlists" ref={tracklistRef} {...cursor.listProps}>
 
       {/* Bulk action bar */}
       {selectedIds.size > 0 && (
@@ -293,6 +335,13 @@ export default function PlaylistTracklist({
           <span className="bulk-action-count">
             {t('common.bulkSelected', { count: selectedIds.size })}
           </span>
+          {policy.canRate && (
+            <BulkTrackRating
+              tracks={selectedSongs}
+              ratings={ratings}
+              onRate={(song, rating) => handleRate(song.id, rating)}
+            />
+          )}
           <div className="bulk-pl-picker-wrap">
             <button
               className="btn btn-surface btn-sm"
@@ -310,6 +359,7 @@ export default function PlaylistTracklist({
               />
             )}
           </div>
+          {!tracksReadOnly && (
           <button
             className="btn btn-surface btn-sm"
             style={{ color: 'var(--danger)' }}
@@ -318,6 +368,7 @@ export default function PlaylistTracklist({
             <Trash2 size={14} />
             {t('common.bulkRemoveFromPlaylist')}
           </button>
+          )}
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setSelectedIds(new Set())}
@@ -458,11 +509,13 @@ export default function PlaylistTracklist({
 
       {songs.length === 0 && (
         <div className="empty-state" style={{ padding: '2rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-          <span>{t('playlists.emptyPlaylist')}</span>
+          <span>{tracksReadOnly ? t('playlists.smartReadOnlyEmpty') : t('playlists.emptyPlaylist')}</span>
+          {!tracksReadOnly && (
           <button className="btn btn-primary" onClick={() => setSearchOpen(true)}>
             <Search size={15} />
             {t('playlists.addFirstSong')}
           </button>
+          )}
         </div>
       )}
 
@@ -500,7 +553,8 @@ export default function PlaylistTracklist({
             ratingValue={ratings[song.id] ?? ownedOverrideValue(userRatingOverrides, song) ?? song.userRating ?? 0}
             isPreviewing={previewingId === song.id}
             previewStarted={previewingId === song.id && previewAudioStarted}
-            orbitActive={orbitActive}
+            doubleClickActive={orbitActive || doubleClickToPlay}
+            cursorRowId={cursor.cursorIndex === i ? cursor.cursorRowId : undefined}
             cb={cb}
           />
         </div>

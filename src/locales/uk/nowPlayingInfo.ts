@@ -18,6 +18,8 @@ export const nowPlayingInfo = {
   enableBandsintownPromptDesc: 'Необов’язково. Завантажує концерти для поточного виконавця через публічний API Bandsintown.',
   enableBandsintownPrivacy: 'Якщо ввімкнено, ім’я поточного виконавця надсилається до API Bandsintown для отримання дат турів. Жодні облікові або особисті дані не передаються.',
   enableBandsintownAction: 'Увімкнути',
+  dismissBandsintownPrompt: 'Більше не показувати',
+  bandsintownPromptDismissed: 'Дати турів залишаться прихованими. Їх можна увімкнути в Налаштування → Інтеграції.',
   role: {
     artist: 'Виконавець',
     albumArtist: 'Виконавець альбому',

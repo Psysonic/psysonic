@@ -112,7 +112,7 @@ async fn backfill_probes_original_then_downloads_bounded_transcode() {
 }
 
 #[tokio::test]
-async fn backfill_falls_back_to_original_download_when_transcode_fails() {
+async fn backfill_falls_back_to_raw_original_when_transcode_fails() {
     use tauri::Manager;
     use wiremock::matchers::{method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -134,12 +134,6 @@ async fn backfill_falls_back_to_original_download_when_transcode_fails() {
         .respond_with(ResponseTemplate::new(503))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
-        .and(path("/rest/download.view"))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(original.clone()))
-        .mount(&server)
-        .await;
-
     let app = tauri::test::mock_app();
     app.handle()
         .manage(Arc::new(analysis_registry(&server.uri(), true)));
@@ -166,7 +160,11 @@ async fn backfill_falls_back_to_original_download_when_transcode_fails() {
         trusted.md5_16kb,
         analysis_cache::md5_first_16kb(&download.bytes)
     );
-    assert_eq!(server.received_requests().await.unwrap().len(), 4);
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 4);
+    assert!(requests
+        .iter()
+        .all(|request| request.url.path() == "/rest/stream.view"));
 }
 
 #[tokio::test]
@@ -193,12 +191,6 @@ async fn successful_raw_revalidation_wins_over_transcode_source_error() {
         .respond_with(ResponseTemplate::new(200).set_body_bytes(source_error))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
-        .and(path("/rest/download.view"))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(original.clone()))
-        .mount(&server)
-        .await;
-
     let app = tauri::test::mock_app();
     app.handle()
         .manage(Arc::new(analysis_registry(&server.uri(), true)));
@@ -227,7 +219,11 @@ async fn successful_raw_revalidation_wins_over_transcode_source_error() {
             .unwrap(),
         None
     );
-    assert_eq!(server.received_requests().await.unwrap().len(), 4);
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 4);
+    assert!(requests
+        .iter()
+        .all(|request| request.url.path() == "/rest/stream.view"));
 }
 
 #[tokio::test]
@@ -258,12 +254,6 @@ async fn backfill_discards_transcode_when_original_changes_during_fetch() {
         .respond_with(ResponseTemplate::new(200).set_body_bytes(vec![0x55; 12 * 1024]))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
-        .and(path("/rest/download.view"))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(original_b.clone()))
-        .mount(&server)
-        .await;
-
     let app = tauri::test::mock_app();
     app.handle()
         .manage(Arc::new(analysis_registry(&server.uri(), true)));
@@ -289,11 +279,15 @@ async fn backfill_discards_transcode_when_original_changes_during_fetch() {
         trusted.md5_16kb,
         analysis_cache::md5_first_16kb(&download.bytes)
     );
-    assert_eq!(server.received_requests().await.unwrap().len(), 4);
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 4);
+    assert!(requests
+        .iter()
+        .all(|request| request.url.path() == "/rest/stream.view"));
 }
 
 #[tokio::test]
-async fn oversized_download_does_not_fail_a_stale_raw_fingerprint() {
+async fn oversized_raw_original_records_the_verified_fingerprint() {
     use tauri::Manager;
     use wiremock::matchers::{method, path, query_param};
     use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -301,8 +295,6 @@ async fn oversized_download_does_not_fail_a_stale_raw_fingerprint() {
     let server = MockServer::start().await;
     let mut probed_original = vec![0x41; 24 * 1024];
     probed_original[..4].copy_from_slice(b"fLaC");
-    let mut downloaded_original = vec![0x42; 24 * 1024];
-    downloaded_original[..4].copy_from_slice(b"fLaC");
     Mock::given(method("GET"))
         .and(path("/rest/stream.view"))
         .and(query_param("format", "raw"))
@@ -317,12 +309,6 @@ async fn oversized_download_does_not_fail_a_stale_raw_fingerprint() {
         .respond_with(ResponseTemplate::new(503))
         .mount(&server)
         .await;
-    Mock::given(method("GET"))
-        .and(path("/rest/download.view"))
-        .respond_with(ResponseTemplate::new(200).set_body_bytes(downloaded_original))
-        .mount(&server)
-        .await;
-
     let app = tauri::test::mock_app();
     app.handle()
         .manage(Arc::new(analysis_registry(&server.uri(), true)));
@@ -336,7 +322,7 @@ async fn oversized_download_does_not_fail_a_stale_raw_fingerprint() {
     let result = analysis_backfill_download(
         app.handle(),
         "canonical-server",
-        "t1",
+        "oversized-raw-original",
         &stream_url,
         8 * 1024,
     )
@@ -344,15 +330,16 @@ async fn oversized_download_does_not_fail_a_stale_raw_fingerprint() {
 
     assert_eq!(
         result.unwrap_err(),
-        AnalysisBackfillJobError::Retryable(
-            "oversized original download does not match raw-probed identity".to_string()
+        AnalysisBackfillJobError::Terminal(
+            "trusted original exceeds analysis cap of 8192 bytes".to_string()
         )
     );
     let cache = app.handle().state::<analysis_cache::AnalysisCache>();
     assert_eq!(
         cache
-            .get_latest_status_for_track("canonical-server", "t1")
-            .unwrap(),
-        None
+            .get_latest_status_for_track("canonical-server", "oversized-raw-original")
+            .unwrap()
+            .map(|(status, _)| status),
+        Some("failed".to_string())
     );
 }

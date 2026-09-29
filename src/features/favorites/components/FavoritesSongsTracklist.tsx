@@ -17,6 +17,7 @@ import { songToTrack } from '@/lib/media/songToTrack';
 import { appendServerQuery, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { APP_MAIN_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
 import { useElementClientHeightById } from '@/lib/hooks/useResizeClientHeight';
+import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import { SORTABLE_COLUMNS } from '@/features/favorites/hooks/useFavoritesSongFiltering';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
@@ -71,14 +72,29 @@ export default function FavoritesSongsTracklist({
   const psyDrag = useDragDrop();
   // Rows are virtualised, so one can be recycled out from under a held button.
   const dragPress = useDragPressHandle();
-  const { orbitActive, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
+  const { orbitActive, doubleClickToPlay, queueHint, addTrackToOrbit } = useOrbitSongRowBehavior();
 
   const visibleTracks = useMemo(() => visibleSongs.map(songToTrack), [visibleSongs]);
 
+  const cursorKeys = useMemo(() => visibleSongs.map(ownedEntityKey), [visibleSongs]);
+  const cursor = useTrackListCursor({
+    keys: cursorKeys,
+    onActivate: index => {
+      const song = visibleSongs[index];
+      if (!song) return;
+      if (orbitActive) addTrackToOrbit(song.id, song.serverId);
+      else playTrack(visibleTracks[index], visibleTracks, true, false, index);
+    },
+    // `rowVirtualizer` is declared further down; this only runs on a key press, after render.
+    scrollToIndex: index => rowVirtualizer.scrollToIndex(index, { align: 'auto' }),
+  });
+  const { setCursorFromClick } = cursor;
+
   const latestVals = {
-    visibleSongs, visibleTracks, selectedIds, inSelectMode, orbitActive,
+    visibleSongs, visibleTracks, selectedIds, inSelectMode, orbitActive, doubleClickToPlay,
     toggleSelect, handleRate, removeSong, playTrack, openContextMenu,
-    navigate, queueHint, addTrackToOrbit, psyDrag,
+    navigate, queueHint, addTrackToOrbit, psyDrag, setCursorFromClick,
+    cursorIndex: cursor.cursorIndex,
   };
   const latest = useRef(latestVals);
   latest.current = latestVals;
@@ -87,21 +103,42 @@ export default function FavoritesSongsTracklist({
     activate: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
       const L = latest.current;
-       const key = ownedEntityKey(song);
-       if (e.ctrlKey || e.metaKey) L.toggleSelect(key, index, false);
-       else if (L.inSelectMode) L.toggleSelect(key, index, e.shiftKey);
-      else if (L.orbitActive) L.queueHint();
-       else L.playTrack(L.visibleTracks[index], L.visibleTracks, true, false, index);
+      const key = ownedEntityKey(song);
+      if (e.ctrlKey || e.metaKey) {
+        // A Ctrl click that starts a multi-selection takes the highlighted row along.
+        const at = L.cursorIndex;
+        if (!L.inSelectMode && at !== null && at !== index) {
+          L.toggleSelect(ownedEntityKey(L.visibleSongs[at]), at, false);
+        }
+        L.toggleSelect(key, index, false);
+        return;
+      }
+      if (L.inSelectMode) { L.toggleSelect(key, index, e.shiftKey); return; }
+      L.setCursorFromClick(index, e);
+      if (L.orbitActive) L.queueHint();
+      else if (!L.doubleClickToPlay) L.playTrack(L.visibleTracks[index], L.visibleTracks, true, false, index);
     },
-    dblOrbit: (song, e) => {
+    doubleClick: (song, index, e) => {
       if ((e.target as HTMLElement).closest('button, a, input')) return;
       const L = latest.current;
       if (e.ctrlKey || e.metaKey || L.inSelectMode) return;
-      L.addTrackToOrbit(song.id, song.serverId);
+      if (L.orbitActive) L.addTrackToOrbit(song.id, song.serverId);
+      else L.playTrack(L.visibleTracks[index], L.visibleTracks, true, false, index);
     },
     context: (song, e) => {
       e.preventDefault();
-      latest.current.openContextMenu(e.clientX, e.clientY, songToTrack(song), 'favorite-song');
+      const L = latest.current;
+      // A right-click inside a multi-row selection addresses the whole
+      // selection (same as the album/artist grids); one row keeps its own menu.
+      const { selectedIds: selIds } = useSelectionStore.getState();
+      if (selIds.size > 1) {
+        const selected = L.visibleSongs.filter(s => selIds.has(ownedEntityKey(s)));
+        if (selected.length > 1) {
+          L.openContextMenu(e.clientX, e.clientY, selected.map(songToTrack), 'multi-song');
+          return;
+        }
+      }
+      L.openContextMenu(e.clientX, e.clientY, songToTrack(song), 'favorite-song');
     },
     mouseDownRow: (song, e) => {
       dragPress.arm(e, {
@@ -199,7 +236,7 @@ export default function FavoritesSongsTracklist({
         resetColumns={resetColumns}
         t={t}
       />
-    <div className="tracklist" data-preview-loc="favorites" style={{ padding: 0 }} ref={tracklistRef} onClick={e => {
+    <div className="tracklist" data-preview-loc="favorites" style={{ padding: 0 }} ref={tracklistRef} {...cursor.listProps} onClick={e => {
       if (inSelectMode && e.target === e.currentTarget) useSelectionStore.getState().clearAll();
     }}>
 
@@ -321,7 +358,8 @@ export default function FavoritesSongsTracklist({
                 ratingValue={ratings[ownedEntityKey(song)] ?? userRatingOverrides[ownedEntityKey(song)] ?? userRatingOverrides[song.id] ?? song.userRating ?? 0}
                 isPreviewing={previewingId === song.id && previewingTrack?.serverId === song.serverId}
                 previewStarted={previewingId === song.id && previewingTrack?.serverId === song.serverId && previewAudioStarted}
-                orbitActive={orbitActive}
+                doubleClickActive={orbitActive || doubleClickToPlay}
+                cursorRowId={cursor.cursorIndex === i ? cursor.cursorRowId : undefined}
                 cb={cb}
               />
             </div>

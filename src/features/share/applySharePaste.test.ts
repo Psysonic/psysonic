@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   playTrack: vi.fn(),
   resolveAlbum: vi.fn(),
   resolveArtist: vi.fn(),
+  resolvePlaylist: vi.fn(),
   showToast: vi.fn(),
   songToTrack: vi.fn(),
 }));
@@ -41,6 +42,7 @@ vi.mock('@/lib/api/subsonicLibrary', () => ({
 vi.mock('@/features/offline', () => ({
   resolveAlbum: mocks.resolveAlbum,
   resolveArtist: mocks.resolveArtist,
+  resolvePlaylist: mocks.resolvePlaylist,
 }));
 
 vi.mock('@/features/playback/store/playerStore', () => ({
@@ -113,6 +115,18 @@ describe('share paste resolution', () => {
       artist: { id: 'artist-1', name: 'Shared Artist', serverId: 'shared' },
       albums: [],
     });
+    mocks.resolvePlaylist.mockResolvedValue({
+      playlist: {
+        id: 'playlist-1',
+        name: 'Shared Playlist',
+        songCount: 1,
+        duration: 180,
+        created: '',
+        changed: '',
+        serverId: 'shared',
+      },
+      songs: [sharedSong],
+    });
     mocks.songToTrack.mockImplementation(song => ({
       id: song.id,
       title: song.title,
@@ -177,6 +191,43 @@ describe('share paste resolution', () => {
       'album-1',
       { serverId: 'shared' },
     );
+  });
+
+  it('validates a playlist before activating its server and navigating', async () => {
+    const order: string[] = [];
+    const navigate = vi.fn(() => { order.push('navigate'); });
+    mocks.resolvePlaylist.mockImplementation(async () => {
+      order.push('resolve');
+      return {
+        playlist: { id: 'playlist-1', name: 'Shared Playlist' },
+        songs: [],
+      };
+    });
+    mocks.authState.current.setActiveServer.mockImplementation(() => order.push('activate'));
+
+    await applySharePastePayload(
+      { srv: sharedServer.url, k: 'playlist', id: 'playlist-1' },
+      navigate,
+      t,
+    );
+
+    expect(mocks.resolvePlaylist).toHaveBeenCalledWith('shared', 'playlist-1');
+    expect(navigate).toHaveBeenCalledWith('/playlists/playlist-1?server=shared');
+    expect(order).toEqual(['resolve', 'activate', 'navigate']);
+  });
+
+  it('does not activate or navigate when a shared playlist is unavailable', async () => {
+    const navigate = vi.fn();
+    mocks.resolvePlaylist.mockResolvedValue(null);
+
+    await applySharePastePayload(
+      { srv: sharedServer.url, k: 'playlist', id: 'missing' },
+      navigate,
+      t,
+    );
+
+    expect(mocks.authState.current.setActiveServer).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 
   it('does not switch servers when the shared entity cannot be resolved', async () => {

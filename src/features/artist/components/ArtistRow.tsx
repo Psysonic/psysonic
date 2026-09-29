@@ -1,11 +1,14 @@
 import type { SubsonicArtist } from '@/lib/api/subsonicTypes';
-import React, { useRef, useState, useEffect, useLayoutEffect } from 'react';
+import { useRef, useEffect, useLayoutEffect } from 'react';
 import ArtistCardLocal from '@/features/artist/components/ArtistCardLocal';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { useRailScroll } from '@/lib/hooks/useRailScroll';
 
 interface Props {
   title: string;
+  /** Turns the heading into a button, as on `AlbumRow`. */
+  onTitleClick?: () => void;
   artists: SubsonicArtist[];
   moreLink?: string;
   moreText?: string;
@@ -16,27 +19,31 @@ interface Props {
   restoreScrollLeft?: number;
   /** Parent stashes horizontal scroll when leaving the page. */
   onScrollLeftSnapshot?: (scrollLeft: number) => void;
+  /** Hide the title when an external compact control labels this rail. */
+  hideTitle?: boolean;
 }
 
 export default function ArtistRow({
-  title, artists, moreLink, moreText, artistLinkQuery, libraryResolve = false,
+  title, onTitleClick, artists, moreLink, moreText, artistLinkQuery, libraryResolve = false,
   restoreScrollLeft,
-  onScrollLeftSnapshot,
+  onScrollLeftSnapshot, hideTitle = false,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(true);
   const scrollRestoreTargetRef = useRef(restoreScrollLeft);
   const scrollRestoreDoneRef = useRef(false);
   const rowResetKey = artists[0]?.id ?? '';
 
+  const { showLeft, showRight, measure, scrollByPage } = useRailScroll({
+    scrollRef,
+    itemCount: artists.length,
+    resetKey: rowResetKey,
+  });
+
   const handleScroll = () => {
+    measure();
     if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-    setShowLeft(scrollLeft > 0);
-    setShowRight(scrollLeft < scrollWidth - clientWidth - 5);
-    onScrollLeftSnapshot?.(scrollLeft);
+    onScrollLeftSnapshot?.(scrollRef.current.scrollLeft);
   };
 
   useEffect(() => {
@@ -88,32 +95,28 @@ export default function ArtistRow({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowResetKey, artists.length]);
 
-  useEffect(() => {
-    handleScroll();
-    window.addEventListener('resize', handleScroll);
-    return () => window.removeEventListener('resize', handleScroll);
-    // handleScroll is recreated each render but reads live refs; the resize
-    // listener is intentionally rebound only when the row data changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [artists]);
-
-  const scroll = (dir: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const amount = scrollRef.current.clientWidth * 0.75;
-    scrollRef.current.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
-  };
-
   if (artists.length === 0) return null;
 
   return (
     <section className="album-row-section">
       <div className="album-row-header">
-        <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
-        <div className="album-row-nav">
-          <button className={`nav-btn ${!showLeft ? 'disabled' : ''}`} onClick={() => scroll('left')} disabled={!showLeft}>
+        {!hideTitle && (onTitleClick ? (
+          <button
+            type="button"
+            className="section-title-link"
+            style={{ marginBottom: 0 }}
+            onClick={onTitleClick}
+          >
+            {title}<ChevronRight size={18} className="section-title-chevron" />
+          </button>
+        ) : (
+          <h2 className="section-title" style={{ marginBottom: 0 }}>{title}</h2>
+        ))}
+        <div className="album-row-nav" style={hideTitle ? { marginLeft: 'auto' } : undefined}>
+          <button className={`nav-btn ${!showLeft ? 'disabled' : ''}`} onClick={() => scrollByPage('left')} disabled={!showLeft}>
             <ChevronLeft size={20} />
           </button>
-          <button className={`nav-btn ${!showRight ? 'disabled' : ''}`} onClick={() => scroll('right')} disabled={!showRight}>
+          <button className={`nav-btn ${!showRight ? 'disabled' : ''}`} onClick={() => scrollByPage('right')} disabled={!showRight}>
             <ChevronRight size={20} />
           </button>
         </div>

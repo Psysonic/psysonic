@@ -6,7 +6,7 @@ import {
 import type { QueueItemRef } from '@/lib/media/trackTypes';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
 import { invoke } from '@tauri-apps/api/core';
-import { serverSupportsRawStream, useAuthStore } from './store/authStore';
+import { useAuthStore } from './store/authStore';
 import { selectHotCacheEntries, useHotCacheStore } from '@/features/playback/store/hotCacheStore';
 import { useLocalPlaybackStore } from './store/localPlaybackStore';
 import { getMediaDir } from '@/lib/media/mediaDir';
@@ -48,7 +48,7 @@ let workerRunning = false;
 function hotCacheEntrySatisfiesOriginalRequirement(trackId: string, serverId: string): boolean {
   const entry = findEphemeralEntry(trackId, serverId);
   if (!entry?.localPath) return false;
-  return !serverSupportsRawStream(serverId) || entry.originalBytesVerified === true;
+  return entry.originalBytesVerified === true;
 }
 
 function scheduleEvictAfterPreviousGrace(): void {
@@ -187,6 +187,17 @@ async function runWorker() {
       }
 
       const url = buildOriginalStreamUrlForServer(job.serverId, job.trackId);
+      if (!url) {
+        hotCacheFrontendDebug({
+          event: 'prefetch-skip-job',
+          trackId: job.trackId,
+          serverId: job.serverId,
+          reason: 'server-profile-missing',
+        });
+        continue;
+      }
+      const existingHotEntry = findEphemeralEntry(job.trackId, job.serverId);
+      const targetServerIndexKey = existingHotEntry?.serverIndexKey ?? job.serverId;
       try {
         const mediaDir = getMediaDir();
         hotCacheFrontendDebug({ event: 'prefetch-invoke', trackId: job.trackId });
@@ -198,7 +209,7 @@ async function runWorker() {
         }>('download_track_local', {
           tier: 'ephemeral',
           trackId: job.trackId,
-          serverIndexKey: job.serverId,
+          serverIndexKey: targetServerIndexKey,
           libraryServerId: librarySqlServerId(job.serverId),
           url,
           suffix: job.suffix,
@@ -207,7 +218,7 @@ async function runWorker() {
         });
         useHotCacheStore.getState().setEntry(
           job.trackId,
-          job.serverId,
+          targetServerIndexKey,
           res.path,
           res.size,
           'prefetch',

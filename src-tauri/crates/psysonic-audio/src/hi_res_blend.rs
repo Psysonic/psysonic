@@ -8,9 +8,11 @@ use std::time::{Duration, Instant};
 use tauri::{AppHandle, State};
 
 use super::engine::AudioEngine;
-use super::playback_rate::raw_counter_samples_for_content_position;
 use super::play_input::{url_format_hint, PlayInput};
-use super::source_build::{build_playback_source_with_probe_fallback, BuildSourceArgs, PlaybackSource};
+use super::playback_rate::raw_counter_samples_for_content_position;
+use super::source_build::{
+    build_playback_source_with_probe_fallback, BuildSourceArgs, PlaybackSource,
+};
 use super::state::install_current_source_done;
 use super::stream::LocalFileSource;
 
@@ -90,6 +92,7 @@ pub(crate) fn detach_current_sink_for_blend_reopen(state: &AudioEngine) {
     }
     cur.fadeout_trigger = None;
     cur.fadeout_samples = None;
+    cur.streaming_seek = None;
 }
 
 fn resolve_cached_play_input(engine: &AudioEngine, url: &str) -> Option<PlayInput> {
@@ -315,6 +318,7 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
     if state.generation.load(Ordering::SeqCst) != gen {
         return Ok(());
     }
+    state.pending_seek.lock().unwrap().clear_generation(gen);
     sink.play();
 
     {
@@ -328,6 +332,7 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
         cur.base_volume = snap.base_volume;
         cur.fadeout_trigger = Some(ps.built.fadeout_trigger);
         cur.fadeout_samples = Some(ps.built.fadeout_samples);
+        cur.streaming_seek = None;
     }
     drop(stream_attach);
     drop(commit_guard);

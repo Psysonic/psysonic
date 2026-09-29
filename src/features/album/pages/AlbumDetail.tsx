@@ -3,6 +3,7 @@ import { setRating, star, unstar } from '@/lib/api/subsonicStarRating';
 import { queueSongStar, queueSongRating } from '@/features/playback/store/pendingStarSync';
 import { getAlbumForServer } from '@/lib/api/subsonicLibrary';
 import { getArtistInfoForServer } from '@/lib/api/subsonicArtists';
+import { getAlbumInfoForServer } from '@/lib/api/subsonicAlbumInfo';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { shuffleArray } from '@/lib/util/shuffleArray';
@@ -27,6 +28,7 @@ import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGua
 import { join } from '@tauri-apps/api/path';
 import { useZipDownloadStore } from '@/features/offline';
 import AlbumCard from '@/features/album/components/AlbumCard';
+import SimilarAlbumsRail from '@/features/album/components/SimilarAlbumsRail';
 import AlbumHeader from '@/features/album/components/AlbumHeader';
 import AlbumTrackList from '@/features/album/components/AlbumTrackList';
 import { AlbumDetailToolbar } from '@/features/album/components/AlbumDetailToolbar';
@@ -84,6 +86,12 @@ export default function AlbumDetail() {
   const [bio, setBio] = useState<string | null>(null);
   const [bioOpen, setBioOpen] = useState(false);
   const bioRequestRef = useRef(0);
+  // Stored with the album it belongs to rather than as a bare string: the
+  // component stays mounted across album navigation, so a plain string would
+  // leave the previous album's description under the new title until the next
+  // response landed. Keyed, a stale entry simply stops matching.
+  const [descriptionEntry, setDescriptionEntry] =
+    useState<{ serverId: string; albumId: string; text: string } | null>(null);
   const downloadAlbum = useOfflineStore(s => s.downloadAlbum);
   const deleteAlbum = useOfflineStore(s => s.deleteAlbum);
   const routeServerId = readDetailServerId(searchParams, auth.activeServerId) ?? '';
@@ -96,6 +104,30 @@ export default function AlbumDetail() {
   const offlineCtx = useOfflineBrowseContext();
   const albumActionPolicy = offlineActionPolicy('albumDetail', offlineCtx.active);
   const userMetadataMutationRef = useRef(false);
+
+  // The description is server-side extra information, the same class as the
+  // artist bio: the local index derives albums from tracks and never holds it,
+  // so it takes a call — against the server that owns this album, not the active
+  // one, or a multi-server setup asks the wrong server for this id.
+  const albumDescription = descriptionEntry
+    && descriptionEntry.serverId === albumOwnerServerId
+    && descriptionEntry.albumId === albumOwnerId
+    ? descriptionEntry.text || null
+    : null;
+
+  useEffect(() => {
+    if (!albumOwnerServerId || !albumOwnerId) return;
+    if (!albumActionPolicy.canShowBio) return;
+    if (!shouldAttemptSubsonicForServer(albumOwnerServerId)) return;
+    let cancelled = false;
+    void (async () => {
+      const info = await getAlbumInfoForServer(albumOwnerServerId, albumOwnerId);
+      if (cancelled) return;
+      const notes = typeof info?.notes === 'string' ? info.notes.trim() : '';
+      setDescriptionEntry({ serverId: albumOwnerServerId, albumId: albumOwnerId, text: notes });
+    })();
+    return () => { cancelled = true; };
+  }, [albumOwnerServerId, albumOwnerId, albumActionPolicy.canShowBio]);
 
   const [filterText, setFilterText] = useState('');
   const [showPlPicker, setShowPlPicker] = useState(false);
@@ -458,7 +490,26 @@ const handleShuffleAll = () => {
     albumCoverServerScope,
     { libraryResolve: true },
   );
-  const albumCover = useCoverArt(albumCoverRefResolved, 400, { surface: 'sparse' });
+  // §5 external album-chain context for the blurred-background cover, matching
+  // the hero's `heroCoverEnsureOpts` (AlbumHeader). Memoized on the
+  // artist/album identity so the background hook's ensure effect doesn't
+  // re-fire on every parent render. With `allowExternalAlbum` set, hero and
+  // background ask the same 400px tier for the same ref, so `ensureQueue`
+  // dedupes them into one queued flight: a first visit to a coverless album
+  // runs the external chain once instead of racing a parallel opts-less
+  // vinyl download.
+  const albumCoverEnsureOpts = useMemo(
+    () => ({
+      artistName: album?.album.artist,
+      albumTitle: album?.album.name,
+      allowExternalAlbum: true,
+    }),
+    [album?.album.artist, album?.album.name],
+  );
+  const albumCover = useCoverArt(albumCoverRefResolved, 400, {
+    surface: 'sparse',
+    ensureOpts: albumCoverEnsureOpts,
+  });
   const resolvedCoverUrl = albumCover.src || null;
 
   useEffect(() => {
@@ -500,6 +551,7 @@ const handleShuffleAll = () => {
         downloadProgress={null}
         bio={bio}
         bioOpen={bioOpen}
+        albumDescription={albumDescription}
         onToggleStar={toggleStar}
         onDownload={handleDownload}
         onPlayAll={handlePlayAll}
@@ -529,6 +581,8 @@ const handleShuffleAll = () => {
           t={t}
           actionPolicy={albumActionPolicy}
           songs={songs}
+          ratings={ratings}
+          onRate={handleRate}
         />
       )}
 
@@ -578,6 +632,14 @@ const handleShuffleAll = () => {
           />
         </div>
       )}
+
+      <SimilarAlbumsRail
+        serverId={albumOwnerServerId}
+        albumId={albumOwnerId}
+        artistId={info.artistId}
+        songs={album.songs}
+        enabled={!offlineCtx.active}
+      />
     </div>
   );
 }

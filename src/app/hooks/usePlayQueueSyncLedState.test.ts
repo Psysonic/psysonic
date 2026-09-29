@@ -8,6 +8,7 @@ import {
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
 import { resetAllStores } from '@/test/helpers/storeReset';
+import { usePlayQueueSyncSettingsStore } from '@/features/playback/store/playQueueSyncSettingsStore';
 
 const pullPlayQueueFromServerMock = vi.fn();
 
@@ -67,5 +68,21 @@ describe('usePlayQueueSyncLedState', () => {
     expect(result.current.ledVariant).toBe('connected');
     expect(result.current.queueHandoffReason).toBe(false);
     expect(canAutoIdlePlayQueuePull('connected', null)).toBe(true);
+  });
+
+  it('hides queue handoff controls and skips manual pull when sync is disabled', async () => {
+    usePlayerStore.setState({
+      queueItems: [{ serverId: 'a', trackId: 'a1' }],
+      queueIndex: 0,
+      currentTrack: { id: 'a1', title: 'a1', artist: '', album: '', albumId: '', duration: 60, serverId: 'a' },
+    });
+    usePlayQueueSyncSettingsStore.getState().setEnabled(false);
+
+    const { result } = renderHook(() => usePlayQueueSyncLedState('connected'));
+
+    expect(canAutoIdlePlayQueuePull('connected', null)).toBe(false);
+    expect(result.current.syncRingVisible).toBe(false);
+    await act(() => result.current.pullFromActiveServer());
+    expect(pullPlayQueueFromServerMock).not.toHaveBeenCalled();
   });
 });

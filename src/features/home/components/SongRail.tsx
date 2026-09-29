@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import SongCard from '@/features/home/components/SongCard';
 import { usePerfProbeFlags } from '@/lib/perf/perfFlags';
 import { dedupeById } from '@/lib/util/dedupeById';
+import { useRailScroll } from '@/lib/hooks/useRailScroll';
 
 interface Props {
   title: string;
@@ -38,9 +39,12 @@ export default function SongRail({
   const interactivityDisabled = perfFlags.disableMainstageRailInteractivity || disableInteractivity;
   const scrollRef = useRef<HTMLDivElement>(null);
   const uniqueSongs = useMemo(() => dedupeById(songs), [songs]);
-  const [showLeft, setShowLeft] = useState(false);
-  const [showRight, setShowRight] = useState(true);
   const [artworkBudget, setArtworkBudget] = useState(initialArtworkBudget);
+
+  const firstSong = uniqueSongs[0];
+  const rowArtworkResetKey = firstSong
+    ? (firstSong.serverId ? `${firstSong.serverId}:${firstSong.id}` : firstSong.id)
+    : '';
 
   const recomputeArtworkBudget = () => {
     if (!windowArtworkByViewport) return;
@@ -57,54 +61,19 @@ export default function SongRail({
     setArtworkBudget(prev => (nextBudget > prev ? nextBudget : prev));
   };
 
-  const handleScroll = () => {
-    if (windowArtworkByViewport) recomputeArtworkBudget();
+  const { showLeft, showRight, measure, scrollByPage } = useRailScroll({
+    scrollRef,
+    itemCount: uniqueSongs.length,
+    resetKey: rowArtworkResetKey,
+    enabled: !interactivityDisabled,
+    onLayoutChange: recomputeArtworkBudget,
+  });
 
-    if (!scrollRef.current) return;
-    const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
-
-    if (!interactivityDisabled) {
-      setShowLeft(scrollLeft > 0);
-      setShowRight(scrollLeft < scrollWidth - clientWidth - 5);
-    }
-  };
-
-  useEffect(() => {
-    handleScroll();
-    const raf = window.requestAnimationFrame(() => {
-      if (windowArtworkByViewport) recomputeArtworkBudget();
-    });
-    window.addEventListener('resize', handleScroll);
-    const ro = new ResizeObserver(() => {
-      if (windowArtworkByViewport) recomputeArtworkBudget();
-    });
-    if (scrollRef.current) ro.observe(scrollRef.current);
-    return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener('resize', handleScroll);
-      ro.disconnect();
-    };
-    // handleScroll/recomputeArtworkBudget are recreated each render but read live
-    // refs/props; the listeners are intentionally (re)bound only when the row data
-    // or artwork config changes, not on every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uniqueSongs, interactivityDisabled, windowArtworkByViewport, initialArtworkBudget]);
-
-  const firstSong = uniqueSongs[0];
-  const rowArtworkResetKey = firstSong
-    ? (firstSong.serverId ? `${firstSong.serverId}:${firstSong.id}` : firstSong.id)
-    : '';
   useEffect(() => {
     // React Compiler set-state-in-effect rule: state set from a DOM/layout measurement.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setArtworkBudget(initialArtworkBudget);
   }, [initialArtworkBudget, rowArtworkResetKey]);
-
-  const scroll = (dir: 'left' | 'right') => {
-    if (!scrollRef.current) return;
-    const amount = scrollRef.current.clientWidth * 0.75;
-    scrollRef.current.scrollBy({ left: dir === 'left' ? -amount : amount, behavior: 'smooth' });
-  };
 
   // Hide rail entirely if empty and no empty-state copy
   if (uniqueSongs.length === 0 && !loading && !emptyText) return null;
@@ -130,14 +99,14 @@ export default function SongRail({
             <>
               <button
                 className={`nav-btn ${!showLeft ? 'disabled' : ''}`}
-                onClick={() => scroll('left')}
+                onClick={() => scrollByPage('left')}
                 disabled={!showLeft}
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 className={`nav-btn ${!showRight ? 'disabled' : ''}`}
-                onClick={() => scroll('right')}
+                onClick={() => scrollByPage('right')}
                 disabled={!showRight}
               >
                 <ChevronRight size={20} />
@@ -151,7 +120,7 @@ export default function SongRail({
         {uniqueSongs.length === 0 && emptyText ? (
           <p className="song-row-empty">{emptyText}</p>
         ) : (
-          <div className="song-grid" ref={scrollRef} onScroll={handleScroll}>
+          <div className="song-grid" ref={scrollRef} onScroll={measure}>
             {uniqueSongs.map((s, idx) => (
               <SongCard
                 key={s.serverId ? `${s.serverId}:${s.id}` : s.id}

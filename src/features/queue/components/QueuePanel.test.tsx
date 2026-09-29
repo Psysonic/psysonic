@@ -26,8 +26,24 @@ vi.mock('@/lib/api/subsonic', () => ({
 }));
 
 
+const starMock = vi.hoisted(() => vi.fn(async () => undefined));
+const unstarMock = vi.hoisted(() => vi.fn(async () => undefined));
+vi.mock('@/lib/api/subsonicStarRating', () => ({
+  star: starMock,
+  unstar: unstarMock,
+  setRating: vi.fn(async () => undefined),
+}));
+
 vi.mock('@/features/orbit/utils/orbitBulkGuard', () => ({
   orbitBulkGuard: vi.fn(async () => true),
+}));
+
+// Tests render without a DragDropProvider, so the context's own `startDrag` is a
+// no-op. Record it instead, to see what a row drag hands over.
+const startDragMock = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/dnd/DragDropContext', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/dnd/DragDropContext')>()),
+  useDragDrop: () => ({ isDragging: false, payload: null, startDrag: startDragMock }),
 }));
 
 import QueuePanel from '@/features/queue/components/QueuePanel';
@@ -133,6 +149,15 @@ describe('QueuePanel — display mode', () => {
     expect(container.textContent).not.toContain('Next Tracks');
   });
 
+  it('playlist mode: rows before the current track are dimmed, the current and upcoming rows are not', () => {
+    const tracks = makeTracks(4);
+    useAuthStore.getState().setQueueDisplayMode('playlist');
+    seedQueue(tracks, { index: 2, currentTrack: tracks[2] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    const opacities = [...container.querySelectorAll<HTMLElement>('[data-queue-idx]')].map(r => r.style.opacity);
+    expect(opacities).toEqual(['0.5', '0.5', '', '']);
+  });
+
   it('queue mode: header reads "Queue", only upcoming rows render with absolute indices + titles', () => {
     const tracks = makeTracks(5);
     useAuthStore.getState().setQueueDisplayMode('queue');
@@ -224,11 +249,30 @@ describe('QueuePanel — toolbar', () => {
     expect(menu?.textContent).toContain('Load Playlist');
   });
 
-  it('Shuffle button is disabled when the queue has fewer than 2 tracks', () => {
-    seedQueue([makeTrack()], { index: 0, currentTrack: makeTrack() });
+  it('Shuffle button toggles the player shuffle mode and switching it off restores the order', () => {
+    const tracks = makeTracks(6);
+    seedQueue(tracks, { index: 1, currentTrack: tracks[1] });
+    const original = usePlayerStore.getState().queueItems.map(ref => ref.trackId);
     const { getByLabelText } = renderWithProviders(<QueuePanel />);
-    const shuffle = getByLabelText('Shuffle queue') as HTMLButtonElement;
-    expect(shuffle.disabled).toBe(true);
+    const shuffle = getByLabelText('Shuffle queue');
+    expect(shuffle.getAttribute('aria-pressed')).toBe('false');
+
+    act(() => { fireEvent.click(shuffle); });
+
+    const on = usePlayerStore.getState();
+    expect(on.shuffleMode).toBe(true);
+    expect(shuffle.getAttribute('aria-pressed')).toBe('true');
+    // Played and current rows stay put; only the upcoming tail is reordered.
+    expect(on.queueItems.slice(0, 2).map(ref => ref.trackId)).toEqual(original.slice(0, 2));
+    expect([...on.queueItems.map(ref => ref.trackId)].sort()).toEqual([...original].sort());
+    expect(on.queueIndex).toBe(1);
+
+    act(() => { fireEvent.click(shuffle); });
+
+    const off = usePlayerStore.getState();
+    expect(off.shuffleMode).toBe(false);
+    expect(off.queueItems.map(ref => ref.trackId)).toEqual(original);
+    expect(shuffle.getAttribute('aria-pressed')).toBe('false');
   });
 
   it('closes a pending save modal when the queue is cleared', () => {
@@ -242,6 +286,22 @@ describe('QueuePanel — toolbar', () => {
 
     fireEvent.click(getByLabelText('Clear queue'));
     expect(queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('right-clicking Clear keeps only the active track playing', () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 1, currentTrack: tracks[1] });
+    usePlayerStore.setState({ isPlaying: true, currentTime: 42 });
+    const { getByLabelText } = renderWithProviders(<QueuePanel />);
+
+    fireEvent.contextMenu(getByLabelText('Clear queue'));
+
+    const state = usePlayerStore.getState();
+    expect(state.queueItems.map(ref => ref.trackId)).toEqual([tracks[1].id]);
+    expect(state.queueIndex).toBe(0);
+    expect(state.currentTrack).toBe(tracks[1]);
+    expect(state.isPlaying).toBe(true);
+    expect(state.currentTime).toBe(42);
   });
 
   it('keeps the latest playlist load when an older request resolves last', async () => {
@@ -323,6 +383,168 @@ describe('QueuePanel — DnD architecture pin (§4.4 of v2 plan)', () => {
   });
 });
 
+describe('QueuePanel — row favourite toggle', () => {
+  // Same virtualizer layout shim as the blocks above: jsdom has no layout.
+  let offsetSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    offsetSpy = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('queue-list') ? 600 : 52;
+      });
+    useAuthStore.getState().setQueueDisplayMode('playlist');
+    starMock.mockClear();
+    unstarMock.mockClear();
+  });
+  afterEach(() => offsetSpy.mockRestore());
+
+  it('favourites a row without starting it', async () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    const row = container.querySelectorAll<HTMLElement>('[data-queue-idx]')[2];
+    const heart = row.querySelector<HTMLElement>('.queue-item-star')!;
+    act(() => { fireEvent.click(heart); });
+
+    await waitFor(() => expect(starMock).toHaveBeenCalledTimes(1));
+    // The row itself plays on click — the button has to keep that from firing.
+    expect(usePlayerStore.getState().queueIndex).toBe(0);
+  });
+
+  it('shows the hearts by default and hides them when the setting is off', () => {
+    const tracks = makeTracks(2);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const first = renderWithProviders(<QueuePanel />);
+    expect(first.container.querySelectorAll('.queue-item-star').length).toBe(2);
+    first.unmount();
+
+    act(() => { useAuthStore.setState({ queueRowFavoriteButton: false }); });
+    const second = renderWithProviders(<QueuePanel />);
+    expect(second.container.querySelectorAll('.queue-item-star').length).toBe(0);
+  });
+  it('takes a favourite back off a row that already has one', async () => {
+    const tracks = makeTracks(2).map(track => ({ ...track, starred: '2026-01-01T00:00:00Z' }));
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    const row = container.querySelectorAll<HTMLElement>('[data-queue-idx]')[1];
+    const heart = row.querySelector<HTMLElement>('.queue-item-star')!;
+    expect(heart.className).toContain('is-starred');
+
+    act(() => { fireEvent.click(heart); });
+
+    await waitFor(() => expect(unstarMock).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe('QueuePanel — multi-select', () => {
+  // Same virtualizer layout shim as the blocks above: jsdom has no layout.
+  let offsetSpy: ReturnType<typeof vi.spyOn>;
+  beforeEach(() => {
+    offsetSpy = vi
+      .spyOn(HTMLElement.prototype, 'offsetHeight', 'get')
+      .mockImplementation(function (this: HTMLElement) {
+        return this.classList.contains('queue-list') ? 600 : 52;
+      });
+    useAuthStore.getState().setQueueDisplayMode('playlist');
+    startDragMock.mockClear();
+  });
+  afterEach(() => offsetSpy.mockRestore());
+
+  const rowsOf = (container: HTMLElement) =>
+    [...container.querySelectorAll<HTMLElement>('[data-queue-idx]')];
+
+  const dragRow = (row: HTMLElement) => {
+    fireEvent.mouseDown(row, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.mouseMove(document, { clientX: 10, clientY: 40 });
+  };
+
+  it('drags the whole selection when a selected row is grabbed', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[3]!, { ctrlKey: true });
+
+    dragRow(rowsOf(container)[3]!);
+
+    expect(startDragMock).toHaveBeenCalledTimes(1);
+    const [payload] = startDragMock.mock.calls[0]!;
+    expect(JSON.parse(payload.data)).toEqual({ type: 'queue_reorder', index: 3, indices: [1, 3] });
+    expect(payload.label).toBe('2 tracks');
+  });
+
+  it('drags only the grabbed row and drops the selection when an unselected row is grabbed', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[3]!, { ctrlKey: true });
+
+    dragRow(rowsOf(container)[2]!);
+
+    const [payload] = startDragMock.mock.calls[0]!;
+    expect(JSON.parse(payload.data)).toEqual({ type: 'queue_reorder', index: 2 });
+    expect(rowsOf(container).some(row => row.classList.contains('bulk-selected'))).toBe(false);
+  });
+
+  it('selects rows with Ctrl+click without playing them and removes them on Delete', () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[3]!, { ctrlKey: true });
+
+    expect(rowsOf(container).map(row => row.classList.contains('bulk-selected')))
+      .toEqual([false, true, false, true]);
+    expect(usePlayerStore.getState().queueIndex).toBe(0);
+
+    act(() => { fireEvent.keyDown(document.body, { key: 'Delete', ctrlKey: true }); });
+
+    expect(usePlayerStore.getState().queueItems.map(ref => ref.trackId))
+      .toEqual([tracks[0].id, tracks[2].id]);
+    expect(rowsOf(container).some(row => row.classList.contains('bulk-selected'))).toBe(false);
+  });
+
+  it('keeps the selection after Ctrl is released, so Delete still removes it', () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[2]!, { ctrlKey: true });
+
+    act(() => { fireEvent.keyUp(document.body, { key: 'Control' }); });
+    expect(rowsOf(container).filter(row => row.classList.contains('bulk-selected'))).toHaveLength(2);
+
+    act(() => { fireEvent.keyDown(document.body, { key: 'Delete' }); });
+    expect(usePlayerStore.getState().queueItems.map(ref => ref.trackId)).toEqual([tracks[0].id]);
+  });
+
+  it('dissolves the selection on a plain click and plays the clicked row', async () => {
+    const tracks = makeTracks(4);
+    seedQueue(tracks, { index: 0, currentTrack: tracks[0] });
+    const { container } = renderWithProviders(<QueuePanel />);
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+    fireEvent.click(rowsOf(container)[2]!, { ctrlKey: true });
+
+    fireEvent.click(rowsOf(container)[3]!);
+
+    expect(rowsOf(container).some(row => row.classList.contains('bulk-selected'))).toBe(false);
+    await waitFor(() => expect(usePlayerStore.getState().queueIndex).toBe(3));
+  });
+
+  it('does not let the playing row join a selection', () => {
+    const tracks = makeTracks(3);
+    seedQueue(tracks, { index: 1, currentTrack: tracks[1] });
+    const { container } = renderWithProviders(<QueuePanel />);
+
+    fireEvent.click(rowsOf(container)[1]!, { ctrlKey: true });
+
+    expect(rowsOf(container)[1]!.classList.contains('bulk-selected')).toBe(false);
+  });
+});
 afterEach(() => {
   usePlayerStore.getState().closeContextMenu();
 });

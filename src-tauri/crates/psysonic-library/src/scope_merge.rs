@@ -4,6 +4,7 @@
 
 mod album_browse;
 mod album_detail;
+mod artist_album_counts;
 mod artist_albums;
 mod artist_browse;
 mod artist_candidates;
@@ -28,19 +29,22 @@ pub(crate) use album_browse::list_albums_layer1_filtered;
 #[allow(unused_imports)]
 pub(crate) use artist_browse::{
     list_artists_layer1_filtered, list_index_artists_layer1_filtered,
-    list_index_artists_multi_scope_album_filtered, LAYER1_ARTIST_CREDIT_JOIN_SQL,
+    list_index_artists_multi_scope_album_filtered, list_index_starred_artists_filtered,
+    LAYER1_ARTIST_CREDIT_JOIN_SQL,
 };
 #[allow(unused_imports)]
 pub(crate) use artist_candidates::{album_artist_id_expr, AlbumSplitMeta};
 #[allow(unused_imports)]
 pub(crate) use common::{
     album_row_to_dto, ensure_cluster_keys_for_scopes, finish_scope_album_list, non_empty_scopes,
-    normalize_scope_pairs, random_window_offset, scope_cte_sql, AlbumListRow, ALBUM_DEDUP_KEY,
-    ALBUM_PICK_KEY, TRACK_CLUSTER_PARTITION_KEY, TRACK_DEDUP_KEY,
+    normalize_scope_pairs, scope_cte_sql, AlbumListRow, ALBUM_DEDUP_KEY, ALBUM_PICK_KEY,
+    TRACK_CLUSTER_PARTITION_KEY, TRACK_DEDUP_KEY,
 };
 #[allow(unused_imports)]
 pub(crate) use entity_sources::{lookup_album_key, LOOKUP_ALBUM_KEY_SQL};
 pub(crate) use live_search::{live_search_albums, live_search_artists, live_search_songs};
+#[cfg(test)]
+pub(crate) use track_browse::random_sample_order_sql;
 pub(crate) use track_browse::{
     collect_scope_fts_rowids, list_albums_filtered, list_artists_filtered, list_tracks_filtered,
     list_tracks_layer1_filtered, search_tracks_filtered,

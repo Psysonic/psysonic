@@ -7,8 +7,9 @@ import FpsOverlay from '@/app/FpsOverlay';
 import { useThemeStore } from '../store/themeStore';
 import { useFontStore } from '../store/fontStore';
 import { useKeybindingsStore } from '../store/keybindingsStore';
+import { useAuthStore } from '../store/authStore';
 import { usePerfProbeFlags } from '@/lib/perf/perfFlags';
-import i18n from '@/lib/i18n';
+import i18n, { normalizeLanguageCode } from '@/lib/i18n';
 
 /**
  * Mini-player webview tree. Rendered in the secondary Tauri window labelled
@@ -29,8 +30,14 @@ export default function MiniPlayerApp() {
       if (e.key === 'psysonic_theme') useThemeStore.persist.rehydrate();
       else if (e.key === 'psysonic_font') useFontStore.persist.rehydrate();
       else if (e.key === 'psysonic_keybindings') useKeybindingsStore.persist.rehydrate();
+      // Settings the mini reads live: the window frame it should wear. Only
+      // the store is asked to re-read — the value itself is never touched here.
+      else if (e.key === 'psysonic-auth') useAuthStore.persist.rehydrate();
       else if (e.key === 'psysonic_language' && e.newValue) {
-        i18n.changeLanguage(e.newValue);
+        // A backup import can put an unusable value here; switching to it would
+        // hand every Intl call in the mini a tag that throws.
+        const code = normalizeLanguageCode(e.newValue);
+        if (code) i18n.changeLanguage(code);
       }
     };
     window.addEventListener('storage', onStorage);

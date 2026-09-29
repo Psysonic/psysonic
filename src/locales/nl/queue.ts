@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Copy Navidrome share link',
   shareNavidromePublicMissing: 'Navidrome share link is unavailable.',
   shareQueueEmpty: 'De wachtrij is leeg — niets om te delen.',
+  multiServerShareTitle: 'Wachtrij van meerdere servers',
+  multiServerShareHint: 'Kies een server om de tracks ervan te delen.',
   emptyQueue: 'De wachtrij is leeg.',
   crossServerEnqueueBlocked: 'Tracks van een andere server kunnen niet aan de huidige wachtrij worden toegevoegd. Maak de wachtrij eerst leeg of stop afspelen.',
   trackSingular: 'nummer',

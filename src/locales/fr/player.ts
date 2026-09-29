@@ -65,6 +65,7 @@ export const player = {
   lyricsSourceServer: 'Source : Serveur',
   lyricsSourceLrclib: 'Source : LRCLIB',
   lyricsSourceNetease: 'Source : Netease',
+  lyricsRefresh: 'Actualiser les paroles',
   showDuration: 'Afficher la durée',
   showRemainingTime: 'Afficher le temps restant',
   scrobbleStatus: 'État du scrobble',

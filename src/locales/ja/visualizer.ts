@@ -18,6 +18,9 @@ export const visualizer = {
     enableNowPlayingHint: 'Now Playing ページにビジュアライザーをカードとして追加します。',
     enableFullscreen: '全画面プレーヤーに表示',
     enableFullscreenHint: 'すべての全画面プレーヤースタイルにビジュアライザーを追加します。',
+    pauseWhenUnfocused: 'Psysonic が非アクティブのとき一時停止',
+    pauseWhenUnfocusedHint:
+      '別のウィンドウがアクティブな間はビジュアライザーの描画を停止し、CPU と GPU の使用量を抑えます。',
     mode: '既定のモード',
     sensitivity: '感度',
     sensitivityHint: '大きな音をクリップせずに静かな部分を持ち上げます。',
@@ -35,5 +38,8 @@ export const visualizer = {
     frameRateHint: '低い値ほど CPU 使用量を抑えられます。アニメーションは滑らかに保たれます。',
     radioNote:
       'インターネットラジオは、局がイコライザーのオーディオグラフに接続された後に表示できます。一部のストリームはこの経路に対応していません。',
+    preview: 'プレビュー',
+    previewDemo: '再生していない間はデモ信号を表示します。',
+    previewLive: '現在の再生内容を表示しています。',
   },
 };

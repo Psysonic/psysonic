@@ -7,9 +7,14 @@ import { shouldRebindPlaybackToHotCache } from '@/features/playback/store/playba
 import type { PlayerState } from '@/features/playback/store/playerStoreTypes';
 import { armSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
+  beginSeekRequest,
   clearSeekFallbackRetry,
+  completeSeekRequest,
   getSeekFallbackRestartAt,
   getSeekFallbackTrackId,
+  isSeekRequestCurrent,
+  preserveSeekRequestAcrossNextPlaybackReset,
+  rollbackSeekRequest,
   scheduleSeekFallbackRetry,
   setSeekFallbackRestartAt,
   setSeekFallbackTrackId,
@@ -42,10 +47,16 @@ type GetState = () => PlayerState;
  * the same position via `playTrack`.
  */
 export function runSeek(set: SetState, get: GetState, progress: number): void {
-  const { currentTrack } = get();
+  const initialState = get();
+  const { currentTrack } = initialState;
   if (!currentTrack) return;
   const dur = currentTrack.duration;
   if (!dur || !isFinite(dur)) return;
+  const requestGeneration = beginSeekRequest(
+    currentTrack.id,
+    initialState.currentTime,
+    initialState.progress,
+  );
   const time = Math.max(0, Math.min(progress * dur, dur - 0.25));
   set({ progress: time / dur, currentTime: time });
   // Views on the interpolated clock have no other way to learn about this:
@@ -53,6 +64,7 @@ export function runSeek(set: SetState, get: GetState, progress: number): void {
   // would leave the lyrics parked until playback resumed.
   emitPlaybackSeek(time);
   armSeekDebounce(100, () => {
+    if (!isSeekRequestCurrent(requestGeneration, currentTrack.id)) return;
     const s0 = get();
     if (!s0.currentTrack) return;
     // Report the new position once the drag settles so live now-playing jumps to
@@ -64,22 +76,32 @@ export function runSeek(set: SetState, get: GetState, progress: number): void {
         trackId: s0.currentTrack.id,
         seconds: time,
         setAtMs: Date.now(),
+        requestGeneration,
       });
       clearSeekFallbackRetry();
-      s0.playTrack(s0.currentTrack, undefined, true);
+      const releasePreservation = preserveSeekRequestAcrossNextPlaybackReset(requestGeneration);
+      try {
+        s0.playTrack(s0.currentTrack, undefined, true);
+      } finally {
+        releasePreservation();
+      }
+      completeSeekRequest(requestGeneration, currentTrack.id);
       return;
     }
     audioSeek({ seconds: time }).then(() => {
+      if (!isSeekRequestCurrent(requestGeneration, currentTrack.id)) return;
       // Arm stale-progress guard only after backend acknowledged seek.
       setSeekTarget(time);
       noteEngineProgressForGapless(time);
       setSeekFallbackVisualTarget(null);
       clearSeekFallbackRetry();
+      completeSeekRequest(requestGeneration, currentTrack.id);
       // Seeking straight into the crossfade pre-buffer window must kick off the
       // next-track download now — the progress-tick path is gated by the seek
       // settle guard, which would otherwise delay the buffer past the fade.
       maybeCrossfadeBytePreload(time, dur);
     }).catch((err: unknown) => {
+      if (!isSeekRequestCurrent(requestGeneration, currentTrack.id)) return;
       // Release the progress-tick guard so the UI doesn't freeze
       // waiting for a target the engine will never reach.
       clearSeekTarget();
@@ -88,6 +110,7 @@ export function runSeek(set: SetState, get: GetState, progress: number): void {
         console.error(err);
         setSeekFallbackVisualTarget(null);
         clearSeekFallbackRetry();
+        rollbackSeekRequest(requestGeneration, currentTrack.id, time);
         return;
       }
       // Streaming-start path can be temporarily non-seekable or busy.
@@ -102,18 +125,24 @@ export function runSeek(set: SetState, get: GetState, progress: number): void {
         trackId: s.currentTrack.id,
         seconds: time,
         setAtMs: Date.now(),
+        requestGeneration,
       });
       // Keep stale progress ticks from snapping UI back to start while
       // recoverable seek retries are still in flight.
       setSeekTarget(time);
       noteEngineProgressForGapless(time);
-      if (msg.includes('not seekable') && !sameBurst) {
+      if ((msg.includes('not seekable') || msg.includes('audio seek timeout')) && !sameBurst) {
         setSeekFallbackTrackId(s.currentTrack.id);
         setSeekFallbackRestartAt(now);
         // Keep manual semantics (no crossfade) for seek recovery restarts.
-        s.playTrack(s.currentTrack, undefined, true);
+        const releasePreservation = preserveSeekRequestAcrossNextPlaybackReset(requestGeneration);
+        try {
+          s.playTrack(s.currentTrack, undefined, true);
+        } finally {
+          releasePreservation();
+        }
       }
-      scheduleSeekFallbackRetry(s.currentTrack.id, time);
+      scheduleSeekFallbackRetry(s.currentTrack.id, time, requestGeneration);
     });
   });
 }

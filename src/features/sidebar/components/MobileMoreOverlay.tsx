@@ -9,6 +9,7 @@ import { useLuckyMixAvailable } from '@/features/randomMix';
 import { isOfflineSidebarNavAllowed } from '@/features/offline';
 import { useReactiveOfflineBrowseContext } from '@/features/sidebar/hooks/useReactiveOfflineBrowseContext';
 import { offlineBrowseNavFlags } from '@/features/offline';
+import { useShareSettingsStore } from '@/features/share';
 
 const BOTTOM_NAV_ROUTES = new Set(['/', '/albums', '/now-playing']);
 
@@ -22,6 +23,7 @@ export default function MobileMoreOverlay({ onClose }: { onClose: () => void }) 
   const hasOfflineContent = offlineCtx.capabilities.manualPins;
   const luckyMixBase = useLuckyMixAvailable();
   const luckyMixAvailable = luckyMixBase && randomNavMode === 'separate';
+  const navidromeSharingEnabled = useShareSettingsStore(s => s.navidromeSharingEnabled);
 
   const items = sidebarItems
     .filter(cfg => {
@@ -32,6 +34,8 @@ export default function MobileMoreOverlay({ onClose }: { onClose: () => void }) 
       if (randomNavMode === 'hub' && (cfg.id === 'randomMix' || cfg.id === 'randomAlbums')) return false;
       if (randomNavMode === 'separate' && cfg.id === 'randomPicker') return false;
       if (cfg.id === 'luckyMix' && !luckyMixAvailable) return false;
+      if (cfg.id === 'shared' && !navidromeSharingEnabled) return false;
+      if (cfg.id === 'shared') return true;
       if (isServerOffline && !isOfflineSidebarNavAllowed(
         cfg.id,
         offlineNav.favoritesOfflineBrowse,
@@ -60,7 +64,7 @@ export default function MobileMoreOverlay({ onClose }: { onClose: () => void }) 
               onClick={onClose}
             >
               <span className="mobile-more-icon"><item.icon size={24} /></span>
-              <span className="mobile-more-label">{t(item.labelKey)}</span>
+              <span className="mobile-more-label">{t(item.labelKey, { defaultValue: item.defaultLabel })}</span>
             </NavLink>
           ))}
           {hasOfflineContent && (

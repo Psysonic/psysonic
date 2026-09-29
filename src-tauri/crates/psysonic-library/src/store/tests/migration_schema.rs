@@ -1,21 +1,279 @@
 use rusqlite::{params, Connection};
 
 use super::super::migrations::{
-    ensure_entity_user_rating_schema, ensure_genre_tags_schema, run_migrations,
-    run_migrations_with, MigrationOutcome, INITIAL_SQL, LIBRARY_DB_MIN_COMPATIBLE_VERSION,
-    MIGRATIONS, MIGRATION_012_TRACK_GENRE_LEGACY, MIGRATION_013_ARTIST_ARTWORK_LOOKUP,
-    MIGRATION_014_ARTIST_NAME_SORT,
+    ensure_additive_schema, ensure_entity_user_rating_schema, ensure_genre_tags_schema,
+    run_migrations, run_migrations_with, MigrationOutcome, INITIAL_SQL,
+    LIBRARY_DB_MIN_COMPATIBLE_VERSION, MIGRATIONS, MIGRATION_012_TRACK_GENRE_LEGACY,
+    MIGRATION_013_ARTIST_ARTWORK_LOOKUP, MIGRATION_014_ARTIST_NAME_SORT,
 };
 use super::super::open::{configure_write_connection, in_memory_uri};
 use super::super::LibraryStore;
 use super::migration_runner::no_op_hook;
+use super::TestDatabase;
+
+#[test]
+fn migration_031_repairs_preexisting_version_30_without_mood_table() {
+    let db = TestDatabase::new("mood-v30-marker-without-table");
+    {
+        let conn = Connection::open(&db.path).unwrap();
+        configure_write_connection(&conn).unwrap();
+        let through_29 = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(version, _)| *version <= 29)
+            .collect::<Vec<_>>();
+        run_migrations_with(
+            &conn,
+            &through_29,
+            LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+            no_op_hook,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO track (server_id, id, title, album, synced_at, raw_json) \
+             VALUES ('s1', 't1', 'Existing track', 'Album', 1, '{\"moods\":[\"Dreamy\"]}')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO library_data_migration (id, cursor_rowid, started_at, completed_at) \
+             VALUES (?1, 1, 1, 1)",
+            [crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO schema_migrations (version, applied_at) VALUES (30, 1)",
+            [],
+        )
+        .unwrap();
+    }
+
+    let store = LibraryStore::open_path_for_test(&db.path).expect("repair mood schema on open");
+    store
+        .with_read_conn(|conn| {
+            let (version, track_count, backfill_marker): (i64, i64, i64) = conn.query_row(
+                "SELECT (SELECT MAX(version) FROM schema_migrations), \
+                        (SELECT COUNT(*) FROM track WHERE id = 't1'), \
+                        (SELECT COUNT(*) FROM library_data_migration WHERE id = ?1)",
+                [crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )?;
+            assert_eq!((version, track_count, backfill_marker), (31, 1, 0));
+            let mood_count: i64 =
+                conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| row.get(0))?;
+            assert_eq!(mood_count, 0);
+            Ok(())
+        })
+        .unwrap();
+    assert!(
+        crate::mood_tags_backfill::inspect_mood_tags_backfill(&store)
+            .unwrap()
+            .needed
+    );
+    store.verify_operational_schema().unwrap();
+}
+
+#[test]
+fn mood_schema_repair_on_reopen_invalidates_backfill_only_when_table_was_lost() {
+    let db = TestDatabase::new("mood-repair-on-reopen");
+    {
+        let store = LibraryStore::open_path_for_test(&db.path).unwrap();
+        store
+            .with_conn_mut("test", |conn| {
+                conn.execute(
+                    "INSERT INTO track (server_id, id, title, album, synced_at, raw_json) \
+                     VALUES ('s1', 't1', 'Existing track', 'Album', 1, '{\"moods\":[\"Dreamy\"]}')",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO track_mood (server_id, track_id, mood) VALUES ('s1', 't1', 'Dreamy')",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO library_data_migration (id, cursor_rowid, started_at, completed_at) \
+                     VALUES (?1, 1, 1, 1)",
+                    [crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
+                )?;
+                conn.execute("DROP INDEX idx_track_mood_browse", [])?;
+                Ok(())
+            })
+            .unwrap();
+    }
+    {
+        let store = LibraryStore::open_path_for_test(&db.path).expect("restore missing index");
+        store
+            .with_read_conn(|conn| {
+                let count: i64 = conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| {
+                    row.get(0)
+                })?;
+                let marker: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM library_data_migration WHERE id = ?1 AND completed_at IS NOT NULL",
+                    [crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
+                    |row| row.get(0),
+                )?;
+                assert_eq!((count, marker), (1, 1));
+                Ok(())
+            })
+            .unwrap();
+        store
+            .with_conn_mut("test", |conn| {
+                conn.execute("DROP TABLE track_mood", [])?;
+                Ok(())
+            })
+            .unwrap();
+    }
+    let reopened = LibraryStore::open_path_for_test(&db.path).expect("restore missing table");
+    assert!(
+        crate::mood_tags_backfill::inspect_mood_tags_backfill(&reopened)
+            .unwrap()
+            .needed
+    );
+    reopened
+        .with_read_conn(|conn| {
+            let count: i64 =
+                conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| row.get(0))?;
+            assert_eq!(count, 0);
+            Ok(())
+        })
+        .unwrap();
+}
+
+#[test]
+fn additive_schema_guard_refuses_incompatible_existing_table_without_rewriting_it() {
+    let conn = Connection::open_in_memory().unwrap();
+    run_migrations(&conn).unwrap();
+    conn.execute("DROP TABLE track_mood", []).unwrap();
+    conn.execute("CREATE TABLE track_mood (server_id TEXT)", [])
+        .unwrap();
+
+    let error = ensure_additive_schema(&conn).unwrap_err().to_string();
+    assert!(
+        error.contains("incompatible library schema: track_mood"),
+        "{error}"
+    );
+    let version: i64 = conn
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(version, 31);
+    let columns: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('track_mood')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(columns, 1, "must not replace a conflicting user table");
+}
+
+#[test]
+fn additive_schema_guard_rejects_an_index_with_the_right_name_but_wrong_definition() {
+    let db = TestDatabase::new("mood-incompatible-index");
+    {
+        let store = LibraryStore::open_path_for_test(&db.path).unwrap();
+        store
+            .with_conn_mut("test", |conn| {
+                conn.execute("DROP INDEX idx_track_mood_browse", [])?;
+                conn.execute("CREATE INDEX idx_track_mood_browse ON track_mood(mood)", [])?;
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    let error = LibraryStore::open_path_for_test(&db.path)
+        .err()
+        .expect("incompatible index must stop open");
+    assert!(
+        error.contains("idx_track_mood_browse has an unexpected definition"),
+        "{error}"
+    );
+
+    let conn = Connection::open(&db.path).unwrap();
+    let sql: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE name = 'idx_track_mood_browse'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(
+        sql,
+        "CREATE INDEX idx_track_mood_browse ON track_mood(mood)"
+    );
+}
+
+#[test]
+fn additive_schema_guard_does_not_ignore_whitespace_inside_index_predicate() {
+    let conn = Connection::open_in_memory().unwrap();
+    run_migrations(&conn).unwrap();
+    conn.execute("DROP INDEX idx_track_mood_browse", [])
+        .unwrap();
+    conn.execute(
+        "CREATE INDEX idx_track_mood_browse \
+         ON track_mood(server_id, mood COLLATE NOCASE, album_id, track_id) \
+         WHERE album_id IS NOT NULL AND album_id != ' '",
+        [],
+    )
+    .unwrap();
+
+    let error = ensure_additive_schema(&conn).unwrap_err().to_string();
+    assert!(
+        error.contains("idx_track_mood_browse has an unexpected definition"),
+        "{error}"
+    );
+}
+
+#[test]
+fn migration_030_refuses_incompatible_preexisting_table_before_modifying_it() {
+    let conn = Connection::open_in_memory().unwrap();
+    let through_29 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 29)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &through_29,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        no_op_hook,
+    )
+    .unwrap();
+    conn.execute("CREATE TABLE track_mood (server_id TEXT)", [])
+        .unwrap();
+
+    let error = run_migrations(&conn).unwrap_err().to_string();
+    assert!(
+        error.contains("incompatible library schema: track_mood"),
+        "{error}"
+    );
+    let version: i64 = conn
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(version, 29);
+    let index_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name = 'idx_track_mood_browse'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(index_count, 0);
+}
 
 #[test]
 fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
     let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_25 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 25)
+        .collect::<Vec<_>>();
     run_migrations_with(
         &conn,
-        &MIGRATIONS[..MIGRATIONS.len() - 1],
+        &migrations_through_25,
         LIBRARY_DB_MIN_COMPATIBLE_VERSION,
         super::migration_runner::no_op_hook,
     )
@@ -51,22 +309,118 @@ fn migration_026_adds_tag_cursor_without_rewriting_completion_state() {
 }
 
 #[test]
+fn migration_027_adds_artist_star_and_sparse_browse_index_idempotently() {
+    let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_26 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 26)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &migrations_through_26,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        super::migration_runner::no_op_hook,
+    )
+    .unwrap();
+    conn.execute(
+        "INSERT INTO artist (server_id, id, name, name_sort, synced_at) \
+         VALUES ('s1', 'ar1', 'Existing Artist', 'existing artist', 1)",
+        [],
+    )
+    .unwrap();
+
+    run_migrations(&conn).unwrap();
+    run_migrations(&conn).unwrap();
+
+    let (name, starred_at): (String, Option<i64>) = conn
+        .query_row(
+            "SELECT name, starred_at FROM artist WHERE server_id = 's1' AND id = 'ar1'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(name, "Existing Artist");
+    assert!(starred_at.is_none());
+
+    let index_sql: String = conn
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'idx_artist_starred_name'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert!(index_sql.contains("artist(server_id, name_sort, id)"));
+    assert!(index_sql.contains("WHERE starred_at IS NOT NULL"));
+}
+
+#[test]
+fn migrations_028_and_029_add_artist_credit_projection_and_lookup_index() {
+    let conn = Connection::open_in_memory().unwrap();
+    let migrations_through_27 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 27)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &migrations_through_27,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        super::migration_runner::no_op_hook,
+    )
+    .unwrap();
+
+    run_migrations(&conn).unwrap();
+    run_migrations(&conn).unwrap();
+
+    let table_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master \
+             WHERE type = 'table' AND name = 'artist_credit_projection'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(table_count, 1);
+    let index_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master \
+             WHERE type = 'index' AND name = 'idx_artist_credit_projection_artist_key'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(index_count, 1);
+    let completed: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM library_data_migration \
+             WHERE id = ?1 AND completed_at IS NOT NULL",
+            params![crate::artist_credit_projection::MIGRATION_ID],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(completed, 1);
+}
+
+#[test]
 fn fresh_database_marks_projection_backfills_complete() {
     let store = LibraryStore::open_in_memory();
     let completed: i64 = store
         .with_conn("test", |conn| {
             conn.query_row(
                 "SELECT COUNT(*) FROM library_data_migration \
-                 WHERE id IN (?1, ?2) AND completed_at IS NOT NULL",
+                  WHERE id IN (?1, ?2, ?3, ?4) AND completed_at IS NOT NULL",
                 params![
                     crate::browse_projection::MIGRATION_ID,
                     crate::composer_projection::MIGRATION_ID,
+                    crate::artist_credit_projection::MIGRATION_ID,
+                    super::super::GENRE_CATALOG_PROJECTION_RECONCILE_ID,
                 ],
                 |row| row.get(0),
             )
         })
         .unwrap();
-    assert_eq!(completed, 2);
+    assert_eq!(completed, 4);
 }
 
 #[test]

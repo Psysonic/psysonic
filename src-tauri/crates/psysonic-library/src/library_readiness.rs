@@ -42,9 +42,7 @@ pub fn library_server_is_ready(store: &LibraryStore, server_id: &str) -> Result<
         {
             return Ok(true);
         }
-        if local_tracks_max_updated_ms(store, server_id)?
-            .is_some_and(|ms| ms > 0)
-        {
+        if local_tracks_max_updated_ms(store, server_id)?.is_some_and(|ms| ms > 0) {
             return Ok(true);
         }
         let local = repo

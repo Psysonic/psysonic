@@ -57,12 +57,12 @@ let anchoredTrackId: string | null = null;
 
 /** Position the last real update reported, advanced by elapsed time while
  *  playback is running. */
-/** The position the engine last reported. While buffering the progress
- *  snapshot carries 0, so the store's committed position — coarse but real —
- *  stands in for it. */
+/** The position the engine last reported. Startup and ordinary refill stalls
+ *  carry 0, so the store's committed position — coarse but real — stands in
+ *  for it. A pending seek carries its nonzero optimistic target and is trusted. */
 function reportedPosition(): number {
   const snapshot = getPlaybackProgressSnapshot();
-  return snapshot.buffering
+  return snapshot.buffering && snapshot.currentTime === 0
     ? usePlayerStore.getState().currentTime
     : snapshot.currentTime;
 }
@@ -153,11 +153,12 @@ function attachSources(): void {
     const sameTrack = trackId === anchoredTrackId;
     anchoredTrackId = trackId;
 
-    if (next.buffering && sameTrack) {
-      // Mid-track buffering reports currentTime as 0, so the reported value
-      // must not be trusted — freeze where we are. A track boundary also
+    if (next.buffering && sameTrack && next.currentTime === 0) {
+      // Startup and ordinary refill stalls report currentTime as 0, so the
+      // value must not be trusted — freeze where we are. A track boundary also
       // reports 0 with buffering set, but there the zero is the truth, which
-      // is why this only applies while the track is unchanged.
+      // is why this only applies while the track is unchanged. Pending seeks
+      // report their nonzero target and take the normal anchor path below.
       anchor(getSmoothPlaybackTime(), false);
     } else {
       anchor(next.currentTime, isMoving(next.buffering));
@@ -195,7 +196,9 @@ function attachSources(): void {
   // A seek is the one position change the engine does not announce — and
   // while paused it never would, so the views would sit on the old line.
   const offSeek = subscribePlaybackSeek(seconds => {
-    anchor(seconds, isMoving(getPlaybackProgressSnapshot().buffering));
+    // The seek command may spend time preparing a decoder and fresh PCM ring.
+    // Pin the optimistic target until a real non-buffering update resumes time.
+    anchor(seconds, false);
     emit(true);
     startFrameLoop();
   });

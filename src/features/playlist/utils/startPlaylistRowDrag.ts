@@ -23,7 +23,13 @@ export function startPlaylistRowDrag(deps: StartPlaylistRowDragDeps): void {
   const { me, idx, songs, selectedIds, isFiltered, startDrag } = deps;
   if (!isFiltered && selectedIds.has(songs[idx]?.id) && selectedIds.size > 1) {
     const bulkTracks = songs.filter(s => selectedIds.has(s.id)).map(songToTrack);
-    startDrag({ data: JSON.stringify({ type: 'songs', tracks: bulkTracks }), label: `${bulkTracks.length} Songs` }, me.clientX, me.clientY);
+    // `playlistIndices` lets the playlist move the selection as a block; the queue
+    // reads only `tracks`, so the same drag still enqueues there.
+    const playlistIndices = songs.flatMap((s, i) => (selectedIds.has(s.id) ? [i] : []));
+    startDrag(
+      { data: JSON.stringify({ type: 'songs', tracks: bulkTracks, playlistIndices }), label: `${bulkTracks.length} Songs` },
+      me.clientX, me.clientY,
+    );
   } else if (!isFiltered) {
     startDrag(
       { data: JSON.stringify({ type: 'playlist_reorder', index: idx }), label: songs[idx]?.title ?? '' },

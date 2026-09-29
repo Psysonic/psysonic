@@ -44,6 +44,7 @@ async fn loop_completes_full_download_on_200() {
         &PlaybackHttpHeaders::default(),
         |_, _| {},
         None,
+        None,
     )
     .await;
 
@@ -79,6 +80,7 @@ async fn loop_invokes_partial_callback_per_chunk() {
         &gen_arc,
         &PlaybackHttpHeaders::default(),
         |downloaded, total| calls.lock().unwrap().push((downloaded, total)),
+        None,
         None,
     )
     .await;
@@ -118,6 +120,7 @@ async fn loop_aborts_on_initial_404() {
         &gen_arc,
         &PlaybackHttpHeaders::default(),
         |_, _| {},
+        None,
         None,
     )
     .await;
@@ -159,6 +162,7 @@ async fn loop_returns_superseded_when_gen_arc_changes_before_first_chunk() {
         &gen_arc,
         &PlaybackHttpHeaders::default(),
         |_, _| {},
+        None,
         None,
     )
     .await;
@@ -227,6 +231,7 @@ async fn loop_reconnects_with_range_header_after_short_first_response() {
         &PlaybackHttpHeaders::default(),
         |_, _| {},
         None,
+        None,
     )
     .await;
 
@@ -282,6 +287,7 @@ async fn loop_aborts_when_reconnect_returns_non_206() {
         &PlaybackHttpHeaders::default(),
         |_, _| {},
         None,
+        None,
     )
     .await;
 
@@ -289,4 +295,54 @@ async fn loop_aborts_when_reconnect_returns_non_206() {
     // stays at 2048 (the first half from the initial request).
     assert_eq!(outcome, RangedHttpLoopOutcome::Aborted);
     assert_eq!(downloaded, 2048);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn loop_yields_while_priority_range_fetch_is_active() {
+    let server = MockServer::start().await;
+    let body = vec![0xABu8; 4096];
+    Mock::given(method("GET"))
+        .and(path("/track"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(body.clone()))
+        .mount(&server)
+        .await;
+
+    let url = format!("{}/track", server.uri());
+    let client = reqwest::Client::new();
+    let initial = client.get(&url).send().await.unwrap();
+    let (buf, dl, gen_arc) = loop_state(body.len());
+    let priority_fetches = Arc::new(AtomicUsize::new(1));
+    let release_priority = priority_fetches.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(80)).await;
+        release_priority.store(0, Ordering::Release);
+    });
+
+    let started = std::time::Instant::now();
+    let (downloaded, outcome) = ranged_http_download_loop(
+        client,
+        &url,
+        initial,
+        &buf,
+        &dl,
+        1,
+        &gen_arc,
+        &PlaybackHttpHeaders::default(),
+        |_, _| {},
+        None,
+        Some(priority_fetches.as_ref()),
+    )
+    .await;
+
+    assert_eq!(outcome, RangedHttpLoopOutcome::Completed);
+    assert_eq!(downloaded, body.len());
+    assert!(
+        started.elapsed() >= Duration::from_millis(70),
+        "linear download must wait for the priority range fetch"
+    );
+    assert_eq!(
+        server.received_requests().await.unwrap().len(),
+        2,
+        "yielding must drop the active response and reconnect afterwards"
+    );
 }

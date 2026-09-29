@@ -69,7 +69,10 @@ mod tests {
     fn playing_caps_parallelism_to_one_with_inter_request_gap() {
         let b = ParallelismBudget::resolve(PlaybackHint::Playing);
         assert_eq!(b.max_concurrent, 1);
-        assert!(b.min_request_gap_ms >= 100, "playing must space requests out");
+        assert!(
+            b.min_request_gap_ms >= 100,
+            "playing must space requests out"
+        );
         assert!(!b.bulk_paused());
     }
 

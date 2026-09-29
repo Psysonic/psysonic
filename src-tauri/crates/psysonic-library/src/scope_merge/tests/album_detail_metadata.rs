@@ -180,3 +180,95 @@ fn album_detail_preserves_priority_owner_raw_json() {
     assert_eq!(detail.album.starred_at, Some(1111));
     assert_eq!(detail.album.raw_json["recordLabel"], "Primary Records");
 }
+
+#[test]
+fn album_detail_keeps_the_track_year_when_the_album_row_carries_none() {
+    // Not every Subsonic server reports a year on `getAlbum`, but its tracks still
+    // carry one. Overlaying the empty column blanked the release year in the album
+    // header even though the index held it.
+    let store = LibraryStore::open_in_memory();
+    seed_and_rebuild(
+        &store,
+        &[track(
+            "s1",
+            "t1",
+            "Song",
+            Some("Artist"),
+            "Album",
+            "alb1",
+            Some("art1"),
+            200,
+            "lib-a",
+            Some(2024),
+            None,
+            None,
+        )],
+    );
+    store
+        .with_conn("test", |c| {
+            c.execute(
+                "INSERT INTO album (server_id, id, name, synced_at, raw_json) \
+                     VALUES ('s1', 'alb1', 'Album', 1, '{}')",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let detail = album_detail(
+        &store,
+        &LibraryScopeAlbumDetailRequest {
+            scopes: vec![scope_pair("s1", "lib-a")],
+            album_id: "alb1".into(),
+            server_id: "s1".into(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(detail.album.year, Some(2024));
+}
+
+#[test]
+fn album_detail_prefers_the_album_row_year_over_the_track_year() {
+    // The standalone row stays authoritative whenever it actually has a value.
+    let store = LibraryStore::open_in_memory();
+    seed_and_rebuild(
+        &store,
+        &[track(
+            "s1",
+            "t1",
+            "Song",
+            Some("Artist"),
+            "Album",
+            "alb1",
+            Some("art1"),
+            200,
+            "lib-a",
+            Some(2024),
+            None,
+            None,
+        )],
+    );
+    store
+        .with_conn("test", |c| {
+            c.execute(
+                "INSERT INTO album (server_id, id, name, year, synced_at, raw_json) \
+                     VALUES ('s1', 'alb1', 'Album', 1999, 1, '{}')",
+                [],
+            )?;
+            Ok(())
+        })
+        .unwrap();
+
+    let detail = album_detail(
+        &store,
+        &LibraryScopeAlbumDetailRequest {
+            scopes: vec![scope_pair("s1", "lib-a")],
+            album_id: "alb1".into(),
+            server_id: "s1".into(),
+        },
+    )
+    .unwrap();
+
+    assert_eq!(detail.album.year, Some(1999));
+}

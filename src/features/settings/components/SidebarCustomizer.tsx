@@ -64,10 +64,10 @@ export function SidebarCustomizer() {
           borderBottom: edge === 'after'  ? '2px solid var(--accent)' : undefined,
         }}
       >
-        <ReorderGripHandle id={cfg.id} type={REORDER_TYPE} section={section} label={t(meta.labelKey)} />
+        <ReorderGripHandle id={cfg.id} type={REORDER_TYPE} section={section} label={t(meta.labelKey, { defaultValue: meta.defaultLabel })} />
         <Icon size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-        <span style={{ flex: 1, fontSize: 14 }}>{t(meta.labelKey)}</span>
-        <label className="toggle-switch" aria-label={t(meta.labelKey)}>
+        <span style={{ flex: 1, fontSize: 14 }}>{t(meta.labelKey, { defaultValue: meta.defaultLabel })}</span>
+        <label className="toggle-switch" aria-label={t(meta.labelKey, { defaultValue: meta.defaultLabel })}>
           <input type="checkbox" checked={cfg.visible} onChange={() => toggleItem(cfg.id)} />
           <span className="toggle-track" />
         </label>

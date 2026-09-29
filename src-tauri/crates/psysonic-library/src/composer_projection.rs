@@ -8,7 +8,7 @@ use serde_json::Value;
 use tauri::{AppHandle, Emitter};
 
 use crate::artist_sort::{sort_key_for_display_name, DEFAULT_IGNORED_ARTICLES};
-use crate::browse_projection::{AlbumScope, ScopeBrowseProjectionInspectDto, ScopeBrowseProjectionProgressEvent};
+use crate::browse_projection::{logical_progress, AlbumScope, ScopeBrowseProjectionInspectDto};
 use crate::store::LibraryStore;
 
 pub const MIGRATION_ID: &str = "scope_browse_composer_projection_v1";
@@ -102,7 +102,8 @@ fn reconcile_composer_metadata(
          WHERE server_id = ?1 AND composer_id = ?2",
     )?;
     for (server_id, composer_id) in composers {
-        let name: String = canonical.query_row(params![server_id, composer_id], |row| row.get(0))?;
+        let name: String =
+            canonical.query_row(params![server_id, composer_id], |row| row.get(0))?;
         update.execute(params![
             server_id,
             composer_id,
@@ -266,7 +267,13 @@ pub(crate) fn rebuild_scope(
 fn map_rebuild_track(
     row: &rusqlite::Row<'_>,
 ) -> rusqlite::Result<(String, String, String, i64, String)> {
-    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?))
+    Ok((
+        row.get(0)?,
+        row.get(1)?,
+        row.get(2)?,
+        row.get(3)?,
+        row.get(4)?,
+    ))
 }
 
 fn migration_completed(conn: &Connection) -> rusqlite::Result<bool> {
@@ -293,11 +300,10 @@ fn cursor_rowid(conn: &Connection) -> rusqlite::Result<i64> {
 pub(crate) fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspectDto, String> {
     store
         .with_read_conn(|conn| {
-            let total: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM track WHERE deleted = 0",
-                [],
-                |row| row.get(0),
-            )?;
+            let total: i64 =
+                conn.query_row("SELECT COUNT(*) FROM track WHERE deleted = 0", [], |row| {
+                    row.get(0)
+                })?;
             if total == 0 || migration_completed(conn)? {
                 return Ok(ScopeBrowseProjectionInspectDto {
                     needed: false,
@@ -320,7 +326,24 @@ pub(crate) fn inspect(store: &LibraryStore) -> Result<ScopeBrowseProjectionInspe
         .map_err(|error| error.to_string())
 }
 
+#[cfg(test)]
 pub(crate) fn run_backfill(store: &LibraryStore, app: Option<&AppHandle>) -> Result<(), String> {
+    let inspect_result = inspect(store)?;
+    let progress_total = if inspect_result.needed {
+        inspect_result.total_tracks
+    } else {
+        0
+    };
+    run_backfill_with_progress(store, app, 0, progress_total, progress_total)
+}
+
+pub(crate) fn run_backfill_with_progress(
+    store: &LibraryStore,
+    app: Option<&AppHandle>,
+    progress_offset: u64,
+    progress_total: u64,
+    total_tracks: u64,
+) -> Result<(), String> {
     let inspect_result = inspect(store)?;
     if !inspect_result.needed {
         return Ok(());
@@ -385,10 +408,11 @@ pub(crate) fn run_backfill(store: &LibraryStore, app: Option<&AppHandle>) -> Res
         if let Some(app) = app {
             app.emit(
                 "scope_browse_projection:progress",
-                ScopeBrowseProjectionProgressEvent {
-                    done,
-                    total: inspect_result.total_tracks,
-                },
+                logical_progress(
+                    progress_offset.saturating_add(done),
+                    progress_total,
+                    total_tracks,
+                ),
             )
             .map_err(|error| error.to_string())?;
         }

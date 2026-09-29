@@ -15,6 +15,8 @@ use crate::filter::EntityKind;
 use crate::search::{library_scope_sargable_equals_sql, like_contains_folded};
 use crate::store::LibraryStore;
 
+type ArtistFtsRow = (String, String, Option<String>, Option<i64>, i64);
+
 /// Artist browse for a single scoped library — one `GROUP BY artist_id` over
 /// in-scope tracks (COALESCE/json `library_id` match), with `artist` table
 /// metadata when present.
@@ -46,6 +48,15 @@ fn build_artist_from_tracks_scoped(
         );
         applied.insert("artist_credit_mode".to_string());
     }
+    if req.starred_only == Some(true) {
+        w.push_raw(
+            "EXISTS (SELECT 1 FROM artist starred_ar \
+             WHERE starred_ar.server_id = t.server_id \
+               AND starred_ar.id = t.artist_id \
+               AND starred_ar.starred_at IS NOT NULL)",
+        );
+        applied.insert("starred".to_string());
+    }
     if let Some(bucket) = req.artist_letter_bucket.as_deref() {
         push_artist_track_letter_bucket(&mut w, bucket, applied);
     }
@@ -66,7 +77,9 @@ fn build_artist_from_tracks_scoped(
     let artist_name = "MAX(COALESCE((SELECT ar.name FROM artist ar \
         WHERE ar.server_id = t.server_id AND ar.id = t.artist_id), t.artist))";
     let select = format!(
-        "t.server_id, t.artist_id, {artist_name}, COUNT(DISTINCT t.album_id), MAX(t.synced_at)"
+        "t.server_id, t.artist_id, {artist_name}, COUNT(DISTINCT t.album_id), \
+         MAX((SELECT ar.starred_at FROM artist ar \
+              WHERE ar.server_id = t.server_id AND ar.id = t.artist_id)), MAX(t.synced_at)"
     );
     let order = order_clause(&req.sort, EntityKind::Artist)
         .map(|s| {
@@ -106,6 +119,10 @@ pub(super) fn build_artist_from_tracks(
     w.push_raw(
         "NOT EXISTS (SELECT 1 FROM artist ar WHERE ar.server_id = t.server_id AND ar.id = t.artist_id)",
     );
+    if req.starred_only == Some(true) {
+        w.push_raw("1 = 0");
+        applied.insert("starred".to_string());
+    }
     if let Some(scope) = trimmed_nonempty(req.library_scope.as_deref()) {
         let clause = library_scope_sargable_equals_sql("t");
         w.push_param(&clause, SqlValue::Text(scope));
@@ -124,8 +141,8 @@ pub(super) fn build_artist_from_tracks(
         }
     }
 
-    let select =
-        "t.server_id, t.artist_id, MAX(t.artist), COUNT(DISTINCT t.album_id), MAX(t.synced_at)";
+    let select = "t.server_id, t.artist_id, MAX(t.artist), COUNT(DISTINCT t.album_id), \
+        NULL, MAX(t.synced_at)";
     let order = order_clause(&req.sort, EntityKind::Artist).unwrap_or_else(|| {
         "ORDER BY MAX(t.artist) COLLATE NOCASE ASC, t.artist_id ASC".to_string()
     });
@@ -175,6 +192,15 @@ pub(super) fn build_artist_from_fts(
     w.push_raw("t.deleted = 0");
     w.push_param("t.server_id = ?", SqlValue::Text(req.server_id.clone()));
     w.push_raw("t.artist_id IS NOT NULL AND t.artist_id != ''");
+    if req.starred_only == Some(true) {
+        w.push_raw(
+            "EXISTS (SELECT 1 FROM artist starred_ar \
+             WHERE starred_ar.server_id = t.server_id \
+               AND starred_ar.id = t.artist_id \
+               AND starred_ar.starred_at IS NOT NULL)",
+        );
+        applied.insert("starred".to_string());
+    }
     if let Some(scope) = scope {
         let clause = library_scope_sargable_equals_sql("t");
         w.push_param(&clause, SqlValue::Text(scope));
@@ -189,21 +215,24 @@ pub(super) fn build_artist_from_fts(
     let where_sql = w.where_sql();
     store.with_read_conn(|conn| {
         let sql = format!(
-            "SELECT t.server_id, t.artist_id, t.artist, t.synced_at \
+            "SELECT t.server_id, t.artist_id, t.artist, \
+                    (SELECT ar.starred_at FROM artist ar \
+                     WHERE ar.server_id = t.server_id AND ar.id = t.artist_id), \
+                    t.synced_at \
              FROM track t \
              WHERE {where_sql}"
         );
         let params = w.params.clone();
         let mut stmt = conn.prepare(&sql)?;
-        let rows: Vec<(String, String, Option<String>, i64)> = stmt
+        let rows: Vec<ArtistFtsRow> = stmt
             .query_map(rusqlite::params_from_iter(params.iter()), |r| {
-                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+                Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
 
         let mut seen = HashSet::new();
         let mut deduped: Vec<LibraryArtistDto> = Vec::new();
-        for (server_id, artist_id, artist, synced_at) in rows {
+        for (server_id, artist_id, artist, starred_at, synced_at) in rows {
             if !seen.insert(artist_id.clone()) {
                 continue;
             }
@@ -218,6 +247,7 @@ pub(super) fn build_artist_from_fts(
                 name,
                 name_sort: Some(name_sort),
                 album_count: None,
+                starred_at,
                 synced_at,
                 raw_json: Value::Null,
             });
@@ -248,7 +278,8 @@ fn map_artist_from_tracks(r: &rusqlite::Row<'_>) -> rusqlite::Result<LibraryArti
         name,
         name_sort: Some(name_sort),
         album_count: Some(r.get(3)?),
-        synced_at: r.get(4)?,
+        starred_at: r.get(4)?,
+        synced_at: r.get(5)?,
         raw_json: Value::Null,
     })
 }
