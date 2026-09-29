@@ -626,7 +626,7 @@ const CONTRIBUTOR_ENTRIES = [
     github: 'Puppies-On-Acid',
     since: '1.56.0',
     contributions: [
-      'Browse albums by file mood tags with local indexing and Navidrome migration support (PR #1675)',
+      'Browse albums by file mood tags (PR #1675)',
     ],
   },
 ] as const;
