@@ -622,6 +622,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Device Sync — move relocated copies, remove departed tracks (PR #1670)',
       'Device Sync — sync to a local folder (PR #1671)',
       'Albums — sort by year (PR #1672)',
+      'Labels tab — browse albums by record label (PR #1682)',
     ],
   },
   {
