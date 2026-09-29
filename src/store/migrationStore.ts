@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { MoodTagsInspectDto } from '@/generated/bindings';
+import type { LabelTagsInspectDto, MoodTagsInspectDto } from '@/generated/bindings';
 import type { GenreTagsInspectDto, ScopeBrowseProjectionInspectDto } from '@/lib/api/library';
 import type { MigrationInspectReport, MigrationProgressEvent } from '@/lib/api/migration';
 
@@ -8,6 +8,7 @@ export type MigrationStep =
   | 'serverIndex'
   | 'genreTags'
   | 'fileMoodTags'
+  | 'recordLabelTags'
   | 'scopeBrowseProjection';
 
 export interface GenreTagsProgressEvent {
@@ -25,6 +26,8 @@ interface MigrationState {
   genreTagsProgress: GenreTagsProgressEvent | null;
   fileMoodTagsInspect: MoodTagsInspectDto | null;
   fileMoodTagsProgress: GenreTagsProgressEvent | null;
+  recordLabelTagsInspect: LabelTagsInspectDto | null;
+  recordLabelTagsProgress: GenreTagsProgressEvent | null;
   scopeBrowseProjectionInspect: ScopeBrowseProjectionInspectDto | null;
   scopeBrowseProjectionProgress: GenreTagsProgressEvent | null;
   lastError: string | null;
@@ -37,6 +40,8 @@ interface MigrationState {
   setGenreTagsProgress: (event: GenreTagsProgressEvent | null) => void;
   setFileMoodTagsInspect: (report: MoodTagsInspectDto | null) => void;
   setFileMoodTagsProgress: (event: GenreTagsProgressEvent | null) => void;
+  setRecordLabelTagsInspect: (report: LabelTagsInspectDto | null) => void;
+  setRecordLabelTagsProgress: (event: GenreTagsProgressEvent | null) => void;
   setScopeBrowseProjectionInspect: (report: ScopeBrowseProjectionInspectDto | null) => void;
   setScopeBrowseProjectionProgress: (event: GenreTagsProgressEvent | null) => void;
   setError: (error: string | null) => void;
@@ -52,6 +57,8 @@ export const useMigrationStore = create<MigrationState>(set => ({
   genreTagsProgress: null,
   fileMoodTagsInspect: null,
   fileMoodTagsProgress: null,
+  recordLabelTagsInspect: null,
+  recordLabelTagsProgress: null,
   scopeBrowseProjectionInspect: null,
   scopeBrowseProjectionProgress: null,
   lastError: null,
@@ -64,6 +71,8 @@ export const useMigrationStore = create<MigrationState>(set => ({
   setGenreTagsProgress: genreTagsProgress => set({ genreTagsProgress }),
   setFileMoodTagsInspect: fileMoodTagsInspect => set({ fileMoodTagsInspect }),
   setFileMoodTagsProgress: fileMoodTagsProgress => set({ fileMoodTagsProgress }),
+  setRecordLabelTagsInspect: recordLabelTagsInspect => set({ recordLabelTagsInspect }),
+  setRecordLabelTagsProgress: recordLabelTagsProgress => set({ recordLabelTagsProgress }),
   setScopeBrowseProjectionInspect: scopeBrowseProjectionInspect => set({ scopeBrowseProjectionInspect }),
   setScopeBrowseProjectionProgress: scopeBrowseProjectionProgress => set({ scopeBrowseProjectionProgress }),
   setError: lastError => set({ lastError }),
