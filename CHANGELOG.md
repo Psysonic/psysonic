@@ -148,6 +148,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Seeking in a track that was streaming for the first time could fail with "streaming seek was not prepared": playback went silent, the position jumped back, and only Stop or another track brought the sound back. Seeks now land where you click, including on the first play.
 
+### The AppImage starts under another user or in a sandbox
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1689](https://github.com/Psysonic/psysonic/pull/1689)**
+
+* One of the AppImage's start files could only be run by its owner, so starting the AppImage as another user, for example inside a firejail sandbox, failed with "Permission denied" on systems without WebKitGTK installed. All start files are now executable for every user.
+
 ## [1.55.0]
 
 ## Added
