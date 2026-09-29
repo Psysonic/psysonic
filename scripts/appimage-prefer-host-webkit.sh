@@ -136,6 +136,12 @@ patch_appimage() {
         mv "$apprun.new" "$apprun"
         chmod +x "$apprun"
 
+        # The bundle ships AppRun.wrapped as 0770 and owned by root, so any other
+        # user who is not in its group cannot exec it (AppImageHub's firejail test
+        # fails with "Permission denied"). It is still the path on hosts without
+        # webkit2gtk-4.1.
+        chmod 755 squashfs-root/AppRun.wrapped
+
         # APPIMAGE_EXTRACT_AND_RUN is for appimagetool alone (it is an AppImage
         # and the runners have no FUSE); exported globally it would also make
         # the runtime of the AppImage above run the app instead of extracting.
