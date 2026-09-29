@@ -115,6 +115,18 @@ describe('Moods', () => {
     );
   });
 
+  it('uses a singular label when only one mood is available', async () => {
+    onInvoke('library_get_mood_album_counts', () => [
+      { value: 'Dreamy', albumCount: 4, songCount: 9 },
+    ]);
+
+    renderMoods();
+
+    await screen.findByRole('button', { name: 'Dreamy' });
+    expect(screen.getByRole('heading', { name: 'Moods' }).parentElement)
+      .toHaveTextContent('1 Mood');
+  });
+
   it('shows the empty state when no moods are indexed', async () => {
     onInvoke('library_get_mood_album_counts', () => []);
 

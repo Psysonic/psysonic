@@ -1,10 +1,11 @@
 export const moods = {
-  title: 'Moods',
-  moodCount: 'Moods',
+  title: 'Stemninger',
+  moodCount: 'stemninger',
+  moodCount_one: 'stemning',
   albumCount_one: '{{count}} album',
-  albumCount_other: '{{count}} albums',
-  loading: 'Loading moods…',
-  empty: 'No moods found.',
-  albumsEmpty: 'No albums found for this mood.',
-  back: 'Back',
+  albumCount_other: '{{count}} album',
+  loading: 'Laster stemninger…',
+  empty: 'Ingen stemninger funnet.',
+  albumsEmpty: 'Ingen album funnet for denne stemningen.',
+  back: 'Tilbake',
 };

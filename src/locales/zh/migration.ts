@@ -12,10 +12,10 @@ export const migration = {
   genreTagsTitle: '正在更新流派索引…',
   genreTagsBody: '正在为浏览和筛选建立流派索引。升级后仅运行一次。',
   genreTagsFailed: '流派索引更新失败',
-  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsTitle: '正在更新情绪索引…',
   fileMoodTagsBody:
-    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
-  fileMoodTagsFailed: 'Mood index update failed',
+    '正在索引音乐文件中的情绪标签，以供浏览和筛选。升级后只执行一次。',
+  fileMoodTagsFailed: '情绪索引更新失败',
   scopeBrowseProjectionTitle: '正在更新资料库浏览索引…',
   scopeBrowseProjectionBody: '正在准备专辑目录以便更快浏览。更新后只会运行一次。',
   scopeBrowseProjectionFailed: '更新资料库浏览索引失败',

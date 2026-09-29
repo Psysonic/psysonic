@@ -12,10 +12,10 @@ export const migration = {
   genreTagsTitle: 'Oppdaterer sjangerindeks…',
   genreTagsBody: 'Indekserer sjangre for blaing og filtre. Kjøres én gang etter oppgradering.',
   genreTagsFailed: 'Oppdatering av sjangerindeks mislyktes',
-  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsTitle: 'Oppdaterer stemningsindeksen…',
   fileMoodTagsBody:
-    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
-  fileMoodTagsFailed: 'Mood index update failed',
+    'Indekserer stemningsmerker fra musikkfiler for navigering og filtrering. Dette kjøres én gang etter oppdatering.',
+  fileMoodTagsFailed: 'Kunne ikke oppdatere stemningsindeksen',
   scopeBrowseProjectionTitle: 'Oppdaterer bibliotekets nettlesingsindeks…',
   scopeBrowseProjectionBody: 'Forbereder albumkatalogen for raskere navigering. Dette kjøres én gang etter oppdatering.',
   scopeBrowseProjectionFailed: 'Kunne ikke oppdatere bibliotekets nettlesingsindeks',

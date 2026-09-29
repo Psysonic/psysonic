@@ -12,10 +12,10 @@ export const migration = {
   genreTagsTitle: 'ジャンルインデックスを更新中…',
   genreTagsBody: 'ブラウズとフィルター用にジャンルをインデックスしています。アップグレード後に一度だけ実行されます。',
   genreTagsFailed: 'ジャンルインデックスの更新に失敗しました',
-  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsTitle: 'ムードのインデックスを更新中…',
   fileMoodTagsBody:
-    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
-  fileMoodTagsFailed: 'Mood index update failed',
+    '閲覧と絞り込みのため、ファイルのムードタグをインデックスに登録しています。アップデート後に一度だけ実行します。',
+  fileMoodTagsFailed: 'ムードのインデックスの更新に失敗しました',
   scopeBrowseProjectionTitle: 'ライブラリ閲覧インデックスを更新中…',
   scopeBrowseProjectionBody: 'より速く閲覧できるようにアルバムカタログを準備しています。更新後に一度だけ実行されます。',
   scopeBrowseProjectionFailed: 'ライブラリ閲覧インデックスの更新に失敗しました',

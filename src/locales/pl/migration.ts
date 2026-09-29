@@ -12,10 +12,10 @@ export const migration = {
   genreTagsTitle: 'Aktualizowanie indeksu gatunków…',
   genreTagsBody: 'Indeksowanie gatunków do przeglądania i filtrów. Uruchamia się jednorazowo po aktualizacji.',
   genreTagsFailed: 'Aktualizacja indeksu gatunków nie powiodła się',
-  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsTitle: 'Aktualizowanie indeksu nastrojów…',
   fileMoodTagsBody:
-    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
-  fileMoodTagsFailed: 'Mood index update failed',
+    'Indeksowanie znaczników nastroju z plików na potrzeby przeglądania i filtrowania. Odbywa się raz po aktualizacji.',
+  fileMoodTagsFailed: 'Nie udało się zaktualizować indeksu nastrojów',
   scopeBrowseProjectionTitle: 'Aktualizowanie indeksu przeglądania biblioteki…',
   scopeBrowseProjectionBody: 'Przygotowywanie katalogu albumów do szybszego przeglądania. Uruchamia się raz po aktualizacji.',
   scopeBrowseProjectionFailed: 'Nie udało się zaktualizować indeksu przeglądania biblioteki',

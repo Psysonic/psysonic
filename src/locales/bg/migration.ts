@@ -12,10 +12,10 @@ export const migration = {
   genreTagsTitle: 'Актуализиране на индекса на жанровете…',
   genreTagsBody: 'Индексиране на жанрове за преглед и филтри. Това се изпълнява веднъж след надграждане.',
   genreTagsFailed: 'Актуализацията на индекса на жанровете се провали',
-  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsTitle: 'Обновяване на индекса на настроенията…',
   fileMoodTagsBody:
-    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
-  fileMoodTagsFailed: 'Mood index update failed',
+    'Индексиране на етикетите за настроение от файловете за преглед и филтриране. Изпълнява се еднократно след актуализация.',
+  fileMoodTagsFailed: 'Обновяването на индекса на настроенията не бе успешно',
   scopeBrowseProjectionTitle: 'Актуализиране на индекса за разглеждане на библиотеката…',
   scopeBrowseProjectionBody: 'Подготвяне на каталога с албуми за по-бързо разглеждане. Изпълнява се веднъж след обновяване.',
   scopeBrowseProjectionFailed: 'Актуализацията на индекса за разглеждане на библиотеката се провали',

@@ -12,10 +12,10 @@ export const migration = {
   genreTagsTitle: 'Genre-Index wird aktualisiert…',
   genreTagsBody: 'Genres werden für Durchsuchen und Filter indexiert. Läuft einmal nach dem Update.',
   genreTagsFailed: 'Genre-Index-Aktualisierung fehlgeschlagen',
-  fileMoodTagsTitle: 'Updating mood index…',
+  fileMoodTagsTitle: 'Stimmungsindex wird aktualisiert…',
   fileMoodTagsBody:
-    'Indexing file mood tags for browse and filters. This runs once after upgrade.',
-  fileMoodTagsFailed: 'Mood index update failed',
+    'Stimmungs-Tags aus Musikdateien werden für die Suche und Filter indiziert. Dies geschieht einmalig nach dem Update.',
+  fileMoodTagsFailed: 'Aktualisierung des Stimmungsindex fehlgeschlagen',
   scopeBrowseProjectionTitle: 'Bibliotheksindex wird aktualisiert…',
   scopeBrowseProjectionBody: 'Der Albumkatalog wird für schnelleres Durchsuchen vorbereitet. Dies läuft einmal nach dem Update.',
   scopeBrowseProjectionFailed: 'Aktualisierung des Bibliotheksindex fehlgeschlagen',

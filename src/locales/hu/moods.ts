@@ -1,10 +1,11 @@
 export const moods = {
-  title: 'Moods',
-  moodCount: 'Moods',
+  title: 'Hangulatok',
+  moodCount: 'hangulat',
+  moodCount_one: 'hangulat',
   albumCount_one: '{{count}} album',
-  albumCount_other: '{{count}} albums',
-  loading: 'Loading moods…',
-  empty: 'No moods found.',
-  albumsEmpty: 'No albums found for this mood.',
-  back: 'Back',
+  albumCount_other: '{{count}} album',
+  loading: 'Hangulatok betöltése…',
+  empty: 'Nem találhatók hangulatok.',
+  albumsEmpty: 'Nem található album ehhez a hangulathoz.',
+  back: 'Vissza',
 };

@@ -24,7 +24,7 @@ export const sidebar = {
   cancelDownload: 'Скасувати завантаження',
   offlineLibrary: 'Офлайн-медіатека',
   genres: 'Жанри',
-  moods: 'Moods',
+  moods: 'Настрої',
   tracks: 'Треки',
   playlists: 'Плейлісти',
   shared: 'ND Спільний доступ',

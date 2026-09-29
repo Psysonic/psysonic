@@ -1,10 +1,11 @@
 export const moods = {
-  title: 'Moods',
-  moodCount: 'Moods',
+  title: 'Ambiances',
+  moodCount: 'ambiances',
+  moodCount_one: 'ambiance',
   albumCount_one: '{{count}} album',
   albumCount_other: '{{count}} albums',
-  loading: 'Loading moods…',
-  empty: 'No moods found.',
-  albumsEmpty: 'No albums found for this mood.',
-  back: 'Back',
+  loading: 'Chargement des ambiances…',
+  empty: 'Aucune ambiance trouvée.',
+  albumsEmpty: 'Aucun album trouvé pour cette ambiance.',
+  back: 'Retour',
 };

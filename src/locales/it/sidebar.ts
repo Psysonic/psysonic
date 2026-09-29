@@ -24,7 +24,7 @@ export const sidebar = {
   cancelDownload: 'Cancella download',
   offlineLibrary: 'Libreria Offline',
   genres: 'Generi',
-  moods: 'Moods',
+  moods: 'Stati d’animo',
   tracks: 'Brani',
   playlists: 'Playlist',
   shared: 'ND Condivisioni',

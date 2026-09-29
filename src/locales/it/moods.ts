@@ -1,10 +1,11 @@
 export const moods = {
-  title: 'Moods',
-  moodCount: 'Moods',
+  title: 'Stati d’animo',
+  moodCount: 'stati d’animo',
+  moodCount_one: 'stato d’animo',
   albumCount_one: '{{count}} album',
-  albumCount_other: '{{count}} albums',
-  loading: 'Loading moods…',
-  empty: 'No moods found.',
-  albumsEmpty: 'No albums found for this mood.',
-  back: 'Back',
+  albumCount_other: '{{count}} album',
+  loading: 'Caricamento degli stati d’animo…',
+  empty: 'Nessuno stato d’animo trovato.',
+  albumsEmpty: 'Nessun album trovato per questo stato d’animo.',
+  back: 'Indietro',
 };

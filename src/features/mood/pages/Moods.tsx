@@ -194,7 +194,7 @@ export default function Moods() {
             <span aria-hidden="true">–</span>
 
             {moods.length}{' '}
-            {t('moods.moodCount', )}
+            {t('moods.moodCount', { count: moods.length })}
           </span>
         )}
       </div>

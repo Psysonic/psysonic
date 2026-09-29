@@ -21,7 +21,7 @@ export const sidebar = {
   cancelDownload: 'Avbryt nedlasting',
   offlineLibrary: 'Frakoblet bibliotek',
   genres: 'Sjangere',
-  moods: 'Moods',
+  moods: 'Stemninger',
   tracks: 'Spor',
   playlists: 'Spillelister',
   shared: 'ND Delinger',

@@ -1,10 +1,11 @@
 export const moods = {
-  title: 'Moods',
-  moodCount: 'Moods',
+  title: 'Stemmingen',
+  moodCount: 'stemmingen',
+  moodCount_one: 'stemming',
   albumCount_one: '{{count}} album',
   albumCount_other: '{{count}} albums',
-  loading: 'Loading moods…',
-  empty: 'No moods found.',
-  albumsEmpty: 'No albums found for this mood.',
-  back: 'Back',
+  loading: 'Stemmingen laden…',
+  empty: 'Geen stemmingen gevonden.',
+  albumsEmpty: 'Geen albums gevonden voor deze stemming.',
+  back: 'Terug',
 };

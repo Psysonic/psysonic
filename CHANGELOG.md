@@ -63,6 +63,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Device Sync can now sync into an empty folder on the computer's own disk, for example to import the playlists into DJ software. Psysonic asks once before using the folder.
 * Only an empty folder can be chosen, and Psysonic never takes over or deletes files it did not write there.
 
+### Browse albums by the moods in your music files
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1675](https://github.com/Psysonic/psysonic/pull/1675)**
+
+* The new **Moods** page groups the mood tags exposed by your server for individual tracks. Pick a mood to browse its albums, with album counts, library selection and incremental loading for large collections.
+* Existing libraries build the local mood index from cached track metadata after upgrading. The index stays in sync when tracks change and rebuilds after a Navidrome ID migration. No music files or server tags are changed; servers that do not expose track moods have none to browse.
+
 ## Fixed
 
 ### Mouse-wheel scrolling resumes after a sideways swipe on track lists
