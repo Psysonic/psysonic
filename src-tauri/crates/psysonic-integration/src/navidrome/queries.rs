@@ -279,6 +279,122 @@ pub async fn nd_list_albums_by_artist_role(
     resp.json::<serde_json::Value>().await.map_err(nd_err)
 }
 
+/// GET `/api/tag?tag_name=<name>&_start=0&_end=0` — every value of one file tag
+/// (e.g. `recordlabel`) as `[{id, tagName, tagValue}]`. `_end=0` is how the
+/// Navidrome web UI asks for the whole list in one call. `tag_value` narrows the
+/// list to values containing that text. Rows carry no album or song counts.
+// NOT specta-collected: serde_json::Value in the command signature — specta rc.25 can't export it. Stays hand-written on generate_handler!.
+#[tauri::command]
+pub async fn nd_list_tags(
+    http_registry: State<'_, Arc<ServerHttpRegistry>>,
+    server_url: String,
+    token: String,
+    tag_name: String,
+    tag_value: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let reg = http_registry.as_ref();
+    let base = format!("{}/api/tag", server_url);
+    let resp = nd_retry(|| {
+        let base = base.clone();
+        let tag_name = tag_name.clone();
+        let tag_value = tag_value.clone().unwrap_or_default();
+        let auth = format!("Bearer {}", token);
+        async move {
+            nd_apply_request(
+                Some(reg),
+                None,
+                &base,
+                nd_http_client()
+                    .get(&base)
+                    .query(&[
+                        ("tag_name", tag_name.as_str()),
+                        ("tag_value", tag_value.as_str()),
+                        ("_sort", "tagValue"),
+                        ("_order", "ASC"),
+                        ("_start", "0"),
+                        ("_end", "0"),
+                    ])
+                    .header("X-ND-Authorization", auth),
+            )
+            .send()
+            .await
+        }
+    })
+    .await?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    resp.json::<serde_json::Value>().await.map_err(nd_err)
+}
+
+/// GET `/api/album?_filters={"<tag_name>":"<tag_id>"}&_sort=...&_start=...&_end=...`
+/// — paginated albums carrying one tag value (e.g. a record label). Navidrome
+/// registers every mapped tag name as an album filter keyed by tag id. Returns
+/// `{ "items": [...], "total": <X-Total-Count> }`; `total` is null when the
+/// header is missing.
+// NOT specta-collected: serde_json::Value in the command signature — specta rc.25 can't export it. Stays hand-written on generate_handler!.
+#[tauri::command]
+#[allow(clippy::too_many_arguments)]
+pub async fn nd_list_albums_by_tag(
+    http_registry: State<'_, Arc<ServerHttpRegistry>>,
+    server_url: String,
+    token: String,
+    tag_name: String,
+    tag_id: String,
+    sort: String,
+    order: String,
+    start: u32,
+    end: u32,
+    library_id: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let reg = http_registry.as_ref();
+    let mut seed = serde_json::Map::new();
+    seed.insert(tag_name.clone(), serde_json::Value::String(tag_id.clone()));
+    let filters = nd_build_filters(seed, library_id.as_deref());
+    let start_s = start.to_string();
+    let end_s = end.to_string();
+    let base = format!("{}/api/album", server_url);
+    let resp = nd_retry(|| {
+        let base = base.clone();
+        let filters = filters.clone();
+        let sort = sort.clone();
+        let order = order.clone();
+        let start_s = start_s.clone();
+        let end_s = end_s.clone();
+        let auth = format!("Bearer {}", token);
+        async move {
+            nd_apply_request(
+                Some(reg),
+                None,
+                &base,
+                nd_http_client()
+                    .get(&base)
+                    .query(&[
+                        ("_filters", filters.as_str()),
+                        ("_sort", sort.as_str()),
+                        ("_order", order.as_str()),
+                        ("_start", start_s.as_str()),
+                        ("_end", end_s.as_str()),
+                    ])
+                    .header("X-ND-Authorization", auth),
+            )
+            .send()
+            .await
+        }
+    })
+    .await?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    let total = resp
+        .headers()
+        .get("x-total-count")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.trim().parse::<u64>().ok());
+    let items = resp.json::<serde_json::Value>().await.map_err(nd_err)?;
+    Ok(serde_json::json!({ "items": items, "total": total }))
+}
+
 /// GET `/api/library` — list all libraries (admin only). Returns the raw JSON array.
 // NOT specta-collected: serde_json::Value in the command signature — specta rc.25 can't export it. Stays hand-written on generate_handler!.
 #[tauri::command]

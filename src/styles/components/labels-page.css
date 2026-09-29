@@ -1,0 +1,46 @@
+/* ─ Labels browse page ─ */
+.labels-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(320px, 100%);
+  height: 32px;
+  margin-bottom: 1rem;
+}
+
+.labels-search-icon {
+  position: absolute;
+  left: 10px;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.labels-search-input {
+  width: 100%;
+  padding: 6px 12px 6px 32px;
+  font-size: 13px;
+}
+
+.labels-letter-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  margin-bottom: 1.25rem;
+}
+
+.labels-letter-nav .btn {
+  min-width: 2rem;
+  padding: 0.2rem 0.45rem;
+  font-weight: 700;
+}
+
+.labels-section {
+  scroll-margin-top: 1rem;
+}
+
+.labels-section-title {
+  margin: 0.5rem 0 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--text-muted);
+}

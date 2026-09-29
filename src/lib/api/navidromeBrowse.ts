@@ -312,6 +312,91 @@ export async function ndListAlbumsByArtistRoleForServer(
   return raw.map(a => ({ ...mapNdAlbum(a as Record<string, unknown>), serverId: ownerServerKey }));
 }
 
+/** Runs a native-API call, re-logging in once when the cached token is rejected. */
+async function withNdToken<T>(serverId: string, call: (token: string) => Promise<T>): Promise<T> {
+  const token = await getTokenForServer(serverId);
+  try {
+    return await call(token);
+  } catch (err) {
+    const msg = String(err);
+    if (msg.includes('401') || msg.includes('403')) {
+      return call(await getTokenForServer(serverId, true));
+    }
+    throw err;
+  }
+}
+
+/** One value of a Navidrome file tag (e.g. a record label). */
+export interface NdTagValue {
+  id: string;
+  value: string;
+}
+
+/**
+ * Every value of one Navidrome file tag, e.g. `recordlabel`. One request returns
+ * the whole list; `tagValue` narrows it to values containing that text. Navidrome
+ * 0.55.0+. Throws on auth or unsupported-server errors; callers treat that as a
+ * capability miss.
+ */
+export async function ndListTagsForServer(
+  serverId: string,
+  tagName: string,
+  tagValue?: string,
+): Promise<NdTagValue[]> {
+  const server = getServerById(serverId);
+  if (!server) throw new Error(`Unknown server: ${serverId}`);
+  const baseUrl = connectBaseUrlForServer(server);
+  const raw = await withNdToken(serverId, token =>
+    invoke<unknown>('nd_list_tags', { serverUrl: baseUrl, token, tagName, tagValue: tagValue ?? null }),
+  );
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap(row => {
+    const o = row as Record<string, unknown>;
+    const id = asString(o.id);
+    return id ? [{ id, value: asString(o.tagValue) }] : [];
+  });
+}
+
+export interface NdAlbumsByTagPage {
+  albums: SubsonicAlbum[];
+  /** Albums matching the tag in total; null when the server omits `X-Total-Count`. */
+  total: number | null;
+}
+
+/**
+ * One page of albums carrying a tag value, e.g. every album on a record label.
+ * Navidrome exposes each mapped tag name as an album filter keyed by tag id.
+ */
+export async function ndListAlbumsByTagForServer(
+  serverId: string,
+  tagName: string,
+  tagId: string,
+  start: number,
+  end: number,
+  sort: 'name' | 'max_year' | 'recently_added' | 'play_count' = 'name',
+  order: 'ASC' | 'DESC' = 'ASC',
+  libraryIdOverride?: string | null,
+): Promise<NdAlbumsByTagPage> {
+  const server = getServerById(serverId);
+  if (!server) throw new Error(`Unknown server: ${serverId}`);
+  const baseUrl = connectBaseUrlForServer(server);
+  const libraryId = libraryIdOverride === undefined
+    ? currentLibraryIdForServer(serverId)
+    : libraryIdOverride;
+  const raw = await withNdToken(serverId, token =>
+    invoke<unknown>('nd_list_albums_by_tag', {
+      serverUrl: baseUrl, token, tagName, tagId, sort, order, start, end, libraryId,
+    }),
+  );
+  const o = (raw ?? {}) as Record<string, unknown>;
+  const items = Array.isArray(o.items) ? o.items : [];
+  const ownerServerKey = resolveIndexKey(serverId);
+  return {
+    albums: items.map(a => ({ ...mapNdAlbum(a as Record<string, unknown>), serverId: ownerServerKey })),
+    total: asNumber(o.total) ?? null,
+  };
+}
+
 export interface NdLosslessAlbumEntry {
   album: SubsonicAlbum;
   sampleRate: number;

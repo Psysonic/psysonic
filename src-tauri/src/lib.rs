@@ -691,6 +691,8 @@ pub fn run() {
             psysonic_integration::navidrome::queries::nd_list_songs,
             psysonic_integration::navidrome::queries::nd_list_artists_by_role,
             psysonic_integration::navidrome::queries::nd_list_albums_by_artist_role,
+            psysonic_integration::navidrome::queries::nd_list_tags,
+            psysonic_integration::navidrome::queries::nd_list_albums_by_tag,
             psysonic_integration::navidrome::queries::nd_set_user_libraries,
             psysonic_integration::navidrome::playlists::nd_list_playlists,
             psysonic_integration::navidrome::playlists::nd_create_playlist,
@@ -1069,9 +1071,11 @@ mod specta_export {
             "nd_list_users",
             "nd_update_user",
             "nd_list_albums_by_artist_role",
+            "nd_list_albums_by_tag",
             "nd_list_artists_by_role",
             "nd_list_libraries",
             "nd_list_songs",
+            "nd_list_tags",
             // (2) >10 total params (State/AppHandle/Window included) exceed
             // specta's SpectaFn arg cap. Typing needs the args bundled into a
             // struct = an IPC arg-shape change, out of scope for Option A.

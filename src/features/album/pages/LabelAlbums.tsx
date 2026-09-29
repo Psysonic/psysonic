@@ -1,4 +1,5 @@
 import { search, searchForServer } from '@/lib/api/subsonicSearch';
+import { ndListAlbumsByTagForServer, ndListTagsForServer } from '@/lib/api/navidromeBrowse';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router';
@@ -10,6 +11,43 @@ import { usePerfProbeFlags } from '@/lib/perf/perfFlags';
 import { albumGridWarmCovers } from '@/cover/layoutSizes';
 import { VirtualCardGrid } from '@/ui/VirtualCardGrid';
 import { readDetailServerId } from '@/lib/navigation/detailServerScope';
+import { RECORD_LABEL_TAG, cleanLabelName } from '@/features/label';
+
+const TAG_PAGE_SIZE = 200;
+/** Upper bound on albums fetched for one label; the largest real labels stay well below it. */
+const TAG_MAX_ALBUMS = 2000;
+
+/** Tag id for a label name, matched case-insensitively after cleanup. */
+async function resolveLabelTagId(serverId: string, name: string): Promise<string | null> {
+  const wanted = cleanLabelName(name).toLocaleLowerCase();
+  const rows = await ndListTagsForServer(serverId, RECORD_LABEL_TAG, name);
+  return rows.find(r => cleanLabelName(r.value).toLocaleLowerCase() === wanted)?.id ?? null;
+}
+
+/** Every album carrying the label tag, via Navidrome's native tag filter. */
+async function loadAlbumsByLabelTag(serverId: string, tagId: string): Promise<SubsonicAlbum[]> {
+  const albums: SubsonicAlbum[] = [];
+  for (let start = 0; start < TAG_MAX_ALBUMS; start += TAG_PAGE_SIZE) {
+    const page = await ndListAlbumsByTagForServer(serverId, RECORD_LABEL_TAG, tagId, start, start + TAG_PAGE_SIZE);
+    albums.push(...page.albums);
+    const reachedTotal = page.total !== null && albums.length >= page.total;
+    if (page.albums.length < TAG_PAGE_SIZE || reachedTotal) break;
+  }
+  return albums;
+}
+
+/** Best-effort fallback for servers without the native tag API: a search on the name. */
+async function loadAlbumsBySearch(serverId: string | null, name: string): Promise<SubsonicAlbum[]> {
+  const options = { albumCount: 200, artistCount: 0, songCount: 0 };
+  const res = serverId ? await searchForServer(serverId, name, options) : await search(name, options);
+  // Filter out albums that don't match the record label exactly if possible,
+  // to avoid unrelated search hits. We do case-insensitive comparison.
+  const matches = res.albums.filter(a => a.recordLabel?.toLowerCase() === name.toLowerCase());
+  // Fallback: if Navidrome's search doesn't return the exact label in the recordLabel field
+  // (or it's not indexed exactly as typed), just show all album matches
+  // as a decent best-effort if our strict filter yields nothing.
+  return matches.length > 0 ? matches : res.albums;
+}
 
 export default function LabelAlbums() {
   const { t } = useTranslation();
@@ -23,6 +61,7 @@ export default function LabelAlbums() {
   const activeServerId = useAuthStore(s => s.activeServerId);
   const ownerServerId = readDetailServerId(searchParams, activeServerId);
   const invalidExplicitServer = searchParams.has('server') && !ownerServerId;
+  const tagIdParam = searchParams.get('id');
 
   useEffect(() => {
     if (!name) return;
@@ -36,28 +75,24 @@ export default function LabelAlbums() {
       return;
     }
 
-    // Search for the label name and ask for a large number of albums
-    const options = { albumCount: 200, artistCount: 0, songCount: 0 };
-    const request = ownerServerId
-      ? searchForServer(ownerServerId, name, options)
-      : search(name, options);
-    request
-      .then(res => {
-        if (cancelled) return;
-        // Filter out albums that don't match the record label exactly if possible,
-        // to avoid unrelated search hits. We do case-insensitive comparison.
-        const matches = res.albums.filter(a =>
-          a.recordLabel?.toLowerCase() === name.toLowerCase()
-        );
-        // Fallback: if Navidrome's search doesn't return the exact label in the recordLabel field
-        // (or it's not indexed exactly as typed), just show all album matches
-        // as a decent best-effort if our strict filter yields nothing.
-        setAlbums(matches.length > 0 ? matches : res.albums);
-      })
+    const load = async (): Promise<SubsonicAlbum[]> => {
+      if (ownerServerId) {
+        try {
+          const tagId = tagIdParam ?? await resolveLabelTagId(ownerServerId, name);
+          if (tagId) return await loadAlbumsByLabelTag(ownerServerId, tagId);
+        } catch {
+          // Not Navidrome, or too old for the tag API — fall through to search.
+        }
+      }
+      return loadAlbumsBySearch(ownerServerId, name);
+    };
+
+    load()
+      .then(result => { if (!cancelled) setAlbums(result); })
       .catch(error => { if (!cancelled) console.error(error); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [invalidExplicitServer, name, musicLibraryFilterVersion, ownerServerId]);
+  }, [invalidExplicitServer, name, musicLibraryFilterVersion, ownerServerId, tagIdParam]);
 
   return (
     <div className="animate-fade-in" style={{ padding: '0 var(--space-6)' }}>
@@ -67,6 +102,11 @@ export default function LabelAlbums() {
 
       <h1 className="page-title" style={{ marginBottom: '2rem' }}>
         Label: <span style={{ color: 'var(--accent)' }}>{name}</span>
+        {!loading && albums.length > 0 && (
+          <span className="psy-page-heading__count" style={{ marginLeft: '0.75rem' }}>
+            {t('labels.albumCount', { count: albums.length })}
+          </span>
+        )}
       </h1>
 
       {loading ? (

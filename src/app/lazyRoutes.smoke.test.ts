@@ -23,6 +23,7 @@ const ROUTE_LOADERS: Array<[string, () => Promise<{ default: unknown }>]> = [
   ['@/features/album/pages/LosslessAlbums', () => import('@/features/album/pages/LosslessAlbums')],
   ['@/features/album/pages/RandomAlbums', () => import('@/features/album/pages/RandomAlbums')],
   ['@/features/album/pages/LabelAlbums', () => import('@/features/album/pages/LabelAlbums')],
+  ['@/features/label/pages/Labels', () => import('@/features/label/pages/Labels')],
   ['@/features/artist/pages/Artists', () => import('@/features/artist/utils/artistBrowseRoutePrefetch').then(m => m.lazyLoadArtistsPage())],
   ['@/features/artist/pages/ArtistDetail', () => import('@/features/artist/pages/ArtistDetail')],
   ['@/features/composers/pages/Composers', () => import('@/features/composers/pages/Composers')],

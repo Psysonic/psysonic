@@ -25,9 +25,11 @@ vi.mock('@/store/authStore', () => ({
 import {
   ndClearTokenCache,
   ndListAlbumsByArtistRoleForServer,
+  ndListAlbumsByTagForServer,
   ndListArtistsByRoleForServer,
   ndListLosslessAlbumsPage,
   ndListLosslessAlbumsPageForServer,
+  ndListTagsForServer,
 } from '@/lib/api/navidromeBrowse';
 
 const servers = {
@@ -114,5 +116,49 @@ describe('explicit-server lossless album browsing', () => {
       artistId: 'composer-1',
       libraryId: 'lib-b',
     }));
+  });
+
+  it('lists tag values and drops rows without an id', async () => {
+    invokeMock.mockResolvedValueOnce([
+      { id: 'tag-1', tagName: 'recordlabel', tagValue: '4AD' },
+      { tagName: 'recordlabel', tagValue: 'orphan' },
+    ]);
+
+    const tags = await ndListTagsForServer('srv-b', 'recordlabel', '4A');
+
+    expect(tags).toEqual([{ id: 'tag-1', value: '4AD' }]);
+    expect(invokeMock).toHaveBeenCalledWith('nd_list_tags', expect.objectContaining({
+      serverUrl: 'https://srv-b.connect',
+      token: 'token:https://srv-b.connect',
+      tagName: 'recordlabel',
+      tagValue: '4A',
+    }));
+  });
+
+  it('pages albums by tag with the server total and retries once on 401', async () => {
+    invokeMock
+      .mockRejectedValueOnce(new Error('HTTP 401 Unauthorized'))
+      .mockResolvedValueOnce({ items: [{ id: 'album-1', name: 'Bright Future', albumArtist: 'Adrianne Lenker' }], total: 13 });
+
+    const page = await ndListAlbumsByTagForServer('srv-b', 'recordlabel', 'tag-1', 0, 200, 'name', 'ASC', 'lib-b');
+
+    expect(page.total).toBe(13);
+    expect(page.albums[0]).toEqual(expect.objectContaining({ id: 'album-1', serverId: 'b.example' }));
+    expect(loginMock).toHaveBeenCalledTimes(2);
+    expect(invokeMock).toHaveBeenLastCalledWith('nd_list_albums_by_tag', expect.objectContaining({
+      tagName: 'recordlabel',
+      tagId: 'tag-1',
+      start: 0,
+      end: 200,
+      libraryId: 'lib-b',
+    }));
+  });
+
+  it('reports a null total when the server omits the count header', async () => {
+    invokeMock.mockResolvedValueOnce({ items: [], total: null });
+
+    const page = await ndListAlbumsByTagForServer('srv-a', 'recordlabel', 'tag-1', 0, 200);
+
+    expect(page).toEqual({ albums: [], total: null });
   });
 });
