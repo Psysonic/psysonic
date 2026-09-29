@@ -1,0 +1,18 @@
+export const labels = {
+  title: 'Лейбли',
+  labelCount: 'лейблів',
+  labelCount_one: 'лейбл',
+  labelCount_few: 'лейбли',
+  labelCount_many: 'лейблів',
+  albumCount_one: '{{count}} альбом',
+  albumCount_few: '{{count}} альбоми',
+  albumCount_many: '{{count}} альбомів',
+  albumCount_other: '{{count}} альбомів',
+  loading: 'Завантаження лейблів…',
+  empty: 'Лейблів не знайдено.',
+  noMatches: 'Жоден лейбл не відповідає фільтру.',
+  unavailable: 'Для перегляду за лейблами потрібен сервер Navidrome (0.55 або новіший).',
+  filterPlaceholder: 'Фільтр лейблів',
+  jumpTo: 'Перейти до літери',
+  other: 'Інше',
+};

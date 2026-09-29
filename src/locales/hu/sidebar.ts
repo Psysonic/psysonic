@@ -25,6 +25,7 @@ export const sidebar = {
   offlineLibrary: 'Offline könyvtár',
   genres: 'Műfajok',
   moods: 'Hangulatok',
+  labels: 'Kiadók',
   tracks: 'Számok',
   playlists: 'Lejátszási listák',
   shared: 'ND-megosztások',

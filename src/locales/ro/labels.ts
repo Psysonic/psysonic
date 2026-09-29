@@ -1,0 +1,15 @@
+export const labels = {
+  title: 'Case de discuri',
+  labelCount: 'case de discuri',
+  labelCount_one: 'casă de discuri',
+  albumCount_one: '{{count}} album',
+  albumCount_few: '{{count}} albume',
+  albumCount_other: '{{count}} albume',
+  loading: 'Se încarcă casele de discuri…',
+  empty: 'Nu s-au găsit case de discuri.',
+  noMatches: 'Nicio casă de discuri nu corespunde filtrului.',
+  unavailable: 'Navigarea după casa de discuri necesită un server Navidrome (0.55 sau mai nou).',
+  filterPlaceholder: 'Filtrează casele de discuri',
+  jumpTo: 'Salt la literă',
+  other: 'Altele',
+};

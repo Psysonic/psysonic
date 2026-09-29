@@ -1,0 +1,18 @@
+export const labels = {
+  title: 'Wytwórnie',
+  labelCount: 'wytwórni',
+  labelCount_one: 'wytwórnia',
+  labelCount_few: 'wytwórnie',
+  labelCount_many: 'wytwórni',
+  albumCount_one: '{{count}} album',
+  albumCount_few: '{{count}} albumy',
+  albumCount_many: '{{count}} albumów',
+  albumCount_other: '{{count}} albumów',
+  loading: 'Ładowanie wytwórni…',
+  empty: 'Nie znaleziono wytwórni.',
+  noMatches: 'Żadna wytwórnia nie pasuje do filtra.',
+  unavailable: 'Przeglądanie według wytwórni wymaga serwera Navidrome (0.55 lub nowszego).',
+  filterPlaceholder: 'Filtruj wytwórnie',
+  jumpTo: 'Przejdź do litery',
+  other: 'Inne',
+};
