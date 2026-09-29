@@ -1,0 +1,16 @@
+export const labels = {
+  title: 'Case de discuri',
+  labelCount: 'case de discuri',
+  labelCount_one: 'casă de discuri',
+  albumCount_one: '{{count}} album',
+  albumCount_few: '{{count}} albume',
+  albumCount_other: '{{count}} albume',
+  loading: 'Se încarcă casele de discuri…',
+  empty: 'Nu s-au găsit case de discuri.',
+  noMatches: 'Nicio casă de discuri nu corespunde filtrului.',
+  albumsEmpty: 'Nu s-au găsit albume pentru această casă de discuri.',
+  back: 'Înapoi',
+  filterPlaceholder: 'Filtrează casele de discuri',
+  jumpTo: 'Salt la literă',
+  other: 'Altele',
+};

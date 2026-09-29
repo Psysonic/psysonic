@@ -16,6 +16,10 @@ export const migration = {
   fileMoodTagsBody:
     'Indexation des ambiances des fichiers pour la navigation et les filtres. Cette opération ne s’exécute qu’une fois après la mise à jour.',
   fileMoodTagsFailed: 'Échec de la mise à jour de l’index des ambiances',
+  recordLabelTagsTitle: 'Mise à jour de l’index des labels…',
+  recordLabelTagsBody:
+    'Indexation des labels pour la navigation. Cette opération ne s’exécute qu’une fois après la mise à jour.',
+  recordLabelTagsFailed: 'Échec de la mise à jour de l’index des labels',
   scopeBrowseProjectionTitle: 'Mise à jour de l\'index de navigation de la bibliothèque…',
   scopeBrowseProjectionBody: 'Préparation de votre catalogue d\'albums pour une navigation plus rapide. Cette opération ne s\'exécute qu\'une fois après la mise à jour.',
   scopeBrowseProjectionFailed: 'Échec de la mise à jour de l\'index de navigation de la bibliothèque',

@@ -24,7 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **By [@circle3451](https://github.com/circle3451), PR [#1682](https://github.com/Psysonic/psysonic/pull/1682)**
 
-* A new **Labels** entry in the sidebar lists the record labels in your library, A–Z, with a filter box, a letter jump bar and the album count of each label. It covers every server and library you browse, like Genres and Moods.
+* A new **Labels** entry in the sidebar lists the record labels in your library, A–Z, with a filter box, a letter jump bar and the album count of each label. It covers every server and library you browse, like Genres and Moods. It is hidden by default; turn it on under **Settings → Personalisation → Sidebar**.
 * Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, loading more as you scroll. Labels come from the local library index, which is updated once in the background after upgrading.
 
 ### Track subtitles and album versions from Navidrome

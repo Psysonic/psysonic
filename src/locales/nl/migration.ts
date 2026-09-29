@@ -16,6 +16,10 @@ export const migration = {
   fileMoodTagsBody:
     'Stemmingstags uit muziekbestanden worden geïndexeerd om te bladeren en te filteren. Dit gebeurt eenmalig na de update.',
   fileMoodTagsFailed: 'Bijwerken van de stemmingsindex mislukt',
+  recordLabelTagsTitle: 'Labelindex bijwerken…',
+  recordLabelTagsBody:
+    'Platenlabels worden geïndexeerd om te bladeren. Dit gebeurt eenmalig na de update.',
+  recordLabelTagsFailed: 'Bijwerken van de labelindex mislukt',
   scopeBrowseProjectionTitle: 'Browse-index van bibliotheek bijwerken…',
   scopeBrowseProjectionBody: 'Je albumcatalogus wordt voorbereid voor sneller bladeren. Dit gebeurt één keer na de update.',
   scopeBrowseProjectionFailed: 'Bijwerken van browse-index van bibliotheek mislukt',
