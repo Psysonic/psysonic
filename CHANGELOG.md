@@ -116,6 +116,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * On Fedora 44, including atomic variants such as Bluefin, the AppImage opened an empty window and nothing ever appeared in it. The WebKitGTK copy shipped inside the AppImage cannot start on those systems' newer graphics stack, and it crashed on every launch.
 * The AppImage now launches against your system WebKitGTK whenever one is installed, which is the copy that works there. Systems without one keep using the bundled copy exactly as before, and `PSYSONIC_FORCE_BUNDLED_WEBKIT=1` forces the bundled copy back if you ever need it.
 
+### AAC internet radio plays in the AppImage
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1679](https://github.com/Psysonic/psysonic/pull/1679)**
+
+* Internet radio stations that stream AAC stopped with a stream error in the AppImage, because the media plugins it ships include no AAC decoder. When the AppImage runs on your system WebKitGTK, it now uses your system's media plugins first, so AAC stations play. Plugins your system lacks still come from the AppImage.
+
 ## [1.55.0]
 
 ## Added
