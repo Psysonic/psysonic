@@ -2,6 +2,9 @@ import type { InternetRadioStation } from '@/lib/api/subsonicTypes';
 import type { PlaybackSourceKind } from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import type { Track, QueueItemRef } from '@/lib/media/trackTypes';
 import type { ResolvedStreamFormat } from '@/lib/media/streamFormat';
+// Declared in the dependency-free module that hands it to `playTrack`; importing
+// it the other way round closes a cycle through playTrackAction.
+import type { QueueSource } from '@/features/playback/store/pendingQueueSource';
 
 export interface PlayerState {
   currentTrack: Track | null;
@@ -52,6 +55,12 @@ export interface PlayerState {
    *  v1; carries the queue-only flags. Persisted by `partialize`; the source the
    *  resolver/consumers read from — full `Track`s resolve on demand. */
   queueItems: QueueItemRef[];
+  /**
+   * Playlist the current queue was started from; drives the "now playing"
+   * marker on playlist cards and sidebar rows. Set by a queue replace that was
+   * started through `withQueueSource`, cleared by any other replace. Persisted.
+   */
+  queueSource: QueueSource | null;
   /** Restore-pending sentinel (transient). `partialize` writes it alongside the
    *  full `queueItems` on every persist; a fresh rehydrate brings it back, which
    *  is what tells `hydrateQueueFromIndex` the windowed `queue` still needs a

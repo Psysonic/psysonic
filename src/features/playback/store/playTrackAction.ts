@@ -41,6 +41,7 @@ import {
   setShuffleOriginalOrder,
 } from '@/features/playback/store/shuffleModeActions';
 import { shuffleTracks } from '@/features/playback/utils/playback/shuffleTracks';
+import { takePendingQueueSource, withQueueSource } from '@/features/playback/store/pendingQueueSource';
 import { persistShuffleModeSnapshot } from '@/features/playback/store/shuffleModeStorage';
 import {
   findLocalPlaybackUrl,
@@ -145,6 +146,11 @@ export function runPlayTrack(
   targetQueueIndex: number | undefined,
   skipQueueUndo = false,
 ): void {
+  // Taken before any early return: the gates below re-enter `playTrack` later
+  // and hand the source back in themselves.
+  const queueSource = takePendingQueueSource();
+  const reenter = (start: () => void) => (queueSource ? withQueueSource(queueSource, start) : start());
+
   if (orbitSnapshot().role === 'host') {
     if (
       !orbitAllowsTrackServer(track.serverId)
@@ -179,7 +185,7 @@ export function runPlayTrack(
         if (role === 'host' || role === 'guest') {
           get().enqueue(gatedQueue, true);
         } else {
-          get().playTrack(track, gatedQueue, manual, true);
+          reenter(() => get().playTrack(track, gatedQueue, manual, true));
         }
       });
       return;
@@ -210,7 +216,7 @@ export function runPlayTrack(
         } else {
           // Append the single track to the resolved current queue and jump to it.
           const newQueue = [...getQueueTracksView(currentItems), track];
-          get().playTrack(track, newQueue, manual, true, newQueue.length - 1);
+          reenter(() => get().playTrack(track, newQueue, manual, true, newQueue.length - 1));
         }
         return;
       }
@@ -514,7 +520,7 @@ export function runPlayTrack(
     if (deferInterruptUi) {
       set({
         currentRadio: null,
-        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue) } : {}),
+        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue), queueSource } : {}),
         ...(dropSharePageUrl ? { navidromePublicSharePageUrl: null } : {}),
         queueIndex: idx >= 0 ? idx : 0,
       });
@@ -526,8 +532,8 @@ export function runPlayTrack(
         resolvedStreamFormat: null,
         waveformBins: null,
         ...deriveNormalizationSnapshot(trackForPlay, playNormWindow, normIdx),
-        // Only a replace rewrites the queue; navigation keeps the canonical refs.
-        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue) } : {}),
+        // Only a replace rewrites the queue (and its source); navigation keeps both.
+        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue), queueSource } : {}),
         ...(dropSharePageUrl ? { navidromePublicSharePageUrl: null } : {}),
         queueIndex: idx >= 0 ? idx : 0,
         progress: initialProgress,

@@ -420,6 +420,7 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
       set({
         queueItems: [],
         queueIndex: 0,
+        queueSource: null,
         currentTrack: null,
         navidromePublicSharePageUrl: null,
         isPlaying: false,

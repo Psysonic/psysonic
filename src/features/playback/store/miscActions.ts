@@ -190,6 +190,7 @@ export function createMiscActions(set: SetState, get: GetState): Pick<
       set({
         queueItems: newItems,
         queueIndex: 0,
+        queueSource: null,
         currentTrack: track,
       });
       syncUserQueueMutationToServer(s.queueItems, newItems, track, s.currentTime);

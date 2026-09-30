@@ -62,6 +62,7 @@ export const usePlayerStore = create<PlayerState>()(
       // Thin-state: the queue is a list of refs; full Tracks resolve on demand
       // through the resolver. `currentTrack` stays a full resolved singleton.
       queueItems: [],
+      queueSource: null,
       queueServerId: null,
       navidromePublicSharePageUrl: null,
       queueIndex: 0,
@@ -125,6 +126,7 @@ export const usePlayerStore = create<PlayerState>()(
         // `hydrateQueueFromIndex` the refs still need a full resolve.
         queueItems: state.queueItems,
         queueItemsIndex: state.queueIndex,
+        queueSource: state.queueSource,
         // currentTime is intentionally NOT persisted here.
         // handleAudioProgress fires every 100ms and each setState with a
         // persisted field triggers a full JSON serialisation to localStorage.

@@ -34,4 +34,7 @@ export { queueTrackIdsForServerProfile } from './utils/playback/trackServerScope
 export { playTimelineFromHere } from './utils/playTimelineHistoryTrack';
 export { enqueueAndPlay } from './utils/playback/playSong';
 export { shuffleTracks } from './utils/playback/shuffleTracks';
+export { NowPlayingMarker } from './components/NowPlayingMarker';
+export { useIsNowPlaying } from './hooks/useIsNowPlaying';
+export { withQueueSource } from './store/pendingQueueSource';
 export { usePlayQueueSyncSettingsStore } from './store/playQueueSyncSettingsStore';
