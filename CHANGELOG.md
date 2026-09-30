@@ -84,6 +84,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
 * AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
 
+### Shuffle spreads artists and albums over the list
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1698](https://github.com/Psysonic/psysonic/pull/1698)**
+
+* Shuffling no longer leaves the order to pure chance: songs by the same artist, and from the same album, are spread over the whole list, so the same artist rarely plays twice in a row. The next song after the one playing is also by a different artist whenever the list allows it.
+* This applies to the shuffle button and to every shuffle-play action for albums, artists, genres, playlists, favourites and the offline library. Radio, Instant Mix and the infinite queue are unchanged.
+* **Settings → Personalisation → Queue Settings → Smart shuffle** is on by default; switching it off brings back the purely random order.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
