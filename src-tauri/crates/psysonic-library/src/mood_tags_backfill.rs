@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{params, Connection, OptionalExtension};
 use tauri::{AppHandle, Emitter};
 
-use crate::mood_tags::{moods_for_track_extracted, replace_track_mood_rows};
+use crate::mood_tags::moods_for_track_extracted;
 use crate::store::LibraryStore;
 
 pub const MOOD_TAGS_MIGRATION_ID: &str = "mood_tags_v2";
@@ -142,11 +142,12 @@ fn run_mood_tags_backfill_impl(
     }
 
     let total = inspect.total_tracks;
+    let mut done = inspect.done_tracks;
 
     loop {
-        let (batch_done, finished) = store.with_conn_mut("mood_tags.backfill", |conn| {
+        let (batch_processed, finished) = store.with_conn_mut("mood_tags.backfill", |conn| {
             if migration_completed(conn)? {
-                return Ok::<(i64, bool), rusqlite::Error>((total as i64, true));
+                return Ok::<(u64, bool), rusqlite::Error>((0, true));
             }
 
             conn.execute(
@@ -218,25 +219,42 @@ fn run_mood_tags_backfill_impl(
                     params![MOOD_TAGS_MIGRATION_ID, now_unix()],
                 )?;
 
-                return Ok((total as i64, true));
+                return Ok((0_u64, true));
             }
 
+            let batch_processed = rows.len() as u64;
             let tx = conn.unchecked_transaction()?;
             let mut last_rowid = cursor;
 
-            for (rowid, server_id, track_id, moods_json, album_id, library_id) in rows {
-                let moods = moods_for_track_extracted(moods_json.as_deref());
-
-                replace_track_mood_rows(
-                    &tx,
-                    &server_id,
-                    &track_id,
-                    album_id.as_deref(),
-                    library_id.as_deref(),
-                    &moods,
+            {
+                let mut delete = tx.prepare_cached(
+                    "DELETE FROM track_mood
+                    WHERE server_id = ?1 AND track_id = ?2",
                 )?;
 
-                last_rowid = rowid;
+                let mut insert = tx.prepare_cached(
+                    "INSERT OR IGNORE INTO track_mood
+                    (server_id, track_id, mood, album_id, library_id)
+                    VALUES (?1, ?2, ?3, ?4, ?5)",
+                )?;
+
+                for (rowid, server_id, track_id, moods_json, album_id, library_id) in rows {
+                    let moods = moods_for_track_extracted(moods_json.as_deref());
+
+                    delete.execute(params![server_id, track_id])?;
+
+                    for mood in &moods {
+                        insert.execute(params![
+                            server_id,
+                            track_id,
+                            mood,
+                            album_id,
+                            library_id,
+                        ])?;
+                    }
+
+                    last_rowid = rowid;
+                }
             }
 
             tx.commit()?;
@@ -248,20 +266,15 @@ fn run_mood_tags_backfill_impl(
                 params![MOOD_TAGS_MIGRATION_ID, last_rowid],
             )?;
 
-            let done: i64 = conn.query_row(
-                "SELECT COUNT(*)
-                     FROM track
-                     WHERE deleted = 0
-                       AND rowid <= ?1",
-                params![last_rowid],
-                |row| row.get(0),
-            )?;
-
-            Ok((done, false))
+            Ok((batch_processed, false))
         })?;
 
-        if let Some(app) = app {
-            emit_progress(app, batch_done.max(0) as u64, total)?;
+        if batch_processed > 0 {
+            done = done.saturating_add(batch_processed).min(total);
+
+            if let Some(app) = app {
+                emit_progress(app, done, total)?;
+            }
         }
 
         if finished {
