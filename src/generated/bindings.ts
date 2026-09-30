@@ -134,7 +134,7 @@ export const commands = {
 	 *  ring buffer is created, its consumer is sent to `AudioStreamReader` (which
 	 *  swaps it in on the next `read()`), and a new download task is spawned.
 	 */
-	audioResume: (fadeSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("audio_resume", { fadeSecs })),
+	audioResume: (fadeSecs: number | null, notifyPlaying: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_resume", { fadeSecs, notifyPlaying })),
 	audioStop: () => __TAURI_INVOKE<void>("audio_stop"),
 	audioSeek: (seconds: number | null) => typedError<null, string>(__TAURI_INVOKE("audio_seek", { seconds })),
 	audioSetVolume: (volume: number | null) => __TAURI_INVOKE<void>("audio_set_volume", { volume }),

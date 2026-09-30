@@ -180,7 +180,7 @@ describe('resume — warm path (engine has the track loaded, just paused)', () =
     invokeMock.mockClear();
 
     usePlayerStore.getState().resume();
-    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null });
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null, notifyPlaying: null });
     expect(usePlayerStore.getState().isPlaying).toBe(true);
   });
 
@@ -192,7 +192,22 @@ describe('resume — warm path (engine has the track loaded, just paused)', () =
 
     usePlayerStore.getState().resume();
 
-    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: 0.7 });
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: 0.7, notifyPlaying: null });
+  });
+
+  it('recovers through a paused cold load if the idle-release event was missed', async () => {
+    usePlayerStore.setState({ currentTrack: makeTrack({ duration: 120 }), isPlaying: true, currentTime: 5.9 });
+    usePlayerStore.getState().pause();
+    let resumes = 0;
+    onInvoke('audio_resume', () => {
+      if (++resumes === 1) throw new Error('audio sink not ready');
+    });
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(invokeMock).toHaveBeenCalledWith('audio_play', expect.objectContaining({
+      startPaused: true, startSecs: 5.9, requireStartSeek: true,
+    }));
+    expect(resumes).toBe(2);
   });
 
   it('preserves the original scrobble timestamp across pause and warm resume', () => {
@@ -230,6 +245,72 @@ describe('resume — warm path (engine has the track loaded, just paused)', () =
 });
 
 describe('resume — cold path', () => {
+  function prepareIdleReleasedTrack() {
+    const server = makeServer({ id: 'server-a', url: 'https://a.test' });
+    useAuthStore.setState({ servers: [server], activeServerId: server.id, hotCacheEnabled: false });
+    const track = makeTrack({ id: 'idle-paused', serverId: server.id, duration: 120 });
+    seedQueue([track], { currentTrack: track, serverId: server.id });
+    usePlayerStore.setState({ isPlaying: true, currentTime: 5.9, progress: 5.9 / 120 });
+    usePlayerStore.getState().pause();
+    usePlayerStore.getState().resetAudioPause();
+    invokeMock.mockClear();
+  }
+
+  it('restores the idle-release position before unpausing, without a callback seek', async () => {
+    prepareIdleReleasedTrack();
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(invokeMock).toHaveBeenCalledWith('audio_play', expect.objectContaining({
+      startPaused: true, startSecs: 5.9, requireStartSeek: true, manual: true,
+    }));
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null, notifyPlaying: true });
+    expect(invokeMock).not.toHaveBeenCalledWith('audio_seek', expect.anything());
+  });
+
+  it('keeps the position and stops indicating playback when both loads fail', async () => {
+    prepareIdleReleasedTrack();
+    onInvoke('audio_play', () => { throw new Error('cold resume source seek timeout'); });
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'audio_play')).toHaveLength(2);
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(usePlayerStore.getState().currentTime).toBe(5.9);
+    expect(invokeMock).not.toHaveBeenCalledWith('audio_resume', expect.anything());
+  });
+
+  it.each(['pause', 'stop'] as const)('does not restart after %s during a paused load', async action => {
+    prepareIdleReleasedTrack();
+    let finishLoad!: () => void;
+    onInvoke('audio_play', () => new Promise<void>(resolve => { finishLoad = resolve; }));
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(finishLoad).toBeTypeOf('function');
+    usePlayerStore.getState()[action]();
+    finishLoad();
+    await vi.runAllTimersAsync();
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalledWith('audio_resume', expect.anything());
+  });
+
+  it('a rapid pause and new resume replaces the pending load instead of warm-resuming it', async () => {
+    prepareIdleReleasedTrack();
+    let finishOldLoad!: () => void;
+    let loads = 0;
+    onInvoke('audio_play', () => {
+      loads++;
+      return loads === 1 ? new Promise<void>(resolve => { finishOldLoad = resolve; }) : undefined;
+    });
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    usePlayerStore.getState().pause();
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    finishOldLoad();
+    await vi.runAllTimersAsync();
+    expect(loads).toBe(2);
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'audio_resume')).toHaveLength(1);
+  });
+
   it('starts a fresh scrobble play after stop instead of reusing the old timestamp', async () => {
     vi.setSystemTime(10_000);
     const server = makeServer({ id: 'server-a', url: 'https://a.test' });
@@ -285,7 +366,7 @@ describe('togglePlay', () => {
     invokeMock.mockClear();
 
     usePlayerStore.getState().togglePlay();
-    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null });
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null, notifyPlaying: null });
     expect(usePlayerStore.getState().isPlaying).toBe(true);
   });
 });

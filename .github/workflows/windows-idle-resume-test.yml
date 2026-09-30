@@ -1,0 +1,58 @@
+name: Windows Idle Resume Test
+
+# Branch-only diagnostic build. No release, updater manifest or signing keys.
+on:
+  push:
+    branches: [fix/idle-resume-recovery]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-idle-resume-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+          shared-key: windows-idle-resume
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Record build identity
+        run: |
+          git rev-parse HEAD
+          rustc --version
+          cargo --version
+          node --version
+      - name: Build unsigned standalone executable
+        env:
+          VITE_LASTFM_API_KEY: ${{ secrets.VITE_LASTFM_API_KEY }}
+          VITE_LASTFM_API_SECRET: ${{ secrets.VITE_LASTFM_API_SECRET }}
+        run: npm run tauri:build -- --no-bundle --no-sign
+      - name: Package diagnostic artifact
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path diagnostic
+          Copy-Item src-tauri/target/release/psysonic.exe diagnostic/Psysonic-idle-resume-test.exe
+          Copy-Item docs/idle-resume-windows-test.md diagnostic/README.md
+          git rev-parse HEAD | Set-Content diagnostic/COMMIT.txt
+          Get-FileHash diagnostic/Psysonic-idle-resume-test.exe -Algorithm SHA256 |
+            Format-List | Out-File diagnostic/SHA256.txt
+      - uses: actions/upload-artifact@v7
+        with:
+          name: psysonic-windows-idle-resume-${{ github.sha }}
+          path: diagnostic/
+          if-no-files-found: error
+          retention-days: 14
