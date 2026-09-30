@@ -6,7 +6,8 @@ import { useTouchpadSwipeNavigation } from './useTouchpadSwipeNavigation';
 const navigate = vi.fn();
 vi.mock('react-router', async importOriginal => ({
   ...(await importOriginal<typeof import('react-router')>()),
-  useNavigate: () => navigate,
+  // Like React Router, hand out a new function on every render.
+  useNavigate: () => (delta: number) => navigate(delta),
 }));
 
 function swipe(deltaX: number) {
@@ -30,6 +31,19 @@ describe('useTouchpadSwipeNavigation', () => {
     window.history.pushState({ psysonicDetailBackTrap: true }, '', window.location.href);
     renderHook(() => useTouchpadSwipeNavigation());
 
+    swipe(-20);
+
+    expect(navigate).toHaveBeenCalledExactlyOnceWith(-1);
+  });
+
+  it('navigates once when the swipe keeps going after the route changed', () => {
+    const { rerender } = renderHook(() => useTouchpadSwipeNavigation());
+
+    swipe(-20);
+    // The navigation re-renders the shell with a new `navigate`; the rest of
+    // the same swipe (its momentum) must not count as a second swipe.
+    rerender();
+    swipe(-20);
     swipe(-20);
 
     expect(navigate).toHaveBeenCalledExactlyOnceWith(-1);
