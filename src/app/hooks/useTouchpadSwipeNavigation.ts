@@ -17,11 +17,11 @@ export function useTouchpadSwipeNavigation(): void {
     const tracker = createSwipeTracker();
     const onWheel = (e: WheelEvent) => {
       const direction = tracker.onWheel(e);
+      // Plain history steps, like a mouse's back / forward buttons: detail
+      // pages keep their own back trap entry (`useAlbumDetailBack`), and at
+      // either end of the history the webview simply stays put.
       if (direction === 'back') {
-        // React Router's history index; 0 is the first page of this session,
-        // where going back would leave the app shell.
-        const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
-        if (idx > 0) void navigate(-1);
+        void navigate(-1);
       } else if (direction === 'forward') {
         void navigate(1);
       }
