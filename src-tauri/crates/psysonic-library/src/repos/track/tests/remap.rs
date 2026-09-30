@@ -390,6 +390,125 @@ fn sparse_remap_explicit_null_timestamps_clear_old_values() {
 }
 
 #[test]
+fn sparse_upsert_clears_removed_native_mood() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    let mut original = row_with_id_hash("s1", "tr_1", "deadbeef", "/path/x.flac");
+
+    original.raw_json = json!({
+        "id": "tr_1",
+        "artists": [
+            {
+                "id": "artist-1",
+                "name": "Test Artist"
+            }
+        ],
+        "tags": {
+            "genre": ["Ambient"],
+            "mood": ["Atmospheric"]
+        }
+    })
+    .to_string();
+
+    repo.upsert_batch(&[original]).unwrap();
+
+    // Verify the starting state really contains the native mood in both
+    // persisted JSON and the normalized track_mood projection.
+    let (raw_json, mood_count): (String, i64) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT raw_json
+                     FROM track
+                     WHERE server_id = 's1'
+                       AND id = 'tr_1'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*)
+                     FROM track_mood
+                     WHERE server_id = 's1'
+                       AND track_id = 'tr_1'
+                       AND mood = 'Atmospheric'",
+                    [],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
+    let raw: serde_json::Value = serde_json::from_str(&raw_json).unwrap();
+
+    assert_eq!(raw["tags"]["mood"], json!(["Atmospheric"]));
+    assert_eq!(mood_count, 1);
+
+    // Navidrome's native tags object is a complete tag snapshot.
+    // This update still has tags, but no longer contains mood.
+    let mut incoming = row_with_id_hash("s1", "tr_1", "deadbeef", "/path/x.flac");
+
+    incoming.raw_json = json!({
+        "id": "tr_1",
+        "tags": {
+            "genre": ["Ambient"]
+        }
+    })
+    .to_string();
+
+    repo.upsert_sparse_batch_with_remap(&[incoming], true)
+        .unwrap();
+
+    let (raw_json, mood_count): (String, i64) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT raw_json
+                     FROM track
+                     WHERE server_id = 's1'
+                       AND id = 'tr_1'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*)
+                     FROM track_mood
+                     WHERE server_id = 's1'
+                       AND track_id = 'tr_1'",
+                    [],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
+    let raw: serde_json::Value = serde_json::from_str(&raw_json).unwrap();
+
+    assert!(
+        raw["tags"].get("mood").is_none(),
+        "removed native mood must not survive the sparse JSON merge"
+    );
+
+    assert_eq!(raw["tags"]["genre"], json!(["Ambient"]));
+
+    // Unrelated OpenSubsonic-only metadata must survive the sparse merge.
+    assert_eq!(
+        raw["artists"],
+        json!([
+            {
+                "id": "artist-1",
+                "name": "Test Artist"
+            }
+        ])
+    );
+
+    assert_eq!(
+        mood_count, 0,
+        "removed native mood must also disappear from track_mood"
+    );
+}
+
+#[test]
 fn remap_via_server_path_only_works_when_hash_missing() {
     let store = LibraryStore::open_in_memory();
     let repo = TrackRepository::new(&store);

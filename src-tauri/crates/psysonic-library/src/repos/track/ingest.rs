@@ -517,14 +517,28 @@ ON CONFLICT(server_id, id) DO UPDATE SET
       THEN CASE
         WHEN json_type(excluded.raw_json, '$.albumVersion') IS NOT NULL
           THEN json_remove(
-            json_patch(track.raw_json, excluded.raw_json),
+            json_patch(
+              CASE
+                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                  THEN json_remove(track.raw_json, '$.tags.mood')
+                ELSE track.raw_json
+              END,
+              excluded.raw_json
+            ),
             '$.tags.albumversion',
             '$._psysonicAlbumVersionFromList',
             '$._psysonicAlbumVersionNeedsListRefresh'
           )
         WHEN json_type(excluded.raw_json, '$.tags.albumversion') IS NOT NULL
           THEN json_remove(
-            json_patch(track.raw_json, excluded.raw_json),
+            json_patch(
+              CASE
+                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                  THEN json_remove(track.raw_json, '$.tags.mood')
+                ELSE track.raw_json
+              END,
+              excluded.raw_json
+            ),
             '$.albumVersion',
             '$._psysonicAlbumVersionFromList',
             '$._psysonicAlbumVersionNeedsListRefresh'
@@ -537,11 +551,25 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           0
         )
           THEN json_set(
-            json_patch(track.raw_json, excluded.raw_json),
+            json_patch(
+              CASE
+                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                  THEN json_remove(track.raw_json, '$.tags.mood')
+                ELSE track.raw_json
+              END,
+              excluded.raw_json
+            ),
             '$._psysonicAlbumVersionNeedsListRefresh',
             json('true')
           )
-        ELSE json_patch(track.raw_json, excluded.raw_json)
+        ELSE json_patch(
+          CASE
+            WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+              THEN json_remove(track.raw_json, '$.tags.mood')
+            ELSE track.raw_json
+          END,
+          excluded.raw_json
+        )
       END
     ELSE excluded.raw_json
   END
@@ -643,14 +671,28 @@ ON CONFLICT(server_id, id) DO UPDATE SET
       THEN CASE
         WHEN json_type(excluded.raw_json, '$.albumVersion') IS NOT NULL
           THEN json_remove(
-            json_patch(track.raw_json, excluded.raw_json),
+            json_patch(
+              CASE
+                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                  THEN json_remove(track.raw_json, '$.tags.mood')
+                ELSE track.raw_json
+              END,
+              excluded.raw_json
+            ),
             '$.tags.albumversion',
             '$._psysonicAlbumVersionFromList',
             '$._psysonicAlbumVersionNeedsListRefresh'
           )
         WHEN json_type(excluded.raw_json, '$.tags.albumversion') IS NOT NULL
           THEN json_remove(
-            json_patch(track.raw_json, excluded.raw_json),
+            json_patch(
+              CASE
+                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                  THEN json_remove(track.raw_json, '$.tags.mood')
+                ELSE track.raw_json
+              END,
+              excluded.raw_json
+            ),
             '$.albumVersion',
             '$._psysonicAlbumVersionFromList',
             '$._psysonicAlbumVersionNeedsListRefresh'
@@ -663,11 +705,25 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           0
         )
           THEN json_set(
-            json_patch(track.raw_json, excluded.raw_json),
+            json_patch(
+              CASE
+                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                  THEN json_remove(track.raw_json, '$.tags.mood')
+                ELSE track.raw_json
+              END,
+              excluded.raw_json
+            ),
             '$._psysonicAlbumVersionNeedsListRefresh',
             json('true')
           )
-        ELSE json_patch(track.raw_json, excluded.raw_json)
+        ELSE json_patch(
+          CASE
+            WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+              THEN json_remove(track.raw_json, '$.tags.mood')
+            ELSE track.raw_json
+          END,
+          excluded.raw_json
+        )
       END
     ELSE excluded.raw_json
   END,
