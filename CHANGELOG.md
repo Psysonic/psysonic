@@ -162,6 +162,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * One of the AppImage's start files could only be run by its owner, so starting the AppImage as another user, for example inside a firejail sandbox, failed with "Permission denied" on systems without WebKitGTK installed. All start files are now executable for every user.
 
+### The Offline Library counts albums with the right plural
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1699](https://github.com/Psysonic/psysonic/pull/1699)**
+
+* The album count on the Offline Library page always used the singular, for example "3 album". It now shows the correct form in every language, including the separate forms that Polish, Romanian, Spanish, French and Italian use for some numbers.
+
 ## [1.55.0]
 
 ## Added
