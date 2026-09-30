@@ -94,6 +94,9 @@ interface ThemeState {
    *  keeps a stray single click from replacing what is playing. */
   trackRowPlayClick: TrackRowPlayClick;
   setTrackRowPlayClick: (v: TrackRowPlayClick) => void;
+  /** Two-finger horizontal touchpad swipe goes back / forward (#935). */
+  touchpadSwipeNavigation: boolean;
+  setTouchpadSwipeNavigation: (v: boolean) => void;
   /** Compact (icon-only) vs. large action/toolbar buttons across detail pages and browse views. */
   buttonSize: 'large' | 'small';
   setButtonSize: (v: 'large' | 'small') => void;
@@ -192,6 +195,8 @@ export const useThemeStore = create<ThemeState>()(
       setShowCardTooltips: (v) => set({ showCardTooltips: v }),
       trackRowPlayClick: 'single',
       setTrackRowPlayClick: (v) => set({ trackRowPlayClick: v }),
+      touchpadSwipeNavigation: true,
+      setTouchpadSwipeNavigation: (v) => set({ touchpadSwipeNavigation: v }),
       buttonSize: 'large',
       setButtonSize: (v) => set({ buttonSize: v }),
       showRemainingTime: false,
