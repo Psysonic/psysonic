@@ -4,6 +4,22 @@ import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
+function nativeMoodTags(raw: Record<string, unknown>): string[] | null {
+  const tags = isObject(raw.tags) ? raw.tags : null;
+  if (!tags) return null;
+
+  const mood = tags.mood;
+  const values = Array.isArray(mood)
+    ? mood
+    : typeof mood === 'string'
+      ? [mood]
+      : [];
+
+  return values.filter(
+    (value): value is string => typeof value === 'string',
+  );
+}
+
 /** True when `column` is the snapshot value plus the suffix from Navidrome's `tags.<tag>`. */
 function columnAppendsTag(
   column: string | undefined,
@@ -68,6 +84,11 @@ export function trackToSong(t: LibraryTrackDto): SubsonicSong {
   // `rawJson` is the authoritative original song — let it override the
   // hot-column fallbacks (it carries OpenSubsonic extras too).
   const merged: SubsonicSong = { ...base, ...(raw as Partial<SubsonicSong>) };
+  // Navidrome native rows carry the complete imported tag set under `tags`.
+  // When present it is newer than a top-level `moods` value preserved by a
+  // sparse merge, and missing `tags.mood` means the file mood was cleared.
+  const nativeMoods = nativeMoodTags(raw);
+  if (nativeMoods !== null) merged.moods = nativeMoods;
   // Rows from Navidrome's native API keep the bare title / album in `rawJson`,
   // while the columns carry the subtitle / album version appended the way the
   // Subsonic API does it (issue #1638). Only that suffixed form beats the snapshot.
