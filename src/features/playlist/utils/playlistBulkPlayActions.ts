@@ -1,4 +1,5 @@
 import type { Track } from '@/lib/media/trackTypes';
+import { shuffleTracks } from '@/features/playback';
 
 // No `touchPlaylist` here: playing/shuffling/enqueuing does not modify the
 // playlist. Touching it bumps `lastModified`, which is the playlist detail
@@ -21,11 +22,7 @@ export function playPlaylistAll(deps: BulkPlayDeps): void {
 export function shufflePlaylistAll(deps: BulkPlayDeps): void {
   const { songsLength, id, tracks, playTrack } = deps;
   if (!songsLength || !id) return;
-  const shuffled = [...tracks];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
+  const shuffled = shuffleTracks(tracks);
   playTrack(shuffled[0], shuffled);
 }
 

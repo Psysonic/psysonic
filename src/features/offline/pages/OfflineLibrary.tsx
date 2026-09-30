@@ -34,7 +34,7 @@ import {
   type OfflineLibraryCard,
 } from '@/features/offline/utils/offlineLibraryHelpers';
 import { showToast } from '@/lib/dom/toast';
-import { shuffleArray } from '@/lib/util/shuffleArray';
+import { shuffleTracks } from '@/features/playback';
 import { getMediaDir } from '@/lib/media/mediaDir';
 import { getMediaTierSize } from '@/lib/api/syncfs';
 import { canonicalQueueServerKey, resolveIndexKey } from '@/lib/server/serverIndexKey';
@@ -288,7 +288,7 @@ export default function OfflineLibrary() {
         queueServerId: canonicalQueueServerKey(queueServerIndexKey),
       });
     }
-    const queue = shuffleArray(tracks);
+    const queue = shuffleTracks(tracks);
     playTrack(queue[0], queue);
   }, [playTrack, t]);
 
@@ -308,7 +308,7 @@ export default function OfflineLibrary() {
         queueServerId: canonicalQueueServerKey(queueServerIndexKey),
       });
     }
-    const queue = shuffleArray(tracks);
+    const queue = shuffleTracks(tracks);
     playTrack(queue[0], queue);
   }, [playTrack, t]);
 

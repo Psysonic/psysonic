@@ -6,7 +6,6 @@ import { getArtistInfoForServer } from '@/lib/api/subsonicArtists';
 import { getAlbumInfoForServer } from '@/lib/api/subsonicAlbumInfo';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { songToTrack } from '@/lib/media/songToTrack';
-import { shuffleArray } from '@/lib/util/shuffleArray';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router';
@@ -54,7 +53,7 @@ import { readDetailServerId } from '@/lib/navigation/detailServerScope';
 import { useOfflineBrowseContext } from '@/features/offline';
 import { offlineActionPolicy } from '@/features/offline';
 import { resolveIndexKey } from '@/lib/server/serverIndexKey';
-import { sameQueueTrack } from '@/features/playback';
+import { sameQueueTrack, shuffleTracks } from '@/features/playback';
 import { deriveEntitySourceScopes } from '@/lib/library/libraryBrowseScope';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 
@@ -270,7 +269,7 @@ const handleShuffleAll = () => {
        if (!t.genre && albumGenre) t.genre = albumGenre;
        return t;
      });
-     const shuffled = shuffleArray(tracks);
+     const shuffled = shuffleTracks(tracks);
      if (shuffled[0]) playTrack(shuffled[0], shuffled);
    };
 

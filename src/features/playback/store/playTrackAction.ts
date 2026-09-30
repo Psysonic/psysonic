@@ -39,8 +39,8 @@ import { stampTrackServerId, stampTrackServerIds } from '@/lib/media/trackServer
 import {
   getShuffleOriginalOrder,
   setShuffleOriginalOrder,
-  shuffled,
 } from '@/features/playback/store/shuffleModeActions';
+import { shuffleTracks } from '@/features/playback/utils/playback/shuffleTracks';
 import { persistShuffleModeSnapshot } from '@/features/playback/store/shuffleModeStorage';
 import {
   findLocalPlaybackUrl,
@@ -246,9 +246,10 @@ export function runPlayTrack(
     persistShuffleModeSnapshot({ enabled: true, originalOrder: getShuffleOriginalOrder() });
     // A track can sit in a list twice, so drop the chosen row by position
     // rather than by identity — filtering by identity would delete its twin.
+    const lead = chosenAt >= 0 ? queue[chosenAt] : track;
     queue = [
-      chosenAt >= 0 ? queue[chosenAt] : track,
-      ...shuffled(queue.filter((_, index) => index !== chosenAt)),
+      lead,
+      ...shuffleTracks(queue.filter((_, index) => index !== chosenAt), lead),
     ];
     targetQueueIndex = 0;
   }

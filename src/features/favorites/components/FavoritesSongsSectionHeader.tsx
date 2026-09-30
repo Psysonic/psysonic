@@ -2,12 +2,11 @@ import React, { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ListPlus, Play, Shuffle, SlidersHorizontal, X } from 'lucide-react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import { shuffleArray } from '@/lib/util/shuffleArray';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useSelectionStore } from '@/store/selectionStore';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
-import { BulkTrackRating } from '@/features/playback';
+import { BulkTrackRating, shuffleTracks } from '@/features/playback';
 import { offlineActionPolicy, useOfflineBrowseContext } from '@/features/offline';
 import GenreFilterBar from '@/ui/GenreFilterBar';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
@@ -107,7 +106,7 @@ export default function FavoritesSongsSectionHeader({
           data-tooltip={inSelectMode ? t('favorites.shuffleSelected') : t('favorites.shuffleAll')}
           onClick={() => {
             if (targetSongs.length === 0) return;
-            const tracks = shuffleArray(targetSongs.map(songToTrack));
+            const tracks = shuffleTracks(targetSongs.map(songToTrack));
             playTrack(tracks[0], tracks);
           }}
         >

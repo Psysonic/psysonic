@@ -220,6 +220,8 @@ export interface AuthState {
   trackPreviewDurationSec: number;
   infiniteQueueEnabled: boolean;
   preservePlayNextOrder: boolean;
+  /** Shuffle spreads artists and albums over the list instead of pure chance. */
+  smartShuffleEnabled: boolean;
   showArtistImages: boolean;
   /** Artists browse: album artists vs track performers (#1209). Persisted across sessions. */
   artistBrowseCreditMode: ArtistBrowseCreditMode;
@@ -493,6 +495,7 @@ export interface AuthState {
   setTrackPreviewDurationSec: (v: number) => void;
   setInfiniteQueueEnabled: (v: boolean) => void;
   setPreservePlayNextOrder: (v: boolean) => void;
+  setSmartShuffleEnabled: (v: boolean) => void;
   setShowArtistImages: (v: boolean) => void;
   setArtistBrowseCreditMode: (v: ArtistBrowseCreditMode) => void;
   setLibraryGridMaxColumns: (v: number) => void;
