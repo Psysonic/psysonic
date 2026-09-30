@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Edit playlist',
   editNamePlaceholder: 'Playlist name…',
   editCommentPlaceholder: 'Add a description…',
+  linkOpenError: 'Could not open this link in your browser.',
   editPublic: 'Public playlist',
   editSave: 'Save',
   editCancel: 'Cancel',

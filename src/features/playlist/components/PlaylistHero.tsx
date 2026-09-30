@@ -23,6 +23,7 @@ import type { OfflineActionPolicy } from '@/features/offline';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { ShareMethodMenuButton } from '@/features/share';
 import { tooltipAttrs } from '@/ui/tooltipAttrs';
+import PlaylistCommentLinks from '@/features/playlist/components/PlaylistCommentLinks';
 
 interface Props {
   playlist: SubsonicPlaylist;
@@ -296,7 +297,7 @@ export default function PlaylistHero({
                 )}
               </div>
               {playlist.comment && (
-                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{playlist.comment}</div>
+                <PlaylistCommentLinks comment={playlist.comment} />
               )}
             </>
             <div className="album-detail-info">

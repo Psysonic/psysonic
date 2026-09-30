@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Изменить плейлист',
   editNamePlaceholder: 'Название…',
   editCommentPlaceholder: 'Описание…',
+  linkOpenError: 'Не удалось открыть ссылку в браузере.',
   editPublic: 'Публичный плейлист',
   editSave: 'Сохранить',
   editCancel: 'Отмена',

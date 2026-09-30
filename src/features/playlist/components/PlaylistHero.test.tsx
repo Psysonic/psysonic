@@ -68,6 +68,11 @@ describe('PlaylistHero smart surfaces', () => {
     usePlaylistLayoutStore.getState().reset();
   });
 
+  it('renders links in the playlist description', () => {
+    const view = renderHero(playlist({ comment: 'Listen at https://example.org/sets.' }));
+    expect(view.getByRole('link', { name: 'https://example.org/sets' })).toHaveAttribute('href', 'https://example.org/sets');
+  });
+
   it('hides add/import and exposes Edit Rules for smart playlists', async () => {
     const user = userEvent.setup();
     const handleRefreshSmart = vi.fn();
