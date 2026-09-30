@@ -56,6 +56,7 @@ export const playlists = {
   editMeta: 'Редагувати плейліст',
   editNamePlaceholder: 'Назва плейліста…',
   editCommentPlaceholder: 'Додати опис…',
+  linkOpenError: 'Не вдалося відкрити це посилання в браузері.',
   editPublic: 'Публічний плейліст',
   editSave: 'Зберегти',
   editCancel: 'Скасувати',

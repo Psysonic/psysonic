@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Lejátszási lista szerkesztése',
   editNamePlaceholder: 'Lejátszási lista neve…',
   editCommentPlaceholder: 'Adj hozzá leírást…',
+  linkOpenError: 'Nem sikerült megnyitni ezt a hivatkozást a böngészőben.',
   editPublic: 'Nyilvános lejátszási lista',
   editSave: 'Mentés',
   editCancel: 'Mégse',

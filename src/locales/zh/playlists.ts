@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: '编辑播放列表',
   editNamePlaceholder: '播放列表名称…',
   editCommentPlaceholder: '添加描述…',
+  linkOpenError: '无法在浏览器中打开此链接。',
   editPublic: '公开播放列表',
   editSave: '保存',
   editCancel: '取消',

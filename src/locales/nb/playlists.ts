@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Rediger spilleliste',
   editNamePlaceholder: 'Spillelistenavn…',
   editCommentPlaceholder: 'Legg til en beskrivelse…',
+  linkOpenError: 'Kunne ikke åpne denne lenken i nettleseren.',
   editPublic: 'Offentlig spilleliste',
   editSave: 'Lagre',
   editCancel: 'Avbryt',

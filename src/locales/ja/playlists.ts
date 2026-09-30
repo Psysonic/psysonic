@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'プレイリストを編集',
   editNamePlaceholder: 'プレイリスト名…',
   editCommentPlaceholder: '説明を追加…',
+  linkOpenError: 'ブラウザーでこのリンクを開けませんでした。',
   editPublic: '公開プレイリスト',
   editSave: '保存',
   editCancel: 'キャンセル',
