@@ -8,6 +8,7 @@ import { VirtualCardGrid } from '@/ui/VirtualCardGrid';
 import { ArtistCardAvatar } from '@/features/artist/components/ArtistAvatars';
 import { useThemeStore } from '@/store/themeStore';
 import { useOverflowTooltip } from '@/lib/hooks/useOverflowTooltip';
+import { useIsNowPlaying } from '@/features/playback';
 
 interface TileProps {
   artist: SubsonicArtist;
@@ -27,9 +28,10 @@ function ArtistGridTile({ artist, ...rest }: TileProps) {
   const entityKey = artist.serverId ? `${artist.serverId}:${artist.id}` : artist.id;
   const showCardTooltips = useThemeStore(s => s.showCardTooltips);
   const nameTooltip = useOverflowTooltip(artist.name, showCardTooltips);
+  const isNowPlaying = useIsNowPlaying('artist', artist.id, artist.serverId);
   return (
     <div
-      className={`artist-card${rest.selectionMode ? ' artist-card--selectable' : ''}${rest.selectionMode && rest.selectedIds.has(entityKey) ? ' artist-card--selected' : ''}`}
+      className={`artist-card${rest.selectionMode ? ' artist-card--selectable' : ''}${rest.selectionMode && rest.selectedIds.has(entityKey) ? ' artist-card--selected' : ''}${isNowPlaying ? ' artist-card--now-playing' : ''}`}
       onClick={() => {
         if (rest.selectionMode) {
           rest.toggleSelect(entityKey);
@@ -51,7 +53,7 @@ function ArtistGridTile({ artist, ...rest }: TileProps) {
           {rest.selectedIds.has(entityKey) && <Check size={14} strokeWidth={3} />}
         </div>
       )}
-      <ArtistCardAvatar artist={artist} showImages={rest.showArtistImages} />
+      <ArtistCardAvatar artist={artist} showImages={rest.showArtistImages} nowPlaying={isNowPlaying} />
       <div className="artist-card-info artist-card-info--center">
         <div className="artist-card-name" {...nameTooltip}>{artist.name}</div>
         {artist.albumCount != null && (

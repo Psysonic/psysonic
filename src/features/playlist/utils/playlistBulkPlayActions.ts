@@ -1,5 +1,5 @@
 import type { Track } from '@/lib/media/trackTypes';
-import { shuffleTracks } from '@/features/playback';
+import { shuffleTracks, withQueueSource } from '@/features/playback';
 
 // No `touchPlaylist` here: playing/shuffling/enqueuing does not modify the
 // playlist. Touching it bumps `lastModified`, which is the playlist detail
@@ -8,22 +8,23 @@ import { shuffleTracks } from '@/features/playback';
 export interface BulkPlayDeps {
   songsLength: number;
   id: string | undefined;
+  serverId?: string;
   tracks: Track[];
   playTrack: (track: Track, queue: Track[]) => void;
   enqueue: (tracks: Track[]) => void;
 }
 
 export function playPlaylistAll(deps: BulkPlayDeps): void {
-  const { songsLength, id, tracks, playTrack } = deps;
+  const { songsLength, id, serverId, tracks, playTrack } = deps;
   if (!songsLength || !id) return;
-  playTrack(tracks[0], tracks);
+  withQueueSource({ kind: 'playlist', id, serverId }, () => playTrack(tracks[0], tracks));
 }
 
 export function shufflePlaylistAll(deps: BulkPlayDeps): void {
-  const { songsLength, id, tracks, playTrack } = deps;
+  const { songsLength, id, serverId, tracks, playTrack } = deps;
   if (!songsLength || !id) return;
   const shuffled = shuffleTracks(tracks);
-  playTrack(shuffled[0], shuffled);
+  withQueueSource({ kind: 'playlist', id, serverId }, () => playTrack(shuffled[0], shuffled));
 }
 
 export function enqueuePlaylistAll(deps: BulkPlayDeps): void {

@@ -4,6 +4,7 @@ import type { SubsonicPlaylist, SubsonicGenre } from '@/lib/api/subsonicTypes';
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import { withQueueSource } from '@/features/playback';
 import { usePlaylistStore } from '@/features/playlist/store/playlistStore';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
@@ -350,7 +351,7 @@ export default function Playlists() {
       const tracks = await resolvePlaylistTracks(pl.id, pl.serverId);
       if (tracks.length > 0) {
         touchPlaylist(pl.id, pl.serverId);
-        playTrack(tracks[0], tracks);
+        withQueueSource({ kind: 'playlist', id: pl.id, serverId: pl.serverId }, () => playTrack(tracks[0], tracks));
       }
     } catch { /* ignore: best-effort */ }
     setPlayingId(null);
