@@ -20,3 +20,18 @@ describe('InputTab row click to play', () => {
     expect(screen.getByRole('radio', { name: 'Double click' })).toHaveAttribute('aria-checked', 'true');
   });
 });
+
+describe('InputTab touchpad swipe', () => {
+  afterEach(() => {
+    useThemeStore.setState({ touchpadSwipeNavigation: true });
+  });
+
+  it('turns swipe-to-navigate off and on', () => {
+    renderWithProviders(<InputTab />);
+    const toggle = screen.getByRole('checkbox', { name: 'Swipe to go back and forward' });
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+    expect(useThemeStore.getState().touchpadSwipeNavigation).toBe(false);
+  });
+});

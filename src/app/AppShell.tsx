@@ -49,6 +49,7 @@ import { useMusicFoldersDiscovery } from '@/app/hooks/useMusicFoldersDiscovery';
 import { useQueueResizer } from '@/features/queue';
 import { useGlobalDndAndSelectionBlockers } from '@/lib/hooks/useGlobalDndAndSelectionBlockers';
 import { useTracklistWheelChaining } from '@/lib/hooks/useTracklistWheelChaining';
+import { useTouchpadSwipeNavigation } from '@/app/hooks/useTouchpadSwipeNavigation';
 import { useAppActivityTracking } from '@/app/hooks/useAppActivityTracking';
 import { useMainScrollingIndicator } from '@/app/hooks/useMainScrollingIndicator';
 import { useCoverNavigationPriority } from '@/cover/useCoverNavigationPriority';
@@ -238,6 +239,7 @@ export function AppShell() {
 
   useGlobalDndAndSelectionBlockers();
   useTracklistWheelChaining();
+  useTouchpadSwipeNavigation();
   useAppActivityTracking();
 
   const isMobilePlayer = isMobile && location.pathname === '/now-playing';

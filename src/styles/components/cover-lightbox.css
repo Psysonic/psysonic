@@ -24,6 +24,16 @@
   animation: cover-lightbox-img-in 220ms cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* Pinched / double-clicked in: drag to pan, double-click to reset. */
+.cover-lightbox-img--zoomed {
+  cursor: grab;
+  touch-action: none;
+}
+
+.cover-lightbox-img--zoomed:active {
+  cursor: grabbing;
+}
+
 @keyframes cover-lightbox-overlay-in {
   from { opacity: 0; }
   to { opacity: 1; }

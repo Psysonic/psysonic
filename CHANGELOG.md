@@ -84,6 +84,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
 * AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
 
+### Touchpad gestures: swipe to go back, pinch to zoom covers
+
+**By [@circle3451](https://github.com/circle3451), PR [#1695](https://github.com/Psysonic/psysonic/pull/1695)**
+
+* Swipe left or right with two fingers on a touchpad to go back or forward, like in a web browser. Sideways scrolling in carousels and lists is not affected, and **Settings → Input → Touchpad** can turn it off.
+* In the full-size cover view, pinch or use Ctrl/⌘ + scroll to zoom in around the pointer, drag to move around, and double-click to zoom in or back out.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again

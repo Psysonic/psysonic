@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Keyboard, MousePointerClick, RotateCcw, X } from 'lucide-react';
+import { Hand, Keyboard, MousePointerClick, RotateCcw, X } from 'lucide-react';
 import { IN_APP_SHORTCUT_ACTIONS, GLOBAL_SHORTCUT_ACTIONS } from '@/config/shortcutActions';
 import { IS_MACOS } from '@/lib/util/platform';
 import { useGlobalShortcutsStore, type GlobalAction, buildGlobalShortcut, formatGlobalShortcut } from '@/store/globalShortcutsStore';
@@ -10,6 +10,7 @@ import SettingsSubSection from '@/features/settings/components/SettingsSubSectio
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
 import { SettingsField, SettingsSubCard } from '@/features/settings/components/SettingsSubCard';
 import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
+import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
 
 export function InputTab() {
   const { t } = useTranslation();
@@ -17,6 +18,8 @@ export function InputTab() {
   const gs = useGlobalShortcutsStore();
   const trackRowPlayClick = useThemeStore(s => s.trackRowPlayClick);
   const setTrackRowPlayClick = useThemeStore(s => s.setTrackRowPlayClick);
+  const touchpadSwipeNavigation = useThemeStore(s => s.touchpadSwipeNavigation);
+  const setTouchpadSwipeNavigation = useThemeStore(s => s.setTouchpadSwipeNavigation);
   const [listeningFor, setListeningFor] = useState<KeyAction | null>(null);
   const [listeningForGlobal, setListeningForGlobal] = useState<GlobalAction | null>(null);
   const trackRowPlayClickOptions: SegmentedOption<TrackRowPlayClick>[] = [
@@ -43,6 +46,22 @@ export function InputTab() {
                 ariaLabel={t('settings.trackRowPlayClick')}
               />
             </SettingsField>
+          </SettingsGroup>
+        </div>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('settings.inputTouchpadTitle')}
+        icon={<Hand size={16} />}
+      >
+        <div className="settings-card">
+          <SettingsGroup>
+            <SettingsToggle
+              label={t('settings.touchpadSwipeNavigation')}
+              desc={t('settings.touchpadSwipeNavigationDesc')}
+              checked={touchpadSwipeNavigation}
+              onChange={setTouchpadSwipeNavigation}
+            />
           </SettingsGroup>
         </div>
       </SettingsSubSection>

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeAll, describe, it, expect, vi } from 'vitest';
 import { screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
@@ -57,5 +57,70 @@ describe('CoverLightbox', () => {
     fireEvent.keyDown(window, { key: 'a' });
 
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  describe('zoom', () => {
+    beforeAll(() => {
+      // jsdom has no pointer capture; the drag-to-pan handler calls it.
+      HTMLElement.prototype.setPointerCapture ??= vi.fn();
+    });
+
+    const renderLightbox = () => {
+      renderWithProviders(
+        <CoverLightbox src="https://example/cover.jpg" alt="Album cover" onClose={vi.fn()} />,
+      );
+      return {
+        overlay: screen.getByRole('dialog'),
+        img: screen.getByRole('img', { name: 'Album cover' }),
+      };
+    };
+
+    it('zooms in on a pinch or Ctrl + wheel and blocks the page zoom', () => {
+      const { overlay, img } = renderLightbox();
+      const event = new WheelEvent('wheel', { deltaY: -50, ctrlKey: true, bubbles: true, cancelable: true });
+      fireEvent(overlay, event);
+
+      expect(event.defaultPrevented).toBe(true);
+      expect(img).toHaveClass('cover-lightbox-img--zoomed');
+      expect(img.style.transform).toContain('scale(');
+    });
+
+    it('does not zoom on a plain wheel scroll', () => {
+      const { overlay, img } = renderLightbox();
+      fireEvent.wheel(overlay, { deltaY: -50 });
+
+      expect(img).not.toHaveClass('cover-lightbox-img--zoomed');
+      expect(img.style.transform).toBe('');
+    });
+
+    it('zooms with a WebKit pinch gesture and ignores the Ctrl + wheel sent alongside', () => {
+      const { overlay, img } = renderLightbox();
+      const gesture = (type: string, scale: number) =>
+        fireEvent(overlay, Object.assign(new Event(type, { bubbles: true, cancelable: true }), { scale, clientX: 0, clientY: 0 }));
+
+      gesture('gesturestart', 1);
+      gesture('gesturechange', 2);
+      expect(img.style.transform).toContain('scale(2)');
+
+      fireEvent(overlay, new WheelEvent('wheel', { deltaY: -50, ctrlKey: true, bubbles: true, cancelable: true }));
+      expect(img.style.transform).toContain('scale(2)');
+
+      gesture('gestureend', 2);
+    });
+
+    it('toggles zoom on double-click without closing', async () => {
+      const onClose = vi.fn();
+      renderWithProviders(
+        <CoverLightbox src="https://example/cover.jpg" alt="Album cover" onClose={onClose} />,
+      );
+      const img = screen.getByRole('img', { name: 'Album cover' });
+
+      await userEvent.dblClick(img);
+      expect(img).toHaveClass('cover-lightbox-img--zoomed');
+
+      await userEvent.dblClick(img);
+      expect(img).not.toHaveClass('cover-lightbox-img--zoomed');
+      expect(onClose).not.toHaveBeenCalled();
+    });
   });
 });
