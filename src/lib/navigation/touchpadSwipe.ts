@@ -6,7 +6,11 @@
  *
  * - A gesture is a run of wheel events with no pause longer than
  *   {@link SWIPE_GESTURE_GAP_MS}; the macOS momentum tail stays in the same
- *   gesture, so one flick never navigates twice.
+ *   gesture, so one flick never navigates twice. For
+ *   {@link SWIPE_NAV_COOLDOWN_MS} after a navigation no pause ends the
+ *   gesture: rendering the new page can hold wheel events back, and the rest
+ *   of the momentum then arrives as one late burst that must not count as a
+ *   new swipe.
  * - A gesture that starts over something that scrolls sideways (a carousel,
  *   a wide table, a text field) belongs to that element and never navigates,
  *   even once the element hits its edge.
@@ -18,6 +22,8 @@
 export const SWIPE_DISTANCE_PX = 150;
 /** A pause longer than this ends the current gesture. */
 export const SWIPE_GESTURE_GAP_MS = 250;
+/** After a navigation, the gesture cannot end for this long. */
+export const SWIPE_NAV_COOLDOWN_MS = 1000;
 /** Horizontal travel must beat vertical travel by this factor. */
 const SWIPE_DOMINANCE = 2;
 const LINE_HEIGHT_PX = 16;
@@ -75,6 +81,7 @@ export interface SwipeTracker {
 
 export function createSwipeTracker(): SwipeTracker {
   let lastTime = -Infinity;
+  let lastNavTime = -Infinity;
   let sumX = 0;
   let sumY = 0;
   // Once a gesture navigated or was claimed by a scroller, it is done.
@@ -82,7 +89,10 @@ export function createSwipeTracker(): SwipeTracker {
 
   return {
     onWheel(e) {
-      if (e.timeStamp - lastTime > SWIPE_GESTURE_GAP_MS) {
+      if (
+        e.timeStamp - lastTime > SWIPE_GESTURE_GAP_MS
+        && e.timeStamp - lastNavTime > SWIPE_NAV_COOLDOWN_MS
+      ) {
         sumX = 0;
         sumY = 0;
         settled = false;
@@ -107,6 +117,7 @@ export function createSwipeTracker(): SwipeTracker {
         return null;
       }
       settled = true;
+      lastNavTime = e.timeStamp;
       // Fingers moving right scroll content left (negative deltaX) — like
       // turning back a page.
       return sumX < 0 ? 'back' : 'forward';

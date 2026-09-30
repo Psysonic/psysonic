@@ -4,6 +4,7 @@ import {
   isInsideHorizontalScroller,
   SWIPE_DISTANCE_PX,
   SWIPE_GESTURE_GAP_MS,
+  SWIPE_NAV_COOLDOWN_MS,
   type SwipeWheelInput,
 } from './touchpadSwipe';
 
@@ -75,10 +76,27 @@ describe('createSwipeTracker', () => {
     expect(swipe(tracker, -20, 60)).toEqual(['back']);
   });
 
-  it('allows a second navigation after a pause', () => {
+  it('allows a second navigation after a pause once the cooldown has passed', () => {
     const tracker = createSwipeTracker();
     expect(swipe(tracker, -20, 10, 0)).toEqual(['back']);
-    expect(swipe(tracker, -20, 10, 10 * 16 + SWIPE_GESTURE_GAP_MS + 1)).toEqual(['back']);
+    // Fired on the 8th event (t = 7 * 16); wait out the cooldown.
+    expect(swipe(tracker, -20, 10, 7 * 16 + SWIPE_NAV_COOLDOWN_MS + 1)).toEqual(['back']);
+  });
+
+  it('keeps a late momentum burst after a navigation in the same gesture', () => {
+    const tracker = createSwipeTracker();
+    expect(swipe(tracker, -20, 10, 0)).toEqual(['back']);
+    // The new page held events back past the gap; the rest arrives at once.
+    const late = 9 * 16 + SWIPE_GESTURE_GAP_MS + 10;
+    expect(tracker.onWheel(wheel({ deltaX: -2186, timeStamp: late }))).toBeNull();
+    expect(swipe(tracker, -20, 20, late + 16)).toEqual([]);
+  });
+
+  it('starts a new gesture after a pause when nothing navigated', () => {
+    const tracker = createSwipeTracker();
+    expect(swipe(tracker, -10, 5, 0)).toEqual([]);
+    // 50 px, then a pause: the next swipe starts from zero rather than adding up.
+    expect(swipe(tracker, -10, 12, 4 * 16 + SWIPE_GESTURE_GAP_MS + 1)).toEqual([]);
   });
 
   it('does not treat a diagonal vertical scroll as a swipe', () => {
