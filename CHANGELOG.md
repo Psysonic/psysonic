@@ -92,6 +92,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * This applies to the shuffle button and to every shuffle-play action for albums, artists, genres, playlists, favourites and the offline library. Radio, Instant Mix and the infinite queue are unchanged.
 * **Settings → Personalisation → Queue Settings → Smart shuffle** is on by default; switching it off brings back the purely random order.
 
+### See at a glance what is playing
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1700](https://github.com/Psysonic/psysonic/pull/1700)**
+
+* Album and artist cards now show a small marker and an accent ring while one of their songs is playing, wherever it was started from. Playlist cards and the playlists in the sidebar show it while the queue you started from that playlist is playing.
+* On Windows and macOS the marker's bars move while music plays; on Linux, while paused, or with reduced motion turned on in the system, it stays a still icon. Screen readers announce the marked album as now playing.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again

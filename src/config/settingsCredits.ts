@@ -483,6 +483,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Tracklists — play songs on a single or double click, with a row highlight you move by keyboard (PR #1668)',
       'Home — AudioMuse as a source for the "Because you listened" rail (PR #1678)',
       'Smart shuffle — spread artists and albums when shuffling (PR #1698)',
+      'Now-playing marker on album, artist and playlist cards and sidebar playlists (PR #1700)',
     ],
   },
   {
