@@ -31,7 +31,8 @@ fn tauri_identifier() -> &'static str {
     .as_str()
 }
 
-fn single_instance_dbus_id_for(identifier: &str, debug: bool) -> String {
+fn single_instance_dbus_id_for(identifier: &str, flatpak_id: Option<&str>, debug: bool) -> String {
+    let identifier = flatpak_id.unwrap_or(identifier);
     if debug {
         format!("{identifier}.Debug")
     } else {
@@ -40,7 +41,11 @@ fn single_instance_dbus_id_for(identifier: &str, debug: bool) -> String {
 }
 
 pub fn linux_single_instance_dbus_id() -> String {
-    single_instance_dbus_id_for(tauri_identifier(), cfg!(debug_assertions))
+    single_instance_dbus_id_for(
+        tauri_identifier(),
+        std::env::var("FLATPAK_ID").ok().as_deref(),
+        cfg!(debug_assertions),
+    )
 }
 
 fn single_instance_bus_name() -> String {
@@ -203,12 +208,25 @@ mod tests {
     #[test]
     fn debug_and_release_use_separate_dbus_namespaces() {
         assert_eq!(
-            single_instance_dbus_id_for("dev.psysonic.player", false),
+            single_instance_dbus_id_for("dev.psysonic.player", None, false),
             "dev.psysonic.player"
         );
         assert_eq!(
-            single_instance_dbus_id_for("dev.psysonic.player", true),
+            single_instance_dbus_id_for("dev.psysonic.player", None, true),
             "dev.psysonic.player.Debug"
+        );
+    }
+
+    #[test]
+    fn flatpak_uses_its_own_dbus_namespace() {
+        let id = "io.github.psysonic.psysonic";
+        assert_eq!(
+            single_instance_dbus_id_for("dev.psysonic.player", Some(id), false),
+            id
+        );
+        assert_eq!(
+            single_instance_dbus_id_for("dev.psysonic.player", Some(id), true),
+            format!("{id}.Debug")
         );
     }
 }
