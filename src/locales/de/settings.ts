@@ -701,6 +701,8 @@ export const settings = {
   queueBehaviourTitle: 'Warteschlangen-Verhalten',
   preservePlayNextOrder: '„Als Nächstes"-Reihenfolge bewahren',
   preservePlayNextOrderDesc: 'Neu hinzugefügte „Als Nächstes"-Titel reihen sich hinten an statt sich vorn einzuschieben.',
+  smartShuffle: 'Intelligente Zufallswiedergabe',
+  smartShuffleDesc: 'Die Zufallswiedergabe verteilt Künstler und Alben über die ganze Liste, sodass selten zweimal derselbe Künstler hintereinander läuft. Aus: reiner Zufall.',
   queueTrackListCovers: 'Albumcover in der Warteschlange',
   queueTrackListCoversSub: 'Kleines Albumcover neben jedem Titel im Warteschlangen-Panel, in der Mini-Player-Warteschlange und in „Als Nächstes“ im Vollbild. Aggressives Caching wird empfohlen.',
   queueRowFavoriteButton: 'Favoriten-Knopf in der Warteschlange',

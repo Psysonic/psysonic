@@ -768,6 +768,8 @@ export const settings = {
   queueBehaviourTitle: 'Lejátszási sor viselkedése',
   preservePlayNextOrder: 'A „Játszás következőként" sorrend megőrzése',
   preservePlayNextOrderDesc: 'Az újonnan hozzáadott „Játszás következőként" elemek a korábbiak mögé sorakoznak fel, ahelyett, hogy eléjük ugranának.',
+  smartShuffle: 'Okos keverés',
+  smartShuffleDesc: 'A keverés az előadókat és albumokat a teljes listán elosztja, így ritkán szól kétszer egymás után ugyanaz az előadó. Kikapcsolva: teljesen véletlen sorrend.',
   queueTrackListCovers: 'Albumborítók a lejátszási sorban',
   queueTrackListCoversSub: 'Kis albumborító minden szám mellett a lejátszási sor paneljén, a minilejátszó sorában és a teljes képernyős „Következik” listában. Az agresszív gyorsítótárazás ajánlott.',
   queueRowFavoriteButton: 'Kedvenc gomb a lejátszási sorban',

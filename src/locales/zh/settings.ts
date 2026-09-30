@@ -680,6 +680,8 @@ export const settings = {
   queueBehaviourTitle: '队列行为',
   preservePlayNextOrder: '保留"下一首播放"顺序',
   preservePlayNextOrderDesc: '新添加的"下一首播放"项目排在现有项目之后，而不是插到前面。',
+  smartShuffle: '智能随机播放',
+  smartShuffleDesc: '随机播放会把艺术家和专辑分散到整个列表中，同一艺术家很少连续播放。关闭：完全随机的顺序。',
   queueTrackListCovers: '队列中显示专辑封面',
   queueTrackListCoversSub: '在队列面板、迷你播放器队列和全屏“即将播放”中，于每首曲目旁显示小号专辑封面。建议启用积极缓存。',
   queueRowFavoriteButton: '队列中显示收藏按钮',

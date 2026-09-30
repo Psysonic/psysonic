@@ -768,6 +768,8 @@ export const settings = {
   queueBehaviourTitle: 'Queue behaviour',
   preservePlayNextOrder: 'Preserve "Play Next" order',
   preservePlayNextOrderDesc: 'Newly added Play Next items queue up behind earlier ones instead of jumping in front.',
+  smartShuffle: 'Smart shuffle',
+  smartShuffleDesc: 'Shuffle spreads artists and albums across the whole list, so the same artist rarely plays twice in a row. Off: pure random order.',
   queueTrackListCovers: 'Album art in queue',
   queueTrackListCoversSub: 'Show a small album cover beside each track in the queue panel, mini player queue, and fullscreen Up next. Aggressive caching is recommended.',
   queueRowFavoriteButton: 'Favorite button in queue',

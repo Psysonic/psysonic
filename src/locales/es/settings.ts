@@ -700,6 +700,8 @@ export const settings = {
   queueBehaviourTitle: 'Comportamiento de la cola',
   preservePlayNextOrder: 'Mantener el orden de "Reproducir Siguiente"',
   preservePlayNextOrderDesc: 'Los elementos añadidos a "Reproducir Siguiente" se encolan detrás de los anteriores en vez de saltar al principio.',
+  smartShuffle: 'Aleatorio inteligente',
+  smartShuffleDesc: 'El modo aleatorio reparte artistas y álbumes por toda la lista, así que rara vez suena el mismo artista dos veces seguidas. Desactivado: orden totalmente aleatorio.',
   queueTrackListCovers: 'Carátulas en la cola',
   queueTrackListCoversSub: 'Miniatura del álbum junto a cada canción en el panel de la cola, la cola del minirreproductor y «A continuación» en pantalla completa. Se recomienda la caché agresiva.',
   queueRowFavoriteButton: 'Botón de favoritos en la cola',

@@ -681,6 +681,8 @@ export const settings = {
   queueBehaviourTitle: 'Wachtrijgedrag',
   preservePlayNextOrder: '"Volgende afspelen"-volgorde behouden',
   preservePlayNextOrderDesc: 'Nieuwe "Volgende afspelen"-items komen achter bestaande te staan in plaats van ervoor.',
+  smartShuffle: 'Slimme shuffle',
+  smartShuffleDesc: 'Shuffle verdeelt artiesten en albums over de hele lijst, zodat dezelfde artiest zelden twee keer achter elkaar speelt. Uit: volledig willekeurige volgorde.',
   queueTrackListCovers: 'Albumhoezen in de wachtrij',
   queueTrackListCoversSub: 'Klein albumhoesje naast elk nummer in het wachtrijpaneel, de wachtrij van de minispeler en "Hierna" in volledig scherm. Agressieve caching wordt aanbevolen.',
   queueRowFavoriteButton: 'Favorietenknop in de wachtrij',

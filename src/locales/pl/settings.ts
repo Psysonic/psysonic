@@ -768,6 +768,8 @@ export const settings = {
   queueBehaviourTitle: 'Zachowanie kolejki',
   preservePlayNextOrder: 'Zachowaj kolejność "Odtwórz następne"',
   preservePlayNextOrderDesc: 'Nowo dodane elementy "Odtwórz następne" są kolejkowane za wcześniej dodanymi zamiast wskakiwać na sam początek.',
+  smartShuffle: 'Inteligentne tasowanie',
+  smartShuffleDesc: 'Tasowanie rozkłada wykonawców i albumy na całą listę, więc ten sam wykonawca rzadko gra dwa razy z rzędu. Wyłączone: całkowicie losowa kolejność.',
   queueTrackListCovers: 'Okładki w kolejce',
   queueTrackListCoversSub: 'Miniatura albumu obok każdego utworu w panelu kolejki, kolejce mini odtwarzacza i sekcji „Następne” w trybie pełnoekranowym. Zalecane jest agresywne buforowanie.',
   queueRowFavoriteButton: 'Przycisk ulubionych w kolejce',

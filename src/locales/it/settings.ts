@@ -768,6 +768,8 @@ export const settings = {
   queueBehaviourTitle: 'Comportamento della coda',
   preservePlayNextOrder: 'Mantieni l\'ordine di "Riproduci dopo"',
   preservePlayNextOrderDesc: 'I nuovi elementi aggiunti con Riproduci dopo si accodano dietro quelli precedenti invece di passare avanti.',
+  smartShuffle: 'Riproduzione casuale intelligente',
+  smartShuffleDesc: 'La riproduzione casuale distribuisce artisti e album su tutta la lista, così lo stesso artista raramente suona due volte di fila. Disattivata: ordine del tutto casuale.',
   queueTrackListCovers: 'Copertine nella coda',
   queueTrackListCoversSub: 'Miniatura dell\'album accanto a ogni brano nel pannello della coda, nella coda del mini player e in "A seguire" a schermo intero. Si consiglia la cache aggressiva.',
   queueRowFavoriteButton: 'Pulsante preferiti nella coda',

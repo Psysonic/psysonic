@@ -762,6 +762,8 @@ export const settings = {
   queueBehaviourTitle: 'キューの動作',
   preservePlayNextOrder: '"次に再生" の順序を保持',
   preservePlayNextOrderDesc: '新しく追加された "次に再生" 項目を、先に追加されたものの前へ割り込ませず後ろに並べます。',
+  smartShuffle: 'スマートシャッフル',
+  smartShuffleDesc: 'シャッフル時にアーティストとアルバムをリスト全体に分散させ、同じアーティストが連続しにくくします。オフ：完全なランダム順。',
   queueTrackListCovers: 'キューにアルバムアートを表示',
   queueTrackListCoversSub: 'キューパネル、ミニプレイヤーのキュー、フルスクリーンの「次に再生」で各トラックの横に小さなアルバムカバーを表示します。アグレッシブキャッシュを有効にすることをおすすめします。',
   queueRowFavoriteButton: 'キューにお気に入りボタンを表示',
