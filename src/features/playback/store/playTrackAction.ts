@@ -92,6 +92,7 @@ import { pushQueueUndoFromGetter } from '@/features/playback/store/queueUndo';
 import { appendTimelineLeaveTrack } from '@/features/playback/store/timelineSessionHistory';
 import { stopRadio } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
+import { hintIfVolumeIsZero } from '@/features/playback/store/volumeZeroHint';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
   getSeekFallbackVisualTarget,
@@ -313,6 +314,7 @@ export function runPlayTrack(
   if (manual) {
     clearAllPlaybackScheduleTimers();
     set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+    hintIfVolumeIsZero(get().volume);
   }
 
   const gen = bumpPlayGeneration();

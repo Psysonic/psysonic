@@ -27,6 +27,7 @@ import {
   setRadioVolume,
 } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
+import { hintIfVolumeIsZero } from '@/features/playback/store/volumeZeroHint';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
   resetSeekStateForPlaybackChange,
@@ -73,6 +74,7 @@ export function createMiscActions(set: SetState, get: GetState): Pick<
   return {
     playRadio: async (station) => {
       const { volume } = get();
+      hintIfVolumeIsZero(volume);
       prepareRadioPlaybackFromUserGesture();
       const generation = bumpPlayGeneration();
       clearAllPlaybackScheduleTimers();
