@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListMusic, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import {
   usePlaylistStore,
   addTracksToPlaylistWithDedup,
@@ -12,6 +12,7 @@ import { showToast } from '@/lib/dom/toast';
 import { manualPlaylistTargetsForServer } from '@/features/contextMenu/utils/contextMenuHelpers';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { PlaylistTargetList } from '@/features/contextMenu/components/PlaylistTargetList';
 
 interface SingleProps {
   playlist: SubsonicPlaylist;
@@ -143,19 +144,12 @@ export function SinglePlaylistToPlaylistSubmenu({ playlist, onDone, triggerId }:
         </div>
       )}
       <div className="context-menu-divider" />
-      {allPlaylists.length === 0 && (
-        <div className="context-submenu-empty">{t('playlists.noOtherPlaylists')}</div>
-      )}
-      {allPlaylists.map(pl => (
-        <div
-          key={ownedEntityKey(pl)}
-          className="context-menu-item"
-          onClick={() => handleAdd(pl.id, pl.name, pl.serverId)}
-        >
-          <ListMusic size={13} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</span>
-        </div>
-      ))}
+      <PlaylistTargetList
+        targets={allPlaylists}
+        serverId={ownerServerId}
+        emptyLabel={t('playlists.noOtherPlaylists')}
+        onPick={pl => handleAdd(pl.id, pl.name, pl.serverId)}
+      />
     </div>
   );
 }
@@ -288,19 +282,12 @@ export function MultiPlaylistToPlaylistSubmenu({ playlists, onDone, triggerId }:
         </div>
       )}
       <div className="context-menu-divider" />
-      {allPlaylists.length === 0 && (
-        <div className="context-submenu-empty">{t('playlists.noOtherPlaylists')}</div>
-      )}
-      {allPlaylists.map(pl => (
-        <div
-          key={ownedEntityKey(pl)}
-          className="context-menu-item"
-          onClick={() => handleMerge(pl.id, pl.name, pl.serverId)}
-        >
-          <ListMusic size={13} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</span>
-        </div>
-      ))}
+      <PlaylistTargetList
+        targets={allPlaylists}
+        serverId={ownerServerId}
+        emptyLabel={t('playlists.noOtherPlaylists')}
+        onPick={pl => handleMerge(pl.id, pl.name, pl.serverId)}
+      />
     </div>
   );
 }
