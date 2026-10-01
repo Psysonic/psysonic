@@ -132,6 +132,7 @@ export const useAuthStore = create<AuthState>()(
       showFsArtistPortrait: true,
       fsPortraitDim: 28,
       fullscreenPlayerStyle: 'minimal',
+      fullscreenAutoOpenMinutes: 0,
       showChangelogOnUpdate: true,
       lastSeenChangelogVersion: '',
       lastDismissedThemeUpdateSig: '',

@@ -13,6 +13,7 @@ import {
 import {
   DEFAULT_LOUDNESS_PRE_ANALYSIS_ATTENUATION_DB,
   clampScrobbleThresholdPercent,
+  sanitizeFullscreenAutoOpenMinutes,
 } from './authStoreDefaults';
 import {
   clampMixFilterMinStars,
@@ -411,6 +412,9 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
       const v = (state as { fsPortraitDim?: unknown }).fsPortraitDim;
       return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(80, Math.round(v))) : 28;
     })(),
+    fullscreenAutoOpenMinutes: sanitizeFullscreenAutoOpenMinutes(
+      (state as { fullscreenAutoOpenMinutes?: unknown }).fullscreenAutoOpenMinutes,
+    ),
     skipStarManualSkipCountsByKey: sanitizeSkipStarCounts(
       (state as { skipStarManualSkipCountsByKey?: unknown }).skipStarManualSkipCountsByKey,
     ),

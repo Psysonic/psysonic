@@ -39,6 +39,26 @@ describe('computeAuthStoreRehydration — scrobbling', () => {
   });
 });
 
+describe('computeAuthStoreRehydration — fullscreenAutoOpenMinutes', () => {
+  beforeEach(resetAuthStore);
+
+  it.each([
+    [undefined, 0],
+    [null, 0],
+    ['5', 0],
+    [3, 0],
+    [-1, 0],
+    [5, 5],
+    [30, 30],
+  ] as const)('sanitizes %j to %s', (value, expected) => {
+    const state = {
+      ...useAuthStore.getState(),
+      fullscreenAutoOpenMinutes: value,
+    } as unknown as AuthState;
+    expect(computeAuthStoreRehydration(state).fullscreenAutoOpenMinutes).toBe(expected);
+  });
+});
+
 describe('computeAuthStoreRehydration — queueDurationDisplayMode', () => {
   beforeEach(() => {
     resetAuthStore();

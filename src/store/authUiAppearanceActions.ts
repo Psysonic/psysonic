@@ -1,5 +1,6 @@
 import type { AuthState } from './authStoreTypes';
 import { clampLibraryGridMaxColumns } from './authStoreHelpers';
+import { sanitizeFullscreenAutoOpenMinutes } from './authStoreDefaults';
 
 type SetState = (
   partial: Partial<AuthState> | ((state: AuthState) => Partial<AuthState>),
@@ -40,6 +41,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setShowFsArtistPortrait'
   | 'setFsPortraitDim'
   | 'setFullscreenPlayerStyle'
+  | 'setFullscreenAutoOpenMinutes'
   | 'setShowChangelogOnUpdate'
   | 'setLastSeenChangelogVersion'
   | 'setLastDismissedThemeUpdateSig'
@@ -82,6 +84,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
     setShowFsArtistPortrait: (v) => set({ showFsArtistPortrait: v }),
     setFsPortraitDim: (v) => set({ fsPortraitDim: v }),
     setFullscreenPlayerStyle: (v) => set({ fullscreenPlayerStyle: v }),
+    setFullscreenAutoOpenMinutes: (v) => set({ fullscreenAutoOpenMinutes: sanitizeFullscreenAutoOpenMinutes(v) }),
     setShowChangelogOnUpdate: (v) => set({ showChangelogOnUpdate: v }),
     setLastSeenChangelogVersion: (v) => set({ lastSeenChangelogVersion: v }),
     setLastDismissedThemeUpdateSig: (v) => set({ lastDismissedThemeUpdateSig: v }),

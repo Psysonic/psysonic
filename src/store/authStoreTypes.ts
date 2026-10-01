@@ -302,6 +302,8 @@ export interface AuthState {
   showFsArtistPortrait: boolean;
   fsPortraitDim: number;
   fullscreenPlayerStyle: 'minimal' | 'immersive' | 'prism';
+  /** Minutes without input before the fullscreen player opens while music plays; 0 = off. */
+  fullscreenAutoOpenMinutes: number;
   showChangelogOnUpdate: boolean;
   lastSeenChangelogVersion: string;
   /** Signature of the installed-theme updates last dismissed in the sidebar
@@ -536,6 +538,7 @@ export interface AuthState {
   setShowFsArtistPortrait: (v: boolean) => void;
   setFsPortraitDim: (v: number) => void;
   setFullscreenPlayerStyle: (v: 'minimal' | 'immersive' | 'prism') => void;
+  setFullscreenAutoOpenMinutes: (v: number) => void;
   setShowChangelogOnUpdate: (v: boolean) => void;
   setLastSeenChangelogVersion: (v: string) => void;
   setLastDismissedThemeUpdateSig: (v: string) => void;
