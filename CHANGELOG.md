@@ -99,6 +99,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Album and artist cards now show a small marker and an accent ring while one of their songs is playing, wherever it was started from. Playlist cards and the playlists in the sidebar show it while the queue you started from that playlist is playing.
 * On Windows and macOS the marker's bars move while music plays; on Linux, while paused, or with reduced motion turned on in the system, it stays a still icon. Screen readers announce the marked album as now playing.
 
+### Private mode
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1701](https://github.com/Psysonic/psysonic/pull/1701)**
+
+* A new mask button in the top bar, left of the server name, turns on private mode. While it is on, nothing you play is shared or recorded: no scrobbles to Last.fm, ListenBrainz and the other Music Network services, no play counts or "last played" on the server, no now playing on the server or on Discord, and no entries in Statistics, Rewind or the play history.
+* Turning it on applies at once, including to the song that is playing; turning it off lets that song count again. Private mode is always off when the app starts.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
