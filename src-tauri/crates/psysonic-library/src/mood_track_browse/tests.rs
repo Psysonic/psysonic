@@ -82,6 +82,41 @@ fn list_tracks_by_mood_is_case_insensitive_and_returns_only_matching_tracks() {
 }
 
 #[test]
+fn list_tracks_by_mood_includes_navidrome_native_mood_tags() {
+    let store = LibraryStore::open_in_memory();
+
+    let mut native_track = track("t1", "Alpha", "lib1", &["Stale Mood"]);
+    native_track.raw_json = serde_json::json!({
+        "moods": ["Stale Mood"],
+        "tags": {
+            "mood": ["Dreamy", "Atmospheric"]
+        }
+    })
+    .to_string();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[native_track])
+        .unwrap();
+
+    let response = list_tracks_by_mood(&store, &request("dreamy")).unwrap();
+
+    assert_eq!(response.total, Some(1));
+    assert_eq!(
+        response
+            .tracks
+            .iter()
+            .map(|track| track.id.as_str())
+            .collect::<Vec<_>>(),
+        vec!["t1"]
+    );
+
+    let stale = list_tracks_by_mood(&store, &request("Stale Mood")).unwrap();
+
+    assert_eq!(stale.total, Some(0));
+    assert!(stale.tracks.is_empty());
+}
+
+#[test]
 fn list_tracks_by_mood_respects_library_scope() {
     let store = LibraryStore::open_in_memory();
     TrackRepository::new(&store)
