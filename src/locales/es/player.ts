@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}} % de {{threshold}} %',
   forceScrobble: 'Forzar scrobble',
   scrobbleAlreadySent: 'Scrobble ya enviado',
+  scrobblePrivate: 'El modo privado está activado: no se envía ningún scrobble',
   scrobbleUnavailable: 'Scrobble no disponible',
   scrobblePreview: 'No disponible durante la vista previa de la pista',
   scrobbleOffline: 'No disponible sin conexión',

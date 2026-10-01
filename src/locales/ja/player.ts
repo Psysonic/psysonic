@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{threshold}}% 中 {{current}}%',
   forceScrobble: 'Scrobble を今すぐ送信',
   scrobbleAlreadySent: 'Scrobble 済み',
+  scrobblePrivate: 'プライベートモードがオンのため Scrobble しません',
   scrobbleUnavailable: 'Scrobble は利用できません',
   scrobblePreview: 'トラックのプレビュー中は利用できません',
   scrobbleOffline: 'オフライン中は利用できません',

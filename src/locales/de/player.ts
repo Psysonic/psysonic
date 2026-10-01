@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}} % von {{threshold}} %',
   forceScrobble: 'Scrobble erzwingen',
   scrobbleAlreadySent: 'Bereits gescrobbelt',
+  scrobblePrivate: 'Privater Modus ist an – es wird nichts gescrobbelt',
   scrobbleUnavailable: 'Scrobbeln nicht verfügbar',
   scrobblePreview: 'Während der Titelvorschau nicht verfügbar',
   scrobbleOffline: 'Offline nicht verfügbar',

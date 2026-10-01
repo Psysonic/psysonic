@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}} % из {{threshold}} %',
   forceScrobble: 'Отправить скроббл',
   scrobbleAlreadySent: 'Уже отправлено',
+  scrobblePrivate: 'Приватный режим включён — скробблы не отправляются',
   scrobbleUnavailable: 'Скробблинг недоступен',
   scrobblePreview: 'Недоступно во время предпрослушивания',
   scrobbleOffline: 'Недоступно без подключения к сети',

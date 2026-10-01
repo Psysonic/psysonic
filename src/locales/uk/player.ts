@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}}% із {{threshold}}%',
   forceScrobble: 'Примусовий скробблінг',
   scrobbleAlreadySent: 'Вже заскробблено',
+  scrobblePrivate: 'Приватний режим увімкнено — скробблінг не надсилається',
   scrobbleUnavailable: 'Скробблінг недоступний',
   scrobblePreview: 'Недоступно під час попереднього прослуховування',
   scrobbleOffline: 'Недоступно в офлайн-режимі',

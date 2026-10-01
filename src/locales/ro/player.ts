@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}}% din {{threshold}}%',
   forceScrobble: 'Forțează scrobble-ul',
   scrobbleAlreadySent: 'Deja trimis',
+  scrobblePrivate: 'Modul privat este activ — nu se trimite niciun scrobble',
   scrobbleUnavailable: 'Scrobble indisponibil',
   scrobblePreview: 'Indisponibil în timpul previzualizării piesei',
   scrobbleOffline: 'Indisponibil offline',

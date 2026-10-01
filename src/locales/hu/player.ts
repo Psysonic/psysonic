@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}}% / {{threshold}}%',
   forceScrobble: 'Scrobble kényszerítése',
   scrobbleAlreadySent: 'Már scrobble-olva',
+  scrobblePrivate: 'A privát mód be van kapcsolva – nincs scrobble',
   scrobbleUnavailable: 'A scrobble nem érhető el',
   scrobblePreview: 'Nem érhető el számelőnézet közben',
   scrobbleOffline: 'Offline módban nem érhető el',

@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '已播放 {{current}}%，阈值 {{threshold}}%',
   forceScrobble: '立即 scrobble',
   scrobbleAlreadySent: '已 scrobble',
+  scrobblePrivate: '隐私模式已开启，不会 scrobble',
   scrobbleUnavailable: '无法 scrobble',
   scrobblePreview: '曲目预览期间不可用',
   scrobbleOffline: '离线时不可用',

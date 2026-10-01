@@ -48,6 +48,7 @@ import { tray } from './tray';
 import { licenses } from './licenses';
 import { migration } from './migration';
 import { discordBanner } from './discordBanner';
+import { privateMode } from './privateMode';
 import { visualizer } from './visualizer';
 
 export const itTranslation = {
@@ -101,5 +102,6 @@ export const itTranslation = {
   licenses,
   migration,
   discordBanner,
+  privateMode,
   visualizer,
 };

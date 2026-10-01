@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}} % av {{threshold}} %',
   forceScrobble: 'Tving scrobble',
   scrobbleAlreadySent: 'Allerede scrobblet',
+  scrobblePrivate: 'Privat modus er på – ingenting blir scrobblet',
   scrobbleUnavailable: 'Scrobble er ikke tilgjengelig',
   scrobblePreview: 'Ikke tilgjengelig under forhåndslytting',
   scrobbleOffline: 'Ikke tilgjengelig frakoblet',

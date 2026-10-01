@@ -72,6 +72,7 @@ export const player = {
   scrobbleProgress: '{{current}}% van {{threshold}}%',
   forceScrobble: 'Scrobble afdwingen',
   scrobbleAlreadySent: 'Al gescrobbeld',
+  scrobblePrivate: 'Privémodus staat aan – er wordt niets gescrobbeld',
   scrobbleUnavailable: 'Scrobble niet beschikbaar',
   scrobblePreview: 'Niet beschikbaar tijdens de nummerpreview',
   scrobbleOffline: 'Offline niet beschikbaar',
