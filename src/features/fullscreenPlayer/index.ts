@@ -9,3 +9,4 @@
 export { default } from './components/FullscreenPlayerStatic';
 export { default as FullscreenPlayerImmersive } from './components/FullscreenPlayerImmersive';
 export { default as FullscreenPlayerPrism } from './components/FullscreenPlayerPrism';
+export { useFsAutoOpen } from './hooks/useFsAutoOpen';

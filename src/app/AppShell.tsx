@@ -14,7 +14,7 @@ import DevNetworkModeToggle from '@/app/DevNetworkModeToggle';
 import { NowPlayingDropdown } from '@/features/nowPlaying';
 import QueuePanel from '@/features/queue';
 import AppRoutes from './AppRoutes';
-import FullscreenPlayer, { FullscreenPlayerImmersive, FullscreenPlayerPrism } from '@/features/fullscreenPlayer';
+import FullscreenPlayer, { FullscreenPlayerImmersive, FullscreenPlayerPrism, useFsAutoOpen } from '@/features/fullscreenPlayer';
 import ContextMenu from '@/features/contextMenu/components/ContextMenu';
 import SongInfoModal from '@/features/playback/components/SongInfoModal';
 import PlaybackAlternativeModal from '@/features/playback/components/PlaybackAlternativeModal';
@@ -240,6 +240,7 @@ export function AppShell() {
   useGlobalDndAndSelectionBlockers();
   useTracklistWheelChaining();
   useAppActivityTracking();
+  useFsAutoOpen();
 
   const isMobilePlayer = isMobile && location.pathname === '/now-playing';
 
