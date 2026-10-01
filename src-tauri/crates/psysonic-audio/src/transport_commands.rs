@@ -141,6 +141,7 @@ pub fn audio_pause(fade_secs: Option<f32>, state: State<'_, AudioEngine>) {
 #[specta::specta]
 pub async fn audio_resume(
     fade_secs: Option<f32>,
+    notify_playing: Option<bool>,
     state: State<'_, AudioEngine>,
     app: AppHandle,
 ) -> Result<(), String> {
@@ -176,7 +177,7 @@ pub async fn audio_resume(
                 url,
                 new_prod,
                 flags.clone(),
-                app,
+                app.clone(),
             ));
             if let Some(rs) = state.radio_state.lock().unwrap().as_mut() {
                 let old = std::mem::replace(&mut rs.task, new_task);
@@ -193,6 +194,9 @@ pub async fn audio_resume(
     let resume_ramp = {
         let mut cur = state.current.lock().unwrap();
         if let Some(sink) = cur.sink.clone() {
+            if sink.empty() {
+                return Err("audio sink not ready".to_string());
+            }
             let target =
                 (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM).clamp(0.0, 1.0);
             if sink.is_paused() {
@@ -211,7 +215,7 @@ pub async fn audio_resume(
             }
             fade_secs.map(|secs| (Arc::clone(&sink), sink_volume_now(&sink), target, secs))
         } else {
-            None
+            return Err("audio sink not ready".to_string());
         }
     };
     if let Some((sink, from, target, secs)) = resume_ramp {
@@ -232,6 +236,11 @@ pub async fn audio_resume(
     }
     if let Some(rs) = state.radio_state.lock().unwrap().as_ref() {
         rs.flags.is_paused.store(false, Ordering::Release);
+    }
+    if notify_playing.unwrap_or(false) {
+        use tauri::Emitter;
+        let duration = state.current.lock().unwrap().duration_secs;
+        let _ = app.emit("audio:playing", duration);
     }
     Ok(())
 }

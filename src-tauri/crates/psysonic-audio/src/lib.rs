@@ -12,6 +12,7 @@ mod analysis_dispatch;
 pub mod autoeq_commands;
 mod channel_fold;
 mod codec;
+mod cold_resume;
 pub mod commands;
 mod decode;
 mod dev_io;

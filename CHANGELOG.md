@@ -220,6 +220,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * In **Settings → Input**, clicking one shortcut field and then another before pressing a key bound that key to both actions. The same happened after clicking a field again to cancel or leaving the page, where the next key could even be swallowed elsewhere in the app. Only the field you clicked last now waits for a key.
 
+### Playback resumes after a long pause
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1707](https://github.com/Psysonic/psysonic/pull/1707)**
+
+* Pressing Play after a long pause could leave playback silent, as reported on Windows 10. Resume now restores the saved position before starting audio, including when the output device was released while idle.
+* If recovery fails, Psysonic retries once, then stays paused with the saved position instead of silently restarting the track from the beginning. Pause or Stop during loading cancels the pending resume.
+
 ### Screen readers announce notifications
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1708](https://github.com/Psysonic/psysonic/pull/1708)**

@@ -1,5 +1,5 @@
 import { audioPause, audioStop } from '@/lib/api/audio';
-import { setIsAudioPaused } from '@/features/playback/store/engineState';
+import { bumpPlayGeneration, setIsAudioPaused } from '@/features/playback/store/engineState';
 import type { PlayerState } from '@/features/playback/store/playerStoreTypes';
 import { flushQueueSyncToServer } from '@/features/playback/store/queueSync';
 import { markPlaybackIdle } from '@/features/playback/store/queuePlaybackIdle';
@@ -16,6 +16,7 @@ import { clearAutodjTransitionUi } from '@/features/playback/store/autodjTransit
 import { analysisTrackRefForTrack } from '@/features/playback/store/analysisTrackRef';
 import { useAuthStore } from '@/store/authStore';
 import { sanitizePauseResumeFadeSecs } from '@/lib/audio/pauseResumeFade';
+import { isColdResumePending } from '@/features/playback/store/coldResumePlayback';
 
 type SetState = (
   partial: Partial<PlayerState> | ((state: PlayerState) => Partial<PlayerState>),
@@ -36,6 +37,7 @@ export function createTransportLightActions(set: SetState, get: GetState): Pick<
 > {
   return {
     stop: () => {
+      if (isColdResumePending()) bumpPlayGeneration();
       void playListenSessionFinalize('stop');
       clearAutodjTransitionUi();
       // Report stopped before the position is reset below so the server drops the
@@ -83,6 +85,7 @@ export function createTransportLightActions(set: SetState, get: GetState): Pick<
     },
 
     pause: () => {
+      if (isColdResumePending()) bumpPlayGeneration();
       clearAllPlaybackScheduleTimers();
       playListenSessionOnPause();
       const auth = useAuthStore.getState();

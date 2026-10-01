@@ -62,7 +62,7 @@ fn restore_chain_preload_if_current(
 /// file extension, so this helps pick a Symphonia `format_hint` for ranged HTTP.
 #[tauri::command]
 // NOTE: excluded from tauri-specta collect_commands! — specta's SpectaFn is only
-// implemented up to 10 args and this has 25. Typing it needs the args bundled into
+// implemented up to 10 args and this has 26. Typing it needs the args bundled into
 // a struct (a behaviour/contract change), tracked for the D4 flip; stays on
 // generate_handler! for now.
 #[allow(clippy::too_many_arguments)]
@@ -89,6 +89,9 @@ pub async fn audio_play(
     // leading silence. Optional + defaults to `0` so existing callers are
     // unaffected; only applied when the freshly built source is seekable.
     start_secs: Option<f64>,
+    // Cold resume must restore the position before attaching audio, or fail closed.
+    // Optional: crossfade callers retain their best-effort B-head behavior.
+    require_start_seek: Option<bool>,
     // Dynamic crossfade (phase 2): per-transition overlap length, computed by the
     // frontend from both tracks' waveform envelopes. Caps the fade for *this*
     // transition instead of the global `crossfade_secs`. `None` → use the global
@@ -107,7 +110,11 @@ pub async fn audio_play(
     state: State<'_, AudioEngine>,
 ) -> Result<(), String> {
     let start_paused = start_paused.unwrap_or(false);
+    let require_start_seek = require_start_seek.unwrap_or(false);
     let start_secs = start_secs.unwrap_or(0.0).max(0.0);
+    if require_start_seek && !start_secs.is_finite() {
+        return Err("cold resume position must be finite".to_string());
+    }
     let gapless = state.gapless_enabled.load(Ordering::Relaxed);
 
     // ── Ghost-command guard ───────────────────────────────────────────────────
@@ -530,7 +537,7 @@ pub async fn audio_play(
     let needs_prefill =
         (hi_res_enabled && blend_rate.unwrap_or(output_rate) > 48_000) || needs_preserve_prefill;
     let defer_playback_start = !state.stream_playback_armed.load(Ordering::Relaxed);
-    if needs_prefill || defer_playback_start {
+    if needs_prefill || defer_playback_start || start_paused {
         sink.pause();
     }
 
@@ -570,7 +577,26 @@ pub async fn audio_play(
     // `CountingSource` stores the sample counter on a successful seek; we still
     // re-seed `samples_played` + `seek_offset` explicitly after the swap (below)
     // so the seekbar and the crossfade-remaining math are content-relative.
-    let did_start_seek = if start_secs > 0.05 && source_seekable {
+    let did_start_seek = if require_start_seek && start_secs > 0.0 {
+        if !source_seekable {
+            return Err("cold resume source is not seekable".to_string());
+        }
+        // A timed-out worker cannot be cancelled. Give it a private counter so
+        // a late seek cannot overwrite the progress of a newer track.
+        source.replace_sample_counter(Arc::new(std::sync::atomic::AtomicU64::new(0)));
+        source = crate::cold_resume::position_source(
+            source,
+            streaming_seek.clone(),
+            Duration::from_secs_f64(start_secs),
+            Duration::from_secs(3),
+        )
+        .await?;
+        if state.generation.load(Ordering::SeqCst) != gen {
+            return Ok(());
+        }
+        source.replace_sample_counter(state.samples_played.clone());
+        true
+    } else if start_secs > 0.05 && source_seekable {
         let target = Duration::from_secs_f64(start_secs);
         let prepared = if let Some(handle) = streaming_seek.clone() {
             match tokio::task::spawn_blocking(move || {
@@ -631,6 +657,25 @@ pub async fn audio_play(
         }
     }
 
+    // A staged cold start owns arming itself. Do not let the legacy background
+    // starter re-pause the player after the frontend has acknowledged resume.
+    if require_start_seek && defer_playback_start {
+        let ready = tokio::time::timeout(Duration::from_secs(5), async {
+            while !state.stream_playback_armed.load(Ordering::Acquire) {
+                if state.generation.load(Ordering::SeqCst) != gen {
+                    return false;
+                }
+                tokio::time::sleep(Duration::from_millis(50)).await;
+            }
+            true
+        })
+        .await
+        .map_err(|_| "cold resume buffer readiness timeout".to_string())?;
+        if !ready {
+            return Ok(());
+        }
+    }
+
     let commit_guard = state.playback_commit_lock.lock().unwrap();
     if state.generation.load(Ordering::SeqCst) != gen {
         return Ok(());
@@ -662,6 +707,9 @@ pub async fn audio_play(
         {
             let mut cur = state.current.lock().unwrap();
             cur.seek_offset = start_secs;
+            if start_paused {
+                cur.paused_at = Some(start_secs);
+            }
         }
         state.samples_played.store(
             raw_counter_samples_for_content_position(
@@ -675,7 +723,7 @@ pub async fn audio_play(
     }
     drop(commit_guard);
 
-    if defer_playback_start {
+    if defer_playback_start && !require_start_seek {
         if !start_paused {
             let mut cur = state.current.lock().unwrap();
             cur.play_started = None;
