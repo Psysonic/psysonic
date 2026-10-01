@@ -220,6 +220,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * In **Settings → Input**, clicking one shortcut field and then another before pressing a key bound that key to both actions. The same happened after clicking a field again to cancel or leaving the page, where the next key could even be swallowed elsewhere in the app. Only the field you clicked last now waits for a key.
 
+### Screen readers announce notifications
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1708](https://github.com/Psysonic/psysonic/pull/1708)**
+
+* The short notices at the bottom of the window, such as confirmations, warnings and errors, were never read out by screen readers. They are now announced: notices politely, errors right away.
+
 ## [1.55.0]
 
 ## Added
