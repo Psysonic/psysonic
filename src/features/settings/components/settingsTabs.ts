@@ -49,7 +49,7 @@ export const SETTINGS_INDEX: SearchIndexEntry[] = [
   { tab: 'personalisation',titleKey: 'settings.artistLayoutTitle',        keywords: 'artist page layout sections order' },
   { tab: 'personalisation',titleKey: 'settings.favoritesLayoutTitle',     keywords: 'favorites favourites page layout sections order top artists albums songs radio stations hide show' },
   { tab: 'personalisation',titleKey: 'settings.homeCustomizerTitle',      keywords: 'mainstage home page customize sections' },
-  { tab: 'personalisation',titleKey: 'settings.queueSettingsTitle',       keywords: 'queue settings display mode list playlist timeline toolbar buttons reorder customize shuffle save load behaviour behavior preserve play next order' },
+  { tab: 'personalisation',titleKey: 'settings.queueSettingsTitle',       keywords: 'queue settings display mode list playlist timeline toolbar buttons reorder customize shuffle save load behaviour behavior preserve play next order smart shuffle spread artist album random' },
   { tab: 'personalisation',titleKey: 'settings.playlistLayoutTitle',     keywords: 'playlist page layout buttons order reorder shuffle queue share edit rules refresh smart add songs import csv download zip cache offline suggestions controls hide show' },
   { tab: 'personalisation',titleKey: 'settings.albumHeaderLayoutTitle',  keywords: 'album page layout buttons order reorder shuffle queue favorite share artist bio download zip offline controls hide show' },
   { tab: 'personalisation',titleKey: 'settings.buttonSizeTitle',         keywords: 'compact buttons button size small large icon only labels toolbar' },

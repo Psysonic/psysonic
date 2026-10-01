@@ -45,6 +45,7 @@ import {
 } from '@/features/playback/store/playbackReportSession';
 import { resumeRadio } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
+import { hintIfVolumeIsZero } from '@/features/playback/store/volumeZeroHint';
 import { sanitizePauseResumeFadeSecs } from '@/lib/audio/pauseResumeFade';
 import { ensureScrobblePlay } from '@/features/playback/store/scrobblePlaySession';
 import { beginColdResumeRequest, coldResumePlayback, isColdResumePending } from '@/features/playback/store/coldResumePlayback';
@@ -78,7 +79,7 @@ type GetState = () => PlayerState;
 export function runResume(set: SetState, get: GetState): void {
   clearAllPlaybackScheduleTimers();
   markPlaybackActive();
-  set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+  set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
 
   // Orbit guest: resume means "catch up to the host's live stream".
   // The user hit pause at some earlier point; resuming shouldn't drop
@@ -128,6 +129,9 @@ export function runResume(set: SetState, get: GetState): void {
     })();
     return;
   }
+
+  // Past the Orbit-guest branch: this resume is the user's, not the host's.
+  if (get().currentRadio || get().currentTrack) hintIfVolumeIsZero(get().volume);
 
   if (get().currentRadio) {
     resumeRadio(fadeSecs ?? 0).catch(console.error);

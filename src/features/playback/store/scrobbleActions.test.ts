@@ -10,8 +10,9 @@ vi.mock('@/features/playback/store/submitTrackScrobble', () => ({
 
 import { usePlayerStore } from './playerStore';
 import { usePreviewStore } from './previewStore';
-import { forceScrobbleCurrentTrack } from './scrobbleActions';
+import { forceScrobbleCurrentTrack, scrobbleCurrentTrackAtNaturalBoundary } from './scrobbleActions';
 import { useAuthStore } from '@/store/authStore';
+import { usePrivateModeStore } from '@/features/privateMode';
 import { emitPlaybackProgress } from './playbackProgress';
 import { _resetScrobblePlaySessionForTest } from './scrobblePlaySession';
 
@@ -48,6 +49,17 @@ describe('forceScrobbleCurrentTrack', () => {
     expect(forceScrobbleCurrentTrack(true)).toBe(false);
     usePreviewStore.setState({ previewingId: null });
     expect(forceScrobbleCurrentTrack(false)).toBe(false);
+    expect(submitTrackScrobble).not.toHaveBeenCalled();
+  });
+
+  it('refuses while private mode is on and leaves the play unscrobbled', () => {
+    const track = makeTrack();
+    seedQueue([track], { index: 0, currentTrack: track });
+    usePrivateModeStore.setState({ active: true });
+
+    expect(forceScrobbleCurrentTrack(true)).toBe(false);
+    expect(scrobbleCurrentTrackAtNaturalBoundary()).toBe(false);
+    expect(usePlayerStore.getState().scrobbled).toBe(false);
     expect(submitTrackScrobble).not.toHaveBeenCalled();
   });
 

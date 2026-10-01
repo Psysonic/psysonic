@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
+import { resetPlayerStore } from '@/test/helpers/storeReset';
+import { makeTrack } from '@/test/helpers/factories';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 
 const startDrag = vi.hoisted(() => vi.fn());
@@ -26,6 +28,7 @@ vi.mock('react-router', async importOriginal => ({
 }));
 
 import { __resetArtistIdResolveCacheForTests } from '@/lib/library/artistIdResolve';
+import { usePlayerStore } from '@/features/playback/store/playerStore';
 import AlbumCard from './AlbumCard';
 
 describe('AlbumCard', () => {
@@ -100,6 +103,38 @@ describe('AlbumCard', () => {
       id: 'album-1',
       name: 'Owned Album',
       serverId: 'srv-owner',
+    });
+  });
+
+  describe('now-playing marker', () => {
+    const album: SubsonicAlbum = {
+      id: 'album-1',
+      name: 'Owned Album',
+      artist: 'Artist',
+      artistId: 'artist-1',
+      songCount: 1,
+      duration: 100,
+      serverId: 'srv-owner',
+    };
+
+    afterEach(() => {
+      resetPlayerStore();
+    });
+
+    it('marks the card whose album is playing, for sight and for screen readers', () => {
+      usePlayerStore.setState({ currentTrack: makeTrack({ albumId: 'album-1', serverId: 'srv-owner' }) });
+      const { container } = renderWithProviders(<AlbumCard album={album} disableArtwork />);
+
+      expect(screen.getByRole('button', { name: 'Owned Album by Artist, Now Playing' })).toBeTruthy();
+      expect(container.querySelector('.album-card--now-playing .now-playing-marker')).not.toBeNull();
+    });
+
+    it('leaves the card alone while another album plays', () => {
+      usePlayerStore.setState({ currentTrack: makeTrack({ albumId: 'album-2', serverId: 'srv-owner' }) });
+      const { container } = renderWithProviders(<AlbumCard album={album} disableArtwork />);
+
+      expect(screen.getByRole('button', { name: 'Owned Album by Artist' })).toBeTruthy();
+      expect(container.querySelector('.now-playing-marker')).toBeNull();
     });
   });
 });

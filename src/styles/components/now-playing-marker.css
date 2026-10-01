@@ -1,0 +1,103 @@
+/* "Now playing" marker on album, artist and playlist cards and on sidebar
+ * playlist rows (NowPlayingMarker). The static AudioLines icon is the default;
+ * moving bars replace it only while playing, off Linux, and without a
+ * reduced-motion preference. On Linux the per-frame scaleY repaints fall back
+ * to software composite on WebKitGTK without compositing — the reason the
+ * tracklist indicator became static (tracklist.css, `.eq-bars`). */
+
+.now-playing-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  pointer-events: none;
+}
+
+.now-playing-marker--cover,
+.now-playing-marker--round {
+  position: absolute;
+  z-index: 6;
+  height: 24px;
+  min-width: 24px;
+  padding: 0 5px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.now-playing-marker--cover {
+  left: 8px;
+  bottom: 8px;
+}
+
+.now-playing-marker--round {
+  left: 50%;
+  bottom: 10%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+}
+
+.now-playing-marker--inline {
+  flex: 0 0 auto;
+}
+
+/* Sidebar rows give every span `flex: 1` and `overflow: hidden` so the name
+ * fills the row (sidebar-expandable-playlists-section.css); the marker and its
+ * bars opt out, one class heavier. */
+.sidebar-playlist-item .now-playing-marker,
+.sidebar-playlist-item .now-playing-marker-bars,
+.sidebar-playlist-item .now-playing-marker-bars > span {
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.now-playing-marker-bars {
+  display: none;
+  align-items: flex-end;
+  gap: 2px;
+  height: 12px;
+}
+
+.now-playing-marker-bars > span {
+  width: 3px;
+  height: 100%;
+  border-radius: 1px;
+  background: currentColor;
+  transform-origin: bottom;
+  transform: scaleY(0.6);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-platform="linux"]) .now-playing-marker[data-playing="true"] .now-playing-marker-icon {
+    display: none;
+  }
+
+  html:not([data-platform="linux"]) .now-playing-marker[data-playing="true"] .now-playing-marker-bars {
+    display: inline-flex;
+  }
+
+  html:not([data-platform="linux"]) .now-playing-marker[data-playing="true"] .now-playing-marker-bars > span {
+    animation: now-playing-marker-bar 0.9s ease-in-out infinite alternate;
+  }
+
+  html:not([data-platform="linux"]) .now-playing-marker[data-playing="true"] .now-playing-marker-bars > span:nth-child(2) {
+    animation-delay: -0.3s;
+  }
+
+  html:not([data-platform="linux"]) .now-playing-marker[data-playing="true"] .now-playing-marker-bars > span:nth-child(3) {
+    animation-delay: -0.6s;
+  }
+}
+
+@keyframes now-playing-marker-bar {
+  from { transform: scaleY(0.25); }
+  to { transform: scaleY(1); }
+}
+
+/* The card whose album, artist or playlist is playing gets an accent ring.
+ * An inset outline rather than a box-shadow: the covers clip with
+ * `overflow: hidden` / `contain: paint`, and the outline follows the radius. */
+.album-card--now-playing .album-card-cover,
+.artist-card--now-playing .artist-card-avatar {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}

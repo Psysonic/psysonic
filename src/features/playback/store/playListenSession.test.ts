@@ -13,6 +13,7 @@ import {
   resolveDurationSecHint,
 } from '@/features/playback/store/playListenSession';
 import { onPlaySessionRecorded } from '@/features/playback/store/playSessionRecorded';
+import { usePrivateModeStore } from '@/features/privateMode';
 
 vi.mock('@/lib/library/libraryReady', () => ({
   libraryIsReady: vi.fn(async () => true),
@@ -45,6 +46,7 @@ describe('playListenSession', () => {
       currentTrack: testTrack,
     });
     usePreviewStore.setState({ previewingId: null });
+    usePrivateModeStore.setState({ active: false });
     onInvoke('library_record_play_session', () => undefined);
   });
 
@@ -72,6 +74,32 @@ describe('playListenSession', () => {
           durationSecHint: 180,
         }),
       }),
+    );
+  });
+
+  it('records nothing when private mode is on as the session is written', async () => {
+    vi.useFakeTimers();
+    await playListenSessionOpen(testTrack, 'server-1');
+    vi.setSystemTime(Date.now() + 15_000);
+    await playListenSessionOnProgress(12, false);
+    usePrivateModeStore.setState({ active: true });
+    await playListenSessionFinalize('ended');
+    vi.useRealTimers();
+    expect(invoke).not.toHaveBeenCalledWith('library_record_play_session', expect.anything());
+  });
+
+  it('records a session that private mode was switched off for before it ended', async () => {
+    vi.useFakeTimers();
+    usePrivateModeStore.setState({ active: true });
+    await playListenSessionOpen(testTrack, 'server-1');
+    vi.setSystemTime(Date.now() + 15_000);
+    await playListenSessionOnProgress(12, false);
+    usePrivateModeStore.setState({ active: false });
+    await playListenSessionFinalize('ended');
+    vi.useRealTimers();
+    expect(invoke).toHaveBeenCalledWith(
+      'library_record_play_session',
+      expect.objectContaining({ input: expect.objectContaining({ trackId: 't1' }) }),
     );
   });
 

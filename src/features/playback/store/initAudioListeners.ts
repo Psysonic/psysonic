@@ -4,6 +4,7 @@ import { setupAuthSync } from '@/features/playback/store/audioListenerSetup/auth
 import { setupMprisSync } from '@/features/playback/store/audioListenerSetup/mprisSync';
 import { setupRadioMprisMetadata } from '@/features/playback/store/audioListenerSetup/radioMprisMetadata';
 import { setupDiscordPresence } from '@/features/playback/store/audioListenerSetup/discordPresence';
+import { setupPrivateModePresence } from '@/features/playback/store/audioListenerSetup/privateModePresence';
 import { setupEqDeviceSync } from '@/features/playback/store/audioListenerSetup/eqDeviceSync';
 import { bindRadioEqAttachOnEnable } from '@/features/playback/store/radioPlayer';
 import { bindRadioEqStore } from '@/features/playback/utils/audio/radioEqGraph';
@@ -24,6 +25,7 @@ export function initAudioListeners(): () => void {
   const stopMprisSync = setupMprisSync();
   const stopRadioMprisMetadata = setupRadioMprisMetadata();
   const stopDiscordPresence = setupDiscordPresence();
+  const stopPrivateModePresence = setupPrivateModePresence();
   const stopEqDeviceSync = setupEqDeviceSync();
   const stopRadioEqStore = bindRadioEqStore();
   const stopRadioEqAttach = bindRadioEqAttachOnEnable();
@@ -32,6 +34,7 @@ export function initAudioListeners(): () => void {
     stopAuthSync();
     stopMprisSync();
     stopDiscordPresence();
+    stopPrivateModePresence();
     stopEngineListeners();
     stopRadioMprisMetadata();
     stopEqDeviceSync();

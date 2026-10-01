@@ -26,7 +26,7 @@ export function createScheduleActions(set: SetState, get: GetState): Pick<
   return {
     clearScheduledPause: () => {
       clearScheduledPauseTimers();
-      set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null });
+      set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null });
     },
 
     clearScheduledResume: () => {
@@ -40,7 +40,7 @@ export function createScheduleActions(set: SetState, get: GetState): Pick<
       const delayMs = scheduleDelayMsFromSeconds(seconds);
       const startedAt = Date.now();
       const at = scheduleDeadlineMs(startedAt, seconds);
-      set({ scheduledPauseAtMs: at, scheduledPauseStartMs: startedAt });
+      set({ scheduledPauseAtMs: at, scheduledPauseStartMs: startedAt, scheduledPauseBoundary: null });
       schedulePauseTimer(delayMs, () => {
         set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null });
         get().pause();

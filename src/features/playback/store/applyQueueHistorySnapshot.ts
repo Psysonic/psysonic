@@ -178,6 +178,7 @@ export function applyQueueHistorySnapshot(
   set({
     scheduledPauseAtMs: null,
     scheduledPauseStartMs: null,
+    scheduledPauseBoundary: null,
     scheduledResumeAtMs: null,
     scheduledResumeStartMs: null,
   });

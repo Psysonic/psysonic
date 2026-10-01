@@ -8,6 +8,7 @@ import {
 } from '@/cover/layoutSizes';
 import { ARTISTS_INPAGE_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
 import { nameColor, nameInitial } from '@/features/artist/utils/artistsHelpers';
+import { NowPlayingMarker } from '@/features/playback';
 
 interface AvatarProps {
   artist: SubsonicArtist;
@@ -19,8 +20,9 @@ interface AvatarProps {
  * monogram (Catppuccin palette, hashed by name) when artist images are
  * disabled or the artist has no cover art.
  */
-export function ArtistCardAvatar({ artist, showImages }: AvatarProps) {
+export function ArtistCardAvatar({ artist, showImages, nowPlaying = false }: AvatarProps & { nowPlaying?: boolean }) {
   const color = nameColor(artist.name);
+  const marker = nowPlaying ? <NowPlayingMarker variant="round" /> : null;
   if (showImages && (artist.coverArt || artist.id)) {
     return (
       <div className="artist-card-avatar">
@@ -33,12 +35,14 @@ export function ArtistCardAvatar({ artist, showImages }: AvatarProps) {
           alt={artist.name}
           observeScrollRootId={ARTISTS_INPAGE_SCROLL_VIEWPORT_ID}
         />
+        {marker}
       </div>
     );
   }
   return (
     <div className="artist-card-avatar artist-card-avatar-initial" style={{ borderColor: color }}>
       <span style={{ color }}>{nameInitial(artist.name)}</span>
+      {marker}
     </div>
   );
 }

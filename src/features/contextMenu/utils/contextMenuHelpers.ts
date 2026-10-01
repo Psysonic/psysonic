@@ -1,5 +1,34 @@
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import { classifyPlaylistSmartness } from '@/lib/format/playlistClassification';
+import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+
+/** How many recently used targets the add-to-playlist submenus show on top. */
+export const RECENT_PLAYLIST_TARGETS = 3;
+/** Below this many targets the recent section would only repeat the whole list. */
+export const RECENT_PLAYLIST_TARGETS_MIN_LIST = 6;
+
+/**
+ * Add-to-playlist targets as the submenus show them: every target in
+ * alphabetical order, plus — once the list is long enough to need it — the few
+ * used most recently, newest first. Recent ones stay in the full list too, so
+ * looking a playlist up by name always works.
+ */
+export function splitPlaylistTargets(
+  targets: readonly SubsonicPlaylist[],
+  recentIds: readonly string[],
+  serverId: string | undefined,
+): { recent: SubsonicPlaylist[]; all: SubsonicPlaylist[] } {
+  const all = [...targets].sort((a, b) => a.name.localeCompare(b.name));
+  if (!serverId || all.length < RECENT_PLAYLIST_TARGETS_MIN_LIST) return { recent: [], all };
+  const byKey = new Map(all.map(playlist => [ownedEntityKey({ id: playlist.id, serverId }), playlist]));
+  const recent: SubsonicPlaylist[] = [];
+  for (const key of recentIds) {
+    const playlist = byKey.get(key);
+    if (playlist) recent.push(playlist);
+    if (recent.length === RECENT_PLAYLIST_TARGETS) break;
+  }
+  return { recent, all };
+}
 
 export function manualPlaylistTargetsForServer(
   playlists: readonly SubsonicPlaylist[],

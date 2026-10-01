@@ -91,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Løser {{count}} artister…',
   myPlaylists: 'Mine spillelister',
   noOtherPlaylists: 'Ingen andre spillelister tilgjengelig',
+  recentTargets: 'Nylig brukt',
   addToPlaylistSuccess: '{{count}} sanger lagt til i {{playlist}}',
   addToPlaylistNoNew: 'Ingen nye sanger for {{playlist}}',
   addToPlaylistError: 'Feil ved å legge til i spilleliste',

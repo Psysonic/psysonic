@@ -31,6 +31,8 @@ export function PersonalisationTab() {
   const setQueueDisplayMode = useAuthStore(s => s.setQueueDisplayMode);
   const preservePlayNextOrder = useAuthStore(s => s.preservePlayNextOrder);
   const setPreservePlayNextOrder = useAuthStore(s => s.setPreservePlayNextOrder);
+  const smartShuffleEnabled = useAuthStore(s => s.smartShuffleEnabled);
+  const setSmartShuffleEnabled = useAuthStore(s => s.setSmartShuffleEnabled);
   const queueRowFavoriteButton = useAuthStore(s => s.queueRowFavoriteButton);
   const setQueueRowFavoriteButton = useAuthStore(s => s.setQueueRowFavoriteButton);
   const advancedSettingsEnabled = useAuthStore(s => s.advancedSettingsEnabled);
@@ -209,6 +211,12 @@ export function PersonalisationTab() {
               desc={t('settings.preservePlayNextOrderDesc')}
               checked={preservePlayNextOrder}
               onChange={setPreservePlayNextOrder}
+            />
+            <SettingsToggle
+              label={t('settings.smartShuffle')}
+              desc={t('settings.smartShuffleDesc')}
+              checked={smartShuffleEnabled}
+              onChange={setSmartShuffleEnabled}
             />
             <SettingsToggle
               label={t('settings.queueRowFavoriteButton')}

@@ -4,6 +4,8 @@ const mocks = vi.hoisted(() => ({
   listeners: new Map<string, (event: { payload: unknown }) => void>(),
   showMainWindow: vi.fn(async () => undefined),
   openSongInfo: vi.fn(),
+  skipToNextAlbum: vi.fn(),
+  skipToPreviousAlbum: vi.fn(),
 }));
 
 vi.mock('@tauri-apps/api/window', () => ({
@@ -61,6 +63,11 @@ vi.mock('@/features/playback/store/queueTrackView', () => ({
   resolveQueueTrack: vi.fn(),
 }));
 
+vi.mock('@/features/playback', () => ({
+  skipToNextAlbum: mocks.skipToNextAlbum,
+  skipToPreviousAlbum: mocks.skipToPreviousAlbum,
+}));
+
 vi.mock('@/features/miniPlayer/utils/miniTrackInfo', () => ({
   toMini: vi.fn(),
 }));
@@ -86,6 +93,21 @@ describe('miniPlayerBridge main-window restore', () => {
     expect(mocks.showMainWindow).toHaveBeenCalledTimes(3);
     expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: 'psy:navigate' }));
     expect(mocks.openSongInfo).toHaveBeenCalledWith('song-1', 'server-1');
+    cleanup();
+  });
+});
+
+describe('miniPlayerBridge album skip', () => {
+  it('runs the album jump for a modifier-click in the mini player', async () => {
+    mocks.listeners.clear();
+    const cleanup = initMiniPlayerBridgeOnMain();
+    await vi.waitFor(() => expect(mocks.listeners.size).toBeGreaterThan(0));
+
+    mocks.listeners.get('mini:control')?.({ payload: 'next-album' });
+    mocks.listeners.get('mini:control')?.({ payload: 'prev-album' });
+
+    expect(mocks.skipToNextAlbum).toHaveBeenCalledOnce();
+    expect(mocks.skipToPreviousAlbum).toHaveBeenCalledOnce();
     cleanup();
   });
 });

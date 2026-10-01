@@ -39,6 +39,12 @@ import {
   resetGaplessProgressTracking,
 } from '@/features/playback/store/gaplessProgressTracking';
 import { showToast } from '@/lib/dom/toast';
+import {
+  consumeSleepBoundaryAtTrackEnd,
+  handleSleepBoundaryProgress,
+  pauseAtSleepBoundaryInsteadOfAdvance,
+} from '@/features/playback/store/sleepBoundary';
+import { isPrivateModeActive } from '@/features/privateMode';
 import { useAuthStore } from '@/store/authStore';
 import { indexKeyBelongsToServer } from '@/store/localPlaybackResolve';
 import { effectiveStreamCapKbps } from '@/features/playback/utils/playback/streamQualityResolve';
@@ -366,9 +372,11 @@ export function handleAudioProgress(
     }
   }
 
-  // Scrobble at the configured percentage: Music Network + Navidrome
+  // Scrobble at the configured percentage: Music Network + Navidrome. Private
+  // mode leaves `scrobbled` unset, so switching it off mid-track still counts
+  // the play once the threshold is (or already was) reached.
   const threshold = useAuthStore.getState().scrobbleThresholdPercent / 100;
-  if (!buffering && progress >= threshold && !store.scrobbled) {
+  if (!buffering && progress >= threshold && !store.scrobbled && !isPrivateModeActive()) {
     usePlayerStore.setState({ scrobbled: true });
     submitPlaybackTrackScrobble(track, store.queueItems, store.queueIndex);
   }
@@ -397,6 +405,10 @@ export function handleAudioProgress(
   // A pending seek target is display-only. Do not preload, crossfade, scrobble,
   // or report remote progress until the engine confirms decoded PCM is audible.
   if (buffering) return;
+
+  // A sleep timer bound to the track or album end pauses just before the
+  // boundary, so nothing below gets to start the next track.
+  if (handleSleepBoundaryProgress(current_time, dur)) return;
 
   // Pre-buffer / pre-chain next track for gapless and crossfade.
   const {
@@ -455,6 +467,8 @@ export function handleAudioProgress(
         // fade, so we leave the gen guard unset and re-check on later ticks — if
         // B readies before A ends we fade then; if never, A plays out (engine
         // timer suppressed) and the source-exhaustion end gives a clean cut.
+        // Trailing silence can put this point before the sleep pause: pause here.
+        if (current_time >= triggerAt && pauseAtSleepBoundaryInsteadOfAdvance()) return;
         if (
           current_time >= triggerAt
           && crossfadeTrimAdvanceGen !== gen
@@ -628,6 +642,8 @@ export function handleAudioEnded(): void {
     currentTime: 0,
     buffered: 0,
   });
+  // The track ran out before its sleep pause landed: stop here, don't move on.
+  if (consumeSleepBoundaryAtTrackEnd(storeBeforeAdvance)) return;
   setTimeout(() => {
     void (async () => {
       if (repeatMode === 'one' && currentTrack) {
@@ -663,6 +679,8 @@ export function handleAudioTrackSwitched(duration: number): void {
   setIsAudioPaused(false);
 
   const store = usePlayerStore.getState();
+  // The engine moved on before the sleep pause landed: pause the new track at once.
+  const pauseAfterSwitch = consumeSleepBoundaryAtTrackEnd(store);
   scrobbleCurrentTrackAtNaturalBoundary();
   if (store.currentTrack?.id) {
     useAuthStore.getState().clearSkipStarManualCountForTrack(
@@ -675,6 +693,7 @@ export function handleAudioTrackSwitched(duration: number): void {
     engineDurationHint: duration,
     source: 'track-switched',
   });
+  if (pauseAfterSwitch) usePlayerStore.getState().pause();
 }
 
 export function handleAudioError(message: string): void {

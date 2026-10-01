@@ -482,6 +482,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Library — track subtitles and album versions from Navidrome, with the version shown under the album title (PR #1662)',
       'Tracklists — play songs on a single or double click, with a row highlight you move by keyboard (PR #1668)',
       'Home — AudioMuse as a source for the "Because you listened" rail (PR #1678)',
+      'Smart shuffle — spread artists and albums when shuffling (PR #1698)',
+      'Now-playing marker on album, artist and playlist cards and sidebar playlists (PR #1700)',
+      'Private mode — listen without scrobbles, play counts, now-playing or listening history (PR #1701)',
+      'Sleep timer — stop at the end of the track or album (PR #1702)',
+      'Player — Alt+click or a shortcut skips to the next or previous album (PR #1703)',
+      'Playlists — recently used targets on top of the add-to-playlist menus (PR #1705)',
+      'Player — notice when playback starts with the volume at 0 (PR #1706)',
     ],
   },
   {

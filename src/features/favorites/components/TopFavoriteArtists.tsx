@@ -7,6 +7,7 @@ import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { useThemeStore } from '@/store/themeStore';
 import { useOverflowTooltip } from '@/lib/hooks/useOverflowTooltip';
 import { useRailScroll } from '@/lib/hooks/useRailScroll';
+import { NowPlayingMarker, useIsNowPlaying } from '@/features/playback';
 
 export interface TopFavoriteArtist {
   id: string;
@@ -83,10 +84,12 @@ function TopFavoriteArtistCard({ artist, isSelected, onClick, songCountLabel }: 
   const artistEntityId = artist.artistId ?? artist.coverArtId;
   const showCardTooltips = useThemeStore(s => s.showCardTooltips);
   const nameTooltip = useOverflowTooltip(artist.name, showCardTooltips);
+  // `id` carries a server prefix when favourites are merged across servers.
+  const isNowPlaying = useIsNowPlaying('artist', artist.artistId ?? artist.id, artist.serverId);
 
   return (
     <div
-      className={`artist-card${isSelected ? ' artist-card-selected' : ''}`}
+      className={`artist-card${isSelected ? ' artist-card-selected' : ''}${isNowPlaying ? ' artist-card--now-playing' : ''}`}
       onClick={onClick}
       style={isSelected ? { outline: '2px solid var(--accent)', outlineOffset: '-2px', borderRadius: 12 } : undefined}
     >
@@ -108,6 +111,7 @@ function TopFavoriteArtistCard({ artist, isSelected, onClick, songCountLabel }: 
         ) : (
           <Users size={32} color="var(--text-muted)" />
         )}
+        {isNowPlaying && <NowPlayingMarker variant="round" />}
       </div>
       <div className="artist-card-info">
         <span className="artist-card-name" {...nameTooltip}>{artist.name}</span>

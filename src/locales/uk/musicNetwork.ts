@@ -18,6 +18,12 @@ export const musicNetwork = {
   primaryNone: 'Немає',
   statusConnected: 'Підключено',
   statusError: 'Потрібне повторне підключення',
+  owedPlays_one: '{{count}} відтворення очікує на надсилання',
+  owedPlays_few: '{{count}} відтворення очікують на надсилання',
+  owedPlays_many: '{{count}} відтворень очікують на надсилання',
+  owedPlays_other: '{{count}} відтворення очікують на надсилання',
+  owedPlaysHelp:
+    'Збережено, оскільки сервіс був недоступний. Буде надіслано автоматично, щойно він знову відповість.',
   scrobbles: '{{n}} скробблів',
   memberSince: 'Учасник з {{year}} року',
   connectFailed: 'Не вдалося підключитися — спробуйте ще раз.',

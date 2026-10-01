@@ -20,6 +20,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BOOT_CRITICAL_BARRELS = [
   { file: join(ROOT, 'src/features/offline/index.ts'), label: 'src/features/offline/index.ts' },
   { file: join(ROOT, 'src/music-network/index.ts'), label: 'src/music-network/index.ts' },
+  { file: join(ROOT, 'src/features/privateMode/index.ts'), label: 'src/features/privateMode/index.ts' },
 ];
 
 const FORBIDDEN_EXPORT_PATTERNS = [

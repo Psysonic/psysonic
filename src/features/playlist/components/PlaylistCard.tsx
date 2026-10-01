@@ -13,6 +13,7 @@ import { useDragSource } from '@/lib/dnd/DragDropContext';
 import { PlaylistCardMainCover, PlaylistSmartCoverCell } from '@/features/playlist/components/PlaylistCoverImages';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { playlistDetailPath, runLatestPlaylistServerIntent } from '@/features/playlist/utils/playlistServer';
+import { NowPlayingMarker, useIsNowPlaying } from '@/features/playback';
 
 interface Props {
   pl: SubsonicPlaylist;
@@ -56,10 +57,11 @@ export default function PlaylistCard({
     label: playlistDisplayName(pl),
   }));
   const dragEnabled = Boolean(draggable) && !selectionMode;
+  const isNowPlaying = useIsNowPlaying('playlist', pl.id, pl.serverId);
 
   return (
     <div
-      className={`album-card${selectionMode && selectedIds.has(playlistKey) ? ' album-card--selected' : ''}${dragEnabled ? ' album-card--draggable' : ''}`}
+      className={`album-card${selectionMode && selectedIds.has(playlistKey) ? ' album-card--selected' : ''}${dragEnabled ? ' album-card--draggable' : ''}${isNowPlaying ? ' album-card--now-playing' : ''}`}
       {...(dragEnabled ? dragHandlers : {})}
       onClick={(e) => {
         if (selectionMode) {
@@ -163,6 +165,8 @@ export default function PlaylistCard({
             <Clock3 size={13} />
           </div>
         )}
+
+        {isNowPlaying && <NowPlayingMarker />}
 
         {/* Play overlay — same pattern as AlbumCard */}
         <div className="album-card-play-overlay">

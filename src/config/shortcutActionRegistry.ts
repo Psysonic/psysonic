@@ -7,6 +7,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import i18n from '@/lib/i18n';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { usePreviewStore } from '@/features/playback/store/previewStore';
+import { skipToNextAlbum, skipToPreviousAlbum } from '@/features/playback/store/albumSkip';
 import { useLyricsStore } from '../store/lyricsStore';
 import { showToast } from '@/lib/dom/toast';
 import { requestOpenSearch } from '@/lib/dom/openSearch';
@@ -92,6 +93,20 @@ export const SHORTCUT_ACTION_REGISTRY = {
       usePlayerStore.getState().previous();
     }),
     cli: { verb: 'prev', description: 'previous track' },
+  },
+  'next-album': {
+    getLabel: t => t('settings.shortcutNextAlbum'),
+    inApp: { defaultBinding: null },
+    global: { defaultBinding: null },
+    runInMiniWindow: true,
+    run: ({ previewPolicy }) => withPreviewPolicy('next', { navigate: () => {}, previewPolicy }, skipToNextAlbum),
+  },
+  'prev-album': {
+    getLabel: t => t('settings.shortcutPrevAlbum'),
+    inApp: { defaultBinding: null },
+    global: { defaultBinding: null },
+    runInMiniWindow: true,
+    run: ({ previewPolicy }) => withPreviewPolicy('prev', { navigate: () => {}, previewPolicy }, skipToPreviousAlbum),
   },
   'volume-up': {
     getLabel: t => t('settings.shortcutVolumeUp'),

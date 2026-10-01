@@ -3,6 +3,7 @@ import { makeTrack } from '@/test/helpers/factories';
 import { resetAllStores } from '@/test/helpers/storeReset';
 import { onInvoke } from '@/test/mocks/tauri';
 import { useAuthStore } from '@/store/authStore';
+import { usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerStore } from './playerStore';
 
 const submitTrackScrobble = vi.hoisted(() => vi.fn());
@@ -47,6 +48,35 @@ describe('handleAudioProgress scrobble threshold', () => {
 
     expect(usePlayerStore.getState().scrobbled).toBe(true);
     expect(submitTrackScrobble).toHaveBeenCalledTimes(1);
+  });
+
+  it('holds the scrobble back in private mode and sends it once private mode is off', () => {
+    const track = makeTrack({ duration: 100 });
+    usePlayerStore.setState({ currentTrack: track, isPlaying: true, scrobbled: false });
+    useAuthStore.setState({ scrobbleThresholdPercent: 50 });
+    usePrivateModeStore.setState({ active: true });
+
+    handleAudioProgress(60, 100);
+    expect(usePlayerStore.getState().scrobbled).toBe(false);
+    expect(submitTrackScrobble).not.toHaveBeenCalled();
+
+    usePrivateModeStore.setState({ active: false });
+    handleAudioProgress(61, 100);
+    expect(usePlayerStore.getState().scrobbled).toBe(true);
+    expect(submitTrackScrobble).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not settle a play at the track boundary in private mode', () => {
+    vi.useFakeTimers();
+    const track = makeTrack({ duration: 100 });
+    usePlayerStore.setState({ currentTrack: track, isPlaying: true, scrobbled: false });
+    usePrivateModeStore.setState({ active: true });
+
+    handleAudioEnded();
+    expect(usePlayerStore.getState().scrobbled).toBe(false);
+    expect(submitTrackScrobble).not.toHaveBeenCalled();
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('settles a high-threshold play when an early crossfade boundary ends progress', () => {

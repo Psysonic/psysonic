@@ -84,6 +84,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
 * AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
 
+### Shuffle spreads artists and albums over the list
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1698](https://github.com/Psysonic/psysonic/pull/1698)**
+
+* Shuffling no longer leaves the order to pure chance: songs by the same artist, and from the same album, are spread over the whole list, so the same artist rarely plays twice in a row. The next song after the one playing is also by a different artist whenever the list allows it.
+* This applies to the shuffle button and to every shuffle-play action for albums, artists, genres, playlists, favourites and the offline library. Radio, Instant Mix and the infinite queue are unchanged.
+* **Settings → Personalisation → Queue Settings → Smart shuffle** is on by default; switching it off brings back the purely random order.
+
+### See at a glance what is playing
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1700](https://github.com/Psysonic/psysonic/pull/1700)**
+
+* Album and artist cards now show a small marker and an accent ring while one of their songs is playing, wherever it was started from. Playlist cards and the playlists in the sidebar show it while the queue you started from that playlist is playing.
+* On Windows and macOS the marker's bars move while music plays; on Linux, while paused, or with reduced motion turned on in the system, it stays a still icon. Screen readers announce the marked album as now playing.
+
+### Private mode
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1701](https://github.com/Psysonic/psysonic/pull/1701)**
+
+* A new mask button in the top bar, left of the server name, turns on private mode. While it is on, nothing you play is shared or recorded: no scrobbles to Last.fm, ListenBrainz and the other Music Network services, no play counts or "last played" on the server, no now playing on the server or on Discord, and no entries in Statistics, Rewind or the play history.
+* Turning it on applies at once, including to the song that is playing; turning it off lets that song count again. Private mode is always off when the app starts.
+
+### Sleep timer: stop at the end of the song or album
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1702](https://github.com/Psysonic/psysonic/pull/1702)**
+
+* The sleep timer now offers **End of track** and **End of album** next to the durations. Playback pauses just before the end, so the next song never starts; pressing play finishes the last moment and carries on.
+* **End of album** pauses where the queue moves on to a different album, so it also works on a shuffled queue. The countdown at the play button shows the time left.
+
+### Skip a whole album at once
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1703](https://github.com/Psysonic/psysonic/pull/1703)**
+
+* Alt+click (Option+click on macOS) on the next or previous button jumps to the next or previous album in the queue, in the player bar, the fullscreen player and the mini player. Going back first returns to the start of the current album.
+* **Settings → Input → Keyboard shortcuts** has **Next album** and **Previous album**, also as global shortcuts; they are unbound until you set them.
+
+### Recently used playlists on top when adding songs
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1705](https://github.com/Psysonic/psysonic/pull/1705)**
+
+* Every **Add to playlist** menu, for songs, albums, artists, selections and playlists, now shows the three playlists you used last under **Recently used**, followed by all playlists in alphabetical order. With fewer than six playlists only the alphabetical list is shown.
+
+### A hint when the volume is at 0
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1706](https://github.com/Psysonic/psysonic/pull/1706)**
+
+* If you start playback while Psysonic's volume is at 0 — clicking a song, next or previous, play, or a radio station — a short notice tells you the volume is down. It does not repeat for every song the queue moves on to.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
@@ -153,6 +201,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1689](https://github.com/Psysonic/psysonic/pull/1689)**
 
 * One of the AppImage's start files could only be run by its owner, so starting the AppImage as another user, for example inside a firejail sandbox, failed with "Permission denied" on systems without WebKitGTK installed. All start files are now executable for every user.
+
+### The Offline Library counts albums with the right plural
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1699](https://github.com/Psysonic/psysonic/pull/1699)**
+
+* The album count on the Offline Library page always used the singular, for example "3 album". It now shows the correct form in every language, including the separate forms that Polish, Romanian, Spanish, French and Italian use for some numbers.
+
+### The sleep timer keeps running when the next song starts
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1702](https://github.com/Psysonic/psysonic/pull/1702)**
+
+* With gapless playback off, which is the default, a sleep timer was cancelled as soon as the next song began, so playback never paused. It now runs on across song changes. Pausing, stopping or starting another song yourself still cancels it.
+
+### Setting a keyboard shortcut no longer binds the key twice
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1704](https://github.com/Psysonic/psysonic/pull/1704)**
+
+* In **Settings → Input**, clicking one shortcut field and then another before pressing a key bound that key to both actions. The same happened after clicking a field again to cancel or leaving the page, where the next key could even be swallowed elsewhere in the app. Only the field you clicked last now waits for a key.
 
 ### Playback resumes after a long pause
 

@@ -91,6 +91,7 @@ export const playlists = {
   loadingArtists: '{{count}} Künstler werden aufgelöst…',
   myPlaylists: 'Meine Playlists',
   noOtherPlaylists: 'Keine anderen Playlists verfügbar',
+  recentTargets: 'Zuletzt benutzt',
   addToPlaylistSuccess: '{{count}} Songs zu {{playlist}} hinzugefügt',
   addToPlaylistNoNew: 'Keine neuen Songs für {{playlist}}',
   addToPlaylistError: 'Fehler beim Hinzufügen zur Playlist',

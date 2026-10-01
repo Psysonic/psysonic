@@ -1,5 +1,5 @@
 import type { Track } from '@/lib/media/trackTypes';
-import { shuffleArray } from '@/lib/util/shuffleArray';
+import { shuffleTracks } from '@/features/playback/utils/playback/shuffleTracks';
 
 /**
  * Shared "play / shuffle / enqueue a fetched track list" core for detail pages whose
@@ -28,7 +28,7 @@ export async function runBulkShuffle(deps: RunBulkPlayDeps): Promise<void> {
   const { fetchTracks, setLoading, playTrack } = deps;
   setLoading(true);
   try {
-    const shuffled = shuffleArray(await fetchTracks());
+    const shuffled = shuffleTracks(await fetchTracks());
     if (shuffled.length > 0) playTrack(shuffled[0], shuffled);
   } finally {
     setLoading(false);

@@ -91,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Разрешаване на {{count}} изпълнителя…',
   myPlaylists: 'Моите плейлисти',
   noOtherPlaylists: 'Няма налични други плейлисти',
+  recentTargets: 'Наскоро използвани',
   addToPlaylistSuccess: '{{count}} песни добавени в {{playlist}}',
   addToPlaylistNoNew: 'Няма нови песни за добавяне в {{playlist}}',
   addToPlaylistError: 'Грешка при добавяне в плейлиста',

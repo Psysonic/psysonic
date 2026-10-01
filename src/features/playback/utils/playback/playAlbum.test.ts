@@ -19,7 +19,7 @@ import { resolveAlbumForActiveServer } from '@/store/mediaResolver';
 import { useOrbitStore } from '@/features/orbit';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { playAlbum, playAlbumShuffled } from '@/features/playback/utils/playback/playAlbum';
-import * as shuffleModule from '@/lib/util/shuffleArray';
+import * as shuffleModule from '@/features/playback/utils/playback/shuffleTracks';
 
 const albumPayload = {
   album: {
@@ -109,7 +109,7 @@ describe('playAlbumShuffled', () => {
       { id: 't1' },
       { id: 't2' },
     ] as Track[];
-    const shuffleSpy = vi.spyOn(shuffleModule, 'shuffleArray').mockReturnValue(shuffled as never);
+    const shuffleSpy = vi.spyOn(shuffleModule, 'shuffleTracks').mockReturnValue(shuffled as never);
 
     await playAlbumShuffled('al-1');
 
@@ -125,7 +125,7 @@ describe('playAlbumShuffled', () => {
       { id: 't3' },
       { id: 't1' },
     ] as Track[];
-    vi.spyOn(shuffleModule, 'shuffleArray').mockReturnValue(shuffled as never);
+    vi.spyOn(shuffleModule, 'shuffleTracks').mockReturnValue(shuffled as never);
 
     await playAlbumShuffled('al-1');
 
@@ -145,7 +145,7 @@ describe('playAlbumShuffled', () => {
       songs: [],
     });
     const { playTrack } = stubPlaybackActions();
-    const shuffleSpy = vi.spyOn(shuffleModule, 'shuffleArray');
+    const shuffleSpy = vi.spyOn(shuffleModule, 'shuffleTracks');
 
     await playAlbumShuffled('al-empty');
 

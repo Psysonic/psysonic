@@ -17,6 +17,7 @@ import MoveToFolderSubmenu from '@/features/contextMenu/components/MoveToFolderS
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { ContextShareMenuItem } from '@/features/share';
+import { withQueueSource } from '@/features/playback';
 
 export default function PlaylistContextItems(props: ContextMenuItemsProps) {
   const {
@@ -41,7 +42,10 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
               <div className="context-menu-item" onClick={() => handleAction(async () => {
                 const tracks = await resolvePlaylistTracks(playlist.id, playlist.serverId);
                 if (tracks.length === 0) return;
-                playTrack(tracks[0], tracks);
+                withQueueSource(
+                  { kind: 'playlist', id: playlist.id, serverId: playlist.serverId },
+                  () => playTrack(tracks[0], tracks),
+                );
               })}>
                 <Play size={14} /> {t('contextMenu.playNow')}
               </div>

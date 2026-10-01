@@ -6,6 +6,7 @@ import {
   type PlaySessionEndReason,
 } from '@/lib/api/library';
 import { libraryIsReady } from '@/lib/library/libraryReady';
+import { isPrivateModeActive } from '@/features/privateMode';
 import { getPlaybackServerId } from '@/features/playback/utils/playback/playbackServer';
 import { emitPlaySessionRecorded } from '@/features/playback/store/playSessionRecorded';
 import { useLibraryIndexStore } from '@/store/libraryIndexStore';
@@ -144,7 +145,9 @@ export async function playListenSessionFinalize(reason: PlaySessionEndReason): P
   const session = open;
   clearOpen();
 
-  if (!session.recordingEnabled || session.listenedSec <= MIN_LISTENED_SEC) {
+  // Private mode is read when the session would be written, not when it opened,
+  // just as the scrobble paths read it when they would send.
+  if (!session.recordingEnabled || session.listenedSec <= MIN_LISTENED_SEC || isPrivateModeActive()) {
     return;
   }
 

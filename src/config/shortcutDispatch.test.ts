@@ -8,11 +8,15 @@ const hoisted = vi.hoisted(() => {
       player.volume = v;
     }),
   };
-  return { player, queueSongRating: vi.fn(), queueSongStar: vi.fn() };
+  return { player, queueSongRating: vi.fn(), queueSongStar: vi.fn(), skipToNextAlbum: vi.fn(), skipToPreviousAlbum: vi.fn() };
 });
 
 vi.mock('@/features/playback/store/playerStore', () => ({
   usePlayerStore: { getState: () => hoisted.player },
+}));
+vi.mock('@/features/playback/store/albumSkip', () => ({
+  skipToNextAlbum: hoisted.skipToNextAlbum,
+  skipToPreviousAlbum: hoisted.skipToPreviousAlbum,
 }));
 vi.mock('@/features/playback/store/pendingStarSync', () => ({
   queueSongRating: hoisted.queueSongRating,
@@ -22,6 +26,7 @@ vi.mock('@/features/playback/store/pendingStarSync', () => ({
 import {
   DEFAULT_GLOBAL_SHORTCUTS,
   GLOBAL_SHORTCUT_ACTIONS,
+  IN_APP_SHORTCUT_ACTIONS,
   executeCliPlayerCommand,
   executeRuntimeAction,
   type GlobalAction,
@@ -136,6 +141,24 @@ describe('start search shortcut action', () => {
       expect(navigate).not.toHaveBeenCalled();
     } finally {
       window.removeEventListener(OPEN_SEARCH_EVENT, handleOpenSearch);
+    }
+  });
+});
+
+describe('album skip shortcut actions', () => {
+  it('routes next-album and prev-album to the album jump', () => {
+    executeRuntimeAction('next-album', { navigate, previewPolicy: 'ignore' });
+    executeRuntimeAction('prev-album', { navigate, previewPolicy: 'ignore' });
+
+    expect(hoisted.skipToNextAlbum).toHaveBeenCalledOnce();
+    expect(hoisted.skipToPreviousAlbum).toHaveBeenCalledOnce();
+  });
+
+  it('offers both as unbound in-app and global shortcuts', () => {
+    for (const id of ['next-album', 'prev-album'] as const) {
+      expect(IN_APP_SHORTCUT_ACTIONS).toContainEqual(expect.objectContaining({ id, defaultBinding: null }));
+      expect(GLOBAL_SHORTCUT_ACTIONS).toContainEqual(expect.objectContaining({ id, defaultBinding: null }));
+      expect(DEFAULT_GLOBAL_SHORTCUTS).not.toHaveProperty(id);
     }
   });
 });

@@ -9,8 +9,8 @@ type SetState = (
  * Discovery + auto-queue settings: mix min-rating thresholds (each
  * clamped to 0…3 stars), random-mix size (snapped to the allowed
  * RANDOM_MIX_SIZE_OPTIONS bucket), lucky-mix sidebar visibility,
- * random-nav style, infinite-queue + preserve-play-next-order
- * toggles.
+ * random-nav style, infinite-queue, preserve-play-next-order and
+ * smart-shuffle toggles.
  */
 export function createDiscoveryActions(set: SetState): Pick<
   AuthState,
@@ -24,6 +24,7 @@ export function createDiscoveryActions(set: SetState): Pick<
   | 'setNowPlayingAtTop'
   | 'setInfiniteQueueEnabled'
   | 'setPreservePlayNextOrder'
+  | 'setSmartShuffleEnabled'
 > {
   return {
     setMixMinRatingFilterEnabled: (v) => set({ mixMinRatingFilterEnabled: v }),
@@ -36,5 +37,6 @@ export function createDiscoveryActions(set: SetState): Pick<
     setNowPlayingAtTop: (v) => set({ nowPlayingAtTop: v }),
     setInfiniteQueueEnabled: (v) => set({ infiniteQueueEnabled: v }),
     setPreservePlayNextOrder: (v) => set({ preservePlayNextOrder: v }),
+    setSmartShuffleEnabled: (v) => set({ smartShuffleEnabled: v }),
   };
 }

@@ -9,6 +9,7 @@ import { useArtistCoverRef } from '@/cover/useLibraryCoverRef';
 import { COVER_DENSE_GRID_MIN_CELL_CSS_PX } from '@/cover/layoutSizes';
 import { useNavigateToArtist } from '@/features/artist/hooks/useNavigateToArtist';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
+import { NowPlayingMarker, useIsNowPlaying } from '@/features/playback';
 
 interface Props {
   artist: SubsonicArtist;
@@ -28,9 +29,10 @@ export default function ArtistCardLocal({ artist, linkQuery, libraryResolve = fa
     [artist.serverId],
   );
   const coverRef = useArtistCoverRef(artist.id, artist.coverArt, coverServerScope, { libraryResolve });
+  const isNowPlaying = useIsNowPlaying('artist', artist.id, artist.serverId);
   return (
     <div
-      className="artist-card"
+      className={`artist-card${isNowPlaying ? ' artist-card--now-playing' : ''}`}
       onClick={() => navigateToArtist(artist.id, {
         serverId: artist.serverId,
         search: linkQuery,
@@ -52,6 +54,7 @@ export default function ArtistCardLocal({ artist, linkQuery, libraryResolve = fa
         ) : (
           <Users size={32} color="var(--text-muted)" />
         )}
+        {isNowPlaying && <NowPlayingMarker variant="round" />}
       </div>
       <div className="artist-card-info">
         <span className="artist-card-name" {...nameTooltip}>{artist.name}</span>

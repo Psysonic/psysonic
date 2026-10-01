@@ -1,4 +1,5 @@
 import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
+import { isPrivateModeActive } from '@/features/privateMode';
 import { useAuthStore } from '@/store/authStore';
 import { getPlaybackProgressSnapshot } from '@/features/playback/store/playbackProgress';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
@@ -26,7 +27,7 @@ export function submitPlaybackTrackScrobble(
 
 export function forceScrobbleCurrentTrack(canScrobble: boolean): boolean {
   if (!useAuthStore.getState().forceScrobbleEnabled) return false;
-  if (!canScrobble || usePreviewStore.getState().previewingId) return false;
+  if (!canScrobble || usePreviewStore.getState().previewingId || isPrivateModeActive()) return false;
 
   const { currentTrack, currentRadio, scrobbled, queueItems, queueIndex, currentTime, isPlaying } =
     usePlayerStore.getState();
@@ -46,7 +47,7 @@ export function forceScrobbleCurrentTrack(canScrobble: boolean): boolean {
 export function scrobbleCurrentTrackAtNaturalBoundary(): boolean {
   const { currentTrack, currentRadio, scrobbled, queueItems, queueIndex } =
     usePlayerStore.getState();
-  if (!currentTrack || currentRadio || scrobbled) return false;
+  if (!currentTrack || currentRadio || scrobbled || isPrivateModeActive()) return false;
 
   usePlayerStore.setState({ scrobbled: true });
   submitPlaybackTrackScrobble(currentTrack, queueItems, queueIndex);
