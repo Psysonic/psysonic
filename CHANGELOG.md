@@ -113,6 +113,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The sleep timer now offers **End of track** and **End of album** next to the durations. Playback pauses just before the end, so the next song never starts; pressing play finishes the last moment and carries on.
 * **End of album** pauses where the queue moves on to a different album, so it also works on a shuffled queue. The countdown at the play button shows the time left.
 
+### Skip a whole album at once
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1703](https://github.com/Psysonic/psysonic/pull/1703)**
+
+* Alt+click (Option+click on macOS) on the next or previous button jumps to the next or previous album in the queue, in the player bar, the fullscreen player and the mini player. Going back first returns to the start of the current album.
+* **Settings → Input → Keyboard shortcuts** has **Next album** and **Previous album**, also as global shortcuts; they are unbound until you set them.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
