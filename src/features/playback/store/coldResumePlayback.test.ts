@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { beginColdResumeRequest, coldResumePlayback, isColdResumePending } from './coldResumePlayback';
 
-vi.mock('@/lib/api/debugLog', () => ({ frontendDebugLog: vi.fn() }));
-
 describe('cold resume recovery', () => {
   it('unpauses only after the positioned paused load completes', async () => {
     let finish!: () => void;

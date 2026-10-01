@@ -215,7 +215,6 @@ pub async fn audio_resume(
             }
             fade_secs.map(|secs| (Arc::clone(&sink), sink_volume_now(&sink), target, secs))
         } else {
-            crate::app_eprintln!("[cold-resume] audio_resume rejected: no current player");
             return Err("audio sink not ready".to_string());
         }
     };
@@ -238,11 +237,6 @@ pub async fn audio_resume(
     if let Some(rs) = state.radio_state.lock().unwrap().as_ref() {
         rs.flags.is_paused.store(false, Ordering::Release);
     }
-    crate::app_eprintln!(
-        "[cold-resume] audio_resume acknowledged gen={} samples={}",
-        state.generation.load(Ordering::SeqCst),
-        state.samples_played.load(Ordering::Relaxed)
-    );
     if notify_playing.unwrap_or(false) {
         use tauri::Emitter;
         let duration = state.current.lock().unwrap().duration_secs;

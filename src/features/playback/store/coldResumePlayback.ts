@@ -1,5 +1,3 @@
-import { frontendDebugLog } from '@/lib/api/debugLog';
-
 let pendingAttempt: symbol | null = null;
 
 export function beginColdResumeRequest(): () => void {
@@ -25,16 +23,13 @@ export async function coldResumePlayback(options: {
 }): Promise<void> {
   for (let retry = 0; retry < 2; retry++) {
     if (!options.isCurrent()) return;
-    frontendDebugLog('cold-resume', `load attempt=${retry + 1}`);
     try {
       await options.loadPaused();
       if (!options.isCurrent()) return;
       await options.resume();
-      frontendDebugLog('cold-resume', `resume acknowledged attempt=${retry + 1}`);
       return;
     } catch (error) {
       if (!options.isCurrent()) return;
-      frontendDebugLog('cold-resume', `failed attempt=${retry + 1} error=${String(error)}`);
       if (retry === 1) throw error;
     }
   }

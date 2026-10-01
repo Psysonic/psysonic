@@ -581,31 +581,20 @@ pub async fn audio_play(
         if !source_seekable {
             return Err("cold resume source is not seekable".to_string());
         }
-        crate::app_eprintln!(
-            "[cold-resume] positioning gen={gen} target={start_secs:.3}s before attach"
-        );
         // A timed-out worker cannot be cancelled. Give it a private counter so
         // a late seek cannot overwrite the progress of a newer track.
         source.replace_sample_counter(Arc::new(std::sync::atomic::AtomicU64::new(0)));
-        source = match crate::cold_resume::position_source(
+        source = crate::cold_resume::position_source(
             source,
             streaming_seek.clone(),
             Duration::from_secs_f64(start_secs),
             Duration::from_secs(3),
         )
-        .await
-        {
-            Ok(source) => source,
-            Err(error) => {
-                crate::app_eprintln!("[cold-resume] positioning failed gen={gen}: {error}");
-                return Err(error);
-            }
-        };
+        .await?;
         if state.generation.load(Ordering::SeqCst) != gen {
             return Ok(());
         }
         source.replace_sample_counter(state.samples_played.clone());
-        crate::app_eprintln!("[cold-resume] positioned gen={gen} target={start_secs:.3}s");
         true
     } else if start_secs > 0.05 && source_seekable {
         let target = Duration::from_secs_f64(start_secs);

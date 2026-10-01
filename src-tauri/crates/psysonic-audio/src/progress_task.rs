@@ -118,10 +118,6 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
         let mut last_progress_emit_pos = -1.0f64;
         let mut last_progress_emit_paused = false;
         let mut last_progress_emit_buffering = false;
-        let mut output_baseline = samples_played.load(Ordering::Relaxed);
-        let mut output_wait_since: Option<Instant> = None;
-        let mut output_observed = false;
-        let mut output_stall_logged = false;
 
         loop {
             // 100 ms tick keeps near-end detection timely for crossfade/gapless
@@ -300,23 +296,6 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
 
             let pending_target = pending_seek.lock().unwrap().target_samples();
             let seeking = pending_target.is_some();
-            if is_paused || seeking {
-                output_baseline = samples_played.load(Ordering::Relaxed);
-                output_wait_since = None;
-            } else if !output_observed {
-                if samples_played.load(Ordering::Relaxed) > output_baseline {
-                    output_observed = true;
-                    crate::app_deprintln!(
-                        "[cold-resume] output advancing gen={gen} samples={audible_samples:.0}"
-                    );
-                } else if output_wait_since.get_or_insert_with(Instant::now).elapsed()
-                    >= Duration::from_secs(5)
-                    && !output_stall_logged
-                {
-                    output_stall_logged = true;
-                    crate::app_eprintln!("[cold-resume] no sample advancement after 5s gen={gen} samples={audible_samples:.0}");
-                }
-            }
             let samples = pending_target.map_or(audible_samples, |target| target as f64);
             let pos_raw = if seeking {
                 effective_position_secs(samples / divisor, &playback_rate).min(dur.max(0.001))
