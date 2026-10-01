@@ -488,6 +488,34 @@ describe('mixed-server play selection', () => {
   });
 });
 
+describe('sleep timer across track changes', () => {
+  it('survives the queue moving on by itself and still pauses at its deadline', () => {
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true });
+    usePlayerStore.getState().schedulePauseIn(1800);
+
+    usePlayerStore.getState().next(false);
+    expect(usePlayerStore.getState().currentTrack?.id).toBe(queue[1].id);
+    expect(usePlayerStore.getState().scheduledPauseAtMs).not.toBeNull();
+
+    invokeMock.mockClear();
+    vi.advanceTimersByTime(1800 * 1000);
+    expect(invokeMock).toHaveBeenCalledWith('audio_pause', expect.anything());
+    expect(usePlayerStore.getState().scheduledPauseAtMs).toBeNull();
+  });
+
+  it('is cancelled by a track the user starts', () => {
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true });
+    usePlayerStore.getState().schedulePauseIn(1800);
+
+    usePlayerStore.getState().next();
+    expect(usePlayerStore.getState().scheduledPauseAtMs).toBeNull();
+  });
+});
+
 describe('private mode', () => {
   afterEach(() => {
     usePrivateModeStore.setState({ active: false });

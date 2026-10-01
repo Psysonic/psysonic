@@ -129,7 +129,8 @@ type GetState = () => PlayerState;
  * 3. **Ghost-command guard** — a playTrack arriving within 500 ms of
  *    the last gapless switch is almost certainly a stale IPC echo.
  *
- * The play body itself: clears all scheduled timers + seek state,
+ * The play body itself: clears seek state (and scheduled timers when the
+ * user started the track),
  * resolves the URL, updates store + normalization snapshot
  * optimistically, invokes the Rust engine, and on success seeks to
  * the visual target if there was a pending one. An `audio_play` failure leaves
@@ -306,8 +307,13 @@ export function runPlayTrack(
     : scopedTrackEarly;
   const scopedQueue = queue ? stampTrackServerIds(queue) : queue;
 
-  clearAllPlaybackScheduleTimers();
-  set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+  // A track the user starts cancels a pending sleep / delayed-start timer; the
+  // queue moving on by itself must not, or a sleep timer would only ever last
+  // until the end of the current track (gapless switches never came through here).
+  if (manual) {
+    clearAllPlaybackScheduleTimers();
+    set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+  }
 
   const gen = bumpPlayGeneration();
   dismissPlaybackSourceFailure();

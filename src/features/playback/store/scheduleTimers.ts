@@ -2,8 +2,8 @@
  * Deferred pause / resume timers — back the `schedulePauseIn` /
  * `scheduleResumeIn` store actions. Encapsulated so the timer handles
  * never leak: every public API either schedules + auto-clears on fire,
- * or clears an outstanding timer outright. Cleared on stop, new track,
- * manual pause/resume.
+ * or clears an outstanding timer outright. Cleared on stop, a track the
+ * user starts, manual pause/resume — not when the queue advances by itself.
  */
 
 let scheduledPauseTimer: number | null = null;
