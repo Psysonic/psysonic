@@ -22,6 +22,39 @@ function reflow(): void {
 
 export type ToastVariant = 'error' | 'info' | 'warning' | 'success';
 
+type Politeness = 'polite' | 'assertive';
+
+/** Long enough for a screen reader to notice the cleared region before the new text lands. */
+const ANNOUNCE_DELAY_MS = 100;
+const liveRegions: Partial<Record<Politeness, HTMLElement>> = {};
+
+/**
+ * Screen readers hear toasts through two live regions that stay in the
+ * document — polite for notices, assertive for errors. Text written into a
+ * region that already exists is announced reliably; a freshly inserted toast is
+ * not, which is why toasts used to go unheard.
+ */
+function liveRegion(politeness: Politeness): HTMLElement {
+  const existing = liveRegions[politeness];
+  if (existing?.isConnected) return existing;
+  const region = document.createElement('div');
+  region.className = 'visually-hidden';
+  region.setAttribute('role', politeness === 'assertive' ? 'alert' : 'status');
+  region.setAttribute('aria-live', politeness);
+  region.setAttribute('aria-atomic', 'true');
+  region.dataset.toastLive = politeness;
+  document.body.appendChild(region);
+  liveRegions[politeness] = region;
+  return region;
+}
+
+function announce(text: string, politeness: Politeness): void {
+  const region = liveRegion(politeness);
+  // Cleared first, so the same message shown twice is announced twice.
+  region.textContent = '';
+  window.setTimeout(() => { region.textContent = text; }, ANNOUNCE_DELAY_MS);
+}
+
 export function showToast(text: string, durationMs = 4000, variant: ToastVariant = 'info'): void {
   const isError = variant === 'error';
   const isWarning = variant === 'warning';
@@ -93,8 +126,11 @@ export function showToast(text: string, durationMs = 4000, variant: ToastVariant
 
   toast.appendChild(icon);
   toast.appendChild(msg);
+  // The live region speaks for it; hiding the visual copy keeps it from being read twice.
+  toast.setAttribute('aria-hidden', 'true');
   document.body.appendChild(toast);
   reflow();
+  announce(text, isError ? 'assertive' : 'polite');
 
   setTimeout(() => {
     toast.remove();
