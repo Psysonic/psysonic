@@ -34,6 +34,8 @@ export const player = {
   delayFmtHr: '{{n}} 時間',
   delayCancel: 'キャンセル',
   delayApply: '適用',
+  delayEndOfTrack: '曲の終わり',
+  delayEndOfAlbum: 'アルバムの終わり',
   next: '次のトラック',
   repeat: 'リピート',
   repeatOff: 'オフ',

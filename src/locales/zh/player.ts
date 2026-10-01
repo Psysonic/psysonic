@@ -34,6 +34,8 @@ export const player = {
   delayFmtHr: '{{n}} 小时',
   delayCancel: '取消',
   delayApply: '应用',
+  delayEndOfTrack: '本曲结束',
+  delayEndOfAlbum: '专辑结束',
   next: '下一首',
   repeat: '重复',
   repeatOff: '关闭',

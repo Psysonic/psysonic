@@ -34,6 +34,8 @@ export const player = {
   delayFmtHr: '{{n}} ó',
   delayCancel: 'Mégse',
   delayApply: 'Alkalmaz',
+  delayEndOfTrack: 'A szám végén',
+  delayEndOfAlbum: 'Az album végén',
   next: 'Következő szám',
   repeat: 'Ismétlés',
   repeatOff: 'Ki',

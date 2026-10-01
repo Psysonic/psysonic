@@ -34,6 +34,8 @@ export const player = {
   delayFmtHr: '{{n}} Std',
   delayCancel: 'Abbrechen',
   delayApply: 'Übernehmen',
+  delayEndOfTrack: 'Ende des Titels',
+  delayEndOfAlbum: 'Ende des Albums',
   next: 'Nächster Titel',
   repeat: 'Wiederholen',
   repeatOff: 'Aus',

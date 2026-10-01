@@ -34,6 +34,8 @@ export const player = {
   delayFmtHr: '{{n}} t',
   delayCancel: 'Avbryt',
   delayApply: 'Bruk',
+  delayEndOfTrack: 'Slutten av sporet',
+  delayEndOfAlbum: 'Slutten av albumet',
   next: 'Neste spor',
   repeat: 'Gjenta',
   repeatOff: 'Av',

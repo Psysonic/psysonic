@@ -34,6 +34,8 @@ export const player = {
   delayFmtHr: '{{n}} ч',
   delayCancel: 'Отказ',
   delayApply: 'Приложи',
+  delayEndOfTrack: 'Края на песента',
+  delayEndOfAlbum: 'Края на албума',
   next: 'Следваща песен',
   repeat: 'Повторение',
   repeatOff: 'Изключено',
