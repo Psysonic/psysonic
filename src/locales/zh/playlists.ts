@@ -91,6 +91,7 @@ export const playlists = {
   loadingArtists: '正在解析 {{count}} 位艺术家…',
   myPlaylists: '我的播放列表',
   noOtherPlaylists: '没有其他可用播放列表',
+  recentTargets: '最近使用',
   addToPlaylistSuccess: '{{count}} 首歌曲已添加到 {{playlist}}',
   addToPlaylistNoNew: '{{playlist}} 没有新歌曲',
   addToPlaylistError: '添加到播放列表时出错',

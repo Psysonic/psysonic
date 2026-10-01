@@ -93,6 +93,7 @@ export const playlists = {
   loadingArtists: 'Визначення {{count}} виконавців…',
   myPlaylists: 'Мої плейлісти',
   noOtherPlaylists: 'Немає інших доступних плейлістів',
+  recentTargets: 'Нещодавні',
   addToPlaylistSuccess: 'Додано {{count}} пісень до {{playlist}}',
   addToPlaylistNoNew: 'Немає нових пісень для додавання до {{playlist}}',
   addToPlaylistError: 'Помилка додавання до плейліста',

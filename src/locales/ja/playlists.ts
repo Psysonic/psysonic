@@ -91,6 +91,7 @@ export const playlists = {
   loadingArtists: '{{count}} 人のアーティストを解決中…',
   myPlaylists: '自分のプレイリスト',
   noOtherPlaylists: '他に利用できるプレイリストはありません',
+  recentTargets: '最近使用',
   addToPlaylistSuccess: '{{count}} 曲を {{playlist}} に追加しました',
   addToPlaylistNoNew: '{{playlist}} に追加する新しい曲はありません',
   addToPlaylistError: 'プレイリストへの追加中にエラー',

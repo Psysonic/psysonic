@@ -91,6 +91,7 @@ export const playlists = {
   loadingArtists: '{{count}} előadó feloldása…',
   myPlaylists: 'Saját lejátszási listáim',
   noOtherPlaylists: 'Nincs más elérhető lejátszási lista',
+  recentTargets: 'Legutóbb használt',
   addToPlaylistSuccess: '{{count}} dal hozzáadva ehhez: {{playlist}}',
   addToPlaylistNoNew: 'Nincs új hozzáadandó dal ehhez: {{playlist}}',
   addToPlaylistError: 'Hiba a lejátszási listához adáskor',

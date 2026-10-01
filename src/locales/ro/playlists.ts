@@ -91,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Se rezolvă {{count}} artiști…',
   myPlaylists: 'Playlisturile mele',
   noOtherPlaylists: 'Niciun alt playlist disponibil',
+  recentTargets: 'Folosite recent',
   addToPlaylistSuccess: '{{count}} piese adăugate în {{playlist}}',
   addToPlaylistNoNew: 'Nicio piesă nouă adăugată în {{playlist}}',
   addToPlaylistError: 'Eroare la adăugarea în playlist',
