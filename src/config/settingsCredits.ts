@@ -489,6 +489,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Player — Alt+click or a shortcut skips to the next or previous album (PR #1703)',
       'Playlists — recently used targets on top of the add-to-playlist menus (PR #1705)',
       'Player — notice when playback starts with the volume at 0 (PR #1706)',
+      'Fullscreen player — opens on its own after a stretch without input (PR #1710)',
     ],
   },
   {

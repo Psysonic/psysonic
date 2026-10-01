@@ -132,6 +132,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * If you start playback while Psysonic's volume is at 0 — clicking a song, next or previous, play, or a radio station — a short notice tells you the volume is down. It does not repeat for every song the queue moves on to.
 
+### The fullscreen player can open on its own
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1710](https://github.com/Psysonic/psysonic/pull/1710)**
+
+* **Settings → Appearance → Fullscreen player → Open automatically** opens the fullscreen player after 1 to 30 minutes without mouse or keyboard input while a song plays and Psysonic's window is on screen. It is off by default, and it does not open for internet radio.
+* The next mouse movement, click or key press closes it again without triggering anything underneath. Opening the fullscreen player yourself works as before.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
