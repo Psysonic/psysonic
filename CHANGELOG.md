@@ -106,6 +106,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A new mask button in the top bar, left of the server name, turns on private mode. While it is on, nothing you play is shared or recorded: no scrobbles to Last.fm, ListenBrainz and the other Music Network services, no play counts or "last played" on the server, no now playing on the server or on Discord, and no entries in Statistics, Rewind or the play history.
 * Turning it on applies at once, including to the song that is playing; turning it off lets that song count again. Private mode is always off when the app starts.
 
+### Sleep timer: stop at the end of the song or album
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1702](https://github.com/Psysonic/psysonic/pull/1702)**
+
+* The sleep timer now offers **End of track** and **End of album** next to the durations. Playback pauses just before the end, so the next song never starts; pressing play finishes the last moment and carries on.
+* **End of album** pauses where the queue moves on to a different album, so it also works on a shuffled queue. The countdown at the play button shows the time left.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
@@ -181,6 +188,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1699](https://github.com/Psysonic/psysonic/pull/1699)**
 
 * The album count on the Offline Library page always used the singular, for example "3 album". It now shows the correct form in every language, including the separate forms that Polish, Romanian, Spanish, French and Italian use for some numbers.
+
+### The sleep timer keeps running when the next song starts
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1702](https://github.com/Psysonic/psysonic/pull/1702)**
+
+* With gapless playback off, which is the default, a sleep timer was cancelled as soon as the next song began, so playback never paused. It now runs on across song changes. Pausing, stopping or starting another song yourself still cancels it.
 
 ## [1.55.0]
 

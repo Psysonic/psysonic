@@ -485,6 +485,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Smart shuffle — spread artists and albums when shuffling (PR #1698)',
       'Now-playing marker on album, artist and playlist cards and sidebar playlists (PR #1700)',
       'Private mode — listen without scrobbles, play counts, now-playing or listening history (PR #1701)',
+      'Sleep timer — stop at the end of the track or album (PR #1702)',
     ],
   },
   {
