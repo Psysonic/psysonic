@@ -39,6 +39,7 @@ export const player = {
   next: 'Următoarea Piesă',
   nextAlbumHint: '{{key}}+clic: albumul următor',
   prevAlbumHint: '{{key}}+clic: albumul anterior',
+  volumeZeroHint: 'Volumul este la 0 – mărește-l ca să auzi ceva.',
   repeat: 'Repetă',
   repeatOff: 'Oprit',
   repeatAll: 'Tot',

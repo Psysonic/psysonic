@@ -39,6 +39,7 @@ export const player = {
   next: 'Nächster Titel',
   nextAlbumHint: '{{key}}+Klick: nächstes Album',
   prevAlbumHint: '{{key}}+Klick: vorheriges Album',
+  volumeZeroHint: 'Die Lautstärke steht auf 0 – zum Hören lauter stellen.',
   repeat: 'Wiederholen',
   repeatOff: 'Aus',
   repeatAll: 'Alle',

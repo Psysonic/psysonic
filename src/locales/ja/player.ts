@@ -39,6 +39,7 @@ export const player = {
   next: '次のトラック',
   nextAlbumHint: '{{key}}+クリック: 次のアルバム',
   prevAlbumHint: '{{key}}+クリック: 前のアルバム',
+  volumeZeroHint: '音量が 0 です。音を聞くには音量を上げてください。',
   repeat: 'リピート',
   repeatOff: 'オフ',
   repeatAll: 'すべて',

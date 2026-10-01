@@ -39,6 +39,7 @@ export const player = {
   next: '下一首',
   nextAlbumHint: '{{key}}+点击：下一张专辑',
   prevAlbumHint: '{{key}}+点击：上一张专辑',
+  volumeZeroHint: '音量为 0，请调高音量才能听到声音。',
   repeat: '重复',
   repeatOff: '关闭',
   repeatAll: '全部',

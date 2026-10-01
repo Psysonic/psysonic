@@ -39,6 +39,7 @@ export const player = {
   next: 'Volgend nummer',
   nextAlbumHint: '{{key}}+klik: volgend album',
   prevAlbumHint: '{{key}}+klik: vorig album',
+  volumeZeroHint: 'Het volume staat op 0 – zet het hoger om iets te horen.',
   repeat: 'Herhalen',
   repeatOff: 'Uit',
   repeatAll: 'Alles',

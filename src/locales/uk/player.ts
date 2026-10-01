@@ -39,6 +39,7 @@ export const player = {
   next: 'Наступний трек',
   nextAlbumHint: '{{key}}+клік: наступний альбом',
   prevAlbumHint: '{{key}}+клік: попередній альбом',
+  volumeZeroHint: 'Гучність на нулі — збільште її, щоб щось почути.',
   repeat: 'Повторення',
   repeatOff: 'Вимкнено',
   repeatAll: 'Все',

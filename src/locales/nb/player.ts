@@ -39,6 +39,7 @@ export const player = {
   next: 'Neste spor',
   nextAlbumHint: '{{key}}+klikk: neste album',
   prevAlbumHint: '{{key}}+klikk: forrige album',
+  volumeZeroHint: 'Volumet står på 0 – skru det opp for å høre noe.',
   repeat: 'Gjenta',
   repeatOff: 'Av',
   repeatAll: 'Alle',

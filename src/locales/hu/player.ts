@@ -39,6 +39,7 @@ export const player = {
   next: 'Következő szám',
   nextAlbumHint: '{{key}}+kattintás: következő album',
   prevAlbumHint: '{{key}}+kattintás: előző album',
+  volumeZeroHint: 'A hangerő 0-n áll – hangosítsd fel, hogy hallj valamit.',
   repeat: 'Ismétlés',
   repeatOff: 'Ki',
   repeatAll: 'Mind',
