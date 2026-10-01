@@ -154,6 +154,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * One of the AppImage's start files could only be run by its owner, so starting the AppImage as another user, for example inside a firejail sandbox, failed with "Permission denied" on systems without WebKitGTK installed. All start files are now executable for every user.
 
+### Playback resumes after a long pause
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1707](https://github.com/Psysonic/psysonic/pull/1707)**
+
+* Pressing Play after a long pause could leave playback silent, as reported on Windows 10. Resume now restores the saved position before starting audio, including when the output device was released while idle.
+* If recovery fails, Psysonic retries once, then stays paused with the saved position instead of silently restarting the track from the beginning. Pause or Stop during loading cancels the pending resume.
+
 ## [1.55.0]
 
 ## Added
