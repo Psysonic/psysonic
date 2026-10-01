@@ -76,7 +76,7 @@ export function createMiscActions(set: SetState, get: GetState): Pick<
       prepareRadioPlaybackFromUserGesture();
       const generation = bumpPlayGeneration();
       clearAllPlaybackScheduleTimers();
-      set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+      set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
       setIsAudioPaused(false);
       clearRadioReconnectTimer();
       clearPreloadingIds();

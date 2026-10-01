@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import { X, Moon, Sunrise } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import type { SleepBoundary } from '@/features/playback/store/playerStoreTypes';
+import { scheduleSleepBoundaryPause } from '@/features/playback/store/sleepBoundary';
 import { useAuthStore } from '@/store/authStore';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -58,6 +60,7 @@ export default function PlaybackDelayModal({ open, onClose, anchorRef }: Playbac
     currentTrack,
     currentRadio,
     scheduledPauseAtMs,
+    scheduledPauseBoundary,
     scheduledResumeAtMs,
     schedulePauseIn,
     scheduleResumeIn,
@@ -69,6 +72,7 @@ export default function PlaybackDelayModal({ open, onClose, anchorRef }: Playbac
       currentTrack: s.currentTrack,
       currentRadio: s.currentRadio,
       scheduledPauseAtMs: s.scheduledPauseAtMs,
+      scheduledPauseBoundary: s.scheduledPauseBoundary,
       scheduledResumeAtMs: s.scheduledResumeAtMs,
       schedulePauseIn: s.schedulePauseIn,
       scheduleResumeIn: s.scheduleResumeIn,
@@ -129,6 +133,10 @@ export default function PlaybackDelayModal({ open, onClose, anchorRef }: Playbac
 
   const canPauseLater = isPlaying && (!!currentTrack || !!currentRadio);
   const canStartLater = !isPlaying && (!!currentTrack || !!currentRadio);
+  // Track and album ends only exist for tracks; a radio stream has neither.
+  const canPauseAtEnd = canPauseLater && !!currentTrack && !currentRadio;
+  const boundaryLabel = (boundary: SleepBoundary) =>
+    boundary === 'track' ? t('player.delayEndOfTrack') : t('player.delayEndOfAlbum');
 
   const customSeconds = useMemo(() => {
     const minutes = parsePlaybackDelayCustomMinutes(customMinutes);
@@ -143,6 +151,11 @@ export default function PlaybackDelayModal({ open, onClose, anchorRef }: Playbac
 
   const applyStart = (sec: number) => {
     scheduleResumeIn(sec);
+    onClose();
+  };
+
+  const applyBoundary = (boundary: SleepBoundary) => {
+    scheduleSleepBoundaryPause(boundary);
     onClose();
   };
 
@@ -224,6 +237,7 @@ export default function PlaybackDelayModal({ open, onClose, anchorRef }: Playbac
             {scheduledAt != null && (
               <div className="playback-delay-section__head playback-delay-section__head--tight">
                 <span className="playback-delay-section__countdown">
+                  {canPauseLater && scheduledPauseBoundary ? `${boundaryLabel(scheduledPauseBoundary)} · ` : ''}
                   {t('player.delayIn')} {formatPlaybackScheduleRemaining(scheduledAt, nowTick)}
                 </span>
                 {clearScheduled && (
@@ -236,6 +250,23 @@ export default function PlaybackDelayModal({ open, onClose, anchorRef }: Playbac
                     {t('player.delayCancel')}
                   </button>
                 )}
+              </div>
+            )}
+            {canPauseAtEnd && (
+              <div className="playback-delay-chips playback-delay-chips--compact">
+                {(['track', 'album'] as const)
+                  .filter(boundary => boundary === 'track' || !!currentTrack?.albumId)
+                  .map(boundary => (
+                    <button
+                      key={`end-${boundary}`}
+                      type="button"
+                      className={`playback-delay-chip${scheduledPauseBoundary === boundary ? ' playback-delay-chip--on' : ''}`}
+                      aria-pressed={scheduledPauseBoundary === boundary}
+                      onClick={() => applyBoundary(boundary)}
+                    >
+                      {boundaryLabel(boundary)}
+                    </button>
+                  ))}
               </div>
             )}
             <div

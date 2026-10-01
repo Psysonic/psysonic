@@ -6,6 +6,9 @@ import type { ResolvedStreamFormat } from '@/lib/media/streamFormat';
 // it the other way round closes a cycle through playTrackAction.
 import type { QueueSource } from '@/features/playback/store/pendingQueueSource';
 
+/** Where a music-bound sleep timer pauses: end of the track, or end of the album. */
+export type SleepBoundary = 'track' | 'album';
+
 export interface PlayerState {
   currentTrack: Track | null;
   /**
@@ -115,6 +118,12 @@ export interface PlayerState {
   scheduledPauseAtMs: number | null;
   /** Wall-clock ms when the current auto-pause timer was armed (for progress-ring totals). */
   scheduledPauseStartMs: number | null;
+  /**
+   * Sleep timer bound to the music rather than the clock: pause at the end of
+   * the track, or where the queue moves on to another album. While set,
+   * `scheduledPauseAtMs` is only an estimate for the countdown.
+   */
+  scheduledPauseBoundary: SleepBoundary | null;
   /** Wall-clock ms when auto-resume fires, or null. */
   scheduledResumeAtMs: number | null;
   /** Wall-clock ms when the current auto-resume timer was armed (for progress-ring totals). */

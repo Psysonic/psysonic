@@ -72,6 +72,7 @@ export function createTransportLightActions(set: SetState, get: GetState): Pick<
         enginePreloadedTrackId: null,
         scheduledPauseAtMs: null,
         scheduledPauseStartMs: null,
+        scheduledPauseBoundary: null,
         scheduledResumeAtMs: null,
         scheduledResumeStartMs: null,
       });
@@ -101,7 +102,7 @@ export function createTransportLightActions(set: SetState, get: GetState): Pick<
           void flushQueueSyncToServer(s.queueItems, s.currentTrack, s.currentTime);
         }
       }
-      set({ isPlaying: false, scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+      set({ isPlaying: false, scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
       markPlaybackIdle();
     },
 

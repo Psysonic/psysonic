@@ -312,7 +312,7 @@ export function runPlayTrack(
   // until the end of the current track (gapless switches never came through here).
   if (manual) {
     clearAllPlaybackScheduleTimers();
-    set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+    set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
   }
 
   const gen = bumpPlayGeneration();

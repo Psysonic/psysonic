@@ -82,6 +82,7 @@ export const usePlayerStore = create<PlayerState>()(
       isFullscreenOpen: false,
       scheduledPauseAtMs: null,
       scheduledPauseStartMs: null,
+      scheduledPauseBoundary: null,
       scheduledResumeAtMs: null,
       scheduledResumeStartMs: null,
       repeatMode: initialPlayerPrefs.repeatMode,

@@ -470,3 +470,63 @@ describe('initAudioListeners — listener lifecycle (regression §4.2)', () => {
     second();
   });
 });
+
+describe('sleep timer at the end of the track or album', () => {
+  beforeEach(() => {
+    // Clear the ghost guard that drops audio:ended right after a gapless switch.
+    vi.advanceTimersByTime(1000);
+  });
+
+  it('pauses just before the end instead of moving on', () => {
+    const queue = makeTracks(3, () => ({ duration: 100 }));
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true, scheduledPauseBoundary: 'track' });
+
+    emitTauriEvent('audio:progress', { current_time: 99.8, duration: 100 });
+
+    const s = usePlayerStore.getState();
+    expect(s.isPlaying).toBe(false);
+    expect(s.currentTrack?.id).toBe(queue[0].id);
+    expect(s.scheduledPauseBoundary).toBeNull();
+  });
+
+  it('stops on the boundary track when it ran out before the pause landed', () => {
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true, scheduledPauseBoundary: 'track' });
+
+    emitTauriEvent('audio:ended', undefined);
+    vi.advanceTimersByTime(500);
+
+    const s = usePlayerStore.getState();
+    expect(s.currentTrack?.id).toBe(queue[0].id);
+    expect(s.isPlaying).toBe(false);
+    expect(s.scheduledPauseBoundary).toBeNull();
+  });
+
+  it('moves on inside the album and keeps the timer for its last track', () => {
+    const queue = makeTracks(3, i => ({ albumId: i < 2 ? 'album-a' : 'album-b' }));
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true, scheduledPauseBoundary: 'album' });
+
+    emitTauriEvent('audio:ended', undefined);
+    vi.advanceTimersByTime(500);
+
+    const s = usePlayerStore.getState();
+    expect(s.currentTrack?.id).toBe(queue[1].id);
+    expect(s.scheduledPauseBoundary).toBe('album');
+  });
+
+  it('pauses the next track at once when the engine switched before the pause landed', () => {
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true, repeatMode: 'off', scheduledPauseBoundary: 'track' });
+
+    emitTauriEvent('audio:track_switched', queue[1].duration);
+
+    const s = usePlayerStore.getState();
+    expect(s.currentTrack?.id).toBe(queue[1].id);
+    expect(s.isPlaying).toBe(false);
+    expect(s.scheduledPauseBoundary).toBeNull();
+  });
+});

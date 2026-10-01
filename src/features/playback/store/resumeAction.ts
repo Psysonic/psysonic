@@ -77,7 +77,7 @@ type GetState = () => PlayerState;
 export function runResume(set: SetState, get: GetState): void {
   clearAllPlaybackScheduleTimers();
   markPlaybackActive();
-  set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+  set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
 
   // Orbit guest: resume means "catch up to the host's live stream".
   // The user hit pause at some earlier point; resuming shouldn't drop
