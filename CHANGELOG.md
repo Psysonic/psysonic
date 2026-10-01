@@ -120,6 +120,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Alt+click (Option+click on macOS) on the next or previous button jumps to the next or previous album in the queue, in the player bar, the fullscreen player and the mini player. Going back first returns to the start of the current album.
 * **Settings → Input → Keyboard shortcuts** has **Next album** and **Previous album**, also as global shortcuts; they are unbound until you set them.
 
+### Recently used playlists on top when adding songs
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1705](https://github.com/Psysonic/psysonic/pull/1705)**
+
+* Every **Add to playlist** menu, for songs, albums, artists, selections and playlists, now shows the three playlists you used last under **Recently used**, followed by all playlists in alphabetical order. With fewer than six playlists only the alphabetical list is shown.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again

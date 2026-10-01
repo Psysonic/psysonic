@@ -487,6 +487,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Private mode — listen without scrobbles, play counts, now-playing or listening history (PR #1701)',
       'Sleep timer — stop at the end of the track or album (PR #1702)',
       'Player — Alt+click or a shortcut skips to the next or previous album (PR #1703)',
+      'Playlists — recently used targets on top of the add-to-playlist menus (PR #1705)',
     ],
   },
   {
