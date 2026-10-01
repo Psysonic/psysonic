@@ -37,4 +37,6 @@ export { shuffleTracks } from './utils/playback/shuffleTracks';
 export { NowPlayingMarker } from './components/NowPlayingMarker';
 export { useIsNowPlaying } from './hooks/useIsNowPlaying';
 export { withQueueSource } from './store/pendingQueueSource';
+export { skipToNextAlbum, skipToPreviousAlbum } from './store/albumSkip';
+export { albumSkipTooltip } from './utils/albumSkipTooltip';
 export { usePlayQueueSyncSettingsStore } from './store/playQueueSyncSettingsStore';

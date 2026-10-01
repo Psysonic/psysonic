@@ -1,4 +1,4 @@
-import { queueSongStar, playbackCoverArtForAlbum, usePlayerStore, usePlaybackLibraryNavigate, TrackArtistLinks, ScrobbleActionButton } from '@/features/playback';
+import { queueSongStar, playbackCoverArtForAlbum, usePlayerStore, usePlaybackLibraryNavigate, TrackArtistLinks, ScrobbleActionButton, skipToNextAlbum, skipToPreviousAlbum, albumSkipTooltip } from '@/features/playback';
 import { usePlaybackCoverArt } from '@/cover/usePlaybackCoverArt';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
@@ -250,11 +250,11 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
           <button className="fs-btn fs-btn-sm" onClick={stop} aria-label={t('player.stop')} data-tooltip={t('player.stop')}>
             <Square size={13} fill="currentColor" />
           </button>
-          <button className="fs-btn" onClick={() => previous()} aria-label={t('player.prev')} data-tooltip={t('player.prev')}>
+          <button className="fs-btn" onClick={e => (e.altKey ? skipToPreviousAlbum() : previous())} aria-label={t('player.prev')} data-tooltip={albumSkipTooltip(t, 'prev')}>
             <SkipBack size={19} />
           </button>
           <FsPlayBtn controlsAnchorRef={fsControlsRef} />
-          <button className="fs-btn" onClick={() => next()} aria-label={t('player.next')} data-tooltip={t('player.next')}>
+          <button className="fs-btn" onClick={e => (e.altKey ? skipToNextAlbum() : next())} aria-label={t('player.next')} data-tooltip={albumSkipTooltip(t, 'next')}>
             <SkipForward size={19} />
           </button>
           <button

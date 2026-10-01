@@ -4,7 +4,7 @@ import {
   SkipBack, SkipForward, Play, Pause, Repeat, Repeat1,
   ListMusic, MessageSquare, Shrink,
 } from 'lucide-react';
-import { usePlayerStore, type PlaybackProgressSnapshot, usePlaybackLibraryNavigate, TrackArtistLinks, ScrobbleActionButton } from '@/features/playback';
+import { usePlayerStore, type PlaybackProgressSnapshot, usePlaybackLibraryNavigate, TrackArtistLinks, ScrobbleActionButton, skipToNextAlbum, skipToPreviousAlbum } from '@/features/playback';
 import { FsVolume } from './FsVolume';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import { usePlaybackCoverArt } from '@/cover/usePlaybackCoverArt';
@@ -112,11 +112,11 @@ export default function FullscreenPlayerPrism({ onClose }: { onClose: () => void
       <div className="fsp2-bar">
         {/* Transport + time */}
         <div className="fsp2-bar-left" data-visualizer-transport="fullscreen">
-          <button className="fsp2-btn" onClick={previous} aria-label={t('player.prev')}><SkipBack size={18} /></button>
+          <button className="fsp2-btn" onClick={e => (e.altKey ? skipToPreviousAlbum() : previous())} aria-label={t('player.prev')}><SkipBack size={18} /></button>
           <button className="fsp2-btn fsp2-btn-play" onClick={togglePlay} aria-label={isPlaying ? t('player.pause') : t('player.play')}>
             {isPlaying ? <Pause size={20} /> : <Play size={20} />}
           </button>
-          <button className="fsp2-btn" onClick={() => next()} aria-label={t('player.next')}><SkipForward size={18} /></button>
+          <button className="fsp2-btn" onClick={e => (e.altKey ? skipToNextAlbum() : next())} aria-label={t('player.next')}><SkipForward size={18} /></button>
           <button
             className={`fsp2-btn${repeatMode !== 'off' ? ' fsp2-btn-active' : ''}`}
             onClick={toggleRepeat}

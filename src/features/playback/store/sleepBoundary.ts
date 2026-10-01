@@ -1,4 +1,4 @@
-import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
+import type { QueueItemRef } from '@/lib/media/trackTypes';
 import { sanitizePauseResumeFadeSecs } from '@/lib/audio/pauseResumeFade';
 import { useAuthStore } from '@/store/authStore';
 import type { AuthState } from '@/store/authStoreTypes';
@@ -17,6 +17,7 @@ import {
 } from '@/features/playback/utils/playback/autodjAutoAdvance';
 import { playbackProfileIdForTrack } from '@/features/playback/utils/playback/playbackServer';
 import { queueTrackIdentityKey } from '@/features/playback/utils/playback/queueIdentity';
+import { sameQueueAlbum } from '@/features/playback/utils/playback/queueAlbum';
 
 /**
  * Sleep timer bound to the music: pause at the end of the track, or where the
@@ -38,11 +39,6 @@ const ESTIMATE_DRIFT_MS = 2000;
 
 type BoundaryState = Pick<PlayerState, 'currentTrack' | 'queueItems' | 'queueIndex' | 'repeatMode'>;
 
-function sameAlbum(a: Track, aRef: QueueItemRef | undefined, b: Track, bRef: QueueItemRef | undefined): boolean {
-  if (!a.albumId || !b.albumId || a.albumId !== b.albumId) return false;
-  return playbackProfileIdForTrack(a, aRef) === playbackProfileIdForTrack(b, bRef);
-}
-
 /** The ref that plays after the current one, as the queue will actually move. */
 function nextRefFor(state: BoundaryState): QueueItemRef | null {
   if (state.repeatMode === 'one') return state.queueItems[state.queueIndex] ?? null;
@@ -56,7 +52,7 @@ export function sleepBoundaryEndsWithCurrentTrack(boundary: SleepBoundary, state
   if (!current) return true;
   const nextRef = nextRefFor(state);
   if (!nextRef) return true;
-  return !sameAlbum(current, state.queueItems[state.queueIndex], resolveQueueTrack(nextRef), nextRef);
+  return !sameQueueAlbum(current, state.queueItems[state.queueIndex], resolveQueueTrack(nextRef), nextRef);
 }
 
 /** Seconds before the end of the boundary track at which the pause starts. */
@@ -85,7 +81,7 @@ export function sleepBoundaryRemainingTrackSec(
     for (let i = state.queueIndex + 1; i < state.queueItems.length; i++) {
       const ref = state.queueItems[i];
       const track = resolveQueueTrack(ref);
-      if (!sameAlbum(prev, prevRef, track, ref)) break;
+      if (!sameQueueAlbum(prev, prevRef, track, ref)) break;
       total += Math.max(0, track.duration || 0);
       prev = track;
       prevRef = ref;

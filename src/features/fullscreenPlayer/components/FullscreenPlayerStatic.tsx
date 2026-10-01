@@ -4,7 +4,7 @@ import {
   Shuffle, ListMusic, ChevronDown, Star, MicVocal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ScrobbleActionButton, usePlayerStore } from '@/features/playback';
+import { ScrobbleActionButton, usePlayerStore, skipToNextAlbum, skipToPreviousAlbum, albumSkipTooltip } from '@/features/playback';
 import { queueSongStar, queueSongRating } from '@/features/playback/store/pendingStarSync';
 import { TrackArtistLinks, usePlaybackLibraryNavigate } from '@/features/playback';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
@@ -260,14 +260,14 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
           data-visualizer-transport="fullscreen"
         >
           <div className="fsp-transport">
-            <button className="fsp-btn" onClick={() => previous()} aria-label={t('player.prev')} data-tooltip={t('player.prev')}>
+            <button className="fsp-btn" onClick={e => (e.altKey ? skipToPreviousAlbum() : previous())} aria-label={t('player.prev')} data-tooltip={albumSkipTooltip(t, 'prev')}>
               <SkipBack size={20} />
             </button>
             <FsPlayBtn controlsAnchorRef={controlsRef} />
             <button className="fsp-btn fsp-btn-sm" onClick={stop} aria-label={t('player.stop')} data-tooltip={t('player.stop')}>
               <Square size={14} fill="currentColor" />
             </button>
-            <button className="fsp-btn" onClick={() => next()} aria-label={t('player.next')} data-tooltip={t('player.next')}>
+            <button className="fsp-btn" onClick={e => (e.altKey ? skipToNextAlbum() : next())} aria-label={t('player.next')} data-tooltip={albumSkipTooltip(t, 'next')}>
               <SkipForward size={20} />
             </button>
           </div>
