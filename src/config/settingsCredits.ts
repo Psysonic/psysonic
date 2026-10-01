@@ -488,6 +488,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Sleep timer — stop at the end of the track or album (PR #1702)',
       'Player — Alt+click or a shortcut skips to the next or previous album (PR #1703)',
       'Playlists — recently used targets on top of the add-to-playlist menus (PR #1705)',
+      'Player — notice when playback starts with the volume at 0 (PR #1706)',
     ],
   },
   {

@@ -126,6 +126,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Every **Add to playlist** menu, for songs, albums, artists, selections and playlists, now shows the three playlists you used last under **Recently used**, followed by all playlists in alphabetical order. With fewer than six playlists only the alphabetical list is shown.
 
+### A hint when the volume is at 0
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1706](https://github.com/Psysonic/psysonic/pull/1706)**
+
+* If you start playback while Psysonic's volume is at 0 — clicking a song, next or previous, play, or a radio station — a short notice tells you the volume is down. It does not repeat for every song the queue moves on to.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
