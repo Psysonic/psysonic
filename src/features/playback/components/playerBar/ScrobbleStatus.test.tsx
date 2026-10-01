@@ -7,6 +7,7 @@ import { emitPlaybackProgress } from '@/features/playback/store/playbackProgress
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { usePreviewStore } from '@/features/playback/store/previewStore';
 import { useAuthStore } from '@/store/authStore';
+import { usePrivateModeStore } from '@/features/privateMode';
 import i18n from '@/lib/i18n';
 import { ScrobbleActionButton } from './ScrobbleStatus';
 
@@ -118,6 +119,16 @@ describe('ScrobbleActionButton', () => {
     fireEvent.click(getByRole('button', { name: 'Unavailable while offline' }));
     expect(queryByRole('button', { name: 'Force scrobble' })).toBeNull();
     expect(getByText('Unavailable while offline')).toHaveFocus();
+  });
+
+  it('explains that private mode holds the scrobble back', () => {
+    usePrivateModeStore.setState({ active: true });
+    const { getByRole, queryByRole, getByText } = renderWithProviders(
+      <ScrobbleActionButton t={i18n.t} className="player-btn" />,
+    );
+    fireEvent.click(getByRole('button', { name: 'Private mode is on — nothing is scrobbled' }));
+    expect(queryByRole('button', { name: 'Force scrobble' })).toBeNull();
+    expect(getByText('Private mode is on — nothing is scrobbled')).toHaveFocus();
   });
 
   it('uses localized preview copy instead of exposing the translation key', () => {

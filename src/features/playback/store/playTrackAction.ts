@@ -2,6 +2,7 @@ import { playbackReportStart, playbackReportStopped } from '@/features/playback/
 import { invoke } from '@tauri-apps/api/core';
 import { audioSeek } from '@/lib/api/audio';
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
+import { isPrivateModeActive } from '@/features/privateMode';
 import { setDeferHotCachePrefetch } from '@/lib/cache/hotCacheGate';
 import { orbitAllowsTrackServer, orbitBulkGuard, orbitSnapshot } from '@/store/orbitRuntime';
 import i18n from '@/lib/i18n';
@@ -698,16 +699,19 @@ export function runPlayTrack(
       // Subsonic-server now-playing follows nowPlayingEnabled; Music Network
       // now-playing follows scrobbling, as Last.fm now-playing did (runtime gates
       // internally). playbackReportStart opens the live FSM on extension-capable
-      // servers and falls back to the legacy presence call otherwise.
+      // servers and falls back to the legacy presence call otherwise. Private
+      // mode holds back both.
       playbackReportStart(trackForPlay.id, playbackSid);
       const runtime = getMusicNetworkRuntimeOrNull();
-      void runtime?.dispatchNowPlaying({
-        title: trackForPlay.title,
-        artist: trackForPlay.artist,
-        album: trackForPlay.album,
-        duration: trackForPlay.duration,
-        timestamp: Date.now(),
-      });
+      if (!isPrivateModeActive()) {
+        void runtime?.dispatchNowPlaying({
+          title: trackForPlay.title,
+          artist: trackForPlay.artist,
+          album: trackForPlay.album,
+          duration: trackForPlay.duration,
+          timestamp: Date.now(),
+        });
+      }
       if (runtime?.getEnrichmentPrimaryId()) {
         void runtime
           .isTrackLoved({ title: trackForPlay.title, artist: trackForPlay.artist })

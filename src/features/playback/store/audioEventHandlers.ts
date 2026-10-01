@@ -39,6 +39,7 @@ import {
   resetGaplessProgressTracking,
 } from '@/features/playback/store/gaplessProgressTracking';
 import { showToast } from '@/lib/dom/toast';
+import { isPrivateModeActive } from '@/features/privateMode';
 import { useAuthStore } from '@/store/authStore';
 import { indexKeyBelongsToServer } from '@/store/localPlaybackResolve';
 import { effectiveStreamCapKbps } from '@/features/playback/utils/playback/streamQualityResolve';
@@ -366,9 +367,11 @@ export function handleAudioProgress(
     }
   }
 
-  // Scrobble at the configured percentage: Music Network + Navidrome
+  // Scrobble at the configured percentage: Music Network + Navidrome. Private
+  // mode leaves `scrobbled` unset, so switching it off mid-track still counts
+  // the play once the threshold is (or already was) reached.
   const threshold = useAuthStore.getState().scrobbleThresholdPercent / 100;
-  if (!buffering && progress >= threshold && !store.scrobbled) {
+  if (!buffering && progress >= threshold && !store.scrobbled && !isPrivateModeActive()) {
     usePlayerStore.setState({ scrobbled: true });
     submitPlaybackTrackScrobble(track, store.queueItems, store.queueIndex);
   }

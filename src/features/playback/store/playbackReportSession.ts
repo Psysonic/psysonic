@@ -3,6 +3,7 @@ import type { PlaybackReportState } from '@/lib/api/subsonicTypes';
 import { FEATURE_PLAYBACK_REPORT } from '@/lib/serverCapabilities/catalog';
 import { isFeatureActiveForServer } from '@/lib/serverCapabilities/storeView';
 import { isPlaybackRateApplied } from '@/features/playback/utils/audio/playbackRateHelpers';
+import { isPrivateModeActive } from '@/features/privateMode';
 import { isOrbitPlaybackSyncActive } from '@/store/orbitRuntime';
 import { useAuthStore } from '@/store/authStore';
 import { getPlaybackProgressSnapshot } from '@/features/playback/store/playbackProgress';
@@ -26,7 +27,7 @@ import {
  * On servers without the extension every entry point degrades to the legacy
  * `scrobble.view?submission=false` presence call (`reportNowPlaying`), so the
  * behaviour is unchanged there. All presence reporting stays gated on the
- * existing `nowPlayingEnabled` master toggle.
+ * existing `nowPlayingEnabled` master toggle and is held back in private mode.
  */
 
 type ReportSession = { serverId: string; trackId: string };
@@ -35,7 +36,7 @@ let session: ReportSession | null = null;
 let sessionGeneration = 0;
 
 function nowPlayingEnabled(): boolean {
-  return useAuthStore.getState().nowPlayingEnabled;
+  return useAuthStore.getState().nowPlayingEnabled && !isPrivateModeActive();
 }
 
 function extensionActive(serverId: string): boolean {

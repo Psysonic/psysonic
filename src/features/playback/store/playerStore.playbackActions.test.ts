@@ -79,6 +79,8 @@ import { onInvoke, invokeMock } from '@/test/mocks/tauri';
 import { resetPlayerStore, resetAuthStore } from '@/test/helpers/storeReset';
 import { makeServer, makeTrack, makeTracks, seedQueue } from '@/test/helpers/factories';
 import { useAuthStore } from '@/store/authStore';
+import { getMusicNetworkRuntime } from '@/music-network';
+import { usePrivateModeStore } from '@/features/privateMode';
 import { usePlaybackAlternativeStore } from '@/features/playback/store/playbackAlternativeStore';
 import { _resetSeekFallbackStateForTest } from '@/features/playback/store/seekFallbackState';
 import {
@@ -483,6 +485,31 @@ describe('mixed-server play selection', () => {
       expect.objectContaining({ trackId: track.id }),
       { syncPlayingEngine: false },
     );
+  });
+});
+
+describe('private mode', () => {
+  afterEach(() => {
+    usePrivateModeStore.setState({ active: false });
+  });
+
+  it('starts a track without announcing it to the scrobble network', async () => {
+    const dispatchNowPlaying = vi.mocked(getMusicNetworkRuntime().dispatchNowPlaying);
+    dispatchNowPlaying.mockClear();
+    const server = makeServer({ id: 'srv-a', url: 'https://a.test' });
+    useAuthStore.setState({ servers: [server], activeServerId: server.id });
+    const [first, second] = makeTracks(2).map(t => ({ ...t, serverId: server.id }));
+    seedQueue([first, second], { index: 0, currentTrack: first, serverId: server.id });
+
+    usePrivateModeStore.setState({ active: true });
+    usePlayerStore.getState().playTrack(first);
+    await vi.runAllTimersAsync();
+    expect(dispatchNowPlaying).not.toHaveBeenCalled();
+
+    usePrivateModeStore.setState({ active: false });
+    usePlayerStore.getState().playTrack(second);
+    await vi.runAllTimersAsync();
+    expect(dispatchNowPlaying).toHaveBeenCalledTimes(1);
   });
 });
 

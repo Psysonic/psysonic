@@ -46,6 +46,7 @@
 @import './statistics-page.css';
 @import './year-recap.css';
 @import './connection-indicator.css';
+@import './private-mode-toggle.css';
 @import './now-playing-presence.css';
 @import './offline-overlay.css';
 @import './now-playing-page.css';

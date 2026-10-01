@@ -52,6 +52,8 @@ vi.mock('@/store/orbitRuntime', async (importOriginal) => ({
 
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
+import { getMusicNetworkRuntime } from '@/music-network';
+import { usePrivateModeStore } from '@/features/privateMode';
 import {
   emitTauriEvent,
   onInvoke,
@@ -104,6 +106,7 @@ beforeEach(() => {
   _resetGaplessProgressTrackingForTest();
   _resetSeekTargetStateForTest();
   _resetPlaybackAlternativeStoreForTest();
+  usePrivateModeStore.setState({ active: false });
   stubPlaybackInvokes();
   cleanupListeners = initAudioListeners();
 });
@@ -238,6 +241,25 @@ describe('audio:track_switched', () => {
     const s = usePlayerStore.getState();
     expect(s.currentTrack?.id).toBe(queue[1].id);
     expect(s.queueIndex).toBe(1);
+  });
+
+  it('announces the successor to the scrobble network only outside private mode', () => {
+    const dispatchNowPlaying = vi.mocked(getMusicNetworkRuntime().dispatchNowPlaying);
+    dispatchNowPlaying.mockClear();
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ repeatMode: 'off' });
+
+    usePrivateModeStore.setState({ active: true });
+    emitTauriEvent('audio:track_switched', queue[1].duration);
+    expect(usePlayerStore.getState().currentTrack?.id).toBe(queue[1].id);
+    expect(dispatchNowPlaying).not.toHaveBeenCalled();
+
+    usePrivateModeStore.setState({ active: false });
+    vi.advanceTimersByTime(1_000);
+    emitTauriEvent('audio:track_switched', queue[2].duration);
+    expect(usePlayerStore.getState().currentTrack?.id).toBe(queue[2].id);
+    expect(dispatchNowPlaying).toHaveBeenCalledTimes(1);
   });
 
   it('resets scrobbled + networkLoved flags so the new track can be rescored', () => {

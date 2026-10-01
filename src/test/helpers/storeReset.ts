@@ -30,6 +30,7 @@ import { resetServerReachabilitySnapshot } from '@/lib/network/serverReachabilit
 import { _resetPlaybackAlternativeStoreForTest } from '@/features/playback/store/playbackAlternativeStore';
 import { _resetShareSettingsStoreForTest } from '@/features/share/store/shareSettingsStore';
 import { _resetPlayQueueSyncSettingsStoreForTest } from '@/features/playback/store/playQueueSyncSettingsStore';
+import { _resetPrivateModeForTest } from '@/features/privateMode/privateModeStore';
 
 const INITIAL_PLAYER_STATE = usePlayerStore.getState();
 const INITIAL_AUTH_STATE = useAuthStore.getState();
@@ -64,4 +65,5 @@ export function resetAllStores(): void {
   resetOrbitStore();
   _resetShareSettingsStoreForTest();
   _resetPlayQueueSyncSettingsStoreForTest();
+  _resetPrivateModeForTest();
 }
