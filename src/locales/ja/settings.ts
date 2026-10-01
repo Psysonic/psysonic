@@ -693,6 +693,8 @@ export const settings = {
   shortcutPlayPause: '再生 / 一時停止',
   shortcutNext: '次のトラック',
   shortcutPrev: '前のトラック',
+  shortcutNextAlbum: '次のアルバム',
+  shortcutPrevAlbum: '前のアルバム',
   shortcutVolumeUp: '音量を上げる',
   shortcutVolumeDown: '音量を下げる',
   shortcutSeekForward: '10 秒進む',

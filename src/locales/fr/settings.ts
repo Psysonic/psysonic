@@ -578,6 +578,8 @@ export const settings = {
   shortcutPlayPause: 'Lecture / Pause',
   shortcutNext: 'Piste suivante',
   shortcutPrev: 'Piste précédente',
+  shortcutNextAlbum: 'Album suivant',
+  shortcutPrevAlbum: 'Album précédent',
   shortcutVolumeUp: 'Volume +',
   shortcutVolumeDown: 'Volume -',
   shortcutSeekForward: 'Avancer de 10s',

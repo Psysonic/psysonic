@@ -611,6 +611,8 @@ export const settings = {
   shortcutPlayPause: 'Spill av / Pause',
   shortcutNext: 'Neste spor',
   shortcutPrev: 'Forrige spor',
+  shortcutNextAlbum: 'Neste album',
+  shortcutPrevAlbum: 'Forrige album',
   shortcutVolumeUp: 'Volum opp',
   shortcutVolumeDown: 'Volum ned',
   shortcutSeekForward: 'Søk fremover 10 sekunder',

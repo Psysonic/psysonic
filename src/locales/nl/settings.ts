@@ -578,6 +578,8 @@ export const settings = {
   shortcutPlayPause: 'Afspelen / Pauzeren',
   shortcutNext: 'Volgend nummer',
   shortcutPrev: 'Vorig nummer',
+  shortcutNextAlbum: 'Volgend album',
+  shortcutPrevAlbum: 'Vorig album',
   shortcutVolumeUp: 'Volume omhoog',
   shortcutVolumeDown: 'Volume omlaag',
   shortcutSeekForward: '10s vooruitspoelen',

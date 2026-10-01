@@ -598,6 +598,8 @@ export const settings = {
   shortcutPlayPause: 'Wiedergabe / Pause',
   shortcutNext: 'Nächster Titel',
   shortcutPrev: 'Vorheriger Titel',
+  shortcutNextAlbum: 'Nächstes Album',
+  shortcutPrevAlbum: 'Vorheriges Album',
   shortcutVolumeUp: 'Lautstärke erhöhen',
   shortcutVolumeDown: 'Lautstärke verringern',
   shortcutSeekForward: '10s vorspulen',

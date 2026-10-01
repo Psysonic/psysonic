@@ -611,6 +611,8 @@ export const settings = {
   shortcutPlayPause: '播放 / 暂停',
   shortcutNext: '下一首',
   shortcutPrev: '上一首',
+  shortcutNextAlbum: '下一张专辑',
+  shortcutPrevAlbum: '上一张专辑',
   shortcutVolumeUp: '音量增大',
   shortcutVolumeDown: '音量减小',
   shortcutSeekForward: '快进 10 秒',

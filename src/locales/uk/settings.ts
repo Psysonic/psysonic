@@ -702,6 +702,8 @@ export const settings = {
   shortcutPlayPause: 'Відтворити / Пауза',
   shortcutNext: 'Наступний трек',
   shortcutPrev: 'Попередній трек',
+  shortcutNextAlbum: 'Наступний альбом',
+  shortcutPrevAlbum: 'Попередній альбом',
   shortcutVolumeUp: 'Збільшити гучність',
   shortcutVolumeDown: 'Зменшити гучність',
   shortcutSeekForward: 'Перемотати вперед на 10 с',

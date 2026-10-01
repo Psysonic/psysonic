@@ -37,6 +37,8 @@ export const player = {
   delayEndOfTrack: '本曲结束',
   delayEndOfAlbum: '专辑结束',
   next: '下一首',
+  nextAlbumHint: '{{key}}+点击：下一张专辑',
+  prevAlbumHint: '{{key}}+点击：上一张专辑',
   repeat: '重复',
   repeatOff: '关闭',
   repeatAll: '全部',

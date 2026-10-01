@@ -37,6 +37,8 @@ export const player = {
   delayEndOfTrack: 'A szám végén',
   delayEndOfAlbum: 'Az album végén',
   next: 'Következő szám',
+  nextAlbumHint: '{{key}}+kattintás: következő album',
+  prevAlbumHint: '{{key}}+kattintás: előző album',
   repeat: 'Ismétlés',
   repeatOff: 'Ki',
   repeatAll: 'Mind',

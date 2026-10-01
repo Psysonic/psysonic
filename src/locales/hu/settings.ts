@@ -699,6 +699,8 @@ export const settings = {
   shortcutPlayPause: 'Lejátszás / Szünet',
   shortcutNext: 'Következő szám',
   shortcutPrev: 'Előző szám',
+  shortcutNextAlbum: 'Következő album',
+  shortcutPrevAlbum: 'Előző album',
   shortcutVolumeUp: 'Hangerő fel',
   shortcutVolumeDown: 'Hangerő le',
   shortcutSeekForward: 'Tekerés előre 10 mp',

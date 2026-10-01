@@ -631,6 +631,8 @@ export const settings = {
   shortcutPlayPause: 'Reproducir / Pausa',
   shortcutNext: 'Siguiente pista',
   shortcutPrev: 'Pista anterior',
+  shortcutNextAlbum: 'Siguiente álbum',
+  shortcutPrevAlbum: 'Álbum anterior',
   shortcutVolumeUp: 'Subir volumen',
   shortcutVolumeDown: 'Bajar volumen',
   shortcutSeekForward: 'Avanzar 10s',

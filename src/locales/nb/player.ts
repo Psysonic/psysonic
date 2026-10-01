@@ -37,6 +37,8 @@ export const player = {
   delayEndOfTrack: 'Slutten av sporet',
   delayEndOfAlbum: 'Slutten av albumet',
   next: 'Neste spor',
+  nextAlbumHint: '{{key}}+klikk: neste album',
+  prevAlbumHint: '{{key}}+klikk: forrige album',
   repeat: 'Gjenta',
   repeatOff: 'Av',
   repeatAll: 'Alle',

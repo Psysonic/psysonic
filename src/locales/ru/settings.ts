@@ -721,6 +721,8 @@ export const settings = {
   shortcutPlayPause: 'Пауза / воспроизведение',
   shortcutNext: 'Следующий трек',
   shortcutPrev: 'Предыдущий трек',
+  shortcutNextAlbum: 'Следующий альбом',
+  shortcutPrevAlbum: 'Предыдущий альбом',
   shortcutVolumeUp: 'Громче',
   shortcutVolumeDown: 'Тише',
   shortcutSeekForward: 'Вперёд на 10 с',

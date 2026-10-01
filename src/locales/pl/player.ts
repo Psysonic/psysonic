@@ -37,6 +37,8 @@ export const player = {
   delayEndOfTrack: 'Koniec utworu',
   delayEndOfAlbum: 'Koniec albumu',
   next: 'Następny utwór',
+  nextAlbumHint: '{{key}}+klik: następny album',
+  prevAlbumHint: '{{key}}+klik: poprzedni album',
   repeat: 'Powtarzaj',
   repeatOff: 'Wyłącz',
   repeatAll: 'Wszystko',

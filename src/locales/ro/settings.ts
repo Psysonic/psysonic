@@ -634,6 +634,8 @@ export const settings = {
   shortcutPlayPause: 'Redă / Pauză',
   shortcutNext: 'Următoarea piesă',
   shortcutPrev: 'Piesa anterioară',
+  shortcutNextAlbum: 'Albumul următor',
+  shortcutPrevAlbum: 'Albumul anterior',
   shortcutVolumeUp: 'Ridică volumul',
   shortcutVolumeDown: 'Coboară volumul',
   shortcutSeekForward: 'Dă înainte 10s',
