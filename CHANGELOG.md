@@ -202,6 +202,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * With gapless playback off, which is the default, a sleep timer was cancelled as soon as the next song began, so playback never paused. It now runs on across song changes. Pausing, stopping or starting another song yourself still cancels it.
 
+### Setting a keyboard shortcut no longer binds the key twice
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1704](https://github.com/Psysonic/psysonic/pull/1704)**
+
+* In **Settings → Input**, clicking one shortcut field and then another before pressing a key bound that key to both actions. The same happened after clicking a field again to cancel or leaving the page, where the next key could even be swallowed elsewhere in the app. Only the field you clicked last now waits for a key.
+
 ## [1.55.0]
 
 ## Added
