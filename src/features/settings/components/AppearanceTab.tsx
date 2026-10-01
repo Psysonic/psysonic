@@ -5,6 +5,7 @@ import { isTilingWmCmd } from '@/lib/api/platformShell';
 import { LayoutGrid, Palette, Sliders, Type, ZoomIn } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import {
+  FULLSCREEN_AUTO_OPEN_MINUTE_OPTIONS,
   LIBRARY_GRID_MAX_COLUMNS_MAX,
   LIBRARY_GRID_MAX_COLUMNS_MIN,
 } from '@/store/authStoreDefaults';
@@ -34,6 +35,12 @@ export function AppearanceTab() {
     { id: 'immersive', label: t('settings.fullscreenPlayerImmersive') },
     { id: 'prism', label: t('settings.fullscreenPlayerPrism') },
   ];
+  const fsAutoOpenOptions: SegmentedOption<string>[] = FULLSCREEN_AUTO_OPEN_MINUTE_OPTIONS.map(minutes => ({
+    id: String(minutes),
+    label: minutes === 0
+      ? t('settings.fsAutoOpenOff')
+      : t('settings.fsAutoOpenMinutes', { minutes }),
+  }));
 
   useEffect(() => {
     if (!IS_LINUX) return;
@@ -343,6 +350,16 @@ export function AppearanceTab() {
                 {t('settings.fsBackdropPointerAction')}
               </button>
             </div>
+          </SettingsGroup>
+          <SettingsGroup>
+            <SettingsField label={t('settings.fsAutoOpen')} desc={t('settings.fsAutoOpenDesc')}>
+              <SettingsSegmented
+                options={fsAutoOpenOptions}
+                value={String(auth.fullscreenAutoOpenMinutes)}
+                onChange={id => auth.setFullscreenAutoOpenMinutes(Number(id))}
+                ariaLabel={t('settings.fsAutoOpen')}
+              />
+            </SettingsField>
           </SettingsGroup>
           {auth.fullscreenPlayerStyle === 'immersive' && (
             <SettingsGroup>
