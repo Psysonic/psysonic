@@ -7,5 +7,9 @@ export const moods = {
   loading: 'Chargement des ambiances…',
   empty: 'Aucune ambiance trouvée.',
   albumsEmpty: 'Aucun album trouvé pour cette ambiance.',
+  albumsTab: "Albums",
+  tracksTab: "Titres",
+  viewTabsLabel: "Résultats de l’ambiance",
+  tracksEmpty: "Aucun titre trouvé pour cette ambiance.",
   back: 'Retour',
 };
