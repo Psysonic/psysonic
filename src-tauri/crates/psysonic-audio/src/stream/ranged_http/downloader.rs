@@ -58,6 +58,10 @@ pub(crate) async fn ranged_download_task(
     let url_for_emit = url.clone();
     let app_for_emit = app.clone();
     let server_id_for_emit = resolve_server_id_for_app(&app, server_id.as_deref());
+    // Events must use the logical Subsonic id, not the percent-encoded id from
+    // the transport URL (e.g. Bandcamp's `t:123` becomes `t%3A123` on the wire).
+    let track_id_for_emit =
+        crate::helpers::analysis_cache_track_id(cache_track_id.as_deref(), &url_for_emit);
 
     crate::app_deprintln!(
         "[stream] ranged dl start: total={} KiB (~{:.2} MiB)",
@@ -89,21 +93,26 @@ pub(crate) async fn ranged_download_task(
         ) else {
             return;
         };
-        let track_key = crate::helpers::playback_identity(&url_for_emit)
-            .unwrap_or_else(|| url_for_emit.clone());
+        let Some(track_id) = track_id_for_emit.as_deref() else {
+            return;
+        };
+        let track_key = format!("{server_id_for_emit}\u{1f}{track_id}");
         if !crate::ipc::partial_loudness_should_emit(&track_key, gen, provisional_db) {
             return;
         }
         let _ = app_for_emit.emit(
             "analysis:loudness-partial",
             crate::ipc::PartialLoudnessPayload {
-                track_id: crate::helpers::playback_identity(&url_for_emit),
+                track_id: track_id_for_emit.clone(),
                 server_index_key: (!server_id_for_emit.is_empty())
                     .then_some(server_id_for_emit.clone()),
                 gain_db: provisional_db,
                 target_lufs,
                 is_partial: true,
             },
+        );
+        crate::app_deprintln!(
+            "[normalization] partial_loudness track_id={track_id} gain_db={provisional_db:.2} downloaded={downloaded} total={total}"
         );
     };
 

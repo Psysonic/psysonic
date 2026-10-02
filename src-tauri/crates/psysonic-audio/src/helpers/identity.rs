@@ -98,6 +98,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn logical_analysis_id_is_not_replaced_by_encoded_transport_identity() {
+        let url = "https://bandcamp.com/api/subsonic/rest/stream.view?id=t%3A2572376122";
+        let event_id = analysis_cache_track_id(Some("t:2572376122"), url).unwrap();
+        assert_eq!(event_id, "t:2572376122");
+        assert_ne!(Some(event_id), playback_identity(url));
+    }
+
+    #[test]
     fn same_target_ignores_rotating_auth_but_not_quality() {
         // Fresh salt/token → still the same target.
         assert!(same_playback_target(

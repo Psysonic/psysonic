@@ -50,7 +50,7 @@ fn is_standard_download_endpoint(url: &reqwest::Url) -> bool {
 }
 
 /// Whether the request endpoint belongs to a registered profile whose current
-/// saved identity explicitly supports Navidrome's `format=raw` contract.
+/// saved identity supports `format=raw` (Navidrome or Bandcamp's fixed API source).
 pub fn raw_stream_supported(
     registry: Option<&ServerHttpRegistry>,
     server_id: Option<&str>,
@@ -59,7 +59,7 @@ pub fn raw_stream_supported(
     registry.is_some_and(|registry| registry.supports_raw_stream_for_request(server_id, stream_url))
 }
 
-/// Whether this exact request is the capability-bound Navidrome raw-original
+/// Whether this exact request is the capability-bound raw-source
 /// path. The value is intentionally case-sensitive because Navidrome's private
 /// contract requires lowercase `format=raw`.
 pub fn is_verified_raw_stream_request(
@@ -87,7 +87,7 @@ pub fn is_verified_raw_stream_request(
 }
 
 /// Whether this exact request is the registered server's trusted original
-/// endpoint: Navidrome's lowercase `format=raw`, or standard Subsonic
+/// endpoint: a capability-bound lowercase `format=raw`, or standard Subsonic
 /// `download(.view)` for profiles without that private capability.
 pub fn is_verified_original_request(
     registry: Option<&ServerHttpRegistry>,

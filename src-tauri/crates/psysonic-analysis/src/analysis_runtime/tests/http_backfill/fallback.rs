@@ -124,6 +124,79 @@ async fn original_probe_http_failure_is_retryable() {
 }
 
 #[tokio::test]
+async fn fixed_stream_source_repeats_the_same_raw_identity_without_download() {
+    use tauri::Manager;
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    let server = MockServer::start().await;
+    let mut source = vec![0x33; 24 * 1024];
+    source[..3].copy_from_slice(b"ID3");
+    // BandcampServer's capability is set by the profile's ping identity.
+    // The API's fixed MP3 is the source here, not the artist's upload.
+    let app = tauri::test::mock_app();
+    app.manage(Arc::new(analysis_registry(&server.uri(), true)));
+    app.manage(analysis_cache::AnalysisCache::open_in_memory());
+    Mock::given(method("GET"))
+        .and(path("/rest/download.view"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_string(r#"{"error":true,"error_message":"bad version"}"#),
+        )
+        .expect(0)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/rest/stream.view"))
+        .respond_with(RawOriginalResponder {
+            body: source.clone(),
+        })
+        .mount(&server)
+        .await;
+    let url = format!(
+        "{}/rest/stream.view?id=t%3A123&format=mp3&maxBitRate=64",
+        server.uri()
+    );
+    let fingerprint = analysis_cache::md5_first_16kb(&source);
+    let mut previous_generation = None;
+    for _ in 0..2 {
+        let download = analysis_backfill_download(
+            app.handle(),
+            "canonical-server",
+            "t:123",
+            &url,
+            ANALYSIS_BACKFILL_DOWNLOAD_MAX_BYTES,
+        )
+        .await
+        .unwrap();
+        assert_eq!(download.bytes, source);
+        let trusted = download.trusted_revision.unwrap();
+        assert_eq!(trusted.md5_16kb, fingerprint);
+        if let Some(generation) = previous_generation {
+            assert_eq!(trusted.generation, generation);
+        }
+        previous_generation = Some(trusted.generation);
+    }
+    let requests = server.received_requests().await.unwrap();
+    assert!(requests
+        .iter()
+        .all(|request| request.url.path() == "/rest/stream.view"));
+    assert!(requests
+        .iter()
+        .filter(|request| request.headers.get("range").is_some())
+        .all(|request| {
+            request
+                .url
+                .query_pairs()
+                .any(|(key, value)| key == "format" && value == "raw")
+                && !request
+                    .url
+                    .query_pairs()
+                    .any(|(key, _)| key == "maxBitRate")
+        }));
+}
+
+#[tokio::test]
 async fn unregistered_endpoint_fails_closed_without_requesting_bytes() {
     use wiremock::matchers::{method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
