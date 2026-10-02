@@ -75,6 +75,10 @@ function genreDetailStashKey(serverId: string, genreName: string): string {
   return `${serverId}:genre-detail:${genreName}`;
 }
 
+function labelDetailStashKey(serverId: string, labelName: string): string {
+  return `${serverId}:label-detail:${labelName}`;
+}
+
 function moodDetailStashKey(serverId: string, moodName: string): string {
   return `${serverId}:mood-detail:${moodName}`;
 }
@@ -203,6 +207,46 @@ export function peekGenreDetailScrollRestore(
   };
 }
 
+/** Label detail leave-restore (scoped per label name). */
+export function stashLabelDetailReturnFilters(
+  serverId: string,
+  labelName: string,
+  filters: AlbumBrowseReturnFilters,
+): void {
+  if (!serverId || !labelName) return;
+  const key = labelDetailStashKey(serverId, labelName);
+  useAlbumBrowseSessionStore.setState((s) => ({
+    returnStashByKey: {
+      ...s.returnStashByKey,
+      [key]: cloneReturnFilters(filters),
+    },
+  }));
+}
+
+export function clearLabelDetailReturnStash(serverId: string, labelName: string): void {
+  if (!serverId || !labelName) return;
+  const key = labelDetailStashKey(serverId, labelName);
+  useAlbumBrowseSessionStore.setState((s) => {
+    const next = { ...s.returnStashByKey };
+    delete next[key];
+    return { returnStashByKey: next };
+  });
+}
+
+export function peekLabelDetailScrollRestore(
+  serverId: string,
+  labelName: string,
+): { scrollTop: number; displayCount: number } | null {
+  if (!serverId || !labelName) return null;
+  const stash = useAlbumBrowseSessionStore.getState().returnStashByKey[labelDetailStashKey(serverId, labelName)];
+  if (!stash) return null;
+  if (typeof stash.scrollTop !== 'number' || typeof stash.displayCount !== 'number') return null;
+  return {
+    scrollTop: Math.max(0, stash.scrollTop),
+    displayCount: Math.max(0, stash.displayCount),
+  };
+}
+
 /** Mood detail leave-restore (scoped per mood name). */
 export function stashMoodDetailReturnFilters(
   serverId: string,
@@ -303,6 +347,18 @@ export function isGenreDetailPath(pathname: string): boolean {
 export function genreDetailGenreFromPath(pathname: string): string | null {
   const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
   const match = path.match(/^\/genres\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** Single label detail route (`/label/:name`), not the label list (`/labels`). */
+export function isLabelDetailPath(pathname: string): boolean {
+  const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
+  return /^\/label\/[^/]+$/.test(path);
+}
+
+export function labelDetailLabelFromPath(pathname: string): string | null {
+  const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
+  const match = path.match(/^\/label\/([^/]+)$/);
   return match ? decodeURIComponent(match[1]) : null;
 }
 

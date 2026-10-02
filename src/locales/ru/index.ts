@@ -14,6 +14,7 @@ import { randomLanding } from './randomLanding';
 import { randomAlbums } from './randomAlbums';
 import { genres } from './genres';
 import { moods } from './moods';
+import { labels } from './labels';
 import { randomMix } from './randomMix';
 import { luckyMix } from './luckyMix';
 import { albums } from './albums';
@@ -68,6 +69,7 @@ export const ruTranslation = {
   randomAlbums,
   genres,
   moods,
+  labels,
   randomMix,
   luckyMix,
   albums,

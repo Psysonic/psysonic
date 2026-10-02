@@ -16,6 +16,10 @@ export const migration = {
   fileMoodTagsBody:
     'Indicizzazione delle etichette degli stati d’animo dei file per la navigazione e i filtri. Si esegue una sola volta dopo l’aggiornamento.',
   fileMoodTagsFailed: 'Aggiornamento dell’indice degli stati d’animo non riuscito',
+  recordLabelTagsTitle: 'Aggiornamento dell’indice delle etichette…',
+  recordLabelTagsBody:
+    'Indicizzazione delle etichette discografiche per la navigazione. Si esegue una sola volta dopo l’aggiornamento.',
+  recordLabelTagsFailed: 'Aggiornamento dell’indice delle etichette non riuscito',
   scopeBrowseProjectionTitle: 'Aggiornamento dell\'indice di navigazione della libreria…',
   scopeBrowseProjectionBody: 'Preparazione del catalogo degli album per una navigazione più rapida. Viene eseguito una volta dopo l\'aggiornamento.',
   scopeBrowseProjectionFailed: 'Aggiornamento dell\'indice di navigazione della libreria non riuscito',

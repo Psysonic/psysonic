@@ -24,6 +24,7 @@ export const DEFAULT_SIDEBAR_ITEMS: SidebarItemConfig[] = [
   { id: 'composers',     visible: false },
   { id: 'genres',        visible: true },
   { id: 'moods',         visible: true },
+  { id: 'labels',        visible: false },
   { id: 'favorites',     visible: true },
   { id: 'playlists',     visible: true },
   { id: 'shared',        visible: true },

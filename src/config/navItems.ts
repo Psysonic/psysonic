@@ -3,7 +3,7 @@ import {
   Disc3, Users, Music4, Radio, Heart, BarChart3,
   HelpCircle, Tags, Smile, ListMusic, Cast, TrendingUp,
   FolderOpen, HardDriveUpload, Wand2, Shuffle, Dices, Sparkles,
-  AudioLines, Feather, Gem, Flame, Share2,
+  AudioLines, Feather, Gem, Flame, Share2, Disc,
 } from 'lucide-react';
 
 export interface NavItemMeta {
@@ -28,6 +28,7 @@ export const ALL_NAV_ITEMS: Record<string, NavItemMeta> = {
   composers:    { icon: Feather,        labelKey: 'sidebar.composers',    to: '/composers',     section: 'library' },
   genres:       { icon: Tags,           labelKey: 'sidebar.genres',       to: '/genres',        section: 'library' },
   moods:        { icon: Smile,          labelKey: 'sidebar.moods',        defaultLabel: 'Moods', to: '/moods', section: 'library' },
+  labels:       { icon: Disc,           labelKey: 'sidebar.labels',       defaultLabel: 'Labels', to: '/labels', section: 'library' },
   favorites:    { icon: Heart,          labelKey: 'sidebar.favorites',    to: '/favorites',     section: 'library' },
   playlists:    { icon: ListMusic,      labelKey: 'sidebar.playlists',    to: '/playlists',     section: 'library' },
   shared:       { icon: Share2,         labelKey: 'sidebar.shared',       defaultLabel: 'ND Shares', to: '/shared', section: 'library' },

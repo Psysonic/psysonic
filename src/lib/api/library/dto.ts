@@ -4,7 +4,12 @@
  * `lib/api/library.ts` god-module; the wrappers (reads/sync/stats/events) and the
  * `@/lib/api/library` barrel re-export these, so consumers are unchanged.
  */
-import type { CatalogYearBoundsDto, GenreAlbumCountDto, MoodAlbumCountDto, } from '@/generated/bindings';
+import type {
+  CatalogYearBoundsDto,
+  GenreAlbumCountDto,
+  LabelAlbumCountDto,
+  MoodAlbumCountDto,
+} from '@/generated/bindings';
 
 export interface TrackRefDto {
   serverId: string;
@@ -461,6 +466,7 @@ export type PlaySessionYearRecap = {
 export type CatalogYearBounds = CatalogYearBoundsDto;
 export type GenreAlbumCountRow = GenreAlbumCountDto;
 export type MoodAlbumCountRow = MoodAlbumCountDto;
+export type LabelAlbumCountRow = LabelAlbumCountDto;
 
 export type LibraryGenreAlbumsRequest = {
   serverId: string;
@@ -494,6 +500,25 @@ export type LibraryMoodAlbumsRequest = {
 };
 
 export type LibraryMoodAlbumsResponse = {
+  albums: LibraryAlbumDto[];
+  hasMore: boolean;
+  total?: number | null;
+  source: 'local';
+};
+
+export type LibraryLabelAlbumsRequest = {
+  serverId: string;
+  label: string;
+  libraryScope?: string | null;
+  libraryScopes?: LibraryScopePair[];
+  sort?: LibrarySortClause[];
+  limit?: number;
+  offset?: number;
+  includeTotal?: boolean;
+  countOnly?: boolean;
+};
+
+export type LibraryLabelAlbumsResponse = {
   albums: LibraryAlbumDto[];
   hasMore: boolean;
   total?: number | null;

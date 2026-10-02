@@ -16,6 +16,10 @@ export const migration = {
   fileMoodTagsBody:
     'Indeksowanie znaczników nastroju z plików na potrzeby przeglądania i filtrowania. Odbywa się raz po aktualizacji.',
   fileMoodTagsFailed: 'Nie udało się zaktualizować indeksu nastrojów',
+  recordLabelTagsTitle: 'Aktualizowanie indeksu wytwórni…',
+  recordLabelTagsBody:
+    'Indeksowanie wytwórni płytowych na potrzeby przeglądania. Odbywa się raz po aktualizacji.',
+  recordLabelTagsFailed: 'Nie udało się zaktualizować indeksu wytwórni',
   scopeBrowseProjectionTitle: 'Aktualizowanie indeksu przeglądania biblioteki…',
   scopeBrowseProjectionBody: 'Przygotowywanie katalogu albumów do szybszego przeglądania. Uruchamia się raz po aktualizacji.',
   scopeBrowseProjectionFailed: 'Nie udało się zaktualizować indeksu przeglądania biblioteki',

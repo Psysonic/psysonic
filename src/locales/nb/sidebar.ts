@@ -22,6 +22,7 @@ export const sidebar = {
   offlineLibrary: 'Frakoblet bibliotek',
   genres: 'Sjangere',
   moods: 'Stemninger',
+  labels: 'Plateselskaper',
   tracks: 'Spor',
   playlists: 'Spillelister',
   shared: 'ND Delinger',

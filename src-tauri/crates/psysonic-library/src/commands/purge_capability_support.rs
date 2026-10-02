@@ -76,6 +76,10 @@ pub(super) fn purge_server_data(
                 params![server_id],
             )?;
             tx.execute(
+                "DELETE FROM track_label WHERE server_id = ?1",
+                params![server_id],
+            )?;
+            tx.execute(
                 "DELETE FROM canonical_enrichment_link WHERE owner_server_id = ?1",
                 params![server_id],
             )?;

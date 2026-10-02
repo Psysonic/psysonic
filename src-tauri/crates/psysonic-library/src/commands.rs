@@ -779,6 +779,20 @@ pub async fn library_list_albums_by_mood(
         .await
 }
 
+// NOT specta-collected: response contains LibraryAlbumDto.raw_json (serde_json::Value).
+#[tauri::command]
+pub async fn library_list_albums_by_label(
+    runtime: State<'_, LibraryRuntime>,
+    request: crate::dto::LibraryLabelAlbumsRequest,
+) -> Result<crate::dto::LibraryLabelAlbumsResponse, String> {
+    let store = Arc::clone(&runtime.store);
+
+    library_spawn_blocking(move || {
+        crate::label_album_browse::list_albums_by_label(&store, &request)
+    })
+    .await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn library_genre_tags_inspect(
@@ -817,6 +831,28 @@ pub async fn library_file_mood_tags_run(
 
     library_spawn_blocking(move || crate::mood_tags_backfill::run_mood_tags_backfill(&store, &app))
         .await
+}
+
+#[tauri::command]
+#[specta::specta]
+pub fn library_record_label_tags_inspect(
+    runtime: State<'_, LibraryRuntime>,
+) -> Result<crate::label_tags_backfill::LabelTagsInspectDto, String> {
+    crate::label_tags_backfill::inspect_label_tags_backfill(&runtime.store)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn library_record_label_tags_run(
+    app: tauri::AppHandle,
+    runtime: State<'_, LibraryRuntime>,
+) -> Result<(), String> {
+    let store = Arc::clone(&runtime.store);
+
+    library_spawn_blocking(move || {
+        crate::label_tags_backfill::run_label_tags_backfill(&store, &app)
+    })
+    .await
 }
 
 /// Ensure precomputed cluster identity keys are current without blocking Tauri's main thread.

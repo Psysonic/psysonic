@@ -62,6 +62,10 @@ const LIBRARY_TABLES: &[ScopedTable] = &[
         column: "server_id",
     },
     ScopedTable {
+        table: "track_label",
+        column: "server_id",
+    },
+    ScopedTable {
         table: "artist_artwork_lookup",
         column: "server_id",
     },
