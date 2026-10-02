@@ -77,6 +77,58 @@ fn navidrome_song_maps_native_field_shape() {
 }
 
 #[test]
+fn navidrome_song_normalizes_native_moods_to_top_level_moods() {
+    let raw = json!({
+        "id": "tr_1",
+        "title": "Song",
+        "tags": {
+            "mood": ["Atmospheric", "Dreamy"]
+        }
+    });
+
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    let stored: serde_json::Value = serde_json::from_str(&row.raw_json).unwrap();
+
+    assert_eq!(stored["moods"], json!(["Atmospheric", "Dreamy"]));
+}
+
+#[test]
+fn navidrome_song_normalizes_explicit_empty_native_mood() {
+    let raw = json!({
+        "id": "tr_1",
+        "title": "Song",
+        "tags": {
+            "mood": []
+        }
+    });
+
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    let stored: serde_json::Value = serde_json::from_str(&row.raw_json).unwrap();
+
+    assert_eq!(stored["moods"], json!([]));
+}
+
+#[test]
+fn navidrome_song_normalizes_missing_native_mood_to_explicit_clear() {
+    let raw = json!({
+        "id": "tr_1",
+        "title": "Song",
+        "tags": {
+            "genre": ["Ambient"]
+        }
+    });
+
+    let row = navidrome_song_to_track_row("s1", &raw, 1, None).unwrap();
+    let stored: serde_json::Value = serde_json::from_str(&row.raw_json).unwrap();
+
+    assert_eq!(
+        stored["moods"],
+        json!([]),
+        "a fresh native snapshot with no mood must encode an explicit canonical clear"
+    );
+}
+
+#[test]
 fn navidrome_song_appends_subtitle_and_album_version_like_the_subsonic_api() {
     let raw = json!({
         "id": "tr_1", "title": "Song", "album": "Album",

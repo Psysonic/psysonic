@@ -6,7 +6,7 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
 
 function nativeMoodTags(raw: Record<string, unknown>): string[] | null {
   const tags = isObject(raw.tags) ? raw.tags : null;
-  if (!tags) return null;
+  if (!tags || !Object.prototype.hasOwnProperty.call(tags, 'mood')) return null;
 
   const mood = tags.mood;
   const values = Array.isArray(mood)
@@ -84,9 +84,9 @@ export function trackToSong(t: LibraryTrackDto): SubsonicSong {
   // `rawJson` is the authoritative original song — let it override the
   // hot-column fallbacks (it carries OpenSubsonic extras too).
   const merged: SubsonicSong = { ...base, ...(raw as Partial<SubsonicSong>) };
-  // Navidrome native rows carry the complete imported tag set under `tags`.
-  // When present it is newer than a top-level `moods` value preserved by a
-  // sparse merge, and missing `tags.mood` means the file mood was cleared.
+  // Legacy native rows may carry mood only under `tags.mood`. An actual
+  // mood key is authoritative over stale top-level data, but an unrelated
+  // `tags` object is not provenance and must not erase top-level moods.
   const nativeMoods = nativeMoodTags(raw);
   if (nativeMoods !== null) merged.moods = nativeMoods;
   // Rows from Navidrome's native API keep the bare title / album in `rawJson`,

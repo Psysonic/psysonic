@@ -390,7 +390,151 @@ fn sparse_remap_explicit_null_timestamps_clear_old_values() {
 }
 
 #[test]
-fn sparse_upsert_clears_removed_native_mood() {
+fn sparse_upsert_without_mood_observation_preserves_existing_moods() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    // This is the composite shape observed in a real affected library:
+    // valid top-level moods coexist with unrelated native tags.
+    let mut original = row_with_id_hash("s1", "tr_1", "deadbeef", "/path/x.flac");
+    original.raw_json = json!({
+        "id": "tr_1",
+        "moods": ["Atmospheric"],
+        "tags": {
+            "genre": ["Ambient"]
+        }
+    })
+    .to_string();
+
+    repo.upsert_batch(&[original]).unwrap();
+
+    // A sparse payload that says nothing about mood must not turn the
+    // presence of an unrelated tags object into an inferred clear.
+    let mut incoming = row_with_id_hash("s1", "tr_1", "deadbeef", "/path/x.flac");
+    incoming.raw_json = json!({
+        "id": "tr_1",
+        "tags": {
+            "genre": ["Drone"]
+        }
+    })
+    .to_string();
+
+    repo.upsert_sparse_batch_with_remap(&[incoming], false)
+        .unwrap();
+
+    let (raw_json, moods): (String, Vec<String>) = store
+        .with_read_conn(|conn| {
+            let raw_json = conn.query_row(
+                "SELECT raw_json
+                 FROM track
+                 WHERE server_id = 's1'
+                   AND id = 'tr_1'",
+                [],
+                |row| row.get(0),
+            )?;
+
+            let mut stmt = conn.prepare(
+                "SELECT mood
+                 FROM track_mood
+                 WHERE server_id = 's1'
+                   AND track_id = 'tr_1'
+                 ORDER BY mood COLLATE NOCASE",
+            )?;
+
+            let moods = stmt
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+
+            Ok((raw_json, moods))
+        })
+        .unwrap();
+
+    let raw: serde_json::Value = serde_json::from_str(&raw_json).unwrap();
+
+    assert_eq!(raw["moods"], json!(["Atmospheric"]));
+    assert_eq!(raw["tags"]["genre"], json!(["Drone"]));
+    assert_eq!(moods, vec!["Atmospheric".to_string()]);
+}
+
+#[test]
+fn sparse_upsert_fresh_native_mood_omission_clears_existing_moods() {
+    let store = LibraryStore::open_in_memory();
+    let repo = TrackRepository::new(&store);
+
+    let mut original = row_with_id_hash("s1", "tr_1", "deadbeef", "/path/x.flac");
+    original.raw_json = json!({
+        "id": "tr_1",
+        "moods": ["Atmospheric"],
+        "tags": {
+            "genre": ["Ambient"],
+            "mood": ["Atmospheric"]
+        }
+    })
+    .to_string();
+
+    repo.upsert_batch(&[original]).unwrap();
+
+    // Unlike an arbitrary stored sparse row, this value is passed through the
+    // dedicated native mapper. That boundary knows the payload came freshly
+    // from `/api/song`, so missing tags.mood becomes canonical `moods: []`.
+    let native = json!({
+        "id": "tr_1",
+        "title": "Title",
+        "path": "/path/x.flac",
+        "tags": {
+            "genre": ["Ambient"]
+        }
+    });
+
+    let incoming =
+        crate::sync::mapping::navidrome_song_to_track_row("s1", &native, 2, None).unwrap();
+
+    let incoming_raw: serde_json::Value = serde_json::from_str(&incoming.raw_json).unwrap();
+
+    assert_eq!(
+        incoming_raw["moods"],
+        json!([]),
+        "fresh native omission must be encoded as an explicit canonical clear"
+    );
+
+    repo.upsert_sparse_batch_with_remap(&[incoming], false)
+        .unwrap();
+
+    let (raw_json, mood_count): (String, i64) = store
+        .with_read_conn(|conn| {
+            Ok((
+                conn.query_row(
+                    "SELECT raw_json
+                     FROM track
+                     WHERE server_id = 's1'
+                       AND id = 'tr_1'",
+                    [],
+                    |row| row.get(0),
+                )?,
+                conn.query_row(
+                    "SELECT COUNT(*)
+                     FROM track_mood
+                     WHERE server_id = 's1'
+                       AND track_id = 'tr_1'",
+                    [],
+                    |row| row.get(0),
+                )?,
+            ))
+        })
+        .unwrap();
+
+    let raw: serde_json::Value = serde_json::from_str(&raw_json).unwrap();
+
+    assert_eq!(raw["moods"], json!([]));
+    assert!(
+        raw["tags"].get("mood").is_none(),
+        "the stale native mood value must not survive the authoritative clear"
+    );
+    assert_eq!(mood_count, 0);
+}
+
+#[test]
+fn sparse_upsert_clears_mood_when_incoming_state_is_explicitly_empty() {
     let store = LibraryStore::open_in_memory();
     let repo = TrackRepository::new(&store);
 
@@ -444,12 +588,14 @@ fn sparse_upsert_clears_removed_native_mood() {
     assert_eq!(raw["tags"]["mood"], json!(["Atmospheric"]));
     assert_eq!(mood_count, 1);
 
-    // Navidrome's native tags object is a complete tag snapshot.
-    // This update still has tags, but no longer contains mood.
+    // An authoritative payload that actually supplies an empty canonical
+    // mood array must clear the previous value. Merely omitting native
+    // `tags.mood` is not enough to infer this state.
     let mut incoming = row_with_id_hash("s1", "tr_1", "deadbeef", "/path/x.flac");
 
     incoming.raw_json = json!({
         "id": "tr_1",
+        "moods": [],
         "tags": {
             "genre": ["Ambient"]
         }
@@ -490,6 +636,7 @@ fn sparse_upsert_clears_removed_native_mood() {
     );
 
     assert_eq!(raw["tags"]["genre"], json!(["Ambient"]));
+    assert_eq!(raw["moods"], json!([]));
 
     // Unrelated OpenSubsonic-only metadata must survive the sparse merge.
     assert_eq!(
