@@ -240,6 +240,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The short notices at the bottom of the window, such as confirmations, warnings and errors, were never read out by screen readers. They are now announced: notices politely, errors right away.
 
+### Bandcamp playback now includes waveform, loudness and BPM analysis
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1713](https://github.com/Psysonic/psysonic/pull/1713)**
+
+* Bandcamp tracks now show waveforms, use loudness normalization and provide measured BPM through the same analysis pipeline as Navidrome. The analysis cache and content-change checks work for Bandcamp's MP3 source even though its Subsonic API does not provide an original-file download.
+* Provisional loudness updates while a song downloads are no longer discarded for Bandcamp track IDs containing URL-encoded characters. The existing final loudness correction and BPM detector are unchanged.
+* The verified source is the MP3 exposed by Bandcamp's API, not the artist's uploaded lossless master. Unknown server types retain the standard original-download check.
+
 ## [1.55.0]
 
 ## Added
