@@ -45,15 +45,19 @@ fn moods_from_value(value: &Value) -> Vec<String> {
 }
 
 pub fn moods_for_track_value(raw_json: &Value) -> Vec<String> {
-    // Navidrome's native `/api/song` payload carries its complete imported
-    // tag set under `tags`. When that object is present it is the freshest
-    // source for MOOD/TMOO, including absence of `mood` meaning the tag
-    // was cleared.
+    // Preserve v2 semantics for already-stored composite rows. Historical
+    // sparse merges can leave stale top-level `moods[]` after a real native
+    // mood deletion, so cached JSON cannot distinguish that from a valid
+    // OpenSubsonic mood combined with unrelated native tags.
+    //
+    // Fresh native payloads are normalized at the mapper boundary, and the
+    // one-time online reconciler rewrites ambiguous legacy rows from current
+    // server metadata. Until then, a native tags snapshot without `tags.mood`
+    // must remain conservative and project no mood.
     if let Some(tags) = raw_json.get("tags").and_then(Value::as_object) {
         return tags.get("mood").map(moods_from_value).unwrap_or_default();
     }
 
-    // OpenSubsonic exposes file moods directly as `moods[]`.
     raw_json
         .get("moods")
         .map(moods_from_value)
@@ -151,6 +155,24 @@ mod tests {
     }
 
     #[test]
+    fn legacy_composite_top_level_moods_are_ambiguous_until_reconciled() {
+        let raw = json!({
+            "moods": [
+                "heavy",
+                "aggressive",
+                "depressive"
+            ],
+            "tags": {
+                "genre": ["Sludge", "Doom Metal"],
+                "recordlabel": ["Black Star Foundation"],
+                "tracktotal": ["7"]
+            }
+        });
+
+        assert!(moods_for_track_value(&raw).is_empty());
+    }
+
+    #[test]
     fn parses_navidrome_native_mood_tags() {
         let raw = json!({
             "tags": {
@@ -188,9 +210,9 @@ mod tests {
     }
 
     #[test]
-    fn navidrome_native_tags_without_mood_clear_stale_top_level_moods() {
+    fn native_tags_without_mood_keep_v2_clear_semantics() {
         let raw = json!({
-            "moods": ["Old Mood"],
+            "moods": ["Atmospheric"],
             "tags": {
                 "genre": ["Ambient"]
             }

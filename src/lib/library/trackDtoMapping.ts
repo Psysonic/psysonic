@@ -84,9 +84,10 @@ export function trackToSong(t: LibraryTrackDto): SubsonicSong {
   // `rawJson` is the authoritative original song — let it override the
   // hot-column fallbacks (it carries OpenSubsonic extras too).
   const merged: SubsonicSong = { ...base, ...(raw as Partial<SubsonicSong>) };
-  // Navidrome native rows carry the complete imported tag set under `tags`.
-  // When present it is newer than a top-level `moods` value preserved by a
-  // sparse merge, and missing `tags.mood` means the file mood was cleared.
+  // Cached composite rows are ambiguous when a native tags object is present:
+  // under v2, a real mood deletion removed tags.mood while stale top-level
+  // moods could survive the sparse merge. Keep the conservative v2 rule here;
+  // the online reconciler rewrites legacy rows from current server metadata.
   const nativeMoods = nativeMoodTags(raw);
   if (nativeMoods !== null) merged.moods = nativeMoods;
   // Rows from Navidrome's native API keep the bare title / album in `rawJson`,
