@@ -171,17 +171,18 @@ fn run_mood_tags_backfill_impl(
                          id,
                          CASE WHEN json_valid(raw_json) THEN
                                 CASE
-                                    -- Only the actual native mood key is authoritative.
-                                    -- Stored composite rows can contain unrelated native
-                                    -- tags beside canonical top-level moods, so generic
-                                    -- tags presence is not source provenance.
-                                    WHEN json_type(raw_json, '$.tags.mood') IS NOT NULL
+                                    -- Preserve v2 semantics for ambiguous cached
+                                    -- composite rows. A tags object without tags.mood
+                                    -- may represent a real native deletion whose stale
+                                    -- top-level moods survived the old sparse merge.
+                                    WHEN json_type(raw_json, '$.tags') = 'object'
                                     THEN CASE
                                         WHEN json_type(raw_json, '$.tags.mood') IN ('array', 'text')
                                         THEN json_extract(raw_json, '$.tags.mood')
                                     END
 
-                                    -- Otherwise use the canonical/OpenSubsonic representation.
+                                    -- Rows without a native tags snapshot can safely
+                                    -- use the OpenSubsonic/canonical representation.
                                     WHEN json_type(raw_json, '$.moods') IN ('array', 'text')
                                     THEN json_extract(raw_json, '$.moods')
                                 END
@@ -513,7 +514,7 @@ mod tests {
     }
 
     #[test]
-    fn backfill_v3_restores_top_level_moods_hidden_by_unrelated_tags_after_v2() {
+    fn backfill_v3_does_not_guess_ambiguous_top_level_moods_after_v2() {
         let store = LibraryStore::open_in_memory();
 
         let mut track = track_with_moods("t1");
@@ -576,15 +577,75 @@ mod tests {
             })
             .unwrap();
 
-        assert_eq!(
-            moods,
-            vec![
-                "aggressive".to_string(),
-                "depressive".to_string(),
-                "heavy".to_string(),
-            ]
+        assert!(
+            moods.is_empty(),
+            "v3 must leave an ambiguous v2 row unprojected until current server metadata reconciles it"
         );
 
+        assert!(!inspect_mood_tags_backfill(&store).unwrap().needed);
+    }
+
+    #[test]
+    fn delete_under_v2_does_not_resurrect_stale_top_level_mood_on_v3_upgrade() {
+        let store = LibraryStore::open_in_memory();
+
+        let mut track = track_with_moods("t1");
+        track.raw_json = r#"{
+            "moods": ["Atmospheric"],
+            "tags": {
+                "mood": ["Atmospheric"],
+                "genre": ["Ambient"]
+            }
+        }"#
+        .into();
+
+        TrackRepository::new(&store).upsert_batch(&[track]).unwrap();
+
+        store
+            .with_conn_mut("test.simulate_v2_native_mood_delete", |conn| {
+                // #1697/v2 treated the native tags snapshot as authoritative:
+                // a real server-side deletion removed tags.mood and the
+                // projection, but the older top-level moods field survived
+                // the sparse JSON merge.
+                conn.execute(
+                    "UPDATE track
+                     SET raw_json = json_remove(raw_json, '$.tags.mood')
+                     WHERE server_id = 's1' AND id = 't1'",
+                    [],
+                )?;
+                conn.execute(
+                    "DELETE FROM track_mood
+                     WHERE server_id = 's1' AND track_id = 't1'",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO library_data_migration
+                         (id, cursor_rowid, started_at, completed_at)
+                     VALUES ('mood_tags_v2', 1, 1, 1)",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+
+        run_mood_tags_backfill_impl(&store, None).unwrap();
+
+        let mood_count: i64 = store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT COUNT(*)
+                     FROM track_mood
+                     WHERE server_id = 's1' AND track_id = 't1'",
+                    [],
+                    |row| row.get(0),
+                )
+            })
+            .unwrap();
+
+        assert_eq!(
+            mood_count, 0,
+            "v3 must not resurrect a mood that v2 authoritatively cleared"
+        );
         assert!(!inspect_mood_tags_backfill(&store).unwrap().needed);
     }
 

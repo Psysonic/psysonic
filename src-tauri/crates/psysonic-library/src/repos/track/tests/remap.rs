@@ -394,14 +394,16 @@ fn sparse_upsert_without_mood_observation_preserves_existing_moods() {
     let store = LibraryStore::open_in_memory();
     let repo = TrackRepository::new(&store);
 
-    // This is the composite shape observed in a real affected library:
-    // valid top-level moods coexist with unrelated native tags.
+    // Start from an unambiguous stored mood. Both the canonical top-level
+    // value and native tags.mood agree, so a later sparse payload that says
+    // nothing about mood must preserve the existing authoritative value.
     let mut original = row_with_id_hash("s1", "tr_1", "deadbeef", "/path/x.flac");
     original.raw_json = json!({
         "id": "tr_1",
         "moods": ["Atmospheric"],
         "tags": {
-            "genre": ["Ambient"]
+            "genre": ["Ambient"],
+            "mood": ["Atmospheric"]
         }
     })
     .to_string();
@@ -453,6 +455,7 @@ fn sparse_upsert_without_mood_observation_preserves_existing_moods() {
 
     assert_eq!(raw["moods"], json!(["Atmospheric"]));
     assert_eq!(raw["tags"]["genre"], json!(["Drone"]));
+    assert_eq!(raw["tags"]["mood"], json!(["Atmospheric"]));
     assert_eq!(moods, vec!["Atmospheric".to_string()]);
 }
 

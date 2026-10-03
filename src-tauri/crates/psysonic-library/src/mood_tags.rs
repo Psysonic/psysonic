@@ -45,20 +45,19 @@ fn moods_from_value(value: &Value) -> Vec<String> {
 }
 
 pub fn moods_for_track_value(raw_json: &Value) -> Vec<String> {
-    // An actual `tags.mood` key is an unambiguous native mood snapshot and
-    // wins over a stale top-level value that may have survived an older sparse
-    // merge. A generic `tags` object is not provenance: a stored composite
-    // row can carry unrelated native tags alongside valid top-level `moods[]`.
-    if let Some(mood) = raw_json
-        .get("tags")
-        .and_then(Value::as_object)
-        .and_then(|tags| tags.get("mood"))
-    {
-        return moods_from_value(mood);
+    // Preserve v2 semantics for already-stored composite rows. Historical
+    // sparse merges can leave stale top-level `moods[]` after a real native
+    // mood deletion, so cached JSON cannot distinguish that from a valid
+    // OpenSubsonic mood combined with unrelated native tags.
+    //
+    // Fresh native payloads are normalized at the mapper boundary, and the
+    // one-time online reconciler rewrites ambiguous legacy rows from current
+    // server metadata. Until then, a native tags snapshot without `tags.mood`
+    // must remain conservative and project no mood.
+    if let Some(tags) = raw_json.get("tags").and_then(Value::as_object) {
+        return tags.get("mood").map(moods_from_value).unwrap_or_default();
     }
 
-    // OpenSubsonic and normalized Navidrome rows expose the canonical mood
-    // state directly as `moods[]`.
     raw_json
         .get("moods")
         .map(moods_from_value)
@@ -156,7 +155,7 @@ mod tests {
     }
 
     #[test]
-    fn top_level_moods_survive_unrelated_tags_object() {
+    fn legacy_composite_top_level_moods_are_ambiguous_until_reconciled() {
         let raw = json!({
             "moods": [
                 "heavy",
@@ -170,14 +169,7 @@ mod tests {
             }
         });
 
-        assert_eq!(
-            moods_for_track_value(&raw),
-            vec![
-                "heavy".to_string(),
-                "aggressive".to_string(),
-                "depressive".to_string()
-            ]
-        );
+        assert!(moods_for_track_value(&raw).is_empty());
     }
 
     #[test]
@@ -218,7 +210,7 @@ mod tests {
     }
 
     #[test]
-    fn unrelated_tags_without_mood_do_not_clear_top_level_moods() {
+    fn native_tags_without_mood_keep_v2_clear_semantics() {
         let raw = json!({
             "moods": ["Atmospheric"],
             "tags": {
@@ -226,7 +218,7 @@ mod tests {
             }
         });
 
-        assert_eq!(moods_for_track_value(&raw), vec!["Atmospheric".to_string()]);
+        assert!(moods_for_track_value(&raw).is_empty());
     }
 
     #[test]

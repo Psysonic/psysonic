@@ -79,49 +79,49 @@ pub(crate) fn subtitle_from_tags(raw: &Value) -> Option<String> {
     first_non_empty_string(raw.pointer("/tags/subtitle"))
 }
 
-fn normalized_track_raw_json(raw: &Value) -> Value {
-    let mut normalized = raw.clone();
-    let needs_normalized_version = normalized
+fn track_raw_json(raw: &Value) -> String {
+    // Preserve the original fast path: unchanged OpenSubsonic rows serialize
+    // directly without cloning the full JSON tree.
+    let needs_normalized_version = raw
         .as_object()
         .is_some_and(|object| !object.contains_key("albumVersion"));
-
     if needs_normalized_version {
         if let Some(version) = album_version_from_tags(raw) {
+            let mut normalized = raw.clone();
             if let Some(object) = normalized.as_object_mut() {
                 object.insert(
                     "albumVersion".to_string(),
                     Value::String(version.to_string()),
                 );
             }
+            return normalized.to_string();
         }
     }
-
-    normalized
-}
-
-fn track_raw_json(raw: &Value) -> String {
-    normalized_track_raw_json(raw).to_string()
+    raw.to_string()
 }
 
 fn navidrome_track_raw_json(raw: &Value) -> String {
-    let mut normalized = normalized_track_raw_json(raw);
+    // Native rows already require normalization, so cloning is confined to
+    // this path instead of penalizing every unchanged OpenSubsonic track.
+    let mut normalized = raw.clone();
 
     if let Some(object) = normalized.as_object_mut() {
-        // This function is only used for a fresh Navidrome `/api/song`
-        // payload, so provenance is known here. Normalize its native mood
-        // state onto the canonical OpenSubsonic-shaped field consumed by the
-        // rest of Psysonic.
-        //
-        // This is deliberately different from interpreting an already-stored
-        // `tags` object: historical sparse merges can leave unrelated or stale
-        // native tags beside valid top-level moods. Here, however, absence of
-        // `tags.mood` in the fresh native snapshot is an authoritative clear.
+        if !object.contains_key("albumVersion") {
+            if let Some(version) = album_version_from_tags(raw) {
+                object.insert(
+                    "albumVersion".to_string(),
+                    Value::String(version.to_string()),
+                );
+            }
+        }
+
+        // This function is only used for a fresh Navidrome /api/song payload,
+        // so absence of tags.mood is an authoritative clear.
         let moods = match raw.pointer("/tags/mood") {
             Some(Value::Array(items)) => Value::Array(items.clone()),
             Some(Value::String(mood)) => Value::Array(vec![Value::String(mood.clone())]),
             _ => Value::Array(Vec::new()),
         };
-
         object.insert("moods".to_string(), moods);
     }
 

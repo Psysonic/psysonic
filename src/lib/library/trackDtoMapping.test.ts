@@ -155,7 +155,7 @@ describe('trackToSong moods from a native payload', () => {
     ]);
   });
 
-  it('keeps top-level moods when unrelated raw tags are present', () => {
+  it('keeps ambiguous legacy top-level moods hidden until authoritative reconciliation', () => {
     const song = trackToSong(
       dto({
         rawJson: {
@@ -169,11 +169,7 @@ describe('trackToSong moods from a native payload', () => {
       }),
     );
 
-    expect(song.moods).toEqual([
-      'heavy',
-      'aggressive',
-      'depressive',
-    ]);
+    expect(song.moods).toEqual([]);
   });
 
   it('prefers Navidrome native mood tags over stale top-level moods', () => {
