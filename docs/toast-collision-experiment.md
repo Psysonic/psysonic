@@ -19,6 +19,14 @@ used as a playback fallback. Writer normalization and recovery UI are follow-ups
 
 - Migration tests: 83 passed across 10 files.
 - TypeScript: `npx tsc --noEmit` passed.
+- Full frontend checks passed: lint, dependency checks, 6,108 tests across 776
+  files, 60 script tests, coverage and all 15 hot-path coverage checks.
+- Full Rust workspace (`--all-targets --no-fail-fast`): 2,398 passed, 1 failed,
+  19 ignored, excluding the nested cross-process test's duplicate summary.
+  The reproducible failure is in unchanged Device Sync
+  code: `ordinary_manifest_write_rejects_a_host_directory`. This FHS environment
+  exposes `/tmp` as a separate bind mount, contrary to that test's assumption.
+  All targets completed; no tests were disabled. Do not report Rust as all-green.
 - Private local playback/offline rehearsal: 859 entries -> 524; canonical
   verification, exact recovery snapshot, and second-run idempotency passed.
 - No private fixtures or credentials are included in this branch.
@@ -28,10 +36,11 @@ used as a playback fallback. Writer normalization and recovery UI are follow-ups
 ## Remaining review scope
 
 Runtime benchmark: not applicable. This persisted-state migration layer is
-outside the route benchmark's coverage. Per maintainer direction, acceptance
-uses migration regression tests, the private-state rehearsal, successful Linux
-packaging and Toast's confirmation, not a broad frontend run. No performance
-improvement or complete disk-recovery implementation is claimed.
+outside the route benchmark's coverage. Only that benchmark is excluded;
+all automated tests are still required. Migration regression tests, the
+private-state rehearsal, successful Linux packaging and Toast's confirmation
+additionally cover the reported failure. No performance improvement or complete
+disk-recovery implementation is claimed.
 
 ## User test
 
