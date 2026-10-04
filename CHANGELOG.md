@@ -248,6 +248,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Provisional loudness updates while a song downloads are no longer discarded for Bandcamp track IDs containing URL-encoded characters. The existing final loudness correction and BPM detector are unchanged.
 * The verified source is the MP3 exposed by Bandcamp's API, not the artist's uploaded lossless master. Unknown server types retain the standard original-download check.
 
+### Navidrome upgrades no longer get stuck on duplicate local downloads
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by Toast on Discord, PR [#1716](https://github.com/Psysonic/psysonic/pull/1716)**
+
+* Upgrading Navidrome could leave Psysonic stuck on “Migration Failed — Local playback collision” when the same track had local download records under both an older server profile ID and the server address. Migration now combines those records without deleting either downloaded file and preserves their album and playlist pins.
+* The original local download records are kept in a recovery snapshot before migration changes them. Toast confirmed normal operation with the test AppImage.
+
 ## [1.55.0]
 
 ## Added

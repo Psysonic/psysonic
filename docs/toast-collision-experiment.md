@@ -22,6 +22,16 @@ used as a playback fallback. Writer normalization and recovery UI are follow-ups
 - Private local playback/offline rehearsal: 859 entries -> 524; canonical
   verification, exact recovery snapshot, and second-run idempotency passed.
 - No private fixtures or credentials are included in this branch.
+- Reporter acceptance: Toast confirmed normal operation of the Ubuntu-built
+  test AppImage from Linux Bundle Test run 37231154682 (reported via Discord).
+
+## Remaining review scope
+
+The reporter acceptance test and frontend-state rehearsal do not constitute
+comparable base/head runtime benchmark evidence. The normal route benchmark
+does not reproduce this blocked migration without the original server and
+mounted download disk. Record this validation gap in the PR; do not claim a
+performance improvement or a complete disk-recovery implementation.
 
 ## User test
 
