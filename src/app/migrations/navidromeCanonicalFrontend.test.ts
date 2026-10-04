@@ -281,7 +281,8 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
       .toThrow('Legacy psysonic_because_anchor_history:');
   });
 
-  it('blocks conflicting local playback destinations instead of deleting either path', () => {
+  it('merges conflicting local playback destinations while retaining the original state', () => {
+    localStorage.removeItem('psysonic-offline');
     localStorage.setItem('psysonic-local-playback', persisted({
       entries: {
         legacy: {
@@ -295,9 +296,71 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
       },
     }, 1));
 
-    expect(() => rewriteNavidromeCanonicalFrontendState(scope))
-      .toThrow(`Local playback collision at music.test:${CANONICAL}`);
-    expect(localStorage.getItem('psysonic-local-playback-migrated-v1')).toBeNull();
+    const original = localStorage.getItem('psysonic-local-playback');
+    expect(() => rewriteNavidromeCanonicalFrontendState(scope)).not.toThrow();
+    const entries = JSON.parse(localStorage.getItem('psysonic-local-playback')!).state.entries;
+    expect(Object.keys(entries)).toEqual([`music.test:${CANONICAL}`]);
+    expect(entries[`music.test:${CANONICAL}`].localPath).toBe('/cache/other.flac');
+    const recoveryKey = 'psysonic-local-playback-collision-recovery-v1:music.test';
+    const recovery = localStorage.getItem(recoveryKey);
+    expect(JSON.parse(recovery!).localPlayback).toBe(original);
+    rewriteNavidromeCanonicalFrontendState(scope);
+    expect(localStorage.getItem(recoveryKey)).toBe(recovery);
+    expect(localStorage.getItem('psysonic-local-playback-migrated-v1')).toBe('1');
+  });
+
+  it('recovers 335 profile/address aliases without mixing file metadata or losing pins', () => {
+    localStorage.removeItem('psysonic-offline');
+    const entries: Record<string, unknown> = {};
+    for (let index = 1; index <= 335; index += 1) {
+      const trackId = index.toString(16).padStart(32, '0');
+      entries[`profile-a:${trackId}`] = {
+        serverIndexKey: 'profile-a', trackId, localPath: `/offline/profile/${index}.mp3`,
+        tier: 'library', cachedAt: 999, lastPlayedAt: 20, suffix: 'mp3', sizeBytes: 1,
+        pinSource: { kind: 'playlist', sourceId: LEGACY },
+      };
+      entries[`music.test:${trackId}`] = {
+        serverIndexKey: 'music.test', trackId, localPath: `/offline/server/${index}.flac`,
+        tier: 'library', cachedAt: 1, lastPlayedAt: 10, suffix: 'flac', sizeBytes: 2,
+        originalBytesVerified: true,
+        pinSource: { kind: 'album', sourceId: LEGACY },
+      };
+    }
+    localStorage.setItem('psysonic-local-playback', persisted({ entries }, 1));
+    rewriteNavidromeCanonicalFrontendState(scope);
+    const result = JSON.parse(localStorage.getItem('psysonic-local-playback')!).state.entries;
+    expect(Object.keys(result)).toHaveLength(335);
+    for (const entry of Object.values(result) as Array<Record<string, unknown>>) {
+      expect(entry.localPath).toMatch(/\/server\/\d+\.flac$/);
+      expect(entry.suffix).toBe('flac');
+      expect(entry.sizeBytes).toBe(2);
+      expect(entry.originalBytesVerified).toBe(true);
+      expect(entry.lastPlayedAt).toBe(20);
+      expect(entry.pinSources).toHaveLength(2);
+    }
+    const once = localStorage.getItem('psysonic-local-playback');
+    rewriteNavidromeCanonicalFrontendState(scope);
+    expect(localStorage.getItem('psysonic-local-playback')).toBe(once);
+  });
+
+  it('does not rewrite live state if the recovery snapshot cannot be stored', () => {
+    const original = localStorage.getItem('psysonic-local-playback');
+    const originalAuth = localStorage.getItem('psysonic-auth');
+    const storage = {
+      get length() { return localStorage.length; },
+      key: (index: number) => localStorage.key(index),
+      getItem: (key: string) => localStorage.getItem(key),
+      removeItem: (key: string) => localStorage.removeItem(key),
+      setItem: (key: string, value: string) => {
+        if (!key.startsWith('psysonic-local-playback-collision-recovery-v1:')) {
+          localStorage.setItem(key, value);
+        }
+      },
+    };
+    expect(() => rewriteNavidromeCanonicalFrontendState(scope, storage))
+      .toThrow('Local playback recovery snapshot could not be persisted');
+    expect(localStorage.getItem('psysonic-local-playback')).toBe(original);
+    expect(localStorage.getItem('psysonic-auth')).toBe(originalAuth);
   });
 
   it('preserves a valid local playback entry owned by a removed server', () => {

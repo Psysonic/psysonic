@@ -301,15 +301,21 @@ function mergePinSources(...values: unknown[]): unknown[] {
 }
 
 function mergeLocalPlaybackEntries(existing: JsonObject, candidate: JsonObject, key: string): JsonObject {
-  if (existing.localPath !== candidate.localPath) {
-    throw new Error(`Local playback collision at ${key}`);
+  const differentPaths = existing.localPath !== candidate.localPath;
+  if (differentPaths && (!existing.localPath || !candidate.localPath)) {
+    throw new Error(`Malformed local playback collision at ${key}`);
   }
   const priority = { ephemeral: 0, 'favorite-auto': 1, library: 2 } as Record<string, number>;
   const existingRank = priority[String(existing.tier)] ?? -1;
   const candidateRank = priority[String(candidate.tier)] ?? -1;
   const existingStamp = typeof existing.cachedAt === 'number' ? existing.cachedAt : 0;
   const candidateStamp = typeof candidate.cachedAt === 'number' ? candidate.cachedAt : 0;
-  const winner = candidateRank > existingRank || (candidateRank === existingRank && candidateStamp > existingStamp)
+  const existingVerified = existing.originalBytesVerified === true;
+  const candidateVerified = candidate.originalBytesVerified === true;
+  const preferCandidate = differentPaths && existingVerified !== candidateVerified
+    ? candidateVerified
+    : candidateRank > existingRank || (candidateRank === existingRank && candidateStamp > existingStamp);
+  const winner = preferCandidate
     ? candidate
     : existing;
   const other = winner === existing ? candidate : existing;
@@ -320,7 +326,7 @@ function mergeLocalPlaybackEntries(existing: JsonObject, candidate: JsonObject, 
     other.pinSources,
   );
   return {
-    ...other,
+    ...(differentPaths ? {} : other),
     ...winner,
     lastPlayedAt: Math.max(
       typeof existing.lastPlayedAt === 'number' ? existing.lastPlayedAt : 0,
@@ -354,7 +360,7 @@ function mergeCompleteObjects(existing: JsonObject, candidate: JsonObject): Json
 
 function mergeLegacyImportedEntry(existing: JsonObject, candidate: JsonObject, key: string): JsonObject {
   if (existing.localPath !== candidate.localPath) {
-    throw new Error(`Local playback collision at ${key}`);
+    return mergeLocalPlaybackEntries(existing, candidate, key);
   }
   if (existing.tier !== 'library') return mergeLocalPlaybackEntries(existing, candidate, key);
   const sources = mergePinSources(
@@ -1111,6 +1117,21 @@ export function rewriteNavidromeCanonicalFrontendState(
   scope: NavidromeCanonicalFrontendScope,
   storage: NavidromeCanonicalFrontendStorage = localStorage,
 ): void {
+  // Retain exact pre-rewrite candidates outside the live store. A disconnected
+  // disk is not evidence of data loss; never delete either collision path.
+  // Read back before modifying persistence, and retain the first snapshot on retry.
+  const recoveryKey = `psysonic-local-playback-collision-recovery-v1:${scope.serverIndexKey}`;
+  if (storage.getItem(recoveryKey) === null) {
+    const snapshot = JSON.stringify({
+      version: 1,
+      localPlayback: storage.getItem(LOCAL_PLAYBACK_KEY),
+      offline: storage.getItem(OFFLINE_KEY),
+    });
+    storage.setItem(recoveryKey, snapshot);
+    if (storage.getItem(recoveryKey) !== snapshot) {
+      throw new Error('Local playback recovery snapshot could not be persisted');
+    }
+  }
   rewriteAuthState(storage, scope);
   const queueOwner = rewritePlayerState(storage, scope);
   rewriteShuffleState(storage, scope, queueOwner);
