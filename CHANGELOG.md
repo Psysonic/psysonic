@@ -248,6 +248,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Provisional loudness updates while a song downloads are no longer discarded for Bandcamp track IDs containing URL-encoded characters. The existing final loudness correction and BPM detector are unchanged.
 * The verified source is the MP3 exposed by Bandcamp's API, not the artist's uploaded lossless master. Unknown server types retain the standard original-download check.
 
+### Seeking after an automatic gapless transition no longer stalls or reloads
+
+**By [@strecke](https://github.com/strecke), PR [#1714](https://github.com/Psysonic/psysonic/pull/1714)**
+
+* Seeking in a song that was reached via an automatic gapless transition previously timed out waiting for the predecessor track's streaming seek coordinator, triggering an unnecessary full-track reload that caused a buffering stall and reset the visual playhead to 0:00.
+* The stale streaming seek handle is now cleared on gapless advance, allowing seeks in preloaded successor tracks to execute immediately without buffering delays or UI desync.
+
 ## [1.55.0]
 
 ## Added
