@@ -27,11 +27,11 @@ used as a playback fallback. Writer normalization and recovery UI are follow-ups
 
 ## Remaining review scope
 
-The reporter acceptance test and frontend-state rehearsal do not constitute
-comparable base/head runtime benchmark evidence. The normal route benchmark
-does not reproduce this blocked migration without the original server and
-mounted download disk. Record this validation gap in the PR; do not claim a
-performance improvement or a complete disk-recovery implementation.
+Runtime benchmark: not applicable. This persisted-state migration layer is
+outside the route benchmark's coverage. Per maintainer direction, acceptance
+uses migration regression tests, the private-state rehearsal, successful Linux
+packaging and Toast's confirmation, not a broad frontend run. No performance
+improvement or complete disk-recovery implementation is claimed.
 
 ## User test
 
