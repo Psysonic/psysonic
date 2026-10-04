@@ -1,0 +1,40 @@
+export const home = {
+  hero: 'Προτεινόμενα',
+  starred: 'Αγαπημένα',
+  mostPlayed: 'Τα πιο δημοφιλή',
+  recentlyPlayed: 'Παίχτηκαν πρόσφατα',
+  losslessAlbums: 'Lossless Άλμπουμ',
+  discover: 'Ανακαλύψτε',
+  discoverSongs: 'Ανακαλύψτε Τραγούδια',
+  loadMore: 'Φόρτωση περισσότερων',
+  discoverMore: 'Ανακαλύψτε περισσότερα',
+  discoverArtists: 'Ανακαλύψτε Καλλιτέχνες',
+  discoverArtistsMore: 'Όλοι οι Καλλιτέχνες',
+  becauseYouLike: 'Επειδή ακούσατε…',
+  becauseYouLikeFor: 'Επειδή ακούσατε {{artist}}',
+  similarTo: 'Παρόμοιο με {{artist}}',
+  becauseYouLikeTracks_one: '{{count}} κομμάτι',
+  becauseYouLikeTracks_other: '{{count}} κομμάτια',
+  mainstageEmptyTitle: 'Η Κεντρική σκηνή είναι άδεια',
+  mainstageEmptyBody: 'Όλες οι ενότητες είναι απενεργοποιημένες. Ενεργοποιήστε τις ενότητες ή κρύψτε την Κεντρική σκηνή από την πλαϊνή μπάρα.',
+  mainstageEmptyCta: 'Άνοιξε τις ρυθμίσεις εξατομίκευσης',
+  diagnostics: {
+    copyAll: 'Αντιγραφή διαγνωστικών Κεντρικής Σκηνής',
+    enableSection: 'Ενεργοποίηση {{section}}',
+    generationInfo: 'Πληροφορίες παραγωγής',
+    duration: 'Διάρκεια',
+    itemCount: 'Αντικείμενα',
+    status: 'Κατάσταση',
+    detail: 'Λεπτομέρειες',
+    unavailable: 'Μ/Δ',
+    statuses: {
+      idle: 'Αδρανές',
+      loading: 'Φόρτωση',
+      ready: 'Έτοιμο',
+      empty: 'Κενό',
+      error: 'Σφάλμα',
+      timeout: 'Ληγμένο',
+      disabled: 'Απενεργοποιημένο'
+    }
+  }
+};

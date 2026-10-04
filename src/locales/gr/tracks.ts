@@ -1,0 +1,17 @@
+export const tracks = {
+  title: 'Κομμάτια',
+  subtitle: 'Περιηγηθείτε. Αναζητήστε. Ανακαλύψτε.',
+  heroEyebrow: 'Κομμάτι στιγμής',
+  heroReroll: 'Επέλεξε άλλο',
+  playSong: 'Αναπαραγωγή',
+  enqueueSong: 'Προσθήκη στην ουρά',
+  toAlbum: 'Στο άλμπουμ',
+  railRandom: 'Τυχαία επιλογή',
+  railHighlyRated: 'Κορυφαία',
+  browseTitle: 'Περιήγηση σε όλα τα κομμάτια',
+  browseUnsupported: "Αυτός ο διακομιστής δεν εμφανίζει όλη τη βιβλιοθήκη. Χρησιμοποιήστε την αναζήτηση για να βρείτε συγκεκριμένα κομμάτια.",
+  searchPlaceholder: 'Εύρεση κομματιού με βάση τίτλο, καλλιτέχνη ή άλμπουμ…',
+  count_one: '{{count}} κομμάτι',
+  count_other: '{{count}} κομμάτια',
+  copyDiagnostics: 'Αντιγραφή αναφοράς χρόνου',
+};
