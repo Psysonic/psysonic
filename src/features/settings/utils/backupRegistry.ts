@@ -116,6 +116,28 @@ const deviceSyncProjection: BackupProjection = {
   },
 };
 
+/**
+ * Resume points travel; the session does not. It names the list the queue on
+ * this machine was started from, which a restoring machine is not playing.
+ */
+const resumePointsProjection: BackupProjection = {
+  export: (stored) => {
+    if (!isObject(stored) || !isObject(stored.state)) return null;
+    const points = stored.state.points;
+    if (!Array.isArray(points) || points.length === 0) return null;
+    return { state: { points }, version: stored.version ?? 1 };
+  },
+  merge: (projected, current) => {
+    const currentState = isObject(current) && isObject(current.state) ? current.state : {};
+    const projectedPoints = isObject(projected) && isObject(projected.state)
+      && Array.isArray(projected.state.points)
+      ? projected.state.points
+      : [];
+    const version = isObject(current) && current.version != null ? current.version : 1;
+    return { state: { ...currentState, points: projectedPoints }, version };
+  },
+};
+
 export const BACKUP_REGISTRY: readonly BackupEntry[] = [
   { key: 'psysonic-auth', tier: 'legacy', storage: 'json' },
   { key: 'psysonic_theme', tier: 'legacy', storage: 'json' },
@@ -166,6 +188,12 @@ export const BACKUP_REGISTRY: readonly BackupEntry[] = [
     tier: 'added',
     storage: 'projection',
     projection: deviceSyncProjection,
+  },
+  {
+    key: 'psysonic_resume_points',
+    tier: 'added',
+    storage: 'projection',
+    projection: resumePointsProjection,
   },
 ] as const;
 

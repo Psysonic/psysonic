@@ -1,0 +1,48 @@
+/* Continue listening rail: how far into the album or playlist playback stopped. */
+.resume-card-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: color-mix(in srgb, var(--bg-app) 70%, transparent);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.resume-card-progress-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.resume-card-play {
+  position: absolute;
+  right: 8px;
+  bottom: 12px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent, var(--bg-app));
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.resume-card:hover .resume-card-play,
+.resume-card:focus-visible .resume-card-play {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .resume-card-play {
+    transition: none;
+    transform: none;
+  }
+}
