@@ -248,6 +248,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Provisional loudness updates while a song downloads are no longer discarded for Bandcamp track IDs containing URL-encoded characters. The existing final loudness correction and BPM detector are unchanged.
 * The verified source is the MP3 exposed by Bandcamp's API, not the artist's uploaded lossless master. Unknown server types retain the standard original-download check.
 
+### The Flatpak shows its icon in the taskbar
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Asra on Discord, PR [#1718](https://github.com/Psysonic/psysonic/pull/1718)**
+
+* On KDE Plasma, the Flatpak version showed a blank taskbar icon when no other Psysonic package was installed, because the desktop could not match the window to its launcher. The Flatpak launcher now names the window it belongs to, so the Psysonic icon appears.
+
 ## [1.55.0]
 
 ## Added
