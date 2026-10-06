@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/authStore';
 import { usePrivateModeStore } from '@/features/privateMode';
 import { emitPlaybackProgress } from './playbackProgress';
 import { _resetScrobblePlaySessionForTest } from './scrobblePlaySession';
+import { onNaturalTrackEnd } from './naturalTrackEnd';
 
 beforeEach(() => {
   resetAllStores();
@@ -61,6 +62,18 @@ describe('forceScrobbleCurrentTrack', () => {
     expect(scrobbleCurrentTrackAtNaturalBoundary()).toBe(false);
     expect(usePlayerStore.getState().scrobbled).toBe(false);
     expect(submitTrackScrobble).not.toHaveBeenCalled();
+  });
+
+  it('reports every natural boundary, also when the play was already scrobbled', () => {
+    const ended = vi.fn();
+    const stop = onNaturalTrackEnd(ended);
+    const track = makeTrack();
+    seedQueue([track], { index: 0, currentTrack: track });
+    usePlayerStore.setState({ scrobbled: true });
+
+    expect(scrobbleCurrentTrackAtNaturalBoundary()).toBe(false);
+    expect(ended).toHaveBeenCalledTimes(1);
+    stop();
   });
 
   it('keeps the outgoing track paired with its own server during a deferred handoff', () => {

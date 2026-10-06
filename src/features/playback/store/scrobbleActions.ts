@@ -8,6 +8,7 @@ import { scrobblePlayStartedAtMs } from '@/features/playback/store/scrobblePlayS
 import { submitTrackScrobble } from '@/features/playback/store/submitTrackScrobble';
 import { findQueueItemRefForTrack } from '@/features/playback/utils/playback/queueIdentity';
 import { playbackProfileIdForTrack } from '@/features/playback/utils/playback/playbackServer';
+import { emitNaturalTrackEnd } from '@/features/playback/store/naturalTrackEnd';
 
 export function submitPlaybackTrackScrobble(
   track: Track,
@@ -45,6 +46,9 @@ export function forceScrobbleCurrentTrack(canScrobble: boolean): boolean {
 
 /** A natural handoff means the outgoing play completed even when progress events stopped early. */
 export function scrobbleCurrentTrackAtNaturalBoundary(): boolean {
+  // Every natural boundary passes through here, so the completion signal is
+  // raised once for all of them, before the scrobble guards below.
+  emitNaturalTrackEnd();
   const { currentTrack, currentRadio, scrobbled, queueItems, queueIndex } =
     usePlayerStore.getState();
   if (!currentTrack || currentRadio || scrobbled || isPrivateModeActive()) return false;
