@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type HomeSectionId = 'hero' | 'recent' | 'discover' | 'becauseYouLike' | 'discoverSongs' | 'discoverArtists' | 'recentlyPlayed' | 'starred' | 'mostPlayed' | 'losslessAlbums';
+export type HomeSectionId = 'hero' | 'continueListening' | 'recent' | 'discover' | 'becauseYouLike' | 'discoverSongs' | 'discoverArtists' | 'recentlyPlayed' | 'starred' | 'mostPlayed' | 'losslessAlbums';
 
 export interface HomeSectionConfig {
   id: HomeSectionId;
@@ -12,6 +12,7 @@ export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { id: 'hero',            visible: true },
   { id: 'recent',          visible: true },
   { id: 'becauseYouLike',  visible: true },
+  { id: 'continueListening', visible: true },
   { id: 'discover',        visible: true },
   { id: 'discoverSongs',   visible: true },
   { id: 'discoverArtists', visible: true },
@@ -62,9 +63,17 @@ export const useHomeStore = create<HomeStore>()(
         const safe = (state.sections ?? []).filter(
           (s): s is HomeSectionConfig => s != null && typeof s.id === 'string',
         );
-        const known = new Set(safe.map(s => s.id));
-        const missing = DEFAULT_HOME_SECTIONS.filter(s => !known.has(s.id));
-        state.sections = missing.length > 0 ? [...safe, ...missing] : safe;
+        // A section introduced later lands after its default predecessor, so the
+        // settings list shows it where Home renders it.
+        const merged = [...safe];
+        DEFAULT_HOME_SECTIONS.forEach((section, index) => {
+          if (merged.some(s => s.id === section.id)) return;
+          const before = DEFAULT_HOME_SECTIONS[index - 1]?.id;
+          const beforeAt = before ? merged.findIndex(s => s.id === before) : -1;
+          const at = !before ? 0 : beforeAt >= 0 ? beforeAt + 1 : merged.length;
+          merged.splice(at, 0, section);
+        });
+        state.sections = merged;
         if (state.becauseYouLikeSource !== 'similarArtists' && state.becauseYouLikeSource !== 'audiomuse') {
           state.becauseYouLikeSource = DEFAULT_BECAUSE_YOU_LIKE_SOURCE;
         }

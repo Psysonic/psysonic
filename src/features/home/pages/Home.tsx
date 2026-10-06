@@ -6,6 +6,7 @@ import { AlbumRow } from '@/features/album';
 import SongRail from '@/features/home/components/SongRail';
 import BecauseYouLikeRail from '@/features/home/components/BecauseYouLikeRail';
 import { LosslessAlbumsRail } from '@/features/album';
+import { ContinueListeningRail } from '@/features/resume';
 import { useTranslation } from 'react-i18next';
 import { NavLink, useNavigate } from 'react-router';
 import { ChevronRight } from 'lucide-react';
@@ -109,6 +110,7 @@ export default function Home() {
     hero: state.sections.hero.enabled,
     recent: state.sections.recent.enabled,
     becauseYouLike: state.sections.becauseYouLike.enabled,
+    continueListening: state.sections.continueListening.enabled,
     discover: state.sections.discover.enabled,
     discoverSongs: state.sections.discoverSongs.enabled,
     discoverArtists: state.sections.discoverArtists.enabled,
@@ -626,6 +628,7 @@ export default function Home() {
       hero: t('home.hero'),
       recent: t('sidebar.newReleases'),
       becauseYouLike: t('home.becauseYouLike'),
+      continueListening: t('resume.title'),
       discover: t('home.discover'),
       discoverSongs: t('home.discoverSongs'),
       discoverArtists: t('home.discoverArtists'),
@@ -745,6 +748,13 @@ export default function Home() {
                     : undefined}
                 />}
               </MainstageDiagnosticFrame>
+            )}
+            {!homeAlbumRowsDisabled && sectionEnabled('continueListening') && (
+              <ContinueListeningRail
+                serverIds={serverIds}
+                artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+                disableArtwork={homeRailArtworkDisabled}
+              />
             )}
             {!homeAlbumRowsDisabled && isVisible('discover') && (
               <MainstageDiagnosticFrame sectionId="discover" label={t('home.discover')} active={mainstageDiagnosticsVisible}>

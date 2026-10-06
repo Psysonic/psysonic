@@ -5,6 +5,7 @@ export const MAINSTAGE_DIAGNOSTIC_SECTION_IDS = [
   'hero',
   'recent',
   'becauseYouLike',
+  'continueListening',
   'discover',
   'discoverSongs',
   'discoverArtists',
