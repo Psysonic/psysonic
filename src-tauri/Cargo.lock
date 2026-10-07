@@ -3163,6 +3163,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "mac-notification-sys"
+version = "0.6.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd604973958ddcc11b561193c0fb96ba146506ef2f231ef2e7c35fd2cbc9beca"
+dependencies = [
+ "cc",
+ "log",
+ "objc2",
+ "objc2-foundation",
+ "time",
+ "uuid 1.26.1",
+]
+
+[[package]]
 name = "mach2"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3410,6 +3424,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df9761775871bdef83bee530e60050f7e54b1105350d6884eb0fb4f46c2f9405"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "notify-rust"
+version = "4.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fe430c879247371c47fdedd328ad4e301e6b30b533c5fd5db1c06d75253d0e46"
+dependencies = [
+ "futures-lite 2.6.1",
+ "log",
+ "mac-notification-sys",
+ "serde",
+ "tauri-winrt-notification",
+ "zbus 5.19.0",
 ]
 
 [[package]]
@@ -4345,6 +4373,7 @@ dependencies = [
  "lofty",
  "mach2 0.7.0",
  "md5",
+ "notify-rust",
  "psysonic-analysis",
  "psysonic-audio",
  "psysonic-burn",
@@ -4377,6 +4406,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tauri-plugin-window-state",
  "tauri-specta",
+ "tauri-winrt-notification",
  "thread-priority",
  "tokio",
  "url",
@@ -6557,6 +6587,17 @@ dependencies = [
  "dunce",
  "embed-resource",
  "toml 1.1.6+spec-1.1.0",
+]
+
+[[package]]
+name = "tauri-winrt-notification"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f37a6c354fd28fc9e322ed9bd47e3959576dad28c9d58ea1cf888cce1c7ccb36"
+dependencies = [
+ "thiserror 2.0.20",
+ "windows 0.62.2",
+ "windows-version",
 ]
 
 [[package]]
