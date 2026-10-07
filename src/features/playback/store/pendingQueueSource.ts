@@ -1,5 +1,13 @@
-/** The list a queue was started from, when that is more than the tracks it holds. */
-export type QueueSource = { kind: 'playlist'; id: string; serverId?: string };
+/**
+ * The list a queue was started from, when that is more than the tracks it holds.
+ * `shuffled` marks a list started in random order, which has no place to resume.
+ */
+export type QueueSource = {
+  kind: 'album' | 'playlist';
+  id: string;
+  serverId?: string;
+  shuffled?: boolean;
+};
 
 /**
  * Hands a queue source to the `playTrack` call made inside `start` without

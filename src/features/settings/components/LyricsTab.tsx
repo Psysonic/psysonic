@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AudioLines, Languages, Music2 } from 'lucide-react';
+import { AudioLines, Globe, Languages, Music2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { LyricsWordHighlightMode } from '@/store/authStoreTypes';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
@@ -15,6 +15,8 @@ export function LyricsTab() {
   const setSidebarLyricsStyle = useAuthStore(s => s.setSidebarLyricsStyle);
   const lyricsRomanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
   const setLyricsRomanizationEnabled = useAuthStore(s => s.setLyricsRomanizationEnabled);
+  const lyricsTranslationEnabled = useAuthStore(s => s.lyricsTranslationEnabled);
+  const setLyricsTranslationEnabled = useAuthStore(s => s.setLyricsTranslationEnabled);
   const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
   const setWordHighlightMode = useAuthStore(s => s.setLyricsWordHighlightMode);
 
@@ -95,6 +97,21 @@ export function LyricsTab() {
             label={t('settings.lyricsRomanization')}
             checked={lyricsRomanizationEnabled}
             onChange={setLyricsRomanizationEnabled}
+          />
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('settings.lyricsTranslationTitle')}
+        icon={<Globe size={16} />}
+        description={t('settings.lyricsTranslationDesc')}
+        searchText={`${t('settings.lyricsTranslationTitle')} ${t('settings.lyricsTranslation')} ${t('settings.lyricsTranslationDesc')}`}
+      >
+        <SettingsGroup>
+          <SettingsToggle
+            label={t('settings.lyricsTranslation')}
+            checked={lyricsTranslationEnabled}
+            onChange={setLyricsTranslationEnabled}
           />
         </SettingsGroup>
       </SettingsSubSection>

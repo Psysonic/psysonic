@@ -15,6 +15,8 @@ export interface GetLyricsOptions {
 export interface StructuredLyricsSelection {
   main: SubsonicStructuredLyrics;
   pronunciation: SubsonicStructuredLyrics | null;
+  /** One layer per language, in server order. */
+  translations: SubsonicStructuredLyrics[];
 }
 
 /**
@@ -132,6 +134,25 @@ export function pickPronunciationStructuredLyrics(
 }
 
 /**
+ * Every translation layer, one per language. A file may carry several
+ * translations, and which one to show depends on the app language at render
+ * time — choosing here would freeze that choice into the lyrics cache.
+ */
+export function pickTranslationStructuredLyrics(
+  list: readonly SubsonicStructuredLyrics[],
+): SubsonicStructuredLyrics[] {
+  const byLang = new Map<string, SubsonicStructuredLyrics[]>();
+  for (const entry of list) {
+    if (!Array.isArray(entry.line) || entry.kind !== 'translation') continue;
+    const lang = entry.lang ?? '';
+    byLang.set(lang, [...(byLang.get(lang) ?? []), entry]);
+  }
+  return [...byLang.values()]
+    .map(pickPreferredLayer)
+    .filter((layer): layer is SubsonicStructuredLyrics => layer !== null);
+}
+
+/**
  * Fetches structured lyrics from the server's embedded tags or sidecar files via
  * the OpenSubsonic `getLyricsBySongId` endpoint. Returns null when the server
  * doesn't support the endpoint or the track has no lyrics.
@@ -143,7 +164,7 @@ export async function getLyricsBySongId(
   return (await getLyricsSelectionBySongId(id, { enhanced, serverId }))?.main ?? null;
 }
 
-/** Fetches the primary lyrics together with an optional pronunciation layer. */
+/** Fetches the primary lyrics together with their pronunciation and translation layers. */
 export async function getLyricsSelectionBySongId(
   id: string,
   { enhanced = false, serverId }: GetLyricsOptions = {},
@@ -161,12 +182,18 @@ export async function getLyricsSelectionBySongId(
     const list = data.lyricsList?.structuredLyrics ?? [];
     const main = pickMainStructuredLyrics(list);
     if (!main) return null;
+    // A non-main fallback stands in for the original text, so it must not
+    // reappear as its own extra layer.
     const pronunciation = main.kind === 'pronunciation'
       ? null
       : pickPronunciationStructuredLyrics(list);
+    const translations = main.kind === 'translation'
+      ? []
+      : pickTranslationStructuredLyrics(list);
     return {
       main,
       pronunciation,
+      translations,
     };
   } catch {
     // Server doesn't support the endpoint or track has no embedded lyrics

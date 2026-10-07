@@ -31,12 +31,20 @@ export interface WordLyricsLine {
   words: WordLyricsWord[];
 }
 
+/** One translated layer of the lyrics. `lang` is the server's language code, as sent. */
+export interface LyricsTranslation {
+  lang: string;
+  lines: LrcLine[] | null;
+  plainLyrics: string | null;
+}
+
 export interface CachedLyrics {
   syncedLines: LrcLine[] | null;
   wordLines: WordLyricsLine[] | null;
   plainLyrics: string | null;
   pronunciationLines?: LrcLine[] | null;
   pronunciationPlainLyrics?: string | null;
+  translations?: LyricsTranslation[];
   source: LyricsSource | null;
   notFound: boolean;
 }

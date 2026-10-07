@@ -227,6 +227,7 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
                         cur.duration_secs = info.duration_secs;
                         cur.seek_offset = 0.0;
                         cur.play_started = Some(Instant::now());
+                        cur.streaming_seek = None;
                         if let Some(sink) = &cur.sink {
                             let effective =
                                 (cur.base_volume * cur.replay_gain_linear * MASTER_HEADROOM)

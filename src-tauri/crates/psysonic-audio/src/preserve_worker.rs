@@ -41,6 +41,8 @@ const SEEK_POS_TOLERANCE_NANOS: u64 = 2_000_000;
 mod seek;
 mod streaming;
 
+#[cfg(test)]
+pub(crate) use seek::test_streaming_seek_handle;
 pub(crate) use seek::StreamingSeekHandle;
 use seek::{seek_channels, PreparedSeek, SeekShared};
 use streaming::{prepare_permanent_seek, take_pending_seek, PreparedProducer, SeekWork};

@@ -139,6 +139,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Appearance → Fullscreen player → Open automatically** opens the fullscreen player after 1 to 30 minutes without mouse or keyboard input while a song plays and Psysonic's window is on screen. It is off by default, and it does not open for internet radio.
 * The next mouse movement, click or key press closes it again without triggering anything underneath. Opening the fullscreen player yourself works as before.
 
+### Pick up albums and playlists where you left off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1719](https://github.com/Psysonic/psysonic/pull/1719)**
+
+* When you leave an album or playlist after at least one of its songs played to the end, Psysonic remembers where you stopped. A **Resume** button next to Play on its page shows the song and time, and continues right there.
+* **Continue listening** on Home lists these albums and playlists with their progress. Playing a list to its last song clears it; lists started in shuffle or in private mode are not remembered.
+
+### Arrange the rows on Home
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1720](https://github.com/Psysonic/psysonic/pull/1720)**
+
+* **Settings → Personalisation → Home** now lets you drag the rows into the order you want, like the other layout settings on that page. The large banner at the top keeps its place.
+
+### Lyrics translations from your server
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1721](https://github.com/Psysonic/psysonic/pull/1721)**
+
+* When the lyrics on your server include a translation, it can show as a smaller line under each lyric line — in the sidebar, the mobile view and the fullscreen player. Turn it on in **Settings → Lyrics → Translation**, or with the **Translation** button below the lyrics, which appears only for songs that have one.
+* Needs Navidrome 0.63 or later and lyrics files that carry translations, such as TTML. If there are several, the one in your app language is shown.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
@@ -248,12 +268,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Provisional loudness updates while a song downloads are no longer discarded for Bandcamp track IDs containing URL-encoded characters. The existing final loudness correction and BPM detector are unchanged.
 * The verified source is the MP3 exposed by Bandcamp's API, not the artist's uploaded lossless master. Unknown server types retain the standard original-download check.
 
+### Seeking after an automatic gapless transition no longer stalls or reloads
+
+**By [@strecke](https://github.com/strecke), PR [#1714](https://github.com/Psysonic/psysonic/pull/1714)**
+
+* Seeking in a song that was reached via an automatic gapless transition previously timed out waiting for the predecessor track's streaming seek coordinator, triggering an unnecessary full-track reload that caused a buffering stall and reset the visual playhead to 0:00.
+* The stale streaming seek handle is now cleared on gapless advance, allowing seeks in preloaded successor tracks to execute immediately without buffering delays or UI desync.
+
 ### Navidrome upgrades no longer get stuck on duplicate local downloads
 
 **By [@cucadmuh](https://github.com/cucadmuh), reported by Toast on Discord, PR [#1716](https://github.com/Psysonic/psysonic/pull/1716)**
 
 * Upgrading Navidrome could leave Psysonic stuck on “Migration Failed — Local playback collision” when the same track had local download records under both an older server profile ID and the server address. Migration now combines those records without deleting either downloaded file and preserves their album and playlist pins.
 * The original local download records are kept in a recovery snapshot before migration changes them. Toast confirmed normal operation with the test AppImage.
+
+### The Flatpak shows its icon in the taskbar
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Asra on Discord, PR [#1718](https://github.com/Psysonic/psysonic/pull/1718)**
+
+* On KDE Plasma, the Flatpak version showed a blank taskbar icon when no other Psysonic package was installed, because the desktop could not match the window to its launcher. The Flatpak launcher now names the window it belongs to, so the Psysonic icon appears.
+
+### The app now tells the system which language it is shown in
+
+**By [@stefnto](https://github.com/stefnto), PR [#1724](https://github.com/Psysonic/psysonic/pull/1724)**
+
+* The page language was always set to German, whatever language Psysonic was shown in. It now follows the selected language, so screen readers can use the matching pronunciation and capitalised text follows the rules of that language, for example Greek capitals without accents.
 
 ## [1.55.0]
 

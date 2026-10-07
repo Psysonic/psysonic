@@ -49,6 +49,7 @@ import { licenses } from './licenses';
 import { migration } from './migration';
 import { discordBanner } from './discordBanner';
 import { privateMode } from './privateMode';
+import { resume } from './resume';
 import { visualizer } from './visualizer';
 
 export const ukTranslation = {
@@ -103,5 +104,6 @@ export const ukTranslation = {
   migration,
   discordBanner,
   privateMode,
+  resume,
   visualizer,
 };

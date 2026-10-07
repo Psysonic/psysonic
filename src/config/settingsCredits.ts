@@ -490,6 +490,9 @@ const CONTRIBUTOR_ENTRIES = [
       'Playlists — recently used targets on top of the add-to-playlist menus (PR #1705)',
       'Player — notice when playback starts with the volume at 0 (PR #1706)',
       'Fullscreen player — opens on its own after a stretch without input (PR #1710)',
+      'Resume — continue albums and playlists where you left off, with a Continue listening row on Home (PR #1719)',
+      'Home — arrange the rows by drag and drop (PR #1720)',
+      'Lyrics — show server-provided translations under the lyrics (PR #1721)',
     ],
   },
   {

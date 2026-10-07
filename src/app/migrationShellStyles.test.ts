@@ -4,7 +4,8 @@ import { describe, expect, it } from 'vitest';
 
 describe('canonical migration shell styles', () => {
   it('does not depend on inline styles that packaged webviews may reject', () => {
-    const main = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8');
+    // Windows checkouts with core.autocrlf=true read CRLF; the markers below use LF.
+    const main = readFileSync(resolve(process.cwd(), 'src/main.tsx'), 'utf8').replace(/\r\n/g, '\n');
     const shellStart = main.indexOf('rootElement.innerHTML = `');
     const shellEnd = main.indexOf('\n  `;\n  if (error)', shellStart);
 

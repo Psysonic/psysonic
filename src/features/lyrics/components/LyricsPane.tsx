@@ -1,5 +1,5 @@
 import { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from '@/features/playback';
-import { RotateCcw } from 'lucide-react';
+import { Languages, RotateCcw } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
@@ -13,6 +13,7 @@ import { EaseScroller, targetForFraction } from '@/lib/dom/easeScroll';
 import OverlayScrollArea from '@/ui/OverlayScrollArea';
 import { LyricsLineContent } from '@/features/lyrics/components/LyricsLineContent';
 import { useLyricsRomanization } from '@/features/lyrics/hooks/useLyricsRomanization';
+import { useLyricsTranslation } from '@/features/lyrics/hooks/useLyricsTranslation';
 import {
   romanizationProgressForWord,
   setRomanizationProgress,
@@ -42,14 +43,25 @@ export default function LyricsPane({ currentTrack }: Props) {
     plainLyrics,
     pronunciationLines,
     pronunciationPlainLyrics,
+    translations,
     source,
     loading,
     notFound,
     refresh,
   } = useLyrics(currentTrack);
-  const { staticOnly, romanizationEnabled, wordHighlightMode, sidebarLyricsStyle, lyricsSources } = useAuthStore(useShallow(s => ({
+  const {
+    staticOnly,
+    romanizationEnabled,
+    translationEnabled,
+    setTranslationEnabled,
+    wordHighlightMode,
+    sidebarLyricsStyle,
+    lyricsSources,
+  } = useAuthStore(useShallow(s => ({
     staticOnly: s.lyricsStaticOnly,
     romanizationEnabled: s.lyricsRomanizationEnabled,
+    translationEnabled: s.lyricsTranslationEnabled,
+    setTranslationEnabled: s.setLyricsTranslationEnabled,
     wordHighlightMode: s.lyricsWordHighlightMode,
     sidebarLyricsStyle: s.sidebarLyricsStyle,
     lyricsSources: s.lyricsSources,
@@ -67,6 +79,13 @@ export default function LyricsPane({ currentTrack }: Props) {
     plainLyrics,
     pronunciationLines,
     pronunciationPlainLyrics,
+  });
+  const translatedLines = useLyricsTranslation({
+    enabled: translationEnabled,
+    syncedLines,
+    wordLines,
+    plainLyrics,
+    translations,
   });
 
   const seek     = usePlayerStore(s => s.seek);
@@ -250,14 +269,15 @@ export default function LyricsPane({ currentTrack }: Props) {
     return subscribeSmoothPlaybackTime(apply);
   }, [useWords, hasSynced, wordLines, syncedLines, scrollToLine, wordHighlightMode, wordClass]);
 
+  // An extra line under every lyric shifts the active line, so re-anchor it.
   useLayoutEffect(() => {
-    if (!romanizedLines) return;
+    if (!romanizedLines && !translatedLines) return;
     const frame = requestAnimationFrame(() => {
       const activeLine = lineRefs.current[prevActive.current.line];
       if (activeLine) scrollToLine(activeLine, true);
     });
     return () => cancelAnimationFrame(frame);
-  }, [romanizedLines, scrollToLine]);
+  }, [romanizedLines, translatedLines, scrollToLine]);
 
   const setRomanizationRef = useCallback((lineIndex: number) => (element: HTMLSpanElement | null) => {
     romanizationRefs.current[lineIndex] = element;
@@ -326,6 +346,7 @@ export default function LyricsPane({ currentTrack }: Props) {
           syncedLines?.length ?? 0,
           wordLines?.length ?? 0,
           romanizedLines?.filter(Boolean).length ?? 0,
+          translatedLines?.filter(Boolean).length ?? 0,
         ]}
         railInset="panel"
         viewportOnWheel={handleUserScroll}
@@ -347,6 +368,7 @@ export default function LyricsPane({ currentTrack }: Props) {
                 <LyricsLineContent
                   romanization={romanizedLines?.[i]}
                   romanizationRef={setRomanizationRef(i)}
+                  translation={translatedLines?.[i]}
                 >
                   {line.words.length > 0 ? line.words.map((w, j) => (
                     <span
@@ -376,7 +398,7 @@ export default function LyricsPane({ currentTrack }: Props) {
                 onClick={() => { if (duration > 0) seek(line.time / duration); }}
                 style={{ cursor: 'pointer' }}
               >
-                <LyricsLineContent romanization={romanizedLines?.[i]}>
+                <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                   {line.text || '\u00A0'}
                 </LyricsLineContent>
               </div>
@@ -391,7 +413,7 @@ export default function LyricsPane({ currentTrack }: Props) {
               : (wordLines as WordLyricsLine[]).map(l => l.text)
             ).map((text, i) => (
               <p key={i} className="lyrics-plain-line">
-                <LyricsLineContent romanization={romanizedLines?.[i]}>
+                <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                   {text || '\u00A0'}
                 </LyricsLineContent>
               </p>
@@ -403,7 +425,7 @@ export default function LyricsPane({ currentTrack }: Props) {
           <div className="lyrics-plain">
             {plainLyrics.split('\n').map((line, i) => (
               <p key={i} className="lyrics-plain-line">
-                <LyricsLineContent romanization={romanizedLines?.[i]}>
+                <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                   {line || '\u00A0'}
                 </LyricsLineContent>
               </p>
@@ -426,6 +448,19 @@ export default function LyricsPane({ currentTrack }: Props) {
           <RotateCcw size={14} className={loading ? 'spin' : ''} aria-hidden="true" />
           <span>{t('player.lyricsRefresh')}</span>
         </button>
+        {/* Only offered when this track's lyrics actually carry a translation —
+            for every other track the toggle would do nothing. */}
+        {translations.length > 0 && !loading && (
+          <button
+            type="button"
+            className="lyrics-translation-btn"
+            onClick={() => setTranslationEnabled(!translationEnabled)}
+            aria-pressed={translationEnabled}
+          >
+            <Languages size={14} aria-hidden="true" />
+            <span>{t('player.lyricsTranslation')}</span>
+          </button>
+        )}
         {sourceLabel && !loading && !notFound && (
           <p className="lyrics-source">{sourceLabel}</p>
         )}

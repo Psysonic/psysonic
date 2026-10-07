@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { LrcLine, WordLyricsLine } from '@/features/lyrics/types';
+import { alignLyricsLayer, originalLyricsLines } from '@/features/lyrics/utils/lyricsLayers';
 import type { KuroshiroAnalyzer } from 'kuroshiro';
 
 const JAPANESE_KANA_RE = /[\u3040-\u30ff\uff66-\uff9f]/u;
@@ -130,35 +131,6 @@ export function romanizeJapaneseLines(lines: readonly string[]): Promise<string[
   return promise;
 }
 
-function alignServerPronunciation(
-  originalLines: readonly string[],
-  originalTimes: readonly number[] | null,
-  pronunciationLines: readonly LrcLine[] | null,
-  pronunciationPlainLyrics: string | null,
-): string[] | null {
-  let aligned: string[];
-
-  if (pronunciationLines?.length) {
-    const byTime = new Map(pronunciationLines.map(line => [Math.round(line.time * 1000), line.text]));
-    aligned = originalLines.map((_, index) => {
-      const time = originalTimes?.[index];
-      return (time !== undefined ? byTime.get(Math.round(time * 1000)) : undefined)
-        ?? pronunciationLines[index]?.text
-        ?? '';
-    });
-  } else if (pronunciationPlainLyrics) {
-    const lines = pronunciationPlainLyrics.split('\n');
-    aligned = originalLines.map((_, index) => lines[index] ?? '');
-  } else {
-    return null;
-  }
-
-  const distinct = aligned.map((line, index) => (
-    line.trim() && line.trim() !== originalLines[index]?.trim() ? line.trim() : ''
-  ));
-  return distinct.some(Boolean) ? distinct : null;
-}
-
 interface UseLyricsRomanizationOptions {
   enabled: boolean;
   syncedLines: LrcLine[] | null;
@@ -176,23 +148,16 @@ export function useLyricsRomanization({
   pronunciationLines,
   pronunciationPlainLyrics,
 }: UseLyricsRomanizationOptions): string[] | null {
-  const originalLines = useMemo(() => {
-    if (wordLines?.length) return wordLines.map(line => line.text);
-    if (syncedLines?.length) return syncedLines.map(line => line.text);
-    return plainLyrics?.split('\n') ?? [];
-  }, [plainLyrics, syncedLines, wordLines]);
-  const originalTimes = useMemo(() => {
-    if (wordLines?.length) return wordLines.map(line => line.time);
-    if (syncedLines?.length) return syncedLines.map(line => line.time);
-    return null;
-  }, [syncedLines, wordLines]);
+  const original = useMemo(
+    () => originalLyricsLines(syncedLines, wordLines, plainLyrics),
+    [plainLyrics, syncedLines, wordLines],
+  );
+  const originalLines = original.texts;
   const key = originalLines.join('\u0000');
-  const serverPronunciation = useMemo(() => alignServerPronunciation(
-    originalLines,
-    originalTimes,
-    pronunciationLines,
-    pronunciationPlainLyrics,
-  ), [originalLines, originalTimes, pronunciationLines, pronunciationPlainLyrics]);
+  const serverPronunciation = useMemo(
+    () => alignLyricsLayer(original, pronunciationLines, pronunciationPlainLyrics),
+    [original, pronunciationLines, pronunciationPlainLyrics],
+  );
   const [generated, setGenerated] = useState<{ key: string; lines: string[] | null } | null>(null);
 
   useEffect(() => {

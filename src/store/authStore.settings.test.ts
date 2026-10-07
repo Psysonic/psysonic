@@ -72,6 +72,7 @@ describe('trivial pass-through setters', () => {
     ['setNowPlayingEnabled', 'nowPlayingEnabled', true],
     ['setLyricsStaticOnly', 'lyricsStaticOnly', true],
     ['setLyricsRomanizationEnabled', 'lyricsRomanizationEnabled', true],
+    ['setLyricsTranslationEnabled', 'lyricsTranslationEnabled', true],
     ['setLyricsWordHighlightMode', 'lyricsWordHighlightMode', 'smooth'],
     ['setShowChangelogOnUpdate', 'showChangelogOnUpdate', false],
     ['setQueueNowPlayingCollapsed', 'queueNowPlayingCollapsed', true],
