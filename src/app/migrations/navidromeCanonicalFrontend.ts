@@ -7,6 +7,7 @@ const LOCAL_PLAYBACK_KEY = 'psysonic-local-playback';
 const OFFLINE_KEY = 'psysonic-offline';
 const HOT_CACHE_KEY = 'psysonic-hot-cache';
 const LOCAL_PLAYBACK_MIGRATED_KEY = 'psysonic-local-playback-migrated-v1';
+const LOCAL_PLAYBACK_RECOVERY_PREFIX = 'psysonic-local-playback-collision-recovery-v1:';
 const DEVICE_SYNC_KEY = 'psysonic_device_sync';
 const PLAYLIST_KEY = 'psysonic_playlists_recent';
 const PLAYLIST_FOLDERS_KEY = 'psysonic_playlist_folders';
@@ -300,11 +301,17 @@ function mergePinSources(...values: unknown[]): unknown[] {
   return [...merged.values()];
 }
 
-function mergeLocalPlaybackEntries(existing: JsonObject, candidate: JsonObject, key: string): JsonObject {
+function mergeLocalPlaybackEntries(
+  existing: JsonObject,
+  candidate: JsonObject,
+  key: string,
+  pathCollisions?: string[],
+): JsonObject {
   const differentPaths = existing.localPath !== candidate.localPath;
   if (differentPaths && (!existing.localPath || !candidate.localPath)) {
     throw new Error(`Malformed local playback collision at ${key}`);
   }
+  if (differentPaths) pathCollisions?.push(key);
   const priority = { ephemeral: 0, 'favorite-auto': 1, library: 2 } as Record<string, number>;
   const existingRank = priority[String(existing.tier)] ?? -1;
   const candidateRank = priority[String(candidate.tier)] ?? -1;
@@ -358,11 +365,16 @@ function mergeCompleteObjects(existing: JsonObject, candidate: JsonObject): Json
   return merged;
 }
 
-function mergeLegacyImportedEntry(existing: JsonObject, candidate: JsonObject, key: string): JsonObject {
+function mergeLegacyImportedEntry(
+  existing: JsonObject,
+  candidate: JsonObject,
+  key: string,
+  pathCollisions?: string[],
+): JsonObject {
   if (existing.localPath !== candidate.localPath) {
-    return mergeLocalPlaybackEntries(existing, candidate, key);
+    return mergeLocalPlaybackEntries(existing, candidate, key, pathCollisions);
   }
-  if (existing.tier !== 'library') return mergeLocalPlaybackEntries(existing, candidate, key);
+  if (existing.tier !== 'library') return mergeLocalPlaybackEntries(existing, candidate, key, pathCollisions);
   const sources = mergePinSources(
     existing.pinSource,
     existing.pinSources,
@@ -434,6 +446,7 @@ function legacyPinSourcesForTrack(
 function mergeLegacyLocalPlaybackSources(
   storage: NavidromeCanonicalFrontendStorage,
   scope: NavidromeCanonicalFrontendScope,
+  pathCollisions?: string[],
 ): void {
   const localRaw = readJson(storage, LOCAL_PLAYBACK_KEY);
   const localRoot = localRaw === null ? { state: { entries: {} }, version: 1 } : asObject(localRaw, LOCAL_PLAYBACK_KEY);
@@ -469,7 +482,7 @@ function mergeLegacyLocalPlaybackSources(
       };
       const key = `${serverIndexKey}:${trackId}`;
       entries[key] = isObject(entries[key])
-        ? mergeLegacyImportedEntry(entries[key], candidate, key)
+        ? mergeLegacyImportedEntry(entries[key], candidate, key, pathCollisions)
         : candidate;
       changed = true;
     }
@@ -488,6 +501,7 @@ function nowForMigration(): number {
 function rewriteLocalPlaybackState(
   storage: NavidromeCanonicalFrontendStorage,
   scope: NavidromeCanonicalFrontendScope,
+  pathCollisions?: string[],
 ): void {
   const raw = readJson(storage, LOCAL_PLAYBACK_KEY);
   if (raw === null) return;
@@ -521,7 +535,7 @@ function rewriteLocalPlaybackState(
       throw new Error(`Malformed persisted state in ${LOCAL_PLAYBACK_KEY}`);
     }
     const key = `${next.serverIndexKey}:${next.trackId}`;
-    entries[key] = entries[key] ? mergeLocalPlaybackEntries(entries[key], next, key) : next;
+    entries[key] = entries[key] ? mergeLocalPlaybackEntries(entries[key], next, key, pathCollisions) : next;
   }
   state.entries = entries;
   writeJson(storage, LOCAL_PLAYBACK_KEY, { ...root, state });
@@ -1112,6 +1126,37 @@ export function verifyNavidromeCanonicalFrontendState(
   verifyDerivedState(storage, scope);
 }
 
+function stagedCopy(
+  storage: NavidromeCanonicalFrontendStorage,
+  keys: readonly string[],
+): NavidromeCanonicalFrontendStorage {
+  const values = new Map<string, string>();
+  for (const key of keys) {
+    const value = storage.getItem(key);
+    if (value !== null) values.set(key, value);
+  }
+  return {
+    get length() { return values.size; },
+    key: index => [...values.keys()][index] ?? null,
+    getItem: key => values.get(key) ?? null,
+    setItem: (key, value) => { values.set(key, value); },
+    removeItem: key => { values.delete(key); },
+  };
+}
+
+/** Dry-run the local playback rewrite on a copy and report whether it merges records for different files. */
+function hasLocalPlaybackPathCollision(
+  storage: NavidromeCanonicalFrontendStorage,
+  scope: NavidromeCanonicalFrontendScope,
+): boolean {
+  const staged = stagedCopy(storage, [LOCAL_PLAYBACK_KEY, OFFLINE_KEY]);
+  const pathCollisions: string[] = [];
+  rewriteLocalPlaybackState(staged, scope, pathCollisions);
+  rewriteOfflineState(staged, scope);
+  mergeLegacyLocalPlaybackSources(staged, scope, pathCollisions);
+  return pathCollisions.length > 0;
+}
+
 /** Rewrite all declared identity-bearing frontend persistence before Zustand imports hydrate it. */
 export function rewriteNavidromeCanonicalFrontendState(
   scope: NavidromeCanonicalFrontendScope,
@@ -1120,8 +1165,10 @@ export function rewriteNavidromeCanonicalFrontendState(
   // Retain exact pre-rewrite candidates outside the live store. A disconnected
   // disk is not evidence of data loss; never delete either collision path.
   // Read back before modifying persistence, and retain the first snapshot on retry.
-  const recoveryKey = `psysonic-local-playback-collision-recovery-v1:${scope.serverIndexKey}`;
-  if (storage.getItem(recoveryKey) === null) {
+  // Only a path collision needs it: a copy of both stores can exceed the
+  // localStorage quota, and a failed write would block every migration.
+  const recoveryKey = `${LOCAL_PLAYBACK_RECOVERY_PREFIX}${scope.serverIndexKey}`;
+  if (storage.getItem(recoveryKey) === null && hasLocalPlaybackPathCollision(storage, scope)) {
     const snapshot = JSON.stringify({
       version: 1,
       localPlayback: storage.getItem(LOCAL_PLAYBACK_KEY),

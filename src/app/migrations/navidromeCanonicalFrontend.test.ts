@@ -344,6 +344,19 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
   });
 
   it('does not rewrite live state if the recovery snapshot cannot be stored', () => {
+    localStorage.removeItem('psysonic-offline');
+    localStorage.setItem('psysonic-local-playback', persisted({
+      entries: {
+        legacy: {
+          serverIndexKey: 'music.test', trackId: LEGACY, localPath: `/cache/${LEGACY}.flac`,
+          layoutFingerprint: 'a', sizeBytes: 1, tier: 'library', cachedAt: 1, suffix: 'flac',
+        },
+        canonical: {
+          serverIndexKey: 'music.test', trackId: CANONICAL, localPath: `/cache/other.flac`,
+          layoutFingerprint: 'b', sizeBytes: 1, tier: 'library', cachedAt: 2, suffix: 'flac',
+        },
+      },
+    }, 1));
     const original = localStorage.getItem('psysonic-local-playback');
     const originalAuth = localStorage.getItem('psysonic-auth');
     const storage = {
@@ -361,6 +374,60 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
       .toThrow('Local playback recovery snapshot could not be persisted');
     expect(localStorage.getItem('psysonic-local-playback')).toBe(original);
     expect(localStorage.getItem('psysonic-auth')).toBe(originalAuth);
+  });
+
+  it('writes no recovery snapshot when no local playback paths collide', () => {
+    rewriteNavidromeCanonicalFrontendState(scope);
+    expect(localStorage.getItem('psysonic-local-playback-collision-recovery-v1:music.test')).toBeNull();
+    expect(localStorage.getItem('psysonic-local-playback-migrated-v1')).toBe('1');
+  });
+
+  it('retains the original state when a legacy offline record points at another file', () => {
+    localStorage.setItem('psysonic-local-playback', persisted({
+      entries: {
+        [`music.test:${CANONICAL}`]: {
+          serverIndexKey: 'music.test', trackId: CANONICAL, localPath: '/cache/current.flac',
+          layoutFingerprint: 'a', sizeBytes: 1, tier: 'library', cachedAt: 2, suffix: 'flac',
+        },
+      },
+    }, 1));
+    const originalOffline = localStorage.getItem('psysonic-offline');
+    rewriteNavidromeCanonicalFrontendState(scope);
+    const recovery = localStorage.getItem('psysonic-local-playback-collision-recovery-v1:music.test');
+    expect(JSON.parse(recovery!).offline).toBe(originalOffline);
+  });
+
+  it('migrates a store too large to copy when no local playback paths collide', () => {
+    localStorage.removeItem('psysonic-offline');
+    const entries: Record<string, unknown> = {};
+    for (let index = 1; index <= 200; index += 1) {
+      const trackId = index.toString(16).padStart(32, '0');
+      entries[`music.test:${trackId}`] = {
+        serverIndexKey: 'music.test', trackId, localPath: `/offline/server/${index}.flac`,
+        layoutFingerprint: `artist=Artist|album=Album|title=Track ${index}|stem=${index}`,
+        tier: 'library', cachedAt: 1, suffix: 'flac', sizeBytes: 2,
+      };
+    }
+    localStorage.setItem('psysonic-local-playback', persisted({ entries }, 1));
+    const stored = () => Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index)!)
+      .reduce((total, key) => total + key.length + localStorage.getItem(key)!.length, 0);
+    // Room for the rewrite, but not for a second copy of the local playback store.
+    const quota = stored() + localStorage.getItem('psysonic-local-playback')!.length / 2;
+    const storage = {
+      get length() { return localStorage.length; },
+      key: (index: number) => localStorage.key(index),
+      getItem: (key: string) => localStorage.getItem(key),
+      removeItem: (key: string) => localStorage.removeItem(key),
+      setItem: (key: string, value: string) => {
+        const previous = localStorage.getItem(key);
+        const next = stored() - (previous === null ? 0 : key.length + previous.length) + key.length + value.length;
+        if (next > quota) throw new DOMException('quota', 'QuotaExceededError');
+        localStorage.setItem(key, value);
+      },
+    };
+    expect(() => rewriteNavidromeCanonicalFrontendState(scope, storage)).not.toThrow();
+    const result = JSON.parse(localStorage.getItem('psysonic-local-playback')!).state.entries;
+    expect(Object.keys(result)).toHaveLength(200);
   });
 
   it('preserves a valid local playback entry owned by a removed server', () => {
