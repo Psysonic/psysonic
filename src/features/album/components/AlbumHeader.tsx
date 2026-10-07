@@ -29,6 +29,7 @@ import EntitySourcePicker from '@/ui/EntitySourcePicker';
 import type { LibraryScopePair } from '@/lib/api/library';
 import type { MusicFolder, ServerProfile } from '@/store/authStoreTypes';
 import { ShareMethodMenuButton } from '@/features/share';
+import { ResumeButton } from '@/features/resume';
 
 /** True when the album artist label means "no single artist" — `getArtistInfo`
  *  has nothing meaningful to return for these, so the Artist Bio entry is hidden.
@@ -424,6 +425,13 @@ export default function AlbumHeader({
                     >
                       <Play size={24} fill="currentColor" />
                     </button>
+                    <ResumeButton
+                      kind="album"
+                      id={info.id}
+                      serverId={serverId}
+                      className="album-icon-btn album-icon-btn--queue"
+                      iconOnly
+                    />
                     <button
                       className="album-icon-btn album-icon-btn--queue"
                       onClick={onEnqueueAll}

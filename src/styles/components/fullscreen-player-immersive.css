@@ -672,6 +672,13 @@
   width: 100%;
 }
 
+/* Romanization and translation together would overflow the fixed 6vh slot;
+   tightening both secondary lines keeps three rows inside it. */
+.fsr-lyric-line .lyrics-line-content:has(.lyrics-romanization):has(.lyrics-translation) :is(.lyrics-romanization, .lyrics-translation) {
+  margin-top: 0;
+  line-height: 1.15;
+}
+
 .fsr-lyric-line:hover { color: rgba(255, 255, 255, 0.5); }
 
 .fsr-lyric-line.fsrl-past { color: rgba(255, 255, 255, 0.1); }

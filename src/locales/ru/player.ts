@@ -70,6 +70,7 @@ export const player = {
   lyricsSourceLrclib: 'Источник: LRCLIB',
   lyricsSourceNetease: 'Источник: Netease',
   lyricsRefresh: 'Обновить текст',
+  lyricsTranslation: 'Перевод',
   fsLyricsToggle: 'Текст в полноэкранном режиме',
   showDuration: 'Показать длительность',
   showRemainingTime: 'Показать оставшееся время',

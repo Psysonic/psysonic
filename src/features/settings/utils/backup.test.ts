@@ -692,6 +692,41 @@ describe('device sync travels as a projection', () => {
   });
 });
 
+describe('resume points travel without the playing session', () => {
+  const points = [{ kind: 'album', id: 'al-1', serverKey: 'music.test', name: 'A record', trackIndex: 2 }];
+
+  async function exportedStores(): Promise<Record<string, unknown>> {
+    await exportBackupToPath('config', '/tmp/settings.psybkp');
+    const bytes = mocks.writeFile.mock.calls[0]?.[1] as Uint8Array;
+    return (JSON.parse(new TextDecoder().decode(bytes)) as {
+      stores: Record<string, unknown>;
+    }).stores;
+  }
+
+  it('carries the points but not the list this machine is playing', async () => {
+    localStorage.setItem('psysonic_resume_points', JSON.stringify({
+      state: { points, session: { kind: 'playlist', id: 'pl-1', serverKey: 'music.test' } },
+      version: 1,
+    }));
+
+    const stores = await exportedStores();
+
+    expect(stores.psysonic_resume_points).toEqual({ state: { points }, version: 1 });
+  });
+
+  it('restores the points and keeps the session of the restoring machine', async () => {
+    localStorage.setItem('psysonic_resume_points', JSON.stringify({ state: { points }, version: 1 }));
+    const stores = await exportedStores();
+
+    const session = { kind: 'album', id: 'al-9', serverKey: 'other.test' };
+    localStorage.setItem('psysonic_resume_points', JSON.stringify({ state: { points: [], session }, version: 1 }));
+    restoreBackupStores(stores);
+
+    const restored = JSON.parse(localStorage.getItem('psysonic_resume_points') ?? 'null');
+    expect(restored.state).toEqual({ points, session });
+  });
+});
+
 /**
  * The exclusion list lives in the registry beside the backed-up entries, so a
  * new setting cannot be classified in one place and forgotten in the other.

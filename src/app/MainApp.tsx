@@ -24,6 +24,11 @@ import {
 import { runLegacyOfflineFileMigration } from '@/features/offline/utils/legacyOfflineFileMigration';
 import { reconcileLibraryTierForServer } from '@/features/offline/utils/libraryTierReconcile';
 import { initMiniPlayerBridgeOnMain } from '@/features/miniPlayer';
+import { initResumePoints } from '@/features/resume/initResumePoints';
+import { fetchAlbumTracks } from '@/features/playback/utils/playback/playAlbum';
+import { resolvePlaylistTracks } from '@/features/playlist/utils/resolvePlaylistTracks';
+import { usePlaylistStore } from '@/features/playlist/store/playlistStore';
+import { canonicalQueueServerKey } from '@/lib/server/serverIndexKey';
 import { runAdvancedModeMigration } from '@/app/migrations/advancedModeMigration';
 import { bootstrapAllIndexedServers } from '@/lib/library/librarySession';
 import { hydrateQueueFromIndex } from '@/features/playback/store/queueRestore';
@@ -117,6 +122,21 @@ export default function MainApp() {
   useEffect(() => {
     if (!migrationReady) return undefined;
     return initHotCachePrefetch();
+  }, [migrationReady]);
+
+  useEffect(() => {
+    if (!migrationReady) return undefined;
+    return initResumePoints({
+      loadAlbumTracks: fetchAlbumTracks,
+      loadPlaylistTracks: resolvePlaylistTracks,
+      playlistName: (id, serverId) => {
+        const serverKey = serverId ? canonicalQueueServerKey(serverId) : null;
+        return usePlaylistStore.getState().playlists.find(playlist => (
+          playlist.id === id
+          && (!serverKey || !playlist.serverId || canonicalQueueServerKey(playlist.serverId) === serverKey)
+        ))?.name;
+      },
+    });
   }, [migrationReady]);
 
   useEffect(() => {

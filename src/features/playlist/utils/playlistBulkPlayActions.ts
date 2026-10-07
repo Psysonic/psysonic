@@ -24,7 +24,7 @@ export function shufflePlaylistAll(deps: BulkPlayDeps): void {
   const { songsLength, id, serverId, tracks, playTrack } = deps;
   if (!songsLength || !id) return;
   const shuffled = shuffleTracks(tracks);
-  withQueueSource({ kind: 'playlist', id, serverId }, () => playTrack(shuffled[0], shuffled));
+  withQueueSource({ kind: 'playlist', id, serverId, shuffled: true }, () => playTrack(shuffled[0], shuffled));
 }
 
 export function enqueuePlaylistAll(deps: BulkPlayDeps): void {

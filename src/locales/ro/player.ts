@@ -71,6 +71,7 @@ export const player = {
   lyricsSourceLrclib: 'Sursa: LRCLIB',
   lyricsSourceNetease: 'Sursa: Netease',
   lyricsRefresh: 'Reîmprospătează versurile',
+  lyricsTranslation: 'Traducere',
   showDuration: 'Arată durata',
   showRemainingTime: 'Arată timpul rămas',
   scrobbleStatus: 'Starea scrobble-ului',

@@ -25,6 +25,20 @@ describe('LyricsTab', () => {
     })).not.toBeChecked();
   });
 
+  it('offers the translation line as its own setting, off by default', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<LyricsTab />);
+
+    const section = screen.getByText('Translation').closest('details');
+    expect(section).not.toBeNull();
+    await user.click(screen.getByText('Translation'));
+    const toggle = within(section!).getByRole('checkbox', { name: 'Show translation' });
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+    expect(useAuthStore.getState().lyricsTranslationEnabled).toBe(true);
+  });
+
   it('stores smooth word highlighting as a separate lyrics mode', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LyricsTab />);

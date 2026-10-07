@@ -71,6 +71,7 @@ export const player = {
   lyricsSourceLrclib: 'ソース: LRCLIB',
   lyricsSourceNetease: 'ソース: Netease',
   lyricsRefresh: '歌詞を再読み込み',
+  lyricsTranslation: '翻訳',
   showDuration: '長さを表示',
   showRemainingTime: '残り時間を表示',
   scrobbleStatus: 'Scrobble の状態',

@@ -71,6 +71,7 @@ export const player = {
   lyricsSourceLrclib: 'Джерело: LRCLIB',
   lyricsSourceNetease: 'Джерело: Netease',
   lyricsRefresh: 'Оновити текст пісні',
+  lyricsTranslation: 'Переклад',
   showDuration: 'Показувати тривалість',
   showRemainingTime: 'Показувати час, що залишився',
   scrobbleStatus: 'Статус скробблінгу',

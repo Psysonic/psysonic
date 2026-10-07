@@ -6,6 +6,7 @@ import { fadeOut } from '@/features/playback/utils/playback/fadeOut';
 import { shouldAutodjInterruptBlend } from '@/features/playback/utils/playback/autodjManualBlend';
 import type { Track } from '@/lib/media/trackTypes';
 import { shuffleTracks } from '@/features/playback/utils/playback/shuffleTracks';
+import { type QueueSource, withQueueSource } from '@/features/playback/store/pendingQueueSource';
 
 export async function fetchAlbumTracks(albumId: string, serverId?: string): Promise<Track[]> {
   const albumData = await resolveAlbumForActiveServer(albumId, serverId);
@@ -20,7 +21,7 @@ export async function fetchAlbumTracks(albumId: string, serverId?: string): Prom
   });
 }
 
-async function startAlbumPlayback(tracks: Track[]): Promise<void> {
+async function startAlbumPlayback(tracks: Track[], source?: QueueSource): Promise<void> {
   if (!tracks.length) return;
 
   // In Orbit sessions, playAlbum is effectively an append operation (the
@@ -45,11 +46,16 @@ async function startAlbumPlayback(tracks: Track[]): Promise<void> {
     usePlayerStore.setState({ volume });
   }
 
-  usePlayerStore.getState().playTrack(tracks[0], tracks);
+  const start = () => usePlayerStore.getState().playTrack(tracks[0], tracks);
+  if (source) withQueueSource(source, start);
+  else start();
 }
 
 export async function playAlbum(albumId: string, opts?: { serverId?: string }): Promise<void> {
-  await startAlbumPlayback(await fetchAlbumTracks(albumId, opts?.serverId));
+  await startAlbumPlayback(
+    await fetchAlbumTracks(albumId, opts?.serverId),
+    { kind: 'album', id: albumId, serverId: opts?.serverId },
+  );
 }
 
 export async function playAlbumShuffled(albumId: string, opts?: { serverId?: string }): Promise<void> {

@@ -71,6 +71,7 @@ export const player = {
   lyricsSourceLrclib: 'Източник: LRCLIB',
   lyricsSourceNetease: 'Източник: Netease',
   lyricsRefresh: 'Обнови текста',
+  lyricsTranslation: 'Превод',
   showDuration: 'Покажи времетраенето',
   showRemainingTime: 'Покажи оставащото време',
   scrobbleStatus: 'Състояние на скробването',

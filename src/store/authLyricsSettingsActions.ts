@@ -17,6 +17,7 @@ export function createLyricsSettingsActions(set: SetState): Pick<
   | 'setLyricsSources'
   | 'setLyricsStaticOnly'
   | 'setLyricsRomanizationEnabled'
+  | 'setLyricsTranslationEnabled'
   | 'setLyricsWordHighlightMode'
 > {
   return {
@@ -25,6 +26,7 @@ export function createLyricsSettingsActions(set: SetState): Pick<
     setLyricsSources: (sources) => set({ lyricsSources: sources }),
     setLyricsStaticOnly: (v) => set({ lyricsStaticOnly: v }),
     setLyricsRomanizationEnabled: (v) => set({ lyricsRomanizationEnabled: v }),
+    setLyricsTranslationEnabled: (v) => set({ lyricsTranslationEnabled: v }),
     setLyricsWordHighlightMode: (v) => set({ lyricsWordHighlightMode: v }),
   };
 }

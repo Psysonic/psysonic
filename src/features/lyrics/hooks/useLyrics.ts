@@ -12,7 +12,13 @@ import { deleteCachedLyrics, getCachedLyrics, putCachedLyrics, lyricsCacheKey } 
 import { parseStructuredLyrics, parseStructuredWordLines } from '@/features/lyrics/utils/structuredLyrics';
 import { FEATURE_ENHANCED_LYRICS } from '@/lib/serverCapabilities/catalog';
 import { isFeatureActiveForServer } from '@/lib/serverCapabilities/storeView';
-import type { CachedLyrics, LrcLine, LyricsSource, WordLyricsLine } from '@/features/lyrics/types';
+import type {
+  CachedLyrics,
+  LrcLine,
+  LyricsSource,
+  LyricsTranslation,
+  WordLyricsLine,
+} from '@/features/lyrics/types';
 import { playbackCacheKeyForTrack, playbackProfileIdForTrack } from '@/features/playback';
 
 // L1 cache: RAM, survives tab switches and component remount within a session.
@@ -20,12 +26,17 @@ import { playbackCacheKeyForTrack, playbackProfileIdForTrack } from '@/features/
 // L1 miss so the common case (jumping back to a recent track) stays fully sync.
 export const lyricsCache = new Map<string, CachedLyrics>();
 
+// Shared so "no translations" keeps one identity and memoised consumers don't
+// recompute on every track change.
+const NO_TRANSLATIONS: LyricsTranslation[] = [];
+
 export interface UseLyricsResult {
   syncedLines: LrcLine[] | null;
   wordLines: WordLyricsLine[] | null;
   plainLyrics: string | null;
   pronunciationLines: LrcLine[] | null;
   pronunciationPlainLyrics: string | null;
+  translations: LyricsTranslation[];
   source: LyricsSource | null;
   loading: boolean;
   notFound: boolean;
@@ -52,6 +63,7 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
   const [plainLyrics, setPlainLyrics] = useState<string | null>(cached?.plainLyrics ?? null);
   const [pronunciationLines, setPronunciationLines] = useState<LrcLine[] | null>(cached?.pronunciationLines ?? null);
   const [pronunciationPlainLyrics, setPronunciationPlainLyrics] = useState<string | null>(cached?.pronunciationPlainLyrics ?? null);
+  const [translations, setTranslations] = useState<LyricsTranslation[]>(cached?.translations ?? NO_TRANSLATIONS);
   const [source, setSource]           = useState<LyricsSource | null>(cached?.source ?? null);
   const [notFound, setNotFound]       = useState(cached?.notFound ?? false);
   // Bumped by `refresh()` to re-run the fetch effect for an unchanged track.
@@ -80,6 +92,7 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       setPlainLyrics(null);
       setPronunciationLines(null);
       setPronunciationPlainLyrics(null);
+      setTranslations(NO_TRANSLATIONS);
       setSource(null);
       setNotFound(false);
       setLoading(false);
@@ -93,6 +106,7 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       setPlainLyrics(hit.plainLyrics);
       setPronunciationLines(hit.pronunciationLines ?? null);
       setPronunciationPlainLyrics(hit.pronunciationPlainLyrics ?? null);
+      setTranslations(hit.translations ?? NO_TRANSLATIONS);
       setSource(hit.source);
       setNotFound(hit.notFound);
       setLoading(false);
@@ -105,6 +119,7 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
     setPlainLyrics(null);
     setPronunciationLines(null);
     setPronunciationPlainLyrics(null);
+    setTranslations(NO_TRANSLATIONS);
     setSource(null);
     setNotFound(false);
     setLoading(true);
@@ -117,6 +132,7 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       setPlainLyrics(entry.plainLyrics);
       setPronunciationLines(entry.pronunciationLines ?? null);
       setPronunciationPlainLyrics(entry.pronunciationPlainLyrics ?? null);
+      setTranslations(entry.translations ?? NO_TRANSLATIONS);
       setSource(entry.source);
       setNotFound(entry.notFound);
       setLoading(false);
@@ -177,11 +193,20 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
       const pronunciation = selection.pronunciation
         ? parseStructuredLyrics(selection.pronunciation)
         : null;
+      const translations = selection.translations.map(layer => {
+        const translated = parseStructuredLyrics(layer);
+        return {
+          lang: layer.lang ?? '',
+          lines: translated.syncedLines,
+          plainLyrics: translated.plainLyrics,
+        };
+      });
       store({
         ...parsed,
         wordLines,
         pronunciationLines: pronunciation?.syncedLines ?? null,
         pronunciationPlainLyrics: pronunciation?.plainLyrics ?? null,
+        translations,
         source: 'server',
         notFound: false,
       });
@@ -263,6 +288,7 @@ export function useLyrics(currentTrack: Track | null): UseLyricsResult {
     plainLyrics,
     pronunciationLines,
     pronunciationPlainLyrics,
+    translations,
     source,
     loading,
     notFound,

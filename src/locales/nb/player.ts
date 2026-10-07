@@ -71,6 +71,7 @@ export const player = {
   lyricsSourceLrclib: 'Kilde: LRCLIB',
   lyricsSourceNetease: 'Kilde: Netease',
   lyricsRefresh: 'Oppdater sangteksten',
+  lyricsTranslation: 'Oversettelse',
   showDuration: 'Vis varighet',
   showRemainingTime: 'Vis gjenværende tid',
   scrobbleStatus: 'Scrobble-status',

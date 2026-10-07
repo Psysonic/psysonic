@@ -14,6 +14,7 @@ import {
   isMainLyricsKind,
   pickMainStructuredLyrics,
   pickPronunciationStructuredLyrics,
+  pickTranslationStructuredLyrics,
 } from '@/lib/api/subsonicLyrics';
 
 function lyrics(overrides: Partial<SubsonicStructuredLyrics> = {}): SubsonicStructuredLyrics {
@@ -81,6 +82,35 @@ describe('pickPronunciationStructuredLyrics', () => {
 
   it('returns null when the response has no pronunciation layer', () => {
     expect(pickPronunciationStructuredLyrics([lyrics({ kind: 'main' })])).toBeNull();
+  });
+});
+
+// Shape from Navidrome's TTML parser: one entry per translation language, after
+// the main layer, each line carrying the start of the original line it belongs to.
+describe('pickTranslationStructuredLyrics', () => {
+  const main = lyrics({ kind: 'main', lang: 'ja', synced: true, line: [{ start: 1000, value: '君' }] });
+
+  it('keeps one layer per language in server order', () => {
+    const english = lyrics({ kind: 'translation', lang: 'en', synced: true, line: [{ start: 1000, value: 'you' }] });
+    const german = lyrics({ kind: 'translation', lang: 'de', synced: true, line: [{ start: 1000, value: 'du' }] });
+    expect(pickTranslationStructuredLyrics([main, english, german])).toEqual([english, german]);
+  });
+
+  it('merges pieces of one language instead of keeping only the first', () => {
+    const pieces = [
+      lyrics({ kind: 'translation', lang: 'en', synced: true, line: [{ start: 1000, value: 'you' }] }),
+      lyrics({ kind: 'translation', lang: 'en', synced: true, line: [{ start: 5000, value: 'your name' }] }),
+    ];
+    const [english] = pickTranslationStructuredLyrics([main, ...pieces]);
+    expect(english.line).toEqual([
+      { start: 1000, value: 'you' },
+      { start: 5000, value: 'your name' },
+    ]);
+  });
+
+  it('ignores main and pronunciation layers', () => {
+    const pronunciation = lyrics({ kind: 'pronunciation', lang: 'ja-latn', synced: true, line: [{ start: 1000, value: 'kimi' }] });
+    expect(pickTranslationStructuredLyrics([main, pronunciation])).toEqual([]);
   });
 });
 
@@ -232,6 +262,40 @@ describe('getLyricsBySongId', () => {
     await expect(getLyricsSelectionBySongId('song-1', { enhanced: true })).resolves.toEqual({
       main,
       pronunciation,
+      translations: [],
+    });
+  });
+
+  it('returns the translation layers alongside the main layer', async () => {
+    const main = lyrics({ kind: 'main', synced: true, line: [{ start: 0, value: '君' }] });
+    const translation = lyrics({
+      kind: 'translation',
+      lang: 'en',
+      synced: true,
+      line: [{ start: 0, value: 'you' }],
+    });
+    apiMock.mockResolvedValue({ lyricsList: { structuredLyrics: [main, translation] } });
+
+    await expect(getLyricsSelectionBySongId('song-1', { enhanced: true })).resolves.toEqual({
+      main,
+      pronunciation: null,
+      translations: [translation],
+    });
+  });
+
+  it('does not repeat a translation that stands in for missing main text', async () => {
+    const translation = lyrics({
+      kind: 'translation',
+      lang: 'en',
+      synced: true,
+      line: [{ start: 0, value: 'you' }],
+    });
+    apiMock.mockResolvedValue({ lyricsList: { structuredLyrics: [translation] } });
+
+    await expect(getLyricsSelectionBySongId('song-1', { enhanced: true })).resolves.toEqual({
+      main: translation,
+      pronunciation: null,
+      translations: [],
     });
   });
 
@@ -246,6 +310,7 @@ describe('getLyricsBySongId', () => {
     await expect(getLyricsSelectionBySongId('song-1', { enhanced: true })).resolves.toEqual({
       main: pronunciation,
       pronunciation: null,
+      translations: [],
     });
   });
 });
