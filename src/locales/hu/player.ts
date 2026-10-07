@@ -71,6 +71,7 @@ export const player = {
   lyricsSourceLrclib: 'Forrás: LRCLIB',
   lyricsSourceNetease: 'Forrás: Netease',
   lyricsRefresh: 'Dalszöveg frissítése',
+  lyricsTranslation: 'Fordítás',
   showDuration: 'Hossz megjelenítése',
   showRemainingTime: 'Hátralévő idő megjelenítése',
   scrobbleStatus: 'Scrobble állapota',

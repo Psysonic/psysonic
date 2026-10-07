@@ -71,6 +71,7 @@ export const player = {
   lyricsSourceLrclib: '来源：LRCLIB',
   lyricsSourceNetease: '来源：网易云',
   lyricsRefresh: '刷新歌词',
+  lyricsTranslation: '翻译',
   showDuration: '显示时长',
   showRemainingTime: '显示剩余时间',
   scrobbleStatus: 'Scrobble 状态',
