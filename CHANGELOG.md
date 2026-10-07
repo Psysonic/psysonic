@@ -159,6 +159,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * When the lyrics on your server include a translation, it can show as a smaller line under each lyric line — in the sidebar, the mobile view and the fullscreen player. Turn it on in **Settings → Lyrics → Translation**, or with the **Translation** button below the lyrics, which appears only for songs that have one.
 * Needs Navidrome 0.63 or later and lyrics files that carry translations, such as TTML. If there are several, the one in your app language is shown.
 
+### Desktop notification when the song changes
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1723](https://github.com/Psysonic/psysonic/pull/1723)**
+
+* Turn on **Settings → System → App Behavior → Notifications → Notify on Track Change** to get a desktop notification with title, artist, album, length and cover whenever a new song starts, as long as Psysonic is not the window you are looking at. Radio stations announce each new song title, with the station logo if there is one. It is off by default.
+* Skipping quickly through the queue announces only the song that keeps playing, and pausing or resuming never shows one.
+* The Flatpak build cannot show these notifications yet.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
