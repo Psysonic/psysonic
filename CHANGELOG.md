@@ -152,6 +152,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **Settings → Personalisation → Home** now lets you drag the rows into the order you want, like the other layout settings on that page. The large banner at the top keeps its place.
 
+### Lyrics translations from your server
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1721](https://github.com/Psysonic/psysonic/pull/1721)**
+
+* When the lyrics on your server include a translation, it can show as a smaller line under each lyric line — in the sidebar, the mobile view and the fullscreen player. Turn it on in **Settings → Lyrics → Translation**, or with the **Translation** button below the lyrics, which appears only for songs that have one.
+* Needs Navidrome 0.63 or later and lyrics files that carry translations, such as TTML. If there are several, the one in your app language is shown.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
