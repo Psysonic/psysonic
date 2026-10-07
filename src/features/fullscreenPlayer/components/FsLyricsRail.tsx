@@ -9,6 +9,7 @@ import {
   LyricsLineContent,
   useLyrics,
   useLyricsRomanization,
+  useLyricsTranslation,
   type WordLyricsLine,
   useWordLyricsSync,
   wordHighlightClassName,
@@ -25,10 +26,12 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
     plainLyrics,
     pronunciationLines,
     pronunciationPlainLyrics,
+    translations,
     loading,
   } = useLyrics(currentTrack);
   const staticOnly = useAuthStore(s => s.lyricsStaticOnly);
   const romanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
+  const translationEnabled = useAuthStore(s => s.lyricsTranslationEnabled);
   const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
   const wordClass = wordHighlightClassName('fsr-lyric-word', wordHighlightMode);
 
@@ -44,6 +47,13 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
     plainLyrics,
     pronunciationLines,
     pronunciationPlainLyrics,
+  });
+  const translatedLines = useLyricsTranslation({
+    enabled: translationEnabled,
+    syncedLines,
+    wordLines,
+    plainLyrics,
+    translations,
   });
 
   const linesRef = useRef<LrcLine[]>([]);
@@ -119,6 +129,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
                 <LyricsLineContent
                   romanization={romanizedLines?.[i]}
                   romanizationRef={setRomanizationRef(i)}
+                  translation={translatedLines?.[i]}
                 >
                   {line.words.length > 0 ? line.words.map((w, j) => (
                     <span
@@ -136,7 +147,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
                 className={`fsr-lyric-line${i === activeIdx ? ' fsrl-active' : i < activeIdx ? ' fsrl-past' : ''}`}
                 data-time={line.time}
               >
-                <LyricsLineContent romanization={romanizedLines?.[i]}>
+                <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                   {line.text || ' '}
                 </LyricsLineContent>
               </div>

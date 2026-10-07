@@ -280,9 +280,10 @@
   flex-shrink: 0;
 }
 
-/* Matches `.lyrics-source` so the two footer items read as one row; only the
-   hover state marks this one as the interactive half. */
-.lyrics-refresh-btn {
+/* Matches `.lyrics-source` so the footer items read as one row; only the hover
+   state marks the buttons as the interactive part. */
+.lyrics-refresh-btn,
+.lyrics-translation-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -296,7 +297,9 @@
   transition: color 0.15s ease;
 }
 
-.lyrics-refresh-btn:hover:not(:disabled) {
+.lyrics-refresh-btn:hover:not(:disabled),
+.lyrics-translation-btn:hover,
+.lyrics-translation-btn[aria-pressed='true'] {
   color: var(--accent);
 }
 
@@ -450,9 +453,23 @@
 }
 
 .lyrics-line-primary,
-.lyrics-romanization {
+.lyrics-romanization,
+.lyrics-translation {
   max-width: 100%;
   min-width: 0;
+}
+
+/* No progress fill like the romanization line: a translation has its own word
+   order, so the original's word timing says nothing about it. */
+.lyrics-translation {
+  display: block;
+  margin-top: 0.08em;
+  font-size: 0.62em;
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  opacity: 0.72;
+  text-shadow: none;
 }
 
 .lyrics-romanization {

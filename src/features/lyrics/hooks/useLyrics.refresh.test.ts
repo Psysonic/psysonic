@@ -81,6 +81,7 @@ describe('useLyrics refresh', () => {
         synced: false,
       },
       pronunciation: null,
+      translations: [],
     });
 
     act(() => result.current.refresh());
@@ -109,6 +110,7 @@ describe('useLyrics refresh', () => {
         synced: false,
       },
       pronunciation: null,
+      translations: [],
     });
 
     act(() => result.current.refresh());
