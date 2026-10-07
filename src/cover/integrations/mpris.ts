@@ -1,14 +1,11 @@
 import { coverCacheEnsure } from '@/lib/api/coverCache';
 import { buildCoverArtFetchUrl } from '../fetchUrl';
 import type { CoverArtRef } from '../types';
+import { coverDiskPath } from './diskPath';
 
 function fileUrlFromDiskPath(path: string): string {
   if (!path) return '';
-  // Ensure results carry `path|mtimeVersion`; strip it for a bare file:// URL.
-  const sep = path.lastIndexOf('|');
-  if (sep >= 0 && /^\d+$/.test(path.slice(sep + 1))) {
-    path = path.slice(0, sep);
-  }
+  path = coverDiskPath(path);
   if (path.startsWith('file://')) return path;
   return `file://${path}`;
 }
