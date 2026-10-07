@@ -139,6 +139,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Appearance → Fullscreen player → Open automatically** opens the fullscreen player after 1 to 30 minutes without mouse or keyboard input while a song plays and Psysonic's window is on screen. It is off by default, and it does not open for internet radio.
 * The next mouse movement, click or key press closes it again without triggering anything underneath. Opening the fullscreen player yourself works as before.
 
+### Pick up albums and playlists where you left off
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1719](https://github.com/Psysonic/psysonic/pull/1719)**
+
+* When you leave an album or playlist after at least one of its songs played to the end, Psysonic remembers where you stopped. A **Resume** button next to Play on its page shows the song and time, and continues right there.
+* **Continue listening** on Home lists these albums and playlists with their progress. Playing a list to its last song clears it; lists started in shuffle or in private mode are not remembered.
+
+### Arrange the rows on Home
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1720](https://github.com/Psysonic/psysonic/pull/1720)**
+
+* **Settings → Personalisation → Home** now lets you drag the rows into the order you want, like the other layout settings on that page. The large banner at the top keeps its place.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
