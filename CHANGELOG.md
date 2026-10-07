@@ -274,6 +274,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * On KDE Plasma, the Flatpak version showed a blank taskbar icon when no other Psysonic package was installed, because the desktop could not match the window to its launcher. The Flatpak launcher now names the window it belongs to, so the Psysonic icon appears.
 
+### The app now tells the system which language it is shown in
+
+**By [@stefnto](https://github.com/stefnto), PR [#1724](https://github.com/Psysonic/psysonic/pull/1724)**
+
+* The page language was always set to German, whatever language Psysonic was shown in. It now follows the selected language, so screen readers can use the matching pronunciation and capitalised text follows the rules of that language, for example Greek capitals without accents.
+
 ## [1.55.0]
 
 ## Added
