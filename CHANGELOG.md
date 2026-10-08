@@ -316,6 +316,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * In a small window the options filled the page and the lists could not be reached or scrolled. The page now scrolls, and the lists stack under each other when there is little room.
 * The page reads top to bottom: choose the device, adjust the options (folded away, with an example of where files land), pick the music and check what is on the device. A bar at the bottom shows the state and holds the sync button; without a device the page explains how to choose one.
 
+### Song and album counts in Device Sync follow the app language
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1729](https://github.com/Psysonic/psysonic/pull/1729)**
+
+* The playlist and artist lists in Device Sync showed their song and album counts in English. They now use the app language; in Polish and Romanian the album count on the Artists page no longer switches to English for counts like 3 either.
+
 ## [1.55.0]
 
 ## Added
