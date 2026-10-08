@@ -34,6 +34,8 @@ export interface Track {
   bitDepth?: number;
   /** Subsonic `size` in bytes when provided by the server (helps hot-cache budgeting). */
   size?: number;
+  /** OpenSubsonic `explicitStatus` of the child song (`"explicit"`, `"clean"` or `""`). */
+  explicitStatus?: string;
   /** Owning server profile id when the queue spans multiple servers (e.g. offline favorites). */
   serverId?: string;
   autoAdded?: boolean;
