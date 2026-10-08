@@ -294,6 +294,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The page language was always set to German, whatever language Psysonic was shown in. It now follows the selected language, so screen readers can use the matching pronunciation and capitalised text follows the rules of that language, for example Greek capitals without accents.
 
+### Device Sync files albums under the album artist on Navidrome
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1726](https://github.com/Psysonic/psysonic/pull/1726)**
+
+* With a Navidrome server, Device Sync put every album into a folder named after the track artist, so tracks with a guest artist or from a compilation ended up in folders of their own. Albums now go under their album artist, as the naming scheme shows.
+* Root cause: Navidrome reports the album artist only in its OpenSubsonic field, which Device Sync did not read.
+* Files already on a device move to the right folder on the next sync instead of being downloaded again.
+
 ## [1.55.0]
 
 ## Added
