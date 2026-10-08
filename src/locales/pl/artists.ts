@@ -10,6 +10,8 @@ export const artists = {
   loadMore: 'Wczytaj więcej',
   notFound: 'Nie znaleziono wykonawców.',
   albumCount_one: '{{count}} album',
+  albumCount_few: '{{count}} albumy',
+  albumCount_many: '{{count}} albumów',
   albumCount_other: '{{count}} albumów',
   selectionCount: 'Zaznaczono: {{count}}',
   select: 'Wybór wielokrotny',

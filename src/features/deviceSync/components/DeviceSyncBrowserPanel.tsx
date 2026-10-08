@@ -124,7 +124,7 @@ export default function DeviceSyncBrowserPanel({
           </div>
         )}
         {activeTab === 'playlists' && filteredPlaylists.map(pl => (
-          <BrowserRow key={pl.id} name={pl.name} meta={`${pl.songCount} tracks`}
+          <BrowserRow key={pl.id} name={pl.name} meta={t('sidebar.playlistSongCount', { count: pl.songCount })}
             selected={serverIndexKey != null && sources.some(s =>
               deviceSyncSourceKey(s) === deviceSyncSourceKey({ serverIndexKey, type: 'playlist', id: pl.id }) &&
               !pendingDeletion.includes(deviceSyncSourceKey(s)))} disabled={disabled}
@@ -156,7 +156,7 @@ export default function DeviceSyncBrowserPanel({
               </button>
               <span className="device-sync-row-name">{ar.name}</span>
               {ar.albumCount != null &&
-                <span className="device-sync-row-meta">{ar.albumCount} Albums</span>}
+                <span className="device-sync-row-meta">{t('artists.albumCount', { count: ar.albumCount })}</span>}
             </div>
             {expandedArtistIds.has(ar.id) && artistAlbumsMap.has(ar.id) &&
               artistAlbumsMap.get(ar.id)!.map(al => (
