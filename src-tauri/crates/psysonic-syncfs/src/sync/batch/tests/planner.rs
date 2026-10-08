@@ -803,6 +803,60 @@ fn switching_to_flat_moves_the_album_tree_copy() {
     );
 }
 
+#[test]
+fn a_copy_filed_under_the_track_artist_moves_to_the_display_album_artist() {
+    let device = tempfile::tempdir().unwrap();
+    let album = source("album", "album-1", "Album");
+    let old_path = "Main Artist feat. Guest/Album/01 - Song.flac";
+    std::fs::create_dir_all(device.path().join("Main Artist feat. Guest/Album")).unwrap();
+    std::fs::write(device.path().join(old_path), b"audio").unwrap();
+    write_manifest(
+        &device,
+        std::slice::from_ref(&album),
+        DeviceSyncLayoutMode::SelfContained,
+        &[DeviceSyncManifestFile {
+            track_id: "track-1".to_string(),
+            relative_path: old_path.to_string(),
+            source_keys: vec![device_sync_source_key(&album)],
+            size_bytes: 100,
+            transcode: None,
+            source: None,
+        }],
+        &[],
+    );
+    // Navidrome's Subsonic song shape: no `albumArtist`, only `displayAlbumArtist`.
+    let navidrome_song = serde_json::json!({
+        "id": "track-1",
+        "artist": "Main Artist feat. Guest",
+        "displayAlbumArtist": "Main Artist",
+        "album": "Album",
+        "title": "Song",
+        "track": 1,
+        "suffix": "flac",
+        "size": 100,
+    });
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: album,
+        tracks: vec![navidrome_song],
+    }];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::SelfContained,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.add_count, 0);
+    assert!(plan.delete_paths.is_empty());
+    assert!(plan.deferred_delete_paths.is_empty());
+    assert_eq!(plan.move_paths.len(), 1);
+    assert_eq!(plan.move_paths[0].from, old_path);
+    assert_eq!(plan.move_paths[0].to, "Main Artist/Album/01 - Song.flac");
+}
+
 fn mp3(max_bit_rate_kbps: u32) -> DeviceSyncTranscode {
     DeviceSyncTranscode {
         format: DeviceSyncTranscodeFormat::Mp3,

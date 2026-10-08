@@ -340,6 +340,19 @@ pub(crate) fn track_sync_info_from_subsonic_json(
     }
 }
 
+/// The album-artist folder name as it was chosen before `displayAlbumArtist`
+/// was read: `albumArtist`, else the track artist. Copies synced from Navidrome
+/// until then sit under the track artist, and the planner must still recognise
+/// them as its own so the next run moves them instead of fetching them again.
+pub(crate) fn legacy_album_artist(track: &serde_json::Value) -> &str {
+    track
+        .get("albumArtist")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| track.get("artist").and_then(|value| value.as_str()))
+        .unwrap_or("")
+}
+
 /// Marks a planned track as transcoded: the file on the device carries the
 /// target extension, while the source suffix stays available for display.
 pub(crate) fn inject_target_suffix(track: &mut serde_json::Value, suffix: &str) {

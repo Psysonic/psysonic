@@ -5,10 +5,10 @@ use super::payload::{device_sync_source_key, playlist_collision_source_keys};
 use super::plan::read_device_sync_plan;
 use super::{
     estimate_track_size_bytes, inject_flat_layout, inject_overwrite, inject_playlist_context,
-    inject_target_suffix, track_sync_info_from_subsonic_json, DeviceSyncLayoutMode,
-    DeviceSyncManifestFile, DeviceSyncManifestPlaylist, DeviceSyncPlannedPlaylist,
-    DeviceSyncPlaylistPathMode, DeviceSyncSourceFingerprint, DeviceSyncSourcePayload,
-    DeviceSyncTranscode, SyncDeltaResult,
+    inject_target_suffix, legacy_album_artist, track_sync_info_from_subsonic_json,
+    DeviceSyncLayoutMode, DeviceSyncManifestFile, DeviceSyncManifestPlaylist,
+    DeviceSyncPlannedPlaylist, DeviceSyncPlaylistPathMode, DeviceSyncSourceFingerprint,
+    DeviceSyncSourcePayload, DeviceSyncTranscode, SyncDeltaResult,
 };
 use crate::sync::device::{
     build_track_path, is_marked_local_target, planned_path_stays_within,
@@ -175,6 +175,14 @@ fn authenticated_by_server_song(
         if let Some(suffix) = target_suffix {
             sync_info.suffix = suffix.to_string();
         }
+        if portable_path_identity(&portable_track_path(&sync_info)) == identity {
+            return true;
+        }
+        let legacy = legacy_album_artist(song);
+        if legacy == sync_info.album_artist {
+            return false;
+        }
+        sync_info.album_artist = legacy.to_string();
         portable_path_identity(&portable_track_path(&sync_info)) == identity
     })
 }
