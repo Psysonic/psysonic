@@ -32,6 +32,9 @@ import { queueSongStar } from '@/features/playback';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import { useQueueSelection } from '@/features/queue/hooks/useQueueSelection';
 import { buildQueueReorderData } from '@/features/queue/utils/queueReorderPayload';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 type StartDrag = (
   payload: { data: string; label: string },
@@ -283,10 +286,13 @@ export function QueueList({
             }}
           />
         )}
+        {showCovers && <ExplicitCoverVeil explicit={isExplicit(track)} />}
         <div className="queue-item-info">
           <div className="queue-item-title truncate" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {isPlaying && <Play size={10} fill="currentColor" style={{ flexShrink: 0 }} />}
-            <span className="truncate">{track.title}</span>
+            <ExplicitTitle status={track.explicitStatus}>
+              <span className="truncate">{track.title}</span>
+            </ExplicitTitle>
           </div>
           <div className="queue-item-artist truncate">{track.artist}</div>
           {(() => {

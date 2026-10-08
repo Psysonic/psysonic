@@ -11,12 +11,15 @@ import { renderPresetIcon, useEnrichmentPrimaryIcon, useEnrichmentPrimaryLabel }
 import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { effectiveAudioFormat, effectiveAudioFormatParts } from '@/lib/media/streamFormat';
 import { usePlayerStore } from '@/features/playback';
+import ExplicitBadge from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 interface HeroProps {
   track: { title: string; artist: string; album: string; year?: number;
     duration: number; suffix?: string; bitRate?: number; samplingRate?: number;
     bitDepth?: number; artistId?: string; albumId?: string; id: string;
-    userRating?: number; serverId?: string; };
+    userRating?: number; serverId?: string; explicitStatus?: string; };
   /** OpenSubsonic `artists` on the playing track — per-artist links in the hero subline. */
   artistRefs?: SubsonicOpenArtistRef[];
   genre?: string;
@@ -87,9 +90,13 @@ const Hero = memo(function Hero({ track, artistRefs, genre, playCount, userRatin
         ) : (
           <div className="np-cover np-cover-fallback"><Music size={64} /></div>
         )}
+        <ExplicitCoverVeil explicit={isExplicit(track)} />
       </div>
       <div className="np-dash-hero-body">
-        <div className="np-dash-hero-title">{track.title}</div>
+        <div className="np-dash-hero-title">
+          {track.title}
+          <ExplicitBadge status={track.explicitStatus} />
+        </div>
         <div className="np-dash-hero-sub">
           {artistRefs && artistRefs.length > 0 ? (
             <OpenArtistRefInline

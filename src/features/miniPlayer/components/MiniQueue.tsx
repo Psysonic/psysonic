@@ -7,6 +7,9 @@ import { OptionalQueueTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { useDragPressHandle } from '@/lib/dnd/useDragPress';
 import { useDragEdgeScroll } from '@/lib/dnd/useDragEdgeScroll';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 // Stable initial rect so the virtualizer never re-initializes on re-render (an
 // inline literal would be a new ref each render → render loop). Replaced by the
@@ -146,8 +149,11 @@ export function MiniQueue({
                   className="track-row-cover-thumb--mini"
                 />
               )}
+              {showCovers && <ExplicitCoverVeil explicit={isExplicit(track)} />}
               <div className="mini-queue__meta">
-                <div className="mini-queue__title">{track.title}</div>
+                <ExplicitTitle status={track.explicitStatus}>
+                  <div className="mini-queue__title">{track.title}</div>
+                </ExplicitTitle>
                 <div className="mini-queue__artist">{track.artist}</div>
               </div>
             </button>

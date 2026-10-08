@@ -11,6 +11,9 @@ import StarRating from '@/ui/StarRating';
 import { PlaylistArtistCell } from '@/features/playlist/components/PlaylistArtistCell';
 import { useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 export interface PlaylistRowCallbacks {
   activate: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
@@ -109,7 +112,8 @@ function PlaylistRow({
                   : <ChevronRight size={14} className="playlist-suggestion-preview-icon playlist-suggestion-preview-icon-play" />}
               </button>
               <OptionalBrowseTrackRowCoverThumb song={song} size="dense" />
-              <span className="track-title">{song.title}</span>
+              <ExplicitCoverVeil explicit={isExplicit(song)} />
+              <ExplicitTitle status={song.explicitStatus}><span className="track-title">{song.title}</span></ExplicitTitle>
             </div>
           );
           case 'artist': return <PlaylistArtistCell key="artist" song={song} />;
