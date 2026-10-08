@@ -302,6 +302,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Root cause: Navidrome reports the album artist only in its OpenSubsonic field, which Device Sync did not read.
 * Files already on a device move to the right folder on the next sync instead of being downloaded again.
 
+### Device Sync no longer stops at two tracks with the same file name
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1727](https://github.com/Psysonic/psysonic/pull/1727)**
+
+* A multi-disc album with the same title on two discs, or two editions of an album under one name, stopped the whole sync because two tracks would get the same file name. Tracks from disc 2 on are now named with their disc in front (`2-01 - Title`), and files already on a device are renamed on the next sync.
+* A track whose file name is still taken by another one is skipped, and the sync summary shows how many were skipped.
+
 ## [1.55.0]
 
 ## Added
