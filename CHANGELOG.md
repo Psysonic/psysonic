@@ -309,6 +309,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A multi-disc album with the same title on two discs, or two editions of an album under one name, stopped the whole sync because two tracks would get the same file name. Tracks from disc 2 on are now named with their disc in front (`2-01 - Title`), and files already on a device are renamed on the next sync.
 * A track whose file name is still taken by another one is skipped, and the sync summary shows how many were skipped.
 
+### The Device Sync page works in small windows and reads step by step
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1728](https://github.com/Psysonic/psysonic/pull/1728)**
+
+* In a small window the options filled the page and the lists could not be reached or scrolled. The page now scrolls, and the lists stack under each other when there is little room.
+* The page reads top to bottom: choose the device, adjust the options (folded away, with an example of where files land), pick the music and check what is on the device. A bar at the bottom shows the state and holds the sync button; without a device the page explains how to choose one.
+
 ## [1.55.0]
 
 ## Added
