@@ -444,7 +444,7 @@ pub struct TrackSyncInfo {
     /// the actual performer rather than the album artist.
     pub artist: String,
     /// Album artist — used for the top-level folder so compilation albums stay together.
-    /// Falls back to `artist` in the frontend when the server has no albumArtist tag.
+    /// Taken from `albumArtist`, then the OpenSubsonic `displayAlbumArtist`, then `artist`.
     #[serde(rename = "albumArtist")]
     pub album_artist: String,
     pub album: String,

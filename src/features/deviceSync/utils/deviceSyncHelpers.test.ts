@@ -51,3 +51,28 @@ describe('playlistPathId', () => {
     expect(playlistPathId(sources[0], [sources[0]])).toBe('one');
   });
 });
+
+describe('trackToSyncInfo album artist', () => {
+  const song = {
+    id: 'track', title: 'Song', artist: 'Main Artist feat. Guest', album: 'Album', albumId: 'album', duration: 180,
+  };
+
+  it('files a Navidrome song under its displayAlbumArtist, not the track artist', () => {
+    const info = trackToSyncInfo({ ...song, displayAlbumArtist: 'Main Artist' }, '');
+    expect(info.albumArtist).toBe('Main Artist');
+    expect(info.artist).toBe('Main Artist feat. Guest');
+  });
+
+  it('keeps albumArtist ahead of displayAlbumArtist', () => {
+    const info = trackToSyncInfo(
+      { ...song, albumArtist: 'Tagged Album Artist', displayAlbumArtist: 'Display Album Artist' },
+      '',
+    );
+    expect(info.albumArtist).toBe('Tagged Album Artist');
+  });
+
+  it('falls back to the track artist when no album artist field is set', () => {
+    expect(trackToSyncInfo({ ...song, displayAlbumArtist: '  ' }, '').albumArtist)
+      .toBe('Main Artist feat. Guest');
+  });
+});

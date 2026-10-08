@@ -2307,7 +2307,7 @@ export type TrackSyncInfo = {
 	artist: string,
 	/**
 	 *  Album artist — used for the top-level folder so compilation albums stay together.
-	 *  Falls back to `artist` in the frontend when the server has no albumArtist tag.
+	 *  Taken from `albumArtist`, then the OpenSubsonic `displayAlbumArtist`, then `artist`.
 	 */
 	albumArtist: string,
 	album: string,

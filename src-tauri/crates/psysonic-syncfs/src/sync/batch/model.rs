@@ -301,10 +301,12 @@ pub(crate) fn track_sync_info_from_subsonic_json(
         .get("artist")
         .and_then(|value| value.as_str())
         .unwrap_or("");
-    let album_artist = track
-        .get("albumArtist")
-        .and_then(|value| value.as_str())
-        .filter(|value| !value.trim().is_empty())
+    // Navidrome's Subsonic songs carry no `albumArtist`, only the OpenSubsonic
+    // `displayAlbumArtist`; without it every album lands under the track artist.
+    let album_artist = ["albumArtist", "displayAlbumArtist"]
+        .iter()
+        .filter_map(|key| track.get(*key).and_then(|value| value.as_str()))
+        .find(|value| !value.trim().is_empty())
         .unwrap_or(artist_raw);
     TrackSyncInfo {
         id: track_id.to_string(),

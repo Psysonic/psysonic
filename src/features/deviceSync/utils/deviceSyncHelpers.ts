@@ -65,10 +65,13 @@ export function trackToSyncInfo(
   playlistCtx?: { id?: string; name: string; index: number },
   flatLayout?: boolean,
 ): TrackSyncInfo {
-  // Fall back to track artist when the file has no albumArtist tag — not every
-  // library is tagged with it. Treat empty strings as missing (some Subsonic
+  // Fall back to track artist when the file has no album artist tag — not every
+  // library is tagged with it. Navidrome sends only the OpenSubsonic
+  // `displayAlbumArtist`. Treat empty strings as missing (some Subsonic
   // servers return "" rather than omitting the field).
-  const albumArtist = (track.albumArtist?.trim() || track.artist?.trim() || '');
+  const albumArtist = (
+    track.albumArtist?.trim() || track.displayAlbumArtist?.trim() || track.artist?.trim() || ''
+  );
   return {
     id: track.id, url,
     suffix: track.suffix ?? 'mp3',
