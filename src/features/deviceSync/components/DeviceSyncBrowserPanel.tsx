@@ -77,15 +77,24 @@ export default function DeviceSyncBrowserPanel({
   }
 
   return (
-    <div className="device-sync-browser">
+    <section className="device-sync-panel device-sync-browser" aria-labelledby="device-sync-browser-title">
+      <div className="device-sync-panel-head">
+        <h2 id="device-sync-browser-title" className="device-sync-step-title">
+          <span className="device-sync-step-num" aria-hidden="true">2</span>
+          {t('deviceSync.chooseMusic')}
+        </h2>
+      </div>
       <div className="device-sync-tabs">
         {tabs.map(tab => (
           <button
             key={tab.key}
+            type="button"
             className={`device-sync-tab${activeTab === tab.key ? ' active' : ''}`}
+            aria-pressed={activeTab === tab.key}
+            aria-label={tab.label}
             onClick={() => setActiveTab(tab.key)}
           >
-            {tab.icon}{tab.label}
+            {tab.icon}<span className="device-sync-tab-label">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -164,6 +173,6 @@ export default function DeviceSyncBrowserPanel({
           </React.Fragment>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
