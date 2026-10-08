@@ -167,6 +167,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Once a tag exists, the **Playlists** page shows the tags as chips above the list. Each chip you switch on narrows the list to the playlists that carry all of them; right-click a chip to rename or delete that tag.
 * Tags are saved only in Psysonic on this device, like playlist folders, and are part of the settings backup.
 
+### Explicit badges and blurred covers
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1731](https://github.com/Psysonic/psysonic/pull/1731)**
+
+* Songs your server marks as explicit show a small **E** after their title — in track lists, the queue, the player bar, Now Playing, the fullscreen player, the mini player and the statistics. An album shows it in its header as soon as one of its songs is explicit.
+* **Blur explicit covers** hides the cover art of those songs behind a soft blur; clicking an album cover still shows it in full. It is off by default; both options are in **Settings → Appearance → Visual Options**.
+* Works with servers that report explicit tags through OpenSubsonic, such as Navidrome.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
