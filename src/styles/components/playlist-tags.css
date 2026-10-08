@@ -1,0 +1,54 @@
+/* Playlist tags — filter chips over the Playlists grid. */
+.playlist-tag-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-4);
+}
+.playlist-tag-bar__icon {
+  flex: 0 0 auto;
+  margin-right: 2px;
+  color: var(--text-muted);
+}
+.playlist-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 220px;
+  padding: 4px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--bg-hover);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.playlist-tag-chip:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+.playlist-tag-chip.active {
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border-color: var(--accent);
+}
+.playlist-tag-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.playlist-tag-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
