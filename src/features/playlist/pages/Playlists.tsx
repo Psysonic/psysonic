@@ -18,6 +18,9 @@ import {
 } from '@/features/playlist/utils/playlistOwnership';
 import { sortPlaylistList } from '@/features/playlist/utils/playlistListSort';
 import { usePlaylistLayoutStore } from '@/features/playlist/store/playlistLayoutStore';
+import { filterPlaylistsByTags } from '@/features/playlist/utils/playlistTags';
+import { usePlaylistTagFilter } from '@/features/playlist/hooks/usePlaylistTagFilter';
+import PlaylistTagFilterBar from '@/features/playlist/components/PlaylistTagFilterBar';
 
 import {
   defaultSmartFilters,
@@ -79,18 +82,24 @@ export default function Playlists() {
     [playlists, servers],
   );
   const listSortKey = usePlaylistLayoutStore(s => s.listSortKey);
+  const { byServer: tagsByServer, availableTags, activeKeys: activeTagKeys } = usePlaylistTagFilter(playlists);
   const visiblePlaylists = useMemo(
     () => sortPlaylistList(
-      filterPlaylistsByNameQuery(
-        [...filterPlaylistsByOwnership(playlists, ownershipFilter, servers)],
-        playlistsSearchQuery,
+      filterPlaylistsByTags(
+        filterPlaylistsByNameQuery(
+          [...filterPlaylistsByOwnership(playlists, ownershipFilter, servers)],
+          playlistsSearchQuery,
+        ),
+        tagsByServer,
+        activeTagKeys,
       ),
       listSortKey,
     ),
-    [playlists, ownershipFilter, servers, playlistsSearchQuery, listSortKey],
+    [playlists, ownershipFilter, servers, playlistsSearchQuery, tagsByServer, activeTagKeys, listSortKey],
   );
   const textSearchActive = playlistsSearchQuery.trim().length > 0;
   const ownershipFilterActive = ownershipFilter !== 'all';
+  const tagFilterActive = activeTagKeys.length > 0;
   const activeServerId = useAuthStore(s => s.activeServerId);
   const subsonicIdentityByServer = useAuthStore(s => s.subsonicServerIdentityByServer);
   const libraryBrowseServerIds = useAuthStore(s => s.libraryBrowseServerIds);
@@ -529,11 +538,15 @@ export default function Playlists() {
         />
       )}
 
+      <PlaylistTagFilterBar tags={availableTags} activeKeys={activeTagKeys} />
+
       {/* ── Grid ── */}
       {playlists.length === 0 ? (
         <div className="empty-state">{t('playlists.empty')}</div>
       ) : visiblePlaylists.length === 0 && textSearchActive ? (
         <div className="empty-state">{t('playlists.noMatchingSearch')}</div>
+      ) : visiblePlaylists.length === 0 && tagFilterActive ? (
+        <div className="empty-state">{t('playlists.tags.emptyFilter')}</div>
       ) : visiblePlaylists.length === 0 && ownershipFilterActive ? (
         <div className="empty-state">{t('playlists.ownership.emptyBucket')}</div>
       ) : (
@@ -549,7 +562,7 @@ export default function Playlists() {
               playlists={visiblePlaylists}
               renderCard={renderCard}
               disableVirtualization={perfFlags.disableMainstageVirtualLists}
-              hideEmptyFolders={textSearchActive || ownershipFilterActive}
+              hideEmptyFolders={textSearchActive || ownershipFilterActive || tagFilterActive}
             />
           ) : (
             <VirtualCardGrid

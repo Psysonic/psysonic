@@ -493,6 +493,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Resume — continue albums and playlists where you left off, with a Continue listening row on Home (PR #1719)',
       'Home — arrange the rows by drag and drop (PR #1720)',
       'Lyrics — show server-provided translations under the lyrics (PR #1721)',
+      'Playlists — tags with filter chips on the Playlists page (PR #1730)',
     ],
   },
   {

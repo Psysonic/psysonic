@@ -159,6 +159,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * When the lyrics on your server include a translation, it can show as a smaller line under each lyric line — in the sidebar, the mobile view and the fullscreen player. Turn it on in **Settings → Lyrics → Translation**, or with the **Translation** button below the lyrics, which appears only for songs that have one.
 * Needs Navidrome 0.63 or later and lyrics files that carry translations, such as TTML. If there are several, the one in your app language is shown.
 
+### Tags for playlists
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1730](https://github.com/Psysonic/psysonic/pull/1730)**
+
+* Right-click a playlist, or a selection of playlists, and use **Tags** to label it — by mood, occasion or anything else. A playlist can carry several tags.
+* Once a tag exists, the **Playlists** page shows the tags as chips above the list. Each chip you switch on narrows the list to the playlists that carry all of them; right-click a chip to rename or delete that tag.
+* Tags are saved only in Psysonic on this device, like playlist folders, and are part of the settings backup.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again

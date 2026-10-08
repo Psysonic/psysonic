@@ -133,6 +133,19 @@ export const playlists = {
     localOnlyNotice:
       'フォルダーはこのデバイス上の Psysonic にのみ保存されます。Navidrome と Subsonic API にはプレイリストフォルダーのネイティブ対応がないため、この構造はサーバーには保存されず、他のデバイスやアプリとも同期されません。',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'タグ',
+    newTag: '新規タグ',
+    namePlaceholder: 'タグ名…',
+    filterLabel: 'タグで絞り込み',
+    clearFilter: 'タグの絞り込みを解除',
+    chipHint: '右クリックで名前の変更または削除',
+    rename: 'タグの名前を変更',
+    delete: 'タグを削除',
+    deleteConfirm: 'もう一度クリックするとすべてのプレイリストから外します',
+    emptyFilter: '選択したすべてのタグを持つプレイリストはありません。',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: '所有者別のプレイリスト',
