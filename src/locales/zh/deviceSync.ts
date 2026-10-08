@@ -106,6 +106,7 @@ export const deviceSync = {
   filesToAdd: '要添加的文件：',
   filesToDelete: '要删除的文件：',
   filesToMove: '要移动的文件：',
+  filesSkippedDuplicate: '已跳过（与其他曲目文件名相同）：',
   netChange: '净变化：',
   availableSpace: '可用磁盘空间：',
   spaceWarning: '警告：目标设备的可用空间不足。',

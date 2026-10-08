@@ -113,6 +113,7 @@ export const deviceSync = {
   filesToAdd: '追加するファイル:',
   filesToDelete: '削除するファイル:',
   filesToMove: '移動するファイル:',
+  filesSkippedDuplicate: 'スキップ（他のトラックと同じファイル名）:',
   netChange: '差し引き変更:',
   availableSpace: '利用可能なディスク容量:',
   spaceWarning: '警告: 対象デバイスの報告容量が不足しています。',

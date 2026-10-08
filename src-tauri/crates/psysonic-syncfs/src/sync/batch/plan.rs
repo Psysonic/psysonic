@@ -420,6 +420,7 @@ mod tests {
             deferred_delete_paths: Vec::new(),
             move_count: 0,
             move_paths: Vec::new(),
+            skipped_count: 0,
             playlists: Vec::new(),
             manifest_files: Vec::new(),
             manifest_playlists: Vec::new(),

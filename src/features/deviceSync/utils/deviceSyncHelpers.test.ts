@@ -76,3 +76,14 @@ describe('trackToSyncInfo album artist', () => {
       .toBe('Main Artist feat. Guest');
   });
 });
+
+describe('trackToSyncInfo disc number', () => {
+  const song = {
+    id: 'track', title: 'Song', artist: 'Artist', album: 'Album', albumId: 'album', duration: 180,
+  };
+
+  it('passes the disc on so the device path matches the planner', () => {
+    expect(trackToSyncInfo({ ...song, discNumber: 2 }, '').discNumber).toBe(2);
+    expect(trackToSyncInfo(song, '').discNumber).toBeNull();
+  });
+});

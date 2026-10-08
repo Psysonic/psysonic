@@ -106,6 +106,7 @@ export const deviceSync = {
   filesToAdd: 'Filer som skal legges til:',
   filesToDelete: 'Filer som skal slettes:',
   filesToMove: 'Filer som flyttes:',
+  filesSkippedDuplicate: 'Hoppet over (samme filnavn som et annet spor):',
   netChange: 'Nettoendring:',
   availableSpace: 'Tilgjengelig diskplass:',
   spaceWarning: 'Advarsel: Målenheten har ikke nok rapportert plass.',

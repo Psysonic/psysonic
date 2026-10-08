@@ -240,3 +240,38 @@ fn flat_layout_sanitizes_and_falls_back_like_the_tree() {
     assert_eq!(path, "Left_Right - Unknown Album - 00 - Title");
     assert!(!path.contains('/') && !path.contains('\\'));
 }
+
+#[test]
+fn disc_two_and_later_prefix_the_track_number() {
+    let disc_two = track(|track| track.disc_number = Some(2));
+    assert_eq!(
+        norm(build_track_path(&disc_two)),
+        "AlbumArtist/Album/2-01 - Title"
+    );
+    let flat_disc_three = track(|track| {
+        track.disc_number = Some(3);
+        track.flat_layout = true;
+    });
+    assert_eq!(
+        build_track_path(&flat_disc_three),
+        "AlbumArtist - Album - 3-01 - Title"
+    );
+}
+
+#[test]
+fn disc_one_and_a_missing_disc_keep_the_plain_track_number() {
+    for disc in [None, Some(0), Some(1)] {
+        let path = norm(build_track_path(&track(|track| track.disc_number = disc)));
+        assert_eq!(path, "AlbumArtist/Album/01 - Title");
+    }
+}
+
+#[test]
+fn a_self_contained_playlist_copy_ignores_the_disc() {
+    let path = build_track_path(&track(|track| {
+        track.disc_number = Some(2);
+        track.playlist_name = Some("Mix".to_string());
+        track.playlist_index = Some(4);
+    }));
+    assert_eq!(norm(path), "Playlists/Mix/04 - Artist - Title");
+}

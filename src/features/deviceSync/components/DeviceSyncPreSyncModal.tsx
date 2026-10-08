@@ -45,6 +45,12 @@ export default function DeviceSyncPreSyncModal({
                 <span>{syncDelta.moveCount}</span>
               </div>
             )}
+            {syncDelta.skippedCount > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
+                <span>{t('deviceSync.filesSkippedDuplicate')}</span>
+                <span>{syncDelta.skippedCount}</span>
+              </div>
+            )}
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
               <span>{t('deviceSync.netChange')}</span>

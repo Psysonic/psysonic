@@ -113,6 +113,7 @@ export const deviceSync = {
   filesToAdd: 'Файлове за добавяне:',
   filesToDelete: 'Файлове за изтриване:',
   filesToMove: 'Файлове за преместване:',
+  filesSkippedDuplicate: 'Пропуснати (същото име на файл като друга песен):',
   netChange: 'Нетна промяна:',
   availableSpace: 'Налично дисково пространство:',
   spaceWarning: 'Внимание: Целевото устройство няма достатъчно докладвано пространство.',

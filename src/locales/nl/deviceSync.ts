@@ -106,6 +106,7 @@ export const deviceSync = {
   filesToAdd: 'Te toevoegen bestanden:',
   filesToDelete: 'Te verwijderen bestanden:',
   filesToMove: 'Te verplaatsen bestanden:',
+  filesSkippedDuplicate: 'Overgeslagen (zelfde bestandsnaam als een ander nummer):',
   netChange: 'Nettoverandering:',
   availableSpace: 'Beschikbare schijfruimte:',
   spaceWarning: 'Waarschuwing: Het doelapparaat heeft niet genoeg gerapporteerde ruimte.',

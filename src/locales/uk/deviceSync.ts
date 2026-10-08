@@ -113,6 +113,7 @@ export const deviceSync = {
   filesToAdd: 'Файли для додавання:',
   filesToDelete: 'Файли для видалення:',
   filesToMove: 'Файли для переміщення:',
+  filesSkippedDuplicate: 'Пропущено (та сама назва файлу, що й в іншого треку):',
   netChange: 'Чиста зміна:',
   availableSpace: 'Доступне місце на диску:',
   spaceWarning: 'Попередження: на цільовому пристрої недостатньо вільного місця.',

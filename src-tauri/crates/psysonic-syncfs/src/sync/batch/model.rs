@@ -187,6 +187,9 @@ pub struct SyncDeltaResult {
     /// only needs the count.
     #[serde(skip)]
     pub(crate) move_paths: Vec<super::planner::DeviceSyncPlannedMove>,
+    /// Tracks left off the device because another track already takes their
+    /// file name (same album artist, album, disc, number, title and format).
+    pub(crate) skipped_count: u32,
     pub(crate) playlists: Vec<DeviceSyncPlannedPlaylist>,
     pub(crate) manifest_files: Vec<DeviceSyncManifestFile>,
     pub(crate) manifest_playlists: Vec<DeviceSyncManifestPlaylist>,
@@ -326,6 +329,10 @@ pub(crate) fn track_sync_info_from_subsonic_json(
             .to_string(),
         track_number: track
             .get("track")
+            .and_then(|value| value.as_u64())
+            .map(|number| number as u32),
+        disc_number: track
+            .get("discNumber")
             .and_then(|value| value.as_u64())
             .map(|number| number as u32),
         duration: track

@@ -112,6 +112,7 @@ export const deviceSync = {
   filesToAdd: 'Hinzuzufügende Dateien:',
   filesToDelete: 'Zu löschende Dateien:',
   filesToMove: 'Zu verschiebende Dateien:',
+  filesSkippedDuplicate: 'Übersprungen (gleicher Dateiname wie ein anderer Titel):',
   netChange: 'Nettoänderung:',
   availableSpace: 'Verfügbarer Speicher:',
   spaceWarning: 'Warnung: Das Zielgerät hat nicht genug gemeldeten Speicherplatz.',

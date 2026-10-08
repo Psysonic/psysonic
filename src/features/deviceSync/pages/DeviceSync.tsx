@@ -94,6 +94,7 @@ export default function DeviceSync() {
     deletePaths: [],
     deferredDeletePaths: [],
     moveCount: 0,
+    skippedCount: 0,
     playlists: [],
     manifestFiles: [],
     manifestPlaylists: [],

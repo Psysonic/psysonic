@@ -2313,6 +2313,11 @@ export type TrackSyncInfo = {
 	album: string,
 	title: string,
 	trackNumber: number | null,
+	/**
+	 *  From disc 2 on, the disc prefixes the album-tree file name (`2-01 - Title`)
+	 *  so equal track numbers and titles on different discs do not collide.
+	 */
+	discNumber?: number | null,
 	/**  Duration in seconds — needed for Extended M3U (#EXTINF) playlist entries. */
 	duration?: number | null,
 	/**

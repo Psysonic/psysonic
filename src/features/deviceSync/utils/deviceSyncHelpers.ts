@@ -80,6 +80,7 @@ export function trackToSyncInfo(
     album: track.album ?? '',
     title: track.title ?? '',
     trackNumber: track.track ?? null,
+    discNumber: track.discNumber ?? null,
     duration: track.duration,
     playlistName: playlistCtx?.name ?? track._playlistName,
     playlistId: playlistCtx?.id ?? track._playlistId,

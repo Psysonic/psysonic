@@ -113,6 +113,7 @@ export const deviceSync = {
   filesToAdd: 'Pliki do dodania:',
   filesToDelete: 'Pliki do usunięcia:',
   filesToMove: 'Pliki do przeniesienia:',
+  filesSkippedDuplicate: 'Pominięte (ta sama nazwa pliku co inny utwór):',
   netChange: 'Zmiana netto:',
   availableSpace: 'Dostępne miejsce na dysku:',
   spaceWarning: 'Ostrzeżenie: urządzenie docelowe nie zgłasza wystarczającej ilości miejsca na dysku.',
