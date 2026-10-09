@@ -45,15 +45,29 @@ fn moods_from_value(value: &Value) -> Vec<String> {
 }
 
 pub fn moods_for_track_value(raw_json: &Value) -> Vec<String> {
-    // Navidrome's native `/api/song` payload carries its complete imported
-    // tag set under `tags`. When that object is present it is the freshest
-    // source for MOOD/TMOO, including absence of `mood` meaning the tag
-    // was cleared.
+    // Fresh mapping boundaries stamp an explicit provenance bit when they
+    // actually observed mood state. That lets a current OpenSubsonic
+    // `moods[]` value remain authoritative even when sparse merging preserves
+    // an unrelated native `tags` object beside it.
+    if raw_json
+        .get("_psysonicMoodsAuthoritative")
+        .and_then(Value::as_bool)
+        == Some(true)
+    {
+        return raw_json
+            .get("moods")
+            .map(moods_from_value)
+            .unwrap_or_default();
+    }
+
+    // Preserve v2 semantics for unmarked already-stored composite rows.
+    // Historical sparse merges can leave stale top-level `moods[]` after a
+    // real native mood deletion, so an old tags snapshot without tags.mood
+    // remains ambiguous until the online reconciler checks current metadata.
     if let Some(tags) = raw_json.get("tags").and_then(Value::as_object) {
         return tags.get("mood").map(moods_from_value).unwrap_or_default();
     }
 
-    // OpenSubsonic exposes file moods directly as `moods[]`.
     raw_json
         .get("moods")
         .map(moods_from_value)
@@ -151,6 +165,40 @@ mod tests {
     }
 
     #[test]
+    fn legacy_composite_top_level_moods_are_ambiguous_until_reconciled() {
+        let raw = json!({
+            "moods": [
+                "heavy",
+                "aggressive",
+                "depressive"
+            ],
+            "tags": {
+                "genre": ["Sludge", "Doom Metal"],
+                "recordlabel": ["Black Star Foundation"],
+                "tracktotal": ["7"]
+            }
+        });
+
+        assert!(moods_for_track_value(&raw).is_empty());
+    }
+
+    #[test]
+    fn authoritative_top_level_moods_survive_unrelated_native_tags() {
+        let raw = json!({
+            "_psysonicMoodsAuthoritative": true,
+            "moods": ["Atmospheric", "Dreamy"],
+            "tags": {
+                "genre": ["Ambient"]
+            }
+        });
+
+        assert_eq!(
+            moods_for_track_value(&raw),
+            vec!["Atmospheric".to_string(), "Dreamy".to_string()]
+        );
+    }
+
+    #[test]
     fn parses_navidrome_native_mood_tags() {
         let raw = json!({
             "tags": {
@@ -188,9 +236,9 @@ mod tests {
     }
 
     #[test]
-    fn navidrome_native_tags_without_mood_clear_stale_top_level_moods() {
+    fn native_tags_without_mood_keep_v2_clear_semantics() {
         let raw = json!({
-            "moods": ["Old Mood"],
+            "moods": ["Atmospheric"],
             "tags": {
                 "genre": ["Ambient"]
             }
