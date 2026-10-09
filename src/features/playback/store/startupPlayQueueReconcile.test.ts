@@ -3,6 +3,7 @@ import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { resetAllStores } from '@/test/helpers/storeReset';
 import { useAuthStore } from '@/store/authStore';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import { usePlayQueueSyncSettingsStore } from '@/features/playback/store/playQueueSyncSettingsStore';
 import {
   _resetQueueResolverForTest,
   getCachedTrack,
@@ -34,6 +35,7 @@ function remote(ids: string[], current = ids[0]) {
 
 beforeEach(() => {
   resetAllStores();
+  usePlayQueueSyncSettingsStore.setState({ enabled: true });
   _resetQueueResolverForTest();
   fetchPlayQueueForServerMock.mockReset();
   applyMappedQueueMock.mockReset();
@@ -59,6 +61,60 @@ beforeEach(() => {
 });
 
 describe('reconcileStartupPlayQueues', () => {
+
+  it('preserves the local queue without fetching when play queue sync is disabled', async () => {
+    const localQueue = usePlayerStore.getState().queueItems.map(ref => ({ ...ref }));
+    usePlayQueueSyncSettingsStore.setState({ enabled: false });
+
+    await expect(reconcileStartupPlayQueues()).resolves.toBe('kept-local');
+
+    expect(fetchPlayQueueForServerMock).not.toHaveBeenCalled();
+    expect(applyMappedQueueMock).not.toHaveBeenCalled();
+    expect(usePlayerStore.getState().queueItems).toEqual(localQueue);
+  });
+
+  it('does not apply a single-server queue if sync is disabled during a fetch', async () => {
+    useAuthStore.setState({ libraryBrowseServerIds: ['a'] });
+    const localQueue = [{ serverId: 'a', trackId: 'a1' }, { serverId: 'a', trackId: 'a2' }];
+    usePlayerStore.setState({
+      queueItems: localQueue,
+      queueIndex: 0,
+      currentTrack: { id: 'a1', title: 'a1', artist: 'Artist', album: 'Album', albumId: 'album', duration: 100, serverId: 'a' },
+    });
+    let resolveFetch: ((value: ReturnType<typeof remote>) => void) | undefined;
+    fetchPlayQueueForServerMock.mockImplementation(() => new Promise<ReturnType<typeof remote>>(resolve => {
+      resolveFetch = resolve;
+    }));
+
+    const reconciliation = reconcileStartupPlayQueues();
+    expect(fetchPlayQueueForServerMock).toHaveBeenCalledWith('a');
+    usePlayQueueSyncSettingsStore.setState({ enabled: false });
+    resolveFetch?.(remote(['a1', 'a3'], 'a1'));
+
+    await expect(reconciliation).resolves.toBe('kept-local');
+    expect(applyMappedQueueMock).not.toHaveBeenCalled();
+    expect(usePlayerStore.getState().queueItems).toEqual(localQueue);
+  });
+
+  it('does not apply a mixed-server projection if sync is disabled during a fetch', async () => {
+    const localQueue = usePlayerStore.getState().queueItems.map(ref => ({ ...ref }));
+    let resolveA: ((value: ReturnType<typeof remote>) => void) | undefined;
+    fetchPlayQueueForServerMock.mockImplementation((serverId: string) => (
+      serverId === 'a'
+        ? new Promise<ReturnType<typeof remote>>(resolve => { resolveA = resolve; })
+        : Promise.resolve(remote(['b1'], 'b1'))
+    ));
+
+    const reconciliation = reconcileStartupPlayQueues();
+    expect(fetchPlayQueueForServerMock).toHaveBeenCalledTimes(2);
+    usePlayQueueSyncSettingsStore.setState({ enabled: false });
+    resolveA?.(remote(['a1', 'a3'], 'a1'));
+
+    await expect(reconciliation).resolves.toBe('kept-local');
+    expect(applyMappedQueueMock).not.toHaveBeenCalled();
+    expect(usePlayerStore.getState().queueItems).toEqual(localQueue);
+  });
+
   it('keeps the persisted mixed queue when all server projections match', async () => {
     fetchPlayQueueForServerMock.mockImplementation(async (serverId: string) => (
       serverId === 'a'

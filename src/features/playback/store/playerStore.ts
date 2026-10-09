@@ -1,3 +1,4 @@
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { readInitialNetworkLovedCache, persistNetworkLovedCache } from '@/features/playback/store/networkLovedCacheStorage';
@@ -37,6 +38,20 @@ const initialNetworkLovedCache = readInitialNetworkLovedCache();
 const initialShuffleMode = readShuffleModeSnapshot();
 setShuffleOriginalOrder(initialShuffleMode.originalOrder);
 let playerPersistWritesEnabled = false;
+
+/**
+ * Only the main webview owns the persisted playback queue. The mini-player
+ * has a separate Zustand instance but shares localStorage with the main
+ * window. Mini-player state updates must not overwrite the main queue.
+ */
+function isMainPlayerPersistenceWindow(): boolean {
+  try {
+    return getCurrentWindow().label === 'main';
+  } catch {
+    // Vite browser preview and tests have no native window label.
+    return true;
+  }
+}
 
 export const usePlayerStore = create<PlayerState>()(
   persist(
@@ -113,7 +128,9 @@ export const usePlayerStore = create<PlayerState>()(
       // killed `playTrack` before `audio_play`. See safeStorage.ts.
       storage: createHydrationGatedStorage(
         createSafeJSONStorage(),
-        () => playerPersistWritesEnabled && !navidromeCanonicalBootstrapIsActive(),
+        () => playerPersistWritesEnabled
+          && isMainPlayerPersistenceWindow()
+          && !navidromeCanonicalBootstrapIsActive(),
       ),
       partialize: (state) => ({
         // volume/repeatMode → psysonic_player_prefs; isQueueVisible →

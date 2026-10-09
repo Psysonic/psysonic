@@ -117,6 +117,24 @@ describe('applyServerPlayQueue idle guards', () => {
     expect(playerState.queueItems).toEqual([{ serverId: 'srv-a', trackId: 'local-only' }]);
   });
 
+  it('keeps the local queue if sync is disabled during a server request', async () => {
+    let resolveRemote: ((value: { songs: { id: string }[]; current: string; position: number }) => void) | undefined;
+    getPlayQueueForServerMock.mockImplementation(() => new Promise(resolve => {
+      resolveRemote = resolve;
+    }));
+    const originalQueue = [...playerState.queueItems];
+
+    const pending = applyServerPlayQueue('srv-a', { mode: 'startup' });
+    expect(getPlayQueueForServerMock).toHaveBeenCalledWith('srv-a');
+
+    usePlayQueueSyncSettingsStore.setState({ enabled: false });
+    resolveRemote?.({ songs: [{ id: 'remote-only' }], current: 'remote-only', position: 0 });
+
+    await expect(pending).resolves.toBe('noop');
+    expect(playerState.queueItems).toEqual(originalQueue);
+    expect(playerState.currentTrack?.id).toBe('local-only');
+  });
+
   it('does not apply server queue in idle mode while a failed push blocks pull', async () => {
     getPlayQueueForServerMock.mockResolvedValue({
       songs: [{ id: 'remote-a' }, { id: 'remote-b' }],
