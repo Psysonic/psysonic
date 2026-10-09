@@ -19,14 +19,43 @@ import { useOfflineLocalBrowseReloadKey } from '@/store/localPlaybackBrowseRevis
 import { useLibrarySyncRevision } from '@/store/offlineLocalLibrarySyncRevision';
 import { useLocalPlaybackStore } from '@/store/localPlaybackStore';
 import { deriveLibraryBrowseIndexScopes } from '@/lib/library/libraryBrowseScope';
+import TagCatalogToolbar, { type TagCatalogSort } from '@/ui/TagCatalogToolbar';
 
-const SCROLL_KEY = 'genres-scroll';
+const RETURN_STATE_KEY = 'genres-return-state';
+const SORT_KEY = 'genres-sort';
 const FONT_MIN_REM = 0.78;
 const FONT_MAX_REM = 1.7;
+
+interface CatalogReturnState {
+  search: string;
+  scrollTop: number;
+}
+
+function readReturnState(): CatalogReturnState | null {
+  const raw = sessionStorage.getItem(RETURN_STATE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<CatalogReturnState>;
+    if (typeof parsed.search !== 'string' || typeof parsed.scrollTop !== 'number' || !Number.isFinite(parsed.scrollTop)) {
+      return null;
+    }
+    return { search: parsed.search, scrollTop: parsed.scrollTop };
+  } catch {
+    return null;
+  }
+}
+
+function readSort(): TagCatalogSort {
+  return sessionStorage.getItem(SORT_KEY) === 'alphabetical'
+    ? 'alphabetical'
+    : 'popularity';
+}
 
 export default function Genres() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [search, setSearch] = useState(() => readReturnState()?.search ?? '');
+  const [sort, setSort] = useState<TagCatalogSort>(readSort);
   const serverId = useAuthStore(s => s.activeServerId ?? '');
   const indexEnabled = useLibraryIndexStore(s => s.isIndexEnabled(serverId));
   const musicLibraryFilterVersion = useAuthStore(s => s.musicLibraryFilterVersion);
@@ -94,50 +123,99 @@ export default function Genres() {
     offlineLocalBrowseReloadKey,
   ]);
 
-  const genres = useMemo(
-    () => filterGenresWithContent([...rawGenres]).sort((a, b) => b.albumCount - a.albumCount),
+  const catalogGenres = useMemo(
+    () => filterGenresWithContent([...rawGenres]),
     [rawGenres],
   );
 
-  // Log-scale font sizing — flattens the long tail (a 1000-album genre and a
-  // 50-album genre look distinct, but a 1-album genre still has a readable size).
+  const searchActive = search.trim().length > 0;
+  const genres = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    const filtered = query
+      ? catalogGenres.filter(genre => genre.value.toLocaleLowerCase().includes(query))
+      : [...catalogGenres];
+
+    return filtered.sort((a, b) => (
+      sort === 'alphabetical'
+        ? a.value.localeCompare(b.value)
+        : b.albumCount - a.albumCount || a.value.localeCompare(b.value)
+    ));
+  }, [catalogGenres, search, sort]);
+
+  // Keep popularity sizing stable when search/sort changes: filtering should
+  // move/hide pills, not make the remaining ones suddenly grow.
   const maxLog = useMemo(() => {
-    if (genres.length === 0) return 1;
-    return Math.log(Math.max(2, genres[0].albumCount));
-  }, [genres]);
+    if (catalogGenres.length === 0) return 1;
+    return Math.log(Math.max(2, ...catalogGenres.map(genre => genre.albumCount)));
+  }, [catalogGenres]);
 
   useEffect(() => {
-    if (loading || genres.length === 0) return;
-    const saved = sessionStorage.getItem(SCROLL_KEY);
+    if (loading) return;
+    const saved = readReturnState();
     if (!saved) return;
-    const pos = parseInt(saved, 10);
-    sessionStorage.removeItem(SCROLL_KEY);
+    sessionStorage.removeItem(RETURN_STATE_KEY);
     requestAnimationFrame(() => {
       const el = document.getElementById(APP_MAIN_SCROLL_VIEWPORT_ID);
-      if (el) el.scrollTop = pos;
+      if (el) el.scrollTop = saved.scrollTop;
     });
-  }, [loading, genres.length]);
+  }, [loading]);
+
+  const handleSortChange = (next: TagCatalogSort) => {
+    setSort(next);
+    sessionStorage.setItem(SORT_KEY, next);
+  };
 
   const handleGenreClick = (genreValue: string) => {
     const el = document.getElementById(APP_MAIN_SCROLL_VIEWPORT_ID);
-    if (el) sessionStorage.setItem(SCROLL_KEY, String(el.scrollTop));
+    sessionStorage.setItem(
+      RETURN_STATE_KEY,
+      JSON.stringify({
+        search,
+        scrollTop: el?.scrollTop ?? 0,
+      } satisfies CatalogReturnState),
+    );
     navigate(`/genres/${encodeURIComponent(genreValue)}`, { state: { returnTo: '/genres' } });
   };
 
   return (
-    <div className="content-body animate-fade-in">
+    <div
+      className="content-body animate-fade-in"
+      data-benchmark-tag-catalog="genres"
+      data-benchmark-result-count={genres.length}
+    >
       <div className="psy-page-heading psy-page-heading--spaced">
         <h1 className="page-title truncate" title={t('genres.title')}>{t('genres.title')}</h1>
-        {!loading && genres.length > 0 && (
+        {!loading && catalogGenres.length > 0 && (
           <span className="psy-page-heading__count">
             <span aria-hidden="true">–</span>
-            {genres.length} {t('genres.genreCount')}
+            {searchActive
+              ? t('genres.filteredCount', { visible: genres.length, total: catalogGenres.length })
+              : `${catalogGenres.length} ${t('genres.genreCount')}`}
           </span>
         )}
       </div>
 
+      {!loading && catalogGenres.length > 0 && (
+        <TagCatalogToolbar
+          query={search}
+          onQueryChange={setSearch}
+          sort={sort}
+          onSortChange={handleSortChange}
+          searchPlaceholder={t('genres.searchPlaceholder')}
+          searchAriaLabel={t('genres.searchLabel')}
+          clearSearchLabel={t('genres.clearSearch')}
+          sortAriaLabel={t('genres.sortLabel')}
+          popularityLabel={t('genres.sortPopularity')}
+          alphabeticalLabel={t('genres.sortAlphabetical')}
+          benchmarkKind="genres"
+        />
+      )}
+
       {loading && <p className="loading-text">{t('genres.loading')}</p>}
-      {!loading && genres.length === 0 && <p className="loading-text">{t('genres.empty')}</p>}
+      {!loading && catalogGenres.length === 0 && <p className="loading-text">{t('genres.empty')}</p>}
+      {!loading && catalogGenres.length > 0 && genres.length === 0 && searchActive && (
+        <p className="loading-text">{t('genres.noSearchResults', { query: search.trim() })}</p>
+      )}
 
       {!loading && genres.length > 0 && (
         <div className="genre-cloud">

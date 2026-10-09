@@ -24,7 +24,7 @@ const CORE_ROUTES = ['/', '/albums', '/artists', '/tracks', '/favorites'] as con
 
 const ALL_STATIC_ROUTES = [
   '/', '/albums', '/artists', '/composers', '/tracks', '/favorites',
-  '/new-releases', '/genres', '/playlists', '/most-played',
+  '/new-releases', '/genres', '/moods', '/playlists', '/most-played',
   '/lossless-albums', '/folders', '/statistics', '/player-stats', '/help',
   '/settings', '/whats-new', '/offline', '/radio', '/random',
   '/random/albums', '/random/mix', '/search', '/search/advanced',
