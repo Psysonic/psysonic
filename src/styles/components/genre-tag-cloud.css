@@ -1,3 +1,53 @@
+/* ─ Genre / Mood catalog controls ─ */
+.genre-catalog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.genre-catalog-search {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 480px;
+  min-width: 0;
+}
+
+.genre-catalog-search .input-search {
+  width: 100%;
+  padding-left: 2.15rem;
+  padding-right: 2rem;
+}
+
+.genre-catalog-search__icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.genre-catalog-search__clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.genre-catalog-search__clear:hover {
+  color: var(--text-primary);
+}
+
 /* ─ Genre Tag Cloud ─ */
 .genre-cloud {
   display: flex;
