@@ -338,6 +338,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The playlist and artist lists in Device Sync showed their song and album counts in English. They now use the app language; in Polish and Romanian the album count on the Artists page no longer switches to English for counts like 3 either.
 
+### The play queue survives a restart with play queue sync turned off
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1732](https://github.com/Psysonic/psysonic/pull/1732)**
+
+* With **Settings → Integrations → Navidrome → Play queue sync** turned off, Psysonic could bring back an older queue after a restart instead of the one you left. The queue and the current track now come back as you left them.
+* Root cause: the startup check still adopted the server queue, which is no longer updated while sync is off, and the mini player window saved its own outdated copy of the queue over the one from the main window.
+
 ## [1.55.0]
 
 ## Added
