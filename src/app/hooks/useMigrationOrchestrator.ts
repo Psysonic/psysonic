@@ -5,6 +5,8 @@ import {
   libraryFileMoodTagsRun,
   libraryGenreTagsInspect,
   libraryGenreTagsRun,
+  libraryRecordLabelTagsInspect,
+  libraryRecordLabelTagsRun,
   libraryScopeBrowseProjectionInspect,
   libraryScopeBrowseProjectionRun,
 } from '@/lib/api/library';
@@ -115,6 +117,35 @@ async function runFileMoodTagsPhase(): Promise<void> {
   }
 }
 
+async function runRecordLabelTagsPhase(): Promise<void> {
+  const state = useMigrationStore.getState();
+  state.setRecordLabelTagsProgress(null);
+  const inspect = await libraryRecordLabelTagsInspect();
+  state.setRecordLabelTagsInspect(inspect);
+  if (!inspect.needed) {
+    state.setStep(null);
+    return;
+  }
+
+  state.setStep('recordLabelTags');
+  state.setError(null);
+  state.setPhase('running');
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    await libraryRecordLabelTagsRun();
+    const after = await libraryRecordLabelTagsInspect();
+    state.setRecordLabelTagsInspect(after);
+    if (!after.needed) {
+      state.setStep(null);
+      state.setRecordLabelTagsProgress(null);
+      return;
+    }
+  }
+  state.setError('Label index update incomplete. Retry after restart.');
+  state.setPhase('error');
+  throw new Error('record_label_tags_incomplete');
+}
+
 async function runScopeBrowseProjectionPhase(): Promise<void> {
   const state = useMigrationStore.getState();
   state.setScopeBrowseProjectionProgress(null);
@@ -162,6 +193,7 @@ async function runOrchestrator(force = false): Promise<void> {
     state.setProgress(null);
     state.setGenreTagsProgress(null);
     state.setFileMoodTagsProgress(null);
+    state.setRecordLabelTagsProgress(null);
     state.setStep('serverIndex');
     state.setPhase(force ? 'inspecting' : 'idle');
     let inspect = null as Awaited<ReturnType<typeof migrationInspect>> | null;
@@ -173,6 +205,7 @@ async function runOrchestrator(force = false): Promise<void> {
       if (!inspect.needsMigration) {
         await runGenreTagsPhase();
         await runFileMoodTagsPhase();
+        await runRecordLabelTagsPhase();
         await runScopeBrowseProjectionPhase();
         state.setPhase('completed');
         return;
@@ -189,6 +222,7 @@ async function runOrchestrator(force = false): Promise<void> {
       localStorage.setItem(MIGRATION_DONE_FLAG, '1');
       await runGenreTagsPhase();
       await runFileMoodTagsPhase();
+      await runRecordLabelTagsPhase();
       await runScopeBrowseProjectionPhase();
       state.setPhase('completed');
       return;
@@ -206,6 +240,7 @@ async function runOrchestrator(force = false): Promise<void> {
       localStorage.setItem(MIGRATION_DONE_FLAG, '1');
         await runGenreTagsPhase();
         await runFileMoodTagsPhase();
+        await runRecordLabelTagsPhase();
         await runScopeBrowseProjectionPhase();
       state.setPhase('completed');
       return;
@@ -218,7 +253,8 @@ async function runOrchestrator(force = false): Promise<void> {
         !(
           error instanceof Error &&
           (error.message === 'genre_tags_incomplete' ||
-            error.message === 'file_mood_tags_incomplete')
+            error.message === 'file_mood_tags_incomplete' ||
+            error.message === 'record_label_tags_incomplete')
         )
       ) {
         useMigrationStore
@@ -274,6 +310,7 @@ export function retryFileMoodTagsMigration(): void {
 
     try {
       await runFileMoodTagsPhase();
+      await runRecordLabelTagsPhase();
       await runScopeBrowseProjectionPhase();
       state.setPhase('completed');
     } catch (error: unknown) {
@@ -295,6 +332,30 @@ export function retryFileMoodTagsMigration(): void {
   });
 }
 
+export function retryRecordLabelTagsMigration(): void {
+  if (migrationInFlight) {
+    void migrationInFlight.then(() => retryRecordLabelTagsMigration());
+    return;
+  }
+  migrationInFlight = (async () => {
+    const state = useMigrationStore.getState();
+    state.setError(null);
+    state.setRecordLabelTagsProgress(null);
+    try {
+      await runRecordLabelTagsPhase();
+      await runScopeBrowseProjectionPhase();
+      state.setPhase('completed');
+    } catch (error: unknown) {
+      if (!(error instanceof Error && error.message === 'record_label_tags_incomplete')) {
+        state.setError(error instanceof Error ? error.message : String(error));
+      }
+      state.setPhase('error');
+    }
+  })().finally(() => {
+    migrationInFlight = null;
+  });
+}
+
 export function retryBlockingMigration(): void {
   const step = useMigrationStore.getState().step;
   if (step === 'genreTags') {
@@ -304,6 +365,11 @@ export function retryBlockingMigration(): void {
 
 if (step === 'fileMoodTags') {
   retryFileMoodTagsMigration();
+  return;
+}
+
+if (step === 'recordLabelTags') {
+  retryRecordLabelTagsMigration();
   return;
 }
 
@@ -345,6 +411,13 @@ export function useMigrationOrchestrator(): void {
             total: number;
           },
         );
+      }),
+      listen('label_tags:progress', (event) => {
+        if (disposed) return;
+        useMigrationStore.getState().setRecordLabelTagsProgress(event.payload as {
+          done: number;
+          total: number;
+        });
       }),
       listen('scope_browse_projection:progress', (event) => {
         if (disposed) return;

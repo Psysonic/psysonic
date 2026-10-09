@@ -118,6 +118,13 @@ impl TrackRepository<'_> {
                     )"
                 );
                 tx.execute(&delete_moods_sql, params_from_iter(binds.iter()))?;
+                let delete_labels_sql = format!(
+                    "DELETE FROM track_label WHERE server_id = ?1 AND track_id IN ( \
+                    SELECT id FROM track INDEXED BY idx_track_album \
+                    WHERE server_id = ?1 AND album_id IN ({placeholders}) AND deleted = 0 \
+                    )"
+                );
+                tx.execute(&delete_labels_sql, params_from_iter(binds.iter()))?;
                 let tombstone_sql = format!(
                     "UPDATE track SET deleted = 1, synced_at = ?{} \
                      WHERE server_id = ?1 AND album_id IN ({placeholders}) AND deleted = 0",
@@ -206,6 +213,15 @@ impl TrackRepository<'_> {
                         params![server_id, resync_gen],
                     )?;
                     tx.execute(
+                        "DELETE FROM track_label \
+                        WHERE server_id = ?1 AND track_id IN ( \
+                        SELECT id FROM track \
+                        WHERE server_id = ?1 AND deleted = 0 \
+                            AND COALESCE(resync_gen, 0) != ?2 \
+                        )",
+                        params![server_id, resync_gen],
+                    )?;
+                    tx.execute(
                         "UPDATE track SET deleted = 1, synced_at = ?3 \
                      WHERE server_id = ?1 AND deleted = 0 \
                        AND COALESCE(resync_gen, 0) != ?2",
@@ -223,6 +239,15 @@ impl TrackRepository<'_> {
                     )?;
                     tx.execute(
                         "DELETE FROM track_mood \
+                        WHERE server_id = ?1 AND track_id IN ( \
+                        SELECT id FROM track \
+                        WHERE server_id = ?1 AND library_id = ?2 AND deleted = 0 \
+                            AND COALESCE(resync_gen, 0) != ?3 \
+                        )",
+                        params![server_id, library_scope, resync_gen],
+                    )?;
+                    tx.execute(
+                        "DELETE FROM track_label \
                         WHERE server_id = ?1 AND track_id IN ( \
                         SELECT id FROM track \
                         WHERE server_id = ?1 AND library_id = ?2 AND deleted = 0 \
@@ -305,6 +330,10 @@ impl TrackRepository<'_> {
                     )?;
                     tx.execute(
                         "DELETE FROM track_mood WHERE server_id = ?1 AND track_id = ?2",
+                        params![server_id, track_id],
+                    )?;
+                    tx.execute(
+                        "DELETE FROM track_label WHERE server_id = ?1 AND track_id = ?2",
                         params![server_id, track_id],
                     )?;
                 }

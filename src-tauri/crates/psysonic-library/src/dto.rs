@@ -559,6 +559,51 @@ pub struct LibraryMoodAlbumsResponse {
     pub source: String,
 }
 
+/// Per-record-label album/track totals from the local label index.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelAlbumCountDto {
+    pub value: String,
+    pub album_count: u32,
+    pub song_count: u32,
+}
+
+/// `library_list_albums_by_label` request — paginated record-label album browse.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryLabelAlbumsRequest {
+    pub server_id: String,
+    pub label: String,
+    #[serde(default)]
+    pub library_scope: Option<String>,
+    #[serde(default)]
+    pub library_scopes: Option<Vec<LibraryScopePair>>,
+    #[serde(default)]
+    pub sort: Vec<LibrarySortClause>,
+    #[serde(default = "default_label_album_limit")]
+    pub limit: u32,
+    #[serde(default)]
+    pub offset: u32,
+    #[serde(default)]
+    pub include_total: bool,
+    #[serde(default)]
+    pub count_only: bool,
+}
+
+fn default_label_album_limit() -> u32 {
+    50
+}
+
+/// `library_list_albums_by_label` response.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct LibraryLabelAlbumsResponse {
+    pub albums: Vec<LibraryAlbumDto>,
+    pub has_more: bool,
+    pub total: Option<u32>,
+    pub source: String,
+}
+
 /// `library_purge_server` outcome.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq, specta::Type)]
 #[serde(rename_all = "camelCase")]

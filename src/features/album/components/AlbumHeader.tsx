@@ -390,9 +390,7 @@ export default function AlbumHeader({
                     <button
                       className="album-detail-artist-link"
                       data-tooltip={t('albumDetail.moreLabelAlbums', { label: info.recordLabel })}
-                      onClick={() => navigate(
-                        `/label/${encodeURIComponent(info.recordLabel!)}${serverId ? `?server=${encodeURIComponent(serverId)}` : ''}`,
-                      )}
+                      onClick={() => navigate(`/label/${encodeURIComponent(info.recordLabel!)}`)}
                     >
                       {info.recordLabel}
                     </button>
