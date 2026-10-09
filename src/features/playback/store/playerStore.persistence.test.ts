@@ -18,6 +18,15 @@ import { initAudioListeners } from '@/features/playback/store/initAudioListeners
 import { flushPlayQueuePosition } from '@/features/playback/store/queueSync';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const { currentWindowLabelMock } = vi.hoisted(() => ({
+  currentWindowLabelMock: vi.fn(() => 'main' as 'main' | 'mini'),
+}));
+
+vi.mock('@tauri-apps/api/window', async importOriginal => ({
+  ...await importOriginal<typeof import('@tauri-apps/api/window')>(),
+  getCurrentWindow: () => ({ label: currentWindowLabelMock() }),
+}));
+
 // Explicit (non-spread) mock map — the `...actual` spread pattern lets the
 // real `savePlayQueue` leak through to `playerStore.ts`'s relative import.
 // Listing every export the store uses keeps the override stable.
@@ -95,6 +104,7 @@ let cleanupListeners: (() => void) | null = null;
 
 beforeEach(() => {
   vi.useFakeTimers();
+  currentWindowLabelMock.mockReturnValue('main');
   resetPlayerStore();
   resetAuthStore();
   stubInvokes();
@@ -108,6 +118,40 @@ afterEach(() => {
   vi.runOnlyPendingTimers();
   vi.useRealTimers();
   localStorage.removeItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY);
+});
+
+
+describe('main-window-only local queue persistence', () => {
+  it('prevents the mini-player from replacing an updated main-window queue', () => {
+    const savedQueue = [
+      { serverId: 'srv-test', trackId: 'main-a' },
+      { serverId: 'srv-test', trackId: 'main-b' },
+    ];
+    usePlayerStore.setState({ queueItems: savedQueue, queueIndex: 1, queueServerId: 'srv-test' });
+    const savedMainState = localStorage.getItem('psysonic-player');
+    expect(JSON.parse(savedMainState ?? '{}').state.queueItems).toEqual(savedQueue);
+
+    // Two webviews hydrate separate store instances against one localStorage.
+    // Mini-player sync used to overwrite main's queue via a queueServerId set.
+    currentWindowLabelMock.mockReturnValue('mini');
+    usePlayerStore.setState({ queueItems: [{ serverId: 'srv-test', trackId: 'stale-mini' }] });
+    usePlayerStore.setState({ queueServerId: 'srv-test' });
+
+    expect(localStorage.getItem('psysonic-player')).toBe(savedMainState);
+  });
+
+  it('still persists edits made in the main window', () => {
+    currentWindowLabelMock.mockReturnValue('mini');
+    usePlayerStore.setState({ queueServerId: 'srv-test' });
+    currentWindowLabelMock.mockReturnValue('main');
+
+    const latestQueue = [{ serverId: 'srv-test', trackId: 'device-local' }];
+    usePlayerStore.setState({ queueItems: latestQueue, queueIndex: 0 });
+
+    const saved = JSON.parse(localStorage.getItem('psysonic-player') ?? '{}');
+    expect(saved.state.queueItems).toEqual(latestQueue);
+    expect(saved.state.queueItemsIndex).toBe(0);
+  });
 });
 
 describe('canonical migration persistence fence', () => {

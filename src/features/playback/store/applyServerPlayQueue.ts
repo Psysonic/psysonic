@@ -253,6 +253,8 @@ export async function applyServerPlayQueue(
 
   try {
     const q = await getPlayQueueForServer(profileId);
+    // This request may have started before sync was disabled on this device.
+    if (!isPlayQueueSyncEnabled()) return 'noop';
     if (q.songs.length === 0) return 'empty';
 
     const localAfterFetch = usePlayerStore.getState();
