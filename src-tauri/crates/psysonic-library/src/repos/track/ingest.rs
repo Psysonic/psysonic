@@ -519,7 +519,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -533,7 +533,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -553,7 +553,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_set(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -564,7 +564,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           )
         ELSE json_patch(
           CASE
-            WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+            WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
               THEN json_remove(track.raw_json, '$.tags.mood')
             ELSE track.raw_json
           END,
@@ -673,7 +673,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -687,7 +687,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -707,7 +707,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_set(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -718,7 +718,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           )
         ELSE json_patch(
           CASE
-            WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+            WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
               THEN json_remove(track.raw_json, '$.tags.mood')
             ELSE track.raw_json
           END,
