@@ -148,12 +148,18 @@ pub fn ui_ensure_produced_total() -> u64 {
     metrics::ui_ensure_produced_total()
 }
 
-pub fn init_cover_cache(app: &AppHandle) -> Result<(), String> {
-    let root = app
+/// Root of the on-disk cover cache. Callers outside the module use it to accept
+/// only paths inside the cache.
+pub(crate) fn cover_cache_root(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
-        .join("cover-cache");
+        .join("cover-cache"))
+}
+
+pub fn init_cover_cache(app: &AppHandle) -> Result<(), String> {
+    let root = cover_cache_root(app)?;
     reset_cover_cache_for_index_key_layout(&root)?;
     let reset = purge_misattributed_external_album_art_once(&root);
     if reset > 0 {

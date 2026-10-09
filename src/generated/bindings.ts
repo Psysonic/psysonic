@@ -671,6 +671,12 @@ export const commands = {
 	mprisSetMetadata: (title: string | null, artist: string | null, album: string | null, coverUrl: string | null, durationSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_metadata", { title, artist, album, coverUrl, durationSecs })),
 	mprisSetPlayback: (playing: boolean, positionSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_playback", { playing, positionSecs })),
 	mprisSetVolume: (volume: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_volume", { volume })),
+	/**
+	 *  Desktop notification for a track change. It is skipped while a Psysonic
+	 *  window has focus: the user is looking at the player then. Returns whether a
+	 *  notification was shown.
+	 */
+	showTrackNotification: (title: string, body: string, coverPath: string | null) => typedError<boolean, string>(__TAURI_INVOKE("show_track_notification", { title, body, coverPath })),
 	/**  Returns true if `path` is an accessible directory (used for pre-flight checks in the frontend). */
 	checkDirAccessible: (path: string) => __TAURI_INVOKE<boolean>("check_dir_accessible", { path }),
 	/**

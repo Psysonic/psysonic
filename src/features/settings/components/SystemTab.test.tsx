@@ -1,4 +1,5 @@
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { resetAuthStore } from '@/test/helpers/storeReset';
@@ -30,5 +31,20 @@ describe('SystemTab tray settings', () => {
     expect(screen.getByText(
       'Enable "Show Tray Icon" first — you need the tray to reopen the window after closing it.',
     )).toBeInTheDocument();
+  });
+});
+
+describe('SystemTab notification settings', () => {
+  beforeEach(resetAuthStore);
+
+  it('offers track change notifications, off by default', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SystemTab />);
+
+    const toggle = screen.getByRole('checkbox', { name: 'Notify on Track Change' });
+    expect(toggle).not.toBeChecked();
+
+    await user.click(toggle);
+    expect(useAuthStore.getState().trackChangeNotificationsEnabled).toBe(true);
   });
 });

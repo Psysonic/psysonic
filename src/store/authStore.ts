@@ -98,6 +98,7 @@ export const useAuthStore = create<AuthState>()(
       showTrayIcon: true,
       minimizeToTray: false,
       startMinimizedToTray: false,
+      trackChangeNotificationsEnabled: false,
       clockFormat: 'auto',
       showOrbitTrigger: true,
       discordRichPresence: false,
