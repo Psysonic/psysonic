@@ -494,6 +494,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Home — arrange the rows by drag and drop (PR #1720)',
       'Lyrics — show server-provided translations under the lyrics (PR #1721)',
       'Playlists — tags with filter chips on the Playlists page (PR #1730)',
+      'Tracks — explicit badges and optional cover blur (PR #1731)',
     ],
   },
   {

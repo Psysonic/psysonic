@@ -296,6 +296,7 @@ export default function NowPlaying() {
                 albumId: currentTrack.albumId,
                 userRating: currentTrack.userRating,
                 serverId: currentTrack.serverId ?? playbackServerId,
+                explicitStatus: currentTrack.explicitStatus ?? songMeta?.explicitStatus,
               }}
               artistRefs={trackArtistRefs.length > 0 ? trackArtistRefs : undefined}
               genre={songMeta?.genre ?? undefined}

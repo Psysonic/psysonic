@@ -11,6 +11,9 @@ import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
 import { resolveTrackArtistRefs, useTrackPlayStats } from '@/features/playback';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 export interface ArtistAllTracksRowCallbacks {
   activate: (song: SubsonicSong, index: number, e: React.MouseEvent) => void;
@@ -103,7 +106,8 @@ function ArtistAllTracksRow({
                   : <ChevronRight size={14} className="playlist-suggestion-preview-icon playlist-suggestion-preview-icon-play" />}
               </button>
               <OptionalBrowseTrackRowCoverThumb song={song} size="dense" />
-              <span className="track-title">{song.title}</span>
+              <ExplicitCoverVeil explicit={isExplicit(song)} />
+              <ExplicitTitle status={song.explicitStatus}><span className="track-title">{song.title}</span></ExplicitTitle>
             </div>
           );
           case 'album': return (

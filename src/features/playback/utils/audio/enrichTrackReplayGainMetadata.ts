@@ -55,6 +55,7 @@ export function mergePlaybackTrackMetadata(base: Track, resolved: Track): Track 
     samplingRate: resolved.samplingRate ?? base.samplingRate,
     bitDepth: resolved.bitDepth ?? base.bitDepth,
     coverArt: resolved.coverArt ?? base.coverArt,
+    explicitStatus: resolved.explicitStatus ?? base.explicitStatus,
     artistId: resolved.artistId ?? base.artistId,
     serverId: base.serverId ?? resolved.serverId,
   };

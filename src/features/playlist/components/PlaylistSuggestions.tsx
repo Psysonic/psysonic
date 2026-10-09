@@ -17,6 +17,9 @@ import { formatLastSeen } from '@/lib/format/userMgmtHelpers';
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import i18n from '@/lib/i18n';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
@@ -195,7 +198,8 @@ export default function PlaylistSuggestions({
                           : <ChevronRight size={14} className="playlist-suggestion-preview-icon playlist-suggestion-preview-icon-play" />}
                       </button>
                       <OptionalBrowseTrackRowCoverThumb song={song} size="dense" />
-                      <span className="track-title">{song.title}</span>
+                      <ExplicitCoverVeil explicit={isExplicit(song)} />
+                      <ExplicitTitle status={song.explicitStatus}><span className="track-title">{song.title}</span></ExplicitTitle>
                     </div>
                   );
                   case 'artist': return <PlaylistArtistCell key="artist" song={song} />;

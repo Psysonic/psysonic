@@ -12,6 +12,9 @@ import { radioCoverRef } from '@/cover/ref';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import { usePlaybackTrackCoverRef } from '@/cover/useLibraryCoverRef';
 import MarqueeText from '@/ui/MarqueeText';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
 import StarRating from '@/ui/StarRating';
@@ -142,6 +145,7 @@ export function PlayerTrackInfo({
             <Music size={22} />
           </div>
         )}
+        <ExplicitCoverVeil explicit={!isRadio && !showPreviewMeta && isExplicit(currentTrack)} />
         {currentTrack && !isRadio && !showPreviewMeta && (
           <div className="player-art-expand-hint" aria-hidden="true">
             <Maximize2 size={16} />
@@ -157,6 +161,7 @@ export function PlayerTrackInfo({
             {t('player.previewLabel')}
           </span>
         )}
+        <ExplicitTitle status={!isRadio && !showPreviewMeta ? currentTrack?.explicitStatus : undefined}>
         <MarqueeText
           text={isRadio
             ? (radioMeta.currentTitle
@@ -182,6 +187,7 @@ export function PlayerTrackInfo({
               }
             : undefined}
         />
+        </ExplicitTitle>
         {!isRadio && displayArtistRefs && displayArtistRefs.length > 0 ? (
           <div className="marquee-wrap player-track-artist">
             <ResolvedArtistRefInline

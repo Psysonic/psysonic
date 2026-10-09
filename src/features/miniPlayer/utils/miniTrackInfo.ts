@@ -16,6 +16,8 @@ export interface MiniTrackInfo {
   duration?: number;
   starred?: boolean;
   year?: number;
+  /** OpenSubsonic `explicitStatus`, for the badge and the cover blur. */
+  explicitStatus?: string;
 }
 
 export function toMini(t: Track): MiniTrackInfo {
@@ -32,5 +34,6 @@ export function toMini(t: Track): MiniTrackInfo {
     duration: t.duration,
     starred: !!t.starred,
     year: t.year,
+    explicitStatus: t.explicitStatus,
   };
 }
