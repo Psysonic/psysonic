@@ -248,8 +248,15 @@ fn show_desktop_notification(
     if let Some(image) = image.as_deref() {
         notification.image_path(image);
     }
+    // The daemon takes the app icon from the desktop entry: `Psysonic.desktop`
+    // (deb/rpm), with Plasma also trying the lower-case `psysonic.desktop` (AUR,
+    // AppImage integration). No `app_icon` on purpose: with an image attached,
+    // Plasma would show it instead, and only packages that install a themed
+    // `psysonic` icon have one.
     #[cfg(not(target_os = "macos"))]
-    notification.auto_icon();
+    if let Some(product_name) = app.config().product_name.as_deref() {
+        notification.hint(notify_rust::Hint::DesktopEntry(product_name.to_string()));
+    }
     #[cfg(target_os = "macos")]
     {
         let _ = notify_rust::set_application(if tauri::is_dev() {
@@ -258,8 +265,6 @@ fn show_desktop_notification(
             &app.config().identifier
         });
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = app;
     // Showing blocks on D-Bus; keep it off the command thread.
     tauri::async_runtime::spawn_blocking(move || {
         if let Err(e) = notification.show() {
