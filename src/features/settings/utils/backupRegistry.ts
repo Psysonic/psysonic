@@ -178,6 +178,7 @@ export const BACKUP_REGISTRY: readonly BackupEntry[] = [
   { key: 'psysonic_radio_favorites', tier: 'added', storage: 'json' },
   { key: 'psysonic_radio_order', tier: 'added', storage: 'json' },
   { key: 'psysonic_playlist_folders', tier: 'added', storage: 'json' },
+  { key: 'psysonic_playlist_tags', tier: 'added', storage: 'json' },
   { key: 'psysonic_shuffle_mode', tier: 'added', storage: 'json' },
   { key: 'psysonic_sidebar_collapsed', tier: 'added', storage: 'json' },
   { key: 'psysonic_mini_expanded_h', tier: 'added', storage: 'json' },
@@ -209,6 +210,7 @@ export const BACKUP_EXCLUSIONS: Readonly<Record<string, string>> = {
   // metadata without the files would claim downloads that are not there.
   'psysonic-offline': 'tracks downloaded to this machine',
   'psysonic-local-playback': 'local media paths on this machine',
+  'psysonic-local-playback-collision-recovery-v1:': 'recovery copy of local media records on this machine',
   'psysonic-hot-cache': 'cache contents on this disk',
   'psysonic-library-index': 'mirrors the library databases',
   // A compilation being assembled for the next disc, not a setting. Its entries

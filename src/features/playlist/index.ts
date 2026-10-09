@@ -1,8 +1,8 @@
 /**
  * Playlist feature — the Playlists overview + PlaylistDetail (lazy via deep
  * `pages/*`, not re-exported), playlist/folder UI (cards, hero, tracklist,
- * filter toolbar, smart editor, folder views, CSV import), the playlist +
- * folder + layout stores, the playlist Subsonic API, and the playlist data/
+ * filter toolbar, smart editor, folder views, tag chips, CSV import), the
+ * playlist + folder + tag + layout stores, the playlist Subsonic API, and the playlist data/
  * selection/DnD/search/mutation/star hooks + play + CSV/smart utils.
  *
  * Stays OUT: the playlist context-menu items + add/move submenus (context-menu
@@ -23,9 +23,11 @@ export * from './hooks/usePlaylistSongMutations';
 export * from './hooks/usePlaylistSongSearch';
 export * from './hooks/usePlaylistStarRating';
 export * from './hooks/usePlaylistSuggestions';
+export * from './hooks/usePlaylistTagFilter';
 export * from './store/playlistFolderStore';
 export * from './store/playlistLayoutStore';
 export * from './store/playlistStore';
+export * from './store/playlistTagStore';
 export * from './utils/addTracksToPlaylistWithDedup';
 export * from './utils/playlistBulkPlayActions';
 export * from './utils/playlistDisplayedSongs';
@@ -35,6 +37,7 @@ export * from './utils/playlistOwnedMutation';
 export * from './utils/playlistOwnership';
 export * from './utils/playlistSmartUx';
 export * from './utils/playlistServer';
+export * from './utils/playlistTags';
 export * from './utils/playlistsBrowseSearch';
 export * from './utils/playlistsSmart';
 export * from './utils/smartPlaylistBasicProjection';

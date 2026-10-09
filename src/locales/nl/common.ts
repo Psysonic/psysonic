@@ -4,6 +4,7 @@ export const common = {
   albumByArtist: '{{album}} van {{artist}}',
   loading: 'Laden…',
   loadingMore: 'Laden…',
+  explicit: 'Expliciet',
   loadingPlaylists: 'Afspeellijsten laden…',
   noAlbums: 'Geen albums gevonden.',
   downloading: 'Downloaden…',

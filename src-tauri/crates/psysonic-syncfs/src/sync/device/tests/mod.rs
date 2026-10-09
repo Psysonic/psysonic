@@ -10,6 +10,7 @@ fn track(builder: impl FnOnce(&mut TrackSyncInfo)) -> TrackSyncInfo {
         album: "Album".into(),
         title: "Title".into(),
         track_number: Some(1),
+        disc_number: None,
         duration: Some(180),
         playlist_name: None,
         playlist_id: None,

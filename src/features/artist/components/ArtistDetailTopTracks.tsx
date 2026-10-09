@@ -12,6 +12,9 @@ import { useDragPressHandle } from '@/lib/dnd/useDragPress';
 import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import ArtistTopTrackCover from '@/features/artist/components/ArtistTopTrackCover';
 import { topSongAlbumForCover } from '@/features/artist/components/topSongAlbumForCover';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 interface Props {
   topSongs: SubsonicSong[];
@@ -158,8 +161,11 @@ export default function ArtistDetailTopTracks({
             const albumForCover = topSongAlbumForCover(song, albums);
             return albumForCover ? <ArtistTopTrackCover album={albumForCover} /> : null;
           })()}
+          <ExplicitCoverVeil explicit={isExplicit(song)} />
           <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <div className="track-title">{song.title}</div>
+            <ExplicitTitle status={song.explicitStatus}>
+              <div className="track-title">{song.title}</div>
+            </ExplicitTitle>
           </div>
         </div>
         <div className="track-album truncate" style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>

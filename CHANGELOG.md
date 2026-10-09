@@ -167,6 +167,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Skipping quickly through the queue announces only the song that keeps playing, and pausing or resuming never shows one.
 * The Flatpak build cannot show these notifications yet.
 
+### Tags for playlists
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1730](https://github.com/Psysonic/psysonic/pull/1730)**
+
+* Right-click a playlist, or a selection of playlists, and use **Tags** to label it — by mood, occasion or anything else. A playlist can carry several tags.
+* Once a tag exists, the **Playlists** page shows the tags as chips above the list. Each chip you switch on narrows the list to the playlists that carry all of them; right-click a chip to rename or delete that tag.
+* Tags are saved only in Psysonic on this device, like playlist folders, and are part of the settings backup.
+
+### Explicit badges and blurred covers
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1731](https://github.com/Psysonic/psysonic/pull/1731)**
+
+* Songs your server marks as explicit show a small **E** after their title — in track lists, the queue, the player bar, Now Playing, the fullscreen player, the mini player and the statistics. An album shows it in its header as soon as one of its songs is explicit.
+* **Blur explicit covers** hides the cover art of those songs behind a soft blur; clicking an album cover still shows it in full. It is off by default; both options are in **Settings → Appearance → Visual Options**.
+* Works with servers that report explicit tags through OpenSubsonic, such as Navidrome.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
@@ -276,11 +292,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Provisional loudness updates while a song downloads are no longer discarded for Bandcamp track IDs containing URL-encoded characters. The existing final loudness correction and BPM detector are unchanged.
 * The verified source is the MP3 exposed by Bandcamp's API, not the artist's uploaded lossless master. Unknown server types retain the standard original-download check.
 
+### Seeking after an automatic gapless transition no longer stalls or reloads
+
+**By [@strecke](https://github.com/strecke), PR [#1714](https://github.com/Psysonic/psysonic/pull/1714)**
+
+* Seeking in a song that was reached via an automatic gapless transition previously timed out waiting for the predecessor track's streaming seek coordinator, triggering an unnecessary full-track reload that caused a buffering stall and reset the visual playhead to 0:00.
+* The stale streaming seek handle is now cleared on gapless advance, allowing seeks in preloaded successor tracks to execute immediately without buffering delays or UI desync.
+
+### Navidrome upgrades no longer get stuck on duplicate local downloads
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by Toast on Discord, PR [#1716](https://github.com/Psysonic/psysonic/pull/1716)**
+
+* Upgrading Navidrome could leave Psysonic stuck on “Migration Failed — Local playback collision” when the same track had local download records under both an older server profile ID and the server address. Migration now combines those records without deleting either downloaded file and preserves their album and playlist pins.
+* The original local download records are kept in a recovery snapshot before migration changes them. Toast confirmed normal operation with the test AppImage.
+
 ### The Flatpak shows its icon in the taskbar
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by Asra on Discord, PR [#1718](https://github.com/Psysonic/psysonic/pull/1718)**
 
 * On KDE Plasma, the Flatpak version showed a blank taskbar icon when no other Psysonic package was installed, because the desktop could not match the window to its launcher. The Flatpak launcher now names the window it belongs to, so the Psysonic icon appears.
+
+### The app now tells the system which language it is shown in
+
+**By [@stefnto](https://github.com/stefnto), PR [#1724](https://github.com/Psysonic/psysonic/pull/1724)**
+
+* The page language was always set to German, whatever language Psysonic was shown in. It now follows the selected language, so screen readers can use the matching pronunciation and capitalised text follows the rules of that language, for example Greek capitals without accents.
+
+### Device Sync files albums under the album artist on Navidrome
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1726](https://github.com/Psysonic/psysonic/pull/1726)**
+
+* With a Navidrome server, Device Sync put every album into a folder named after the track artist, so tracks with a guest artist or from a compilation ended up in folders of their own. Albums now go under their album artist, as the naming scheme shows.
+* Root cause: Navidrome reports the album artist only in its OpenSubsonic field, which Device Sync did not read.
+* Files already on a device move to the right folder on the next sync instead of being downloaded again.
+
+### Device Sync no longer stops at two tracks with the same file name
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1727](https://github.com/Psysonic/psysonic/pull/1727)**
+
+* A multi-disc album with the same title on two discs, or two editions of an album under one name, stopped the whole sync because two tracks would get the same file name. Tracks from disc 2 on are now named with their disc in front (`2-01 - Title`), and files already on a device are renamed on the next sync.
+* A track whose file name is still taken by another one is skipped, and the sync summary shows how many were skipped.
+
+### The Device Sync page works in small windows and reads step by step
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1728](https://github.com/Psysonic/psysonic/pull/1728)**
+
+* In a small window the options filled the page and the lists could not be reached or scrolled. The page now scrolls, and the lists stack under each other when there is little room.
+* The page reads top to bottom: choose the device, adjust the options (folded away, with an example of where files land), pick the music and check what is on the device. A bar at the bottom shows the state and holds the sync button; without a device the page explains how to choose one.
+
+### Song and album counts in Device Sync follow the app language
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1729](https://github.com/Psysonic/psysonic/pull/1729)**
+
+* The playlist and artist lists in Device Sync showed their song and album counts in English. They now use the app language; in Polish and Romanian the album count on the Artists page no longer switches to English for counts like 3 either.
 
 ## [1.55.0]
 

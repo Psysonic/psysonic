@@ -76,6 +76,11 @@ function readSavedLanguage(): string {
   return code;
 }
 
+i18n.on('languageChanged', lng => {
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
+  document.documentElement.lang = lng;
+});
+
 i18n
   .use(initReactI18next)
   .init({
@@ -87,8 +92,5 @@ i18n
     },
   });
 
-i18n.on('languageChanged', lng => {
-  localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
-});
 
 export default i18n;

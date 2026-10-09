@@ -183,6 +183,15 @@ export default function App() {
     else root.removeAttribute('data-square-corners');
   }, [squareCorners]);
 
+  // Explicit badges render only on explicit tracks; this attribute decides
+  // whether they show, so tracklist rows do not each subscribe to the setting.
+  const showExplicitBadges = useThemeStore(s => s.showExplicitBadges);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (showExplicitBadges) root.setAttribute('data-explicit-badges', '');
+    else root.removeAttribute('data-explicit-badges');
+  }, [showExplicitBadges]);
+
   // Hide all inline track-preview buttons when the user opts out — single
   // CSS hook (`html[data-track-previews="off"]`) instead of conditional
   // rendering in every tracklist. Per-location toggles use additional

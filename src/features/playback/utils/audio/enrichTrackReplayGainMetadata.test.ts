@@ -53,6 +53,14 @@ describe('mergePlaybackTrackMetadata', () => {
     expect(merged.replayGainTrackDb).toBe(-7.5);
     expect(merged.replayGainPeak).toBe(0.99);
   });
+
+  it('keeps the explicit flag of the resolved track over an unset one on the snapshot', () => {
+    // A snapshot built by songToTrack carries `explicitStatus: undefined` as a
+    // key; spreading it last would wipe the value the index resolved.
+    const base = { ...track(), explicitStatus: undefined };
+    const merged = mergePlaybackTrackMetadata(base, track({ explicitStatus: 'explicit' }));
+    expect(merged.explicitStatus).toBe('explicit');
+  });
 });
 
 describe('trackNeedsPlaybackMetadataPrefetch', () => {

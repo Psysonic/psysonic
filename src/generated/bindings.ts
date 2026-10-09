@@ -2313,12 +2313,17 @@ export type TrackSyncInfo = {
 	artist: string,
 	/**
 	 *  Album artist — used for the top-level folder so compilation albums stay together.
-	 *  Falls back to `artist` in the frontend when the server has no albumArtist tag.
+	 *  Taken from `albumArtist`, then the OpenSubsonic `displayAlbumArtist`, then `artist`.
 	 */
 	albumArtist: string,
 	album: string,
 	title: string,
 	trackNumber: number | null,
+	/**
+	 *  From disc 2 on, the disc prefixes the album-tree file name (`2-01 - Title`)
+	 *  so equal track numbers and titles on different discs do not collide.
+	 */
+	discNumber?: number | null,
 	/**  Duration in seconds — needed for Extended M3U (#EXTINF) playlist entries. */
 	duration?: number | null,
 	/**

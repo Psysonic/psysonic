@@ -230,7 +230,7 @@ export interface PlayerState {
     x: number;
     y: number;
     item: unknown;
-    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-song' | 'multi-album' | 'multi-artist' | 'multi-playlist' | null;
+    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-song' | 'multi-album' | 'multi-artist' | 'multi-playlist' | 'playlist-tag' | null;
     queueIndex?: number;
     playlistId?: string;
     playlistSongIndex?: number;
@@ -248,7 +248,7 @@ export interface PlayerState {
     x: number,
     y: number,
     item: unknown,
-    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-song' | 'multi-album' | 'multi-artist' | 'multi-playlist',
+    type: 'song' | 'favorite-song' | 'album' | 'artist' | 'queue-item' | 'album-song' | 'playlist' | 'multi-song' | 'multi-album' | 'multi-artist' | 'multi-playlist' | 'playlist-tag',
     queueIndex?: number,
     playlistId?: string,
     playlistSongIndex?: number,

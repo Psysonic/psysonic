@@ -4,6 +4,7 @@ export const common = {
   albumByArtist: '{{artist}} の {{album}}',
   loading: '読み込み中…',
   loadingMore: '読み込み中…',
+  explicit: 'エクスプリシット',
   loadingPlaylists: 'プレイリストを読み込み中…',
   noAlbums: 'アルバムが見つかりません。',
   downloading: 'ダウンロード中…',

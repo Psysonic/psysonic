@@ -133,6 +133,19 @@ export const playlists = {
     localOnlyNotice:
       'Les dossiers sont enregistrés uniquement dans Psysonic sur cet appareil. Navidrome et l\'API Subsonic ne prennent pas en charge les dossiers de playlists, la structure n\'est donc pas stockée sur ton serveur ni synchronisée avec tes autres appareils et applications.',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Tags',
+    newTag: 'Nouveau tag',
+    namePlaceholder: 'Nom du tag…',
+    filterLabel: 'Filtrer par tags',
+    clearFilter: 'Effacer le filtre de tags',
+    chipHint: 'Clic droit pour renommer ou supprimer',
+    rename: 'Renommer le tag',
+    delete: 'Supprimer le tag',
+    deleteConfirm: 'Cliquez à nouveau pour le retirer de toutes les playlists',
+    emptyFilter: 'Aucune playlist ne porte tous les tags sélectionnés.',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: 'Playlists par propriétaire',
