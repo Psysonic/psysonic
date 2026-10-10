@@ -10,11 +10,16 @@ import { resetAuthStore } from '@/test/helpers/storeReset';
 
 const hoisted = vi.hoisted(() => ({
   useMoodAlbumBrowse: vi.fn(),
+  useMoodTrackBrowse: vi.fn(),
   fetchMoodAlbumTotal: vi.fn(),
 }));
 
 vi.mock('../hooks/useMoodAlbumBrowse', () => ({
   useMoodAlbumBrowse: hoisted.useMoodAlbumBrowse,
+}));
+
+vi.mock('../hooks/useMoodTrackBrowse', () => ({
+  useMoodTrackBrowse: hoisted.useMoodTrackBrowse,
 }));
 
 vi.mock('@/lib/library/moodAlbumBrowse', async () => {
@@ -51,6 +56,20 @@ vi.mock('@/ui/VirtualCardGrid', () => ({
   ),
 }));
 
+vi.mock('@/features/search/components/PagedSongList', () => ({
+  default: ({
+    songs,
+  }: {
+    songs: Array<{ id: string; title: string }>;
+  }) => (
+    <div>
+      {songs.map(song => (
+        <div key={song.id}>{song.title}</div>
+      ))}
+    </div>
+  ),
+}));
+
 vi.mock('@/features/album', async () => {
   const actual =
     await vi.importActual<
@@ -77,6 +96,15 @@ const emptyBrowseResult = {
   hasMore: false,
   loadMore: vi.fn(),
   bindLoadMoreSentinel: vi.fn(),
+};
+
+const emptyTrackBrowseResult = {
+  songs: [],
+  total: null,
+  loading: false,
+  loadingMore: false,
+  hasMore: false,
+  loadMore: vi.fn(),
 };
 
 function renderMoodDetail(
@@ -113,10 +141,14 @@ describe('MoodDetail', () => {
     });
 
     hoisted.useMoodAlbumBrowse.mockReset();
+    hoisted.useMoodTrackBrowse.mockReset();
     hoisted.fetchMoodAlbumTotal.mockReset();
 
     hoisted.useMoodAlbumBrowse.mockReturnValue(
       emptyBrowseResult,
+    );
+    hoisted.useMoodTrackBrowse.mockReturnValue(
+      emptyTrackBrowseResult,
     );
 
     hoisted.fetchMoodAlbumTotal.mockResolvedValue(
@@ -169,9 +201,53 @@ describe('MoodDetail', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('2 albums'),
+        screen.getByText(/2 albums/),
       ).toBeInTheDocument();
     });
+
+    const calls = hoisted.useMoodTrackBrowse.mock.calls;
+
+     expect(
+      calls[calls.length - 1]?.[3],
+    ).toBe(false);
+  });
+
+  it('switches to the track view and renders matching tracks', async () => {
+    const user = userEvent.setup();
+
+    hoisted.useMoodTrackBrowse.mockImplementation((...args) => (
+      args[3]
+        ? {
+            ...emptyTrackBrowseResult,
+            songs: [
+              { id: 'track-1', title: 'Neon Rain' },
+              { id: 'track-2', title: 'After Midnight' },
+            ],
+            total: 2,
+          }
+        : emptyTrackBrowseResult
+    ));
+
+    renderMoodDetail('Night Drive');
+
+    await user.click(
+      screen.getByRole('tab', {
+        name: 'Tracks',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Neon Rain'),
+    ).toBeInTheDocument();
+
+    expect(
+      screen.getByRole('tab', {
+        name: 'Tracks',
+      }),
+    ).toHaveAttribute('aria-selected', 'true');
+    expect(
+      screen.getByText(/2 tracks/),
+    ).toBeInTheDocument();
   });
 
   it('renders mood names containing a percent sign', () => {

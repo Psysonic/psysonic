@@ -7,5 +7,9 @@ export const moods = {
   loading: 'Stimmungen werden geladen…',
   empty: 'Keine Stimmungen gefunden.',
   albumsEmpty: 'Keine Alben für diese Stimmung gefunden.',
+  albumsTab: "Alben",
+  tracksTab: "Titel",
+  viewTabsLabel: "Stimmungsergebnisse",
+  tracksEmpty: "Keine Titel für diese Stimmung gefunden.",
   back: 'Zurück',
 };
