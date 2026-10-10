@@ -22,6 +22,15 @@ describe('mood browsing translations', () => {
           i18n.t(key, { lng: 'en' }),
         );
       }
+      for (const key of [
+        'moods.albumsTab',
+        'moods.tracksTab',
+        'moods.viewTabsLabel',
+        'moods.tracksEmpty',
+      ]) {
+        expect(i18n.getResource(lng, 'translation', key), `${lng}: ${key}`).toBeTruthy();
+      }
+
       for (const count of [1, 2, 5]) {
         expect(i18n.getResource(lng, 'translation', 'moods.albumCount_one'), lng)
           .toBeTruthy();

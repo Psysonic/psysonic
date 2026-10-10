@@ -15,6 +15,8 @@ import type {
   LibraryGenreAlbumsResponse,
   LibraryMoodAlbumsRequest,
   LibraryMoodAlbumsResponse,
+  LibraryMoodTracksRequest,
+  LibraryMoodTracksResponse,
   PlaySessionInput,
   PlaySessionYearSummary,
   PlaySessionHeatmapDay,
@@ -126,6 +128,35 @@ export function libraryListAlbumsByMood(
         album.serverId,
         request.serverId,
       ),
+    })),
+  }));
+}
+
+/** Paginated tracks for one file mood from the local track-mood index. */
+export function libraryListTracksByMood(
+  request: LibraryMoodTracksRequest,
+): Promise<LibraryMoodTracksResponse> {
+  const indexKey = serverIndexKeyForId(request.serverId);
+  const libraryScopes = request.libraryScopes
+    ? mapScopePairs(request.libraryScopes, request.serverId)
+    : undefined;
+
+  return invoke<LibraryMoodTracksResponse>('library_list_tracks_by_mood', {
+    request: {
+      serverId: indexKey,
+      mood: request.mood,
+      libraryScope: request.libraryScope ?? undefined,
+      libraryScopes,
+      limit: request.limit ?? 100,
+      offset: request.offset ?? 0,
+      includeTotal: request.includeTotal ?? false,
+      countOnly: request.countOnly ?? false,
+    },
+  }).then(response => ({
+    ...response,
+    tracks: response.tracks.map(track => ({
+      ...track,
+      serverId: mapServerIdFromIndexKey(track.serverId, request.serverId),
     })),
   }));
 }

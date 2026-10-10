@@ -11,5 +11,9 @@ export const moods = {
   loading: 'Ładowanie nastrojów…',
   empty: 'Nie znaleziono nastrojów.',
   albumsEmpty: 'Nie znaleziono albumów dla tego nastroju.',
+  albumsTab: "Albumy",
+  tracksTab: "Utwory",
+  viewTabsLabel: "Wyniki nastroju",
+  tracksEmpty: "Nie znaleziono utworów dla tego nastroju.",
   back: 'Powrót',
 };
