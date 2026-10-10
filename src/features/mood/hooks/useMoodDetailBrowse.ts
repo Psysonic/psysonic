@@ -17,12 +17,15 @@ import {
   DEFAULT_ALBUM_BROWSE_RETURN_FILTERS,
   albumBrowseSortForServer,
   clearMoodDetailReturnStash,
+  clearMoodDetailTabScrollSnapshots,
   isAlbumDetailPath,
   isArtistDetailPath,
   isMoodDetailPath,
   moodDetailMoodFromPath,
   peekMoodDetailScrollRestore,
+  peekMoodDetailTabScrollSnapshots,
   stashMoodDetailReturnFilters,
+  stashMoodDetailTabScrollSnapshots,
   useAlbumBrowseSessionStore,
   type AlbumBrowseScrollSnapshot,
 } from '@/features/album';
@@ -38,6 +41,8 @@ export function useMoodDetailBrowse(
   serverId: string,
   moodName: string,
   scrollSnapshotRef?: RefObject<AlbumBrowseScrollSnapshot>,
+  albumScrollSnapshotRef?: RefObject<AlbumBrowseScrollSnapshot>,
+  trackScrollSnapshotRef?: RefObject<AlbumBrowseScrollSnapshot>,
 ) {
   const navigationType = useNavigationType();
   const location = useLocation();
@@ -51,6 +56,15 @@ export function useMoodDetailBrowse(
 
   const restoredFromStashRef =
     useRef(false);
+
+  const restoreTabScrollSnapshots = useMemo(
+    () =>
+      peekMoodDetailTabScrollSnapshots(
+        serverId,
+        moodName,
+      ),
+    [serverId, moodName],
+  );
 
   const restoreSnapshot = useMemo(
     () => ({
@@ -98,6 +112,10 @@ export function useMoodDetailBrowse(
       serverId,
       moodName,
     );
+    clearMoodDetailTabScrollSnapshots(
+      serverId,
+      moodName,
+    );
   }, [
     serverId,
     moodName,
@@ -106,6 +124,12 @@ export function useMoodDetailBrowse(
   ]);
 
   useEffect(() => {
+    const snapshot = scrollSnapshotRef?.current;
+    const albumSnapshot =
+      albumScrollSnapshotRef?.current;
+    const trackSnapshot =
+      trackScrollSnapshotRef?.current;
+
     return () => {
       if (!serverId || !moodName) return;
 
@@ -116,16 +140,47 @@ export function useMoodDetailBrowse(
         isAlbumDetailPath(path) ||
         isArtistDetailPath(path)
       ) {
-        // Read at cleanup time on purpose: we want the scroll snapshot as it is
-        // at navigation-away. Copying it at effect setup would stash a stale value.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        const snapshot = scrollSnapshotRef?.current;
-
         const scrollTop = Math.max(
           readInpageScrollTop(
             MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID,
           ),
           snapshot?.scrollTop ?? 0,
+        );
+
+        const activeView =
+          new URLSearchParams(
+            location.search,
+          ).get('view') === 'tracks'
+            ? 'tracks'
+            : 'albums';
+        const activeDisplayCount =
+          snapshot?.displayCount ?? 0;
+
+        stashMoodDetailTabScrollSnapshots(
+          serverId,
+          moodName,
+          {
+            albums: {
+              scrollTop:
+                activeView === 'albums'
+                  ? scrollTop
+                  : albumSnapshot?.scrollTop ?? 0,
+              displayCount:
+                activeView === 'albums'
+                  ? activeDisplayCount
+                  : albumSnapshot?.displayCount ?? 0,
+            },
+            tracks: {
+              scrollTop:
+                activeView === 'tracks'
+                  ? scrollTop
+                  : trackSnapshot?.scrollTop ?? 0,
+              displayCount:
+                activeView === 'tracks'
+                  ? activeDisplayCount
+                  : trackSnapshot?.displayCount ?? 0,
+            },
+          },
         );
 
         stashMoodDetailReturnFilters(
@@ -135,7 +190,7 @@ export function useMoodDetailBrowse(
             ...DEFAULT_ALBUM_BROWSE_RETURN_FILTERS,
             scrollTop,
             displayCount:
-              snapshot?.displayCount,
+              activeDisplayCount,
           },
         );
       } else if (
@@ -147,12 +202,19 @@ export function useMoodDetailBrowse(
           serverId,
           moodName,
         );
+        clearMoodDetailTabScrollSnapshots(
+          serverId,
+          moodName,
+        );
       }
     };
   }, [
     serverId,
     moodName,
+    location.search,
     scrollSnapshotRef,
+    albumScrollSnapshotRef,
+    trackScrollSnapshotRef,
   ]);
 
   return {
@@ -161,5 +223,6 @@ export function useMoodDetailBrowse(
       restoreSnapshot.displayCount,
     // The saved count belongs to whichever tab was visible when detail navigation began.
     restoreView: restoreSnapshot.view,
+    restoreTabScrollSnapshots,
   };
 }
