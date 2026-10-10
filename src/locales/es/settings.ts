@@ -13,6 +13,7 @@ export const settings = {
   languageRo: 'Română',
   languagePl: 'Polski',
   languageBg: 'Български',
+  languageEl: 'Ελληνικά',
   languageJa: '日本語',
   languageHu: 'Magyar',
   languageUk: 'Українська',

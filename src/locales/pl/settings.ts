@@ -16,6 +16,7 @@ export const settings = {
   languagePl: 'Polski',
   languageBg: 'Български',
   languageUk: 'Українська',
+  languageEl: 'Ελληνικά',
   font: 'Czcionka',
   fontHintOpenDyslexic: 'Przyjazna dla dyslektyków · brak obsługi chińskiego',
   theme: 'Motyw',
