@@ -22,6 +22,7 @@ const EXPECTED: Record<string, Record<number, string>> = {
   ru: { 1: '1 альбом', 3: '3 альбома', 5: '5 альбомов' },
   uk: { 1: '1 альбом', 3: '3 альбоми', 5: '5 альбомів' },
   zh: { 1: '1 张专辑', 3: '3 张专辑' },
+  el: { 1: '1 άλμπουμ', 3: '3 άλμπουμ' },
 };
 
 describe('offline library album count', () => {
