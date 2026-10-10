@@ -6,6 +6,7 @@ export const songInfo = {
   albumArtist: 'Καλλιτέχνης Άλμπουμ',
   year: 'Έτος',
   genre: 'Είδος',
+  genres: 'Είδη',
   duration: 'Διάρκεια',
   track: 'Κομμάτι',
   bpm: 'BPM',

@@ -5,6 +5,7 @@ import { search } from './search';
 import { nowPlaying } from './nowPlaying';
 import { contextMenu } from './contextMenu';
 import { sharePaste } from './sharePaste';
+import { shared } from './shared';
 import { albumDetail } from './albumDetail';
 import { entityRating } from './entityRating';
 import { artistDetail } from './artistDetail';
@@ -12,6 +13,7 @@ import { favorites } from './favorites';
 import { randomLanding } from './randomLanding';
 import { randomAlbums } from './randomAlbums';
 import { genres } from './genres';
+import { moods } from './moods';
 import { randomMix } from './randomMix';
 import { luckyMix } from './luckyMix';
 import { albums } from './albums';
@@ -40,11 +42,14 @@ import { losslessAlbums } from './losslessAlbums';
 import { radio } from './radio';
 import { folderBrowser } from './folderBrowser';
 import { deviceSync } from './deviceSync';
+import { burner } from './burner';
 import { orbit } from './orbit';
 import { tray } from './tray';
 import { licenses } from './licenses';
 import { migration } from './migration';
 import { discordBanner } from './discordBanner';
+import { privateMode } from './privateMode';
+import { resume } from './resume';
 import { visualizer } from './visualizer';
 
 export const grTranslation = {
@@ -55,6 +60,7 @@ export const grTranslation = {
   nowPlaying,
   contextMenu,
   sharePaste,
+  shared,
   albumDetail,
   entityRating,
   artistDetail,
@@ -62,6 +68,7 @@ export const grTranslation = {
   randomLanding,
   randomAlbums,
   genres,
+  moods,
   randomMix,
   luckyMix,
   albums,
@@ -90,10 +97,13 @@ export const grTranslation = {
   radio,
   folderBrowser,
   deviceSync,
+  burner,
   orbit,
   tray,
   licenses,
   migration,
   discordBanner,
+  privateMode,
+  resume,
   visualizer,
 };

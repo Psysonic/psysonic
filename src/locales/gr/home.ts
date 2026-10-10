@@ -12,9 +12,17 @@ export const home = {
   discoverArtistsMore: 'Όλοι οι Καλλιτέχνες',
   becauseYouLike: 'Επειδή ακούσατε…',
   becauseYouLikeFor: 'Επειδή ακούσατε {{artist}}',
+  becauseYouLikeSoundFor: 'Αν σας αρέσει: {{artist}}',
   similarTo: 'Παρόμοιο με {{artist}}',
+  soundsLike: 'Ήχοι σαν {{artist}}',
   becauseYouLikeTracks_one: '{{count}} κομμάτι',
   becauseYouLikeTracks_other: '{{count}} κομμάτια',
+  becauseYouLikeSource: 'Προτάσεις από',
+  becauseYouLikeSourceSimilarArtists: 'Παρόμοιοι καλλιτέχνες',
+  becauseYouLikeSourceSimilarArtistsHint: 'Άλμπουμ από καλλιτέχνες που ο διακομιστής σας παραθέτει ως παρόμοιους, για παράδειγμα μέσω του Last.fm.',
+  becauseYouLikeSourceAudiomuse: 'AudioMuse',
+  becauseYouLikeSourceAudiomuseUnavailable: 'Το AudioMuse γίνεται διαθέσιμο μόλις εντοπιστεί σε έναν από τους διακομιστές σας.',
+  becauseYouLikeSourceAudiomuseHint: 'Παρόμοια άλμπουμ που βρέθηκαν από το AudioMuse. Διακομιστές χωρίς το AudioMuse συνεχίζουν να χρησιμοποιούν τους παρόμοιους καλλιτέχνες.',
   mainstageEmptyTitle: 'Η Κεντρική σκηνή είναι άδεια',
   mainstageEmptyBody: 'Όλες οι ενότητες είναι απενεργοποιημένες. Ενεργοποιήστε τις ενότητες ή κρύψτε την Κεντρική σκηνή από την πλαϊνή μπάρα.',
   mainstageEmptyCta: 'Άνοιξε τις ρυθμίσεις εξατομίκευσης',
@@ -36,5 +44,5 @@ export const home = {
       timeout: 'Ληγμένο',
       disabled: 'Απενεργοποιημένο'
     }
-  }
+  },
 };

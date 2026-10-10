@@ -29,7 +29,7 @@ export const contextMenu = {
   selectedSongs: '{{count}} επιλεγμένα κομμάτια',
   selectedArtists: '{{count}} επιλεγμένοι καλλιτέχνες',
   songInfo: 'Πληροφορίες Κομματιού',
-  shareLink: 'Αντιγραφή συνδέσμου κοινής χρήσης',
+  shareLink: 'Σύνδεσμος κοινής χρήσης',
   shareCopied: 'Σύνδεσμος κοινής χρήσης αντιγράφηκε στο πρόχειρο.',
   shareCopyFailed: 'Δεν ήταν δυνατή η αντιγραφή στο πρόχειρο.',
 };

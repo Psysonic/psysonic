@@ -5,10 +5,12 @@ export const sharePaste = {
   albumUnavailable: 'Αυτό το άλμπουμ δεν βρέθηκε στο διακoμιστή.',
   artistUnavailable: 'Αυτός ο καλλιτέχνης δεν βρέθηκε στο διακoμιστή.',
   composerUnavailable: 'Αυτός ο συνθέτης δεν βρέθηκε στο διακoμιστή.',
+  playlistUnavailable: 'Αυτή η λίστα αναπαραγωγής δεν βρέθηκε στο διακομιστή.',
   openedTrack: 'Αναπαραγωγή κοινόχρηστου κομματιού.',
   openedAlbum: 'Άνοιγμα κοινόχρηστου άλμπουμ.',
   openedArtist: 'Άνοιγμα κοινόχρηστου καλλιτέχνη.',
   openedComposer: 'Άνοιγμα κοινόχρηστου συνθέτη.',
+  openedPlaylist: 'Άνοιγμα κοινόχρηστης λίστας αναπαραγωγής.',
   openedQueue_one: 'Αναπαραγωγή {{count}} κομματιού από το σύνδεσμο κοινής χρήσης.',
   openedQueue_other: 'Αναπαραγωγή {{count}} κομματιών από το σύνδεσμο κοινής χρήσης.',
   openedQueuePartial:

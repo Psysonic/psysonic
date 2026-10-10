@@ -36,6 +36,8 @@ export const queue = {
   shareNavidromePublic: 'Αντιγραφή συνδέσμου κοινοποίησης Navidrome',
   shareNavidromePublicMissing: 'Ο σύνδεσμος κοινοποίησης Navidrome δεν είναι διαθέσιμος.',
   shareQueueEmpty: 'Η ουρά είναι κενή — δεν υπάρχει τίποτα για κοινοποίηση.',
+  multiServerShareTitle: 'Ουρά πολλαπλών διακομιστών',
+  multiServerShareHint: 'Διαλέξτε ένα διακομιστή για να κοινοποιήσετε τα κομμάτια του.',
   emptyQueue: 'Η ουρά είναι κενή.',
   crossServerEnqueueBlocked: 'Τα κομμάτια από άλλον διακομιστή δεν μπορούν να προστεθούν στην τρέχουσα ουρά. Ολοκληρώστε ή πρώτα καθαρίστε την ουρά.',
   trackSingular: 'κομμάτι',

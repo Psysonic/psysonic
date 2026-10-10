@@ -8,6 +8,8 @@ export const favorites = {
   enqueueSelected: 'Προσθήκη επιλεγμένων στην ουρά',
   playAll: 'Αναπαραγωγή όλων',
   playSelected: 'Αναπαραγωγή επιλεγμένων',
+  shuffleAll: 'Ανακάτεμα όλων',
+  shuffleSelected: 'Ανακάτεμα επιλεγμένων',
   removeSong: 'Κατάργηση από τα αγαπημένα',
   stations: 'Ραδιοφωνικοί σταθμοί',
   showingFiltered: 'Προβολή {{filtered}} από {{total}} ({{artist}})',

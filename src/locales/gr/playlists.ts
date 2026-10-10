@@ -1,6 +1,8 @@
 export const playlists = {
   sortTooltip: 'Ταξινόμηση κομματιών',
   sortDefaultServerOrder: 'ID (διακομιστή)',
+  reorderHint: 'Σύρετε για να αλλάξετε τη σειρά ταξινομώντας μόνο κατά “{{order}}” και χωρίς φίλτρα.',
+  reorderHintReset: 'Επαναφορά',
   sortDateAddedNewest: 'Ημ/νια προσθήκης (νεότερο)',
   sortDateAddedOldest: 'Ημ/νια προσθήκης (παλαιότερο)',
   editRules: 'Επεξεργασία κανόνων',
@@ -52,6 +54,7 @@ export const playlists = {
   editMeta: 'Επεξεργασία λίστας αναπαραγωγής',
   editNamePlaceholder: 'Όνομα λίστας…',
   editCommentPlaceholder: 'Προσθήκη περιγραφής…',
+  linkOpenError: 'Αδυναμία ανοίγματος συνδέσμου στον περιηγητή σας.',
   editPublic: 'Δημόσια λίστα αναπαραγωγής',
   editSave: 'Αποθήκευση',
   editCancel: 'Ακύρωση',
@@ -88,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Φόρτωση {{count}} καλλιτεχνών…',
   myPlaylists: 'Οι λίστες μου',
   noOtherPlaylists: 'Δεν υπάρχουν άλλες λίστες αναπαραγωγής διαθέσιμες',
+  recentTargets: 'Χρησιμοποιήθηκαν πρόσφατα',
   addToPlaylistSuccess: '{{count}} κομμάτια προστέθηκαν στη λίστα {{playlist}}',
   addToPlaylistNoNew: 'Δεν υπάρχουν νέα κομμάτια για προσθήκη στη λίστα {{playlist}}',
   addToPlaylistError: 'Σφάλμα κατά την προσθήκη στη λίστα αναπαραγωγής',
@@ -129,6 +133,19 @@ export const playlists = {
     localOnlyNotice:
       'Οι φάκελοι αποθηκεύονται μόνο στο Psysonic σε αυτή τη συσκευή. Το Navidrome και το Subsonic API δεν έχουν εγγενή υποστήριξη για φακέλους λιστών αναπαραγωγής, επομένως η διάταξη δεν αποθηκεύεται στο διακομιστή και δεν συγχρονίζεται στις άλλες συσκευές και εφαρμογές.',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Ετικέτες',
+    newTag: 'Νέα ετικέτα',
+    namePlaceholder: 'Όνομα ετικέτας…',
+    filterLabel: 'Φιλτράρισμα ανά ετικέτες',
+    clearFilter: 'Εκκαθάριση φίλτρου ετικετών',
+    chipHint: 'Κάντε δεξί κλικ για μετονομασία ή διαγραφή',
+    rename: 'Μετονομασία ετικέτας',
+    delete: 'Διαγραφή ετικέτας',
+    deleteConfirm: 'Κάντε κλικ ξανά για να την αφαιρέσετε από όλες τις λίστες αναπαραγωγής',
+    emptyFilter: 'Καμία λίστα αναπαραγωγής δεν έχει όλες τις επιλεγμένες ετικέτες.',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: 'Λίστες αναπαραγωγής ανά ιδιοκτήτη',
@@ -144,5 +161,5 @@ export const playlists = {
     name: 'Όνομα (A–Ω)',
     created: 'Παίχτηκαν πρόσφατα',
     songCount: 'Αριθμός κομματιών',
-  },
+  },  
 };

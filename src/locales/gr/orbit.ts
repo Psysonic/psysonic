@@ -154,7 +154,7 @@ export const orbit = {
   toastNoAccountForServer: "Δεν έχετε πρόσβαση στο {{url}}. Ζητήστε πρόσκληση από τον οικοδεσπότη.",
   toastSwitchFailed: "Αδυναμία αλλαγής σε {{url}}",
   accountPickerTitle: 'Ποιο λογαριασμό;',
-  accountPickerSub: 'Έχετε πάνω απο ένα λογαριασμό στο {{url}}. Διαλέξτε έναν για να συμμετέχετε στη συνεδρία.',
+  accountPickerSub: 'Έχετε πάνω από ένα λογαριασμό στο {{url}}. Διαλέξτε έναν για να συμμετέχετε στη συνεδρία.',
   toastJoinFail: "Αδυναμία συμμετοχής στη συνεδρία",
   joinErrNotFound: 'Η συνεδρία δεν βρέθηκε',
   joinErrEnded: 'Η συνεδρία έληξε',

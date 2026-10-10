@@ -3,6 +3,7 @@ export const albums = {
   sortByName: 'A–Ω (Άλμπουμ)',
   sortByArtist: 'A–Ω (Καλλιτέχνης)',
   sortByArtistYear: 'Καλλιτέχνης → Έτος',
+  sortByYear: 'Year',
   sortNewest: 'Νεότερο πρώτα',
   sortRandom: 'Τυχαίο',
   yearFrom: 'Από',
