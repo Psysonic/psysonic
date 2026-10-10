@@ -11,6 +11,7 @@ import { skipToNextAlbum, skipToPreviousAlbum } from '@/features/playback/store/
 import { useLyricsStore } from '../store/lyricsStore';
 import { showToast } from '@/lib/dom/toast';
 import { requestOpenSearch } from '@/lib/dom/openSearch';
+import { IS_MACOS } from '@/lib/util/platform';
 import type { ActionContext, ShortcutSlot, ShortcutActionMeta } from '@/config/shortcutTypes';
 
 let cliPremuteVolume: number | null = null;
@@ -267,6 +268,17 @@ export const SHORTCUT_ACTION_REGISTRY = {
       const player = usePlayerStore.getState();
       player.setQueueVisible(true);
       useLyricsStore.getState().showLyrics();
+    },
+  },
+  'open-settings': {
+    getLabel: t => t('settings.shortcutOpenSettings', { defaultValue: 'Open settings' }),
+    // Mac convention: ⌘, opens settings; elsewhere Ctrl+, (the desktop-app
+    // convention). Both are re-assignable in Settings, and neither overrides a
+    // chord the user already claimed — see `normalizeBindings`.
+    inApp: { defaultBinding: IS_MACOS ? 'super+Comma' : 'ctrl+Comma' },
+    runInMiniWindow: false,
+    run: ({ navigate }) => {
+      navigate('/settings');
     },
   },
   'favorite-current-track': {
