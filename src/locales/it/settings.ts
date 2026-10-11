@@ -722,6 +722,7 @@ export const settings = {
   shortcutToggleRepeat: 'Attiva/disattiva Ripeti',
   shortcutOpenNowPlaying: 'Apri "In riproduzione"',
   shortcutShowLyrics: 'Mostra testi',
+  shortcutOpenSettings: 'Apri impostazioni',
   shortcutFavoriteCurrentTrack: 'Aggiungi il brano corrente ai preferiti',
   shortcutRateCurrentTrack: 'Valuta il brano corrente: {{rating}}★',
   shortcutOpenHelp: 'Guida',

@@ -634,6 +634,7 @@ export const settings = {
   shortcutToggleRepeat: '切换循环',
   shortcutOpenNowPlaying: '打开"正在播放"',
   shortcutShowLyrics: '显示歌词',
+  shortcutOpenSettings: '打开设置',
   shortcutFavoriteCurrentTrack: '将当前曲目添加到收藏',
   shortcutRateCurrentTrack: '为当前曲目评分：{{rating}}★',
   shortcutOpenHelp: '帮助',

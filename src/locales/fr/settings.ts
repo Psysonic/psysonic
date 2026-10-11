@@ -601,6 +601,7 @@ export const settings = {
   shortcutToggleRepeat: 'Basculer la répétition',
   shortcutOpenNowPlaying: 'Ouvrir « En cours »',
   shortcutShowLyrics: 'Afficher les paroles',
+  shortcutOpenSettings: 'Ouvrir les paramètres',
   shortcutFavoriteCurrentTrack: 'Ajouter la piste actuelle aux favoris',
   shortcutRateCurrentTrack: 'Noter la piste actuelle : {{rating}}★',
   shortcutOpenHelp: 'Aide',

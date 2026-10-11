@@ -722,6 +722,7 @@ export const settings = {
   shortcutToggleRepeat: 'Przełącz powtarzanie',
   shortcutOpenNowPlaying: 'Otwórz "Teraz odtwarzane"',
   shortcutShowLyrics: 'Pokaż tekst utworu',
+  shortcutOpenSettings: 'Otwórz ustawienia',
   shortcutFavoriteCurrentTrack: 'Dodaj bierzący utwór do ulubionych',
   shortcutRateCurrentTrack: 'Oceń bieżący utwór: {{rating}}★',
   shortcutOpenHelp: 'Pomoc',

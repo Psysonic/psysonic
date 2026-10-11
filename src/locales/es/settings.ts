@@ -654,6 +654,7 @@ export const settings = {
   shortcutToggleRepeat: 'Alternar repetición',
   shortcutOpenNowPlaying: 'Abrir "Reproduciendo ahora"',
   shortcutShowLyrics: 'Mostrar letra',
+  shortcutOpenSettings: 'Abrir configuración',
   shortcutFavoriteCurrentTrack: 'Añadir pista actual a favoritos',
   shortcutRateCurrentTrack: 'Puntuar pista actual: {{rating}}★',
   shortcutOpenHelp: 'Ayuda',

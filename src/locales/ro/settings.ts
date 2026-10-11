@@ -657,6 +657,7 @@ export const settings = {
   shortcutToggleRepeat: 'Comutați repetarea',
   shortcutOpenNowPlaying: 'Deschide "Now Playing"',
   shortcutShowLyrics: 'Arată Versurile',
+  shortcutOpenSettings: 'Deschide setările',
   shortcutFavoriteCurrentTrack: 'Adaugă piesa curentă la favorite',
   shortcutRateCurrentTrack: 'Evaluează piesa curentă: {{rating}}★',
   shortcutOpenHelp: 'Ajutor',

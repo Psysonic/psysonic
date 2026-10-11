@@ -722,6 +722,7 @@ export const settings = {
   shortcutToggleRepeat: 'Превключи повторението',
   shortcutOpenNowPlaying: 'Отвори „В момента звучи“',
   shortcutShowLyrics: 'Покажи текста',
+  shortcutOpenSettings: 'Отвори настройките',
   shortcutFavoriteCurrentTrack: 'Добави текущата песен в любими',
   shortcutRateCurrentTrack: 'Оцени текущата песен: {{rating}}★',
   shortcutOpenHelp: 'Помощ',

@@ -722,6 +722,7 @@ export const settings = {
   shortcutToggleRepeat: 'Εναλλαγή επανάληψης',
   shortcutOpenNowPlaying: 'Άνοιγμα "Παίζεται Τώρα"',
   shortcutShowLyrics: 'Εμφάνιση στίχων',
+  shortcutOpenSettings: 'Άνοιγμα ρυθμίσεων',
   shortcutFavoriteCurrentTrack: 'Προσθήκη τρέχοντος κομματιού στα αγαπημένα',
   shortcutRateCurrentTrack: 'Αξιολόγηση τρέχοντος κομματιού: {{rating}}★',
   shortcutOpenHelp: 'Βοήθεια',

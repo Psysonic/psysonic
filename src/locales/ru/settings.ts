@@ -744,6 +744,7 @@ export const settings = {
   shortcutToggleRepeat: 'Переключить повтор',
   shortcutOpenNowPlaying: 'Открыть «Сейчас играет»',
   shortcutShowLyrics: 'Показать текст песни',
+  shortcutOpenSettings: 'Открыть настройки',
   shortcutFavoriteCurrentTrack: 'Добавить текущий трек в избранное',
   shortcutRateCurrentTrack: 'Оценить текущий трек: {{rating}}★',
   shortcutOpenHelp: 'Справка',

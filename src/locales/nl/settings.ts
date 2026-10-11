@@ -601,6 +601,7 @@ export const settings = {
   shortcutToggleRepeat: 'Herhaling schakelen',
   shortcutOpenNowPlaying: '"Nu speelt" openen',
   shortcutShowLyrics: 'Songtekst tonen',
+  shortcutOpenSettings: 'Instellingen openen',
   shortcutFavoriteCurrentTrack: 'Huidig nummer aan favorieten toevoegen',
   shortcutRateCurrentTrack: 'Huidig nummer beoordelen: {{rating}}★',
   shortcutOpenHelp: 'Help',

@@ -634,6 +634,7 @@ export const settings = {
   shortcutToggleRepeat: 'Veksle gjenta',
   shortcutOpenNowPlaying: 'Åpne "Spilles nå"',
   shortcutShowLyrics: 'Vis sangtekst',
+  shortcutOpenSettings: 'Åpne innstillinger',
   shortcutFavoriteCurrentTrack: 'Legg gjeldende spor til favoritter',
   shortcutRateCurrentTrack: 'Vurder gjeldende spor: {{rating}}★',
   shortcutOpenHelp: 'Hjelp',

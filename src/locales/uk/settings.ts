@@ -725,6 +725,7 @@ export const settings = {
   shortcutToggleRepeat: 'Перемкнути повторення',
   shortcutOpenNowPlaying: 'Відкрити «Хто слухає»',
   shortcutShowLyrics: 'Показати текст пісні',
+  shortcutOpenSettings: 'Відкрити налаштування',
   shortcutFavoriteCurrentTrack: 'Додати поточний трек до улюблених',
   shortcutRateCurrentTrack: 'Оцінити поточний трек: {{rating}}★',
   shortcutOpenHelp: 'Довідка',

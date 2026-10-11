@@ -621,6 +621,7 @@ export const settings = {
   shortcutToggleRepeat: 'Wiederholen umschalten',
   shortcutOpenNowPlaying: '„Now Playing" öffnen',
   shortcutShowLyrics: 'Songtexte anzeigen',
+  shortcutOpenSettings: 'Einstellungen öffnen',
   shortcutFavoriteCurrentTrack: 'Aktuellen Titel zu Favoriten hinzufügen',
   shortcutRateCurrentTrack: 'Aktuellen Titel bewerten: {{rating}}★',
   shortcutOpenHelp: 'Hilfe',

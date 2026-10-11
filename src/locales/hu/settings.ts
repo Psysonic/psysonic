@@ -722,6 +722,7 @@ export const settings = {
   shortcutToggleRepeat: 'Ismétlés be/ki',
   shortcutOpenNowPlaying: 'A „Most szól" megnyitása',
   shortcutShowLyrics: 'Dalszöveg megjelenítése',
+  shortcutOpenSettings: 'Beállítások megnyitása',
   shortcutFavoriteCurrentTrack: 'Aktuális szám hozzáadása a kedvencekhez',
   shortcutRateCurrentTrack: 'Aktuális szám értékelése: {{rating}}★',
   shortcutOpenHelp: 'Súgó',
