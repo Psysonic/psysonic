@@ -182,6 +182,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Full Greek (Ελληνικά) UI translation — selectable from the language picker on the Settings and Login screens.
 * Library matching now ignores Greek accents (tonos, dialytika) and the final sigma, so `Μάνος`, `Μανος` and `ΜΑΝΟΣ` resolve to the same entry. The first sync after the update rebuilds the library keys once.
 
+### Open Settings with a keyboard shortcut
+
+**By [@enncoded](https://github.com/enncoded), PR [#1734](https://github.com/Psysonic/psysonic/pull/1734)**
+
+* ⌘, on macOS and Ctrl+, on Windows and Linux open Settings from any view. The shortcut can be changed or cleared under **Settings → Input → Keyboard shortcuts**.
+* If one of your shortcuts already uses that key combination, it keeps it, and **Open settings** starts unassigned.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
