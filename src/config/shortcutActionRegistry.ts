@@ -274,7 +274,7 @@ export const SHORTCUT_ACTION_REGISTRY = {
     getLabel: t => t('settings.shortcutOpenSettings', { defaultValue: 'Open settings' }),
     // Mac convention: ⌘, opens settings; elsewhere Ctrl+, (the desktop-app
     // convention). Both are re-assignable in Settings, and neither overrides a
-    // chord the user already claimed — see `normalizeBindings`.
+    // chord the user already claimed — see `migrateBindings` in the keybindings store.
     inApp: { defaultBinding: IS_MACOS ? 'super+Comma' : 'ctrl+Comma' },
     runInMiniWindow: false,
     run: ({ navigate }) => {
