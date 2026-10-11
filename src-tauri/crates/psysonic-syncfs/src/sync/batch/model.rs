@@ -187,6 +187,9 @@ pub struct SyncDeltaResult {
     /// only needs the count.
     #[serde(skip)]
     pub(crate) move_paths: Vec<super::planner::DeviceSyncPlannedMove>,
+    /// Tracks left off the device because another track already takes their
+    /// file name (same album artist, album, disc, number, title and format).
+    pub(crate) skipped_count: u32,
     pub(crate) playlists: Vec<DeviceSyncPlannedPlaylist>,
     pub(crate) manifest_files: Vec<DeviceSyncManifestFile>,
     pub(crate) manifest_playlists: Vec<DeviceSyncManifestPlaylist>,
@@ -301,10 +304,12 @@ pub(crate) fn track_sync_info_from_subsonic_json(
         .get("artist")
         .and_then(|value| value.as_str())
         .unwrap_or("");
-    let album_artist = track
-        .get("albumArtist")
-        .and_then(|value| value.as_str())
-        .filter(|value| !value.trim().is_empty())
+    // Navidrome's Subsonic songs carry no `albumArtist`, only the OpenSubsonic
+    // `displayAlbumArtist`; without it every album lands under the track artist.
+    let album_artist = ["albumArtist", "displayAlbumArtist"]
+        .iter()
+        .filter_map(|key| track.get(*key).and_then(|value| value.as_str()))
+        .find(|value| !value.trim().is_empty())
         .unwrap_or(artist_raw);
     TrackSyncInfo {
         id: track_id.to_string(),
@@ -326,6 +331,10 @@ pub(crate) fn track_sync_info_from_subsonic_json(
             .get("track")
             .and_then(|value| value.as_u64())
             .map(|number| number as u32),
+        disc_number: track
+            .get("discNumber")
+            .and_then(|value| value.as_u64())
+            .map(|number| number as u32),
         duration: track
             .get("duration")
             .and_then(|value| value.as_u64())
@@ -336,6 +345,19 @@ pub(crate) fn track_sync_info_from_subsonic_json(
         flat_layout: false,
         overwrite: false,
     }
+}
+
+/// The album-artist folder name as it was chosen before `displayAlbumArtist`
+/// was read: `albumArtist`, else the track artist. Copies synced from Navidrome
+/// until then sit under the track artist, and the planner must still recognise
+/// them as its own so the next run moves them instead of fetching them again.
+pub(crate) fn legacy_album_artist(track: &serde_json::Value) -> &str {
+    track
+        .get("albumArtist")
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| track.get("artist").and_then(|value| value.as_str()))
+        .unwrap_or("")
 }
 
 /// Marks a planned track as transcoded: the file on the device carries the

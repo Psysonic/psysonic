@@ -24,6 +24,9 @@ import { FsVolume } from '@/features/fullscreenPlayer/components/FsVolume';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import { VisualizerPanel } from '@/features/visualizer';
 import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 interface Props {
   onClose: () => void;
@@ -189,9 +192,12 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
             {thumbUrl
               ? <img className="fsp-cover-img" src={thumbUrl} alt="" draggable={false} />
               : <div className="fsp-cover-img fsp-cover-img--empty" />}
+            <ExplicitCoverVeil explicit={isExplicit(currentTrack)} />
           </div>
           <div className="fsp-info-text">
-            <p className="fsp-title">{currentTrack?.title ?? '—'}</p>
+            <ExplicitTitle status={currentTrack?.explicitStatus}>
+              <p className="fsp-title">{currentTrack?.title ?? '—'}</p>
+            </ExplicitTitle>
             {currentTrack ? (
               <TrackArtistLinks
                 track={currentTrack}

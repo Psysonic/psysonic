@@ -17,6 +17,7 @@ import { FsLyricsApple } from './FsLyricsApple';
 import { FsQueueModal } from './FsQueueModal';
 import { VisualizerPanel } from '@/features/visualizer';
 import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
 
 /** The now-playing pill's integrated progress line — imperative width + scrub seek. */
 const PrismProgress = memo(function PrismProgress() {
@@ -130,7 +131,9 @@ export default function FullscreenPlayerPrism({ onClose }: { onClose: () => void
         {/* Now-playing pill with integrated progress */}
         <div className="fsp2-pill">
           <div className="fsp2-pill-info">
-            <span className="fsp2-pill-title">{currentTrack?.title ?? '—'}</span>
+            <ExplicitTitle status={currentTrack?.explicitStatus}>
+              <span className="fsp2-pill-title">{currentTrack?.title ?? '—'}</span>
+            </ExplicitTitle>
             <span className="fsp2-pill-sub">
               {currentTrack?.album && <span>{currentTrack.album}</span>}
               {currentTrack?.album && currentTrack?.artist && <span> · </span>}

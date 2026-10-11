@@ -86,6 +86,12 @@ interface ThemeState {
   setTrackListCoverArtOnPages: (v: boolean) => void;
   showBitrate: boolean;
   setShowBitrate: (v: boolean) => void;
+  /** "E" badge next to tracks the server marks explicit. Drives `html[data-explicit-badges]`. */
+  showExplicitBadges: boolean;
+  setShowExplicitBadges: (v: boolean) => void;
+  /** Blur the cover of explicit tracks (and of albums with one) outside the lightbox. */
+  blurExplicitCovers: boolean;
+  setBlurExplicitCovers: (v: boolean) => void;
   /** Hover tooltip with the full name when a card or tile truncates it.
    *  Only shown when the text is actually cut off — measured on hover. */
   showCardTooltips: boolean;
@@ -188,6 +194,10 @@ export const useThemeStore = create<ThemeState>()(
       setTrackListCoverArtOnPages: (v) => set({ trackListCoverArtOnPages: v }),
       showBitrate: true,
       setShowBitrate: (v) => set({ showBitrate: v }),
+      showExplicitBadges: true,
+      setShowExplicitBadges: (v) => set({ showExplicitBadges: v }),
+      blurExplicitCovers: false,
+      setBlurExplicitCovers: (v) => set({ blurExplicitCovers: v }),
       showCardTooltips: true,
       setShowCardTooltips: (v) => set({ showCardTooltips: v }),
       trackRowPlayClick: 'single',

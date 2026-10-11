@@ -133,6 +133,19 @@ export const playlists = {
     localOnlyNotice:
       'Папките се запазват само в Psysonic на това устройство. Navidrome и Subsonic API нямат вградена поддръжка на папки за плейлисти, така че структурата не се съхранява на вашия сървър и не се синхронизира с другите ви устройства и приложения.',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Тагове',
+    newTag: 'Нов таг',
+    namePlaceholder: 'Име на таг…',
+    filterLabel: 'Филтриране по тагове',
+    clearFilter: 'Изчисти филтъра по тагове',
+    chipHint: 'Десен бутон за преименуване или изтриване',
+    rename: 'Преименувай таг',
+    delete: 'Изтрий таг',
+    deleteConfirm: 'Кликнете отново, за да го премахнете от всички плейлисти',
+    emptyFilter: 'Няма плейлист с всички избрани тагове.',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: 'Плейлисти по собственик',

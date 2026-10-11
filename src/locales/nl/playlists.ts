@@ -133,6 +133,19 @@ export const playlists = {
     localOnlyNotice:
       'Mappen worden alleen in Psysonic op dit apparaat opgeslagen. Navidrome en de Subsonic-API ondersteunen geen playlistmappen, dus de structuur wordt niet op je server opgeslagen of met je andere apparaten en apps gesynchroniseerd.',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Tags',
+    newTag: 'Nieuwe tag',
+    namePlaceholder: 'Tagnaam…',
+    filterLabel: 'Filteren op tags',
+    clearFilter: 'Tagfilter wissen',
+    chipHint: 'Rechtsklik om te hernoemen of te verwijderen',
+    rename: 'Tag hernoemen',
+    delete: 'Tag verwijderen',
+    deleteConfirm: 'Klik nogmaals om hem uit alle playlists te verwijderen',
+    emptyFilter: 'Geen playlist heeft alle geselecteerde tags.',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: 'Afspeellijsten op eigenaar',

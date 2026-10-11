@@ -251,6 +251,40 @@ describe('rewriteNavidromeCanonicalFrontendState', () => {
     expect(localStorage.getItem('psysonic_because_anchor_history:music.test')).toBeNull();
   });
 
+  it('rewrites playlist tag assignments and keeps both tag sets when two ids collapse', () => {
+    localStorage.setItem('psysonic_playlist_tags', persisted({
+      byServer: {
+        'profile-a': {
+          [PLAYLIST_LEGACY]: ['Chill', 'Summer'],
+          [PLAYLIST_CANONICAL]: ['Chill', 'Road'],
+        },
+        other: { [PLAYLIST_LEGACY]: ['Untouched'] },
+      },
+      activeFilter: ['chill'],
+    }));
+
+    rewriteNavidromeCanonicalFrontendState(scope);
+    rewriteNavidromeCanonicalFrontendState(scope);
+
+    const state = JSON.parse(localStorage.getItem('psysonic_playlist_tags') ?? '{}').state;
+    expect(state.byServer['profile-a']).toEqual({
+      [PLAYLIST_CANONICAL]: ['Chill', 'Summer', 'Road'],
+    });
+    expect(state.byServer.other).toEqual({ [PLAYLIST_LEGACY]: ['Untouched'] });
+    expect(state.activeFilter).toEqual(['chill']);
+  });
+
+  it('rejects playlist tag assignments that still use a legacy id', () => {
+    rewriteNavidromeCanonicalFrontendState(scope);
+    localStorage.setItem('psysonic_playlist_tags', persisted({
+      byServer: { 'profile-a': { [PLAYLIST_LEGACY]: ['Chill'] } },
+      activeFilter: [],
+    }));
+
+    expect(() => verifyNavidromeCanonicalFrontendState(localStorage, scope))
+      .toThrow('Legacy playlist tag assignment ID');
+  });
+
   it('accepts derived history caches recreated with canonical IDs after migration', () => {
     rewriteNavidromeCanonicalFrontendState(scope);
     const cacheScope = JSON.stringify([

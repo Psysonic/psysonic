@@ -133,6 +133,19 @@ export const playlists = {
     localOnlyNotice:
       'Folderele sunt salvate doar în Psysonic pe acest dispozitiv. Navidrome și API-ul Subsonic nu acceptă foldere de playlisturi, așa că structura nu este stocată pe serverul tău și nu se sincronizează cu celelalte dispozitive și aplicații ale tale.',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Etichete',
+    newTag: 'Etichetă nouă',
+    namePlaceholder: 'Nume etichetă…',
+    filterLabel: 'Filtrează după etichete',
+    clearFilter: 'Șterge filtrul de etichete',
+    chipHint: 'Clic dreapta pentru a redenumi sau a șterge',
+    rename: 'Redenumește eticheta',
+    delete: 'Șterge eticheta',
+    deleteConfirm: 'Dă clic din nou pentru a o elimina din toate playlisturile',
+    emptyFilter: 'Niciun playlist nu are toate etichetele selectate.',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: 'Playlisturi după proprietar',

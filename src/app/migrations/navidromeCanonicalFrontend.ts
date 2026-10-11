@@ -11,6 +11,7 @@ const LOCAL_PLAYBACK_RECOVERY_PREFIX = 'psysonic-local-playback-collision-recove
 const DEVICE_SYNC_KEY = 'psysonic_device_sync';
 const PLAYLIST_KEY = 'psysonic_playlists_recent';
 const PLAYLIST_FOLDERS_KEY = 'psysonic_playlist_folders';
+const PLAYLIST_TAGS_KEY = 'psysonic_playlist_tags';
 const RADIO_KEYS = ['psysonic_radio_favorites', 'psysonic_radio_order'] as const;
 const NEW_RELEASES_PREFIX = 'psy_new_releases_unread_seen_v2:';
 const INVALIDATED_PREFIXES = [
@@ -755,6 +756,37 @@ function rewritePlaylistFolders(
   writeJson(storage, PLAYLIST_FOLDERS_KEY, { ...root, state });
 }
 
+function rewritePlaylistTags(
+  storage: NavidromeCanonicalFrontendStorage,
+  scope: NavidromeCanonicalFrontendScope,
+): void {
+  const raw = readJson(storage, PLAYLIST_TAGS_KEY);
+  if (raw === null) return;
+  const root = asObject(raw, PLAYLIST_TAGS_KEY);
+  const state = asObject(root.state, PLAYLIST_TAGS_KEY);
+  if (!isObject(state.byServer)) {
+    writeJson(storage, PLAYLIST_TAGS_KEY, { ...root, state });
+    return;
+  }
+  const byServer = { ...state.byServer };
+  for (const [owner, rawBucket] of Object.entries(byServer)) {
+    if (resolveOwnerServerIndexKey(owner, scope) !== scope.serverIndexKey) continue;
+    const bucket = asObject(rawBucket, PLAYLIST_TAGS_KEY);
+    const rewritten: JsonObject = {};
+    for (const [playlistId, tags] of Object.entries(bucket)) {
+      const id = canonicalNavidromeId(playlistId);
+      const existing = rewritten[id];
+      // Two legacy ids landing on one playlist carry labels for the same list: keep both sets.
+      rewritten[id] = Array.isArray(existing) && Array.isArray(tags)
+        ? [...new Set([...existing, ...tags])]
+        : tags;
+    }
+    byServer[owner] = rewritten;
+  }
+  state.byServer = byServer;
+  writeJson(storage, PLAYLIST_TAGS_KEY, { ...root, state });
+}
+
 function rewriteRadioState(
   storage: NavidromeCanonicalFrontendStorage,
   scope: NavidromeCanonicalFrontendScope,
@@ -1086,6 +1118,18 @@ export function verifyNavidromeCanonicalFrontendState(
     }
   }
 
+  const playlistTags = readJson(storage, PLAYLIST_TAGS_KEY);
+  if (playlistTags !== null) {
+    const state = asObject(asObject(playlistTags, PLAYLIST_TAGS_KEY).state, PLAYLIST_TAGS_KEY);
+    if (isObject(state.byServer)) {
+      for (const [owner, rawBucket] of Object.entries(state.byServer)) {
+        if (resolveOwnerServerIndexKey(owner, scope) !== scope.serverIndexKey) continue;
+        const bucket = asObject(rawBucket, PLAYLIST_TAGS_KEY);
+        Object.keys(bucket).forEach(id => assertCanonical(id, 'playlist tag assignment ID'));
+      }
+    }
+  }
+
   for (const key of RADIO_KEYS) {
     const raw = readJson(storage, key);
     if (raw === null) continue;
@@ -1188,6 +1232,7 @@ export function rewriteNavidromeCanonicalFrontendState(
   rewriteDeviceSyncState(storage, scope);
   rewritePlaylists(storage, scope);
   rewritePlaylistFolders(storage, scope);
+  rewritePlaylistTags(storage, scope);
   rewriteRadioState(storage, scope);
   rewriteNewReleasesState(storage, scope);
   invalidateDerivedState(storage);

@@ -128,6 +128,20 @@ export function AppearanceTab() {
             />
             <div className="settings-section-divider" />
             <SettingsToggle
+              label={t('settings.showExplicitBadges')}
+              desc={t('settings.showExplicitBadgesSub')}
+              checked={theme.showExplicitBadges}
+              onChange={theme.setShowExplicitBadges}
+            />
+            <div className="settings-section-divider" />
+            <SettingsToggle
+              label={t('settings.blurExplicitCovers')}
+              desc={t('settings.blurExplicitCoversSub')}
+              checked={theme.blurExplicitCovers}
+              onChange={theme.setBlurExplicitCovers}
+            />
+            <div className="settings-section-divider" />
+            <SettingsToggle
               label={t('settings.showCardTooltips')}
               desc={t('settings.showCardTooltipsSub')}
               checked={theme.showCardTooltips}

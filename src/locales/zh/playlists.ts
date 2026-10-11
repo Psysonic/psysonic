@@ -131,6 +131,19 @@ export const playlists = {
     localOnlyNotice:
       '文件夹仅保存在此设备上的 Psysonic 中。Navidrome 和 Subsonic API 不支持播放列表文件夹，因此该结构不会存储在你的服务器上，也不会同步到你的其他设备和应用。',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: '标签',
+    newTag: '新建标签',
+    namePlaceholder: '标签名称…',
+    filterLabel: '按标签筛选',
+    clearFilter: '清除标签筛选',
+    chipHint: '右键单击可重命名或删除',
+    rename: '重命名标签',
+    delete: '删除标签',
+    deleteConfirm: '再次单击以将其从所有播放列表中移除',
+    emptyFilter: '没有播放列表同时具有所有选中的标签。',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: '按所有者分类的播放列表',

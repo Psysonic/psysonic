@@ -77,15 +77,24 @@ export default function DeviceSyncBrowserPanel({
   }
 
   return (
-    <div className="device-sync-browser">
+    <section className="device-sync-panel device-sync-browser" aria-labelledby="device-sync-browser-title">
+      <div className="device-sync-panel-head">
+        <h2 id="device-sync-browser-title" className="device-sync-step-title">
+          <span className="device-sync-step-num" aria-hidden="true">2</span>
+          {t('deviceSync.chooseMusic')}
+        </h2>
+      </div>
       <div className="device-sync-tabs">
         {tabs.map(tab => (
           <button
             key={tab.key}
+            type="button"
             className={`device-sync-tab${activeTab === tab.key ? ' active' : ''}`}
+            aria-pressed={activeTab === tab.key}
+            aria-label={tab.label}
             onClick={() => setActiveTab(tab.key)}
           >
-            {tab.icon}{tab.label}
+            {tab.icon}<span className="device-sync-tab-label">{tab.label}</span>
           </button>
         ))}
       </div>
@@ -115,7 +124,7 @@ export default function DeviceSyncBrowserPanel({
           </div>
         )}
         {activeTab === 'playlists' && filteredPlaylists.map(pl => (
-          <BrowserRow key={pl.id} name={pl.name} meta={`${pl.songCount} tracks`}
+          <BrowserRow key={pl.id} name={pl.name} meta={t('sidebar.playlistSongCount', { count: pl.songCount })}
             selected={serverIndexKey != null && sources.some(s =>
               deviceSyncSourceKey(s) === deviceSyncSourceKey({ serverIndexKey, type: 'playlist', id: pl.id }) &&
               !pendingDeletion.includes(deviceSyncSourceKey(s)))} disabled={disabled}
@@ -147,7 +156,7 @@ export default function DeviceSyncBrowserPanel({
               </button>
               <span className="device-sync-row-name">{ar.name}</span>
               {ar.albumCount != null &&
-                <span className="device-sync-row-meta">{ar.albumCount} Albums</span>}
+                <span className="device-sync-row-meta">{t('artists.albumCount', { count: ar.albumCount })}</span>}
             </div>
             {expandedArtistIds.has(ar.id) && artistAlbumsMap.has(ar.id) &&
               artistAlbumsMap.get(ar.id)!.map(al => (
@@ -164,6 +173,6 @@ export default function DeviceSyncBrowserPanel({
           </React.Fragment>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

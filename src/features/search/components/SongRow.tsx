@@ -14,6 +14,9 @@ import { formatTrackTime } from '@/lib/format/formatDuration';
 import { resolveTrackArtistRefs } from '@/features/playback/utils/playback/trackArtistRefs';
 import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
 import { resolveIndexKey } from '@/lib/server/serverIndexKey';
 import { useAuthStore } from '@/store/authStore';
@@ -115,7 +118,10 @@ function SongRow({ song, showBpm, rowIndex = 0, cursorRowId, onCursorClick }: Pr
         {showCovers && (
           <OptionalBrowseTrackRowCoverThumb song={song} size="dense" className="song-list-row-cover-thumb" />
         )}
-        <span className="song-list-row-title-text truncate">{song.title}</span>
+        {showCovers && <ExplicitCoverVeil explicit={isExplicit(song)} />}
+        <ExplicitTitle status={song.explicitStatus}>
+          <span className="song-list-row-title-text truncate">{song.title}</span>
+        </ExplicitTitle>
       </div>
       <div className="song-list-row-cell truncate" title={song.artist}>
         <ResolvedArtistRefInline

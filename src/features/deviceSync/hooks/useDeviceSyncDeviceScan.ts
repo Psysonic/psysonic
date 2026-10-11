@@ -89,6 +89,9 @@ export function useDeviceSyncDeviceScan(
       const deviceId = await deviceSyncDeviceId({ destDir: requestTarget });
       const pendingPlanDeviceId = await pendingDeviceSyncPlanDeviceId({ destDir: requestTarget });
       if (!requestIsCurrent()) return;
+      useDeviceSyncStore.getState().setDeviceHasLegacyTemplate(
+        Boolean(manifest?.filenameTemplate?.trim()),
+      );
       const pendingPlan = pendingPlanDeviceId !== null;
       useDeviceSyncStore.getState().setPendingPlan(pendingPlan);
       useDeviceSyncStore.getState().setPendingPlanDeviceId(pendingPlanDeviceId);
@@ -142,6 +145,7 @@ export function useDeviceSyncDeviceScan(
   useEffect(() => {
     if (!driveDetected) {
       setDeviceFilePaths([]);
+      useDeviceSyncStore.getState().setDeviceHasLegacyTemplate(false);
       useDeviceSyncStore.getState().setPendingPlan(false);
       useDeviceSyncStore.getState().setPendingPlanDeviceId(null);
       useDeviceSyncStore.getState().setPendingPlanChecked(false);

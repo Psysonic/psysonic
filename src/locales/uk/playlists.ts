@@ -137,6 +137,19 @@ export const playlists = {
     localOnlyNotice:
       'Папки зберігаються лише в Psysonic на цьому пристрої. Navidrome та Subsonic API не підтримують папки плейлістів нативно, тому структура не зберігається на сервері та не синхронізується з іншими пристроями й додатками.',
   },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Теги',
+    newTag: 'Новий тег',
+    namePlaceholder: 'Назва тегу…',
+    filterLabel: 'Фільтр за тегами',
+    clearFilter: 'Скинути фільтр за тегами',
+    chipHint: 'Правий клік — перейменувати або видалити',
+    rename: 'Перейменувати тег',
+    delete: 'Видалити тег',
+    deleteConfirm: 'Натисніть ще раз, щоб прибрати його з усіх плейлістів',
+    emptyFilter: 'Немає плейлістів з усіма вибраними тегами.',
+  },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {
     groupLabel: 'Плейлісти за власником',

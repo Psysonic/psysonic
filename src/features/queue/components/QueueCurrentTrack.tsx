@@ -24,6 +24,9 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { resolveTrackArtistRefs } from '@/features/playback/utils/playback/trackArtistRefs';
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 interface Props {
   currentTrack: Track;
@@ -249,10 +252,13 @@ export function QueueCurrentTrack({
           ) : (
             <div className="fallback"><Music size={32} /></div>
           )}
+          <ExplicitCoverVeil explicit={isExplicit(currentTrack)} />
           {showBufferingOverlay && <PlaybackBufferingOverlay />}
         </div>
         <div className="queue-current-info">
-          <h3 className="truncate">{currentTrack.title}</h3>
+          <ExplicitTitle status={currentTrack.explicitStatus}>
+            <h3 className="truncate">{currentTrack.title}</h3>
+          </ExplicitTitle>
           <div className="queue-current-sub truncate">
             <ResolvedArtistRefInline
               refs={artistRefs}

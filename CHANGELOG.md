@@ -159,6 +159,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * When the lyrics on your server include a translation, it can show as a smaller line under each lyric line — in the sidebar, the mobile view and the fullscreen player. Turn it on in **Settings → Lyrics → Translation**, or with the **Translation** button below the lyrics, which appears only for songs that have one.
 * Needs Navidrome 0.63 or later and lyrics files that carry translations, such as TTML. If there are several, the one in your app language is shown.
 
+### Tags for playlists
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1730](https://github.com/Psysonic/psysonic/pull/1730)**
+
+* Right-click a playlist, or a selection of playlists, and use **Tags** to label it — by mood, occasion or anything else. A playlist can carry several tags.
+* Once a tag exists, the **Playlists** page shows the tags as chips above the list. Each chip you switch on narrows the list to the playlists that carry all of them; right-click a chip to rename or delete that tag.
+* Tags are saved only in Psysonic on this device, like playlist folders, and are part of the settings backup.
+
+### Explicit badges and blurred covers
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1731](https://github.com/Psysonic/psysonic/pull/1731)**
+
+* Songs your server marks as explicit show a small **E** after their title — in track lists, the queue, the player bar, Now Playing, the fullscreen player, the mini player and the statistics. An album shows it in its header as soon as one of its songs is explicit.
+* **Blur explicit covers** hides the cover art of those songs behind a soft blur; clicking an album cover still shows it in full. It is off by default; both options are in **Settings → Appearance → Visual Options**.
+* Works with servers that report explicit tags through OpenSubsonic, such as Navidrome.
+
+### Greek translation
+
+**By [@stefnto](https://github.com/stefnto), PR [#1737](https://github.com/Psysonic/psysonic/pull/1737)**
+
+* Full Greek (Ελληνικά) UI translation — selectable from the language picker on the Settings and Login screens.
+* Library matching now ignores Greek accents (tonos, dialytika) and the final sigma, so `Μάνος`, `Μανος` and `ΜΑΝΟΣ` resolve to the same entry. The first sync after the update rebuilds the library keys once.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
@@ -293,6 +316,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@stefnto](https://github.com/stefnto), PR [#1724](https://github.com/Psysonic/psysonic/pull/1724)**
 
 * The page language was always set to German, whatever language Psysonic was shown in. It now follows the selected language, so screen readers can use the matching pronunciation and capitalised text follows the rules of that language, for example Greek capitals without accents.
+
+### Device Sync files albums under the album artist on Navidrome
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1726](https://github.com/Psysonic/psysonic/pull/1726)**
+
+* With a Navidrome server, Device Sync put every album into a folder named after the track artist, so tracks with a guest artist or from a compilation ended up in folders of their own. Albums now go under their album artist, as the naming scheme shows.
+* Root cause: Navidrome reports the album artist only in its OpenSubsonic field, which Device Sync did not read.
+* Files already on a device move to the right folder on the next sync instead of being downloaded again.
+
+### Device Sync no longer stops at two tracks with the same file name
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1727](https://github.com/Psysonic/psysonic/pull/1727)**
+
+* A multi-disc album with the same title on two discs, or two editions of an album under one name, stopped the whole sync because two tracks would get the same file name. Tracks from disc 2 on are now named with their disc in front (`2-01 - Title`), and files already on a device are renamed on the next sync.
+* A track whose file name is still taken by another one is skipped, and the sync summary shows how many were skipped.
+
+### The Device Sync page works in small windows and reads step by step
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1728](https://github.com/Psysonic/psysonic/pull/1728)**
+
+* In a small window the options filled the page and the lists could not be reached or scrolled. The page now scrolls, and the lists stack under each other when there is little room.
+* The page reads top to bottom: choose the device, adjust the options (folded away, with an example of where files land), pick the music and check what is on the device. A bar at the bottom shows the state and holds the sync button; without a device the page explains how to choose one.
+
+### Song and album counts in Device Sync follow the app language
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1729](https://github.com/Psysonic/psysonic/pull/1729)**
+
+* The playlist and artist lists in Device Sync showed their song and album counts in English. They now use the app language; in Polish and Romanian the album count on the Artists page no longer switches to English for counts like 3 either.
+
+### The play queue survives a restart with play queue sync turned off
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1732](https://github.com/Psysonic/psysonic/pull/1732)**
+
+* With **Settings → Integrations → Navidrome → Play queue sync** turned off, Psysonic could bring back an older queue after a restart instead of the one you left. The queue and the current track now come back as you left them.
+* Root cause: the startup check still adopted the server queue, which is no longer updated while sync is off, and the mini player window saved its own outdated copy of the queue over the one from the main window.
 
 ## [1.55.0]
 
