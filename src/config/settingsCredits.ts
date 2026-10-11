@@ -571,6 +571,7 @@ const CONTRIBUTOR_ENTRIES = [
     contributions: [
       'Clickable artist credits in the fullscreen, mini and mobile players (PR #1371)',
       'Configurable album cover source chain with a Last.fm provider (PR #1502)',
+      'Keyboard shortcut that opens Settings (PR #1734)',
     ],
   },
   {
