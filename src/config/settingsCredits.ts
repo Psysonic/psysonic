@@ -651,6 +651,13 @@ const CONTRIBUTOR_ENTRIES = [
       'AppImage launches against the system WebKitGTK when one is installed (PR #1348)',
     ],
   },
+  {
+    github: 'stefnto',
+    since: '1.56.0',
+    contributions: [
+      'Greek translation (PR #1737)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the
