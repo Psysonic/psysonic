@@ -15,7 +15,7 @@ import { huTranslation } from '@/locales/hu';
 import { plTranslation } from '@/locales/pl';
 import { bgTranslation } from '@/locales/bg';
 import { ukTranslation } from '@/locales/uk';
-import { grTranslation } from '@/locales/gr';
+import { elTranslation } from '@/locales/el';
 
 const LANGUAGE_STORAGE_KEY = 'psysonic_language';
 
@@ -35,7 +35,7 @@ const resources = {
   pl: { translation: plTranslation },
   bg: { translation: bgTranslation },
   uk: { translation: ukTranslation },
-  el: { translation: grTranslation }
+  el: { translation: elTranslation }
 };
 
 /** Every language we ship — the only values `i18n.language` may ever take. */

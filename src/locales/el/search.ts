@@ -14,7 +14,7 @@ export const search = {
   localIndexBadgeTooltip: 'Αποτελέσματα από τον κατάλογο τοπικής βιβλιοθήκης σε αυτήν τη συσκευή',
   networkSearchBadge: 'Αναζήτηση διακομιστή',
   networkSearchBadgeTooltip: 'Αποτελέσματα από την αναζήτηση στο συνδεδεμένο διακομιστή',
-  liveSearchFailed: 'Search failed — try again',
+  liveSearchFailed: 'Αποτυχία αναζήτησης — δοκιμάστε ξανά',
   indexIncompleteBanner: 'Δημιουργία καταλόγου σε εξέλιξη· τα αποτελέσματα μπορεί να είναι ελλιπή',
   advancedSearchTerm: 'Όρος αναζήτησης',
   advancedSearchPlaceholder: 'Τίτλος, άλμπουμ, καλλιτέχνης…',

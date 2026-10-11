@@ -52,7 +52,7 @@ import { privateMode } from './privateMode';
 import { resume } from './resume';
 import { visualizer } from './visualizer';
 
-export const grTranslation = {
+export const elTranslation = {
   sidebar,
   home,
   hero,
