@@ -4,7 +4,7 @@ export const connection = {
   disconnected: 'Rozłączono',
   disconnectedFrom: 'Nie można było się połączyć z {{server}} — kliknij, aby sprawdzić ustawienia',
   checking: 'Łączenie…',
-  extern: 'Zewnętrzne',
+  extern: 'Zewnętrzny',
   offlineTitle: 'Brak połączenia z serwerem',
   offlineSubtitle: 'Nie można połączyć się z {{server}}. Sprawdź sieć lub serwer.',
   offlineModeBanner: 'Tryb offline — odtwarzanie z lokalnej pamięci podręcznej',
