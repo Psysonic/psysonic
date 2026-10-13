@@ -853,7 +853,7 @@ pub async fn audio_chain_preload(
             let resp = crate::engine::playback_scoped_get(&state, &app, &url, server_id.as_deref())
                 .send()
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
             if !resp.status().is_success() {
                 return Ok(()); // silently fail — audio_play will retry
             }

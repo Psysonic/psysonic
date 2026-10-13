@@ -214,3 +214,39 @@ async fn poll_stats_persist_round_trip_through_tick() {
     let stats: PollStats = serde_json::from_value(stored).unwrap();
     assert_eq!(stats.library_tier.as_tag(), "unknown");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_persisted_transport_failure_carries_no_credentials() {
+    // Port 1 on loopback refuses the connection, so the failure is a send
+    // error whose text would carry the full request URL.
+    let subsonic = SubsonicClient::with_static_credentials(
+        "http://127.0.0.1:1",
+        SubsonicCredentials::with_static("alice", "tok123", "salt456"),
+        reqwest::Client::new(),
+    );
+    let store = LibraryStore::open_in_memory();
+    let err = BackgroundScheduler::new(
+        &store,
+        &subsonic,
+        "s1",
+        "",
+        flags(CapabilityFlags::SUBSONIC_SEARCH3_BULK),
+    )
+    .with_sleep_disabled()
+    .tick(1_000)
+    .await
+    .unwrap_err();
+    assert!(matches!(err, SyncError::Transport(_)));
+
+    let last_error: String = store
+        .with_conn("test.scheduler_error", |conn| {
+            conn.query_row(
+                "SELECT last_error FROM sync_state WHERE server_id = 's1'",
+                [],
+                |row| row.get(0),
+            )
+        })
+        .unwrap();
+    assert!(last_error.contains("t=REDACTED&s=REDACTED"), "{last_error}");
+    assert!(!last_error.contains("tok123") && !last_error.contains("salt456"));
+}

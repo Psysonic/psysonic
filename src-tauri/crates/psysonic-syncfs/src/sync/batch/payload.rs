@@ -258,14 +258,14 @@ async fn fetch_device_sync_source_tracks(
                 .query(&query)
                 .send()
                 .await
-                .map_err(|error| error.to_string())?;
+                .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
             if !response.status().is_success() {
                 return Err(format!("HTTP {}", response.status().as_u16()));
             }
             let json = response
                 .json::<serde_json::Value>()
                 .await
-                .map_err(|error| error.to_string())?;
+                .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
             let root = subsonic_response_root(&json)?
                 .get("artist")
                 .and_then(|artist| artist.get("album"));

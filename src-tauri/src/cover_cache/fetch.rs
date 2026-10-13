@@ -132,13 +132,15 @@ async fn fetch_cover_once(
     let resp = match req.send().await {
         Ok(r) => r,
         // Connection reset / timeout / DNS — transient under server load.
-        Err(e) => return FetchAttempt::Transient(e.to_string()),
+        Err(e) => {
+            return FetchAttempt::Transient(psysonic_core::log_sanitize::reqwest_error_text(e))
+        }
     };
     let status = resp.status();
     if status.is_success() {
         return match resp.bytes().await {
             Ok(b) => FetchAttempt::Ok(b.to_vec()),
-            Err(e) => FetchAttempt::Transient(e.to_string()),
+            Err(e) => FetchAttempt::Transient(psysonic_core::log_sanitize::reqwest_error_text(e)),
         };
     }
     let msg = format!("cover HTTP {status}");

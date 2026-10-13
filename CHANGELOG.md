@@ -366,6 +366,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * After uploading an image with the camera button on an artist page, the round picture, the header background and the picture under **About the artist** kept showing the previous image. All three now switch to the new image right away, also when you upload again.
 * Root cause: the upload did not clear the saved copies of the artist's picture, and with Navidrome the round picture loaded an address that stays the same after an upload, so the old image was shown again.
 
+### Login tokens no longer appear in logs and error messages
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1742](https://github.com/Psysonic/psysonic/pull/1742)**
+
+* When a request to your server failed, the error text could contain the full request address including the login token, which is enough to sign in as you until the password changes. That text showed up in the terminal output, in some error messages in the app and in the saved sync status. The token is now removed everywhere; the server address stays readable.
+* Sync errors saved by earlier versions are cleaned once when the app starts.
+
 ## [1.55.0]
 
 ## Added

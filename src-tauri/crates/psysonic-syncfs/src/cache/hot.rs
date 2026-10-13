@@ -99,7 +99,7 @@ pub async fn download_track_hot_cache(
     let response = apply_server_http_get(&client, http_registry.as_deref(), Some(&server_id), &url)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
     }

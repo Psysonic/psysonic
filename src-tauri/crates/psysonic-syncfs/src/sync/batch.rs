@@ -303,7 +303,7 @@ pub async fn sync_batch_to_device(
                             "device:sync:progress",
                             serde_json::json!({
                                 "jobId": job, "trackId": track.id, "status": "error",
-                                "error": e.to_string(),
+                                "error": psysonic_core::log_sanitize::reqwest_error_text(e),
                             }),
                         );
                         return;
