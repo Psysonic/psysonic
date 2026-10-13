@@ -176,7 +176,8 @@ export default function ArtistDetail() {
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => runArtistImageUpload({
-    e, artist, serverId: artistOwnerServerId, t, setUploading, setCoverRevision,
+    e, artist, coverRef: artistCoverRefResolved, serverId: artistOwnerServerId, t, setUploading,
+    setCoverRevision,
   });
 
   // Cover URLs — must run every render (before early returns) or hook order breaks.
@@ -311,7 +312,10 @@ export default function ArtistDetail() {
 
   return (
     <div className="content-body animate-fade-in">
+      {/* Remount after an image upload: the purge revoked the blob URLs the hero
+          still holds, and its full-res backdrop only re-ensures on mount. */}
       <ArtistDetailHero
+        key={coverRevision}
         artist={artist}
         id={id}
         albums={albums}
@@ -352,6 +356,7 @@ export default function ArtistDetail() {
           case 'bio': return (
             <div key="bio" style={{ marginTop: sectionMt('bio') }}>
               <ArtistCard
+                key={coverRevision}
                 artistName={artist.name}
                 artistId={id}
                 artistInfo={info}

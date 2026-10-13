@@ -4,7 +4,8 @@ import { uploadArtistImageForServer } from '@/lib/api/subsonicArtists';
 import { setRating, star, unstar } from '@/lib/api/subsonicStarRating';
 import type { SubsonicArtist } from '@/lib/api/subsonicTypes';
 import { useAuthStore } from '@/store/authStore';
-import { invalidateCoverArt } from '@/cover';
+import { ensureCoverTierDiskSrc, invalidateCoverEntity } from '@/cover';
+import type { CoverArtRef } from '@/cover/types';
 import { showToast } from '@/lib/dom/toast';
 
 export interface RunArtistEntityRatingDeps {
@@ -71,6 +72,8 @@ export async function runArtistToggleStar(deps: RunArtistToggleStarDeps): Promis
 export interface RunArtistImageUploadDeps {
   e: React.ChangeEvent<HTMLInputElement>;
   artist: SubsonicArtist | null;
+  /** The artist cover every surface on the page renders — dropped from all caches after the upload. */
+  coverRef: CoverArtRef | null;
   serverId: string;
   t: TFunction;
   setUploading: (v: boolean) => void;
@@ -78,7 +81,7 @@ export interface RunArtistImageUploadDeps {
 }
 
 export async function runArtistImageUpload(deps: RunArtistImageUploadDeps): Promise<void> {
-  const { e, artist, serverId, t, setUploading, setCoverRevision } = deps;
+  const { e, artist, coverRef, serverId, t, setUploading, setCoverRevision } = deps;
   const file = e.target.files?.[0];
   e.target.value = '';
   if (!file || !artist) return;
@@ -86,11 +89,12 @@ export async function runArtistImageUpload(deps: RunArtistImageUploadDeps): Prom
   try {
     const ownerServerId = artist.serverId ?? serverId;
     await uploadArtistImageForServer(ownerServerId, artist.id, file);
-    const coverId = artist.coverArt || artist.id;
-    await invalidateCoverArt(coverId, ownerServerId);
-    // Also invalidate with bare artist.id in case coverArt differs
-    if (artist.coverArt && artist.coverArt !== artist.id) {
-      await invalidateCoverArt(artist.id, ownerServerId);
+    if (coverRef) {
+      await invalidateCoverEntity(coverRef);
+      // Fetch full-res before the remount: the header backdrop asks for 2000,
+      // and the grid ladder would otherwise hand it the first smaller tier the
+      // avatar writes — it then never asks for 2000 again this session.
+      await ensureCoverTierDiskSrc(coverRef, 2000).catch(() => '');
     }
     setCoverRevision(r => r + 1);
     showToast(t('artistDetail.uploadImage'));
