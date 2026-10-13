@@ -79,9 +79,20 @@ pub fn redact_reqwest_error(mut error: reqwest::Error) -> reqwest::Error {
     error
 }
 
-/// [`redact_reqwest_error`] for a `.map_err(…)` that only wants the text.
+/// The text of a `reqwest::Error` for logs, the UI and stored errors: the URL
+/// redacted ([`redact_reqwest_error`]) and the source chain appended, so the
+/// cause (TLS, DNS, a refused connection) is not lost behind "error sending
+/// request".
 pub fn reqwest_error_text(error: reqwest::Error) -> String {
-    redact_reqwest_error(error).to_string()
+    let error = redact_reqwest_error(error);
+    let mut text = error.to_string();
+    let mut source = std::error::Error::source(&error);
+    while let Some(cause) = source {
+        text.push_str(" | ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    redact_secrets(&text)
 }
 
 fn redact_url_credentials(url: &mut url::Url) {
@@ -557,6 +568,8 @@ mod tests {
         assert!(!text.contains("salt456"));
         assert!(!text.contains("sess789"));
         assert!(!text.contains("pw@"));
+        // The cause behind "error sending request" comes along.
+        assert!(text.contains(" | "), "no source chain in {text}");
     }
 
     #[test]

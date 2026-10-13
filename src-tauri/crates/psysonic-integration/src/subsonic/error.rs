@@ -47,15 +47,7 @@ impl std::error::Error for SubsonicError {}
 /// surface comparable diagnostic text. The request URL carries the wire
 /// auth, so it is redacted first: this text reaches the UI and `sync_state`.
 pub(crate) fn flatten_reqwest_error(e: reqwest::Error) -> String {
-    let e = psysonic_core::log_sanitize::redact_reqwest_error(e);
-    let mut msg = e.to_string();
-    let mut src: Option<&(dyn std::error::Error + 'static)> = std::error::Error::source(&e);
-    while let Some(s) = src {
-        msg.push_str(" | ");
-        msg.push_str(&s.to_string());
-        src = s.source();
-    }
-    msg
+    psysonic_core::log_sanitize::reqwest_error_text(e)
 }
 
 #[cfg(test)]

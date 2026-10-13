@@ -373,6 +373,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * When a request to your server failed, the error text could contain the full request address including the login token, which is enough to sign in as you until the password changes. That text showed up in the terminal output, in some error messages in the app and in the saved sync status. The token is now removed everywhere; the server address stays readable.
 * Sync errors saved by earlier versions are cleaned once when the app starts.
 
+### Error messages say why a connection failed
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1745](https://github.com/Psysonic/psysonic/pull/1745)**
+
+* When a request to your server failed, error messages and the log only said that sending the request failed. They now include the reason, for example a certificate problem, a server name that does not resolve or a refused connection.
+* When the library cannot connect to a server, the reason is now written to the log. Before, the log only showed later that no connection existed.
+
 ## [1.55.0]
 
 ## Added
