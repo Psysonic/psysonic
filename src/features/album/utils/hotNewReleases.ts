@@ -119,6 +119,7 @@ export async function fetchHotNewReleases(
           version: album.version?.trim()
             || albumVersionFromTags(album.tags)
             || null,
+          year: album.year ?? null,
         })),
     });
     if (resolutions.length !== results.length) return [];

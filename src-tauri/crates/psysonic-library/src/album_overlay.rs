@@ -26,6 +26,8 @@ struct OverlayPhases {
     /// and reading `0` as "this variant is cheap" would be an unmeasured claim.
     exists_ms: u128,
     exists_calls: usize,
+    /// Year-aware key of albums the index does not hold yet.
+    release_key_ms: u128,
     representatives_ms: u128,
     representative_groups: usize,
 }
@@ -41,6 +43,69 @@ fn indexed_album_exists(
         rusqlite::params![server_id, album_id],
         |row| row.get(0),
     )
+}
+
+/// `?1`/`?2` bound the keys `<base>␟@…` on any server; `?3` is the album's
+/// server, `?4` the base key, `?5` the album's year.
+const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
+    WITH RECURSIVE release_server(server_id) AS ( \
+      SELECT MIN(server_id) FROM cluster.track_cluster_key \
+      UNION ALL \
+      SELECT (SELECT MIN(server_id) FROM cluster.track_cluster_key \
+              WHERE server_id > release_server.server_id) \
+      FROM release_server WHERE release_server.server_id IS NOT NULL \
+    ) \
+    SELECT EXISTS ( \
+      SELECT 1 FROM release_server srv \
+      CROSS JOIN cluster.track_cluster_key ck INDEXED BY idx_ck_server_album \
+        ON ck.server_id = srv.server_id AND ck.album_key >= ?1 AND ck.album_key < ?2 \
+      WHERE srv.server_id IS NOT NULL \
+    ) OR ( \
+      (SELECT COUNT(*) FROM ( \
+         SELECT DISTINCT library_id FROM cluster.track_cluster_key INDEXED BY idx_ck_scope_album \
+         WHERE server_id = ?3 LIMIT 2)) = 1 \
+      AND EXISTS ( \
+        SELECT 1 FROM cluster.track_cluster_key ck INDEXED BY idx_ck_server_album \
+        INNER JOIN track t INDEXED BY sqlite_autoindex_track_1 \
+          ON t.server_id = ck.server_id AND t.id = ck.track_id \
+        WHERE ck.server_id = ?3 AND ck.album_key = ?4 AND t.deleted = 0 \
+        GROUP BY t.album_id \
+        HAVING MAX(NULLIF(t.year, 0)) IS NOT NULL AND MAX(NULLIF(t.year, 0)) != ?5 \
+      ) \
+    )";
+
+/// Key for an album the index does not hold yet, placed where the next identity
+/// pass will put it (`identity::rebuild::release_year`). Once a base key is
+/// split anywhere, every album under it carries its year. On a server with a
+/// single library, an indexed album under the base with another year is the
+/// conflict that splits it. With several libraries the network album's library
+/// is unknown, so the base key stands there until the album is indexed.
+fn unindexed_release_key(
+    conn: &rusqlite::Connection,
+    server_id: &str,
+    base_key: String,
+    year: Option<i32>,
+) -> rusqlite::Result<String> {
+    let Some(year) = year.filter(|year| *year > 0) else {
+        return Ok(base_key);
+    };
+    let sep = crate::identity::KEY_SEP;
+    let splits = conn.query_row(
+        UNINDEXED_RELEASE_SPLIT_SQL,
+        rusqlite::params![
+            format!("{base_key}{sep}@"),
+            format!("{base_key}{sep}A"),
+            server_id,
+            base_key,
+            year
+        ],
+        |row| row.get::<_, bool>(0),
+    )?;
+    Ok(if splits {
+        format!("{base_key}{sep}@{year}")
+    } else {
+        base_key
+    })
 }
 
 fn resolve_representatives(
@@ -155,6 +220,15 @@ pub fn resolve_album_overlay(
                     )
                 })
                 .flatten();
+            let normalized_key = match normalized_key {
+                Some(base_key) => {
+                    let started = std::time::Instant::now();
+                    let key = unindexed_release_key(conn, server_id, base_key, album.year)?;
+                    phases.release_key_ms += started.elapsed().as_millis();
+                    Some(key)
+                }
+                None => None,
+            };
             let identity_key = indexed_key
                 .clone()
                 .or_else(|| normalized_key.clone())
@@ -214,6 +288,7 @@ pub fn resolve_album_overlay(
                 "lookupKeyMs": phases.lookup_key_ms,
                 "existsMs": phases.exists_ms,
                 "existsCalls": phases.exists_calls,
+                "releaseKeyMs": phases.release_key_ms,
                 "representativesMs": phases.representatives_ms,
                 "representativeGroups": phases.representative_groups,
                 "blockedBy": timing
@@ -265,6 +340,122 @@ mod tests {
             .unwrap();
     }
 
+    fn set_year(store: &LibraryStore, server_id: &str, track_id: &str, year: i32) {
+        store
+            .with_conn_mut("test.album_overlay_year", |conn| {
+                conn.execute(
+                    "UPDATE track SET year = ?3 WHERE server_id = ?1 AND id = ?2",
+                    params![server_id, track_id, year],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+    }
+
+    fn candidate(server_id: &str, id: &str, year: Option<i32>) -> LibraryAlbumOverlayCandidateDto {
+        LibraryAlbumOverlayCandidateDto {
+            server_id: server_id.into(),
+            id: id.into(),
+            name: "Shared".into(),
+            artist: Some("Artist".into()),
+            version: None,
+            year,
+        }
+    }
+
+    #[test]
+    fn an_unindexed_reissue_on_a_single_library_server_gets_its_own_group() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-original", "original", "l1");
+        set_year(&store, "s1", "t-original", 1991);
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![
+                    candidate("s1", "original", Some(1991)),
+                    candidate("s1", "reissue", Some(2021)),
+                ],
+            },
+        )
+        .unwrap();
+
+        assert_ne!(resolutions[0].group, resolutions[1].group);
+        assert_eq!(resolutions[1].representative_id, None);
+    }
+
+    #[test]
+    fn an_unindexed_album_with_the_same_year_stays_with_the_original() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-original", "original", "l1");
+        set_year(&store, "s1", "t-original", 1991);
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![candidate("s1", "stray-id", Some(1991))],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolutions[0].representative_id.as_deref(),
+            Some("original")
+        );
+    }
+
+    #[test]
+    fn an_unindexed_copy_joins_its_release_once_the_base_is_split() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-original", "original", "l1");
+        set_year(&store, "s1", "t-original", 1991);
+        insert_album_track(&store, "s1", "t-reissue", "reissue", "l1");
+        set_year(&store, "s1", "t-reissue", 2021);
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1"), scope("s2", "l2")],
+                albums: vec![candidate("s2", "fresh-copy", Some(2021))],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolutions[0].representative_server_id.as_deref(),
+            Some("s1")
+        );
+        assert_eq!(resolutions[0].representative_id.as_deref(), Some("reissue"));
+    }
+
+    #[test]
+    fn a_server_with_several_libraries_keeps_the_base_key_until_indexed() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-original", "original", "l1");
+        set_year(&store, "s1", "t-original", 1991);
+        insert_album_track(&store, "s1", "t-elsewhere", "elsewhere", "l2");
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![candidate("s1", "reissue", Some(2021))],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolutions[0].representative_id.as_deref(),
+            Some("original")
+        );
+    }
+
     #[test]
     fn maps_physical_copies_to_the_scope_representative() {
         let store = LibraryStore::open_in_memory();
@@ -285,6 +476,7 @@ mod tests {
                         name: "Shared".into(),
                         artist: Some("Artist".into()),
                         version: None,
+                        year: None,
                     },
                     LibraryAlbumOverlayCandidateDto {
                         server_id: "s2".into(),
@@ -292,6 +484,7 @@ mod tests {
                         name: "Shared".into(),
                         artist: Some("Artist".into()),
                         version: None,
+                        year: None,
                     },
                 ],
             },
@@ -377,6 +570,7 @@ mod tests {
                         name: "My Arms, Your Hearse".into(),
                         artist: Some("Opeth".into()),
                         version: None,
+                        year: None,
                     },
                     LibraryAlbumOverlayCandidateDto {
                         server_id: "s2".into(),
@@ -384,6 +578,7 @@ mod tests {
                         name: "My Arms Your Hearse".into(),
                         artist: Some("Opeth".into()),
                         version: None,
+                        year: None,
                     },
                 ],
             },
@@ -410,6 +605,7 @@ mod tests {
                         name: "Album".into(),
                         artist: Some("Artist".into()),
                         version: Some("Standard".into()),
+                        year: None,
                     },
                     LibraryAlbumOverlayCandidateDto {
                         server_id: "s1".into(),
@@ -417,6 +613,7 @@ mod tests {
                         name: "Album [Deluxe Edition]".into(),
                         artist: Some("Artist".into()),
                         version: Some("Deluxe Edition".into()),
+                        year: None,
                     },
                 ],
             },
@@ -442,6 +639,7 @@ mod tests {
                     name: "Shared".into(),
                     artist: Some("Artist".into()),
                     version: None,
+                    year: None,
                 }],
             },
         )

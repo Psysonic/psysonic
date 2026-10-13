@@ -170,6 +170,22 @@ pub(crate) fn rebuild_server(tx: &Transaction<'_>, server_id: &str) -> rusqlite:
     Ok(())
 }
 
+/// Identity of the projection row `ap`: the unanimous cluster key of its live
+/// tracks, or a server-qualified fallback.
+const PROJECTION_IDENTITY_KEY_SQL: &str = "COALESCE(( \
+       SELECT CASE \
+         WHEN COUNT(*) > 0 \
+          AND COUNT(*) = COUNT(ck.album_key) \
+          AND COUNT(DISTINCT ck.album_key) = 1 \
+         THEN MAX(ck.album_key) \
+       END \
+       FROM track t \
+       LEFT JOIN cluster.track_cluster_key ck \
+         ON ck.server_id = t.server_id AND ck.track_id = t.id \
+       WHERE t.server_id = ap.server_id \
+         AND t.album_id = ap.album_id AND t.deleted = 0 \
+     ), 'physical:' || length(ap.server_id) || ':' || ap.server_id || ':' || ap.album_id)";
+
 /// Keep materialized album browse partitions aligned with the cluster sidecar.
 /// Every physical album gets one unanimous cluster key or a server-qualified fallback.
 pub(crate) fn reconcile_identity_keys(
@@ -184,20 +200,7 @@ pub(crate) fn reconcile_identity_keys(
     let sql = format!(
         "WITH resolved AS MATERIALIZED ( \
            SELECT ap.server_id, ap.library_id, ap.album_id, \
-                  COALESCE(( \
-                    SELECT CASE \
-                      WHEN COUNT(*) > 0 \
-                       AND COUNT(*) = COUNT(ck.album_key) \
-                       AND COUNT(DISTINCT ck.album_key) = 1 \
-                      THEN MAX(ck.album_key) \
-                    END \
-                    FROM track t \
-                    LEFT JOIN cluster.track_cluster_key ck \
-                      ON ck.server_id = t.server_id AND ck.track_id = t.id \
-                    WHERE t.server_id = ap.server_id \
-                      AND t.album_id = ap.album_id AND t.deleted = 0 \
-                  ), 'physical:' || length(ap.server_id) || ':' || ap.server_id || ':' || ap.album_id) \
-                    AS identity_key \
+                  {PROJECTION_IDENTITY_KEY_SQL} AS identity_key \
            FROM album_browse_projection ap \
            WHERE EXISTS ( \
              SELECT 1 FROM track t \
@@ -227,7 +230,8 @@ pub(crate) fn reconcile_invalidated_identity_keys(
     server_id: &str,
 ) -> rusqlite::Result<()> {
     tx.execute(
-        "WITH invalidated_artist AS MATERIALIZED ( \
+        &format!(
+            "WITH invalidated_artist AS MATERIALIZED ( \
            SELECT entity_id FROM identity_invalidation \
            WHERE server_id = ?1 AND kind = 'artist' \
          ), \
@@ -242,20 +246,7 @@ pub(crate) fn reconcile_invalidated_identity_keys(
          ), \
          resolved AS MATERIALIZED ( \
            SELECT ap.server_id, ap.library_id, ap.album_id, \
-                  COALESCE(( \
-                    SELECT CASE \
-                      WHEN COUNT(*) > 0 \
-                       AND COUNT(*) = COUNT(ck.album_key) \
-                       AND COUNT(DISTINCT ck.album_key) = 1 \
-                      THEN MAX(ck.album_key) \
-                    END \
-                    FROM track t \
-                    LEFT JOIN cluster.track_cluster_key ck \
-                      ON ck.server_id = t.server_id AND ck.track_id = t.id \
-                    WHERE t.server_id = ap.server_id \
-                      AND t.album_id = ap.album_id AND t.deleted = 0 \
-                  ), 'physical:' || length(ap.server_id) || ':' || ap.server_id || ':' || ap.album_id) \
-                    AS identity_key \
+                  {PROJECTION_IDENTITY_KEY_SQL} AS identity_key \
            FROM album_browse_projection ap \
            JOIN invalidated_album ia ON ia.entity_id = ap.album_id \
            WHERE ap.server_id = ?1 \
@@ -266,8 +257,46 @@ pub(crate) fn reconcile_invalidated_identity_keys(
          WHERE ap.server_id = resolved.server_id \
            AND ap.library_id = resolved.library_id \
            AND ap.album_id = resolved.album_id \
-           AND ap.identity_key IS NOT resolved.identity_key",
+           AND ap.identity_key IS NOT resolved.identity_key"
+        ),
         params![server_id],
+    )?;
+    Ok(())
+}
+
+/// Refresh the physical albums under the base keys (JSON array) a
+/// same-library release split re-evaluated. A split key applies to every copy,
+/// so this reaches albums on other servers and albums outside the invalidation
+/// journal.
+pub(crate) fn reconcile_release_base_identity_keys(
+    tx: &Transaction<'_>,
+    bases_json: &str,
+) -> rusqlite::Result<()> {
+    tx.execute(
+        &format!(
+            "WITH RECURSIVE {}, \
+             target_album AS MATERIALIZED ( \
+               SELECT DISTINCT server_id, library_id, album_id FROM release_member \
+             ), \
+             resolved AS MATERIALIZED ( \
+               SELECT ap.server_id, ap.library_id, ap.album_id, \
+                      {PROJECTION_IDENTITY_KEY_SQL} AS identity_key \
+               FROM target_album target \
+               INNER JOIN album_browse_projection ap \
+                 ON ap.server_id = target.server_id \
+                AND ap.library_id = target.library_id \
+                AND ap.album_id = target.album_id \
+             ) \
+             UPDATE album_browse_projection AS ap \
+             SET identity_key = resolved.identity_key \
+             FROM resolved \
+             WHERE ap.server_id = resolved.server_id \
+               AND ap.library_id = resolved.library_id \
+               AND ap.album_id = resolved.album_id \
+               AND ap.identity_key IS NOT resolved.identity_key",
+            crate::identity::RELEASE_MEMBER_CTE_SQL,
+        ),
+        params![bases_json],
     )?;
     Ok(())
 }

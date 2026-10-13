@@ -1661,6 +1661,7 @@ export type LibraryAlbumOverlayCandidateDto = {
 	name: string,
 	artist: string | null,
 	version?: string | null,
+	year?: number | null,
 };
 
 /**

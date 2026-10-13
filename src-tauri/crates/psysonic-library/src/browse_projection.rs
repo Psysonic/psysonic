@@ -52,7 +52,7 @@ use refresh::add_scope;
 pub(crate) use refresh::{
     collect_affected_album_scopes, collect_album_scopes_for_track_ids, rebuild_scope,
     rebuild_server, reconcile_identity_keys, reconcile_invalidated_identity_keys,
-    refresh_album_scopes, refresh_library_tagged_albums,
+    reconcile_release_base_identity_keys, refresh_album_scopes, refresh_library_tagged_albums,
 };
 
 fn migration_completed(conn: &Connection) -> rusqlite::Result<bool> {

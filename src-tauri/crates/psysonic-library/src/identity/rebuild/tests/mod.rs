@@ -8,6 +8,7 @@ mod album_identity;
 mod incremental;
 mod maintenance;
 mod occurrence_ranks;
+mod release_year;
 mod synchronization;
 
 #[allow(clippy::too_many_arguments)]

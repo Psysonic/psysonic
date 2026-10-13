@@ -33,7 +33,9 @@ pub(crate) const KEY_SEP: char = '\u{001f}';
 /// v9: version suffix stripping uses identity normalization and album-level
 ///     list metadata no longer outranks an authoritative track version.
 /// v10: Greek folding (tonos/dialytika removed, final sigma ς→σ).
-pub const NORM_VERSION: &str = "10";
+/// v11: two physical albums in one server library that share an album key but
+///      carry different years get the year as part of the key.
+pub const NORM_VERSION: &str = "11";
 
 /// Normalize one identity field. Returns `None` when input is empty/whitespace-only
 /// or when normalization strips everything (punctuation-only, etc.).
