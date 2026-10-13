@@ -23,10 +23,10 @@ export function coverCacheRestHost(serverUrl: string): string {
 
 export type CoverCacheEnsureResult = {
   hit: boolean;
-  /** Absolute tier path; carries `|mtimeVersion` on hits (cache-bust suffix). */
+  /** Absolute tier path, without the version suffix. */
   path: string;
   tier: CoverArtTier;
-  /** mtime (epoch secs) of the tier file; 0 on miss. Rides inside `path`. */
+  /** mtime (epoch secs) of the tier file; 0 on miss. Append as `path|version` before building an asset URL. */
   pathVersion: number;
 };
 
