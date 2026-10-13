@@ -41,7 +41,9 @@ export function libraryPatchReachesIndex(serverId: string | null | undefined): b
 /**
  * Patch-on-use (spec §6.5 / F3): after a successful star / rating / scrobble on a
  * **track**, mirror the change into the local library index. Skipped when the index
- * is off; Rust no-ops when no row exists. Fire-and-forget.
+ * is off; Rust no-ops when no row exists. Fire-and-forget: the returned promise
+ * settles once the write landed (or was skipped) and never rejects, for callers
+ * that read the index back.
  *
  * **Album** favorites use {@link patchLibraryAlbumOnUse} (`album.starred_at`).
  * Artist stars remain server-only on browse (no `artist.starred_at` column).
@@ -50,10 +52,10 @@ export function patchLibraryTrackOnUse(
   serverId: string | null | undefined,
   trackId: string,
   patch: TrackPatch,
-): void {
-  if (!serverId || !trackId) return;
-  if (!useLibraryIndexStore.getState().isIndexEnabled(serverId)) return;
-  void libraryPatchTrack({ serverId, trackId, patch }).catch(() => {});
+): Promise<void> {
+  if (!serverId || !trackId) return Promise.resolve();
+  if (!useLibraryIndexStore.getState().isIndexEnabled(serverId)) return Promise.resolve();
+  return libraryPatchTrack({ serverId, trackId, patch }).catch(() => {});
 }
 
 /** Mirror album favorite toggles into `album.starred_at` (UPDATE only). */
@@ -61,10 +63,10 @@ export function patchLibraryAlbumOnUse(
   serverId: string | null | undefined,
   albumId: string,
   patch: { starredAt?: number | null },
-): void {
-  if (!serverId || !albumId) return;
-  if (!useLibraryIndexStore.getState().isIndexEnabled(serverId)) return;
-  void libraryPatchAlbum({ serverId, albumId, patch }).catch(() => {});
+): Promise<void> {
+  if (!serverId || !albumId) return Promise.resolve();
+  if (!useLibraryIndexStore.getState().isIndexEnabled(serverId)) return Promise.resolve();
+  return libraryPatchAlbum({ serverId, albumId, patch }).catch(() => {});
 }
 
 /**
