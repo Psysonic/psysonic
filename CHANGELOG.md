@@ -359,6 +359,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * With **Settings → Integrations → Navidrome → Play queue sync** turned off, Psysonic could bring back an older queue after a restart instead of the one you left. The queue and the current track now come back as you left them.
 * Root cause: the startup check still adopted the server queue, which is no longer updated while sync is off, and the mini player window saved its own outdated copy of the queue over the one from the main window.
 
+### A new artist image shows up right after uploading it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by roman-redl on GitHub, PR [#1740](https://github.com/Psysonic/psysonic/pull/1740)**
+
+* After uploading an image with the camera button on an artist page, the round picture, the header background and the picture under **About the artist** kept showing the previous image. All three now switch to the new image right away, also when you upload again.
+* Root cause: the upload did not clear the saved copies of the artist's picture, and with Navidrome the round picture loaded an address that stays the same after an upload, so the old image was shown again.
+
 ## [1.55.0]
 
 ## Added
