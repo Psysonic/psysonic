@@ -229,6 +229,17 @@ export async function coverCacheClearServer(serverIndexKey: string): Promise<voi
   if (res.status === 'error') throw new Error(res.error);
 }
 
+/** Drops the server-art disk tiers of one cover; external-provider files stay. */
+export async function coverCacheInvalidateEntity(ref: CoverArtRef): Promise<number> {
+  const res = await commands.coverCacheInvalidateEntity(
+    coverIndexKeyFromRef(ref),
+    ref.cacheKind,
+    ref.cacheEntityId,
+  );
+  if (res.status === 'error') throw new Error(res.error);
+  return res.data;
+}
+
 /**
  * Opt-out purge: when the External Artwork toggle is turned off, drop every
  * fetched external image + `.miss-*` marker + lookup row across all configured

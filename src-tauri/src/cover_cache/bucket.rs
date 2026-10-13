@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use psysonic_library::cover_backfill::COVER_FETCH_FAIL_MARKER;
+
 use super::external_ensure::ALBUM_EXT_HIT_MARKER;
 
 const COVER_CACHE_LAYOUT_STAMP: &str = psysonic_core::cover_cache_layout::LAYOUT_STAMP;
@@ -64,6 +66,40 @@ pub(super) fn purge_external_files(server_dir: &Path) -> usize {
     let mut count = 0;
     walk(server_dir, &mut count);
     count
+}
+
+/// Delete the server-art files of ONE cover entity dir — the `{tier}.webp`
+/// ladder, `meta.json` and the `.fetch-failed` backoff — so the next ensure
+/// downloads the server's art again (cover-art-pipeline contract §10: after an
+/// upload). External-provider artifacts stay; they don't depend on the
+/// server's art. A dir carrying `.album-ext-hit` is left alone: its tiers are
+/// chain art and the marker must never be removed. Returns the number of
+/// files removed.
+pub(super) fn purge_entity_server_art(entity_dir: &Path) -> usize {
+    fn is_server_art(name: &str) -> bool {
+        let is_tier = name
+            .strip_suffix(".webp")
+            .is_some_and(|stem| !stem.is_empty() && stem.bytes().all(|b| b.is_ascii_digit()));
+        is_tier || name == "meta.json" || name == COVER_FETCH_FAIL_MARKER
+    }
+    if entity_dir.join(ALBUM_EXT_HIT_MARKER).exists() {
+        return 0;
+    }
+    let Ok(entries) = std::fs::read_dir(entity_dir) else {
+        return 0;
+    };
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && path
+                    .file_name()
+                    .and_then(|name| name.to_str())
+                    .is_some_and(is_server_art)
+        })
+        .filter(|path| std::fs::remove_file(path).is_ok())
+        .count()
 }
 
 /// Album cover dirs whose art the external chain wrote in place of the
@@ -198,8 +234,9 @@ pub(super) fn merge_cover_bucket(old_dir: &Path, new_dir: &Path) -> Result<(), S
 #[cfg(test)]
 mod tests {
     use super::{
-        external_album_art_dirs, is_safe_index_key, merge_cover_bucket, purge_external_album_art,
-        purge_external_files, purge_misattributed_external_album_art_once, rename_bucket_inner,
+        external_album_art_dirs, is_safe_index_key, merge_cover_bucket, purge_entity_server_art,
+        purge_external_album_art, purge_external_files,
+        purge_misattributed_external_album_art_once, rename_bucket_inner,
     };
     use crate::cover_cache::test_support::fresh_tmpdir;
     use std::fs;
@@ -456,6 +493,67 @@ mod tests {
         assert!(!entity.join("2000-banner.webp").exists());
         assert!(!entity.join(".miss-fanart").exists());
         assert!(!entity.join(".miss-banner").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn purge_entity_server_art_drops_server_tiers_and_keeps_external_artifacts() {
+        let root = fresh_tmpdir("purge-entity-server-art");
+        let entity = root.join("srv").join("artist").join("ar-1");
+        let sibling = root.join("srv").join("artist").join("ar-2");
+        fs::create_dir_all(&entity).unwrap();
+        fs::create_dir_all(&sibling).unwrap();
+        for name in [
+            "128.webp",
+            "512.webp",
+            "2000.webp",
+            "meta.json",
+            ".fetch-failed",
+        ] {
+            fs::write(entity.join(name), b"n").unwrap();
+        }
+        for name in ["2000-fanart.webp", "2000-banner.webp", ".miss-fanart"] {
+            fs::write(entity.join(name), b"x").unwrap();
+        }
+        fs::write(sibling.join("512.webp"), b"n").unwrap();
+
+        assert_eq!(purge_entity_server_art(&entity), 5);
+
+        for name in [
+            "128.webp",
+            "512.webp",
+            "2000.webp",
+            "meta.json",
+            ".fetch-failed",
+        ] {
+            assert!(!entity.join(name).exists(), "{name} should be gone");
+        }
+        for name in ["2000-fanart.webp", "2000-banner.webp", ".miss-fanart"] {
+            assert!(entity.join(name).exists(), "{name} should stay");
+        }
+        assert!(sibling.join("512.webp").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn purge_entity_server_art_leaves_chain_owned_album_dirs_alone() {
+        let root = fresh_tmpdir("purge-entity-chain-owned");
+        let dir = album_dir(&root, "srv", "al-1", Some("apple"));
+
+        assert_eq!(purge_entity_server_art(&dir), 0);
+
+        assert!(dir.join("128.webp").exists());
+        assert!(dir.join(".album-ext-hit").exists());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn purge_entity_server_art_tolerates_missing_dir() {
+        let root = fresh_tmpdir("purge-entity-missing");
+        assert_eq!(
+            purge_entity_server_art(&root.join("artist").join("ar-9")),
+            0
+        );
         let _ = fs::remove_dir_all(&root);
     }
 }
