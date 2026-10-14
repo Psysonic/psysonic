@@ -108,6 +108,9 @@ export function useMoodTrackBrowse(
       indexEnabled &&
       !initialCached,
   );
+  const [sessionReady, setSessionReady] = useState(
+    () => initialCached !== null,
+  );
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(
     () => initialCached?.hasMore ?? false,
@@ -120,14 +123,25 @@ export function useMoodTrackBrowse(
     generationRef.current += 1;
     const generation = generationRef.current;
 
-    if (!enabled || !serverId || !mood.trim() || !indexEnabled) {
-      // React Compiler set-state-in-effect rule: reset state for an inactive route/view.
+    if (!serverId || !mood.trim() || !indexEnabled) {
+      // React Compiler set-state-in-effect rule: reset state for an invalid browse context.
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setSongs([]);
       setHasMore(false);
       setTotal(peekMoodTrackBrowseCache(cacheKey)?.total ?? null);
       setLoading(false);
+      setSessionReady(false);
       setLoadingMore(false);
+      loadingMoreRef.current = false;
+      return;
+    }
+
+    if (!enabled) {
+      // Keep the loaded tab session intact while Albums is active. The request
+      // generation still advances above so any in-flight page is discarded.
+      setLoading(false);
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
       return;
     }
 
@@ -139,6 +153,7 @@ export function useMoodTrackBrowse(
       setHasMore(cached.hasMore);
       setTotal(cached.total);
       setLoading(false);
+      setSessionReady(true);
       setLoadingMore(false);
       loadingMoreRef.current = false;
       return () => {
@@ -150,6 +165,7 @@ export function useMoodTrackBrowse(
     setHasMore(false);
     setTotal(null);
     setLoading(true);
+    setSessionReady(false);
     setLoadingMore(false);
     loadingMoreRef.current = false;
 
@@ -166,6 +182,7 @@ export function useMoodTrackBrowse(
       setSongs(page.songs);
       setHasMore(page.hasMore);
       setTotal(page.total);
+      setSessionReady(true);
       writeMoodTrackBrowseCache(
         cacheKey,
         {
@@ -264,6 +281,7 @@ export function useMoodTrackBrowse(
     songs,
     total,
     loading,
+    sessionReady,
     loadingMore,
     hasMore,
     loadMore,

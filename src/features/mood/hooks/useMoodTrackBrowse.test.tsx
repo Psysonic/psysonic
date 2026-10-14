@@ -152,6 +152,50 @@ describe('useMoodTrackBrowse', () => {
     );
   });
 
+  it('keeps a loaded track session while the Tracks tab is inactive', async () => {
+    hoisted.fetchMoodTrackPage.mockResolvedValueOnce({
+      songs: songs(0, 2),
+      hasMore: false,
+      total: 2,
+    });
+
+    const { result, rerender } = renderHook(
+      ({ enabled }) =>
+        useMoodTrackBrowse(
+          'srv-1',
+          'Tab Session',
+          true,
+          enabled,
+          9,
+          browseScope,
+        ),
+      {
+        initialProps: { enabled: true },
+      },
+    );
+
+    await waitFor(() =>
+      expect(result.current.songs).toHaveLength(2),
+    );
+    expect(result.current.sessionReady).toBe(true);
+
+    rerender({ enabled: false });
+
+    await waitFor(() =>
+      expect(result.current.loading).toBe(false),
+    );
+    expect(result.current.sessionReady).toBe(true);
+    expect(result.current.songs).toHaveLength(2);
+    expect(result.current.total).toBe(2);
+
+    rerender({ enabled: true });
+
+    await waitFor(() =>
+      expect(result.current.songs).toHaveLength(2),
+    );
+    expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(1);
+  });
+
   it('invalidates a cached track session after a library sync', async () => {
     hoisted.fetchMoodTrackPage
       .mockResolvedValueOnce({
