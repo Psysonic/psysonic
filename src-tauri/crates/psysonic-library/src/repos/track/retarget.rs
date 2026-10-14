@@ -57,6 +57,10 @@ pub(crate) fn retarget_track_references(
         "DELETE FROM track_genre WHERE server_id = ?1 AND track_id = ?2",
         params![server_id, old_id],
     )?;
+    tx.execute(
+        "DELETE FROM track_label WHERE server_id = ?1 AND track_id = ?2",
+        params![server_id, old_id],
+    )?;
 
     let existing_alias: Option<String> = tx
         .query_row(

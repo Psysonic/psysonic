@@ -5,16 +5,19 @@ import {
   libraryScopeListComposers,
   type LibraryScopePair,
 } from '@/lib/api/library/scopeReads';
+import { libraryGetLabelAlbumCounts, type LabelAlbumCountRow } from '@/lib/api/library';
 import { libraryScopePairsForServer } from '@/lib/api/subsonicClient';
 import { albumToAlbum, artistToArtist } from '@/lib/library/advancedSearchLocal';
 import { filterArtistsWithRoleAlbumCredits } from '@/lib/library/composerBrowse';
-import { deriveLibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
+import {
+  deriveLibraryBrowseIndexScopes,
+  deriveLibraryBrowseScope,
+} from '@/lib/library/libraryBrowseScope';
 import {
   buildAlbumDetailPath,
   buildArtistDetailPath,
   buildComposerDetailPath,
 } from '@/lib/navigation/detailServerScope';
-import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGuard';
 import { useAuthStore } from '@/store/authStore';
 import { usePlaylistStore } from '@/features/playlist/store/playlistStore';
 import { playlistDetailPath } from '@/features/playlist/utils/playlistServer';
@@ -24,7 +27,7 @@ const CORE_ROUTES = ['/', '/albums', '/artists', '/tracks', '/favorites'] as con
 
 const ALL_STATIC_ROUTES = [
   '/', '/albums', '/artists', '/composers', '/tracks', '/favorites',
-  '/new-releases', '/genres', '/playlists', '/most-played',
+  '/new-releases', '/genres', '/labels', '/playlists', '/most-played',
   '/lossless-albums', '/folders', '/statistics', '/player-stats', '/help',
   '/settings', '/whats-new', '/offline', '/radio', '/random',
   '/random/albums', '/random/mix', '/search', '/search/advanced',
@@ -45,9 +48,10 @@ interface DynamicRouteCandidates {
   artists: SubsonicArtist[];
   composers: SubsonicArtist[];
   playlists: SubsonicPlaylist[];
+  /** Label album counts from the local index, across the library scope. */
+  labels: LabelAlbumCountRow[];
   activeServerId: string | null;
   configuredServerIds: ReadonlySet<string>;
-  networkAllowedServerIds: ReadonlySet<string>;
 }
 
 export interface BenchmarkRouteResolution {
@@ -94,18 +98,16 @@ export function buildDynamicBenchmarkRoutes(
     'no owned indexed composer available',
   );
 
-  const labelAlbum = candidates.albums.find(candidate => (
-    !!candidate.serverId
-      && candidates.configuredServerIds.has(candidate.serverId)
-      && !!candidate.recordLabel?.trim()
-      && candidates.networkAllowedServerIds.has(candidate.serverId)
-  ));
+  // The label with the most albums: its first page fills the grid and the
+  // header total comes from the index, the same work a large label costs.
+  const label = candidates.labels.reduce<LabelAlbumCountRow | null>(
+    (best, row) => (row.value.trim() && row.albumCount > (best?.albumCount ?? 0) ? row : best),
+    null,
+  );
   add(
     '/label/:name',
-    labelAlbum
-      ? `/label/${encodeURIComponent(labelAlbum.recordLabel!.trim())}?server=${encodeURIComponent(labelAlbum.serverId!)}`
-      : null,
-    'no reachable owned album with a record label available',
+    label ? `/label/${encodeURIComponent(label.value.trim())}` : null,
+    'no indexed record label available in the library scope',
   );
 
   const genreAlbum = candidates.albums.find(candidate => (
@@ -154,6 +156,18 @@ async function resolveScopeRows<T>(
   }
 }
 
+async function resolveLabelCounts(auth: ReturnType<typeof useAuthStore.getState>): Promise<LabelAlbumCountRow[]> {
+  const results = await Promise.allSettled(
+    deriveLibraryBrowseIndexScopes(auth, new Set()).map(scope =>
+      libraryGetLabelAlbumCounts({
+        serverId: scope.serverId,
+        libraryScopes: scope.libraryIds.length > 0 ? scope.libraryIds : undefined,
+      }),
+    ),
+  );
+  return results.flatMap(result => (result.status === 'fulfilled' ? result.value : []));
+}
+
 export async function resolveBenchmarkRoutes(scenario: string): Promise<BenchmarkRouteResolution> {
   const staticRoutes = benchmarkStaticRoutesForScenario(scenario);
   const auth = useAuthStore.getState();
@@ -195,16 +209,16 @@ export async function resolveBenchmarkRoutes(scenario: string): Promise<Benchmar
     playlists = usePlaylistStore.getState().playlists;
   }
 
+  const labels = await resolveLabelCounts(auth);
+
   const dynamic = buildDynamicBenchmarkRoutes({
     albums: albumRows.map(albumToAlbum),
     artists: artistRows.map(artistToArtist),
     composers: filterArtistsWithRoleAlbumCredits(composerRows.map(artistToArtist)),
     playlists,
+    labels,
     activeServerId: auth.activeServerId,
     configuredServerIds: new Set(auth.servers.map(server => server.id)),
-    networkAllowedServerIds: new Set(
-      auth.servers.filter(server => shouldAttemptSubsonicForServer(server.id)).map(server => server.id),
-    ),
   });
 
   return {

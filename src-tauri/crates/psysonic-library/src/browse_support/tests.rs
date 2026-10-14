@@ -6,9 +6,10 @@ use crate::store::LibraryStore;
 
 use super::{
     apply_album_patch, catalog_year_bounds_for_server, genre_album_counts_for_server,
-    genre_album_counts_query, mood_album_counts_for_server, mood_album_counts_query,
-    overlay_album_artist_links, overlay_album_level_starred_at, reconcile_album_stars,
-    reconcile_artist_stars, StarredAlbumReconcileItem, StarredArtistReconcileItem,
+    genre_album_counts_query, label_album_counts_for_server, label_album_counts_query,
+    mood_album_counts_for_server, mood_album_counts_query, overlay_album_artist_links,
+    overlay_album_level_starred_at, reconcile_album_stars, reconcile_artist_stars,
+    StarredAlbumReconcileItem, StarredArtistReconcileItem,
 };
 use crate::dto::LibraryAlbumDto;
 
@@ -478,6 +479,67 @@ fn mood_album_counts_query_reads_only_the_mood_projection() {
         "query plan did not use the mood browse projection: {plan:?}"
     );
 
+    assert!(
+        plan.iter().all(|detail| {
+            !detail.contains("sqlite_autoindex_track_1") && !detail.contains("idx_track_server")
+        }),
+        "query plan unexpectedly joined the track table: {plan:?}"
+    );
+}
+
+#[test]
+fn label_album_counts_group_distinct_albums_and_respect_library_scope() {
+    let store = Arc::new(LibraryStore::open_in_memory());
+
+    let mut t1 = make_row("s1", "t1", "al_a", 1);
+    t1.library_id = Some("lib1".into());
+    t1.raw_json = serde_json::json!({ "tags": { "recordlabel": ["Warp"] } }).to_string();
+
+    let mut t2 = make_row("s1", "t2", "al_a", 2);
+    t2.library_id = Some("lib1".into());
+    t2.raw_json = serde_json::json!({ "tags": { "recordlabel": ["warp"] } }).to_string();
+
+    let mut t3 = make_row("s1", "t3", "al_b", 1);
+    t3.library_id = Some("lib2".into());
+    t3.raw_json = serde_json::json!({ "recordLabels": [{ "name": "Warp" }, { "name": "Bleep" }] })
+        .to_string();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[t1, t2, t3])
+        .unwrap();
+
+    let counts = label_album_counts_for_server(&store, "s1", &[]).unwrap();
+    let summary: Vec<(String, u32, u32)> = counts
+        .iter()
+        .map(|row| (row.value.to_lowercase(), row.album_count, row.song_count))
+        .collect();
+    assert_eq!(summary, vec![("warp".into(), 2, 3), ("bleep".into(), 1, 1)]);
+
+    let scoped = label_album_counts_for_server(&store, "s1", &["lib1".to_string()]).unwrap();
+    assert_eq!(scoped.len(), 1);
+    assert_eq!((scoped[0].album_count, scoped[0].song_count), (1, 2));
+}
+
+#[test]
+fn label_album_counts_query_reads_only_the_label_projection() {
+    let store = LibraryStore::open_in_memory();
+    let (sql, params) = label_album_counts_query("s1", &["lib1".to_string(), "lib2".to_string()]);
+    let plan = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}"))?;
+            let rows = stmt
+                .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+                    row.get::<_, String>(3)
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .unwrap();
+    assert!(
+        plan.iter()
+            .any(|detail| detail.contains("idx_track_label_browse")),
+        "query plan did not use the label browse projection: {plan:?}"
+    );
     assert!(
         plan.iter().all(|detail| {
             !detail.contains("sqlite_autoindex_track_1") && !detail.contains("idx_track_server")

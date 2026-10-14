@@ -217,6 +217,12 @@ fn apply_fast_track_retargets(tx: &Transaction<'_>, server_id: &str) -> rusqlite
         params![server_id],
     )?;
     tx.execute(
+        "DELETE FROM track_label \
+         WHERE server_id = ?1 AND track_id IN \
+           (SELECT old_id FROM navidrome_fast_track_mapping)",
+        params![server_id],
+    )?;
+    tx.execute(
         "INSERT INTO track_id_history \
          (server_id, old_id, new_id, content_hash, server_path, remapped_at) \
          SELECT ?1, old_id, new_id, content_hash, server_path, remapped_at \

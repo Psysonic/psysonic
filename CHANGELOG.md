@@ -20,6 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Device Sync → Format** can store tracks as MP3, AAC or Opus with a maximum bitrate instead of the original files; your server converts them while syncing. The format must be enabled in the server's transcoding settings.
 * Copies are replaced in place when the format or bitrate changes, or when the file on the server changes. Devices synced before keep their original files until another format is chosen.
 
+### Browse by record label
+
+**By [@circle3451](https://github.com/circle3451), PR [#1682](https://github.com/Psysonic/psysonic/pull/1682)**
+
+* A new **Labels** entry in the sidebar lists the record labels in your library, A–Z, with a filter box, a letter jump bar and the album count of each label. It covers every server and library you browse, like Genres and Moods. It is hidden by default; turn it on under **Settings → Personalisation → Sidebar**.
+* Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, loading more as you scroll. Labels come from the local library index, which is updated once in the background after upgrading.
+
 ### Track subtitles and album versions from Navidrome
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1662](https://github.com/Psysonic/psysonic/pull/1662)**
