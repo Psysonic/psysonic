@@ -37,7 +37,6 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>(resolveTab((routeState as { tab?: string } | null)?.tab));
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchResults, setSearchResults] = useState<SettingsSearchHit[]>([]);
   const [selectedResultIdx, setSelectedResultIdx] = useState(0);
   const [pendingFocus, setPendingFocus] = useState<PendingFocus | null>(null);
   const [pendingServerInvite, setPendingServerInvite] = useState<ServerMagicPayload | null>(null);
@@ -71,17 +70,14 @@ export default function Settings() {
   // Section (generierter Index), tippfehlertolerant. Ergebnis ist eine flache
   // Liste nach Score, bei Gleichstand aktueller Tab zuerst. Wenn eine Query
   // aktiv ist, wird der Tab-Content nicht gerendert und stattdessen die
-  // Ergebnisliste angezeigt.
-  useEffect(() => {
-    // React Compiler set-state-in-effect rule: local state synced with store/prop inputs when the effect’s dependencies change.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSearchResults(searchSettings(searchQuery, activeTab, t, {
-      tEn,
-      advancedEnabled: auth.advancedSettingsEnabled,
-      usersAvailable: ndAdminAuth !== null,
-    }));
-    setSelectedResultIdx(0);
-  }, [searchQuery, activeTab, t, tEn, auth.advancedSettingsEnabled, ndAdminAuth]);
+  // Ergebnisliste angezeigt. Abgeleitet statt als State: ein Effekt, der die
+  // Liste setzt, rendert die Seite nach dem Admin-Login fuer den Users-Tab
+  // ein weiteres Mal.
+  const searchResults = useMemo(() => searchSettings(searchQuery, activeTab, t, {
+    tEn,
+    advancedEnabled: auth.advancedSettingsEnabled,
+    usersAvailable: ndAdminAuth !== null,
+  }), [searchQuery, activeTab, t, tEn, auth.advancedSettingsEnabled, ndAdminAuth]);
 
   // Selektion ins Blickfeld scrollen (nur wenn das Item out-of-view ist).
   useEffect(() => {
@@ -216,7 +212,10 @@ export default function Settings() {
                 type="search"
                 className="input settings-search-input"
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setSelectedResultIdx(0);
+                }}
                 placeholder={`${t('settings.searchPlaceholder')} (${IS_MACOS ? '⌘F' : 'Ctrl+F'})`}
                 aria-label={t('settings.searchPlaceholder')}
                 autoFocus
