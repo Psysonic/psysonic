@@ -7,5 +7,9 @@ export const moods = {
   loading: 'Caricamento degli stati d’animo…',
   empty: 'Nessuno stato d’animo trovato.',
   albumsEmpty: 'Nessun album trovato per questo stato d’animo.',
+  albumsTab: "Album",
+  tracksTab: "Brani",
+  viewTabsLabel: "Risultati per stato d’animo",
+  tracksEmpty: "Nessun brano trovato per questo stato d’animo.",
   back: 'Indietro',
 };

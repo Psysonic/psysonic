@@ -7,5 +7,9 @@ export const moods = {
   loading: 'Stemmingen laden…',
   empty: 'Geen stemmingen gevonden.',
   albumsEmpty: 'Geen albums gevonden voor deze stemming.',
+  albumsTab: "Albums",
+  tracksTab: "Nummers",
+  viewTabsLabel: "Stemmingsresultaten",
+  tracksEmpty: "Geen nummers gevonden voor deze stemming.",
   back: 'Terug',
 };

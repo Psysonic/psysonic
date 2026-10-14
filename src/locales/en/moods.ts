@@ -7,5 +7,9 @@ export const moods = {
   loading: 'Loading moods…',
   empty: 'No moods found.',
   albumsEmpty: 'No albums found for this mood.',
+  albumsTab: "Albums",
+  tracksTab: "Tracks",
+  viewTabsLabel: "Mood results",
+  tracksEmpty: "No tracks found for this mood.",
   back: 'Back',
 };

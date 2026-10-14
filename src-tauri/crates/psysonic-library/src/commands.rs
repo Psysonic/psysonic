@@ -779,6 +779,18 @@ pub async fn library_list_albums_by_mood(
         .await
 }
 
+// NOT specta-collected: response contains LibraryTrackDto.raw_json (serde_json::Value).
+#[tauri::command]
+pub async fn library_list_tracks_by_mood(
+    runtime: State<'_, LibraryRuntime>,
+    request: crate::dto::LibraryMoodTracksRequest,
+) -> Result<crate::dto::LibraryMoodTracksResponse, String> {
+    let store = Arc::clone(&runtime.store);
+
+    library_spawn_blocking(move || crate::mood_track_browse::list_tracks_by_mood(&store, &request))
+        .await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub fn library_genre_tags_inspect(
