@@ -495,6 +495,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Lyrics — show server-provided translations under the lyrics (PR #1721)',
       'Playlists — tags with filter chips on the Playlists page (PR #1730)',
       'Tracks — explicit badges and optional cover blur (PR #1731)',
+      'Settings — full-text search across every option, typo-tolerant (PR #1747)',
     ],
   },
   {

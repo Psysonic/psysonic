@@ -189,6 +189,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * ⌘, on macOS and Ctrl+, on Windows and Linux open Settings from any view. The shortcut can be changed or cleared under **Settings → Input → Keyboard shortcuts**.
 * If one of your shortcuts already uses that key combination, it keeps it, and **Open settings** starts unassigned.
 
+### Settings search finds every option
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1747](https://github.com/Psysonic/psysonic/pull/1747)**
+
+* The search in Settings now looks through every option, its choices and hints, not only the section names. For example, `sharing` or `downloads` lead to **Integrations → Navidrome → Navidrome sharing**.
+* Each result names the option that matched; selecting it opens the section and highlights that option.
+* Small typos are forgiven, and English terms work in every UI language.
+* Sections that only appear in Advanced Mode, and the Users tab, show up in the results only when they are available.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
