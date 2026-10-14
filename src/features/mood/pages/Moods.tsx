@@ -11,11 +11,38 @@ import { deriveLibraryBrowseIndexScopes } from '@/lib/library/libraryBrowseScope
 import { genreColor } from '@/lib/library/genreColor';
 import { useAuthStore } from '@/store/authStore';
 import { useLibrarySyncRevision } from '@/store/offlineLocalLibrarySyncRevision';
+import TagCatalogToolbar, { type TagCatalogSort } from '@/ui/TagCatalogToolbar';
 
-const SCROLL_KEY = 'moods-scroll';
+const RETURN_STATE_KEY = 'moods-return-state';
+const SORT_KEY = 'moods-sort';
 
 const FONT_MIN_REM = 0.78;
 const FONT_MAX_REM = 1.7;
+
+interface CatalogReturnState {
+  search: string;
+  scrollTop: number;
+}
+
+function readReturnState(): CatalogReturnState | null {
+  const raw = sessionStorage.getItem(RETURN_STATE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<CatalogReturnState>;
+    if (typeof parsed.search !== 'string' || typeof parsed.scrollTop !== 'number' || !Number.isFinite(parsed.scrollTop)) {
+      return null;
+    }
+    return { search: parsed.search, scrollTop: parsed.scrollTop };
+  } catch {
+    return null;
+  }
+}
+
+function readSort(): TagCatalogSort {
+  return sessionStorage.getItem(SORT_KEY) === 'alphabetical'
+    ? 'alphabetical'
+    : 'popularity';
+}
 
 function mergeMoodCatalogs(
   catalogs: readonly MoodAlbumCountRow[][],
@@ -50,6 +77,8 @@ function mergeMoodCatalogs(
 export default function Moods() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [search, setSearch] = useState(() => readReturnState()?.search ?? '');
+  const [sort, setSort] = useState<TagCatalogSort>(readSort);
 
   const musicLibraryFilterVersion = useAuthStore(
     s => s.musicLibraryFilterVersion,
@@ -118,33 +147,37 @@ export default function Moods() {
     librarySyncRevision,
   ]);
 
-  const moods = useMemo(
-    () =>
-      [...rawMoods].sort(
-        (a, b) =>
-          b.albumCount - a.albumCount ||
-          a.value.localeCompare(b.value),
-      ),
-    [rawMoods],
-  );
+  const catalogMoods = rawMoods;
+  const searchActive = search.trim().length > 0;
+
+  const moods = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    const filtered = query
+      ? catalogMoods.filter(mood => mood.value.toLocaleLowerCase().includes(query))
+      : [...catalogMoods];
+
+    return filtered.sort((a, b) => (
+      sort === 'alphabetical'
+        ? a.value.localeCompare(b.value)
+        : b.albumCount - a.albumCount || a.value.localeCompare(b.value)
+    ));
+  }, [catalogMoods, search, sort]);
 
   const maxLog = useMemo(() => {
-    if (moods.length === 0) return 1;
+    if (catalogMoods.length === 0) return 1;
 
     return Math.log(
-      Math.max(2, moods[0].albumCount),
+      Math.max(2, ...catalogMoods.map(mood => mood.albumCount)),
     );
-  }, [moods]);
+  }, [catalogMoods]);
 
   useEffect(() => {
-    if (loading || moods.length === 0) return;
+    if (loading) return;
 
-    const saved = sessionStorage.getItem(SCROLL_KEY);
+    const saved = readReturnState();
     if (!saved) return;
 
-    const pos = parseInt(saved, 10);
-
-    sessionStorage.removeItem(SCROLL_KEY);
+    sessionStorage.removeItem(RETURN_STATE_KEY);
 
     requestAnimationFrame(() => {
       const el = document.getElementById(
@@ -152,22 +185,28 @@ export default function Moods() {
       );
 
       if (el) {
-        el.scrollTop = pos;
+        el.scrollTop = saved.scrollTop;
       }
     });
-  }, [loading, moods.length]);
+  }, [loading]);
+
+  const handleSortChange = (next: TagCatalogSort) => {
+    setSort(next);
+    sessionStorage.setItem(SORT_KEY, next);
+  };
 
   const handleMoodClick = (moodValue: string) => {
     const el = document.getElementById(
       APP_MAIN_SCROLL_VIEWPORT_ID,
     );
 
-    if (el) {
-      sessionStorage.setItem(
-        SCROLL_KEY,
-        String(el.scrollTop),
-      );
-    }
+    sessionStorage.setItem(
+      RETURN_STATE_KEY,
+      JSON.stringify({
+        search,
+        scrollTop: el?.scrollTop ?? 0,
+      } satisfies CatalogReturnState),
+    );
 
     navigate(
       `/moods/${encodeURIComponent(moodValue)}`,
@@ -180,7 +219,11 @@ export default function Moods() {
   };
 
   return (
-    <div className="content-body animate-fade-in">
+    <div
+      className="content-body animate-fade-in"
+      data-benchmark-tag-catalog="moods"
+      data-benchmark-result-count={moods.length}
+    >
       <div className="psy-page-heading psy-page-heading--spaced">
         <h1
           className="page-title truncate"
@@ -189,15 +232,32 @@ export default function Moods() {
           {t('moods.title', )}
         </h1>
 
-        {!loading && moods.length > 0 && (
+        {!loading && catalogMoods.length > 0 && (
           <span className="psy-page-heading__count">
             <span aria-hidden="true">–</span>
 
-            {moods.length}{' '}
-            {t('moods.moodCount', { count: moods.length })}
+            {searchActive
+              ? t('moods.filteredCount', { visible: moods.length, total: catalogMoods.length })
+              : `${catalogMoods.length} ${t('moods.moodCount', { count: catalogMoods.length })}`}
           </span>
         )}
       </div>
+
+      {!loading && catalogMoods.length > 0 && (
+        <TagCatalogToolbar
+          query={search}
+          onQueryChange={setSearch}
+          sort={sort}
+          onSortChange={handleSortChange}
+          searchPlaceholder={t('moods.searchPlaceholder')}
+          searchAriaLabel={t('moods.searchLabel')}
+          clearSearchLabel={t('moods.clearSearch')}
+          sortAriaLabel={t('moods.sortLabel')}
+          popularityLabel={t('moods.sortPopularity')}
+          alphabeticalLabel={t('moods.sortAlphabetical')}
+          benchmarkKind="moods"
+        />
+      )}
 
       {loading && (
         <p className="loading-text">
@@ -205,9 +265,15 @@ export default function Moods() {
         </p>
       )}
 
-      {!loading && moods.length === 0 && (
+      {!loading && catalogMoods.length === 0 && (
         <p className="loading-text">
           {t('moods.empty', )}
+        </p>
+      )}
+
+      {!loading && catalogMoods.length > 0 && moods.length === 0 && searchActive && (
+        <p className="loading-text">
+          {t('moods.noSearchResults', { query: search.trim() })}
         </p>
       )}
 
