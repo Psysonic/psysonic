@@ -23,6 +23,16 @@ export type AlbumBrowseCompFilter = 'all' | 'only' | 'hide';
 /** Album grid browse surfaces that share leave-restore session behavior. */
 export type AlbumBrowseSurface = 'albums' | 'new-releases' | 'random-albums';
 
+export type MoodDetailTabScrollSnapshot = {
+  scrollTop: number;
+  displayCount: number;
+};
+
+export type MoodDetailTabScrollSnapshots = {
+  albums: MoodDetailTabScrollSnapshot;
+  tracks: MoodDetailTabScrollSnapshot;
+};
+
 /** Browse state restored when returning via browser/app back from album detail. */
 export interface AlbumBrowseReturnFilters {
   selectedGenres: string[];
@@ -57,6 +67,8 @@ interface AlbumBrowseSessionStore {
   sortByServer: Record<string, AlbumBrowseSort>;
   /** Stashed when leaving a browse surface → album detail; consumed after scroll restore. */
   returnStashByKey: Record<string, AlbumBrowseReturnFilters>;
+  /** Mood-detail Albums/Tracks positions kept for the lifetime of that browse session. */
+  moodDetailTabScrollByKey: Record<string, MoodDetailTabScrollSnapshots>;
   setSort: (serverId: string, sort: AlbumBrowseSort) => void;
   stashReturnFilters: (
     serverId: string,
@@ -86,6 +98,15 @@ function sortEntryFor(
   return sortByServer[serverId] ?? DEFAULT_ALBUM_BROWSE_SORT;
 }
 
+function cloneMoodDetailTabScrollSnapshots(
+  snapshots: MoodDetailTabScrollSnapshots,
+): MoodDetailTabScrollSnapshots {
+  return {
+    albums: { ...snapshots.albums },
+    tracks: { ...snapshots.tracks },
+  };
+}
+
 function cloneReturnFilters(filters: AlbumBrowseReturnFilters): AlbumBrowseReturnFilters {
   return {
     selectedGenres: [...filters.selectedGenres],
@@ -105,6 +126,7 @@ function cloneReturnFilters(filters: AlbumBrowseReturnFilters): AlbumBrowseRetur
 export const useAlbumBrowseSessionStore = create<AlbumBrowseSessionStore>((set, get) => ({
   sortByServer: {},
   returnStashByKey: {},
+  moodDetailTabScrollByKey: {},
 
   setSort: (serverId, sort) => {
     if (!serverId) return;
@@ -265,6 +287,48 @@ export function peekMoodDetailScrollRestore(
     scrollTop: Math.max(0, stash.scrollTop),
     displayCount: Math.max(0, stash.displayCount),
   };
+}
+
+export function stashMoodDetailTabScrollSnapshots(
+  serverId: string,
+  moodName: string,
+  snapshots: MoodDetailTabScrollSnapshots,
+): void {
+  if (!serverId || !moodName) return;
+  const key = moodDetailStashKey(serverId, moodName);
+  useAlbumBrowseSessionStore.setState((state) => ({
+    moodDetailTabScrollByKey: {
+      ...state.moodDetailTabScrollByKey,
+      [key]: cloneMoodDetailTabScrollSnapshots(snapshots),
+    },
+  }));
+}
+
+export function clearMoodDetailTabScrollSnapshots(
+  serverId: string,
+  moodName: string,
+): void {
+  if (!serverId || !moodName) return;
+  const key = moodDetailStashKey(serverId, moodName);
+  useAlbumBrowseSessionStore.setState((state) => {
+    const next = { ...state.moodDetailTabScrollByKey };
+    delete next[key];
+    return { moodDetailTabScrollByKey: next };
+  });
+}
+
+export function peekMoodDetailTabScrollSnapshots(
+  serverId: string,
+  moodName: string,
+): MoodDetailTabScrollSnapshots | null {
+  if (!serverId || !moodName) return null;
+  const snapshots =
+    useAlbumBrowseSessionStore.getState().moodDetailTabScrollByKey[
+      moodDetailStashKey(serverId, moodName)
+    ];
+  return snapshots
+    ? cloneMoodDetailTabScrollSnapshots(snapshots)
+    : null;
 }
 
 export function albumBrowseSortForServer(

@@ -12,5 +12,9 @@ export const moods = {
   loading: 'Завантаження настроїв…',
   empty: 'Настроїв не знайдено.',
   albumsEmpty: 'Для цього настрою альбомів не знайдено.',
+  albumsTab: "Альбоми",
+  tracksTab: "Треки",
+  viewTabsLabel: "Результати за настроєм",
+  tracksEmpty: "Для цього настрою треків не знайдено.",
   back: 'Назад',
 };

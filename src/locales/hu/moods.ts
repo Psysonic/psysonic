@@ -7,5 +7,9 @@ export const moods = {
   loading: 'Hangulatok betöltése…',
   empty: 'Nem találhatók hangulatok.',
   albumsEmpty: 'Nem található album ehhez a hangulathoz.',
+  albumsTab: "Albumok",
+  tracksTab: "Számok",
+  viewTabsLabel: "Hangulati találatok",
+  tracksEmpty: "Nem találhatók számok ehhez a hangulathoz.",
   back: 'Vissza',
 };

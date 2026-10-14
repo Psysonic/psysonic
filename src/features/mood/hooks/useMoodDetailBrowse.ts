@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   type RefObject,
 } from 'react';
@@ -16,11 +17,15 @@ import {
   DEFAULT_ALBUM_BROWSE_RETURN_FILTERS,
   albumBrowseSortForServer,
   clearMoodDetailReturnStash,
+  clearMoodDetailTabScrollSnapshots,
   isAlbumDetailPath,
+  isArtistDetailPath,
   isMoodDetailPath,
   moodDetailMoodFromPath,
   peekMoodDetailScrollRestore,
+  peekMoodDetailTabScrollSnapshots,
   stashMoodDetailReturnFilters,
+  stashMoodDetailTabScrollSnapshots,
   useAlbumBrowseSessionStore,
   type AlbumBrowseScrollSnapshot,
 } from '@/features/album';
@@ -36,6 +41,8 @@ export function useMoodDetailBrowse(
   serverId: string,
   moodName: string,
   scrollSnapshotRef?: RefObject<AlbumBrowseScrollSnapshot>,
+  albumScrollSnapshotRef?: RefObject<AlbumBrowseScrollSnapshot>,
+  trackScrollSnapshotRef?: RefObject<AlbumBrowseScrollSnapshot>,
 ) {
   const navigationType = useNavigationType();
   const location = useLocation();
@@ -49,28 +56,36 @@ export function useMoodDetailBrowse(
 
   const restoredFromStashRef =
     useRef(false);
-  const restoreKeyRef = useRef('');
-  const restoreDisplayCountRef =
-    useRef<number | undefined>(undefined);
 
-  const restoreKey =
-    `${serverId}:${moodName}`;
-
-  // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
-  // eslint-disable-next-line react-hooks/refs
-  if (restoreKeyRef.current !== restoreKey) {
-    // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
-    // eslint-disable-next-line react-hooks/refs
-    restoreKeyRef.current = restoreKey;
-
-    // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
-    // eslint-disable-next-line react-hooks/refs
-    restoreDisplayCountRef.current =
-      peekMoodDetailScrollRestore(
+  const restoreTabScrollSnapshots = useMemo(
+    () =>
+      peekMoodDetailTabScrollSnapshots(
         serverId,
         moodName,
-      )?.displayCount;
-  }
+      ),
+    [serverId, moodName],
+  );
+
+  const restoreSnapshot = useMemo(
+    () => ({
+      displayCount:
+        peekMoodDetailScrollRestore(
+          serverId,
+          moodName,
+        )?.displayCount,
+      view:
+        new URLSearchParams(
+          location.search,
+        ).get('view') === 'tracks'
+          ? 'tracks' as const
+          : 'albums' as const,
+    }),
+    [
+      serverId,
+      moodName,
+      location.search,
+    ],
+  );
 
   useEffect(() => {
     restoredFromStashRef.current = false;
@@ -97,6 +112,10 @@ export function useMoodDetailBrowse(
       serverId,
       moodName,
     );
+    clearMoodDetailTabScrollSnapshots(
+      serverId,
+      moodName,
+    );
   }, [
     serverId,
     moodName,
@@ -105,23 +124,63 @@ export function useMoodDetailBrowse(
   ]);
 
   useEffect(() => {
+    const snapshot = scrollSnapshotRef?.current;
+    const albumSnapshot =
+      albumScrollSnapshotRef?.current;
+    const trackSnapshot =
+      trackScrollSnapshotRef?.current;
+
     return () => {
       if (!serverId || !moodName) return;
 
       const path =
         window.location.pathname;
 
-      if (isAlbumDetailPath(path)) {
-        // Read at cleanup time on purpose: we want the scroll snapshot as it is
-        // at navigation-away. Copying it at effect setup would stash a stale value.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        const snapshot = scrollSnapshotRef?.current;
-
+      if (
+        isAlbumDetailPath(path) ||
+        isArtistDetailPath(path)
+      ) {
         const scrollTop = Math.max(
           readInpageScrollTop(
             MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID,
           ),
           snapshot?.scrollTop ?? 0,
+        );
+
+        const activeView =
+          new URLSearchParams(
+            location.search,
+          ).get('view') === 'tracks'
+            ? 'tracks'
+            : 'albums';
+        const activeDisplayCount =
+          snapshot?.displayCount ?? 0;
+
+        stashMoodDetailTabScrollSnapshots(
+          serverId,
+          moodName,
+          {
+            albums: {
+              scrollTop:
+                activeView === 'albums'
+                  ? scrollTop
+                  : albumSnapshot?.scrollTop ?? 0,
+              displayCount:
+                activeView === 'albums'
+                  ? activeDisplayCount
+                  : albumSnapshot?.displayCount ?? 0,
+            },
+            tracks: {
+              scrollTop:
+                activeView === 'tracks'
+                  ? scrollTop
+                  : trackSnapshot?.scrollTop ?? 0,
+              displayCount:
+                activeView === 'tracks'
+                  ? activeDisplayCount
+                  : trackSnapshot?.displayCount ?? 0,
+            },
+          },
         );
 
         stashMoodDetailReturnFilters(
@@ -131,7 +190,7 @@ export function useMoodDetailBrowse(
             ...DEFAULT_ALBUM_BROWSE_RETURN_FILTERS,
             scrollTop,
             displayCount:
-              snapshot?.displayCount,
+              activeDisplayCount,
           },
         );
       } else if (
@@ -143,18 +202,27 @@ export function useMoodDetailBrowse(
           serverId,
           moodName,
         );
+        clearMoodDetailTabScrollSnapshots(
+          serverId,
+          moodName,
+        );
       }
     };
   }, [
     serverId,
     moodName,
+    location.search,
     scrollSnapshotRef,
+    albumScrollSnapshotRef,
+    trackScrollSnapshotRef,
   ]);
 
   return {
     sort,
-    // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
-    // eslint-disable-next-line react-hooks/refs
-    restoreDisplayCount: restoreDisplayCountRef.current,
+    restoreDisplayCount:
+      restoreSnapshot.displayCount,
+    // The saved count belongs to whichever tab was visible when detail navigation began.
+    restoreView: restoreSnapshot.view,
+    restoreTabScrollSnapshots,
   };
 }
