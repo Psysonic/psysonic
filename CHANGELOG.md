@@ -366,6 +366,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * After uploading an image with the camera button on an artist page, the round picture, the header background and the picture under **About the artist** kept showing the previous image. All three now switch to the new image right away, also when you upload again.
 * Root cause: the upload did not clear the saved copies of the artist's picture, and with Navidrome the round picture loaded an address that stays the same after an upload, so the old image was shown again.
 
+### Servers connect again when a system proxy is set
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by noaccou on GitHub, PR [#1749](https://github.com/Psysonic/psysonic/pull/1749)**
+
+* With an HTTP or HTTPS proxy set in the system network settings, the library sync, covers and streaming sent their requests through that proxy — on macOS also for servers listed under **Bypass proxy settings for these Hosts & Domains** — and failed with "no bound session" or "error sending request". Psysonic no longer uses the system proxy settings, as up to 1.53.
+* Root cause: a dependency update in 1.54.0 made the app read the system proxy settings, but on macOS without the list of hosts to bypass.
+
 ## [1.55.0]
 
 ## Added
