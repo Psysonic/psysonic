@@ -234,6 +234,8 @@ export interface AuthState {
   minimizeToTray: boolean;
   /** Cold start: keep the main window hidden and run in the system tray. */
   startMinimizedToTray: boolean;
+  /** Desktop notification on each new track (and radio title) while no Psysonic window has focus. */
+  trackChangeNotificationsEnabled: boolean;
   clockFormat: ClockFormat;
   /** Whether the "Orbit" topbar trigger is rendered. Users who never
    *  touch Orbit can hide it so the header stays uncluttered. */
@@ -506,6 +508,7 @@ export interface AuthState {
   setShowTrayIcon: (v: boolean) => void;
   setMinimizeToTray: (v: boolean) => void;
   setStartMinimizedToTray: (v: boolean) => void;
+  setTrackChangeNotificationsEnabled: (v: boolean) => void;
   setClockFormat: (v: ClockFormat) => void;
   setShowOrbitTrigger: (v: boolean) => void;
   setDiscordRichPresence: (v: boolean) => void;

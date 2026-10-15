@@ -19,6 +19,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setShowTrayIcon'
   | 'setMinimizeToTray'
   | 'setStartMinimizedToTray'
+  | 'setTrackChangeNotificationsEnabled'
   | 'setClockFormat'
   | 'setShowOrbitTrigger'
   | 'setUseCustomTitlebar'
@@ -62,6 +63,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
       startMinimizedToTray: v,
       ...(v && !state.showTrayIcon ? { showTrayIcon: true } : {}),
     })),
+    setTrackChangeNotificationsEnabled: (v) => set({ trackChangeNotificationsEnabled: v }),
     setClockFormat: (v) => set({ clockFormat: v }),
     setShowOrbitTrigger: (v) => set({ showOrbitTrigger: v }),
     setUseCustomTitlebar: (v) => set({ useCustomTitlebar: v }),
