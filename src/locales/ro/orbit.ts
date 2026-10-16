@@ -1,7 +1,7 @@
 export const orbit = {
   triggerLabel: 'Orbit',
   triggerTooltip: 'Pornește sau intră în o sesiune de ascultare distribuită',
-  launchCreate: 'Crează o sesiune',
+  launchCreate: 'Creează o sesiune',
   launchJoin: 'Intră într-o sesiune',
   launchHelp: 'Cum funcționează asta?',
   launchHelpSoon: 'În curând',
