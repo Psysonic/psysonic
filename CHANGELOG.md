@@ -400,6 +400,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The host's session settings button had no name for screen readers, and the participants button was read only as its count. They are now announced as "Session settings" and "Participants: 1/10".
 
+### The Orbit join dialog explains failures in the app language
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1765](https://github.com/Psysonic/psysonic/pull/1765)**
+
+* When joining a session from **Orbit → Join a session** failed, the dialog showed an internal English message with the session id, for example "Session abc123 is full (10/10)". It now shows the reason in the app language, as pasting an invite link already did.
+
 ## [1.55.0]
 
 ## Added
