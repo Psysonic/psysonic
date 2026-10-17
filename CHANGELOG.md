@@ -412,6 +412,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The offline button on a playlist page always offered **Cache playlist offline**, also while the playlist was waiting, downloading or already saved, so a saved playlist could not be removed from its page. The button now shows the queue, the download progress and **Remove from offline cache** as on album pages.
 
+### Offline playlists keep tracks they share with an offline album
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1767](https://github.com/Psysonic/psysonic/pull/1767)**
+
+* When a playlist was cached offline while some of its tracks were already saved through an album, those tracks did not count for the playlist: the playlist was not complete, and removing the album from the offline cache deleted them although the playlist still listed them. Tracks already saved now belong to the playlist as well, and only the missing ones are downloaded.
+
 ## [1.55.0]
 
 ## Added
