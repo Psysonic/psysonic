@@ -29,6 +29,20 @@ export class OrbitJoinError extends Error {
   }
 }
 
+export const ORBIT_JOIN_ERROR_KEYS: Record<OrbitJoinError['reason'], string> = {
+  'not-found': 'orbit.joinErrNotFound',
+  ended: 'orbit.joinErrEnded',
+  full: 'orbit.joinErrFull',
+  kicked: 'orbit.joinErrKicked',
+  'no-user': 'orbit.joinErrNoUser',
+  'server-error': 'orbit.joinErrServerError',
+};
+
+/** i18n key for a failed join: the text for its reason, or the generic failure. */
+export function orbitJoinErrorKey(err: unknown): string {
+  return err instanceof OrbitJoinError ? ORBIT_JOIN_ERROR_KEYS[err.reason] : 'orbit.toastJoinFail';
+}
+
 /**
  * Guest: join an existing session by id.
  *
