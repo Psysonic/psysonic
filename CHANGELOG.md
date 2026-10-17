@@ -406,6 +406,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * When joining a session from **Orbit → Join a session** failed, the dialog showed an internal English message with the session id, for example "Session abc123 is full (10/10)". It now shows the reason in the app language, as pasting an invite link already did.
 
+### The playlist page shows whether the playlist is offline
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1766](https://github.com/Psysonic/psysonic/pull/1766)**
+
+* The offline button on a playlist page always offered **Cache playlist offline**, also while the playlist was waiting, downloading or already saved, so a saved playlist could not be removed from its page. The button now shows the queue, the download progress and **Remove from offline cache** as on album pages.
+
 ## [1.55.0]
 
 ## Added
