@@ -394,6 +394,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * In a narrow window, the back button of the Now Playing view was announced as "player.back". It is now read as "Back" in the app language.
 
+### Screen readers name two buttons in the Orbit session bar
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1764](https://github.com/Psysonic/psysonic/pull/1764)**
+
+* The host's session settings button had no name for screen readers, and the participants button was read only as its count. They are now announced as "Session settings" and "Participants: 1/10".
+
 ## [1.55.0]
 
 ## Added
