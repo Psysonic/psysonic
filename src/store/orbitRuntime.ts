@@ -32,6 +32,8 @@ export interface OrbitRuntime {
   getSnapshot(): OrbitSnapshot;
   bulkGuard(count: number): Promise<boolean>;
   allowsTrackServer(serverId?: string): boolean;
+  /** Guest: send tracks to the host as suggestions. */
+  suggestTracks?(tracks: ReadonlyArray<{ id: string; serverId?: string }>): Promise<void>;
 }
 
 let runtime: OrbitRuntime | null = null;
@@ -57,6 +59,19 @@ export function orbitSnapshot(): OrbitSnapshot {
  */
 export function orbitBulkGuard(count: number): Promise<boolean> {
   return runtime ? runtime.bulkGuard(count) : Promise.resolve(true);
+}
+
+/**
+ * A guest who follows the host has no queue of their own (the next host sync
+ * replaces it), so queue additions go to the host as suggestions instead. True
+ * when the runtime took the tracks over; callers then skip their local queue
+ * change.
+ */
+export function orbitGuestTakesQueueAdd(tracks: ReadonlyArray<{ id: string; serverId?: string }>): boolean {
+  const { role, phase } = orbitSnapshot();
+  if (role !== 'guest' || phase !== 'active' || !runtime?.suggestTracks) return false;
+  void runtime.suggestTracks(tracks);
+  return true;
 }
 
 /** Host queue mutations may only carry tracks owned by the bound Orbit server. */

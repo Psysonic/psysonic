@@ -18,6 +18,8 @@ import { suggestionKey } from '@/features/orbit/utils/helpers';
 import { notePendingSuggestion } from '@/features/orbit/utils/pendingResend';
 import { findSessionPlaylistId, readOrbitState, writeOrbitHeartbeat } from '@/features/orbit/utils/remote';
 import { orbitActionServerMatches } from '@/features/orbit/utils/orbitServerScope';
+import { showToast } from '@/lib/dom/toast';
+import i18n from '@/lib/i18n';
 
 export class OrbitJoinError extends Error {
   constructor(
@@ -237,6 +239,24 @@ export async function suggestOrbitTrack(trackId: string, trackServerId?: string)
   // lost-update re-send by notePendingSuggestion.
   useOrbitStore.getState().addPendingSuggestion(trackId);
   notePendingSuggestion(trackId);
+}
+
+/**
+ * Guest: suggest several tracks, one after another (each one reads and then
+ * appends to the outbox playlist, so in parallel they would overwrite each
+ * other), with one toast for the batch. Stops at the first refusal.
+ */
+export async function suggestOrbitTracks(tracks: ReadonlyArray<{ id: string; serverId?: string }>): Promise<void> {
+  try {
+    for (const track of tracks) await suggestOrbitTrack(track.id, track.serverId);
+    showToast(i18n.t('orbit.ctxSuggestedToast'), 2200, 'info');
+  } catch (err) {
+    if (err instanceof OrbitSuggestBlockedError && err.reason === 'muted') {
+      showToast(i18n.t('orbit.suggestBlockedMuted'), 3500, 'error');
+    } else {
+      showToast(i18n.t('orbit.ctxSuggestFailed'), 3000, 'error');
+    }
+  }
 }
 
 /**
