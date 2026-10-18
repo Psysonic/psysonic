@@ -482,6 +482,15 @@ export const commands = {
 	 */
 	coverCachePurgeExternalAlbumArt: (sources: string[] | null) => typedError<number, string>(__TAURI_INVOKE("cover_cache_purge_external_album_art", { sources })),
 	/**
+	 *  Drop the server art of ONE cover entity so the next ensure downloads it
+	 *  again (cover-art-pipeline contract §10) — run after the user uploads a new
+	 *  image for it. Takes the dir's flight lock first, so no ensure is mid-write.
+	 *  External-provider artifacts survive (see `purge_entity_server_art`).
+	 *  Returns the number of files removed. No event: the frontend that asked for
+	 *  the purge drops its own in-memory entries for the entity.
+	 */
+	coverCacheInvalidateEntity: (serverIndexKey: string, cacheKind: string, cacheEntityId: string) => typedError<number, string>(__TAURI_INVOKE("cover_cache_invalidate_entity", { serverIndexKey, cacheKind, cacheEntityId })),
+	/**
 	 *  Rename a server's cover-cache bucket on disk after the user edits the
 	 *  primary URL (and the derived index key changes). Used by the URL-change
 	 *  remigration pipeline (dual-server-address spec §8.3) so cached covers

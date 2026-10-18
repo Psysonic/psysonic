@@ -33,9 +33,8 @@ export async function ensureCoverTierDiskSrc(
   if (cached) return cached;
 
   const result = await coverCacheEnsure(ref, tier, 'high');
-  // Results carry `path|mtimeVersion` (cache-bust wire format); test the tier
-  // against the bare path.
-  const { path: barePath } = splitPathVersion(result.path);
+  // Test the tier against the bare path.
+  const { path: barePath, version } = splitPathVersion(result.path);
   const exactTier = new RegExp(`[\\\\/]${tier}\\.webp$`).test(barePath);
   // Chain-hit coverless albums (Navidrome `_0` sentinel) never have a real
   // 2000.webp — the chain writes only display tiers, and the vinyl guard
@@ -49,7 +48,13 @@ export async function ensureCoverTierDiskSrc(
     ref.fetchCoverArtId.endsWith('_0');
   if (!result.hit || !result.path || (!exactTier && !chainLadderServe)) return '';
 
-  const src = rememberDiskSrc(storageKey, result.path);
+  // The ensure result carries the tier's mtime as a separate `pathVersion`.
+  // Without it the asset URL stays the same when the tier is rewritten (a new
+  // upload), and the webview keeps showing the previous image for that URL.
+  const versioned = version || !result.pathVersion
+    ? result.path
+    : `${result.path}|${result.pathVersion}`;
+  const src = rememberDiskSrc(storageKey, versioned);
   if (src) {
     void invalidateCacheKey(storageKey);
   }

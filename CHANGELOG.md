@@ -183,6 +183,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Blur explicit covers** hides the cover art of those songs behind a soft blur; clicking an album cover still shows it in full. It is off by default; both options are in **Settings → Appearance → Visual Options**.
 * Works with servers that report explicit tags through OpenSubsonic, such as Navidrome.
 
+### Greek translation
+
+**By [@stefnto](https://github.com/stefnto), PR [#1737](https://github.com/Psysonic/psysonic/pull/1737)**
+
+* Full Greek (Ελληνικά) UI translation — selectable from the language picker on the Settings and Login screens.
+* Library matching now ignores Greek accents (tonos, dialytika) and the final sigma, so `Μάνος`, `Μανος` and `ΜΑΝΟΣ` resolve to the same entry. The first sync after the update rebuilds the library keys once.
+
+### Open Settings with a keyboard shortcut
+
+**By [@enncoded](https://github.com/enncoded), PR [#1734](https://github.com/Psysonic/psysonic/pull/1734)**
+
+* ⌘, on macOS and Ctrl+, on Windows and Linux open Settings from any view. The shortcut can be changed or cleared under **Settings → Input → Keyboard shortcuts**.
+* If one of your shortcuts already uses that key combination, it keeps it, and **Open settings** starts unassigned.
+
+### Settings search finds every option
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1747](https://github.com/Psysonic/psysonic/pull/1747)**
+
+* The search in Settings now looks through every option, its choices and hints, not only the section names. For example, `sharing` or `downloads` lead to **Integrations → Navidrome → Navidrome sharing**.
+* Each result names the option that matched; selecting it opens the section and highlights that option.
+* Small typos are forgiven, and English terms work in every UI language.
+* Sections that only appear in Advanced Mode, and the Users tab, show up in the results only when they are available.
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
@@ -345,6 +368,75 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1729](https://github.com/Psysonic/psysonic/pull/1729)**
 
 * The playlist and artist lists in Device Sync showed their song and album counts in English. They now use the app language; in Polish and Romanian the album count on the Artists page no longer switches to English for counts like 3 either.
+
+### The play queue survives a restart with play queue sync turned off
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1732](https://github.com/Psysonic/psysonic/pull/1732)**
+
+* With **Settings → Integrations → Navidrome → Play queue sync** turned off, Psysonic could bring back an older queue after a restart instead of the one you left. The queue and the current track now come back as you left them.
+* Root cause: the startup check still adopted the server queue, which is no longer updated while sync is off, and the mini player window saved its own outdated copy of the queue over the one from the main window.
+
+### A new artist image shows up right after uploading it
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by roman-redl on GitHub, PR [#1740](https://github.com/Psysonic/psysonic/pull/1740)**
+
+* After uploading an image with the camera button on an artist page, the round picture, the header background and the picture under **About the artist** kept showing the previous image. All three now switch to the new image right away, also when you upload again.
+* Root cause: the upload did not clear the saved copies of the artist's picture, and with Navidrome the round picture loaded an address that stays the same after an upload, so the old image was shown again.
+
+### Servers connect again when a system proxy is set
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by noaccou on GitHub, PR [#1749](https://github.com/Psysonic/psysonic/pull/1749)**
+
+* With an HTTP or HTTPS proxy set in the system network settings, the library sync, covers and streaming sent their requests through that proxy — on macOS also for servers listed under **Bypass proxy settings for these Hosts & Domains** — and failed with "no bound session" or "error sending request". Psysonic no longer uses the system proxy settings, as up to 1.53.
+* Root cause: a dependency update in 1.54.0 made the app read the system proxy settings, but on macOS without the list of hosts to bypass.
+
+### Orbit labels in Polish and Romanian are corrected
+
+**By [@Jah-yee](https://github.com/Jah-yee), PR [#1758](https://github.com/Psysonic/psysonic/pull/1758)**
+
+* Three Orbit labels in Polish and Romanian had spelling mistakes, and the Polish song menu entry for adding a song to the session read as "add an Orbit session".
+
+### Screen readers name the back button in the narrow Now Playing view
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1763](https://github.com/Psysonic/psysonic/pull/1763)**
+
+* In a narrow window, the back button of the Now Playing view was announced as "player.back". It is now read as "Back" in the app language.
+
+### Screen readers name two buttons in the Orbit session bar
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1764](https://github.com/Psysonic/psysonic/pull/1764)**
+
+* The host's session settings button had no name for screen readers, and the participants button was read only as its count. They are now announced as "Session settings" and "Participants: 1/10".
+
+### The Orbit join dialog explains failures in the app language
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1765](https://github.com/Psysonic/psysonic/pull/1765)**
+
+* When joining a session from **Orbit → Join a session** failed, the dialog showed an internal English message with the session id, for example "Session abc123 is full (10/10)". It now shows the reason in the app language, as pasting an invite link already did.
+
+### The playlist page shows whether the playlist is offline
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1766](https://github.com/Psysonic/psysonic/pull/1766)**
+
+* The offline button on a playlist page always offered **Cache playlist offline**, also while the playlist was waiting, downloading or already saved, so a saved playlist could not be removed from its page. The button now shows the queue, the download progress and **Remove from offline cache** as on album pages.
+
+### Offline playlists keep tracks they share with an offline album
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1767](https://github.com/Psysonic/psysonic/pull/1767)**
+
+* When a playlist was cached offline while some of its tracks were already saved through an album, those tracks did not count for the playlist: the playlist was not complete, and removing the album from the offline cache deleted them although the playlist still listed them. Tracks already saved now belong to the playlist as well, and only the missing ones are downloaded.
+
+### Orbit guests' queue additions reach the host
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1768](https://github.com/Psysonic/psysonic/pull/1768)**
+
+* As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
+
+### The Live window shows your other devices
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1769](https://github.com/Psysonic/psysonic/pull/1769)**
+
+* Playback on another device or client signed in with the same account did not appear in the Live window unless this Psysonic was playing at the same time. With Navidrome 0.62 or newer it now shows like any other listener. Older servers keep hiding entries of your own account while you are not playing, because they keep showing a stopped track for several minutes.
 
 ## [1.55.0]
 

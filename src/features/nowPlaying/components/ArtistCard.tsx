@@ -2,7 +2,7 @@ import React, { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useTranslation } from 'react-i18next';
 import { ExternalLink } from 'lucide-react';
 import type { SubsonicArtistInfo } from '@/lib/api/subsonicTypes';
-import { isRealArtistImage } from '@/cover/isRealArtistImage';
+import { isRealArtistImage, isServerArtworkUrl } from '@/cover/isRealArtistImage';
 import { sanitizeHtml } from '@/features/nowPlaying/utils/nowPlayingHelpers';
 import CachedImage from '@/ui/CachedImage';
 import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
@@ -22,7 +22,7 @@ interface ArtistCardProps {
   artistTabs?: ArtistCardTab[];
   /** When omitted the "Go to Artist" link and similar-artist chip click handlers do nothing — used on /artist/:id where the user is already there. */
   onNavigate?: (path: string) => void;
-  /** Render fallback cover when artistInfo has no hero image (ArtistDetail's coverArt fallback). */
+  /** Render fallback cover when artistInfo has no external hero image (ArtistDetail's coverArt fallback). */
   coverFallback?: { src: string; cacheKey: string };
   /** Suppress the artist-name row — ArtistDetail shows the name in its hero already. */
   hideArtistName?: boolean;
@@ -35,11 +35,15 @@ function heroForEntry(
   artistInfo: SubsonicArtistInfo | null,
   coverFallback?: { src: string; cacheKey: string },
 ): { heroImage: string; heroCacheKey: string } {
+  // Server art (Navidrome `/share/img/…`) uses the cover-pipeline fallback when
+  // one is given; only external URLs take precedence over it.
+  const usable = (url?: string) =>
+    isRealArtistImage(url) && !(coverFallback && isServerArtworkUrl(url));
   const rawLarge = artistInfo?.largeImageUrl;
   const rawMed = artistInfo?.mediumImageUrl;
-  const heroFromInfo = isRealArtistImage(rawLarge)
+  const heroFromInfo = usable(rawLarge)
     ? rawLarge!
-    : isRealArtistImage(rawMed) ? rawMed! : '';
+    : usable(rawMed) ? rawMed! : '';
   const heroImage = heroFromInfo || coverFallback?.src || '';
   const heroCacheKey = heroFromInfo
     ? (artistId ? `artistInfo:${artistId}:hero` : '')

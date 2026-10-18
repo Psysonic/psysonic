@@ -98,4 +98,33 @@ describe('ArtistCard — coverFallback', () => {
     const img = container.querySelector<HTMLImageElement>('img.np-dash-artist-image');
     expect(img!.getAttribute('src') || '').toContain('a-large.jpg');
   });
+
+  it('uses the fallback instead of the server’s own /share/img artwork URL', () => {
+    const serverArtInfo = {
+      biography: 'b',
+      largeImageUrl: 'https://music.example.test/share/img/token-abc?size=600',
+    } as unknown as SubsonicArtistInfo;
+    const { container } = renderWithProviders(
+      <ArtistCard
+        artistName="A"
+        artistId="art-1"
+        artistInfo={serverArtInfo}
+        coverFallback={{ src: 'https://fallback.test/cover.jpg', cacheKey: 'fb:art-1:cover' }}
+      />,
+    );
+    const img = container.querySelector<HTMLImageElement>('img.np-dash-artist-image');
+    expect(img!.getAttribute('src') || '').toContain('fallback.test');
+  });
+
+  it('keeps the /share/img URL when no fallback is given (Now Playing)', () => {
+    const serverArtInfo = {
+      biography: 'b',
+      largeImageUrl: 'https://music.example.test/share/img/token-abc?size=600',
+    } as unknown as SubsonicArtistInfo;
+    const { container } = renderWithProviders(
+      <ArtistCard artistName="A" artistId="art-1" artistInfo={serverArtInfo} />,
+    );
+    const img = container.querySelector<HTMLImageElement>('img.np-dash-artist-image');
+    expect(img!.getAttribute('src') || '').toContain('/share/img/');
+  });
 });

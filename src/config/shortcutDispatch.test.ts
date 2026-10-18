@@ -145,6 +145,14 @@ describe('start search shortcut action', () => {
   });
 });
 
+describe('open settings shortcut action', () => {
+  it('navigates to the settings view', () => {
+    executeRuntimeAction('open-settings', { navigate, previewPolicy: 'stop' });
+
+    expect(navigate).toHaveBeenCalledWith('/settings');
+  });
+});
+
 describe('album skip shortcut actions', () => {
   it('routes next-album and prev-album to the album jump', () => {
     executeRuntimeAction('next-album', { navigate, previewPolicy: 'ignore' });

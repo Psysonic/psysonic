@@ -381,12 +381,33 @@ span.settings-server-use-active-slot {
   background: color-mix(in srgb, var(--accent) 15%, transparent);
   color: var(--accent);
 }
-.settings-search-result-title {
+.settings-search-result-text {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.settings-search-result-title,
+.settings-search-result-context {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.settings-search-result-context {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@keyframes settings-search-flash {
+  0%   { background: transparent; box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+  20%  { background: color-mix(in srgb, var(--accent) 14%, transparent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 40%, transparent); }
+  100% { background: transparent; box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+.settings-search-flash {
+  border-radius: var(--radius-sm);
+  animation: settings-search-flash 1.6s ease-out;
 }
 
 /* ── Mitwirkende: Card-Grid mit klappbaren Beitragslisten ────────────────── */

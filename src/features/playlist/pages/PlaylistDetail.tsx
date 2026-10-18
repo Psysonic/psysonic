@@ -97,7 +97,9 @@ export default function PlaylistDetail() {
   const [playlist, setPlaylist] = useState<SubsonicPlaylist | null>(null);
   const [songs, setSongs] = useState<SubsonicSong[]>([]);
   const offlineSongIds = useMemo(() => songs.map(s => s.id), [songs]);
-  const { resolvedOfflineStatus, offlineProgress } = useAlbumOfflineState(id ?? '', serverId, offlineSongIds);
+  const { resolvedOfflineStatus, offlineProgress } = useAlbumOfflineState(
+    id ?? '', serverId, offlineSongIds, 'playlist',
+  );
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshingSmart, setRefreshingSmart] = useState(false);
