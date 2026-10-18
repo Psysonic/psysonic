@@ -342,41 +342,44 @@ async function runOfflinePinDownloadWithServerLease(
 
   const lp = useLocalPlaybackStore.getState();
   const pendingSongs = pendingOfflinePinSongs(songs, serverId);
-  if (pendingSongs.length === 0) {
-    for (const song of songs) {
-      const finishTrackTransfer = await beginOfflineTrackTransfer(
-        serverIndexKeyForOffline(serverId),
-        song.id,
-        serverLease,
-      );
-      try {
-        if (isCancelled()) {
-          await finishCancelledDownload();
-          return 'cancelled';
-        }
-        const trackServerIndexKey = serverIndexKeyForOffline(serverId);
-        const prev = findLocalPlaybackEntry(song.id, serverId);
-        if (!prev || !localEntrySatisfiesOriginalRequirement(prev, serverId)) {
-          pendingSongs.push(song);
-          continue;
-        }
-        lp.upsertEntry({
-          ...prev,
-          serverIndexKey: trackServerIndexKey,
-          tier: 'library',
-          pinSource,
-        });
-      } finally {
-        finishTrackTransfer();
+  // Tracks already on disk through another pin join this pin right away, also
+  // while other tracks still have to be downloaded. Otherwise the pin cannot
+  // complete, and removing the other pin deletes the shared files.
+  const pendingIds = new Set(pendingSongs.map(s => s.id));
+  for (const song of songs) {
+    if (pendingIds.has(song.id)) continue;
+    const finishTrackTransfer = await beginOfflineTrackTransfer(
+      serverIndexKeyForOffline(serverId),
+      song.id,
+      serverLease,
+    );
+    try {
+      if (isCancelled()) {
+        await finishCancelledDownload();
+        return 'cancelled';
       }
+      const trackServerIndexKey = serverIndexKeyForOffline(serverId);
+      const prev = findLocalPlaybackEntry(song.id, serverId);
+      if (!prev || !localEntrySatisfiesOriginalRequirement(prev, serverId)) {
+        pendingSongs.push(song);
+        continue;
+      }
+      lp.upsertEntry({
+        ...prev,
+        serverIndexKey: trackServerIndexKey,
+        tier: 'library',
+        pinSource,
+      });
+    } finally {
+      finishTrackTransfer();
     }
-    if (pendingSongs.length === 0) {
-      jobStore.setState(state => ({
-        jobs: state.jobs.filter(j => j.downloadId !== downloadId),
-      }));
-      clearActiveAlbumGeneration();
-      return 'completed';
-    }
+  }
+  if (pendingSongs.length === 0) {
+    jobStore.setState(state => ({
+      jobs: state.jobs.filter(j => j.downloadId !== downloadId),
+    }));
+    clearActiveAlbumGeneration();
+    return 'completed';
   }
 
   jobStore.setState(state => ({

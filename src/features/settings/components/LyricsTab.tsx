@@ -54,7 +54,6 @@ export function LyricsTab() {
       <SettingsSubSection
         title={t('settings.lyricsWordHighlightTitle')}
         icon={<AudioLines size={16} />}
-        searchText={`${t('settings.lyricsWordHighlightTitle')} ${t('settings.lyricsWordHighlightStep')} ${t('settings.lyricsWordHighlightSmooth')} ${t('settings.lyricsWordHighlightFlowing')} ${t(wordHighlightDescKey)}`}
       >
         <SettingsGroup>
           <SettingsSegmented
@@ -90,7 +89,6 @@ export function LyricsTab() {
         title={t('settings.lyricsPronunciationTitle')}
         icon={<Languages size={16} />}
         description={t('settings.lyricsRomanizationDesc')}
-        searchText={`${t('settings.lyricsPronunciationTitle')} ${t('settings.lyricsRomanization')} ${t('settings.lyricsRomanizationDesc')}`}
       >
         <SettingsGroup>
           <SettingsToggle
@@ -105,7 +103,6 @@ export function LyricsTab() {
         title={t('settings.lyricsTranslationTitle')}
         icon={<Globe size={16} />}
         description={t('settings.lyricsTranslationDesc')}
-        searchText={`${t('settings.lyricsTranslationTitle')} ${t('settings.lyricsTranslation')} ${t('settings.lyricsTranslationDesc')}`}
       >
         <SettingsGroup>
           <SettingsToggle

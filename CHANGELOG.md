@@ -159,6 +159,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * When the lyrics on your server include a translation, it can show as a smaller line under each lyric line — in the sidebar, the mobile view and the fullscreen player. Turn it on in **Settings → Lyrics → Translation**, or with the **Translation** button below the lyrics, which appears only for songs that have one.
 * Needs Navidrome 0.63 or later and lyrics files that carry translations, such as TTML. If there are several, the one in your app language is shown.
 
+### Desktop notification when the song changes
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1723](https://github.com/Psysonic/psysonic/pull/1723)**
+
+* Turn on **Settings → System → App Behavior → Notifications → Notify on Track Change** to get a desktop notification with title, artist, album, length and cover whenever a new song starts, as long as Psysonic is not the window you are looking at. Radio stations announce each new song title, with the station logo if there is one. It is off by default.
+* Skipping quickly through the queue announces only the song that keeps playing, and pausing or resuming never shows one.
+* The Flatpak build cannot show these notifications yet.
+
 ### Tags for playlists
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1730](https://github.com/Psysonic/psysonic/pull/1730)**
@@ -188,6 +196,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * ⌘, on macOS and Ctrl+, on Windows and Linux open Settings from any view. The shortcut can be changed or cleared under **Settings → Input → Keyboard shortcuts**.
 * If one of your shortcuts already uses that key combination, it keeps it, and **Open settings** starts unassigned.
+
+### Settings search finds every option
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1747](https://github.com/Psysonic/psysonic/pull/1747)**
+
+* The search in Settings now looks through every option, its choices and hints, not only the section names. For example, `sharing` or `downloads` lead to **Integrations → Navidrome → Navidrome sharing**.
+* Each result names the option that matched; selecting it opens the section and highlights that option.
+* Small typos are forgiven, and English terms work in every UI language.
+* Sections that only appear in Advanced Mode, and the Users tab, show up in the results only when they are available.
 
 ## Fixed
 
@@ -371,6 +388,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by netherguy4 on GitHub, PR [#1741](https://github.com/Psysonic/psysonic/pull/1741)**
 
 * When the server splits one album into two (for example because of a stray track in a sibling folder), the album page offered **Available from 2 sources** with two identical entries, and choosing the other one showed the same page. Entries from the album's own server and library are now left out, so the button only appears for copies on another server or in another library.
+
+### Servers connect again when a system proxy is set
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by noaccou on GitHub, PR [#1749](https://github.com/Psysonic/psysonic/pull/1749)**
+
+* With an HTTP or HTTPS proxy set in the system network settings, the library sync, covers and streaming sent their requests through that proxy — on macOS also for servers listed under **Bypass proxy settings for these Hosts & Domains** — and failed with "no bound session" or "error sending request". Psysonic no longer uses the system proxy settings, as up to 1.53.
+* Root cause: a dependency update in 1.54.0 made the app read the system proxy settings, but on macOS without the list of hosts to bypass.
+
+### Orbit labels in Polish and Romanian are corrected
+
+**By [@Jah-yee](https://github.com/Jah-yee), PR [#1758](https://github.com/Psysonic/psysonic/pull/1758)**
+
+* Three Orbit labels in Polish and Romanian had spelling mistakes, and the Polish song menu entry for adding a song to the session read as "add an Orbit session".
+
+### Screen readers name the back button in the narrow Now Playing view
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1763](https://github.com/Psysonic/psysonic/pull/1763)**
+
+* In a narrow window, the back button of the Now Playing view was announced as "player.back". It is now read as "Back" in the app language.
+
+### Screen readers name two buttons in the Orbit session bar
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1764](https://github.com/Psysonic/psysonic/pull/1764)**
+
+* The host's session settings button had no name for screen readers, and the participants button was read only as its count. They are now announced as "Session settings" and "Participants: 1/10".
+
+### The Orbit join dialog explains failures in the app language
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1765](https://github.com/Psysonic/psysonic/pull/1765)**
+
+* When joining a session from **Orbit → Join a session** failed, the dialog showed an internal English message with the session id, for example "Session abc123 is full (10/10)". It now shows the reason in the app language, as pasting an invite link already did.
+
+### The playlist page shows whether the playlist is offline
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1766](https://github.com/Psysonic/psysonic/pull/1766)**
+
+* The offline button on a playlist page always offered **Cache playlist offline**, also while the playlist was waiting, downloading or already saved, so a saved playlist could not be removed from its page. The button now shows the queue, the download progress and **Remove from offline cache** as on album pages.
+
+### Offline playlists keep tracks they share with an offline album
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1767](https://github.com/Psysonic/psysonic/pull/1767)**
+
+* When a playlist was cached offline while some of its tracks were already saved through an album, those tracks did not count for the playlist: the playlist was not complete, and removing the album from the offline cache deleted them although the playlist still listed them. Tracks already saved now belong to the playlist as well, and only the missing ones are downloaded.
+
+### Orbit guests' queue additions reach the host
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1768](https://github.com/Psysonic/psysonic/pull/1768)**
+
+* As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
+
+### The Live window shows your other devices
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1769](https://github.com/Psysonic/psysonic/pull/1769)**
+
+* Playback on another device or client signed in with the same account did not appear in the Live window unless this Psysonic was playing at the same time. With Navidrome 0.62 or newer it now shows like any other listener. Older servers keep hiding entries of your own account while you are not playing, because they keep showing a stopped track for several minutes.
 
 ## [1.55.0]
 
