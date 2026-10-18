@@ -424,6 +424,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
 
+### The Live window shows your other devices
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1769](https://github.com/Psysonic/psysonic/pull/1769)**
+
+* Playback on another device or client signed in with the same account did not appear in the Live window unless this Psysonic was playing at the same time. With Navidrome 0.62 or newer it now shows like any other listener. Older servers keep hiding entries of your own account while you are not playing, because they keep showing a stopped track for several minutes.
+
 ## [1.55.0]
 
 ## Added
