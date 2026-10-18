@@ -16,6 +16,8 @@ import { useNavigate } from 'react-router';
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
 import { serverListDisplayLabel } from '@/lib/server/serverDisplayName';
 import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
+import { FEATURE_PLAYBACK_REPORT } from '@/lib/serverCapabilities/catalog';
+import { isFeatureActiveForServer } from '@/lib/serverCapabilities/storeView';
 
 /**
  * Cover thumb for a presence row. Resolves via {@link usePresenceCoverRef} so a
@@ -188,8 +190,11 @@ export default function NowPlayingDropdown() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // For the current user, trust the local player state — the server keeps stale
-  // "now playing" entries for minutes after playback stops.
+  // For the current user on a server without the playbackReport extension, trust
+  // the local player state — such a server keeps stale "now playing" entries for
+  // minutes after playback stops. With the extension, this install reports its own
+  // stop, so own-account rows (other devices, or this install while it plays or is
+  // paused) show like anyone else's.
   const playbackServerId = findServerByIdOrIndexKey(playbackServerKey)?.id ?? playbackServerKey;
   const ownUsernameByServer = new Map(servers.map(server => [server.id, server.username]));
   const serverLabelById = new Map(servers.map(server => [server.id, serverListDisplayLabel(server, servers)]));
@@ -199,6 +204,7 @@ export default function NowPlayingDropdown() {
     const entryServerId = entry.serverId ?? '';
     const ownUsername = ownUsernameByServer.get(entryServerId);
     if (!ownUsername || entry.username !== ownUsername) return true;
+    if (isFeatureActiveForServer(entryServerId, FEATURE_PLAYBACK_REPORT)) return true;
     return entryServerId === playbackServerId && isPlaying;
   });
   const visibleByServer = new Map<string, SubsonicNowPlaying[]>();

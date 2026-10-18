@@ -75,6 +75,7 @@ export {
   joinOrbitSession,
   leaveOrbitSession,
   OrbitJoinError,
+  orbitJoinErrorKey,
   OrbitSuggestBlockedError,
   suggestOrbitTrack,
   type OrbitSuggestGateReason,

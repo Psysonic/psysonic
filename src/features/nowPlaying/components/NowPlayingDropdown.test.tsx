@@ -174,6 +174,50 @@ describe('NowPlayingDropdown multi-server scope', () => {
     expect(screen.queryByText('Track stale-local')).not.toBeInTheDocument();
   });
 
+  describe('own account on a server that reports stops (playbackReport)', () => {
+    beforeEach(() => {
+      useAuthStore.setState({
+        subsonicServerIdentityByServer: { a: { type: 'navidrome', serverVersion: '0.64.2', openSubsonic: true } },
+        openSubsonicExtensionsByServer: { a: ['playbackReport'] },
+      });
+    });
+
+    it('shows another device of the same account while this install is not playing', async () => {
+      getNowPlayingForServersMock.mockResolvedValue([
+        { ...entry('a', 'phone', 'owner-a'), playerName: 'psysonic', state: 'playing' },
+      ]);
+      renderWithProviders(<NowPlayingDropdown />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Live/i }));
+      expect(await screen.findByText('Track phone')).toBeInTheDocument();
+      expect(screen.getByText('owner-a (psysonic)')).toBeInTheDocument();
+    });
+
+    it('still drops an own-account row the server reports as stopped', async () => {
+      getNowPlayingForServersMock.mockResolvedValue([
+        { ...entry('a', 'stopped-own', 'owner-a'), state: 'stopped' },
+        entry('b', 'playing', 'bob'),
+      ]);
+      renderWithProviders(<NowPlayingDropdown />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Live/i }));
+      expect(await screen.findByText('Track playing')).toBeInTheDocument();
+      expect(screen.queryByText('Track stopped-own')).not.toBeInTheDocument();
+    });
+
+    it('keeps hiding own-account rows on a server without stop reports', async () => {
+      getNowPlayingForServersMock.mockResolvedValue([
+        entry('b', 'legacy-own', 'owner-b'),
+        entry('a', 'phone', 'owner-a'),
+      ]);
+      renderWithProviders(<NowPlayingDropdown />);
+
+      fireEvent.click(screen.getByRole('button', { name: /Live/i }));
+      expect(await screen.findByText('Track phone')).toBeInTheDocument();
+      expect(screen.queryByText('Track legacy-own')).not.toBeInTheDocument();
+    });
+  });
+
   it('drops stopped rows returned by a server', async () => {
     getNowPlayingForServersMock.mockResolvedValue([
       { ...entry('a', 'stopped', 'alice'), state: 'stopped' },

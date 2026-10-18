@@ -7,6 +7,7 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useLiveSearchScopeStore } from '@/store/liveSearchScopeStore';
 import { songToTrack } from '@/lib/media/songToTrack';
 import { showToast } from '@/lib/dom/toast';
+import { orbitGuestSuggestsQueueAdds } from '@/store/orbitRuntime';
 import type { SearchResults } from '@/lib/api/subsonicTypes';
 import ShareSearchResults from '@/features/search/components/ShareSearchResults';
 import {
@@ -222,7 +223,7 @@ export default function LiveSearchDropdown({
                     onClick={() => {
                       const track = songToTrack(s);
                       enqueue([track]);
-                      showToast(t('search.addedToQueueToast', { title: track.title }), 2200, 'info');
+                      if (!orbitGuestSuggestsQueueAdds()) showToast(t('search.addedToQueueToast', { title: track.title }), 2200, 'info');
                       setOpen(false); setQuery('');
                     }}
                     onContextMenu={(e) => {

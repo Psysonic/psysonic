@@ -1,14 +1,18 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import { registerOrbitRuntime } from '@/store/orbitRuntime';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import userEvent from '@testing-library/user-event';
 import LiveSearchDropdown from '@/features/search/components/LiveSearchDropdown';
 import type { useShareSearch } from '@/features/search/hooks/useShareSearch';
 import type { SearchResults } from '@/lib/api/subsonicTypes';
 
-const { navigateToAlbumMock } = vi.hoisted(() => ({
+const { navigateToAlbumMock, showToastMock } = vi.hoisted(() => ({
   navigateToAlbumMock: vi.fn(),
+  showToastMock: vi.fn(),
 }));
+
+vi.mock('@/lib/dom/toast', () => ({ showToast: showToastMock }));
 
 vi.mock('@/store/liveSearchScopeStore', () => ({
   useLiveSearchScopeStore: (selector: (s: { query: string; setQuery: () => void }) => unknown) =>
@@ -156,5 +160,47 @@ describe('LiveSearchDropdown index incomplete banner', () => {
     await user.click(screen.getByRole('option', { name: /Owned Album/i }));
 
     expect(navigateToAlbumMock).toHaveBeenCalledWith('album-1', { serverId: 'srv-b' });
+  });
+});
+
+describe('LiveSearchDropdown song click', () => {
+  const songResults: SearchResults = {
+    artists: [],
+    albums: [],
+    songs: [{ id: 's1', title: 'Song one', artist: 'Artist', album: 'Album', albumId: 'al1', duration: 60, serverId: 'srv' }],
+  };
+  const renderSongs = () => renderWithProviders(
+    <LiveSearchDropdown
+      dropdownRef={{ current: null }}
+      results={songResults}
+      searchSource="local"
+      activeIndex={-1}
+      loading={false}
+      indexIncomplete={false}
+      share={shareStub}
+      setOpen={vi.fn()}
+    />,
+  );
+  const register = (role: 'guest' | null, phase: 'active' | 'idle') => registerOrbitRuntime({
+    getSnapshot: () => ({ role, phase, state: null, serverId: role ? 'srv' : null }),
+    bulkGuard: async () => true,
+    allowsTrackServer: () => true,
+    suggestTracks: async () => {},
+  });
+
+  beforeEach(() => showToastMock.mockClear());
+
+  it('shows no queue notice when the song goes to the Orbit host as a suggestion', async () => {
+    register('guest', 'active');
+    renderSongs();
+    await userEvent.setup().click(screen.getByRole('option', { name: /Song one/i }));
+    expect(showToastMock).not.toHaveBeenCalled();
+  });
+
+  it('confirms the queue addition without a session', async () => {
+    register(null, 'idle');
+    renderSongs();
+    await userEvent.setup().click(screen.getByRole('option', { name: /Song one/i }));
+    expect(showToastMock).toHaveBeenCalledWith(expect.stringMatching(/Song one/), 2200, 'info');
   });
 });
