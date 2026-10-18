@@ -418,6 +418,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * When a playlist was cached offline while some of its tracks were already saved through an album, those tracks did not count for the playlist: the playlist was not complete, and removing the album from the offline cache deleted them although the playlist still listed them. Tracks already saved now belong to the playlist as well, and only the missing ones are downloaded.
 
+### Orbit guests' queue additions reach the host
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1768](https://github.com/Psysonic/psysonic/pull/1768)**
+
+* As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
+
 ## [1.55.0]
 
 ## Added
