@@ -62,14 +62,23 @@ export function orbitBulkGuard(count: number): Promise<boolean> {
 }
 
 /**
+ * True while queue additions go to the host as suggestions (an active guest).
+ * Callers that confirm an addition themselves skip their own notice then; the
+ * suggestion confirms itself.
+ */
+export function orbitGuestSuggestsQueueAdds(): boolean {
+  const { role, phase } = orbitSnapshot();
+  return role === 'guest' && phase === 'active' && !!runtime?.suggestTracks;
+}
+
+/**
  * A guest who follows the host has no queue of their own (the next host sync
  * replaces it), so queue additions go to the host as suggestions instead. True
  * when the runtime took the tracks over; callers then skip their local queue
  * change.
  */
 export function orbitGuestTakesQueueAdd(tracks: ReadonlyArray<{ id: string; serverId?: string }>): boolean {
-  const { role, phase } = orbitSnapshot();
-  if (role !== 'guest' || phase !== 'active' || !runtime?.suggestTracks) return false;
+  if (!orbitGuestSuggestsQueueAdds() || !runtime?.suggestTracks) return false;
   void runtime.suggestTracks(tracks);
   return true;
 }
