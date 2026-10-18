@@ -58,6 +58,7 @@ describe('trivial pass-through setters', () => {
     ['setShowTrayIcon', 'showTrayIcon', false],
     ['setMinimizeToTray', 'minimizeToTray', true],
     ['setStartMinimizedToTray', 'startMinimizedToTray', true],
+    ['setTrackChangeNotificationsEnabled', 'trackChangeNotificationsEnabled', true],
     ['setClockFormat', 'clockFormat', '24h'],
     ['setShowOrbitTrigger', 'showOrbitTrigger', false],
     ['setDiscordRichPresence', 'discordRichPresence', true],

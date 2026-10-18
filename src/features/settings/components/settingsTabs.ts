@@ -28,8 +28,25 @@ export function resolveTab(input: string | undefined | null): Tab {
   return (known as string[]).includes(input) ? (input as Tab) : 'servers';
 }
 
-// Statischer Suchindex ueber alle Sub-Sections aller Tabs. Mitpflegen, wenn eine
-// neue SettingsSubSection hinzukommt — sonst taucht sie nicht in der Suche auf.
+export const TAB_LABEL_KEY: Record<Tab, string> = {
+  library:         'settings.tabLibrary',
+  servers:         'settings.tabServers',
+  audio:           'settings.tabAudio',
+  lyrics:          'settings.tabLyrics',
+  appearance:      'settings.tabAppearance',
+  themes:          'settings.tabThemes',
+  personalisation: 'settings.tabPersonalisation',
+  integrations:    'settings.tabIntegrations',
+  input:           'settings.tabInput',
+  storage:         'settings.tabStorage',
+  system:          'settings.tabSystem',
+  users:           'settings.tabUsers',
+};
+
+// Zusaetzliche Suchwoerter pro Sub-Section (Synonyme, Fachbegriffe, englische
+// Begriffe). Ueberschriften und Texte der Sections liefert der generierte Index
+// (scripts/generate-settings-search-index.mjs) — neue Sections brauchen hier
+// keinen Eintrag mehr.
 export type SearchIndexEntry = { tab: Tab; titleKey: string; keywords?: string; focusTitleKey?: string };
 
 export const SETTINGS_INDEX: SearchIndexEntry[] = [
@@ -84,27 +101,3 @@ export const SETTINGS_INDEX: SearchIndexEntry[] = [
   { tab: 'system',         titleKey: 'settings.aboutContributorsLabel',   keywords: 'contributors credits maintainers' },
   { tab: 'system',         titleKey: 'licenses.title',                    keywords: 'licenses license open source attribution copyright third party dependencies oss' },
 ];
-
-// Substring-first, compact fuzzy fallback (query chars in order within a
-// short span). Returns 0 = no match. Higher = better.
-export function matchScore(haystack: string, needle: string): number {
-  if (!needle) return 0;
-  const h = haystack.toLowerCase();
-  const n = needle.toLowerCase();
-  const idx = h.indexOf(n);
-  if (idx >= 0) return 1000 - Math.min(999, idx);
-  // Repeated single-char queries ("aaaaaaa") must not match via sparse fuzzy hits.
-  if (n.length >= 4 && /^(.)\1+$/.test(n)) return 0;
-  let hi = 0;
-  let start = -1;
-  for (const ch of n) {
-    const j = h.indexOf(ch, hi);
-    if (j < 0) return 0;
-    if (start < 0) start = j;
-    hi = j + 1;
-  }
-  const span = hi - start;
-  if (span > n.length * 2) return 0;
-  if (n.length >= 4 && span > n.length + 3) return 0;
-  return Math.max(1, 100 - Math.min(99, span - n.length));
-}

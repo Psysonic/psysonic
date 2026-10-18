@@ -18,6 +18,7 @@ import { usePlaybackLibraryNavigate } from '@/features/playback/hooks/usePlaybac
 import { useRadioMetadata } from '@/features/radio';
 import { useRadioMprisSync } from '@/features/radio';
 import { usePlaybackDelayPress } from '@/features/playback/hooks/usePlaybackDelayPress';
+import { useRadioTitleNotification } from '@/features/playback/hooks/useRadioTitleNotification';
 import PlaybackDelayModal from '@/features/playback/components/PlaybackDelayModal';
 import { usePlaybackScheduleRemaining } from '@/features/playback/utils/playbackScheduleFormat';
 import { usePreviewStore } from '@/features/playback/store/previewStore';
@@ -136,7 +137,7 @@ export default function PlayerBar() {
   // Mirror resolved radio track metadata to the OS media controls (issue #816).
   // PlayerBar is the single always-mounted consumer, so push from here only.
   useRadioMprisSync(radioMeta, currentRadio);
-
+  useRadioTitleNotification(radioMeta, currentRadio);
 
   const isStarred = currentTrack
     ? (ownedOverrideValue(starredOverrides, currentTrack) ?? !!currentTrack.starred)

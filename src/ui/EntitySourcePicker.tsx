@@ -47,6 +47,26 @@ function sourceLabel(
   return folderLabel ? `${serverLabel} · ${folderLabel}` : serverLabel;
 }
 
+/**
+ * Drops entries from the anchor's own server and library. The detail page
+ * resolves such a sibling to the same merged identity and renders the same
+ * page, so offering it is a button that does nothing (issue #1711). Copies on
+ * another server or in another library stay selectable.
+ */
+function alternativeSources(
+  sources: LibraryEntitySourceDto[],
+  anchorServerId: string,
+  anchorId: string,
+): LibraryEntitySourceDto[] {
+  const anchor = sources.find(source => source.serverId === anchorServerId && source.id === anchorId);
+  if (!anchor) return sources;
+  return sources.filter(source => (
+    source === anchor
+    || source.serverId !== anchor.serverId
+    || source.libraryId !== anchor.libraryId
+  ));
+}
+
 export default function EntitySourcePicker({
   entityType,
   anchorServerId,
@@ -67,7 +87,9 @@ export default function EntitySourcePicker({
   const [coords, setCoords] = useState({ x: 0, y: 0 });
   const scopeKey = JSON.stringify(scopes);
   const requestKey = `${entityType}:${anchorServerId}:${anchorId}:${scopeKey}`;
-  const sources = resolved.key === requestKey ? resolved.sources : [];
+  const sources = resolved.key === requestKey
+    ? alternativeSources(resolved.sources, anchorServerId, anchorId)
+    : [];
   const open = openKey === requestKey;
 
   useEffect(() => {
