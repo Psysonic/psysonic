@@ -3,11 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const hoisted = vi.hoisted(() => ({
   fetchMoodTrackPage: vi.fn(),
+  useLibraryScopeSyncRevision: vi.fn(() => 0),
 }));
 
 vi.mock('@/lib/library/moodTrackBrowse', () => ({
   fetchMoodTrackPage: hoisted.fetchMoodTrackPage,
   MOOD_TRACK_PAGE_SIZE: 100,
+}));
+
+vi.mock('@/store/offlineLocalLibrarySyncRevision', () => ({
+  useLibraryScopeSyncRevision: hoisted.useLibraryScopeSyncRevision,
 }));
 
 import { useMoodTrackBrowse } from './useMoodTrackBrowse';
@@ -34,6 +39,8 @@ function songs(offset: number, count: number) {
 describe('useMoodTrackBrowse', () => {
   beforeEach(() => {
     hoisted.fetchMoodTrackPage.mockReset();
+    hoisted.useLibraryScopeSyncRevision.mockReset();
+    hoisted.useLibraryScopeSyncRevision.mockReturnValue(0);
   });
 
   it('does not load tracks until the view is enabled', async () => {
@@ -143,6 +150,86 @@ describe('useMoodTrackBrowse', () => {
     await waitFor(() =>
       expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(1),
     );
+  });
+
+  it('does not cache a readiness failure as an empty result', async () => {
+    hoisted.fetchMoodTrackPage
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        songs: songs(0, 2),
+        hasMore: false,
+        total: 2,
+      });
+
+    const first = renderHook(() =>
+      useMoodTrackBrowse(
+        'srv-1',
+        'Readiness Failure',
+        true,
+        true,
+        11,
+        browseScope,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(first.result.current.loading).toBe(false),
+    );
+    expect(first.result.current.songs).toHaveLength(0);
+    expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(1);
+
+    first.unmount();
+
+    const second = renderHook(() =>
+      useMoodTrackBrowse(
+        'srv-1',
+        'Readiness Failure',
+        true,
+        true,
+        11,
+        browseScope,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(second.result.current.songs).toHaveLength(2),
+    );
+    expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries after the library sync revision changes', async () => {
+    hoisted.fetchMoodTrackPage
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        songs: songs(0, 3),
+        hasMore: false,
+        total: 3,
+      });
+
+    const { result, rerender } = renderHook(() =>
+      useMoodTrackBrowse(
+        'srv-1',
+        'Initial Sync',
+        true,
+        true,
+        12,
+        browseScope,
+      ),
+    );
+
+    await waitFor(() =>
+      expect(result.current.loading).toBe(false),
+    );
+    expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(1);
+
+    hoisted.useLibraryScopeSyncRevision.mockReturnValue(1);
+    rerender();
+
+    await waitFor(() =>
+      expect(result.current.songs).toHaveLength(3),
+    );
+    expect(result.current.total).toBe(3);
+    expect(hoisted.fetchMoodTrackPage).toHaveBeenCalledTimes(2);
   });
 
   it('appends the next page and deduplicates track ids', async () => {
