@@ -12,6 +12,7 @@ export { default as LiveSearch } from './components/LiveSearch';
 export { default as MobileSearchOverlay } from './components/MobileSearchOverlay';
 export { default as ShareQueuePreviewModal } from './components/ShareQueuePreviewModal';
 export { default as NavidromePublicShareModal } from './components/NavidromePublicShareModal';
+export { default as PagedSongList } from './components/PagedSongList';
 export { useLiveSearchRouteScope } from './hooks/useLiveSearchRouteScope';
 export { useShareQueuePreview } from './hooks/useShareQueuePreview';
 export { useNavidromePublicSharePreview } from './hooks/useNavidromePublicSharePreview';
