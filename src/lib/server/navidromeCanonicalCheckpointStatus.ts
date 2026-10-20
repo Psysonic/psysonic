@@ -1,3 +1,5 @@
+import { storedServerHasExternalCatalog } from './externalCatalog';
+
 export const NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY =
   'psysonic-navidrome-canonical-id-migration-v1';
 export const NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY =
@@ -46,6 +48,7 @@ export function navidromeCanonicalCheckpointStatus(
   serverIndexKey: string,
   storage: CheckpointStorage = localStorage,
 ): NavidromeCanonicalCheckpointStatus {
+  if (storedServerHasExternalCatalog(serverIndexKey, storage)) return 'legacy';
   const raw = storage.getItem(NAVIDROME_CANONICAL_MIGRATION_CHECKPOINT_KEY);
   if (raw === null) return 'absent';
   let parsed: unknown;

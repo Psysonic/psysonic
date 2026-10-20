@@ -9,6 +9,7 @@ import type { SubsonicOpenArtistRef } from '@/lib/api/subsonicTypes';
  * inverted edge into `@/features/playback`.
  */
 export interface Track {
+  isExternal?: boolean;
   id: string;
   title: string;
   artist: string;

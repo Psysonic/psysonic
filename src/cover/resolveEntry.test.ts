@@ -188,3 +188,14 @@ describe('normalizeAlbumLibraryEntry', () => {
     expect(e.fetchCoverArtId).toBe('mf-d2');
   });
 });
+
+describe('opaque external catalog artwork', () => {
+  const id = 'eYaVcNk6mlD3CL8aR6c637';
+  it('keeps a preview coverArt equal to its song ID', () => {
+    expect(resolveTrackCoverEntry({ id, albumId: 'external-album', coverArt: id, isExternal: true })?.fetchCoverArtId).toBe(id);
+  });
+  it('does not synthesize Navidrome prefixes for proxy album IDs', () => {
+    expect(resolveAlbumCoverEntry(id, id, false, true)?.fetchCoverArtId).toBe(id);
+    expect(resolveTrackCoverEntry({ id: 'song', albumId: id, coverArt: id }, false, true)?.fetchCoverArtId).toBe(id);
+  });
+});

@@ -257,6 +257,7 @@ export async function runNetworkAdvancedTextSearch(
   opts: LocalSearchOpts,
   songsLimit: number,
   serverId?: string | null,
+  timeout?: number,
 ): Promise<LocalAdvancedSearchPage | null> {
   const q = opts.query.trim();
   if (!q) return null;
@@ -266,6 +267,7 @@ export async function runNetworkAdvancedTextSearch(
     artistCount: 30,
     albumCount: 50,
     songCount: songsLimit,
+    ...(timeout ? { timeout } : {}),
   };
   const r = serverId
     ? await searchForServer(serverId, q, searchOptions)

@@ -6,6 +6,7 @@ export interface SubsonicItemGenre {
 }
 
 export interface SubsonicAlbum {
+  isExternal?: boolean;
   id: string;
   name: string;
   artist: string;
@@ -56,6 +57,8 @@ export interface SubsonicOpenArtistRef {
 }
 
 export interface SubsonicSong {
+  /** A playable server result outside the synced library (for example Octo previews). */
+  isExternal?: boolean;
   id: string;
   title: string;
   artist: string;
@@ -190,6 +193,8 @@ export interface SubsonicNowPlaying extends SubsonicSong {
 }
 
 export interface SubsonicArtist {
+  /** Catalog providers may not know the number of locally held albums. */
+  isExternal?: boolean;
   id: string;
   name: string;
   /** Article-stripped lowercase sort key (local index / OpenSubsonic). */

@@ -219,3 +219,11 @@ describe('explicit-server library wrappers', () => {
   });
 
 });
+
+it('keeps external playlist songs when filtering local library membership', async () => {
+  apiForServerMock.mockResolvedValue({ albumList2: { album: [album] } });
+  const external = { ...song, id: 'preview', albumId: 'external-album', isExternal: true };
+  const hidden = { ...song, id: 'hidden', albumId: 'outside-scope' };
+  await expect(filterSongsToServerLibrary([song, external, hidden], 'srv-a', ['folder-1']))
+    .resolves.toEqual([song, external]);
+});
