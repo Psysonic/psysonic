@@ -5,7 +5,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   clearMoodDetailReturnStash,
+  clearMoodDetailTabScrollSnapshots,
   peekMoodDetailReturnStash,
+  peekMoodDetailTabScrollSnapshots,
+  stashMoodDetailTabScrollSnapshots,
   type AlbumBrowseScrollSnapshot,
 } from '@/features/album';
 
@@ -25,6 +28,10 @@ describe('useMoodDetailBrowse', () => {
       'srv-1',
       'Dreamy',
     );
+    clearMoodDetailTabScrollSnapshots(
+      'srv-1',
+      'Dreamy',
+    );
     window.history.replaceState(
       {},
       '',
@@ -34,6 +41,10 @@ describe('useMoodDetailBrowse', () => {
 
   afterEach(() => {
     clearMoodDetailReturnStash(
+      'srv-1',
+      'Dreamy',
+    );
+    clearMoodDetailTabScrollSnapshots(
       'srv-1',
       'Dreamy',
     );
@@ -63,8 +74,16 @@ describe('useMoodDetailBrowse', () => {
     );
   });
 
-  it('stashes the track scroll snapshot when leaving for artist detail', () => {
-    const scrollSnapshotRef: {
+  it('stashes both tab scroll snapshots when leaving for artist detail', () => {
+    const albumScrollSnapshotRef: {
+      current: AlbumBrowseScrollSnapshot;
+    } = {
+      current: {
+        scrollTop: 320,
+        displayCount: 120,
+      },
+    };
+    const trackScrollSnapshotRef: {
       current: AlbumBrowseScrollSnapshot;
     } = {
       current: {
@@ -78,7 +97,9 @@ describe('useMoodDetailBrowse', () => {
         useMoodDetailBrowse(
           'srv-1',
           'Dreamy',
-          scrollSnapshotRef,
+          trackScrollSnapshotRef,
+          albumScrollSnapshotRef,
+          trackScrollSnapshotRef,
         ),
       { wrapper: RouterWrapper },
     );
@@ -99,6 +120,60 @@ describe('useMoodDetailBrowse', () => {
     ).toMatchObject({
       scrollTop: 640,
       displayCount: 275,
+    });
+    expect(
+      peekMoodDetailTabScrollSnapshots(
+        'srv-1',
+        'Dreamy',
+      ),
+    ).toEqual({
+      albums: {
+        scrollTop: 320,
+        displayCount: 120,
+      },
+      tracks: {
+        scrollTop: 640,
+        displayCount: 275,
+      },
+    });
+  });
+
+  it('restores both tab snapshots for the returned mood session', () => {
+    stashMoodDetailTabScrollSnapshots(
+      'srv-1',
+      'Dreamy',
+      {
+        albums: {
+          scrollTop: 410,
+          displayCount: 180,
+        },
+        tracks: {
+          scrollTop: 880,
+          displayCount: 360,
+        },
+      },
+    );
+
+    const { result } = renderHook(
+      () =>
+        useMoodDetailBrowse(
+          'srv-1',
+          'Dreamy',
+        ),
+      { wrapper: RouterWrapper },
+    );
+
+    expect(
+      result.current.restoreTabScrollSnapshots,
+    ).toEqual({
+      albums: {
+        scrollTop: 410,
+        displayCount: 180,
+      },
+      tracks: {
+        scrollTop: 880,
+        displayCount: 360,
+      },
     });
   });
 });

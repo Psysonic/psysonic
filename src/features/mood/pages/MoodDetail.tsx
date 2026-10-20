@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -17,7 +18,6 @@ import { useTranslation } from 'react-i18next';
 import {
   AlbumCard,
   useAlbumBrowseScrollRestore,
-  useAlbumBrowseScrollSnapshotSync,
   type AlbumBrowseScrollSnapshot,
 } from '@/features/album';
 import { PagedSongList } from '@/features/search';
@@ -103,20 +103,52 @@ export default function MoodDetail() {
     state => state.isIndexEnabled(serverId),
   );
 
-  const scrollSnapshotRef = useRef<AlbumBrowseScrollSnapshot>({
+  const albumScrollSnapshotRef = useRef<AlbumBrowseScrollSnapshot>({
     scrollTop: 0,
     displayCount: 0,
   });
+  const trackScrollSnapshotRef = useRef<AlbumBrowseScrollSnapshot>({
+    scrollTop: 0,
+    displayCount: 0,
+  });
+  const activeScrollSnapshotRef =
+    view === 'albums'
+      ? albumScrollSnapshotRef
+      : trackScrollSnapshotRef;
+  const tabScrollSessionKey = JSON.stringify([
+    serverId,
+    mood,
+    musicLibraryFilterVersion,
+    browseScope.fingerprint,
+  ]);
+  const tabScrollSessionKeyRef = useRef(tabScrollSessionKey);
+  const previousViewRef = useRef<MoodDetailView>(view);
+  const pendingTabScrollRestoreRef =
+    useRef<MoodDetailView | null>(null);
 
   const {
     sort,
     restoreDisplayCount,
     restoreView,
+    restoreTabScrollSnapshots,
   } = useMoodDetailBrowse(
     serverId,
     mood,
-    scrollSnapshotRef,
+    activeScrollSnapshotRef,
+    albumScrollSnapshotRef,
+    trackScrollSnapshotRef,
   );
+
+  useLayoutEffect(() => {
+    if (!restoreTabScrollSnapshots) return;
+
+    albumScrollSnapshotRef.current = {
+      ...restoreTabScrollSnapshots.albums,
+    };
+    trackScrollSnapshotRef.current = {
+      ...restoreTabScrollSnapshots.tracks,
+    };
+  }, [restoreTabScrollSnapshots]);
 
   const {
     scrollBodyEl,
@@ -124,10 +156,55 @@ export default function MoodDetail() {
     getScrollRoot,
   } = useInpageScrollViewport();
 
-  const albumMood = view === 'albums' ? mood : '';
+  const albumSessionKey = JSON.stringify([
+    serverId,
+    mood,
+    indexEnabled,
+    sort,
+    musicLibraryFilterVersion,
+    browseScope.fingerprint,
+  ]);
+  const [albumSession, setAlbumSession] = useState(() => ({
+    key: albumSessionKey,
+    started: view === 'albums',
+  }));
+  const albumSessionStarted =
+    albumSession.key === albumSessionKey
+      ? albumSession.started || view === 'albums'
+      : view === 'albums';
+
+  useEffect(() => {
+    const nextStarted =
+      albumSession.key === albumSessionKey
+        ? albumSession.started || view === 'albums'
+        : view === 'albums';
+
+    if (
+      albumSession.key === albumSessionKey &&
+      albumSession.started === nextStarted
+    ) {
+      return;
+    }
+
+    // React Compiler set-state-in-effect rule: persist whether this route/session
+    // has activated Albums so switching tabs can pause without destroying it.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAlbumSession({
+      key: albumSessionKey,
+      started: nextStarted,
+    });
+  }, [
+    albumSession.key,
+    albumSession.started,
+    albumSessionKey,
+    view,
+  ]);
+
+  const albumMood = albumSessionStarted ? mood : '';
   const {
     albums,
     loading: albumsLoading,
+    sessionReady: albumsSessionReady,
     loadingMore: albumsLoadingMore,
     hasMore: albumsHasMore,
     displayAlbums,
@@ -142,15 +219,17 @@ export default function MoodDetail() {
     browseScope,
     getScrollRoot,
     scrollBodyEl,
-    restoreView === 'albums'
-      ? restoreDisplayCount
-      : undefined,
+    restoreTabScrollSnapshots?.albums.displayCount ??
+      (restoreView === 'albums'
+        ? restoreDisplayCount
+        : undefined),
   );
 
   const {
     songs,
     total: trackCount,
     loading: tracksLoading,
+    sessionReady: tracksSessionReady,
     loadingMore: tracksLoadingMore,
     hasMore: tracksHasMore,
     loadMore: loadMoreTracks,
@@ -183,6 +262,10 @@ export default function MoodDetail() {
     view === 'albums'
       ? albumsLoadingMore
       : tracksLoadingMore;
+  const activeSessionReady =
+    view === 'albums'
+      ? albumsSessionReady
+      : tracksSessionReady;
   const activeHasMore =
     view === 'albums'
       ? albumsHasMore
@@ -192,11 +275,112 @@ export default function MoodDetail() {
       ? loadMoreAlbums
       : loadMoreTracks;
 
-  useAlbumBrowseScrollSnapshotSync(
-    scrollSnapshotRef,
+  // React Compiler immutability rule: intentional imperative mutation of an external/DOM target inside an effect.
+  // eslint-disable-next-line react-hooks/immutability
+  useLayoutEffect(() => {
+    if (!scrollBodyEl) return;
+
+    if (tabScrollSessionKeyRef.current !== tabScrollSessionKey) {
+      tabScrollSessionKeyRef.current = tabScrollSessionKey;
+      albumScrollSnapshotRef.current = {
+        scrollTop: 0,
+        displayCount: 0,
+      };
+      trackScrollSnapshotRef.current = {
+        scrollTop: 0,
+        displayCount: 0,
+      };
+      previousViewRef.current = view;
+      pendingTabScrollRestoreRef.current = null;
+      // React Compiler immutability rule: intentional imperative mutation of an external/DOM target inside an effect.
+      // eslint-disable-next-line react-hooks/immutability
+      scrollBodyEl.scrollTop = 0;
+    } else if (previousViewRef.current !== view) {
+      previousViewRef.current = view;
+      pendingTabScrollRestoreRef.current = view;
+    }
+
+    const snapshotRef =
+      view === 'albums'
+        ? albumScrollSnapshotRef
+        : trackScrollSnapshotRef;
+
+    const syncScrollTop = () => {
+      if (pendingTabScrollRestoreRef.current === view) {
+        return;
+      }
+      snapshotRef.current.scrollTop = scrollBodyEl.scrollTop;
+    };
+
+    if (pendingTabScrollRestoreRef.current !== view) {
+      syncScrollTop();
+    }
+
+    scrollBodyEl.addEventListener('scroll', syncScrollTop, {
+      passive: true,
+    });
+
+    return () => {
+      scrollBodyEl.removeEventListener('scroll', syncScrollTop);
+    };
+  }, [
+    scrollBodyEl,
+    tabScrollSessionKey,
+    view,
+  ]);
+
+  useEffect(() => {
+    if (pendingTabScrollRestoreRef.current === view) {
+      return;
+    }
+
+    activeScrollSnapshotRef.current.displayCount =
+      activeDisplayCount;
+  }, [
+    view,
+    activeDisplayCount,
+    activeScrollSnapshotRef,
+  ]);
+
+  // React Compiler immutability rule: intentional imperative mutation of an external/DOM target inside an effect.
+  // eslint-disable-next-line react-hooks/immutability
+  useLayoutEffect(() => {
+    if (
+      !scrollBodyEl ||
+      pendingTabScrollRestoreRef.current !== view ||
+      !activeSessionReady ||
+      activeLoading ||
+      activeLoadingMore
+    ) {
+      return;
+    }
+
+    const snapshot = activeScrollSnapshotRef.current;
+
+    if (
+      activeDisplayCount < snapshot.displayCount &&
+      activeHasMore
+    ) {
+      activeLoadMore();
+      return;
+    }
+
+    // React Compiler immutability rule: intentional imperative mutation of an external/DOM target inside an effect.
+    // eslint-disable-next-line react-hooks/immutability
+    scrollBodyEl.scrollTop = snapshot.scrollTop;
+    snapshot.scrollTop = scrollBodyEl.scrollTop;
+    pendingTabScrollRestoreRef.current = null;
+  }, [
+    view,
     scrollBodyEl,
     activeDisplayCount,
-  );
+    activeSessionReady,
+    activeLoading,
+    activeLoadingMore,
+    activeHasMore,
+    activeLoadMore,
+    activeScrollSnapshotRef,
+  ]);
 
   const { isScrollRestorePending } = useAlbumBrowseScrollRestore({
     serverId,
@@ -290,6 +474,15 @@ export default function MoodDetail() {
 
   const selectView = useCallback(
     (next: MoodDetailView) => {
+      const snapshotRef =
+        view === 'albums'
+          ? albumScrollSnapshotRef
+          : trackScrollSnapshotRef;
+      snapshotRef.current.displayCount = activeDisplayCount;
+      if (scrollBodyEl) {
+        snapshotRef.current.scrollTop = scrollBodyEl.scrollTop;
+      }
+
       const params = new URLSearchParams(location.search);
       if (next === 'tracks') {
         params.set('view', 'tracks');
@@ -311,6 +504,9 @@ export default function MoodDetail() {
       );
     },
     [
+      view,
+      activeDisplayCount,
+      scrollBodyEl,
       location.pathname,
       location.search,
       location.hash,

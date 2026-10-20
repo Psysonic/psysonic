@@ -5,6 +5,7 @@ import { useClientSliceInfiniteScroll } from '@/lib/hooks/useClientSliceInfinite
 import { useInpageScrollSentinel } from '@/lib/hooks/useInpageScrollSentinel';
 import type { AlbumBrowseSort } from '@/lib/library/albumBrowseSort';
 import type { LibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
+import { useLibraryScopeSyncRevision } from '@/store/offlineLocalLibrarySyncRevision';
 import {
   fetchMoodAlbumPage,
   MOOD_ALBUM_CATALOG_CHUNK,
@@ -13,6 +14,47 @@ import {
 import { dedupeById } from '@/lib/util/dedupeById';
 
 const CLIENT_SLICE_PAGE_SIZE = MOOD_ALBUM_FIRST_PAGE;
+const MOOD_ALBUM_BROWSE_CACHE_MAX = 2;
+
+type MoodAlbumBrowseCacheEntry = {
+  albums: SubsonicAlbum[];
+  catalogHasMore: boolean;
+  displayCount: number;
+};
+
+const moodAlbumBrowseCache =
+  new Map<string, MoodAlbumBrowseCacheEntry>();
+
+function peekMoodAlbumBrowseCache(
+  key: string,
+): MoodAlbumBrowseCacheEntry | null {
+  return moodAlbumBrowseCache.get(key) ?? null;
+}
+
+function readMoodAlbumBrowseCache(
+  key: string,
+): MoodAlbumBrowseCacheEntry | null {
+  const cached = moodAlbumBrowseCache.get(key);
+  if (!cached) return null;
+
+  moodAlbumBrowseCache.delete(key);
+  moodAlbumBrowseCache.set(key, cached);
+  return cached;
+}
+
+function writeMoodAlbumBrowseCache(
+  key: string,
+  entry: MoodAlbumBrowseCacheEntry,
+): void {
+  moodAlbumBrowseCache.delete(key);
+  moodAlbumBrowseCache.set(key, entry);
+
+  while (moodAlbumBrowseCache.size > MOOD_ALBUM_BROWSE_CACHE_MAX) {
+    const oldestKey = moodAlbumBrowseCache.keys().next().value;
+    if (oldestKey == null) break;
+    moodAlbumBrowseCache.delete(oldestKey);
+  }
+}
 
 function initialSqlPageSize(
   restoreDisplayCount?: number,
@@ -42,12 +84,43 @@ export function useMoodAlbumBrowse(
   scrollRootEl?: HTMLElement | null,
   restoreDisplayCount?: number,
 ) {
-  const [albums, setAlbums] = useState<SubsonicAlbum[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
-  const [catalogHasMore, setCatalogHasMore] = useState(false);
+  const syncServerIds =
+    browseScope.serverIds.length > 0
+      ? browseScope.serverIds
+      : serverId
+        ? [serverId]
+        : [];
+  const librarySyncRevision =
+    useLibraryScopeSyncRevision(syncServerIds);
+  const cacheKey = JSON.stringify([
+    serverId,
+    mood.trim().toLowerCase(),
+    indexEnabled,
+    sort,
+    musicLibraryFilterVersion,
+    librarySyncRevision,
+    browseScope.fingerprint,
+  ]);
+  const cachedForKey =
+    mood ? peekMoodAlbumBrowseCache(cacheKey) : null;
 
-  const catalogOffsetRef = useRef(0);
+  const [albums, setAlbums] = useState<SubsonicAlbum[]>(
+    () => cachedForKey?.albums ?? [],
+  );
+  const [loading, setLoading] = useState(
+    () => !!mood && !cachedForKey,
+  );
+  const [sessionReady, setSessionReady] = useState(
+    () => !!mood && cachedForKey !== null,
+  );
+  const [catalogLoadingMore, setCatalogLoadingMore] = useState(false);
+  const [catalogHasMore, setCatalogHasMore] = useState(
+    () => cachedForKey?.catalogHasMore ?? false,
+  );
+
+  const catalogOffsetRef = useRef(
+    cachedForKey?.albums.length ?? 0,
+  );
   const catalogLoadingRef = useRef(false);
   const loadGenerationRef = useRef(0);
   const loadingRef = useRef(false);
@@ -58,7 +131,7 @@ export function useMoodAlbumBrowse(
     key: '',
     restoreDisplayCount: undefined as number | undefined,
   });
-  const browseKey = `${serverId}:${mood}:${browseScope.fingerprint}`;
+  const browseKey = cacheKey;
 
   // React Compiler refs rule: ref read imperatively outside reactive rendering; not used to compute the render output.
   // eslint-disable-next-line react-hooks/refs
@@ -67,7 +140,9 @@ export function useMoodAlbumBrowse(
     // eslint-disable-next-line react-hooks/refs
     browseSessionRef.current = {
       key: browseKey,
-      restoreDisplayCount,
+      restoreDisplayCount:
+        cachedForKey?.displayCount ??
+        restoreDisplayCount,
     };
   }
 
@@ -86,6 +161,7 @@ export function useMoodAlbumBrowse(
       sort,
       mood,
       musicLibraryFilterVersion,
+      librarySyncRevision,
       browseScope.fingerprint,
       serverId,
       indexEnabled,
@@ -172,6 +248,7 @@ export function useMoodAlbumBrowse(
       setAlbums([]);
       setCatalogHasMore(false);
       setLoading(false);
+      setSessionReady(false);
       return;
     }
 
@@ -180,6 +257,23 @@ export function useMoodAlbumBrowse(
     loadGenerationRef.current += 1;
 
     const generation = loadGenerationRef.current;
+    const cached = readMoodAlbumBrowseCache(cacheKey);
+
+    if (cached) {
+      catalogOffsetRef.current = cached.albums.length;
+      catalogLoadingRef.current = false;
+      loadingRef.current = false;
+      loadPendingRef.current = false;
+      setAlbums(cached.albums);
+      setCatalogHasMore(cached.catalogHasMore);
+      setCatalogLoadingMore(false);
+      setLoading(false);
+      setSessionReady(true);
+
+      return () => {
+        cancelled = true;
+      };
+    }
 
     catalogOffsetRef.current = 0;
     catalogLoadingRef.current = false;
@@ -187,6 +281,7 @@ export function useMoodAlbumBrowse(
     loadPendingRef.current = true;
 
     setLoading(true);
+    setSessionReady(false);
     setCatalogLoadingMore(false);
     setCatalogHasMore(false);
     setAlbums([]);
@@ -211,6 +306,7 @@ export function useMoodAlbumBrowse(
       loadingRef.current = false;
       loadPendingRef.current = false;
       setLoading(false);
+      setSessionReady(true);
     });
 
     return () => {
@@ -228,7 +324,28 @@ export function useMoodAlbumBrowse(
     sort,
     musicLibraryFilterVersion,
     browseScope.fingerprint,
+    cacheKey,
     loadCatalogChunk,
+  ]);
+
+  useEffect(() => {
+    if (!mood || !sessionReady) return;
+
+    writeMoodAlbumBrowseCache(
+      cacheKey,
+      {
+        albums,
+        catalogHasMore,
+        displayCount: displayAlbums.length,
+      },
+    );
+  }, [
+    mood,
+    sessionReady,
+    cacheKey,
+    albums,
+    catalogHasMore,
+    displayAlbums.length,
   ]);
 
   const loadMore = useCallback(() => {
@@ -313,6 +430,7 @@ export function useMoodAlbumBrowse(
     albums,
     displayAlbums,
     loading,
+    sessionReady,
     loadingMore,
     hasMore,
     loadMore,
