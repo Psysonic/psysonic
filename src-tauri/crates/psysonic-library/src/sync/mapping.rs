@@ -80,22 +80,74 @@ pub(crate) fn subtitle_from_tags(raw: &Value) -> Option<String> {
 }
 
 fn track_raw_json(raw: &Value) -> String {
-    let needs_normalized_version = raw
-        .as_object()
-        .is_some_and(|object| !object.contains_key("albumVersion"));
-    if needs_normalized_version {
-        if let Some(version) = album_version_from_tags(raw) {
-            let mut normalized = raw.clone();
-            if let Some(object) = normalized.as_object_mut() {
+    let Some(raw_object) = raw.as_object() else {
+        return raw.to_string();
+    };
+
+    // Navidrome/OpenSubsonic serializes `moods: []` even for moodless songs.
+    // Empty moods already clear stale native tags.mood during sparse merge and
+    // project as empty without provenance, so only non-empty values need the
+    // marker. This keeps the no-clone fast path for the vast majority of S1
+    // full-rescan rows.
+    let has_nonempty_moods = match raw_object.get("moods") {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .any(|mood| !mood.trim().is_empty()),
+        Some(Value::String(mood)) => !mood.trim().is_empty(),
+        _ => false,
+    };
+    let normalized_version = if !raw_object.contains_key("albumVersion") {
+        album_version_from_tags(raw).map(str::to_string)
+    } else {
+        None
+    };
+
+    // Preserve the original fast path when no normalization is needed.
+    if !has_nonempty_moods && normalized_version.is_none() {
+        return raw.to_string();
+    }
+
+    let mut normalized = raw.clone();
+    if let Some(object) = normalized.as_object_mut() {
+        if let Some(version) = normalized_version {
+            object.insert("albumVersion".to_string(), Value::String(version));
+        }
+        if has_nonempty_moods {
+            object.insert("_psysonicMoodsAuthoritative".to_string(), Value::Bool(true));
+        }
+    }
+
+    normalized.to_string()
+}
+
+fn navidrome_track_raw_json(raw: &Value) -> String {
+    // Native rows already require normalization, so cloning is confined to
+    // this path instead of penalizing every unchanged OpenSubsonic track.
+    let mut normalized = raw.clone();
+
+    if let Some(object) = normalized.as_object_mut() {
+        if !object.contains_key("albumVersion") {
+            if let Some(version) = album_version_from_tags(raw) {
                 object.insert(
                     "albumVersion".to_string(),
                     Value::String(version.to_string()),
                 );
             }
-            return normalized.to_string();
         }
+
+        // This function is only used for a fresh Navidrome /api/song payload,
+        // so absence of tags.mood is an authoritative clear.
+        let moods = match raw.pointer("/tags/mood") {
+            Some(Value::Array(items)) => Value::Array(items.clone()),
+            Some(Value::String(mood)) => Value::Array(vec![Value::String(mood.clone())]),
+            _ => Value::Array(Vec::new()),
+        };
+        object.insert("moods".to_string(), moods);
+        object.insert("_psysonicMoodsAuthoritative".to_string(), Value::Bool(true));
     }
-    raw.to_string()
+
+    normalized.to_string()
 }
 
 /// Copy album-level OpenSubsonic fields onto each track `raw_json` during S2/getAlbum
@@ -424,7 +476,7 @@ pub fn navidrome_song_to_track_row(
         server_created_at: parse_raw_timestamp_ms(raw, &["createdAt"]),
         deleted: false,
         synced_at,
-        raw_json: track_raw_json(raw),
+        raw_json: navidrome_track_raw_json(raw),
     })
 }
 
