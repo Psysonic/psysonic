@@ -206,6 +206,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Small typos are forgiven, and English terms work in every UI language.
 * Sections that only appear in Advanced Mode, and the Users tab, show up in the results only when they are available.
 
+### Sort an artist's albums by name
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), requested by CaptainStormfield on GitHub, PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+
+* The sort button on an artist page is now a list: year (newest or oldest first) or name (A–Z or Z–A), still within each release type.
+* Numbers in names sort naturally, so "Live 2" comes before "Live 10".
+
 ## Fixed
 
 ### The AppImage starts on Fedora 44 again
