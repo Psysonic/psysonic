@@ -452,6 +452,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
 
+### The system media controls show the right song after quick skips
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+
+* When two track changes came close together, for example a skip right as a song ended, the media controls of the system (MPRIS on Linux, the Windows media overlay, Now Playing on macOS) could show the previous song while the next one played, until the next track change. Psysonic now drops the update of a song that is no longer playing.
+
 ### The Live window shows your other devices
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1769](https://github.com/Psysonic/psysonic/pull/1769)**
