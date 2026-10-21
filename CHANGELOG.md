@@ -215,7 +215,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Hide star ratings
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), requested by untitled-operator on GitHub, PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), requested by untitled-operator on GitHub, PR [#1787](https://github.com/Psysonic/psysonic/pull/1787)**
 
 * **Settings → Library → Ratings → Show star ratings** can be turned off when ratings are disabled on your server. The stars disappear from album and artist pages, track lists (including the rating column), context menus, the player bar, the fullscreen player and multi-selection, and the "Highest rated" rows on Statistics and Tracks are hidden.
 
