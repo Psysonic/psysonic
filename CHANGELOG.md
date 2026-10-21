@@ -454,7 +454,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### The system media controls show the right song after quick skips
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1785](https://github.com/Psysonic/psysonic/pull/1785)**
 
 * When two track changes came close together, for example a skip right as a song ended, the media controls of the system (MPRIS on Linux, the Windows media overlay, Now Playing on macOS) could show the previous song while the next one played, until the next track change. Psysonic now drops the update of a song that is no longer playing.
 
