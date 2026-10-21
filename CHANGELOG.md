@@ -460,7 +460,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### The artist photo behind the player can be switched off without fanart.tv
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator on GitHub, PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator on GitHub, PR [#1784](https://github.com/Psysonic/psysonic/pull/1784)**
 
 * **Settings → Integrations → External Artwork Scraper → Backgrounds** only appeared with the fanart.tv scraper turned on, although the artist image from your server fills the mainstage hero, the artist page header and the fullscreen player without it. So with the scraper off, there was no way to switch these backgrounds off, and **Open Backgrounds** in the fullscreen player settings led nowhere. The section is now always there; without the scraper it lists only the server image.
 * The hint in the fullscreen player settings now names the full path to the section.
