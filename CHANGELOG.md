@@ -458,6 +458,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Playback on another device or client signed in with the same account did not appear in the Live window unless this Psysonic was playing at the same time. With Navidrome 0.62 or newer it now shows like any other listener. Older servers keep hiding entries of your own account while you are not playing, because they keep showing a stopped track for several minutes.
 
+### The artist photo behind the player can be switched off without fanart.tv
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator on GitHub, PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+
+* **Settings → Integrations → External Artwork Scraper → Backgrounds** only appeared with the fanart.tv scraper turned on, although the artist image from your server fills the mainstage hero, the artist page header and the fullscreen player without it. So with the scraper off, there was no way to switch these backgrounds off, and **Open Backgrounds** in the fullscreen player settings led nowhere. The section is now always there; without the scraper it lists only the server image.
+* The hint in the fullscreen player settings now names the full path to the section.
+
 ## [1.55.0]
 
 ## Added

@@ -735,7 +735,7 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: '显示艺术家照片',
   fsShowArtistPortraitDesc: '在全屏播放器右侧显示艺术家照片（或专辑封面）。',
-  fsBackdropPointerDesc: '播放器背后的艺人照片可在 集成 → 背景 中按界面分别开启或关闭。',
+  fsBackdropPointerDesc: '播放器背后的艺人照片可在 集成 → 外部封面采集器 → 背景 中按界面分别开启或关闭。',
   fsBackdropPointerAction: '打开背景',
   fsPortraitDim: '照片暗化',
   fsAutoOpen: '自动打开',

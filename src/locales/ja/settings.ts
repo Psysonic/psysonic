@@ -817,7 +817,7 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'アーティスト写真を表示',
   fsShowArtistPortraitDesc: 'フルスクリーンプレーヤーの右側にアーティスト写真（またはアルバムアート）を表示します。',
-  fsBackdropPointerDesc: 'プレーヤーの背後に表示されるアーティスト写真は、連携 → 背景 で画面ごとに個別にオン/オフできます。',
+  fsBackdropPointerDesc: 'プレーヤーの背後に表示されるアーティスト写真は、連携 → External Artwork Scraper → 背景 で画面ごとに個別にオン/オフできます。',
   fsBackdropPointerAction: '背景を開く',
   fsPortraitDim: '写真の暗さ',
   fsAutoOpen: '自動で開く',

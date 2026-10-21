@@ -823,7 +823,7 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Előadó fotójának megjelenítése',
   fsShowArtistPortraitDesc: 'Az előadó fotójának (vagy az albumborítónak) megjelenítése a teljes képernyős lejátszó jobb oldalán.',
-  fsBackdropPointerDesc: 'Az előadó fotója a lejátszó mögött az Integrációk → Hátterek menüpontban kapcsolható be és ki, felületenként külön.',
+  fsBackdropPointerDesc: 'Az előadó fotója a lejátszó mögött az Integrációk → Külső borítólehúzó → Hátterek menüpontban kapcsolható be és ki, felületenként külön.',
   fsBackdropPointerAction: 'Hátterek megnyitása',
   fsPortraitDim: 'Fotó sötétítése',
   fsAutoOpen: 'Automatikus megnyitás',

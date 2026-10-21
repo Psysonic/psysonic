@@ -735,7 +735,7 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Vis artistbilde',
   fsShowArtistPortraitDesc: 'Vis artistbilde (eller albumomslag) på høyre side av fullskjermspilleren.',
-  fsBackdropPointerDesc: 'Artistbildet bak spilleren slås av og på under Integrasjoner → Bakgrunner, separat for hver flate.',
+  fsBackdropPointerDesc: 'Artistbildet bak spilleren slås av og på under Integrasjoner → Ekstern bildehenter → Bakgrunner, separat for hver flate.',
   fsBackdropPointerAction: 'Åpne Bakgrunner',
   fsPortraitDim: 'Mørklegging av bilde',
   fsAutoOpen: 'Åpne automatisk',

@@ -758,7 +758,7 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Arată poza artistului',
   fsShowArtistPortraitDesc: 'Arată poza artistului (sau arta albumului) în partea dreaptă a playerului pe ecran complet.',
-  fsBackdropPointerDesc: 'Fotografia artistului din spatele playerului se activează și se dezactivează în Integrări → Fundaluri, separat pentru fiecare suprafață.',
+  fsBackdropPointerDesc: 'Fotografia artistului din spatele playerului se activează și se dezactivează în Integrări → Scraper de imagini extern → Fundaluri, separat pentru fiecare suprafață.',
   fsBackdropPointerAction: 'Deschide Fundaluri',
   fsPortraitDim: 'Estomparea fotografiei',
   fsAutoOpen: 'Deschide automat',

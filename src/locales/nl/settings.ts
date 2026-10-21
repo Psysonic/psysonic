@@ -736,7 +736,7 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Artiestfoto tonen',
   fsShowArtistPortraitDesc: 'Artiestfoto (of albumhoes) weergeven aan de rechterkant van de volledigschermspeler.',
-  fsBackdropPointerDesc: 'De artiestenfoto achter de speler wordt in- en uitgeschakeld bij Integraties → Achtergronden, per onderdeel apart.',
+  fsBackdropPointerDesc: 'De artiestenfoto achter de speler wordt in- en uitgeschakeld bij Integraties → Externe artwork-scraper → Achtergronden, per onderdeel apart.',
   fsBackdropPointerAction: 'Achtergronden openen',
   fsPortraitDim: 'Verduistering foto',
   fsAutoOpen: 'Automatisch openen',

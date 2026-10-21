@@ -756,7 +756,7 @@ export const settings = {
   fullscreenPlayerPrism: 'Prism',
   fsShowArtistPortrait: 'Künstlerfoto anzeigen',
   fsShowArtistPortraitDesc: 'Künstlerfoto (oder Albumcover) auf der rechten Seite des Vollbild-Players anzeigen.',
-  fsBackdropPointerDesc: 'Das Künstlerfoto hinter dem Player wird unter Integrationen → Hintergründe ein- und ausgeschaltet, getrennt für jede Oberfläche.',
+  fsBackdropPointerDesc: 'Das Künstlerfoto hinter dem Player wird unter Integrationen → Externe Artwork Scraper → Hintergründe ein- und ausgeschaltet, getrennt für jede Oberfläche.',
   fsBackdropPointerAction: 'Hintergründe öffnen',
   fsPortraitDim: 'Abdunkelung des Fotos',
   fsAutoOpen: 'Automatisch öffnen',
