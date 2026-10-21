@@ -607,6 +607,8 @@ export const settings = {
   loggingExportSuccess: 'Logs exportados ({{count}} líneas).',
   loggingExportError: 'No se pudieron exportar los logs.',
   ratingsSectionTitle: 'Calificaciones',
+  ratingsShowTitle: 'Mostrar valoraciones con estrellas',
+  ratingsShowDesc: 'Desactívalo si las valoraciones están desactivadas en tu servidor. Oculta las estrellas y los controles de valoración en toda la aplicación.',
   ratingsSkipStarTitle: 'Saltar para 1 estrella',
   ratingsSkipStarDesc:
     'Después de varios saltos seguidos, asigna 1 estrella a la pista. Solo para pistas aún no calificadas.',

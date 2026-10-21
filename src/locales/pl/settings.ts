@@ -652,6 +652,8 @@ export const settings = {
   loggingExportSuccess: 'Dzienniki zostały wyeksportowane ({{count}} linii).',
   loggingExportError: 'Nie można wyeksportować dzienników.',
   ratingsSectionTitle: 'Oceny',
+  ratingsShowTitle: 'Pokazuj oceny w gwiazdkach',
+  ratingsShowDesc: 'Wyłącz, jeśli oceny są wyłączone na Twoim serwerze. Ukrywa gwiazdki i elementy oceniania w całej aplikacji.',
   ratingsSkipStarTitle: 'Pomiń dla 1 gwiazdki',
   ratingsSkipStarDesc:
       'Po kilku pominięciach z rzędu ustaw ocenę utworu na 1★. Tylko dla utworów, które nie zostały jeszcze ocenione.',

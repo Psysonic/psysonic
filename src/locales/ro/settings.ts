@@ -610,6 +610,8 @@ export const settings = {
   loggingExportSuccess: 'Log-uri exportate ({{count}} linii).',
   loggingExportError: 'Nu s-au putut exporta log-urile.',
   ratingsSectionTitle: 'Ratinguri',
+  ratingsShowTitle: 'Afișează evaluările cu stele',
+  ratingsShowDesc: 'Dezactivează dacă evaluările sunt dezactivate pe serverul tău. Ascunde stelele și controalele de evaluare în toată aplicația.',
   ratingsSkipStarTitle: 'Sari peste 1 stea',
   ratingsSkipStarDesc:
     'După mai multe salturi la rând, setează ratingul piesei la 1★. Doar pentru piesele care nu au fost deja evaluate.',

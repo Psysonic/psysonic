@@ -668,6 +668,8 @@ export const settings = {
   loggingExportSuccess: 'Логи экспортированы ({{count}} строк).',
   loggingExportError: 'Не удалось экспортировать логи.',
   ratingsSectionTitle: 'Рейтинги',
+  ratingsShowTitle: 'Показывать оценки звёздами',
+  ratingsShowDesc: 'Отключите, если оценки выключены на вашем сервере. Скрывает звёзды и элементы оценки во всём приложении.',
   ratingsSkipStarTitle: 'Скипнуть для 1 звезды',
   ratingsSkipStarDesc:
     'При N скипов подряд ставить 1★ треку. Только для не оцененных ранее.',

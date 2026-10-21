@@ -8,6 +8,7 @@ import { MultiArtistToPlaylistSubmenu } from '@/features/contextMenu/components/
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import { ContextShareMenuItem } from '@/features/share';
+import { useShowStarRatings } from '@/store/starRatings';
 
 export default function ArtistContextItems(props: ContextMenuItemsProps) {
   const {
@@ -19,6 +20,7 @@ export default function ArtistContextItems(props: ContextMenuItemsProps) {
     offlinePolicy,
   } = props;
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
 
   return (
     <>
@@ -84,7 +86,7 @@ export default function ArtistContextItems(props: ContextMenuItemsProps) {
                       {isStarred(artist.id, artist.starred, artist.serverId) ? t('contextMenu.unfavoriteArtist') : t('contextMenu.favoriteArtist')}
                     </div>
                   )}
-                  {offlinePolicy.canRate && (
+                  {offlinePolicy.canRate && showStarRatings && (
                     <div
                       className="context-menu-rating-row"
                       data-rating-kind="artist"
@@ -141,7 +143,7 @@ export default function ArtistContextItems(props: ContextMenuItemsProps) {
                   )}
                 </div>
               )}
-              {offlinePolicy.canRate && (
+              {offlinePolicy.canRate && showStarRatings && (
                 <div
                   className="context-menu-rating-row"
                   data-rating-kind="artist"

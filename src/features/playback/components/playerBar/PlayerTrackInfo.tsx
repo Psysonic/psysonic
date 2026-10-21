@@ -31,6 +31,7 @@ import { useOfflineBrowseContext } from '@/features/offline';
 import { offlineActionPolicy } from '@/features/offline';
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
+import { useShowStarRatings } from '@/store/starRatings';
 
 interface Props {
   currentTrack: Track | null;
@@ -69,6 +70,7 @@ export function PlayerTrackInfo({
   const showBufferingOverlay = useDebouncedBuffering(isPlaybackBuffering);
   // `track.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
+  const showStarRatings = useShowStarRatings();
   const networkLabel = useEnrichmentPrimaryLabel() ?? '';
   const networkIcon = useEnrichmentPrimaryIcon();
   const playbackCoverRef = usePlaybackTrackCoverRef(
@@ -226,7 +228,7 @@ export function PlayerTrackInfo({
             )}
           />
         )}
-        {currentTrack && !isRadio && !showPreviewMeta && isLayoutVisible('starRating') && playerPolicy.canRate && (
+        {currentTrack && !isRadio && !showPreviewMeta && isLayoutVisible('starRating') && playerPolicy.canRate && showStarRatings && (
           <StarRating
             value={ownedOverrideValue(userRatingOverrides, currentTrack) ?? currentTrack.userRating ?? 0}
             onChange={r => queueSongRating(currentTrack.id, r, currentTrack.serverId)}

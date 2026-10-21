@@ -52,6 +52,7 @@ import { playlistDetailControls } from '@/features/playlist/utils/playlistSmartU
 import { showToast } from '@/lib/dom/toast';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 import { usePlaylistDetailScrollRestore } from '@/features/playlist/hooks/usePlaylistDetailScrollRestore';
+import { useShowStarRatings, withoutRatingColumn } from '@/store/starRatings';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 const PL_COLUMNS: readonly ColDef[] = [
@@ -191,9 +192,13 @@ export default function PlaylistDetail() {
 
   // ── Column resize/visibility ──────────────────────────────────────────────
   const tracksReadOnly = playlist ? playlistDetailControls(playlist).tracksReadOnly : false;
+  const showStarRatings = useShowStarRatings();
   const detailColumns = useMemo(
-    () => (tracksReadOnly ? PL_COLUMNS.filter(col => col.key !== 'delete') : PL_COLUMNS),
-    [tracksReadOnly],
+    () => withoutRatingColumn(
+      tracksReadOnly ? PL_COLUMNS.filter(col => col.key !== 'delete') : PL_COLUMNS,
+      showStarRatings,
+    ),
+    [tracksReadOnly, showStarRatings],
   );
   const {
     colVisible, visibleCols, gridStyle,

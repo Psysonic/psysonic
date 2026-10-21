@@ -646,6 +646,8 @@ export const settings = {
   loggingExportSuccess: 'ログをエクスポートしました ({{count}} 行)。',
   loggingExportError: 'ログをエクスポートできませんでした。',
   ratingsSectionTitle: '評価',
+  ratingsShowTitle: '星評価を表示',
+  ratingsShowDesc: 'サーバーで評価が無効になっている場合はオフにしてください。アプリ全体で星と評価の操作を非表示にします。',
   ratingsSkipStarTitle: 'スキップで 1 つ星',
   ratingsSkipStarDesc:
     '連続して何度かスキップした後、トラックを 1★ に設定します。まだ評価されていないトラックのみ対象です。',

@@ -652,6 +652,8 @@ export const settings = {
   loggingExportSuccess: 'Logs exported ({{count}} lines).',
   loggingExportError: 'Could not export logs.',
   ratingsSectionTitle: 'Ratings',
+  ratingsShowTitle: 'Show star ratings',
+  ratingsShowDesc: 'Turn this off if ratings are disabled on your server. Hides the stars and rating controls everywhere in the app.',
   ratingsSkipStarTitle: 'Skip for 1 star',
   ratingsSkipStarDesc:
     'After several skips in a row, set the track to 1★. Only for tracks not yet rated.',

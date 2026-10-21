@@ -652,6 +652,8 @@ export const settings = {
   loggingExportSuccess: 'Naplók exportálva ({{count}} sor).',
   loggingExportError: 'Nem sikerült exportálni a naplókat.',
   ratingsSectionTitle: 'Értékelések',
+  ratingsShowTitle: 'Csillagos értékelések megjelenítése',
+  ratingsShowDesc: 'Kapcsold ki, ha a szervereden ki vannak kapcsolva az értékelések. Elrejti a csillagokat és az értékelési vezérlőket az egész alkalmazásban.',
   ratingsSkipStarTitle: 'Átugrás 1 csillagért',
   ratingsSkipStarDesc:
     'Több egymás utáni átugrás után a szám 1★-ra állítódik. Csak a még nem értékelt számokra.',

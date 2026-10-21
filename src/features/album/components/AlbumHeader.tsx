@@ -33,6 +33,7 @@ import { ResumeButton } from '@/features/resume';
 import ExplicitBadge from '@/ui/ExplicitBadge';
 import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
 import { hasExplicitTrack } from '@/lib/media/explicitStatus';
+import { useShowStarRatings } from '@/store/starRatings';
 
 /** True when the album artist label means "no single artist" — `getArtistInfo`
  *  has nothing meaningful to return for these, so the Artist Bio entry is hidden.
@@ -227,6 +228,7 @@ export default function AlbumHeader({
 }: AlbumHeaderProps) {
   const policy = actionPolicy ?? offlineActionPolicy('albumDetail', false);
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const navigate = useNavigate();
   const location = useLocation();
   const goBack = useAlbumDetailBack();
@@ -413,15 +415,17 @@ export default function AlbumHeader({
                   }))}
                 />
               )}
-              <div className="album-detail-entity-rating">
-                <span className="album-detail-entity-rating-label">{t('entityRating.albumShort')}</span>
-                <StarRating
-                  value={entityRatingValue}
-                  onChange={onEntityRatingChange}
-                  disabled={!policy.canRate || entityRatingSupport === 'track_only'}
-                  labelKey="entityRating.albumAriaLabel"
-                />
-              </div>
+              {showStarRatings && (
+                <div className="album-detail-entity-rating">
+                  <span className="album-detail-entity-rating-label">{t('entityRating.albumShort')}</span>
+                  <StarRating
+                    value={entityRatingValue}
+                    onChange={onEntityRatingChange}
+                    disabled={!policy.canRate || entityRatingSupport === 'track_only'}
+                    labelKey="entityRating.albumAriaLabel"
+                  />
+                </div>
+              )}
               <AlbumNotes comment={albumComment} description={albumDescription} />
               {isMobile ? (
                 <div className="album-detail-actions-mobile">

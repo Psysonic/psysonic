@@ -14,6 +14,7 @@ import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAv
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { ownedEntityKey, ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import { ContextShareMenuItem } from '@/features/share';
+import { useShowStarRatings } from '@/store/starRatings';
 
 export default function AlbumContextItems(props: ContextMenuItemsProps) {
   const {
@@ -25,6 +26,7 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
     pinToPlaybackServer, navigateLibrary, offlinePolicy,
   } = props;
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const navigate = useNavigate();
   // Top level, not inside the `type === 'album'` body: that body is an IIFE
   // inside JSX, and a hook cannot live there.
@@ -87,7 +89,7 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
                   {isStarred(album.id, album.starred, album.serverId) ? t('contextMenu.unfavoriteAlbum') : t('contextMenu.favoriteAlbum')}
                 </div>
               )}
-              {offlinePolicy.canRate && (
+              {offlinePolicy.canRate && showStarRatings && (
                 <div
                   className="context-menu-rating-row"
                   data-rating-kind="album"
@@ -211,7 +213,7 @@ export default function AlbumContextItems(props: ContextMenuItemsProps) {
                   )}
                 </div>
               )}
-              {offlinePolicy.canRate && (
+              {offlinePolicy.canRate && showStarRatings && (
                 <div
                   className="context-menu-rating-row"
                   data-rating-kind="album"

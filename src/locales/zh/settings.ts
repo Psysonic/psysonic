@@ -587,6 +587,8 @@ export const settings = {
   loggingExportSuccess: '日志已导出（{{count}} 行）。',
   loggingExportError: '无法导出日志。',
   ratingsSectionTitle: '评分',
+  ratingsShowTitle: '显示星级评分',
+  ratingsShowDesc: '如果服务器已关闭评分，请关闭此项。将在整个应用中隐藏星星和评分控件。',
   ratingsSkipStarTitle: '跳过以评 1 星',
   ratingsSkipStarDesc:
     '连续多次跳过后将曲目设为 1 星。仅适用于此前未评分的曲目。',

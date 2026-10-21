@@ -587,6 +587,8 @@ export const settings = {
   loggingExportSuccess: 'Logger eksportert ({{count}} linjer).',
   loggingExportError: 'Kunne ikke eksportere logger.',
   ratingsSectionTitle: 'Vurderinger',
+  ratingsShowTitle: 'Vis stjernevurderinger',
+  ratingsShowDesc: 'Slå av hvis vurderinger er deaktivert på serveren din. Skjuler stjernene og vurderingskontrollene overalt i appen.',
   ratingsSkipStarTitle: 'Hopp for 1 stjerne',
   ratingsSkipStarDesc:
     'Etter flere hopp på rad: sett sporet til 1 stjerne. Bare for spor som ikke var vurdert før.',

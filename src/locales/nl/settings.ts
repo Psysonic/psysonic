@@ -620,6 +620,8 @@ export const settings = {
   loggingExportSuccess: 'Logs geëxporteerd ({{count}} regels).',
   loggingExportError: 'Kon logs niet exporteren.',
   ratingsSectionTitle: 'Beoordelingen',
+  ratingsShowTitle: 'Sterbeoordelingen tonen',
+  ratingsShowDesc: 'Zet dit uit als beoordelingen op je server zijn uitgeschakeld. Verbergt de sterren en beoordelingsknoppen overal in de app.',
   ratingsSkipStarTitle: 'Overslaan voor 1 ster',
   ratingsSkipStarDesc:
     'Na meerdere overslagen op rij: nummer op 1 ster zetten. Alleen voor nummers die nog niet beoordeeld waren.',

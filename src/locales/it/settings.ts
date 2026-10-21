@@ -652,6 +652,8 @@ export const settings = {
   loggingExportSuccess: 'Log esportati ({{count}} righe).',
   loggingExportError: 'Impossibile esportare i log.',
   ratingsSectionTitle: 'Valutazioni',
+  ratingsShowTitle: 'Mostra valutazioni a stelle',
+  ratingsShowDesc: 'Disattiva se le valutazioni sono disabilitate sul tuo server. Nasconde le stelle e i controlli di valutazione in tutta l’app.',
   ratingsSkipStarTitle: 'Salta a 1 stella',
   ratingsSkipStarDesc:
     'Dopo diversi salti consecutivi, imposta il brano a 1★. Solo per i brani non ancora valutati.',

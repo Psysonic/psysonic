@@ -656,6 +656,8 @@ export const settings = {
   loggingExportSuccess: 'Журнал експортовано ({{count}} рядків).',
   loggingExportError: 'Не вдалося експортувати журнал.',
   ratingsSectionTitle: 'Оцінки',
+  ratingsShowTitle: 'Показувати оцінки зірками',
+  ratingsShowDesc: 'Вимкніть, якщо оцінки вимкнено на вашому сервері. Приховує зірки та елементи оцінювання в усьому застосунку.',
   ratingsSkipStarTitle: '1 зірка за пропуск',
   ratingsSkipStarDesc: 'Після кількох пропусків поспіль автоматично встановлювати оцінку 1★ для неоцінених треків.',
   ratingsSkipStarThresholdLabel: 'Пропуски',
