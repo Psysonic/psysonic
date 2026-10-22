@@ -484,6 +484,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Integrations → External Artwork Scraper → Backgrounds** only appeared with the fanart.tv scraper turned on, although the artist image from your server fills the mainstage hero, the artist page header and the fullscreen player without it. So with the scraper off, there was no way to switch these backgrounds off, and **Open Backgrounds** in the fullscreen player settings led nowhere. The section is now always there; without the scraper it lists only the server image.
 * The hint in the fullscreen player settings now names the full path to the section.
 
+### Navidrome migration recovers from reciprocal track aliases
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1791](https://github.com/Psysonic/psysonic/pull/1791)**
+
+* After upgrading Navidrome, migration could fail repeatedly when two distinct tracks had stale aliases pointing at each other. They now migrate separately, keeping their listening history, ratings and offline copies, without manual database edits.
+
 ## [1.55.0]
 
 ## Added
