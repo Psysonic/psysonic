@@ -537,7 +537,7 @@ fn label_album_counts_query_reads_only_the_label_projection() {
         .unwrap();
     assert!(
         plan.iter()
-            .any(|detail| detail.contains("idx_track_label_browse")),
+            .any(|detail| detail.contains("idx_track_label_key_browse")),
         "query plan did not use the label browse projection: {plan:?}"
     );
     assert!(
@@ -546,6 +546,21 @@ fn label_album_counts_query_reads_only_the_label_projection() {
         }),
         "query plan unexpectedly joined the track table: {plan:?}"
     );
+}
+
+#[test]
+fn unicode_label_counts_do_not_double_count_one_album_with_case_variants() {
+    let store = LibraryStore::open_in_memory();
+    let mut first = make_row("s1", "t1", "al_a", 1);
+    first.raw_json = serde_json::json!({"recordLabels": [{"name": "Éditions"}]}).to_string();
+    let mut second = make_row("s1", "t2", "al_a", 2);
+    second.raw_json = serde_json::json!({"recordLabels": [{"name": "éditions"}]}).to_string();
+    TrackRepository::new(&store)
+        .upsert_batch(&[first, second])
+        .unwrap();
+    let counts = label_album_counts_for_server(&store, "s1", &[]).unwrap();
+    assert_eq!(counts.len(), 1);
+    assert_eq!((counts[0].album_count, counts[0].song_count), (1, 2));
 }
 
 #[test]

@@ -27,6 +27,11 @@ pub fn clean_label(raw: &str) -> String {
         .to_string()
 }
 
+/// Stable, locale-independent identity shared by ingest and indexed lookups.
+pub fn label_key(raw: &str) -> String {
+    clean_label(raw).to_lowercase()
+}
+
 fn dedupe_labels(labels: impl IntoIterator<Item = String>) -> Vec<String> {
     let mut seen = HashSet::new();
     let mut out = Vec::new();
@@ -35,7 +40,7 @@ fn dedupe_labels(labels: impl IntoIterator<Item = String>) -> Vec<String> {
         if cleaned.is_empty() {
             continue;
         }
-        if seen.insert(cleaned.to_lowercase()) {
+        if seen.insert(label_key(&cleaned)) {
             out.push(cleaned);
         }
     }
@@ -107,11 +112,18 @@ pub fn replace_track_label_rows(
     }
     let mut insert = tx.prepare_cached(
         "INSERT OR IGNORE INTO track_label \
-         (server_id, track_id, label, album_id, library_id) \
-         VALUES (?1, ?2, ?3, ?4, ?5)",
+         (server_id, track_id, label, album_id, library_id, label_key) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
     )?;
     for label in labels {
-        insert.execute(params![server_id, track_id, label, album_id, library_id])?;
+        insert.execute(params![
+            server_id,
+            track_id,
+            label,
+            album_id,
+            library_id,
+            label_key(label)
+        ])?;
     }
     Ok(())
 }

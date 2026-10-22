@@ -136,11 +136,11 @@ pub fn list_albums_by_label(
     let mut where_clauses = vec![
         "tl.server_id = ?1".to_string(),
         "tl.album_id IS NOT NULL AND tl.album_id != ''".to_string(),
-        "tl.label = ?2 COLLATE NOCASE".to_string(),
+        "tl.label_key = ?2".to_string(),
     ];
     let mut params: Vec<SqlValue> = vec![
         SqlValue::Text(legacy.server_id.clone()),
-        SqlValue::Text(label.to_string()),
+        SqlValue::Text(crate::label_tags::label_key(label)),
     ];
 
     let library_scoped = trimmed_nonempty(legacy.library_scope.as_deref()).is_some();
@@ -255,33 +255,33 @@ fn label_multi_scope_order_sql(sort: &[LibrarySortClause]) -> String {
 
 fn scoped_label_album_cte(scopes: &[LibraryScopePair], label: &str) -> (String, Vec<SqlValue>) {
     let (scope_cte, mut binds) = scope_merge::scope_cte_sql(scopes);
-    binds.push(SqlValue::Text(label.to_string()));
+    binds.push(SqlValue::Text(crate::label_tags::label_key(label)));
     let cte = format!(
         "{scope_cte}, \
          label_filter(value) AS (VALUES (?)), \
          label_album_candidates AS MATERIALIZED ( \
-           SELECT tl.server_id, t.library_id, tl.album_id, s.pr \
+            SELECT tl.server_id, COALESCE(t.library_id, '') AS library_id, tl.album_id, s.pr \
            FROM exact_scope s \
            CROSS JOIN label_filter mf \
-           INNER JOIN track_label tl INDEXED BY idx_track_label_browse \
-             ON tl.server_id = s.server_id AND tl.label = mf.value COLLATE NOCASE \
+            INNER JOIN track_label tl INDEXED BY idx_track_label_key_browse \
+              ON tl.server_id = s.server_id AND tl.label_key = mf.value \
            INNER JOIN track t INDEXED BY sqlite_autoindex_track_1 \
              ON t.server_id = tl.server_id AND t.id = tl.track_id \
             AND t.album_id = tl.album_id AND t.library_id = s.library_id \
            WHERE t.deleted = 0 AND tl.album_id IS NOT NULL AND tl.album_id != '' \
            GROUP BY tl.server_id, t.library_id, tl.album_id, s.pr \
            UNION ALL \
-           SELECT tl.server_id, t.library_id, tl.album_id, s.pr \
+            SELECT tl.server_id, COALESCE(t.library_id, '') AS library_id, tl.album_id, s.pr \
            FROM whole_scope s \
            CROSS JOIN label_filter mf \
-           INNER JOIN track_label tl INDEXED BY idx_track_label_browse \
-             ON tl.server_id = s.server_id AND tl.label = mf.value COLLATE NOCASE \
+            INNER JOIN track_label tl INDEXED BY idx_track_label_key_browse \
+              ON tl.server_id = s.server_id AND tl.label_key = mf.value \
            INNER JOIN track t INDEXED BY sqlite_autoindex_track_1 \
              ON t.server_id = tl.server_id AND t.id = tl.track_id \
             AND t.album_id = tl.album_id \
            WHERE t.deleted = 0 AND tl.album_id IS NOT NULL AND tl.album_id != '' \
-           GROUP BY tl.server_id, t.library_id, tl.album_id, s.pr \
-         ), \
+            GROUP BY tl.server_id, COALESCE(t.library_id, ''), tl.album_id, s.pr \
+          ), \
          physical AS MATERIALIZED ( \
            SELECT p.*, c.pr, \
                   COALESCE(NULLIF(p.identity_key, ''), \

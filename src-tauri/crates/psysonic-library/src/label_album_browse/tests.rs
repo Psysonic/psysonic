@@ -196,7 +196,7 @@ fn scoped_label_query_drives_from_the_label_index() {
     assert!(
         details
             .iter()
-            .any(|detail| { detail.contains("idx_track_label_browse",) }),
+            .any(|detail| { detail.contains("idx_track_label_key_browse",) }),
         "query plan must use the label-first browse index: {details:?}"
     );
 
@@ -215,4 +215,83 @@ fn list_albums_by_label_matches_a_raw_tag_value_with_invisible_marks() {
     let response = list_albums_by_label(&store, &request("Deram \u{200e}")).unwrap();
     assert_eq!(response.total, Some(1));
     assert_eq!(response.albums[0].id, "al_a");
+}
+
+#[test]
+fn unicode_case_variants_return_the_entire_label_catalog() {
+    let store = LibraryStore::open_in_memory();
+    TrackRepository::new(&store)
+        .upsert_batch(&[
+            track("s1", "t1", "al_a", "lib1", &["Éditions"]),
+            track("s1", "t2", "al_b", "lib1", &["éditions"]),
+        ])
+        .unwrap();
+    for label in ["Éditions", "éditions", "ÉDITIONS"] {
+        for scopes in [
+            None,
+            Some(vec![LibraryScopePair {
+                server_id: "s1".into(),
+                library_id: None,
+            }]),
+        ] {
+            let mut req = request(label);
+            req.library_scopes = scopes;
+            let response = list_albums_by_label(&store, &req).unwrap();
+            assert_eq!(response.total, Some(2), "label: {label}");
+            assert_eq!(response.albums.len(), 2);
+        }
+    }
+}
+
+#[test]
+fn whole_server_scope_keeps_tracks_without_a_library_id() {
+    let store = LibraryStore::open_in_memory();
+    let mut row = track("s1", "t1", "al_a", "lib1", &["Warp"]);
+    row.library_id = None;
+    TrackRepository::new(&store).upsert_batch(&[row]).unwrap();
+    let mut req = request("Warp");
+    req.library_scopes = Some(vec![LibraryScopePair {
+        server_id: "s1".into(),
+        library_id: None,
+    }]);
+    let response = list_albums_by_label(&store, &req).unwrap();
+    assert_eq!(response.total, Some(1));
+    assert_eq!(response.albums[0].id, "al_a");
+}
+
+#[test]
+fn multi_server_label_pages_respect_library_selection_and_unicode_identity() {
+    let store = LibraryStore::open_in_memory();
+    TrackRepository::new(&store)
+        .upsert_batch(&[
+            track("s1", "t1", "al_a", "lib1", &["Éditions"]),
+            track("s2", "t2", "al_b", "lib1", &["éditions"]),
+            track("s2", "t3", "excluded", "lib2", &["Éditions"]),
+        ])
+        .unwrap();
+    let mut req = request("éditions");
+    req.library_scopes = Some(vec![
+        LibraryScopePair {
+            server_id: "s1".into(),
+            library_id: Some("lib1".into()),
+        },
+        LibraryScopePair {
+            server_id: "s2".into(),
+            library_id: Some("lib1".into()),
+        },
+    ]);
+    req.limit = 1;
+    let first = list_albums_by_label(&store, &req).unwrap();
+    assert_eq!(first.total, Some(2));
+    assert_eq!(
+        (&*first.albums[0].server_id, &*first.albums[0].id),
+        ("s1", "al_a")
+    );
+    req.offset = 1;
+    let second = list_albums_by_label(&store, &req).unwrap();
+    assert_eq!(second.total, Some(2));
+    assert_eq!(
+        (&*second.albums[0].server_id, &*second.albums[0].id),
+        ("s2", "al_b")
+    );
 }

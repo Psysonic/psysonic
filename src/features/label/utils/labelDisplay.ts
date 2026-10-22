@@ -35,7 +35,7 @@ export function mergeLabelCatalogs(catalogs: readonly LabelAlbumCountRow[][]): L
     for (const row of catalog) {
       const name = row.value.trim();
       if (!name || row.albumCount <= 0) continue;
-      const key = name.toLocaleLowerCase();
+      const key = name.toLowerCase();
       const previous = merged.get(key);
       merged.set(key, {
         name: previous?.name ?? name,
@@ -48,10 +48,10 @@ export function mergeLabelCatalogs(catalogs: readonly LabelAlbumCountRow[][]): L
 
 /** Filter and group labels into letter sections, A–Z within each. */
 export function groupLabels(labels: readonly LabelEntry[], query: string): LabelSection[] {
-  const needle = query.trim().toLocaleLowerCase();
+  const needle = query.trim().toLowerCase();
   const byBucket = new Map<string, LabelEntry[]>();
   for (const label of labels) {
-    if (needle && !label.name.toLocaleLowerCase().includes(needle)) continue;
+    if (needle && !label.name.toLowerCase().includes(needle)) continue;
     const bucket = labelBucket(label.name);
     const list = byBucket.get(bucket) ?? [];
     list.push(label);

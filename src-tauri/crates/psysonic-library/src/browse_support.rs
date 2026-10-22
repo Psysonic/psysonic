@@ -603,9 +603,9 @@ pub(crate) fn label_album_counts_query(
     // case-insensitive label, so COUNT(*) is the song count without
     // requiring a DISTINCT temp B-tree or a join back to track.
     let mut sql = String::from(
-        "SELECT tl.label, COUNT(DISTINCT tl.album_id) AS album_count, \
+        "SELECT MIN(tl.label), COUNT(DISTINCT tl.album_id) AS album_count, \
                 COUNT(*) AS song_count \
-         FROM track_label tl INDEXED BY idx_track_label_browse \
+         FROM track_label tl INDEXED BY idx_track_label_key_browse \
          WHERE tl.server_id = ?1 \
            AND tl.album_id IS NOT NULL AND tl.album_id != ''",
     );
@@ -627,7 +627,7 @@ pub(crate) fn label_album_counts_query(
     }
 
     sql.push_str(
-        " GROUP BY tl.label COLLATE NOCASE \
+        " GROUP BY tl.label_key \
          HAVING album_count > 0 \
          ORDER BY album_count DESC, tl.label COLLATE NOCASE ASC",
     );

@@ -413,6 +413,17 @@ mod tests {
 
         run_label_tags_backfill_impl(&store, None).unwrap();
 
+        let missing_keys: i64 = store
+            .with_read_conn(|conn| {
+                conn.query_row(
+                    "SELECT COUNT(*) FROM track_label WHERE label_key IS NULL OR label_key = ''",
+                    [],
+                    |row| row.get(0),
+                )
+            })
+            .unwrap();
+        assert_eq!(missing_keys, 0);
+
         assert_eq!(
             labels_by_track(&store),
             vec![

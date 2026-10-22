@@ -68,8 +68,8 @@ async function fetchLocalLabelAlbumPage(
 
 /** Search hits whose record label matches exactly, else every album hit. */
 export function albumsMatchingLabel(albums: readonly SubsonicAlbum[], label: string): SubsonicAlbum[] {
-  const wanted = label.trim().toLocaleLowerCase();
-  const matches = albums.filter(a => a.recordLabel?.trim().toLocaleLowerCase() === wanted);
+  const wanted = label.trim().toLowerCase();
+  const matches = albums.filter(a => a.recordLabel?.trim().toLowerCase() === wanted);
   return matches.length > 0 ? matches : [...albums];
 }
 

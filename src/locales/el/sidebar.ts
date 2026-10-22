@@ -25,6 +25,7 @@ export const sidebar = {
   offlineLibrary: 'Βιβλιοθήκη Εκτός Σύνδεσης',
   genres: 'Είδη',
   moods: 'Διαθέσεις',
+  labels: 'Δισκογραφικές εταιρείες',
   tracks: 'Κομμάτια',
   playlists: 'Λίστες Αναπαραγωγής',
   shared: 'Κοινή χρήση ND',

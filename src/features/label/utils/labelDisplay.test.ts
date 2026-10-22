@@ -17,6 +17,13 @@ describe('labelBucket', () => {
 });
 
 describe('mergeLabelCatalogs', () => {
+  it('merges Unicode case variants using the same identity as indexed browse', () => {
+    expect(mergeLabelCatalogs([
+      [{ value: 'Éditions', albumCount: 1, songCount: 1 }],
+      [{ value: 'éditions', albumCount: 2, songCount: 2 }],
+    ])).toEqual([{ name: 'Éditions', albumCount: 3 }]);
+  });
+
   it('adds album counts for the same label across servers, case-insensitively', () => {
     const merged = mergeLabelCatalogs([
       [{ value: 'Warp', albumCount: 3, songCount: 30 }, { value: 'Bleep', albumCount: 1, songCount: 4 }],
