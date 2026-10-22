@@ -5,6 +5,42 @@ import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import CoverLightbox from '@/ui/CoverLightbox';
 
 describe('CoverLightbox', () => {
+  it('supports keyboard zoom, pan and reset without sending keys to the page', () => {
+    renderWithProviders(<CoverLightbox src="cover.jpg" alt="Album cover" onClose={vi.fn()} />);
+    const img = screen.getByRole('img', { name: 'Album cover' });
+    const close = screen.getByRole('button', { name: 'Close' });
+    Object.defineProperties(img, {
+      offsetWidth: { configurable: true, value: 400 },
+      offsetHeight: { configurable: true, value: 400 },
+    });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: '+' });
+    expect(img.style.transform).toContain('scale(1.25)');
+    fireEvent.keyDown(close, { key: 'ArrowRight' });
+    expect(img.style.transform).toContain('translate(-40px, 0px)');
+    fireEvent.keyDown(close, { key: '0' });
+    expect(img.style.transform).toBe('');
+  });
+
+  it('keeps tab focus inside the dialog and restores the opener on unmount', async () => {
+    const opener = document.createElement('button');
+    document.body.appendChild(opener);
+    opener.focus();
+    const { unmount } = renderWithProviders(<CoverLightbox src="cover.jpg" alt="Album cover" onClose={vi.fn()} />);
+    const close = screen.getByRole('button', { name: 'Close' });
+    const img = screen.getByRole('img', { name: 'Album cover' });
+    expect(close).toHaveFocus();
+    await userEvent.tab();
+    expect(img).toHaveFocus();
+    await userEvent.tab();
+    expect(close).toHaveFocus();
+    await userEvent.tab({ shift: true });
+    expect(img).toHaveFocus();
+    unmount();
+    expect(opener).toHaveFocus();
+    opener.remove();
+  });
+
   it('renders the cover image with the supplied src and alt', () => {
     renderWithProviders(
       <CoverLightbox src="https://example/cover.jpg" alt="Album cover" onClose={vi.fn()} />,

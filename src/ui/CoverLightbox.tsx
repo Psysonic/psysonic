@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   LIGHTBOX_ZOOM_RESET,
   panBy,
@@ -27,11 +28,21 @@ interface GestureEvent extends UIEvent {
 const DOUBLE_CLICK_ZOOM = 2.5;
 
 export default function CoverLightbox({ src, alt, onClose }: Props) {
+  const { t } = useTranslation();
   const overlayRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const dragRef = useRef<Point | null>(null);
   const [zoom, setZoom] = useState<LightboxZoom>(LIGHTBOX_ZOOM_RESET);
   const zoomed = zoom.scale > 1;
+
+  useEffect(() => {
+    const previous = document.activeElement;
+    closeRef.current?.focus();
+    return () => {
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus();
+    };
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -103,6 +114,36 @@ export default function CoverLightbox({ src, alt, onClose }: Props) {
 
   const imageSize = (img: HTMLImageElement): Size => ({ width: img.offsetWidth, height: img.offsetHeight });
 
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Tab') {
+      // This modal has two focus targets; do not tab into the covered page.
+      e.preventDefault();
+      if (document.activeElement === closeRef.current) imgRef.current?.focus();
+      else closeRef.current?.focus();
+      return;
+    }
+    if (e.altKey || e.ctrlKey || e.metaKey || !imgRef.current) return;
+    const size = imageSize(imgRef.current);
+    const pans: Record<string, Point> = {
+      ArrowLeft: { x: 40, y: 0 }, ArrowRight: { x: -40, y: 0 },
+      ArrowUp: { x: 0, y: 40 }, ArrowDown: { x: 0, y: -40 },
+    };
+    if (e.key === '+' || e.key === '=' || e.key === '-') {
+      e.preventDefault();
+      e.stopPropagation();
+      setZoom(z => zoomAt(z, e.key === '-' ? 1 / 1.25 : 1.25, { x: 0, y: 0 }, size));
+    } else if (e.key === '0') {
+      e.preventDefault();
+      e.stopPropagation();
+      setZoom(LIGHTBOX_ZOOM_RESET);
+    } else if (pans[e.key]) {
+      e.preventDefault();
+      e.stopPropagation();
+      const { x, y } = pans[e.key];
+      setZoom(z => panBy(z, x, y, size));
+    }
+  };
+
   const onPointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
     if (!zoomed || e.button !== 0) return;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -131,13 +172,15 @@ export default function CoverLightbox({ src, alt, onClose }: Props) {
   };
 
   return createPortal(
-    <div ref={overlayRef} className="cover-lightbox-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={alt}>
-      <button className="cover-lightbox-close" onClick={onClose} aria-label="Close"><X size={20} /></button>
+    <div ref={overlayRef} className="cover-lightbox-overlay" onClick={onClose} onKeyDown={onKeyDown} role="dialog" aria-modal="true" aria-label={alt}>
+      <button ref={closeRef} className="cover-lightbox-close" onClick={onClose} aria-label={t('common.close')}><X size={20} /></button>
       <img
         ref={imgRef}
         className={`cover-lightbox-img${zoomed ? ' cover-lightbox-img--zoomed' : ''}`}
         src={src}
         alt={alt}
+        tabIndex={0}
+        aria-keyshortcuts="+ = - 0 ArrowLeft ArrowRight ArrowUp ArrowDown"
         draggable={false}
         style={zoomed ? { transform: `translate(${zoom.x}px, ${zoom.y}px) scale(${zoom.scale})` } : undefined}
         onClick={e => e.stopPropagation()}
@@ -146,6 +189,7 @@ export default function CoverLightbox({ src, alt, onClose }: Props) {
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
+        onLostPointerCapture={onPointerUp}
       />
     </div>,
     document.body

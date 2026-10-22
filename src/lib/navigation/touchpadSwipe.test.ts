@@ -125,6 +125,30 @@ describe('createSwipeTracker', () => {
     expect(swipe(tracker, -20, 10, 0, extra)).toEqual([]);
   });
 
+  it.each([
+    ['Shift', { shiftKey: true }],
+    ['Ctrl', { ctrlKey: true }],
+    ['Meta', { metaKey: true }],
+    ['Alt', { altKey: true }],
+    ['a handled event', { defaultPrevented: true }],
+  ])('abandons the entire gesture when %s appears partway through', (_name, extra) => {
+    const tracker = createSwipeTracker();
+    expect(tracker.onWheel(wheel({ deltaX: -100 }))).toBeNull();
+    expect(tracker.onWheel(wheel({ deltaX: -60, timeStamp: 16, ...extra }))).toBeNull();
+    expect(swipe(tracker, -20, 10, 32)).toEqual([]);
+    expect(swipe(tracker, -20, 10, 1000)).toEqual(['back']);
+  });
+
+  it('abandons a pending swipe when its target enters a modal', () => {
+    const dialog = document.createElement('div');
+    dialog.setAttribute('aria-modal', 'true');
+    document.body.appendChild(dialog);
+    const tracker = createSwipeTracker();
+    expect(tracker.onWheel(wheel({ deltaX: -100 }))).toBeNull();
+    expect(tracker.onWheel(wheel({ deltaX: -60, target: dialog, timeStamp: 16 }))).toBeNull();
+    expect(swipe(tracker, -20, 10, 32)).toEqual([]);
+  });
+
   it('leaves input inside a modal dialog alone', () => {
     const dialog = document.createElement('div');
     dialog.setAttribute('aria-modal', 'true');

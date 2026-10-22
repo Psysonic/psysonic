@@ -96,17 +96,23 @@ export function createSwipeTracker(): SwipeTracker {
         sumX = 0;
         sumY = 0;
         settled = false;
-        if (
-          e.defaultPrevented
-          || e.ctrlKey || e.shiftKey || e.altKey || e.metaKey
-          || isInsideModal(e.target)
-          || isInsideHorizontalScroller(e.target)
-        ) {
-          settled = true;
-        }
+        // A scroller owns a gesture according to where it started. Do not
+        // repeat the computed-style ancestor walk for its momentum events.
+        settled = isInsideHorizontalScroller(e.target);
       }
       lastTime = e.timeStamp;
       if (settled) return null;
+
+      // Modifiers, consumed input and modal ownership can change after the
+      // gesture starts. Abandon its remainder, including unmodified momentum.
+      if (
+        e.defaultPrevented
+        || e.ctrlKey || e.shiftKey || e.altKey || e.metaKey
+        || isInsideModal(e.target)
+      ) {
+        settled = true;
+        return null;
+      }
 
       sumX += toPixels(e.deltaX, e.deltaMode);
       sumY += toPixels(e.deltaY, e.deltaMode);
