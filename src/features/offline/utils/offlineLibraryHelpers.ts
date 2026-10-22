@@ -131,6 +131,7 @@ export function libraryDtoToTrack(dto: LibraryTrackDto): Track {
     replayGainAlbumDb: dto.replayGainAlbumDb ?? undefined,
     replayGainPeak: dto.replayGainPeak ?? undefined,
     size: song.size,
+    explicitStatus: song.explicitStatus,
     serverId: dto.serverId,
   };
 }

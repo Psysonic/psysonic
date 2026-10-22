@@ -19,8 +19,9 @@ mod peek;
 mod test_support;
 
 use bucket::{
-    external_album_art_dirs, purge_external_files, purge_misattributed_external_album_art_once,
-    rename_bucket_inner, reset_cover_cache_for_index_key_layout,
+    external_album_art_dirs, purge_entity_server_art, purge_external_files,
+    purge_misattributed_external_album_art_once, rename_bucket_inner,
+    reset_cover_cache_for_index_key_layout,
 };
 use cache_state::state;
 pub use cache_state::CoverCacheState;
@@ -148,12 +149,18 @@ pub fn ui_ensure_produced_total() -> u64 {
     metrics::ui_ensure_produced_total()
 }
 
-pub fn init_cover_cache(app: &AppHandle) -> Result<(), String> {
-    let root = app
+/// Root of the on-disk cover cache. Callers outside the module use it to accept
+/// only paths inside the cache.
+pub(crate) fn cover_cache_root(app: &AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app
         .path()
         .app_data_dir()
         .map_err(|e| e.to_string())?
-        .join("cover-cache");
+        .join("cover-cache"))
+}
+
+pub fn init_cover_cache(app: &AppHandle) -> Result<(), String> {
+    let root = cover_cache_root(app)?;
     reset_cover_cache_for_index_key_layout(&root)?;
     let reset = purge_misattributed_external_album_art_once(&root);
     if reset > 0 {
@@ -518,6 +525,40 @@ pub async fn cover_cache_purge_external_album_art(
         let _ = app.emit("cover:cache-cleared", serde_json::json!({}));
     }
     Ok(removed)
+}
+
+/// Drop the server art of ONE cover entity so the next ensure downloads it
+/// again (cover-art-pipeline contract §10) — run after the user uploads a new
+/// image for it. Takes the dir's flight lock first, so no ensure is mid-write.
+/// External-provider artifacts survive (see `purge_entity_server_art`).
+/// Returns the number of files removed. No event: the frontend that asked for
+/// the purge drops its own in-memory entries for the entity.
+#[tauri::command]
+#[specta::specta]
+pub async fn cover_cache_invalidate_entity(
+    app: AppHandle,
+    server_index_key: String,
+    cache_kind: String,
+    cache_entity_id: String,
+) -> Result<u32, String> {
+    let st = state(&app)?;
+    let (dir, flight) = {
+        let guard = st.lock().await;
+        let dir = cover_dir(
+            &guard.root,
+            &server_index_key,
+            &cache_kind,
+            &cache_entity_id,
+        );
+        let flight = inflight_dir_flight(&guard.inflight_dirs, &dir);
+        (dir, flight)
+    };
+    let _flight = flight.lock().await;
+    let removed = purge_entity_server_art(&dir);
+    if removed > 0 {
+        invalidate_dir_usage_cache(&server_index_key);
+    }
+    Ok(removed as u32)
 }
 
 /// Rename a server's cover-cache bucket on disk after the user edits the

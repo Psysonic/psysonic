@@ -83,6 +83,8 @@ WinGet) and contributor handles.
 
 See [README](README.md) (**Development**) for the basic flow: from the repository root, `npm install` then `npm run tauri:dev` for development or `npm run tauri:build` for a release build. Use `npm install` while iterating; `npm ci` is what CI runs and is the right command when you want a reproducible install.
 
+Building from source needs **Rust 1.98 or newer**, set as the workspace `rust-version` in [`src-tauri/Cargo.toml`](src-tauri/Cargo.toml); cargo stops with an error on an older toolchain. With rustup, `rustup update stable` brings it up to date.
+
 For non-Linux contributors, install the native dependencies Tauri requires on your OS — see the upstream [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) (Windows: WebView2 + MSVC build tools; macOS: Xcode Command Line Tools). The Linux package list used in CI is in [`rust-tests.yml`](.github/workflows/rust-tests.yml).
 
 If you use **Nix**, `nix develop` (see [`flake.nix`](flake.nix)) provides the pinned toolchain and native dependencies. Adding `psysonic.cachix.org` as a substituter (badge in the [README](README.md)) lets you pull prebuilt dev-shell dependencies instead of rebuilding them locally.

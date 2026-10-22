@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Rediger spilleliste',
   editNamePlaceholder: 'Spillelistenavn…',
   editCommentPlaceholder: 'Legg til en beskrivelse…',
+  linkOpenError: 'Kunne ikke åpne denne lenken i nettleseren.',
   editPublic: 'Offentlig spilleliste',
   editSave: 'Lagre',
   editCancel: 'Avbryt',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Løser {{count}} artister…',
   myPlaylists: 'Mine spillelister',
   noOtherPlaylists: 'Ingen andre spillelister tilgjengelig',
+  recentTargets: 'Nylig brukt',
   addToPlaylistSuccess: '{{count}} sanger lagt til i {{playlist}}',
   addToPlaylistNoNew: 'Ingen nye sanger for {{playlist}}',
   addToPlaylistError: 'Feil ved å legge til i spilleliste',
@@ -130,6 +132,19 @@ export const playlists = {
     count_other: '{{count}} spillelister',
     localOnlyNotice:
       'Mapper lagres bare i Psysonic på denne enheten. Navidrome og Subsonic-API-et støtter ikke spillelistemapper, så strukturen lagres ikke på serveren din og synkroniseres ikke med dine andre enheter og apper.',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Etiketter',
+    newTag: 'Ny etikett',
+    namePlaceholder: 'Etikettnavn…',
+    filterLabel: 'Filtrer etter etiketter',
+    clearFilter: 'Fjern etikettfilter',
+    chipHint: 'Høyreklikk for å gi nytt navn eller slette',
+    rename: 'Gi etiketten nytt navn',
+    delete: 'Slett etikett',
+    deleteConfirm: 'Klikk igjen for å fjerne den fra alle spillelister',
+    emptyFilter: 'Ingen spilleliste har alle de valgte etikettene.',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

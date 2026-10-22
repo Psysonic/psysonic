@@ -137,7 +137,7 @@ export const commands = {
 	 *  ring buffer is created, its consumer is sent to `AudioStreamReader` (which
 	 *  swaps it in on the next `read()`), and a new download task is spawned.
 	 */
-	audioResume: (fadeSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("audio_resume", { fadeSecs })),
+	audioResume: (fadeSecs: number | null, notifyPlaying: boolean | null) => typedError<null, string>(__TAURI_INVOKE("audio_resume", { fadeSecs, notifyPlaying })),
 	audioStop: () => __TAURI_INVOKE<void>("audio_stop"),
 	audioSeek: (seconds: number | null) => typedError<null, string>(__TAURI_INVOKE("audio_seek", { seconds })),
 	audioSetVolume: (volume: number | null) => __TAURI_INVOKE<void>("audio_set_volume", { volume }),
@@ -485,6 +485,15 @@ export const commands = {
 	 */
 	coverCachePurgeExternalAlbumArt: (sources: string[] | null) => typedError<number, string>(__TAURI_INVOKE("cover_cache_purge_external_album_art", { sources })),
 	/**
+	 *  Drop the server art of ONE cover entity so the next ensure downloads it
+	 *  again (cover-art-pipeline contract §10) — run after the user uploads a new
+	 *  image for it. Takes the dir's flight lock first, so no ensure is mid-write.
+	 *  External-provider artifacts survive (see `purge_entity_server_art`).
+	 *  Returns the number of files removed. No event: the frontend that asked for
+	 *  the purge drops its own in-memory entries for the entity.
+	 */
+	coverCacheInvalidateEntity: (serverIndexKey: string, cacheKind: string, cacheEntityId: string) => typedError<number, string>(__TAURI_INVOKE("cover_cache_invalidate_entity", { serverIndexKey, cacheKind, cacheEntityId })),
+	/**
 	 *  Rename a server's cover-cache bucket on disk after the user edits the
 	 *  primary URL (and the derived index key changes). Used by the URL-change
 	 *  remigration pipeline (dual-server-address spec §8.3) so cached covers
@@ -674,6 +683,12 @@ export const commands = {
 	mprisSetMetadata: (title: string | null, artist: string | null, album: string | null, coverUrl: string | null, durationSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_metadata", { title, artist, album, coverUrl, durationSecs })),
 	mprisSetPlayback: (playing: boolean, positionSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_playback", { playing, positionSecs })),
 	mprisSetVolume: (volume: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_volume", { volume })),
+	/**
+	 *  Desktop notification for a track change. It is skipped while a Psysonic
+	 *  window has focus: the user is looking at the player then. Returns whether a
+	 *  notification was shown.
+	 */
+	showTrackNotification: (title: string, body: string, coverPath: string | null) => typedError<boolean, string>(__TAURI_INVOKE("show_track_notification", { title, body, coverPath })),
 	/**  Returns true if `path` is an accessible directory (used for pre-flight checks in the frontend). */
 	checkDirAccessible: (path: string) => __TAURI_INVOKE<boolean>("check_dir_accessible", { path }),
 	/**
@@ -2323,12 +2338,17 @@ export type TrackSyncInfo = {
 	artist: string,
 	/**
 	 *  Album artist — used for the top-level folder so compilation albums stay together.
-	 *  Falls back to `artist` in the frontend when the server has no albumArtist tag.
+	 *  Taken from `albumArtist`, then the OpenSubsonic `displayAlbumArtist`, then `artist`.
 	 */
 	albumArtist: string,
 	album: string,
 	title: string,
 	trackNumber: number | null,
+	/**
+	 *  From disc 2 on, the disc prefixes the album-tree file name (`2-01 - Title`)
+	 *  so equal track numbers and titles on different discs do not collide.
+	 */
+	discNumber?: number | null,
 	/**  Duration in seconds — needed for Extended M3U (#EXTINF) playlist entries. */
 	duration?: number | null,
 	/**

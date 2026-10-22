@@ -4,6 +4,7 @@ export const moods = {
   moodCount_one: 'настрій',
   moodCount_few: 'настрої',
   moodCount_many: 'настроїв',
+  moodCount_other: 'настроїв',
   albumCount_one: '{{count}} альбом',
   albumCount_few: '{{count}} альбоми',
   albumCount_many: '{{count}} альбомів',

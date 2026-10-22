@@ -75,7 +75,7 @@ describe('serverHttpContextWireForProfile', () => {
     url: 'https://music.example.com',
   };
 
-  it('derives raw-stream support only from current Navidrome identity', () => {
+  it('derives raw-stream support only from known current server identities', () => {
     expect(
       serverHttpContextWireForProfile(profile, { type: 'Navidrome' }).supportsRawStream,
     ).toBe(true);
@@ -83,6 +83,23 @@ describe('serverHttpContextWireForProfile', () => {
       serverHttpContextWireForProfile(profile, { type: 'subsonic' }).supportsRawStream,
     ).toBe(false);
     expect(serverHttpContextWireForProfile(profile).supportsRawStream).toBe(false);
+    expect(
+      serverHttpContextWireForProfile(profile, { type: 'BandcampServer' }).supportsRawStream,
+    ).toBe(true);
+    expect(
+      serverHttpContextWireForProfile(profile, { type: ' bandcampserver ' }).supportsRawStream,
+    ).toBe(true);
+    expect(
+      serverHttpContextWireForProfile(profile, { type: 'gonic' }).supportsRawStream,
+    ).toBe(false);
+  });
+
+  it('does not infer raw-stream support from the Bandcamp URL alone', () => {
+    const bandcamp = { ...profile, url: 'https://bandcamp.com/api/subsonic' };
+    expect(serverHttpContextWireForProfile(bandcamp).supportsRawStream).toBe(false);
+    expect(
+      serverHttpContextWireForProfile(bandcamp, { type: 'subsonic' }).supportsRawStream,
+    ).toBe(false);
   });
 
   it('keeps a capability-only context when the profile has no headers', () => {

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Keyboard, MousePointerClick, RotateCcw, X } from 'lucide-react';
 import { IN_APP_SHORTCUT_ACTIONS, GLOBAL_SHORTCUT_ACTIONS } from '@/config/shortcutActions';
@@ -19,6 +19,23 @@ export function InputTab() {
   const setTrackRowPlayClick = useThemeStore(s => s.setTrackRowPlayClick);
   const [listeningFor, setListeningFor] = useState<KeyAction | null>(null);
   const [listeningForGlobal, setListeningForGlobal] = useState<GlobalAction | null>(null);
+  // One capture listener at a time across both lists. Without this, a field
+  // that was clicked and then left waiting kept its listener, and the next key
+  // was bound to it as well as to the field clicked after it.
+  const captureRef = useRef<((e: KeyboardEvent) => void) | null>(null);
+  const stopCapture = () => {
+    if (captureRef.current) window.removeEventListener('keydown', captureRef.current, true);
+    captureRef.current = null;
+    setListeningFor(null);
+    setListeningForGlobal(null);
+  };
+  const startCapture = (handler: (e: KeyboardEvent) => void) => {
+    captureRef.current = handler;
+    window.addEventListener('keydown', handler, true);
+  };
+  useEffect(() => () => {
+    if (captureRef.current) window.removeEventListener('keydown', captureRef.current, true);
+  }, []);
   const trackRowPlayClickOptions: SegmentedOption<TrackRowPlayClick>[] = [
     { id: 'single', label: t('settings.trackRowPlayClickSingle') },
     { id: 'double', label: t('settings.trackRowPlayClickDouble') },
@@ -55,7 +72,7 @@ export function InputTab() {
             type="button"
             className="btn btn-ghost"
             style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 6px' }}
-            onClick={() => { kb.resetToDefaults(); setListeningFor(null); }}
+            onClick={() => { kb.resetToDefaults(); stopCapture(); }}
             data-tooltip={t('settings.shortcutsReset')}
             aria-label={t('settings.shortcutsReset')}
           >
@@ -82,14 +99,14 @@ export function InputTab() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <button
                         onClick={() => {
-                          if (isListening) { setListeningFor(null); return; }
+                          stopCapture();
+                          if (isListening) return;
                           setListeningFor(action);
-                          const handler = (e: KeyboardEvent) => {
+                          startCapture((e: KeyboardEvent) => {
                             e.preventDefault();
                             e.stopPropagation();
                             if (e.code === 'Escape') {
-                              setListeningFor(null);
-                              window.removeEventListener('keydown', handler, true);
+                              stopCapture();
                               return;
                             }
                             const chord = buildInAppBinding(e);
@@ -98,10 +115,8 @@ export function InputTab() {
                               .find(([, c]) => c === chord)?.[0];
                             if (existing && existing !== action) kb.setBinding(existing, null);
                             kb.setBinding(action, chord);
-                            setListeningFor(null);
-                            window.removeEventListener('keydown', handler, true);
-                          };
-                          window.addEventListener('keydown', handler, true);
+                            stopCapture();
+                          });
                         }}
                         className="keybind-badge"
                         style={{
@@ -143,7 +158,7 @@ export function InputTab() {
             type="button"
             className="btn btn-ghost"
             style={{ fontSize: 12, color: 'var(--text-muted)', padding: '2px 6px' }}
-            onClick={() => { gs.resetAll(); setListeningForGlobal(null); }}
+            onClick={() => { gs.resetAll(); stopCapture(); }}
             data-tooltip={t('settings.shortcutsReset')}
             aria-label={t('settings.shortcutsReset')}
           >
@@ -170,24 +185,22 @@ export function InputTab() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <button
                         onClick={() => {
-                          if (isListening) { setListeningForGlobal(null); return; }
+                          stopCapture();
+                          if (isListening) return;
                           setListeningForGlobal(action);
-                          const handler = (e: KeyboardEvent) => {
+                          startCapture((e: KeyboardEvent) => {
                             e.preventDefault();
                             e.stopPropagation();
                             if (e.code === 'Escape') {
-                              setListeningForGlobal(null);
-                              window.removeEventListener('keydown', handler, true);
+                              stopCapture();
                               return;
                             }
                             const shortcut = buildGlobalShortcut(e);
                             if (shortcut) {
                               gs.setShortcut(action, shortcut);
-                              setListeningForGlobal(null);
-                              window.removeEventListener('keydown', handler, true);
+                              stopCapture();
                             }
-                          };
-                          window.addEventListener('keydown', handler, true);
+                          });
                         }}
                         className="keybind-badge"
                         style={{

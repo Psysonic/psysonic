@@ -444,13 +444,17 @@ pub struct TrackSyncInfo {
     /// the actual performer rather than the album artist.
     pub artist: String,
     /// Album artist — used for the top-level folder so compilation albums stay together.
-    /// Falls back to `artist` in the frontend when the server has no albumArtist tag.
+    /// Taken from `albumArtist`, then the OpenSubsonic `displayAlbumArtist`, then `artist`.
     #[serde(rename = "albumArtist")]
     pub album_artist: String,
     pub album: String,
     pub title: String,
     #[serde(rename = "trackNumber")]
     pub track_number: Option<u32>,
+    /// From disc 2 on, the disc prefixes the album-tree file name (`2-01 - Title`)
+    /// so equal track numbers and titles on different discs do not collide.
+    #[serde(default, rename = "discNumber")]
+    pub disc_number: Option<u32>,
     /// Duration in seconds — needed for Extended M3U (#EXTINF) playlist entries.
     #[serde(default)]
     pub duration: Option<u32>,
@@ -566,15 +570,13 @@ pub(crate) fn playlist_file_path(
 /// Playlist:    `Playlists/{PlaylistName}/{PlaylistIndex:02d} - {Artist} - {Title}.{ext}`
 /// Flat:        `{AlbumArtist} - {Album} - {TrackNum:02d} - {Title}.{ext}` in the root —
 ///              the album keeps names unique and sorts tracks album by album.
+/// From disc 2 on, `{TrackNum:02d}` becomes `{Disc}-{TrackNum:02d}`.
 pub fn build_track_path(track: &TrackSyncInfo) -> String {
+    let track_num = album_track_number(track);
     if track.flat_layout {
         let album_artist = sanitize_or(&track.album_artist, "Unknown Artist");
         let album = sanitize_or(&track.album, "Unknown Album");
         let title = sanitize_or(&track.title, "Unknown Title");
-        let track_num = track
-            .track_number
-            .map(|n| format!("{:02}", n))
-            .unwrap_or_else(|| "00".to_string());
         return format!("{album_artist} - {album} - {track_num} - {title}");
     }
     let relative = match (&track.playlist_name, track.playlist_index) {
@@ -588,16 +590,25 @@ pub fn build_track_path(track: &TrackSyncInfo) -> String {
             let album_artist = sanitize_or(&track.album_artist, "Unknown Artist");
             let album = sanitize_or(&track.album, "Unknown Album");
             let title = sanitize_or(&track.title, "Unknown Title");
-            let track_num = track
-                .track_number
-                .map(|n| format!("{:02}", n))
-                .unwrap_or_else(|| "00".to_string());
             format!("{}/{}/{} - {}", album_artist, album, track_num, title)
         }
     };
     #[cfg(target_os = "windows")]
     let relative = relative.replace('/', "\\");
     relative
+}
+
+/// `07` for a single-disc album or disc 1, `2-07` from disc 2 on — disc 1 keeps
+/// the name copies have had since before discs were told apart.
+fn album_track_number(track: &TrackSyncInfo) -> String {
+    let number = track
+        .track_number
+        .map(|n| format!("{:02}", n))
+        .unwrap_or_else(|| "00".to_string());
+    match track.disc_number {
+        Some(disc) if disc > 1 => format!("{disc}-{number}"),
+        _ => number,
+    }
 }
 
 /// Computes the expected file paths for a batch of tracks under the fixed schema.

@@ -1,0 +1,73 @@
+/* Explicit content — "E" badge after titles, blurred covers. */
+.explicit-badge {
+  display: none;
+}
+/* A small filled square whose bottom edge sits on the text baseline. The box
+   has no text of its own (the letter is `::before`, out of flow), so its
+   baseline is its bottom edge — inline (`vertical-align: baseline`) as well as
+   in the baseline-aligned `.explicit-title`. The letter size follows the title
+   but stays between 9 and 13 px, so it reads the same in a dense row and next
+   to a page heading. */
+html[data-explicit-badges] .explicit-badge {
+  position: relative;
+  display: inline-block;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 1.6em;
+  height: 1.6em;
+  margin-left: 0.6em;
+  border-radius: 0.3em;
+  background: var(--text-secondary);
+  font-size: clamp(9px, 0.5em, 13px);
+  vertical-align: baseline;
+  user-select: none;
+}
+html[data-explicit-badges] .explicit-badge::before {
+  content: 'E';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--bg-app);
+  font-family: inherit;
+  font-weight: 800;
+  font-style: normal;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+/* Single-line title + badge (ExplicitTitle): the title shrinks and truncates,
+   the badge keeps its size, both stand on the same baseline. */
+.explicit-title {
+  display: inline-flex;
+  align-items: baseline;
+  min-width: 0;
+  max-width: 100%;
+}
+.explicit-title > :first-child {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.explicit-title > .marquee-wrap {
+  width: auto;
+}
+
+/* Blurred cover (ExplicitCoverVeil): the container's own image keeps its box
+   and click target but is hidden; a 16 px copy of it, stretched by the
+   browser, lies over the same box. Deliberately no CSS `filter` — a filtered
+   element is its own compositing layer, a full software repaint on WebKitGTK
+   without GPU compositing. */
+[data-explicit-veil] img:not(.explicit-veil) {
+  visibility: hidden;
+}
+.explicit-veil-anchor {
+  display: contents;
+}
+.explicit-veil {
+  position: absolute;
+  object-fit: cover;
+  pointer-events: none;
+}
+.explicit-veil--placeholder {
+  background: var(--bg-hover);
+}

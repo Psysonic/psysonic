@@ -23,10 +23,10 @@ export function coverCacheRestHost(serverUrl: string): string {
 
 export type CoverCacheEnsureResult = {
   hit: boolean;
-  /** Absolute tier path; carries `|mtimeVersion` on hits (cache-bust suffix). */
+  /** Absolute tier path, without the version suffix. */
   path: string;
   tier: CoverArtTier;
-  /** mtime (epoch secs) of the tier file; 0 on miss. Rides inside `path`. */
+  /** mtime (epoch secs) of the tier file; 0 on miss. Append as `path|version` before building an asset URL. */
   pathVersion: number;
 };
 
@@ -227,6 +227,17 @@ export async function coverCacheClear(): Promise<void> {
 export async function coverCacheClearServer(serverIndexKey: string): Promise<void> {
   const res = await commands.coverCacheClearServer(serverIndexKey);
   if (res.status === 'error') throw new Error(res.error);
+}
+
+/** Drops the server-art disk tiers of one cover; external-provider files stay. */
+export async function coverCacheInvalidateEntity(ref: CoverArtRef): Promise<number> {
+  const res = await commands.coverCacheInvalidateEntity(
+    coverIndexKeyFromRef(ref),
+    ref.cacheKind,
+    ref.cacheEntityId,
+  );
+  if (res.status === 'error') throw new Error(res.error);
+  return res.data;
 }
 
 /**

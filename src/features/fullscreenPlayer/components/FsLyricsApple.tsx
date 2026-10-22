@@ -5,6 +5,7 @@ import {
   LyricsLineContent,
   useLyrics,
   useLyricsRomanization,
+  useLyricsTranslation,
   useWordLyricsSync,
   wordHighlightClassName,
   type WordLyricsLine,
@@ -26,10 +27,12 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
     plainLyrics,
     pronunciationLines,
     pronunciationPlainLyrics,
+    translations,
     loading,
   } = useLyrics(currentTrack);
   const staticOnly = useAuthStore(s => s.lyricsStaticOnly);
   const romanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
+  const translationEnabled = useAuthStore(s => s.lyricsTranslationEnabled);
   const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
   const wordClass = wordHighlightClassName('fsa-lyric-word', wordHighlightMode);
   const sidebarLyricsStyle = useAuthStore(s => s.sidebarLyricsStyle);
@@ -46,6 +49,13 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
     plainLyrics,
     pronunciationLines,
     pronunciationPlainLyrics,
+  });
+  const translatedLines = useLyricsTranslation({
+    enabled: translationEnabled,
+    syncedLines,
+    wordLines,
+    plainLyrics,
+    translations,
   });
 
   const duration = usePlayerStore(s => s.currentTrack?.duration ?? 0);
@@ -122,7 +132,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
       scrollerRef.current.stop();
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [activeIdx, romanizedLines, sidebarLyricsStyle]);
+  }, [activeIdx, romanizedLines, translatedLines, sidebarLyricsStyle]);
 
   const { setWordRef, setRomanizationRef } = useWordLyricsSync({
     enabled: useWords,
@@ -172,6 +182,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
               <LyricsLineContent
                 romanization={romanizedLines?.[i]}
                 romanizationRef={setRomanizationRef(i)}
+                translation={translatedLines?.[i]}
               >
                 {line.words.length > 0
                   ? line.words.map((w, j) => (
@@ -193,7 +204,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
               data-time={line.time}
               style={{ '--fsa-dist': activeIdx < 0 ? 0 : i - activeIdx } as React.CSSProperties}
             >
-              <LyricsLineContent romanization={romanizedLines?.[i]}>
+              <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                 {line.text || ' '}
               </LyricsLineContent>
             </div>
@@ -204,7 +215,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
         <div className="fsa-plain-lyrics">
           {plainLyrics.split('\n').map((line, i) => (
             <p key={i} className="fsa-plain-line">
-              <LyricsLineContent romanization={romanizedLines?.[i]}>
+              <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                 {line || ' '}
               </LyricsLineContent>
             </p>

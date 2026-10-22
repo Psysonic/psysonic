@@ -91,16 +91,24 @@ describe('useLyrics owner scope', () => {
     resolveLyrics({
       main: { line: [{ start: 0, value: 'Owner lyrics' }], synced: true },
       pronunciation: { line: [{ start: 0, value: 'owner pronunciation' }], synced: true },
+      translations: [
+        { kind: 'translation', lang: 'de', line: [{ start: 0, value: 'Besitzertext' }], synced: true },
+      ],
     });
 
     await waitFor(() => expect(result.current.source).toBe('server'));
     expect(result.current.pronunciationLines).toEqual([
       { time: 0, text: 'owner pronunciation' },
     ]);
+    const translations = [
+      { lang: 'de', lines: [{ time: 0, text: 'Besitzertext' }], plainLyrics: null },
+    ];
+    expect(result.current.translations).toEqual(translations);
     expect(mocks.putCachedLyrics).toHaveBeenCalledWith(
       lyricsCacheKey('srv-owner', 'shared-song-id'),
       expect.objectContaining({
         pronunciationLines: [{ time: 0, text: 'owner pronunciation' }],
+        translations,
         source: 'server',
         notFound: false,
       }),

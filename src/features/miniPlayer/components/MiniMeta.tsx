@@ -1,5 +1,8 @@
 import { emit } from '@tauri-apps/api/event';
 import CachedImage from '@/ui/CachedImage';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 import { TrackArtistLinks } from '@/features/playback';
 import type { MiniTrackInfo } from '@/features/miniPlayer/utils/miniPlayerBridge';
 
@@ -10,6 +13,11 @@ interface Props {
 }
 
 export function MiniMeta({ track, miniCoverSrc, miniCoverKey }: Props) {
+  const title = (
+    <div className="mini-player__title" title={track?.title}>
+      {track?.title ?? '—'}
+    </div>
+  );
   return (
     <div className="mini-player__meta">
       <div className="mini-player__art">
@@ -22,12 +30,11 @@ export function MiniMeta({ track, miniCoverSrc, miniCoverKey }: Props) {
         ) : (
           <div className="mini-player__art-fallback" />
         )}
+        <ExplicitCoverVeil explicit={isExplicit(track)} />
       </div>
 
       <div className="mini-player__meta-text" data-tauri-drag-region="false">
-        <div className="mini-player__title" title={track?.title}>
-          {track?.title ?? '—'}
-        </div>
+        <ExplicitTitle status={track?.explicitStatus}>{title}</ExplicitTitle>
         {track ? (
           <div className="mini-player__artist" title={track.artist}>
             <TrackArtistLinks

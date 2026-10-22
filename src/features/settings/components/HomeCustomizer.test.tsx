@@ -60,3 +60,33 @@ describe('HomeCustomizer — Because you listened source', () => {
     expect(screen.queryByRole('radiogroup')).toBeNull();
   });
 });
+
+describe('HomeCustomizer — rail order', () => {
+  beforeEach(() => {
+    availableMock.mockReturnValue(false);
+    useHomeStore.setState({ sections: DEFAULT_HOME_SECTIONS, becauseYouLikeSource: 'similarArtists' });
+  });
+
+  it('offers a drag handle for every rail but not for the hero', () => {
+    const { container } = renderWithProviders(<HomeCustomizer />);
+
+    const rows = [...container.querySelectorAll('.sidebar-customizer-row')];
+    expect(rows).toHaveLength(DEFAULT_HOME_SECTIONS.length);
+    expect(rows[0]?.querySelector('.sidebar-customizer-grip')).toBeNull();
+    expect(rows[0]?.hasAttribute('data-reorder-id')).toBe(false);
+    for (const row of rows.slice(1)) {
+      expect(row.querySelector('.sidebar-customizer-grip')).not.toBeNull();
+    }
+    expect(rows.slice(1).map(row => row.getAttribute('data-reorder-id')))
+      .toEqual(DEFAULT_HOME_SECTIONS.slice(1).map(section => section.id));
+  });
+
+  it('lists the rails in the stored order', () => {
+    const [hero, ...rails] = DEFAULT_HOME_SECTIONS;
+    useHomeStore.setState({ sections: [hero!, ...[...rails].reverse()] });
+    const { container } = renderWithProviders(<HomeCustomizer />);
+
+    expect([...container.querySelectorAll('[data-reorder-id]')].map(row => row.getAttribute('data-reorder-id')))
+      .toEqual([...rails].reverse().map(section => section.id));
+  });
+});

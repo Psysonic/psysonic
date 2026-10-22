@@ -86,6 +86,31 @@ fn track_sync_info_treats_whitespace_only_album_artist_as_missing() {
 }
 
 #[test]
+fn track_sync_info_uses_display_album_artist_when_album_artist_missing() {
+    // Navidrome's Subsonic song shape: no `albumArtist`, only `displayAlbumArtist`.
+    let track = serde_json::json!({
+        "artist": "Main Artist feat. Guest",
+        "displayAlbumArtist": "Main Artist",
+        "title": "T",
+    });
+    let info = track_sync_info_from_subsonic_json(&track, "x", None, None, None);
+    assert_eq!(info.artist, "Main Artist feat. Guest");
+    assert_eq!(info.album_artist, "Main Artist");
+}
+
+#[test]
+fn track_sync_info_prefers_album_artist_over_display_album_artist() {
+    let track = serde_json::json!({
+        "artist": "Track Artist",
+        "albumArtist": "Tagged Album Artist",
+        "displayAlbumArtist": "Display Album Artist",
+        "title": "T",
+    });
+    let info = track_sync_info_from_subsonic_json(&track, "x", None, None, None);
+    assert_eq!(info.album_artist, "Tagged Album Artist");
+}
+
+#[test]
 fn track_sync_info_uses_mp3_default_suffix_when_missing() {
     let track = serde_json::json!({ "artist": "A", "title": "T" });
     let info = track_sync_info_from_subsonic_json(&track, "x", None, None, None);

@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Lejátszási lista szerkesztése',
   editNamePlaceholder: 'Lejátszási lista neve…',
   editCommentPlaceholder: 'Adj hozzá leírást…',
+  linkOpenError: 'Nem sikerült megnyitni ezt a hivatkozást a böngészőben.',
   editPublic: 'Nyilvános lejátszási lista',
   editSave: 'Mentés',
   editCancel: 'Mégse',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: '{{count}} előadó feloldása…',
   myPlaylists: 'Saját lejátszási listáim',
   noOtherPlaylists: 'Nincs más elérhető lejátszási lista',
+  recentTargets: 'Legutóbb használt',
   addToPlaylistSuccess: '{{count}} dal hozzáadva ehhez: {{playlist}}',
   addToPlaylistNoNew: 'Nincs új hozzáadandó dal ehhez: {{playlist}}',
   addToPlaylistError: 'Hiba a lejátszási listához adáskor',
@@ -130,6 +132,19 @@ export const playlists = {
     count_other: '{{count}} lejátszási lista',
     localOnlyNotice:
       'A mappák csak ezen az eszközön, a Psysonicban vannak elmentve. A Navidrome és a Subsonic API nem támogatja natívan a lejátszásilista-mappákat, így a struktúra nem tárolódik a szervereden, és nem szinkronizálódik a többi eszközödre és alkalmazásodba.',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Címkék',
+    newTag: 'Új címke',
+    namePlaceholder: 'Címke neve…',
+    filterLabel: 'Szűrés címkék szerint',
+    clearFilter: 'Címkeszűrő törlése',
+    chipHint: 'Kattints jobb gombbal az átnevezéshez vagy a törléshez',
+    rename: 'Címke átnevezése',
+    delete: 'Címke törlése',
+    deleteConfirm: 'Kattints újra, hogy minden lejátszási listáról eltávolítsd',
+    emptyFilter: 'Egyik lejátszási listán sincs meg az összes kiválasztott címke.',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

@@ -112,6 +112,14 @@ export function LibraryTab() {
       >
         <div className="settings-card">
           <SettingsGroup>
+            <SettingsToggle
+              label={t('settings.ratingsShowTitle')}
+              desc={t('settings.ratingsShowDesc')}
+              checked={auth.showStarRatings}
+              onChange={auth.setShowStarRatings}
+            />
+          </SettingsGroup>
+          <SettingsGroup>
             <div className="settings-toggle-row">
               <div>
                 <div style={{ fontWeight: 500 }}>{t('settings.ratingsSkipStarTitle')}</div>

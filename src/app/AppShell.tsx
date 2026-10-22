@@ -14,7 +14,7 @@ import DevNetworkModeToggle from '@/app/DevNetworkModeToggle';
 import { NowPlayingDropdown } from '@/features/nowPlaying';
 import QueuePanel from '@/features/queue';
 import AppRoutes from './AppRoutes';
-import FullscreenPlayer, { FullscreenPlayerImmersive, FullscreenPlayerPrism } from '@/features/fullscreenPlayer';
+import FullscreenPlayer, { FullscreenPlayerImmersive, FullscreenPlayerPrism, useFsAutoOpen } from '@/features/fullscreenPlayer';
 import ContextMenu from '@/features/contextMenu/components/ContextMenu';
 import SongInfoModal from '@/features/playback/components/SongInfoModal';
 import PlaybackAlternativeModal from '@/features/playback/components/PlaybackAlternativeModal';
@@ -62,6 +62,7 @@ import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus';
 import { useIdlePlayQueuePull } from '@/app/hooks/useIdlePlayQueuePull';
 import { useShareBootstrap } from '@/features/share';
 import { DiscordBanner, useAccumulatedUsage } from '@/features/discordBanner';
+import { PrivateModeToggle } from '@/features/privateMode/ui';
 import { useAuthStore } from '../store/authStore';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import '@/features/playback/store/previewPlayerVolumeSync';
@@ -239,6 +240,7 @@ export function AppShell() {
   useGlobalDndAndSelectionBlockers();
   useTracklistWheelChaining();
   useAppActivityTracking();
+  useFsAutoOpen();
 
   const isMobilePlayer = isMobile && location.pathname === '/now-playing';
 
@@ -286,6 +288,7 @@ export function AppShell() {
           <LiveSearch />
           {import.meta.env.DEV && <DevNetworkModeToggle />}
           <div className="spacer" />
+          <PrivateModeToggle />
           <ConnectionIndicator status={connStatus} isLan={isLan} serverName={serverName} />
           <MusicNetworkIndicator />
           <NowPlayingDropdown />

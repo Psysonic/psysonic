@@ -4,6 +4,7 @@ export const common = {
   albumByArtist: '{{album}} от {{artist}}',
   loading: 'Загрузка…',
   loadingMore: 'Загрузка…',
+  explicit: 'Нецензурное',
   loadingPlaylists: 'Загрузка плейлистов…',
   noAlbums: 'Альбомов нет.',
   downloading: 'Скачивание…',

@@ -20,6 +20,7 @@ import { appendServerQuery } from '@/lib/navigation/detailServerScope';
 import { playTimelineFromHere } from '@/features/playback';
 import { addSongsToBurnList } from '@/features/burner';
 import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
+import { useShowStarRatings } from '@/store/starRatings';
 
 export default function SongContextItems(props: ContextMenuItemsProps) {
   const {
@@ -34,6 +35,7 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
     offlinePolicy,
   } = props;
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const auth = useAuthStore();
   const networkPrimary = useEnrichmentPrimary();
   const networkLabel = networkPrimary?.label ?? '';
@@ -184,7 +186,7 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   </div>
                 );
               })()}
-              {offlinePolicy.canRate && (
+              {offlinePolicy.canRate && showStarRatings && (
                 <div
                   className="context-menu-rating-row"
                   data-rating-kind="song"
@@ -348,7 +350,7 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                   </div>
                 );
               })()}
-              {offlinePolicy.canRate && (
+              {offlinePolicy.canRate && showStarRatings && (
                 <div
                   className="context-menu-rating-row"
                   data-rating-kind="song"

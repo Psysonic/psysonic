@@ -416,6 +416,60 @@ fn stale_commit_does_not_discard_the_latest_prepared_ring() {
 }
 
 #[test]
+fn commit_accepts_the_f32_rounded_position_from_rodio() {
+    let source = ControlledSource {
+        control: Arc::new((Mutex::new(ControlledState::default()), Condvar::new())),
+        marker: -0.75,
+    };
+    let (mut offload, handle, _gate) =
+        PreserveOffload::spawn_permanent(source, PlaybackRateAtomics::new(), 1_000, 1);
+
+    // Pair measured in #1657: the seek was prepared at the first position, and
+    // rodio's `Speed::try_seek` handed the commit the second one.
+    let prepared_at = Duration::from_nanos(50_427_503_008);
+    let rounded = Duration::from_nanos(50_427_501_678);
+    let ticket = handle
+        .prepare_seek(prepared_at, Duration::ZERO, Duration::from_secs(1))
+        .unwrap()
+        .expect("prepared seek");
+    assert_eq!(ticket.commit_position(), prepared_at);
+
+    assert!(offload
+        .commit_prepared_seek(prepared_at + Duration::from_millis(5))
+        .is_err());
+    offload
+        .commit_prepared_seek(rounded)
+        .expect("rounded commit position must match the prepared seek");
+    offload
+        .commit_prepared_seek(prepared_at)
+        .expect("repeated commit must hit the active seek");
+    assert_eq!(offload.pop(), Some(0.75));
+}
+
+#[test]
+fn commit_accepts_the_f32_rounded_position_on_long_tracks() {
+    let source = ControlledSource {
+        control: Arc::new((Mutex::new(ControlledState::default()), Condvar::new())),
+        marker: -0.75,
+    };
+    let (mut offload, handle, _gate) =
+        PreserveOffload::spawn_permanent(source, PlaybackRateAtomics::new(), 1_000, 1);
+
+    // Above 2^16 s an f32 step is 7.8125 ms, so the round-trip drifts by 3.9 ms here.
+    let prepared_at = Duration::from_secs_f64(70_000.003_9);
+    let rounded = Duration::from_secs_f32(prepared_at.as_secs_f32());
+    handle
+        .prepare_seek(prepared_at, Duration::ZERO, Duration::from_secs(1))
+        .unwrap()
+        .expect("prepared seek");
+
+    offload
+        .commit_prepared_seek(rounded)
+        .expect("rounded commit position must match the prepared seek");
+    assert_eq!(offload.pop(), Some(0.75));
+}
+
+#[test]
 fn dropping_a_blocked_permanent_offload_never_joins_the_worker() {
     let control = Arc::new((
         Mutex::new(ControlledState {

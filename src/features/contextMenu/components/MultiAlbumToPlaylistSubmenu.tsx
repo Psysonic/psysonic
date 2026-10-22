@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListMusic, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { resolveAlbum, resolveMediaServerId } from '@/features/offline';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import { usePlaylistStore } from '@/features/playlist';
@@ -8,6 +8,7 @@ import { addTracksToPlaylistWithDedup, showAddTracksDedupToast } from '@/feature
 import { showToast } from '@/lib/dom/toast';
 import { manualPlaylistTargetsForServer } from '@/features/contextMenu/utils/contextMenuHelpers';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { PlaylistTargetList } from '@/features/contextMenu/components/PlaylistTargetList';
 
 interface Props {
   albums: Array<{ id: string; serverId?: string }>;
@@ -63,10 +64,10 @@ export function MultiAlbumToPlaylistSubmenu({ albums, onDone, triggerId }: Props
     const [flipUp, setFlipUp] = useState(false);
     const [visible, setVisible] = useState(false);
     const storePlaylists = usePlaylistStore((s) => s.playlists);
-    const playlists = useMemo(() => {
-      return manualPlaylistTargetsForServer(storePlaylists, resolvedServerId)
-        .sort((a, b) => a.name.localeCompare(b.name));
-    }, [storePlaylists]);
+    const playlists = useMemo(
+      () => manualPlaylistTargetsForServer(storePlaylists, resolvedServerId),
+      [storePlaylists],
+    );
 
     useLayoutEffect(() => {
       if (subRef.current) {
@@ -132,20 +133,13 @@ export function MultiAlbumToPlaylistSubmenu({ albums, onDone, triggerId }: Props
           </div>
         )}
         <div className="context-menu-divider" />
-        {playlists.length === 0 && (
-          <div className="context-submenu-empty">{t('playlists.empty')}</div>
-        )}
-        {playlists.map((pl) => (
-          <div
-            key={ownedEntityKey(pl)}
-            className="context-menu-item"
-            onClick={() => handleAdd(pl)}
-            style={{ opacity: adding === ownedEntityKey(pl) ? 0.5 : 1, pointerEvents: adding ? 'none' : undefined }}
-          >
-            <ListMusic size={13} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</span>
-          </div>
-        ))}
+        <PlaylistTargetList
+          targets={playlists}
+          serverId={resolvedServerId}
+          emptyLabel={t('playlists.empty')}
+          busyKey={adding}
+          onPick={handleAdd}
+        />
       </div>
     );
   }

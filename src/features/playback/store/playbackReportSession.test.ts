@@ -27,6 +27,7 @@ vi.mock('@/store/orbitRuntime', async (importOriginal) => ({
 import { reportNowPlaying, reportPlayback } from '@/lib/api/subsonicScrobble';
 import { isFeatureActiveForServer } from '@/lib/serverCapabilities/storeView';
 import { useAuthStore } from '@/store/authStore';
+import { usePrivateModeStore } from '@/features/privateMode';
 import {
   _resetPlaybackReportSessionForTest,
   playbackReportPaused,
@@ -57,6 +58,7 @@ beforeEach(() => {
   featureActiveMock.mockReset();
   featureActiveMock.mockReturnValue(true);
   authStateMock.mockReturnValue({ nowPlayingEnabled: true } as never);
+  usePrivateModeStore.setState({ active: false });
   _resetPlaybackReportSessionForTest();
 });
 
@@ -188,6 +190,28 @@ describe('FSM transitions on an open session', () => {
     // No session left: further FSM calls are inert.
     playbackReportPlaying(100);
     playbackReportPaused(100);
+    expect(reportPlaybackMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('private mode', () => {
+  it('opens no session on either channel while it is on', () => {
+    usePrivateModeStore.setState({ active: true });
+    playbackReportStart('t1', SID);
+    featureActiveMock.mockReturnValue(false);
+    playbackReportStart('t2', SID);
+    expect(reportPlaybackMock).not.toHaveBeenCalled();
+    expect(reportNowPlayingMock).not.toHaveBeenCalled();
+  });
+
+  it('silences heartbeats of a session that was already open', async () => {
+    playbackReportStart('t1', SID);
+    await flush();
+    reportPlaybackMock.mockClear();
+    usePrivateModeStore.setState({ active: true });
+    playbackReportPlaying(30);
+    playbackReportPaused(30);
+    playbackReportSeek(40, true);
     expect(reportPlaybackMock).not.toHaveBeenCalled();
   });
 });

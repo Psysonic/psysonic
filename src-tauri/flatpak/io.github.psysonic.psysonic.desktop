@@ -3,6 +3,7 @@ Type=Application
 Name=Psysonic
 Comment=Play music from self-hosted Subsonic-compatible servers
 Exec=psysonic
+StartupWMClass=psysonic
 Icon=io.github.psysonic.psysonic
 Terminal=false
 Categories=AudioVideo;Audio;Player;

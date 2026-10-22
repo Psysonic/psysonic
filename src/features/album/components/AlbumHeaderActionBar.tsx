@@ -5,6 +5,7 @@ import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import { formatMb } from '@/lib/format/formatBytes';
 import type { OfflineActionPolicy } from '@/features/offline';
 import { ShareMethodMenuButton } from '@/features/share';
+import { ResumeButton } from '@/features/resume';
 import {
   useAlbumHeaderLayoutStore,
   type AlbumHeaderButtonId,
@@ -162,6 +163,7 @@ export default function AlbumHeaderActionBar({
         >
           <Play size={15} /> <span className="compact-btn-label">{t('common.play', 'Reproducir')}</span>
         </button>
+        <ResumeButton kind="album" id={albumId} serverId={serverId} />
         {buttons.map(btn => {
           if (!btn.visible) return null;
           const node = renderButton(btn.id);

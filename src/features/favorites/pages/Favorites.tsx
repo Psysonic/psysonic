@@ -35,6 +35,7 @@ import { useFavoritesLayoutStore, type FavoritesSectionId } from '@/features/fav
 import { useScopedBrowseSearchQuery } from '@/store/liveSearchScopeStore';
 import { matchesFavoritesSearch, normalizeFavoritesSearchQuery } from '@/features/favorites/utils/favoritesSearch';
 import { ChevronDown } from 'lucide-react';
+import { useShowStarRatings, withoutRatingColumn } from '@/store/starRatings';
 
 const FAV_NUM_COLUMN: ColDef = { key: 'num', i18nKey: 'trackRowNumber', minWidth: 60, defaultWidth: 60, required: false };
 
@@ -124,11 +125,13 @@ export default function Favorites() {
   const [showFilters, setShowFilters] = useState(false);
 
   // ── Column resize/visibility (must be before early return) ───────────────
+  const showStarRatings = useShowStarRatings();
+  const favColumns = useMemo(() => withoutRatingColumn(FAV_COLUMNS, showStarRatings), [showStarRatings]);
   const {
     colVisible, visibleCols, gridStyle,
     startResize, startFlexColumnResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
-  } = useTracklistColumns(FAV_COLUMNS, 'psysonic_favorites_columns');
+  } = useTracklistColumns(favColumns, 'psysonic_favorites_columns');
   const isMobile = useIsMobile();
   // The compact (<800px) tracklist grid places cells by position and expects
   // the number cell first; without it the title would land in the narrow slot.

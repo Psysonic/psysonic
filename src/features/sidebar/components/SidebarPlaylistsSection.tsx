@@ -5,6 +5,7 @@ import { ChevronRight, Folder, PlayCircle, Sparkles } from 'lucide-react';
 import { AlbumCoverArtImage } from '@/cover/AlbumCoverArtImage';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import { NowPlayingMarker, useIsNowPlaying } from '@/features/playback';
 import { usePlaylistStore } from '@/features/playlist';
 import { EMPTY_SERVER_FOLDERS, usePlaylistFolderStore } from '@/features/playlist';
 import { groupPlaylistsByFolder } from '@/features/playlist';
@@ -46,6 +47,11 @@ function SidebarPlaylistCover({ coverArt, serverId }: { coverArt: string; server
       className="sidebar-playlist-cover"
     />
   );
+}
+
+/** Rows are rendered from a plain function, so the per-row hook lives here. */
+function SidebarPlaylistNowPlaying({ id, serverId }: { id: string; serverId?: string }) {
+  return useIsNowPlaying('playlist', id, serverId) ? <NowPlayingMarker variant="inline" /> : null;
 }
 
 /**
@@ -111,6 +117,7 @@ export default function SidebarPlaylistsSection({
         <Sparkles size={12} className="sidebar-playlist-smart-marker" />
       )}
       <span>{playlistDisplayName(pl)}</span>
+      <SidebarPlaylistNowPlaying id={pl.id} serverId={pl.serverId} />
       {/* `aria-label` on a bare span is dropped — the element has no ARIA role
           to name. The digits are hidden from AT and the spoken form supplied
           separately, so the link reads "<name>, 5 songs". */}

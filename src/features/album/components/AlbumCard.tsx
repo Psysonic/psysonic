@@ -26,6 +26,7 @@ import { isAlbumRecentlyAdded } from '@/features/album/utils/albumRecency';
 import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album/utils/deriveAlbumHeaderArtistRefs';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { appendServerQuery, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
+import { NowPlayingMarker, useIsNowPlaying } from '@/features/playback';
 
 interface AlbumCardProps {
   album: SubsonicAlbum;
@@ -115,6 +116,8 @@ function AlbumCard({
   const showCardTooltips = useThemeStore(s => s.showCardTooltips);
   const titleTooltip = useOverflowTooltip(album.name, showCardTooltips);
   const artistTooltip = useOverflowTooltip(artistLabel, showCardTooltips);
+  const isNowPlaying = useIsNowPlaying('album', album.id, album.serverId);
+  const cardLabel = t('common.albumByArtist', { album: album.name, artist: artistLabel });
 
   const handleClick = (opts?: { shiftKey?: boolean }) => {
     if (selectionMode) { onToggleSelect?.(album.id, opts); return; }
@@ -123,11 +126,13 @@ function AlbumCard({
 
   return (
     <div
-      className={`album-card card${selectionMode ? ' album-card--selectable' : ''}${selected ? ' album-card--selected' : ''}`}
+      className={`album-card card${selectionMode ? ' album-card--selectable' : ''}${selected ? ' album-card--selected' : ''}${isNowPlaying ? ' album-card--now-playing' : ''}`}
       onClick={e => handleClick({ shiftKey: e.shiftKey })}
       role="button"
       tabIndex={0}
-      aria-label={t('common.albumByArtist', { album: album.name, artist: artistLabel })}
+      // The role's name comes from this label alone, so the marker's hidden
+      // text would not be read; the state goes into the label instead.
+      aria-label={isNowPlaying ? `${cardLabel}, ${t('sidebar.nowPlaying')}` : cardLabel}
       onKeyDown={e => e.key === 'Enter' && handleClick()}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -179,6 +184,7 @@ function AlbumCard({
             {selected && <Check size={14} strokeWidth={3} />}
           </div>
         )}
+        {isNowPlaying && <NowPlayingMarker />}
         {!selectionMode && (
           <div className="album-card-play-overlay">
               <button

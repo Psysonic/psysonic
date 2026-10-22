@@ -7,7 +7,7 @@
   "permissions": [
     "core:default",
     "shell:default",
-    { "identifier": "shell:allow-open", "allow": [{ "url": "https://**" }] },
+    { "identifier": "shell:allow-open", "allow": [{ "url": "https://**" }, { "url": "http://**" }] },
     "global-shortcut:allow-register",
     "global-shortcut:allow-unregister",
     "store:default",

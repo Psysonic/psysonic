@@ -285,6 +285,35 @@ describe('Home startup feed loading', () => {
     expect(screen.getByTestId('home-hero')).toHaveTextContent('cached');
   });
 
+  it('renders the rails in the order the customizer stores', async () => {
+    const { savedAt: _savedAt, ...cached } = snapshot('cached');
+    writeHomeFeedCache(cached);
+    homeMocks.loadHomeFeedWithStatus.mockResolvedValue({
+      snapshot: snapshot('next-visit'),
+      emptySnapshotReliable: true,
+    });
+    homeMocks.connection.status = 'connected';
+    useMigrationStore.setState({ phase: 'completed' });
+    const order = ['hero', 'mostPlayed', 'starred', 'recent', 'recentlyPlayed', 'discover'];
+    useHomeStore.setState({
+      sections: [
+        ...order.map(id => DEFAULT_HOME_SECTIONS.find(section => section.id === id)!),
+        ...DEFAULT_HOME_SECTIONS.filter(section => !order.includes(section.id)),
+      ],
+    });
+
+    renderWithProviders(<Home />);
+
+    expect(screen.getAllByTestId(/^home-row-/).map(row => row.dataset.testid)).toEqual([
+      'home-row-Most Played',
+      'home-row-Personal Favorites',
+      'home-row-New Releases',
+      'home-row-Recently Played',
+      'home-row-Discover',
+    ]);
+    await waitFor(() => expect(homeMocks.loadHomeFeedWithStatus).toHaveBeenCalledTimes(1));
+  });
+
   it('replays diagnostics without restarting an in-flight cold feed', async () => {
     const coldFeed = deferred<{ snapshot: HomeFeedSnapshot; emptySnapshotReliable: boolean }>();
     homeMocks.mainstageTrace.enabled = true;

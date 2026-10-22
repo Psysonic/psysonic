@@ -201,7 +201,7 @@ describe('Flatpak GitHub Release publication gate', () => {
 
     assert.match(
       source,
-      /if \[ "\$IS_TEST" = true \]; then[\s\S]*?fi\n\s+PSYSONIC_FLATPAK_METAINFO_PATH=[\s\S]*?node tooling\/scripts\/sync-flatpak-metainfo-release\.mjs/,
+      /if \[ "\$IS_TEST" = true \]; then[\s\S]*?fi\r?\n\s+PSYSONIC_FLATPAK_METAINFO_PATH=[\s\S]*?node tooling\/scripts\/sync-flatpak-metainfo-release\.mjs/,
     );
   });
 });

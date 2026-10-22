@@ -28,6 +28,7 @@ use super::sink_swap::{swap_in_new_sink, SinkSwapInputs};
 use super::source_build::{
     build_playback_source_with_probe_fallback, BuildSourceArgs, PlaybackSource,
 };
+use super::sources::gapless_output_source;
 use super::state::install_current_source_done;
 use super::stream::LocalFileSource;
 use super::transport_commands::seek_player_with_timeout;
@@ -243,7 +244,24 @@ pub(crate) async fn try_resume_after_device_change(
     let effective_volume = (snap.base_volume * snap.gain_linear).clamp(0.0, 1.0);
     sink.set_volume(effective_volume);
     sink.pause();
-    sink.append(ps.built.source);
+    if engine.gapless_enabled.load(Ordering::Relaxed) {
+        let config = engine
+            .stream_handle
+            .lock()
+            .unwrap()
+            .as_ref()
+            .map(|handle| *handle.config());
+        let Some(config) = config else {
+            return ResumeOutcome::Fallback;
+        };
+        sink.append(gapless_output_source(
+            ps.built.source,
+            config.channel_count(),
+            config.sample_rate(),
+        ));
+    } else {
+        sink.append(ps.built.source);
+    }
 
     // Seek the replacement while it is still private and paused. Publishing it
     // first allowed this recovery seek to race a newer user seek on the same sink.

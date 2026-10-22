@@ -21,8 +21,8 @@ mod planner;
 
 pub(crate) use model::{
     estimate_track_size_bytes, fetch_subsonic_song, fetch_subsonic_songs, inject_flat_layout,
-    inject_overwrite, inject_playlist_context, inject_target_suffix, subsonic_response_root,
-    track_sync_info_from_subsonic_json,
+    inject_overwrite, inject_playlist_context, inject_target_suffix, legacy_album_artist,
+    subsonic_response_root, track_sync_info_from_subsonic_json,
 };
 pub use model::{
     parse_subsonic_songs, DeviceSyncLayoutMode, DeviceSyncManifestFile, DeviceSyncManifestPlaylist,
@@ -303,7 +303,7 @@ pub async fn sync_batch_to_device(
                             "device:sync:progress",
                             serde_json::json!({
                                 "jobId": job, "trackId": track.id, "status": "error",
-                                "error": e.to_string(),
+                                "error": psysonic_core::log_sanitize::reqwest_error_text(e),
                             }),
                         );
                         return;

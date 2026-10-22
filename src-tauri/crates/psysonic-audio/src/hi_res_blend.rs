@@ -306,7 +306,18 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
     }
     let effective_volume = (snap.base_volume * snap.gain_linear).clamp(0.0, 1.0);
     sink.set_volume(effective_volume);
-    sink.append(ps.built.source);
+    let config = state
+        .stream_handle
+        .lock()
+        .unwrap()
+        .as_ref()
+        .map(|handle| *handle.config())
+        .ok_or_else(|| "[hi-res-blend] gapless realign lost its output stream".to_string())?;
+    sink.append(super::sources::gapless_output_source(
+        ps.built.source,
+        config.channel_count(),
+        config.sample_rate(),
+    ));
 
     if ps.is_seekable && snap.position_secs > 0.05 {
         let target = Duration::from_secs_f64(snap.position_secs.max(0.0));

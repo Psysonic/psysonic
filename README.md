@@ -18,7 +18,7 @@ Psysonic is built primarily for **Navidrome** and also works with **Gonic**, **A
 
 <br><br>
 
-**Available languages:** English, German, Spanish, French, Norwegian Bokmål, Dutch, Romanian, Russian, Chinese, Japanese, Hungarian, Polish, Bulgarian, Italian and Ukrainian.
+**Available languages:** English, German, Spanish, French, Norwegian Bokmål, Dutch, Romanian, Russian, Chinese, Japanese, Hungarian, Polish, Bulgarian, Italian, Ukrainian and Greek.
 
 More translations are added over time.
 
@@ -259,6 +259,8 @@ brew install --cask psysonic
 # Development
 
 Contributor expectations (PRs, CI, Tauri boundary, UI): [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Building from source needs **Rust 1.98 or newer**.
 
 ```bash
 git clone https://github.com/Psysonic/psysonic.git

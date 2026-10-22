@@ -24,6 +24,18 @@ function normalizeBindings(
   } as Bindings;
 }
 
+/** v0 blobs predate the Settings chord (⌘, on macOS, Ctrl+, elsewhere), so an
+ * upgrade must not hand that key to Settings when it already belongs to another
+ * action. One-shot: after the bump the user's own bindings are law. */
+function migrateBindings(persisted: unknown, version: number) {
+  const state = persisted as { bindings?: Partial<Record<KeyAction, string | null>> } | undefined;
+  const chord = DEFAULT_BINDINGS['open-settings'];
+  if (version >= 1 || !chord || !state?.bindings) return state;
+  const claimed = (Object.entries(state.bindings) as [KeyAction, string | null][])
+    .some(([action, bound]) => action !== 'open-settings' && bound === chord);
+  return claimed ? { ...state, bindings: { ...state.bindings, 'open-settings': null } } : state;
+}
+
 interface KeybindingsState {
   bindings: Bindings;
   setBinding: (action: KeyAction, binding: string | null) => void;
@@ -73,6 +85,8 @@ export const useKeybindingsStore = create<KeybindingsState>()(
     }),
     {
       name: 'psysonic_keybindings',
+      version: 1,
+      migrate: migrateBindings,
       onRehydrateStorage: () => state => {
         if (!state) return;
         state.bindings = normalizeBindings(state.bindings);

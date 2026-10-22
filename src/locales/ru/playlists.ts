@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Изменить плейлист',
   editNamePlaceholder: 'Название…',
   editCommentPlaceholder: 'Описание…',
+  linkOpenError: 'Не удалось открыть ссылку в браузере.',
   editPublic: 'Публичный плейлист',
   editSave: 'Сохранить',
   editCancel: 'Отмена',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Загрузка {{count}} исполнителей…',
   myPlaylists: 'Мои плейлисты',
   noOtherPlaylists: 'Нет других доступных плейлистов',
+  recentTargets: 'Недавние',
   addToPlaylistSuccess: '{{count}} треков добавлено в {{playlist}}',
   addToPlaylistNoNew: 'Нет новых треков для {{playlist}}',
   addToPlaylistError: 'Ошибка при добавлении в плейлист',
@@ -130,6 +132,19 @@ export const playlists = {
     count_other: '{{count}} плейлистов',
     localOnlyNotice:
       'Папки сохраняются только в Psysonic на этом устройстве. Navidrome и API Subsonic не поддерживают папки плейлистов, поэтому структура не хранится на твоём сервере и не синхронизируется с другими твоими устройствами и приложениями.',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Теги',
+    newTag: 'Новый тег',
+    namePlaceholder: 'Название тега…',
+    filterLabel: 'Фильтр по тегам',
+    clearFilter: 'Сбросить фильтр по тегам',
+    chipHint: 'Правый клик — переименовать или удалить',
+    rename: 'Переименовать тег',
+    delete: 'Удалить тег',
+    deleteConfirm: 'Нажмите ещё раз, чтобы убрать его из всех плейлистов',
+    emptyFilter: 'Нет плейлистов со всеми выбранными тегами.',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

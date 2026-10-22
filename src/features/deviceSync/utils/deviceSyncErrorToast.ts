@@ -19,10 +19,7 @@ export function showDeviceSyncErrorToast(error: unknown, t: TFunction): void {
     key = 'deviceSync.deviceChanged';
   } else if (message.includes('DEVICE_SYNC_CLEANUP_FAILED')) {
     key = 'deviceSync.cleanupFailed';
-  } else if (
-    message.includes('DEVICE_SYNC_PATH_COLLISION')
-    || message.includes('DEVICE_SYNC_PATH_IDENTITY_COLLISION')
-  ) {
+  } else if (message.includes('DEVICE_SYNC_PATH_IDENTITY_COLLISION')) {
     key = 'deviceSync.pathCollision';
   }
 

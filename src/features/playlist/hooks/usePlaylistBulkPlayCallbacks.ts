@@ -5,6 +5,7 @@ import { enqueuePlaylistAll, playPlaylistAll, shufflePlaylistAll } from '@/featu
 export interface PlaylistBulkPlayCallbacksDeps {
   songsLength: number;
   id: string | undefined;
+  serverId?: string;
   tracks: Track[];
   playTrack: (track: Track, queue: Track[]) => void;
   enqueue: (tracks: Track[]) => void;
@@ -17,16 +18,16 @@ export interface PlaylistBulkPlayCallbacks {
 }
 
 export function usePlaylistBulkPlayCallbacks(deps: PlaylistBulkPlayCallbacksDeps): PlaylistBulkPlayCallbacks {
-  const { songsLength, id, tracks, playTrack, enqueue } = deps;
+  const { songsLength, id, serverId, tracks, playTrack, enqueue } = deps;
 
   const handlePlayAll = useCallback(
-    () => playPlaylistAll({ songsLength, id, tracks, playTrack, enqueue }),
-    [songsLength, id, tracks, playTrack, enqueue],
+    () => playPlaylistAll({ songsLength, id, serverId, tracks, playTrack, enqueue }),
+    [songsLength, id, serverId, tracks, playTrack, enqueue],
   );
 
   const handleShuffleAll = useCallback(
-    () => shufflePlaylistAll({ songsLength, id, tracks, playTrack, enqueue }),
-    [songsLength, id, tracks, playTrack, enqueue],
+    () => shufflePlaylistAll({ songsLength, id, serverId, tracks, playTrack, enqueue }),
+    [songsLength, id, serverId, tracks, playTrack, enqueue],
   );
 
   const handleEnqueueAll = useCallback(

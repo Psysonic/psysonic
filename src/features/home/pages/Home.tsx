@@ -6,6 +6,7 @@ import { AlbumRow } from '@/features/album';
 import SongRail from '@/features/home/components/SongRail';
 import BecauseYouLikeRail from '@/features/home/components/BecauseYouLikeRail';
 import { LosslessAlbumsRail } from '@/features/album';
+import { ContinueListeningRail } from '@/features/resume';
 import { useTranslation } from 'react-i18next';
 import { NavLink, useNavigate } from 'react-router';
 import { ChevronRight } from 'lucide-react';
@@ -109,6 +110,7 @@ export default function Home() {
     hero: state.sections.hero.enabled,
     recent: state.sections.recent.enabled,
     becauseYouLike: state.sections.becauseYouLike.enabled,
+    continueListening: state.sections.continueListening.enabled,
     discover: state.sections.discover.enabled,
     discoverSongs: state.sections.discoverSongs.enabled,
     discoverArtists: state.sections.discoverArtists.enabled,
@@ -626,6 +628,7 @@ export default function Home() {
       hero: t('home.hero'),
       recent: t('sidebar.newReleases'),
       becauseYouLike: t('home.becauseYouLike'),
+      continueListening: t('resume.title'),
       discover: t('home.discover'),
       discoverSongs: t('home.discoverSongs'),
       discoverArtists: t('home.discoverArtists'),
@@ -675,6 +678,165 @@ export default function Home() {
   // pointing back at the toggles (or the option to hide Mainstage from the
   // sidebar) instead of leaving the user on nothing.
   const allSectionsHidden = homeSections.every(s => !s.visible);
+  // Every rail but the hero, rendered in the order the Home customizer stores.
+  const railsById: Record<Exclude<HomeSectionId, 'hero'>, React.ReactNode> = {
+    recent: !homeAlbumRowsDisabled && isVisible('recent') && (
+      <MainstageDiagnosticFrame sectionId="recent" label={t('sidebar.newReleases')} active={mainstageDiagnosticsVisible}>
+        <AlbumRow
+        title={t('sidebar.newReleases')}
+        titleLink="/new-releases"
+        albums={recent}
+        onLoadMore={shouldOfferHomeLoadMore(recentHasMore) ? () => loadMore('recent') : undefined}
+        moreText={t('home.loadMore')}
+        disableArtwork={!recentArtworkEnabled}
+        artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+        windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
+        initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
+        />
+      </MainstageDiagnosticFrame>
+    ),
+    becauseYouLike: !homeAlbumRowsDisabled && isVisible('becauseYouLike') && (
+      <MainstageDiagnosticFrame sectionId="becauseYouLike" label={t('home.becauseYouLike')} active={mainstageDiagnosticsVisible}>
+        {becauseYouLikeHasSeed && <BecauseYouLikeRail
+          mostPlayed={mostPlayed}
+          recentlyPlayed={recentlyPlayed}
+          starred={starred}
+          scopeKey={scopeKey}
+          scopeVersion={scopeVersion}
+          scopes={scopes}
+          disableArtwork={!becauseYouLikeArtworkEnabled}
+          onDiagnosticResult={mainstageDiagnosticsEnabled
+            ? result => reportAutonomousDiagnostic('becauseYouLike', result)
+            : undefined}
+        />}
+      </MainstageDiagnosticFrame>
+    ),
+    continueListening: !homeAlbumRowsDisabled && sectionEnabled('continueListening') && (
+      <ContinueListeningRail
+        serverIds={serverIds}
+        artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+        disableArtwork={homeRailArtworkDisabled}
+      />
+    ),
+    discover: !homeAlbumRowsDisabled && isVisible('discover') && (
+      <MainstageDiagnosticFrame sectionId="discover" label={t('home.discover')} active={mainstageDiagnosticsVisible}>
+        <AlbumRow
+        title={t('home.discover')}
+        titleLink="/random/albums"
+        albums={random}
+        onLoadMore={() => loadMore('random')}
+        moreText={t('home.discoverMore')}
+        disableArtwork={!discoverArtworkEnabled}
+        artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+        windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
+        initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
+        />
+      </MainstageDiagnosticFrame>
+    ),
+    discoverSongs: !homeSongRailsDisabled && isVisible('discoverSongs') && (
+      <MainstageDiagnosticFrame sectionId="discoverSongs" label={t('home.discoverSongs')} active={mainstageDiagnosticsVisible}>
+        {discoverSongs.length > 0 && <SongRail
+        title={t('home.discoverSongs')}
+        songs={discoverSongs}
+        disableArtwork={!discoverSongsArtworkEnabled}
+        artworkSize={HOME_SONG_RAIL_ARTWORK_SIZE}
+        windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
+        initialArtworkBudget={HOME_SONG_RAIL_INITIAL_ARTWORK_BUDGET}
+        />}
+      </MainstageDiagnosticFrame>
+    ),
+    discoverArtists: !perfFlags.disableMainstageGridCards && isVisible('discoverArtists') && (
+      <MainstageDiagnosticFrame sectionId="discoverArtists" label={t('home.discoverArtists')} active={mainstageDiagnosticsVisible}>
+        {randomArtists.length > 0 && <section className="album-row-section">
+        <div className="album-row-header">
+          <NavLink to="/artists" className="section-title-link" style={{ marginBottom: 0 }}>
+            {t('home.discoverArtists')}<ChevronRight size={18} className="section-title-chevron" />
+          </NavLink>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {randomArtists.map(a => (
+            <button
+              key={`${a.serverId ?? ''}:${a.id}`}
+              className="artist-ext-link"
+              onClick={() => {
+                navigate(buildArtistDetailPath(a.id, { serverId: a.serverId }));
+              }}
+            >
+              {a.name}
+            </button>
+          ))}
+          <button className="artist-ext-link" onClick={() => navigate('/artists')}
+            style={{ opacity: 0.6 }}>
+            {t('home.discoverArtistsMore')} →
+          </button>
+        </div>
+        </section>}
+      </MainstageDiagnosticFrame>
+    ),
+    recentlyPlayed: !homeAlbumRowsDisabled && isVisible('recentlyPlayed') && (
+      <MainstageDiagnosticFrame sectionId="recentlyPlayed" label={t('home.recentlyPlayed')} active={mainstageDiagnosticsVisible}>
+        <AlbumRow
+        title={t('home.recentlyPlayed')}
+        albums={recentlyPlayed}
+        onLoadMore={shouldOfferHomeLoadMore(recentlyPlayedHasMore)
+          ? () => loadMore('recentlyPlayed')
+          : undefined}
+        moreText={t('home.loadMore')}
+        disableArtwork={!recentlyPlayedArtworkEnabled}
+        artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+        windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
+        initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
+        />
+      </MainstageDiagnosticFrame>
+    ),
+    starred: !homeAlbumRowsDisabled && isVisible('starred') && (
+      <MainstageDiagnosticFrame sectionId="starred" label={t('home.starred')} active={mainstageDiagnosticsVisible}>
+        <AlbumRow
+        title={t('home.starred')}
+        titleLink="/favorites"
+        albums={starred}
+        onLoadMore={() => loadMore('starred')}
+        moreText={t('home.loadMore')}
+        disableArtwork={!starredArtworkEnabled}
+        artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+        windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
+        initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
+        />
+      </MainstageDiagnosticFrame>
+    ),
+    mostPlayed: !homeAlbumRowsDisabled && isVisible('mostPlayed') && (
+      <MainstageDiagnosticFrame sectionId="mostPlayed" label={t('home.mostPlayed')} active={mainstageDiagnosticsVisible}>
+        <AlbumRow
+        title={t('home.mostPlayed')}
+        titleLink="/most-played"
+        albums={mostPlayed}
+        onLoadMore={() => loadMore('mostPlayed')}
+        moreText={t('home.loadMore')}
+        disableArtwork={!mostPlayedArtworkEnabled}
+        artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+        windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
+        initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
+        />
+      </MainstageDiagnosticFrame>
+    ),
+    losslessAlbums: !homeAlbumRowsDisabled && isVisible('losslessAlbums') && (
+      <MainstageDiagnosticFrame sectionId="losslessAlbums" label={t('home.losslessAlbums')} active={mainstageDiagnosticsVisible}>
+        <LosslessAlbumsRail
+          serverIds={serverIds}
+          scopeVersion={scopeVersion}
+          scopes={scopes}
+          disableArtwork={!losslessAlbumsArtworkEnabled}
+          artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
+          windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
+          initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
+          onDiagnosticResult={mainstageDiagnosticsEnabled
+            ? result => reportAutonomousDiagnostic('losslessAlbums', result)
+            : undefined}
+        />
+      </MainstageDiagnosticFrame>
+    ),
+  };
+
   return (
     <div
       className={[
@@ -715,154 +877,11 @@ export default function Home() {
           </div>
         ) : (
           <>
-            {!homeAlbumRowsDisabled && isVisible('recent') && (
-              <MainstageDiagnosticFrame sectionId="recent" label={t('sidebar.newReleases')} active={mainstageDiagnosticsVisible}>
-                <AlbumRow
-                title={t('sidebar.newReleases')}
-                titleLink="/new-releases"
-                albums={recent}
-                onLoadMore={shouldOfferHomeLoadMore(recentHasMore) ? () => loadMore('recent') : undefined}
-                moreText={t('home.loadMore')}
-                disableArtwork={!recentArtworkEnabled}
-                artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
-                windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
-                initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
-                />
-              </MainstageDiagnosticFrame>
-            )}
-            {!homeAlbumRowsDisabled && isVisible('becauseYouLike') && (
-              <MainstageDiagnosticFrame sectionId="becauseYouLike" label={t('home.becauseYouLike')} active={mainstageDiagnosticsVisible}>
-                {becauseYouLikeHasSeed && <BecauseYouLikeRail
-                  mostPlayed={mostPlayed}
-                  recentlyPlayed={recentlyPlayed}
-                  starred={starred}
-                  scopeKey={scopeKey}
-                  scopeVersion={scopeVersion}
-                  scopes={scopes}
-                  disableArtwork={!becauseYouLikeArtworkEnabled}
-                  onDiagnosticResult={mainstageDiagnosticsEnabled
-                    ? result => reportAutonomousDiagnostic('becauseYouLike', result)
-                    : undefined}
-                />}
-              </MainstageDiagnosticFrame>
-            )}
-            {!homeAlbumRowsDisabled && isVisible('discover') && (
-              <MainstageDiagnosticFrame sectionId="discover" label={t('home.discover')} active={mainstageDiagnosticsVisible}>
-                <AlbumRow
-                title={t('home.discover')}
-                titleLink="/random/albums"
-                albums={random}
-                onLoadMore={() => loadMore('random')}
-                moreText={t('home.discoverMore')}
-                disableArtwork={!discoverArtworkEnabled}
-                artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
-                windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
-                initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
-                />
-              </MainstageDiagnosticFrame>
-            )}
-            {!homeSongRailsDisabled && isVisible('discoverSongs') && (
-              <MainstageDiagnosticFrame sectionId="discoverSongs" label={t('home.discoverSongs')} active={mainstageDiagnosticsVisible}>
-                {discoverSongs.length > 0 && <SongRail
-                title={t('home.discoverSongs')}
-                songs={discoverSongs}
-                disableArtwork={!discoverSongsArtworkEnabled}
-                artworkSize={HOME_SONG_RAIL_ARTWORK_SIZE}
-                windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
-                initialArtworkBudget={HOME_SONG_RAIL_INITIAL_ARTWORK_BUDGET}
-                />}
-              </MainstageDiagnosticFrame>
-            )}
-            {!perfFlags.disableMainstageGridCards && isVisible('discoverArtists') && (
-              <MainstageDiagnosticFrame sectionId="discoverArtists" label={t('home.discoverArtists')} active={mainstageDiagnosticsVisible}>
-                {randomArtists.length > 0 && <section className="album-row-section">
-                <div className="album-row-header">
-                  <NavLink to="/artists" className="section-title-link" style={{ marginBottom: 0 }}>
-                    {t('home.discoverArtists')}<ChevronRight size={18} className="section-title-chevron" />
-                  </NavLink>
-                </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {randomArtists.map(a => (
-                    <button
-                      key={`${a.serverId ?? ''}:${a.id}`}
-                      className="artist-ext-link"
-                      onClick={() => {
-                        navigate(buildArtistDetailPath(a.id, { serverId: a.serverId }));
-                      }}
-                    >
-                      {a.name}
-                    </button>
-                  ))}
-                  <button className="artist-ext-link" onClick={() => navigate('/artists')}
-                    style={{ opacity: 0.6 }}>
-                    {t('home.discoverArtistsMore')} →
-                  </button>
-                </div>
-                </section>}
-              </MainstageDiagnosticFrame>
-            )}
-            {!homeAlbumRowsDisabled && isVisible('recentlyPlayed') && (
-              <MainstageDiagnosticFrame sectionId="recentlyPlayed" label={t('home.recentlyPlayed')} active={mainstageDiagnosticsVisible}>
-                <AlbumRow
-                title={t('home.recentlyPlayed')}
-                albums={recentlyPlayed}
-                onLoadMore={shouldOfferHomeLoadMore(recentlyPlayedHasMore)
-                  ? () => loadMore('recentlyPlayed')
-                  : undefined}
-                moreText={t('home.loadMore')}
-                disableArtwork={!recentlyPlayedArtworkEnabled}
-                artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
-                windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
-                initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
-                />
-              </MainstageDiagnosticFrame>
-            )}
-            {!homeAlbumRowsDisabled && isVisible('starred') && (
-              <MainstageDiagnosticFrame sectionId="starred" label={t('home.starred')} active={mainstageDiagnosticsVisible}>
-                <AlbumRow
-                title={t('home.starred')}
-                titleLink="/favorites"
-                albums={starred}
-                onLoadMore={() => loadMore('starred')}
-                moreText={t('home.loadMore')}
-                disableArtwork={!starredArtworkEnabled}
-                artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
-                windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
-                initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
-                />
-              </MainstageDiagnosticFrame>
-            )}
-            {!homeAlbumRowsDisabled && isVisible('mostPlayed') && (
-              <MainstageDiagnosticFrame sectionId="mostPlayed" label={t('home.mostPlayed')} active={mainstageDiagnosticsVisible}>
-                <AlbumRow
-                title={t('home.mostPlayed')}
-                titleLink="/most-played"
-                albums={mostPlayed}
-                onLoadMore={() => loadMore('mostPlayed')}
-                moreText={t('home.loadMore')}
-                disableArtwork={!mostPlayedArtworkEnabled}
-                artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
-                windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
-                initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
-                />
-              </MainstageDiagnosticFrame>
-            )}
-            {!homeAlbumRowsDisabled && isVisible('losslessAlbums') && (
-              <MainstageDiagnosticFrame sectionId="losslessAlbums" label={t('home.losslessAlbums')} active={mainstageDiagnosticsVisible}>
-                <LosslessAlbumsRail
-                  serverIds={serverIds}
-                  scopeVersion={scopeVersion}
-                  scopes={scopes}
-                  disableArtwork={!losslessAlbumsArtworkEnabled}
-                  artworkSize={HOME_ALBUM_ROW_ARTWORK_SIZE}
-                  windowArtworkByViewport={HOME_ARTWORK_WINDOWING}
-                  initialArtworkBudget={HOME_ALBUM_ROW_INITIAL_ARTWORK_BUDGET}
-                  onDiagnosticResult={mainstageDiagnosticsEnabled
-                    ? result => reportAutonomousDiagnostic('losslessAlbums', result)
-                    : undefined}
-                />
-              </MainstageDiagnosticFrame>
-            )}
+            {homeSections.map(section => (
+              section.id === 'hero'
+                ? null
+                : <React.Fragment key={section.id}>{railsById[section.id]}</React.Fragment>
+            ))}
           </>
         )}
       </div>

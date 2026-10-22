@@ -43,6 +43,8 @@ export interface SyncDelta {
   deferredDeletePaths: string[];
   /** Existing copies relocated on the device instead of downloaded again. */
   moveCount: number;
+  /** Tracks left off because another track already takes their file name. */
+  skippedCount: number;
   playlists: DeviceSyncPlannedPlaylist[];
   manifestFiles: DeviceSyncManifestFile[];
   manifestPlaylists: DeviceSyncManifestPlaylist[];

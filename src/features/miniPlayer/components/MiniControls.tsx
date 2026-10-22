@@ -14,13 +14,13 @@ export function MiniControls({ isPlaying, currentTime, duration, progress, contr
   return (
     <div className="mini-player__bottom" data-tauri-drag-region="false">
       <div className="mini-player__controls">
-        <button className="mini-player__btn" onClick={() => control('prev')} data-tauri-drag-region="false">
+        <button className="mini-player__btn" onClick={e => control(e.altKey ? 'prev-album' : 'prev')} data-tauri-drag-region="false">
           <SkipBack size={16} />
         </button>
         <button className="mini-player__btn mini-player__btn--primary" onClick={() => control('toggle')} data-tauri-drag-region="false">
           {isPlaying ? <Pause size={18} /> : <Play size={18} />}
         </button>
-        <button className="mini-player__btn" onClick={() => control('next')} data-tauri-drag-region="false">
+        <button className="mini-player__btn" onClick={e => control(e.altKey ? 'next-album' : 'next')} data-tauri-drag-region="false">
           <SkipForward size={16} />
         </button>
       </div>

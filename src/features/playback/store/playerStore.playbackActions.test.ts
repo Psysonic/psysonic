@@ -79,6 +79,9 @@ import { onInvoke, invokeMock } from '@/test/mocks/tauri';
 import { resetPlayerStore, resetAuthStore } from '@/test/helpers/storeReset';
 import { makeServer, makeTrack, makeTracks, seedQueue } from '@/test/helpers/factories';
 import { useAuthStore } from '@/store/authStore';
+import { getMusicNetworkRuntime } from '@/music-network';
+import { _resetVolumeZeroHintForTest } from '@/features/playback/store/volumeZeroHint';
+import { usePrivateModeStore } from '@/features/privateMode';
 import { usePlaybackAlternativeStore } from '@/features/playback/store/playbackAlternativeStore';
 import { _resetSeekFallbackStateForTest } from '@/features/playback/store/seekFallbackState';
 import {
@@ -180,7 +183,7 @@ describe('resume — warm path (engine has the track loaded, just paused)', () =
     invokeMock.mockClear();
 
     usePlayerStore.getState().resume();
-    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null });
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null, notifyPlaying: null });
     expect(usePlayerStore.getState().isPlaying).toBe(true);
   });
 
@@ -192,7 +195,22 @@ describe('resume — warm path (engine has the track loaded, just paused)', () =
 
     usePlayerStore.getState().resume();
 
-    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: 0.7 });
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: 0.7, notifyPlaying: null });
+  });
+
+  it('recovers through a paused cold load if the idle-release event was missed', async () => {
+    usePlayerStore.setState({ currentTrack: makeTrack({ duration: 120 }), isPlaying: true, currentTime: 5.9 });
+    usePlayerStore.getState().pause();
+    let resumes = 0;
+    onInvoke('audio_resume', () => {
+      if (++resumes === 1) throw new Error('audio sink not ready');
+    });
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(invokeMock).toHaveBeenCalledWith('audio_play', expect.objectContaining({
+      startPaused: true, startSecs: 5.9, requireStartSeek: true,
+    }));
+    expect(resumes).toBe(2);
   });
 
   it('preserves the original scrobble timestamp across pause and warm resume', () => {
@@ -230,6 +248,72 @@ describe('resume — warm path (engine has the track loaded, just paused)', () =
 });
 
 describe('resume — cold path', () => {
+  function prepareIdleReleasedTrack() {
+    const server = makeServer({ id: 'server-a', url: 'https://a.test' });
+    useAuthStore.setState({ servers: [server], activeServerId: server.id, hotCacheEnabled: false });
+    const track = makeTrack({ id: 'idle-paused', serverId: server.id, duration: 120 });
+    seedQueue([track], { currentTrack: track, serverId: server.id });
+    usePlayerStore.setState({ isPlaying: true, currentTime: 5.9, progress: 5.9 / 120 });
+    usePlayerStore.getState().pause();
+    usePlayerStore.getState().resetAudioPause();
+    invokeMock.mockClear();
+  }
+
+  it('restores the idle-release position before unpausing, without a callback seek', async () => {
+    prepareIdleReleasedTrack();
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(invokeMock).toHaveBeenCalledWith('audio_play', expect.objectContaining({
+      startPaused: true, startSecs: 5.9, requireStartSeek: true, manual: true,
+    }));
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null, notifyPlaying: true });
+    expect(invokeMock).not.toHaveBeenCalledWith('audio_seek', expect.anything());
+  });
+
+  it('keeps the position and stops indicating playback when both loads fail', async () => {
+    prepareIdleReleasedTrack();
+    onInvoke('audio_play', () => { throw new Error('cold resume source seek timeout'); });
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'audio_play')).toHaveLength(2);
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(usePlayerStore.getState().currentTime).toBe(5.9);
+    expect(invokeMock).not.toHaveBeenCalledWith('audio_resume', expect.anything());
+  });
+
+  it.each(['pause', 'stop'] as const)('does not restart after %s during a paused load', async action => {
+    prepareIdleReleasedTrack();
+    let finishLoad!: () => void;
+    onInvoke('audio_play', () => new Promise<void>(resolve => { finishLoad = resolve; }));
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    expect(finishLoad).toBeTypeOf('function');
+    usePlayerStore.getState()[action]();
+    finishLoad();
+    await vi.runAllTimersAsync();
+    expect(usePlayerStore.getState().isPlaying).toBe(false);
+    expect(invokeMock).not.toHaveBeenCalledWith('audio_resume', expect.anything());
+  });
+
+  it('a rapid pause and new resume replaces the pending load instead of warm-resuming it', async () => {
+    prepareIdleReleasedTrack();
+    let finishOldLoad!: () => void;
+    let loads = 0;
+    onInvoke('audio_play', () => {
+      loads++;
+      return loads === 1 ? new Promise<void>(resolve => { finishOldLoad = resolve; }) : undefined;
+    });
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    usePlayerStore.getState().pause();
+    usePlayerStore.getState().resume();
+    await vi.runAllTimersAsync();
+    finishOldLoad();
+    await vi.runAllTimersAsync();
+    expect(loads).toBe(2);
+    expect(invokeMock.mock.calls.filter(([command]) => command === 'audio_resume')).toHaveLength(1);
+  });
+
   it('starts a fresh scrobble play after stop instead of reusing the old timestamp', async () => {
     vi.setSystemTime(10_000);
     const server = makeServer({ id: 'server-a', url: 'https://a.test' });
@@ -285,7 +369,7 @@ describe('togglePlay', () => {
     invokeMock.mockClear();
 
     usePlayerStore.getState().togglePlay();
-    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null });
+    expect(invokeMock).toHaveBeenCalledWith('audio_resume', { fadeSecs: null, notifyPlaying: null });
     expect(usePlayerStore.getState().isPlaying).toBe(true);
   });
 });
@@ -483,6 +567,104 @@ describe('mixed-server play selection', () => {
       expect.objectContaining({ trackId: track.id }),
       { syncPlayingEngine: false },
     );
+  });
+});
+
+describe('sleep timer across track changes', () => {
+  it('survives the queue moving on by itself and still pauses at its deadline', () => {
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true });
+    usePlayerStore.getState().schedulePauseIn(1800);
+
+    usePlayerStore.getState().next(false);
+    expect(usePlayerStore.getState().currentTrack?.id).toBe(queue[1].id);
+    expect(usePlayerStore.getState().scheduledPauseAtMs).not.toBeNull();
+
+    invokeMock.mockClear();
+    vi.advanceTimersByTime(1800 * 1000);
+    expect(invokeMock).toHaveBeenCalledWith('audio_pause', expect.anything());
+    expect(usePlayerStore.getState().scheduledPauseAtMs).toBeNull();
+  });
+
+  it('is cancelled by a track the user starts', () => {
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ isPlaying: true });
+    usePlayerStore.getState().schedulePauseIn(1800);
+
+    usePlayerStore.getState().next();
+    expect(usePlayerStore.getState().scheduledPauseAtMs).toBeNull();
+  });
+});
+
+describe('volume at 0', () => {
+  const HINT = 'The volume is at 0 — turn it up to hear anything.';
+  const hintCalls = () => orbitMocks.showToast.mock.calls.filter(call => call[0] === HINT);
+
+  beforeEach(() => {
+    _resetVolumeZeroHintForTest();
+  });
+
+  it('says so when the user starts a track, but not when the queue moves on by itself', () => {
+    const queue = makeTracks(3);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ volume: 0, isPlaying: true });
+
+    usePlayerStore.getState().next(false);
+    expect(hintCalls()).toHaveLength(0);
+
+    usePlayerStore.getState().next();
+    expect(hintCalls()).toEqual([[HINT, 5000, 'warning']]);
+  });
+
+  it('says so on resume, once for several quick starts', () => {
+    const track = makeTrack();
+    seedQueue([track], { index: 0, currentTrack: track });
+    usePlayerStore.setState({ volume: 0, isPlaying: false });
+
+    usePlayerStore.getState().resume();
+    usePlayerStore.setState({ isPlaying: false });
+    usePlayerStore.getState().resume();
+    expect(hintCalls()).toHaveLength(1);
+
+    vi.advanceTimersByTime(10_000);
+    usePlayerStore.setState({ isPlaying: false });
+    usePlayerStore.getState().resume();
+    expect(hintCalls()).toHaveLength(2);
+  });
+
+  it('stays quiet with the volume up', () => {
+    const queue = makeTracks(2);
+    seedQueue(queue, { index: 0, currentTrack: queue[0] });
+    usePlayerStore.setState({ volume: 0.4 });
+    usePlayerStore.getState().next();
+    expect(hintCalls()).toHaveLength(0);
+  });
+});
+
+describe('private mode', () => {
+  afterEach(() => {
+    usePrivateModeStore.setState({ active: false });
+  });
+
+  it('starts a track without announcing it to the scrobble network', async () => {
+    const dispatchNowPlaying = vi.mocked(getMusicNetworkRuntime().dispatchNowPlaying);
+    dispatchNowPlaying.mockClear();
+    const server = makeServer({ id: 'srv-a', url: 'https://a.test' });
+    useAuthStore.setState({ servers: [server], activeServerId: server.id });
+    const [first, second] = makeTracks(2).map(t => ({ ...t, serverId: server.id }));
+    seedQueue([first, second], { index: 0, currentTrack: first, serverId: server.id });
+
+    usePrivateModeStore.setState({ active: true });
+    usePlayerStore.getState().playTrack(first);
+    await vi.runAllTimersAsync();
+    expect(dispatchNowPlaying).not.toHaveBeenCalled();
+
+    usePrivateModeStore.setState({ active: false });
+    usePlayerStore.getState().playTrack(second);
+    await vi.runAllTimersAsync();
+    expect(dispatchNowPlaying).toHaveBeenCalledTimes(1);
   });
 });
 

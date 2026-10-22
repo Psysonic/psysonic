@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type HomeSectionId = 'hero' | 'recent' | 'discover' | 'becauseYouLike' | 'discoverSongs' | 'discoverArtists' | 'recentlyPlayed' | 'starred' | 'mostPlayed' | 'losslessAlbums';
+export type HomeSectionId = 'hero' | 'continueListening' | 'recent' | 'discover' | 'becauseYouLike' | 'discoverSongs' | 'discoverArtists' | 'recentlyPlayed' | 'starred' | 'mostPlayed' | 'losslessAlbums';
 
 export interface HomeSectionConfig {
   id: HomeSectionId;
@@ -12,6 +12,7 @@ export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { id: 'hero',            visible: true },
   { id: 'recent',          visible: true },
   { id: 'becauseYouLike',  visible: true },
+  { id: 'continueListening', visible: true },
   { id: 'discover',        visible: true },
   { id: 'discoverSongs',   visible: true },
   { id: 'discoverArtists', visible: true },
@@ -20,6 +21,36 @@ export const DEFAULT_HOME_SECTIONS: HomeSectionConfig[] = [
   { id: 'mostPlayed',      visible: true },
   { id: 'losslessAlbums',  visible: true },
 ];
+
+const KNOWN_HOME_SECTION_IDS = new Set<string>(DEFAULT_HOME_SECTIONS.map(s => s.id));
+
+/**
+ * A stored or edited section list made whole: unknown and repeated entries
+ * dropped, a section introduced later slotted in after its default
+ * predecessor (so the settings list shows it where Home renders it), and the
+ * hero kept first, since it sits above the rails and does not move.
+ */
+export function normalizeHomeSections(sections: readonly unknown[] | null | undefined): HomeSectionConfig[] {
+  const seen = new Set<string>();
+  const merged: HomeSectionConfig[] = [];
+  for (const entry of sections ?? []) {
+    if (entry == null || typeof entry !== 'object') continue;
+    const { id, visible } = entry as Partial<HomeSectionConfig>;
+    if (typeof id !== 'string' || !KNOWN_HOME_SECTION_IDS.has(id) || seen.has(id)) continue;
+    seen.add(id);
+    merged.push({ id, visible: visible !== false });
+  }
+  DEFAULT_HOME_SECTIONS.forEach((section, index) => {
+    if (seen.has(section.id)) return;
+    const before = DEFAULT_HOME_SECTIONS[index - 1]?.id;
+    const beforeAt = before ? merged.findIndex(s => s.id === before) : -1;
+    const at = !before ? 0 : beforeAt >= 0 ? beforeAt + 1 : merged.length;
+    merged.splice(at, 0, section);
+  });
+  const heroAt = merged.findIndex(s => s.id === 'hero');
+  if (heroAt > 0) merged.unshift(...merged.splice(heroAt, 1));
+  return merged;
+}
 
 /**
  * Where the "Because you listened" rail finds its albums: albums by artists the
@@ -34,6 +65,7 @@ export const DEFAULT_BECAUSE_YOU_LIKE_SOURCE: BecauseYouLikeSource = 'similarArt
 interface HomeStore {
   sections: HomeSectionConfig[];
   becauseYouLikeSource: BecauseYouLikeSource;
+  setSections: (sections: HomeSectionConfig[]) => void;
   toggleSection: (id: HomeSectionId) => void;
   setBecauseYouLikeSource: (source: BecauseYouLikeSource) => void;
   reset: () => void;
@@ -44,6 +76,7 @@ export const useHomeStore = create<HomeStore>()(
     (set) => ({
       sections: DEFAULT_HOME_SECTIONS,
       becauseYouLikeSource: DEFAULT_BECAUSE_YOU_LIKE_SOURCE,
+      setSections: (sections) => set({ sections: normalizeHomeSections(sections) }),
       toggleSection: (id) => set((s) => ({
         sections: s.sections.map(sec => sec.id === id ? { ...sec, visible: !sec.visible } : sec),
       })),
@@ -56,15 +89,8 @@ export const useHomeStore = create<HomeStore>()(
     {
       name: 'psysonic_home',
       onRehydrateStorage: () => (state) => {
-        // Append any sections introduced after the user first persisted their order,
-        // so new defaults show up without forcing a manual Reset.
         if (!state) return;
-        const safe = (state.sections ?? []).filter(
-          (s): s is HomeSectionConfig => s != null && typeof s.id === 'string',
-        );
-        const known = new Set(safe.map(s => s.id));
-        const missing = DEFAULT_HOME_SECTIONS.filter(s => !known.has(s.id));
-        state.sections = missing.length > 0 ? [...safe, ...missing] : safe;
+        state.sections = normalizeHomeSections(state.sections);
         if (state.becauseYouLikeSource !== 'similarArtists' && state.becauseYouLikeSource !== 'audiomuse') {
           state.becauseYouLikeSource = DEFAULT_BECAUSE_YOU_LIKE_SOURCE;
         }

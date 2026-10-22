@@ -609,7 +609,7 @@ fn planner_rejects_a_different_track_at_an_owned_existing_path() {
 }
 
 #[test]
-fn planner_rejects_case_insensitive_path_collisions() {
+fn a_case_insensitive_path_collision_keeps_the_first_track_and_counts_the_other() {
     let device = tempfile::tempdir().unwrap();
     let album = source("album", "album-1", "Album");
     let upper = track("track-1", "Song");
@@ -620,18 +620,137 @@ fn planner_rejects_case_insensitive_path_collisions() {
         tracks: vec![upper, lower],
     }];
 
-    let result = build_sync_plan(
+    let plan = build_sync_plan(
         &fetched,
         &[],
         device.path().to_str().unwrap(),
         DeviceSyncLayoutMode::SharedAlbumTree,
         DeviceSyncPlaylistPathMode::PlaylistRelative,
-    );
+    )
+    .unwrap();
 
-    assert!(matches!(
-        result,
-        Err(error) if error.starts_with("DEVICE_SYNC_PATH_COLLISION:")
-    ));
+    assert_eq!(plan.add_count, 1);
+    assert_eq!(plan.skipped_count, 1);
+    assert_eq!(plan.manifest_files.len(), 1);
+    assert_eq!(plan.manifest_files[0].track_id, "track-1");
+}
+
+#[test]
+fn a_playlist_entry_whose_path_another_track_holds_is_left_out() {
+    let device = tempfile::tempdir().unwrap();
+    let album = source("album", "album-1", "Album");
+    let playlist = source("playlist", "playlist-1", "Mix");
+    let reissue = track("track-2", "Song");
+    let fetched = vec![
+        FetchedDeviceSyncSource {
+            source: album,
+            tracks: vec![track("track-1", "Song")],
+        },
+        FetchedDeviceSyncSource {
+            source: playlist,
+            tracks: vec![reissue, track("track-1", "Song")],
+        },
+    ];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::SharedAlbumTree,
+        DeviceSyncPlaylistPathMode::DeviceRooted,
+    )
+    .unwrap();
+
+    assert_eq!(plan.add_count, 1);
+    assert_eq!(plan.skipped_count, 1);
+    assert_eq!(
+        plan.playlists[0].references,
+        vec!["/Album Artist/Album/01 - Song.flac"]
+    );
+    assert_eq!(plan.playlists[0].tracks.len(), 1);
+}
+
+#[test]
+fn tracks_on_different_discs_with_the_same_number_and_title_both_land() {
+    let device = tempfile::tempdir().unwrap();
+    let album = source("album", "album-1", "Album");
+    let mut first = track("track-1", "Intro");
+    first["discNumber"] = serde_json::json!(1);
+    let mut second = track("track-2", "Intro");
+    second["discNumber"] = serde_json::json!(2);
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: album,
+        tracks: vec![first, second],
+    }];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::SelfContained,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.add_count, 2);
+    assert_eq!(plan.skipped_count, 0);
+    let mut paths = plan
+        .manifest_files
+        .iter()
+        .map(|file| file.relative_path.as_str())
+        .collect::<Vec<_>>();
+    paths.sort_unstable();
+    assert_eq!(
+        paths,
+        vec![
+            "Album Artist/Album/01 - Intro.flac",
+            "Album Artist/Album/2-01 - Intro.flac"
+        ]
+    );
+}
+
+#[test]
+fn a_disc_two_copy_from_before_disc_prefixes_moves_to_its_new_name() {
+    let device = tempfile::tempdir().unwrap();
+    let album = source("album", "album-1", "Album");
+    let old_path = "Album Artist/Album/01 - Song.flac";
+    std::fs::create_dir_all(device.path().join("Album Artist/Album")).unwrap();
+    std::fs::write(device.path().join(old_path), b"audio").unwrap();
+    write_manifest(
+        &device,
+        std::slice::from_ref(&album),
+        DeviceSyncLayoutMode::SelfContained,
+        &[DeviceSyncManifestFile {
+            track_id: "track-1".to_string(),
+            relative_path: old_path.to_string(),
+            source_keys: vec![device_sync_source_key(&album)],
+            size_bytes: 100,
+            transcode: None,
+            source: None,
+        }],
+        &[],
+    );
+    let mut disc_two = track("track-1", "Song");
+    disc_two["discNumber"] = serde_json::json!(2);
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: album,
+        tracks: vec![disc_two],
+    }];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::SelfContained,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.add_count, 0);
+    assert!(plan.delete_paths.is_empty());
+    assert_eq!(plan.move_paths.len(), 1);
+    assert_eq!(plan.move_paths[0].from, old_path);
+    assert_eq!(plan.move_paths[0].to, "Album Artist/Album/2-01 - Song.flac");
 }
 
 #[cfg(unix)]
@@ -801,6 +920,60 @@ fn switching_to_flat_moves_the_album_tree_copy() {
         plan.move_paths[0].to,
         "Album Artist - Album - 01 - Song.flac"
     );
+}
+
+#[test]
+fn a_copy_filed_under_the_track_artist_moves_to_the_display_album_artist() {
+    let device = tempfile::tempdir().unwrap();
+    let album = source("album", "album-1", "Album");
+    let old_path = "Main Artist feat. Guest/Album/01 - Song.flac";
+    std::fs::create_dir_all(device.path().join("Main Artist feat. Guest/Album")).unwrap();
+    std::fs::write(device.path().join(old_path), b"audio").unwrap();
+    write_manifest(
+        &device,
+        std::slice::from_ref(&album),
+        DeviceSyncLayoutMode::SelfContained,
+        &[DeviceSyncManifestFile {
+            track_id: "track-1".to_string(),
+            relative_path: old_path.to_string(),
+            source_keys: vec![device_sync_source_key(&album)],
+            size_bytes: 100,
+            transcode: None,
+            source: None,
+        }],
+        &[],
+    );
+    // Navidrome's Subsonic song shape: no `albumArtist`, only `displayAlbumArtist`.
+    let navidrome_song = serde_json::json!({
+        "id": "track-1",
+        "artist": "Main Artist feat. Guest",
+        "displayAlbumArtist": "Main Artist",
+        "album": "Album",
+        "title": "Song",
+        "track": 1,
+        "suffix": "flac",
+        "size": 100,
+    });
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: album,
+        tracks: vec![navidrome_song],
+    }];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::SelfContained,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.add_count, 0);
+    assert!(plan.delete_paths.is_empty());
+    assert!(plan.deferred_delete_paths.is_empty());
+    assert_eq!(plan.move_paths.len(), 1);
+    assert_eq!(plan.move_paths[0].from, old_path);
+    assert_eq!(plan.move_paths[0].to, "Main Artist/Album/01 - Song.flac");
 }
 
 fn mp3(max_bit_rate_kbps: u32) -> DeviceSyncTranscode {

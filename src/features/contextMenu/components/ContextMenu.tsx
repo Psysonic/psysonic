@@ -33,6 +33,7 @@ function contextMenuSurfaceForType(type: string | null): OfflineSurface {
       return 'contextMenuArtist';
     case 'playlist':
     case 'multi-playlist':
+    case 'playlist-tag':
       return 'contextMenuPlaylist';
     default:
       return 'contextMenuSong';

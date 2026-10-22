@@ -8,6 +8,7 @@ import {
   findSessionPlaylistId,
   readOrbitState,
   joinOrbitSession,
+  orbitJoinErrorKey,
 } from '@/features/orbit/utils/orbit';
 import { switchActiveServer } from '@/utils/server/switchActiveServer';
 import { normalizeServerBaseUrl, profileServesShareBase } from '@/lib/server/serverEndpoint';
@@ -83,7 +84,7 @@ export default function OrbitJoinModal({ onClose }: Props) {
       showToast(t('orbit.toastJoined'), 2200, 'info');
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('orbit.toastJoinFail'));
+      setError(t(orbitJoinErrorKey(e)));
     } finally {
       setBusy(false);
     }

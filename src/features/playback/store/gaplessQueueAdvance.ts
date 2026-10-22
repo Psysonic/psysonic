@@ -3,6 +3,7 @@
  * store + side-effects without calling `playTrack` / `audio_play`.
  */
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
+import { isPrivateModeActive } from '@/features/privateMode';
 import {
   playbackReportStart,
 } from '@/features/playback/store/playbackReportSession';
@@ -160,13 +161,15 @@ function applyGaplessSuccessorUi(
 
   playbackReportStart(nextTrack.id, playbackProfileIdForTrack(nextTrack, switchRef));
   const runtime = getMusicNetworkRuntimeOrNull();
-  void runtime?.dispatchNowPlaying({
-    title: nextTrack.title,
-    artist: nextTrack.artist,
-    album: nextTrack.album,
-    duration: nextTrack.duration,
-    timestamp: Date.now(),
-  });
+  if (!isPrivateModeActive()) {
+    void runtime?.dispatchNowPlaying({
+      title: nextTrack.title,
+      artist: nextTrack.artist,
+      album: nextTrack.album,
+      duration: nextTrack.duration,
+      timestamp: Date.now(),
+    });
+  }
   if (runtime?.getEnrichmentPrimaryId()) {
     void runtime
       .isTrackLoved({ title: nextTrack.title, artist: nextTrack.artist })

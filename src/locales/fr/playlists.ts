@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Modifier la playlist',
   editNamePlaceholder: 'Nom de la playlist…',
   editCommentPlaceholder: 'Ajouter une description…',
+  linkOpenError: 'Impossible d’ouvrir ce lien dans votre navigateur.',
   editPublic: 'Playlist publique',
   editSave: 'Enregistrer',
   editCancel: 'Annuler',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Résolution de {{count}} artistes…',
   myPlaylists: 'Mes Playlists',
   noOtherPlaylists: 'Aucune autre playlist disponible',
+  recentTargets: 'Utilisées récemment',
   addToPlaylistSuccess: '{{count}} morceaux ajoutés à {{playlist}}',
   addToPlaylistNoNew: 'Aucun nouveau morceau pour {{playlist}}',
   addToPlaylistError: 'Erreur lors de l\'ajout à la playlist',
@@ -130,6 +132,19 @@ export const playlists = {
     count_other: '{{count}} playlists',
     localOnlyNotice:
       'Les dossiers sont enregistrés uniquement dans Psysonic sur cet appareil. Navidrome et l\'API Subsonic ne prennent pas en charge les dossiers de playlists, la structure n\'est donc pas stockée sur ton serveur ni synchronisée avec tes autres appareils et applications.',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Tags',
+    newTag: 'Nouveau tag',
+    namePlaceholder: 'Nom du tag…',
+    filterLabel: 'Filtrer par tags',
+    clearFilter: 'Effacer le filtre de tags',
+    chipHint: 'Clic droit pour renommer ou supprimer',
+    rename: 'Renommer le tag',
+    delete: 'Supprimer le tag',
+    deleteConfirm: 'Cliquez à nouveau pour le retirer de toutes les playlists',
+    emptyFilter: 'Aucune playlist ne porte tous les tags sélectionnés.',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

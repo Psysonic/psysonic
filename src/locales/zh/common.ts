@@ -4,6 +4,7 @@ export const common = {
   albumByArtist: '{{artist}} 的 {{album}}',
   loading: '加载中…',
   loadingMore: '加载中…',
+  explicit: '含露骨内容',
   loadingPlaylists: '正在加载播放列表…',
   noAlbums: '未找到专辑。',
   downloading: '正在下载…',

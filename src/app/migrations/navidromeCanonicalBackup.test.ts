@@ -124,6 +124,10 @@ describe('normalizeNavidromeCanonicalBackupStores', () => {
         state: { byServer: { 'music.test': { folders: [], assignments: { [LEGACY_ID]: 'folder-1' } } } },
         version: 0,
       },
+      psysonic_playlist_tags: {
+        state: { byServer: { 'music.test': { [LEGACY_ID]: ['Chill'] } }, activeFilter: [] },
+        version: 0,
+      },
       psysonic_radio_favorites: null,
       psysonic_shuffle_mode: null,
       psysonic_artist_layout: null,
@@ -133,6 +137,10 @@ describe('normalizeNavidromeCanonicalBackupStores', () => {
       state: { byServer: Record<string, { assignments: Record<string, string> }> };
     }).state.byServer['music.test'].assignments;
     expect(assignments).toEqual({ [canonicalNavidromeId(LEGACY_ID)]: 'folder-1' });
+    const tags = (stores.psysonic_playlist_tags as {
+      state: { byServer: Record<string, Record<string, string[]>> };
+    }).state.byServer['music.test'];
+    expect(tags).toEqual({ [canonicalNavidromeId(LEGACY_ID)]: ['Chill'] });
     expect(stores.psysonic_radio_favorites).toBeNull();
     expect(stores.psysonic_shuffle_mode).toBeNull();
     expect(stores.psysonic_artist_layout).toBeNull();

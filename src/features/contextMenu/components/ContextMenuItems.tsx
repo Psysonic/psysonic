@@ -6,6 +6,7 @@ import QueueItemContextItems from '@/features/contextMenu/components/QueueItemCo
 import AlbumContextItems from '@/features/contextMenu/components/AlbumContextItems';
 import ArtistContextItems from '@/features/contextMenu/components/ArtistContextItems';
 import PlaylistContextItems from '@/features/contextMenu/components/PlaylistContextItems';
+import PlaylistTagContextItems from '@/features/contextMenu/components/PlaylistTagContextItems';
 
 export default function ContextMenuItems(props: ContextMenuItemsProps) {
   const { type } = props;
@@ -27,6 +28,8 @@ export default function ContextMenuItems(props: ContextMenuItemsProps) {
     case 'playlist':
     case 'multi-playlist':
       return <PlaylistContextItems {...props} />;
+    case 'playlist-tag':
+      return <PlaylistTagContextItems {...props} />;
     default:
       return null;
   }

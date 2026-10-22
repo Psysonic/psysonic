@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: '编辑播放列表',
   editNamePlaceholder: '播放列表名称…',
   editCommentPlaceholder: '添加描述…',
+  linkOpenError: '无法在浏览器中打开此链接。',
   editPublic: '公开播放列表',
   editSave: '保存',
   editCancel: '取消',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: '正在解析 {{count}} 位艺术家…',
   myPlaylists: '我的播放列表',
   noOtherPlaylists: '没有其他可用播放列表',
+  recentTargets: '最近使用',
   addToPlaylistSuccess: '{{count}} 首歌曲已添加到 {{playlist}}',
   addToPlaylistNoNew: '{{playlist}} 没有新歌曲',
   addToPlaylistError: '添加到播放列表时出错',
@@ -128,6 +130,19 @@ export const playlists = {
     count_other: '{{count}} 个播放列表',
     localOnlyNotice:
       '文件夹仅保存在此设备上的 Psysonic 中。Navidrome 和 Subsonic API 不支持播放列表文件夹，因此该结构不会存储在你的服务器上，也不会同步到你的其他设备和应用。',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: '标签',
+    newTag: '新建标签',
+    namePlaceholder: '标签名称…',
+    filterLabel: '按标签筛选',
+    clearFilter: '清除标签筛选',
+    chipHint: '右键单击可重命名或删除',
+    rename: '重命名标签',
+    delete: '删除标签',
+    deleteConfirm: '再次单击以将其从所有播放列表中移除',
+    emptyFilter: '没有播放列表同时具有所有选中的标签。',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

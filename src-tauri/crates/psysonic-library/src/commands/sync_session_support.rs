@@ -225,7 +225,12 @@ async fn bind_sync_session_with_admission(
             timeouts.probe,
         )
         .await
-        .map_err(|e| format!("bind probe failed: {e}"))?;
+        .map_err(|e| {
+            // The frontend only learns that binding failed; this line is where
+            // the cause (TLS, DNS, refused connection) can be read afterwards.
+            crate::app_eprintln!("[library-sync] bind probe failed server_id={server_id}: {e}");
+            format!("bind probe failed: {e}")
+        })?;
         runtime.set_session(session)?;
         Ok(())
     };

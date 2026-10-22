@@ -28,6 +28,8 @@
 @import './playback-buffering-overlay.css';
 @import './playlist-edit-modal.css';
 @import './playlist-folders.css';
+@import './playlist-tags.css';
+@import './explicit.css';
 @import './artists-page.css';
 @import './years-page.css';
 @import './settings.css';
@@ -46,6 +48,7 @@
 @import './statistics-page.css';
 @import './year-recap.css';
 @import './connection-indicator.css';
+@import './private-mode-toggle.css';
 @import './now-playing-presence.css';
 @import './offline-overlay.css';
 @import './now-playing-page.css';
@@ -110,3 +113,5 @@
 @import './square-corners.css';
 @import './mainstage-diagnostic-frame.css';
 @import './shared-page.css';
+@import './now-playing-marker.css';
+@import './resume-card.css';

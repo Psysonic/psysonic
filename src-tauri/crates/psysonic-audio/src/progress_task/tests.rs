@@ -365,6 +365,43 @@ async fn done_with_chained_info_swaps_to_chain_and_emits_track_switched() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn gapless_transition_clears_stale_streaming_seek() {
+    let h = TaskHarness::new(120.0);
+    let handle = crate::preserve_worker::test_streaming_seek_handle();
+    h.current.lock().unwrap().streaming_seek = Some(handle);
+    h.done.store(true, Ordering::SeqCst);
+    let chain_url = "psysonic-local:///next/track.flac".to_string();
+    let chained_done = Arc::new(AtomicBool::new(false));
+    *h.chained.lock().unwrap() = Some(ChainedInfo {
+        url: chain_url.clone(),
+        analysis_track_id: Some("next-track".into()),
+        server_id: Some("srv-1".into()),
+        local_original_verified: None,
+        generation: 1,
+        raw_bytes: Arc::new(Vec::new()),
+        resolved_format: None,
+        output_rate: 44_100,
+        output_channels: 2,
+        duration_secs: 200.0,
+        replay_gain_linear: 1.0,
+        base_volume: 1.0,
+        source_done: chained_done.clone(),
+        cancel: Arc::new(AtomicBool::new(false)),
+        sample_counter: Arc::new(AtomicU64::new(0)),
+    });
+    let emitter = Arc::new(MockEmitter::default());
+    h.spawn_with(emitter.clone());
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert_eq!(emitter.track_switched_count(), 1);
+
+    let cur = h.current.lock().unwrap();
+    assert!(
+        cur.streaming_seek.is_none(),
+        "stale streaming_seek handle from predecessor must be cleared on gapless transition"
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn done_without_chain_emits_ended_immediately() {
     let h = TaskHarness::new(120.0);
     h.done.store(true, Ordering::SeqCst);

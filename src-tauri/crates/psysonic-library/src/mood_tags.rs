@@ -45,6 +45,15 @@ fn moods_from_value(value: &Value) -> Vec<String> {
 }
 
 pub fn moods_for_track_value(raw_json: &Value) -> Vec<String> {
+    // Navidrome's native `/api/song` payload carries its complete imported
+    // tag set under `tags`. When that object is present it is the freshest
+    // source for MOOD/TMOO, including absence of `mood` meaning the tag
+    // was cleared.
+    if let Some(tags) = raw_json.get("tags").and_then(Value::as_object) {
+        return tags.get("mood").map(moods_from_value).unwrap_or_default();
+    }
+
+    // OpenSubsonic exposes file moods directly as `moods[]`.
     raw_json
         .get("moods")
         .map(moods_from_value)
@@ -142,6 +151,55 @@ mod tests {
     }
 
     #[test]
+    fn parses_navidrome_native_mood_tags() {
+        let raw = json!({
+            "tags": {
+                "mood": [
+                    "Atmospheric",
+                    "Melancholic",
+                    "Nocturnal"
+                ]
+            }
+        });
+
+        assert_eq!(
+            moods_for_track_value(&raw),
+            vec![
+                "Atmospheric".to_string(),
+                "Melancholic".to_string(),
+                "Nocturnal".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn navidrome_native_moods_take_precedence_over_stale_open_subsonic_moods() {
+        let raw = json!({
+            "moods": ["Old Mood"],
+            "tags": {
+                "mood": ["Atmospheric", "Melancholic"]
+            }
+        });
+
+        assert_eq!(
+            moods_for_track_value(&raw),
+            vec!["Atmospheric".to_string(), "Melancholic".to_string()]
+        );
+    }
+
+    #[test]
+    fn navidrome_native_tags_without_mood_clear_stale_top_level_moods() {
+        let raw = json!({
+            "moods": ["Old Mood"],
+            "tags": {
+                "genre": ["Ambient"]
+            }
+        });
+
+        assert!(moods_for_track_value(&raw).is_empty());
+    }
+
+    #[test]
     fn trims_blanks_and_dedupes_case_insensitively() {
         let raw = json!({
             "moods": [
@@ -231,7 +289,21 @@ fn track_upsert_projects_file_moods_into_track_mood() {
         .into(),
     };
 
-    TrackRepository::new(&store).upsert_batch(&[track]).unwrap();
+    let mut native_track = track.clone();
+    native_track.id = "t2".into();
+    native_track.raw_json = r#"{
+        "tags": {
+            "mood": [
+                "Dreamy",
+                "Energetic"
+            ]
+        }
+    }"#
+    .into();
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[track, native_track])
+        .unwrap();
 
     let moods: Vec<String> = store
         .with_read_conn(|conn| {
@@ -258,5 +330,28 @@ fn track_upsert_projects_file_moods_into_track_mood() {
             "Melancholic".to_string(),
             "Nocturnal".to_string(),
         ]
+    );
+
+    let native_moods: Vec<String> = store
+        .with_read_conn(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT mood
+                 FROM track_mood
+                 WHERE server_id = 's1'
+                   AND track_id = 't2'
+                 ORDER BY mood COLLATE NOCASE",
+            )?;
+
+            let rows = stmt
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+
+            Ok(rows)
+        })
+        .unwrap();
+
+    assert_eq!(
+        native_moods,
+        vec!["Dreamy".to_string(), "Energetic".to_string(),]
     );
 }

@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'プレイリストを編集',
   editNamePlaceholder: 'プレイリスト名…',
   editCommentPlaceholder: '説明を追加…',
+  linkOpenError: 'ブラウザーでこのリンクを開けませんでした。',
   editPublic: '公開プレイリスト',
   editSave: '保存',
   editCancel: 'キャンセル',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: '{{count}} 人のアーティストを解決中…',
   myPlaylists: '自分のプレイリスト',
   noOtherPlaylists: '他に利用できるプレイリストはありません',
+  recentTargets: '最近使用',
   addToPlaylistSuccess: '{{count}} 曲を {{playlist}} に追加しました',
   addToPlaylistNoNew: '{{playlist}} に追加する新しい曲はありません',
   addToPlaylistError: 'プレイリストへの追加中にエラー',
@@ -130,6 +132,19 @@ export const playlists = {
     count_other: '{{count}} 個のプレイリスト',
     localOnlyNotice:
       'フォルダーはこのデバイス上の Psysonic にのみ保存されます。Navidrome と Subsonic API にはプレイリストフォルダーのネイティブ対応がないため、この構造はサーバーには保存されず、他のデバイスやアプリとも同期されません。',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'タグ',
+    newTag: '新規タグ',
+    namePlaceholder: 'タグ名…',
+    filterLabel: 'タグで絞り込み',
+    clearFilter: 'タグの絞り込みを解除',
+    chipHint: '右クリックで名前の変更または削除',
+    rename: 'タグの名前を変更',
+    delete: 'タグを削除',
+    deleteConfirm: 'もう一度クリックするとすべてのプレイリストから外します',
+    emptyFilter: '選択したすべてのタグを持つプレイリストはありません。',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

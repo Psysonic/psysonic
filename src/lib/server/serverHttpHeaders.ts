@@ -194,6 +194,10 @@ export function serverHttpContextWireForProfile(
     endpoints: serverAddressEndpoints(server).map(e => ({ url: e.url, kind: e.kind })),
     customHeaders: server.customHeaders ?? [],
     customHeadersApplyTo: server.customHeadersApplyTo ?? DEFAULT_CUSTOM_HEADERS_APPLY_TO,
-    supportsRawStream: isNavidromeServer(identity),
+    // Bandcamp's API exposes a fixed MP3 source via stream, not download.
+    // Reuse raw probing and revision checks for that API source; this does not
+    // identify the artist's uploaded master. Unknown servers stay download-only.
+    supportsRawStream: isNavidromeServer(identity)
+      || identity?.type?.trim().toLowerCase() === 'bandcampserver',
   };
 }

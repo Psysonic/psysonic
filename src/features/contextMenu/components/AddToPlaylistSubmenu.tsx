@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListMusic, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import { usePlaylistStore } from '@/features/playlist';
 import { addTracksToPlaylistWithDedup, showAddTracksDedupToast } from '@/features/playlist';
@@ -8,6 +8,7 @@ import { showToast } from '@/lib/dom/toast';
 import { manualPlaylistTargetsForServer } from '@/features/contextMenu/utils/contextMenuHelpers';
 import { useAuthStore } from '@/store/authStore';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { PlaylistTargetList } from '@/features/contextMenu/components/PlaylistTargetList';
 
 interface Props {
   songIds: string[];
@@ -34,7 +35,6 @@ export function AddToPlaylistSubmenu({ songIds, resolveSongIds, onDone, dropDown
   const [flipLeft, setFlipLeft] = useState(false);
   const [flipUp, setFlipUp] = useState(false);
   const storePlaylists = usePlaylistStore((s) => s.playlists);
-  const recentIds = usePlaylistStore((s) => s.recentIds);
   const createPlaylist = usePlaylistStore((s) => s.createPlaylist);
   const touchPlaylist = usePlaylistStore((s) => s.touchPlaylist);
   const fetchPlaylistsForServer = usePlaylistStore((s) => s.fetchPlaylistsForServer);
@@ -54,17 +54,10 @@ export function AddToPlaylistSubmenu({ songIds, resolveSongIds, onDone, dropDown
     return () => { current = false; };
   }, [fetchPlaylistsForServer, ownerServerId, storePlaylists]);
 
-  const playlists = useMemo(() => {
-    return manualPlaylistTargetsForServer(storePlaylists, ownerServerId)
-      .sort((a, b) => {
-        const ai = recentIds.indexOf(ownedEntityKey({ id: a.id, serverId: ownerServerId }));
-        const bi = recentIds.indexOf(ownedEntityKey({ id: b.id, serverId: ownerServerId }));
-        if (ai === -1 && bi === -1) return a.name.localeCompare(b.name);
-        if (ai === -1) return 1;
-        if (bi === -1) return -1;
-        return ai - bi;
-      });
-  }, [storePlaylists, recentIds, ownerServerId]);
+  const playlists = useMemo(
+    () => manualPlaylistTargetsForServer(storePlaylists, ownerServerId),
+    [storePlaylists, ownerServerId],
+  );
 
   useLayoutEffect(() => {
     if (subRef.current) {
@@ -154,20 +147,13 @@ export function AddToPlaylistSubmenu({ songIds, resolveSongIds, onDone, dropDown
 
       <div className="context-menu-divider" />
 
-      {playlists.length === 0 && (
-        <div className="context-submenu-empty">{t('playlists.empty')}</div>
-      )}
-      {playlists.map((pl: SubsonicPlaylist) => (
-        <div
-          key={ownedEntityKey(pl)}
-          className="context-menu-item"
-          onClick={() => handleAdd(pl)}
-          style={{ opacity: adding === ownedEntityKey(pl) ? 0.5 : 1, pointerEvents: adding ? 'none' : undefined }}
-        >
-          <ListMusic size={13} />
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</span>
-        </div>
-      ))}
+      <PlaylistTargetList
+        targets={playlists}
+        serverId={ownerServerId}
+        emptyLabel={t('playlists.empty')}
+        busyKey={adding}
+        onPick={handleAdd}
+      />
     </div>
   );
 }

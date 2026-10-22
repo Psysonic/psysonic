@@ -1,10 +1,10 @@
-import { orbitAllowsTrackServer, orbitBulkGuard, orbitSnapshot } from '@/store/orbitRuntime';
+import { orbitAllowsTrackServer, orbitBulkGuard, orbitGuestTakesQueueAdd, orbitSnapshot } from '@/store/orbitRuntime';
 import { useAuthStore } from '@/store/authStore';
 import { prefetchLoudnessForEnqueuedTracks } from '@/features/playback/store/loudnessPrefetch';
 import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
 import type { PlayerState } from '@/features/playback/store/playerStoreTypes';
 import { toQueueItemRefs } from '@/features/playback/store/queueItemRef';
-import { seedQueueResolver } from '@/features/playback/store/queueTrackResolver';
+import { getCachedTrack, seedQueueResolver } from '@/features/playback/store/queueTrackResolver';
 import { pushQueueUndoFromGetter } from '@/features/playback/store/queueUndo';
 import {
   syncAutomaticQueueMutationToServers,
@@ -35,8 +35,8 @@ import {
   getShuffleOriginalOrder,
   restoreOriginalOrder,
   setShuffleOriginalOrder,
-  shuffled,
 } from '@/features/playback/store/shuffleModeActions';
+import { shuffleQueueRefs } from '@/features/playback/utils/playback/shuffleTracks';
 import { persistShuffleModeSnapshot } from '@/features/playback/store/shuffleModeStorage';
 import {
   queueItemIdentityKey,
@@ -146,7 +146,10 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
         setShuffleOriginalOrder(items.map(queueItemIdentityKey));
         // Everything up to and including the current track stays put: the playing
         // track must not move, and already-played rows are history.
-        result = [...items.slice(0, queueIndex + 1), ...shuffled(items.slice(queueIndex + 1))];
+        result = [
+          ...items.slice(0, queueIndex + 1),
+          ...shuffleQueueRefs(items.slice(queueIndex + 1), getCachedTrack, currentRef),
+        ];
       } else {
         result = restoreOriginalOrder(items, getShuffleOriginalOrder());
         setShuffleOriginalOrder([]);
@@ -176,6 +179,7 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
         });
         return;
       }
+      if (orbitGuestTakesQueueAdd(tracks)) return;
       const stateBeforeEnqueue = get();
       const shouldMountFirstTrack = stateBeforeEnqueue.queueItems.length === 0
         && !stateBeforeEnqueue.currentTrack
@@ -290,6 +294,7 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
         });
         return;
       }
+      if (orbitGuestTakesQueueAdd(tracks)) return;
       pushQueueUndoFromGetter(get);
       ensureQueueServerPinned(tracks);
       set(state => {
@@ -417,6 +422,7 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
       set({
         queueItems: [],
         queueIndex: 0,
+        queueSource: null,
         currentTrack: null,
         navidromePublicSharePageUrl: null,
         isPlaying: false,
@@ -484,11 +490,11 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
       const currentIdx = currentTrack && queueItemRefMatchesTrack(items[state.queueIndex], currentTrack)
         ? state.queueIndex
         : currentTrack ? items.findIndex(ref => queueItemRefMatchesTrack(ref, currentTrack)) : -1;
-      const others = items.filter((_, i) => i !== currentIdx);
-      for (let i = others.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [others[i], others[j]] = [others[j], others[i]];
-      }
+      const others = shuffleQueueRefs(
+        items.filter((_, i) => i !== currentIdx),
+        getCachedTrack,
+        currentIdx >= 0 ? items[currentIdx] : undefined,
+      );
       const result = currentIdx >= 0
         ? [items[currentIdx], ...others]
         : others;
@@ -506,11 +512,7 @@ export function createQueueMutationActions(set: SetState, get: GetState): Pick<
       pushQueueUndoFromGetter(get);
       const items = itemsOf(state);
       const head     = items.slice(0, upcomingStart);
-      const upcoming = items.slice(upcomingStart);
-      for (let i = upcoming.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [upcoming[i], upcoming[j]] = [upcoming[j], upcoming[i]];
-      }
+      const upcoming = shuffleQueueRefs(items.slice(upcomingStart), getCachedTrack, items[queueIndex]);
       const result = [...head, ...upcoming];
       set({ queueItems: result });
       syncUserQueueMutationToServer(items, result, currentTrack, get().currentTime);

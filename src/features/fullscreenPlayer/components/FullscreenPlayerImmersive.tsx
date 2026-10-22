@@ -1,4 +1,4 @@
-import { queueSongStar, playbackCoverArtForAlbum, usePlayerStore, usePlaybackLibraryNavigate, TrackArtistLinks, ScrobbleActionButton } from '@/features/playback';
+import { queueSongStar, playbackCoverArtForAlbum, usePlayerStore, usePlaybackLibraryNavigate, TrackArtistLinks, ScrobbleActionButton, skipToNextAlbum, skipToPreviousAlbum, albumSkipTooltip } from '@/features/playback';
 import { usePlaybackCoverArt } from '@/cover/usePlaybackCoverArt';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
@@ -27,6 +27,10 @@ import { useFsIdleFade } from '@/features/fullscreenPlayer/hooks/useFsIdleFade';
 import { useQueueTrackAt } from '@/features/queue';
 import { VisualizerPanel } from '@/features/visualizer';
 import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
+import { useThemeStore } from '@/store/themeStore';
+import ExplicitBadge from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 interface FullscreenPlayerProps {
   onClose: () => void;
@@ -95,7 +99,9 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
   // configured fullscreen-player source order) — the same source the Minimal
   // player uses. Falls back to the album cover when nothing resolves.
   const artistBgUrl = useFsArtistBackdrop(currentTrack);
-  const portraitUrl = artistBgUrl || resolvedCoverUrl;
+  // A blurred explicit cover must not come back sharp as the portrait fallback.
+  const hideExplicitCover = useThemeStore(s => s.blurExplicitCovers) && isExplicit(currentTrack);
+  const portraitUrl = artistBgUrl || (hideExplicitCover ? '' : resolvedCoverUrl);
   const showFullscreenLyrics   = useAuthStore(s => s.showFullscreenLyrics);
   const fsLyricsStyle          = useAuthStore(s => s.fsLyricsStyle);
   const showFsArtistPortrait   = useAuthStore(s => s.showFsArtistPortrait);
@@ -182,7 +188,7 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
       {/* Layer 1 — artist portrait, right half. Not mounted in Apple mode: the
           full-screen backdrop above already shows the image, so rendering the
           (CSS-hidden) portrait too would load/decode the same image twice. */}
-      {showFsArtistPortrait && !isAppleMode && <FsPortrait url={portraitUrl} />}
+      {showFsArtistPortrait && !isAppleMode && (portraitUrl || !hideExplicitCover) && <FsPortrait url={portraitUrl} />}
 
       {/* Layer 2 — horizontal scrim: dark left → transparent right */}
       <div className="fs-scrim" aria-hidden="true" />
@@ -204,10 +210,14 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
         {/* Album art */}
         <div className="fs-art-wrap">
           <FsArt fetchUrl={artUrl} cacheKey={artKey} />
+          <ExplicitCoverVeil explicit={isExplicit(currentTrack)} />
         </div>
 
         {/* Track title — massive statement */}
-        <p className="fs-track-title">{currentTrack?.title ?? '—'}</p>
+        <p className="fs-track-title">
+          {currentTrack?.title ?? '—'}
+          <ExplicitBadge status={currentTrack?.explicitStatus} />
+        </p>
 
         {/* Artist — secondary, below track */}
         {currentTrack ? (
@@ -250,11 +260,11 @@ export default function FullscreenPlayer({ onClose }: FullscreenPlayerProps) {
           <button className="fs-btn fs-btn-sm" onClick={stop} aria-label={t('player.stop')} data-tooltip={t('player.stop')}>
             <Square size={13} fill="currentColor" />
           </button>
-          <button className="fs-btn" onClick={() => previous()} aria-label={t('player.prev')} data-tooltip={t('player.prev')}>
+          <button className="fs-btn" onClick={e => (e.altKey ? skipToPreviousAlbum() : previous())} aria-label={t('player.prev')} data-tooltip={albumSkipTooltip(t, 'prev')}>
             <SkipBack size={19} />
           </button>
           <FsPlayBtn controlsAnchorRef={fsControlsRef} />
-          <button className="fs-btn" onClick={() => next()} aria-label={t('player.next')} data-tooltip={t('player.next')}>
+          <button className="fs-btn" onClick={e => (e.altKey ? skipToNextAlbum() : next())} aria-label={t('player.next')} data-tooltip={albumSkipTooltip(t, 'next')}>
             <SkipForward size={19} />
           </button>
           <button

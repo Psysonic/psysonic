@@ -7,6 +7,8 @@ use super::{
 use crate::navidrome_id_codec::canonical_id;
 use crate::store::LibraryStore;
 
+mod live_alias_cycle;
+
 const LEGACY_TRACK: &str = "e3b7fc2ae9447bbec37a13bf916e3cf6";
 const LEGACY_ARTIST: &str = "00112233445566778899aabbccddeeff";
 const LEGACY_ALBUM: &str = "f47ac10b-58cc-4372-a567-0e02b2c3d479";

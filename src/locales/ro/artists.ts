@@ -10,6 +10,7 @@ export const artists = {
   loadMore: 'Încarcă mai mult',
   notFound: 'Niciun artist găsit.',
   albumCount_one: '{{count}} Album',
+  albumCount_few: '{{count}} Albume',
   albumCount_other: '{{count}} Albume',
   selectionCount: '{{count}} selectați',
   select: 'Multi-selecție',

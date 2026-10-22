@@ -220,6 +220,8 @@ export interface AuthState {
   trackPreviewDurationSec: number;
   infiniteQueueEnabled: boolean;
   preservePlayNextOrder: boolean;
+  /** Shuffle spreads artists and albums over the list instead of pure chance. */
+  smartShuffleEnabled: boolean;
   showArtistImages: boolean;
   /** Artists browse: album artists vs track performers (#1209). Persisted across sessions. */
   artistBrowseCreditMode: ArtistBrowseCreditMode;
@@ -232,6 +234,8 @@ export interface AuthState {
   minimizeToTray: boolean;
   /** Cold start: keep the main window hidden and run in the system tray. */
   startMinimizedToTray: boolean;
+  /** Desktop notification on each new track (and radio title) while no Psysonic window has focus. */
+  trackChangeNotificationsEnabled: boolean;
   clockFormat: ClockFormat;
   /** Whether the "Orbit" topbar trigger is rendered. Users who never
    *  touch Orbit can hide it so the header stays uncluttered. */
@@ -291,6 +295,8 @@ export interface AuthState {
   lyricsStaticOnly: boolean;
   /** Show a pronunciation layer, generating Japanese Hepburn romaji locally when needed. */
   lyricsRomanizationEnabled: boolean;
+  /** Show a server-provided translation layer beneath the lyrics. */
+  lyricsTranslationEnabled: boolean;
   /** Word-synced lyrics: switch whole words or continuously fill them, with optional full-word glow. */
   lyricsWordHighlightMode: LyricsWordHighlightMode;
   /** Sidebar lyrics scroll style: 'classic' = scrollIntoView center; 'apple' = scroll to 35% */
@@ -300,6 +306,8 @@ export interface AuthState {
   showFsArtistPortrait: boolean;
   fsPortraitDim: number;
   fullscreenPlayerStyle: 'minimal' | 'immersive' | 'prism';
+  /** Minutes without input before the fullscreen player opens while music plays; 0 = off. */
+  fullscreenAutoOpenMinutes: number;
   showChangelogOnUpdate: boolean;
   lastSeenChangelogVersion: string;
   /** Signature of the installed-theme updates last dismissed in the sidebar
@@ -350,6 +358,8 @@ export interface AuthState {
   /** Parent directory; actual cache is `<dir>/psysonic-hot-cache/`. Empty = app data. */
   hotCacheDownloadDir: string;
 
+  /** Show star ratings and rating controls. Off for servers with ratings disabled (#1779). */
+  showStarRatings: boolean;
   /** After this many manual skips of the same track, set track rating to 1 if still unrated (below 1 star). */
   skipStarOnManualSkipsEnabled: boolean;
   /** Manual skips per track before applying rating 1 (when enabled). */
@@ -493,12 +503,14 @@ export interface AuthState {
   setTrackPreviewDurationSec: (v: number) => void;
   setInfiniteQueueEnabled: (v: boolean) => void;
   setPreservePlayNextOrder: (v: boolean) => void;
+  setSmartShuffleEnabled: (v: boolean) => void;
   setShowArtistImages: (v: boolean) => void;
   setArtistBrowseCreditMode: (v: ArtistBrowseCreditMode) => void;
   setLibraryGridMaxColumns: (v: number) => void;
   setShowTrayIcon: (v: boolean) => void;
   setMinimizeToTray: (v: boolean) => void;
   setStartMinimizedToTray: (v: boolean) => void;
+  setTrackChangeNotificationsEnabled: (v: boolean) => void;
   setClockFormat: (v: ClockFormat) => void;
   setShowOrbitTrigger: (v: boolean) => void;
   setDiscordRichPresence: (v: boolean) => void;
@@ -526,6 +538,7 @@ export interface AuthState {
   setLyricsSources: (sources: LyricsSourceConfig[]) => void;
   setLyricsStaticOnly: (v: boolean) => void;
   setLyricsRomanizationEnabled: (v: boolean) => void;
+  setLyricsTranslationEnabled: (v: boolean) => void;
   setLyricsWordHighlightMode: (v: LyricsWordHighlightMode) => void;
   setSidebarLyricsStyle: (v: 'classic' | 'apple') => void;
   setShowFullscreenLyrics: (v: boolean) => void;
@@ -533,6 +546,7 @@ export interface AuthState {
   setShowFsArtistPortrait: (v: boolean) => void;
   setFsPortraitDim: (v: number) => void;
   setFullscreenPlayerStyle: (v: 'minimal' | 'immersive' | 'prism') => void;
+  setFullscreenAutoOpenMinutes: (v: number) => void;
   setShowChangelogOnUpdate: (v: boolean) => void;
   setLastSeenChangelogVersion: (v: string) => void;
   setLastDismissedThemeUpdateSig: (v: string) => void;
@@ -554,6 +568,7 @@ export interface AuthState {
   setHotCacheDebounceSec: (v: number) => void;
   setHotCacheDownloadDir: (v: string) => void;
   setMediaDir: (v: string) => void;
+  setShowStarRatings: (v: boolean) => void;
   setSkipStarOnManualSkipsEnabled: (v: boolean) => void;
   setSkipStarManualSkipThreshold: (v: number) => void;
   setMixMinRatingFilterEnabled: (v: boolean) => void;

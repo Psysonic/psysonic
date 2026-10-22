@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Playlist bearbeiten',
   editNamePlaceholder: 'Playlist-Name…',
   editCommentPlaceholder: 'Beschreibung hinzufügen…',
+  linkOpenError: 'Dieser Link konnte nicht im Browser geöffnet werden.',
   editPublic: 'Öffentliche Playlist',
   editSave: 'Speichern',
   editCancel: 'Abbrechen',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: '{{count}} Künstler werden aufgelöst…',
   myPlaylists: 'Meine Playlists',
   noOtherPlaylists: 'Keine anderen Playlists verfügbar',
+  recentTargets: 'Zuletzt benutzt',
   addToPlaylistSuccess: '{{count}} Songs zu {{playlist}} hinzugefügt',
   addToPlaylistNoNew: 'Keine neuen Songs für {{playlist}}',
   addToPlaylistError: 'Fehler beim Hinzufügen zur Playlist',
@@ -130,6 +132,19 @@ export const playlists = {
     count_other: '{{count}} Playlists',
     localOnlyNotice:
       'Ordner werden nur in Psysonic auf diesem Gerät gespeichert. Navidrome und die Subsonic-API unterstützen keine Playlist-Ordner, daher wird die Ordnerstruktur nicht auf deinem Server gespeichert und nicht mit deinen anderen Geräten und Apps synchronisiert.',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Tags',
+    newTag: 'Neuer Tag',
+    namePlaceholder: 'Tag-Name…',
+    filterLabel: 'Nach Tags filtern',
+    clearFilter: 'Tag-Filter zurücksetzen',
+    chipHint: 'Rechtsklick zum Umbenennen oder Löschen',
+    rename: 'Tag umbenennen',
+    delete: 'Tag löschen',
+    deleteConfirm: 'Erneut klicken, um ihn von allen Playlists zu entfernen',
+    emptyFilter: 'Keine Playlist hat alle gewählten Tags.',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

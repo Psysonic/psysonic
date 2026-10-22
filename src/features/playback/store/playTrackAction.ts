@@ -2,6 +2,7 @@ import { playbackReportStart, playbackReportStopped } from '@/features/playback/
 import { invoke } from '@tauri-apps/api/core';
 import { audioSeek } from '@/lib/api/audio';
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
+import { isPrivateModeActive } from '@/features/privateMode';
 import { setDeferHotCachePrefetch } from '@/lib/cache/hotCacheGate';
 import { orbitAllowsTrackServer, orbitBulkGuard, orbitSnapshot } from '@/store/orbitRuntime';
 import i18n from '@/lib/i18n';
@@ -39,8 +40,9 @@ import { stampTrackServerId, stampTrackServerIds } from '@/lib/media/trackServer
 import {
   getShuffleOriginalOrder,
   setShuffleOriginalOrder,
-  shuffled,
 } from '@/features/playback/store/shuffleModeActions';
+import { shuffleTracks } from '@/features/playback/utils/playback/shuffleTracks';
+import { takePendingQueueSource, withQueueSource } from '@/features/playback/store/pendingQueueSource';
 import { persistShuffleModeSnapshot } from '@/features/playback/store/shuffleModeStorage';
 import {
   findLocalPlaybackUrl,
@@ -90,6 +92,7 @@ import { pushQueueUndoFromGetter } from '@/features/playback/store/queueUndo';
 import { appendTimelineLeaveTrack } from '@/features/playback/store/timelineSessionHistory';
 import { stopRadio } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
+import { hintIfVolumeIsZero } from '@/features/playback/store/volumeZeroHint';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
   getSeekFallbackVisualTarget,
@@ -127,7 +130,8 @@ type GetState = () => PlayerState;
  * 3. **Ghost-command guard** — a playTrack arriving within 500 ms of
  *    the last gapless switch is almost certainly a stale IPC echo.
  *
- * The play body itself: clears all scheduled timers + seek state,
+ * The play body itself: clears seek state (and scheduled timers when the
+ * user started the track),
  * resolves the URL, updates store + normalization snapshot
  * optimistically, invokes the Rust engine, and on success seeks to
  * the visual target if there was a pending one. An `audio_play` failure leaves
@@ -145,6 +149,11 @@ export function runPlayTrack(
   targetQueueIndex: number | undefined,
   skipQueueUndo = false,
 ): void {
+  // Taken before any early return: the gates below re-enter `playTrack` later
+  // and hand the source back in themselves.
+  const queueSource = takePendingQueueSource();
+  const reenter = (start: () => void) => (queueSource ? withQueueSource(queueSource, start) : start());
+
   if (orbitSnapshot().role === 'host') {
     if (
       !orbitAllowsTrackServer(track.serverId)
@@ -179,7 +188,7 @@ export function runPlayTrack(
         if (role === 'host' || role === 'guest') {
           get().enqueue(gatedQueue, true);
         } else {
-          get().playTrack(track, gatedQueue, manual, true);
+          reenter(() => get().playTrack(track, gatedQueue, manual, true));
         }
       });
       return;
@@ -210,7 +219,7 @@ export function runPlayTrack(
         } else {
           // Append the single track to the resolved current queue and jump to it.
           const newQueue = [...getQueueTracksView(currentItems), track];
-          get().playTrack(track, newQueue, manual, true, newQueue.length - 1);
+          reenter(() => get().playTrack(track, newQueue, manual, true, newQueue.length - 1));
         }
         return;
       }
@@ -246,9 +255,10 @@ export function runPlayTrack(
     persistShuffleModeSnapshot({ enabled: true, originalOrder: getShuffleOriginalOrder() });
     // A track can sit in a list twice, so drop the chosen row by position
     // rather than by identity — filtering by identity would delete its twin.
+    const lead = chosenAt >= 0 ? queue[chosenAt] : track;
     queue = [
-      chosenAt >= 0 ? queue[chosenAt] : track,
-      ...shuffled(queue.filter((_, index) => index !== chosenAt)),
+      lead,
+      ...shuffleTracks(queue.filter((_, index) => index !== chosenAt), lead),
     ];
     targetQueueIndex = 0;
   }
@@ -298,8 +308,14 @@ export function runPlayTrack(
     : scopedTrackEarly;
   const scopedQueue = queue ? stampTrackServerIds(queue) : queue;
 
-  clearAllPlaybackScheduleTimers();
-  set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+  // A track the user starts cancels a pending sleep / delayed-start timer; the
+  // queue moving on by itself must not, or a sleep timer would only ever last
+  // until the end of the current track (gapless switches never came through here).
+  if (manual) {
+    clearAllPlaybackScheduleTimers();
+    set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+    hintIfVolumeIsZero(get().volume);
+  }
 
   const gen = bumpPlayGeneration();
   dismissPlaybackSourceFailure();
@@ -513,7 +529,7 @@ export function runPlayTrack(
     if (deferInterruptUi) {
       set({
         currentRadio: null,
-        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue) } : {}),
+        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue), queueSource } : {}),
         ...(dropSharePageUrl ? { navidromePublicSharePageUrl: null } : {}),
         queueIndex: idx >= 0 ? idx : 0,
       });
@@ -525,8 +541,8 @@ export function runPlayTrack(
         resolvedStreamFormat: null,
         waveformBins: null,
         ...deriveNormalizationSnapshot(trackForPlay, playNormWindow, normIdx),
-        // Only a replace rewrites the queue; navigation keeps the canonical refs.
-        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue) } : {}),
+        // Only a replace rewrites the queue (and its source); navigation keeps both.
+        ...(replacing ? { queueItems: toQueueItemRefs(queueSid, scopedQueue), queueSource } : {}),
         ...(dropSharePageUrl ? { navidromePublicSharePageUrl: null } : {}),
         queueIndex: idx >= 0 ? idx : 0,
         progress: initialProgress,
@@ -691,16 +707,19 @@ export function runPlayTrack(
       // Subsonic-server now-playing follows nowPlayingEnabled; Music Network
       // now-playing follows scrobbling, as Last.fm now-playing did (runtime gates
       // internally). playbackReportStart opens the live FSM on extension-capable
-      // servers and falls back to the legacy presence call otherwise.
+      // servers and falls back to the legacy presence call otherwise. Private
+      // mode holds back both.
       playbackReportStart(trackForPlay.id, playbackSid);
       const runtime = getMusicNetworkRuntimeOrNull();
-      void runtime?.dispatchNowPlaying({
-        title: trackForPlay.title,
-        artist: trackForPlay.artist,
-        album: trackForPlay.album,
-        duration: trackForPlay.duration,
-        timestamp: Date.now(),
-      });
+      if (!isPrivateModeActive()) {
+        void runtime?.dispatchNowPlaying({
+          title: trackForPlay.title,
+          artist: trackForPlay.artist,
+          album: trackForPlay.album,
+          duration: trackForPlay.duration,
+          timestamp: Date.now(),
+        });
+      }
       if (runtime?.getEnrichmentPrimaryId()) {
         void runtime
           .isTrackLoved({ title: trackForPlay.title, artist: trackForPlay.artist })

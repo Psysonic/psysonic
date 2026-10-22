@@ -71,6 +71,12 @@ pub(super) fn seek_channels() -> SeekChannels {
     (shared, prepared_tx, prepared_rx, handle)
 }
 
+#[cfg(test)]
+pub(crate) fn test_streaming_seek_handle() -> StreamingSeekHandle {
+    let (_shared, _tx, _rx, handle) = seek_channels();
+    handle
+}
+
 impl StreamingSeekHandle {
     /// Prepare decoder state and a fresh PCM ring without involving the audio callback.
     /// Returns `Ok(None)` when a newer seek superseded this request.

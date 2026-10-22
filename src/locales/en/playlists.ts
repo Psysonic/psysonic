@@ -54,6 +54,7 @@ export const playlists = {
   editMeta: 'Edit playlist',
   editNamePlaceholder: 'Playlist name…',
   editCommentPlaceholder: 'Add a description…',
+  linkOpenError: 'Could not open this link in your browser.',
   editPublic: 'Public playlist',
   editSave: 'Save',
   editCancel: 'Cancel',
@@ -90,6 +91,7 @@ export const playlists = {
   loadingArtists: 'Resolving {{count}} artists…',
   myPlaylists: 'My Playlists',
   noOtherPlaylists: 'No other playlists available',
+  recentTargets: 'Recently used',
   addToPlaylistSuccess: '{{count}} songs added to {{playlist}}',
   addToPlaylistNoNew: 'No new songs to add to {{playlist}}',
   addToPlaylistError: 'Error adding to playlist',
@@ -130,6 +132,19 @@ export const playlists = {
     count_other: '{{count}} playlists',
     localOnlyNotice:
       'Folders are saved only in Psysonic on this device. Navidrome and the Subsonic API have no native playlist-folder support, so the structure is not stored on your server or synced to your other devices and apps.',
+  },
+  // Playlist tags (local labels, filter chips on the Playlists page)
+  tags: {
+    menu: 'Tags',
+    newTag: 'New tag',
+    namePlaceholder: 'Tag name…',
+    filterLabel: 'Filter by tags',
+    clearFilter: 'Clear tag filter',
+    chipHint: 'Right-click to rename or delete',
+    rename: 'Rename tag',
+    delete: 'Delete tag',
+    deleteConfirm: 'Click again to remove it from all playlists',
+    emptyFilter: 'No playlist has all of the selected tags.',
   },
   // Ownership split (personal / shared by me / shared with me)
   ownership: {

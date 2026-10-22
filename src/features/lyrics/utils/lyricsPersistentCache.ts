@@ -20,8 +20,9 @@ const STORE_NAME = 'lyrics';
  * 3 — server lyrics may now carry a pronunciation layer. Entries cached under
  * v2 would otherwise suppress that layer for their full 90-day TTL, so the
  * upgrade drops them once and the next play refetches.
+ * 4 — the same for translation layers.
  */
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const TTL_FOUND_MS    = 90 * 24 * 60 * 60 * 1000;
 const TTL_NOT_FOUND_MS = 7 * 24 * 60 * 60 * 1000;
 
