@@ -480,7 +480,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Streaming playback no longer keeps a CPU core busy
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1788](https://github.com/Psysonic/psysonic/pull/1788)**
 
 * Since 1.55, the decoder thread for streamed tracks ran in a tight loop for the whole track and kept one CPU core at nearly 100 %. It now waits while enough audio is buffered; on Windows its load dropped from about 98 % to about 2 % of one core. Local and downloaded files were not affected.
 
