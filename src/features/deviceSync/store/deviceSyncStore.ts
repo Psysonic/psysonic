@@ -118,6 +118,8 @@ export type DeviceSyncManifest = {
   playlistPathMode?: DeviceSyncPlaylistPathMode;
   files?: unknown[];
   playlists?: unknown[];
+  /** Version 1 manifests name the custom file name template they were synced with. */
+  filenameTemplate?: string;
 };
 
 export function deviceSyncSourceKey(source: Pick<DeviceSyncSource, 'serverIndexKey' | 'type' | 'id'>): string {
@@ -479,6 +481,8 @@ interface DeviceSyncState {
   targetRevision: number;             // forces a same-path manual target recheck
   deviceFilePaths: string[];          // actual file paths found on the device (not persisted)
   scanning: boolean;                   // true while scanning the device
+  deviceHasLegacyTemplate: boolean;    // device still carries a custom-template layout (not persisted)
+  optionsExpanded: boolean;            // options section open on the Device Sync page
 
   setTargetDir: (dir: string | null) => void;
   setLayoutMode: (mode: DeviceSyncLayoutMode) => void;
@@ -516,6 +520,8 @@ interface DeviceSyncState {
   removeSources: (ids: string[]) => void;
   setDeviceFilePaths: (paths: string[]) => void;
   setScanning: (v: boolean) => void;
+  setDeviceHasLegacyTemplate: (v: boolean) => void;
+  setOptionsExpanded: (v: boolean) => void;
 }
 
 export const useDeviceSyncStore = create<DeviceSyncState>()(
@@ -541,10 +547,13 @@ export const useDeviceSyncStore = create<DeviceSyncState>()(
       targetRevision: 0,
       deviceFilePaths: [],
       scanning: false,
+      deviceHasLegacyTemplate: false,
+      optionsExpanded: false,
 
       setTargetDir: (dir) => set(state => ({
         targetDir: dir,
         targetIsLocal: dir === state.targetDir ? state.targetIsLocal : false,
+        deviceHasLegacyTemplate: dir === state.targetDir ? state.deviceHasLegacyTemplate : false,
         pendingPlan: false,
         pendingPlanDeviceId: null,
         pendingPlanChecked: false,
@@ -683,6 +692,8 @@ export const useDeviceSyncStore = create<DeviceSyncState>()(
 
       setDeviceFilePaths: (paths) => set({ deviceFilePaths: paths }),
       setScanning: (v) => set({ scanning: v }),
+      setDeviceHasLegacyTemplate: (v) => set({ deviceHasLegacyTemplate: v }),
+      setOptionsExpanded: (v) => set({ optionsExpanded: v }),
     }),
     {
       name: 'psysonic_device_sync',
@@ -702,6 +713,7 @@ export const useDeviceSyncStore = create<DeviceSyncState>()(
         legacyTargetDir: s.legacyTargetDir,
         pendingDeletion: s.pendingDeletion,
         targetDeviceId: s.targetDeviceId,
+        optionsExpanded: s.optionsExpanded,
       }),
     }
   )

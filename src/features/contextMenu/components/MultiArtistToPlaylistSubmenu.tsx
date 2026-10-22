@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ListMusic, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { resolveAlbum, resolveArtist, resolveMediaServerId } from '@/features/offline';
 import { getPlaylists, getPlaylistsForServer } from '@/lib/api/subsonicPlaylists';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
@@ -8,6 +8,7 @@ import { usePlaylistStore } from '@/features/playlist';
 import { addTracksToPlaylistWithDedup, showAddTracksDedupToast } from '@/features/playlist';
 import { showToast } from '@/lib/dom/toast';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
+import { PlaylistTargetList } from '@/features/contextMenu/components/PlaylistTargetList';
 import { manualPlaylistTargetsForServer } from '@/features/contextMenu/utils/contextMenuHelpers';
 
 interface Props {
@@ -81,7 +82,7 @@ export function MultiArtistToPlaylistSubmenu({ artists, onDone, triggerId }: Pro
       const request = resolvedServerId ? getPlaylistsForServer(resolvedServerId) : getPlaylists();
       request.then((all) => {
         setPlaylists(
-          manualPlaylistTargetsForServer(all, resolvedServerId).sort((a, b) => a.name.localeCompare(b.name)),
+          manualPlaylistTargetsForServer(all, resolvedServerId),
         );
       }).catch(() => {});
     }, []);
@@ -149,20 +150,13 @@ export function MultiArtistToPlaylistSubmenu({ artists, onDone, triggerId }: Pro
           </div>
         )}
         <div className="context-menu-divider" />
-        {playlists.length === 0 && (
-          <div className="context-submenu-empty">{t('playlists.empty')}</div>
-        )}
-        {playlists.map((pl) => (
-          <div
-            key={ownedEntityKey(pl)}
-            className="context-menu-item"
-            onClick={() => handleAdd(pl)}
-            style={{ opacity: adding === ownedEntityKey(pl) ? 0.5 : 1, pointerEvents: adding ? 'none' : undefined }}
-          >
-            <ListMusic size={13} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pl.name}</span>
-          </div>
-        ))}
+        <PlaylistTargetList
+          targets={playlists}
+          serverId={resolvedServerId}
+          emptyLabel={t('playlists.empty')}
+          busyKey={adding}
+          onPick={handleAdd}
+        />
       </div>
     );
   }

@@ -4,6 +4,11 @@ import type { InternetRadioStation } from '@/lib/api/subsonicTypes';
 const mocks = vi.hoisted(() => ({
   resolveStreamUrl: vi.fn(),
   playRadioStream: vi.fn(),
+  hintIfVolumeIsZero: vi.fn(),
+}));
+
+vi.mock('@/features/playback/store/volumeZeroHint', () => ({
+  hintIfVolumeIsZero: mocks.hintIfVolumeIsZero,
 }));
 
 vi.mock('@/generated/bindings', () => ({
@@ -86,5 +91,19 @@ describe('playRadio stale request protection', () => {
     await first;
 
     expect(getState().currentRadio).toEqual(STATION_B);
+  });
+});
+
+describe('playRadio volume hint', () => {
+  it('hands the current volume to the volume-at-0 hint', async () => {
+    _resetEngineStateForTest();
+    mocks.hintIfVolumeIsZero.mockClear();
+    mocks.resolveStreamUrl.mockReset().mockResolvedValue(STATION_A.streamUrl);
+    mocks.playRadioStream.mockReset().mockResolvedValue(undefined);
+    const { actions } = createHarness();
+
+    await actions.playRadio(STATION_A);
+
+    expect(mocks.hintIfVolumeIsZero).toHaveBeenCalledWith(1);
   });
 });

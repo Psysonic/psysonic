@@ -13,6 +13,7 @@ export { default as LyricsPane } from './components/LyricsPane';
 export { LyricsLineContent } from './components/LyricsLineContent';
 export { useLyrics } from './hooks/useLyrics';
 export { useLyricsRomanization } from './hooks/useLyricsRomanization';
+export { useLyricsTranslation } from './hooks/useLyricsTranslation';
 export { useWordLyricsSync } from './hooks/useWordLyricsSync';
 export {
   usesContinuousWordHighlight,

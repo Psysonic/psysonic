@@ -245,7 +245,7 @@ async fn open_ranged_or_streaming_input(
         .apply(ctx.url, audio_http_client(state).get(ctx.url))
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     if !response.status().is_success() {
         if state.generation.load(Ordering::SeqCst) != ctx.gen {
             return Ok(None); // superseded

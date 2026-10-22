@@ -44,6 +44,7 @@ function snapshot(prefix: string): HomeFeedSnapshot {
 
 const allEnabled: MainstageEnabledSections = {
   hero: true,
+  continueListening: true,
   recent: true,
   becauseYouLike: true,
   discover: true,

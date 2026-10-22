@@ -1,14 +1,8 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { cancelDeviceSync } from '@/lib/api/syncfs';
 import {
-  AlertCircle, CheckCircle2, Clock, HardDriveUpload, Loader2,
-  Trash2, Undo2,
+  CheckCircle2, Clock, Disc3, ListMusic, Loader2, Trash2, Undo2, Users,
 } from 'lucide-react';
-import {
-  useDeviceSyncJobStore,
-  type DeviceSyncJobStatus,
-} from '@/features/deviceSync/store/deviceSyncJobStore';
 import { deviceSyncSourceKey, type DeviceSyncSource } from '@/features/deviceSync/store/deviceSyncStore';
 import type { SyncStatus } from '@/features/deviceSync/utils/deviceSyncHelpers';
 
@@ -21,241 +15,126 @@ interface Props {
   toggleChecked: (id: string) => void;
   allChecked: boolean;
   toggleAll: () => void;
-  syncedCount: number;
-  pendingCount: number;
-  deletionCount: number;
   isRunning: boolean;
-  actionButtonLabel: string;
-  actionButtonDisabled: boolean;
-  promptSyncSummary: () => Promise<void>;
-  handleMarkCheckedForDeletion: () => void;
   handleToggleSource: (source: DeviceSyncSource) => void;
   markForDeletion: (ids: string[]) => void;
   unmarkDeletion: (id: string) => void;
-  jobStatus: DeviceSyncJobStatus;
-  jobDone: number;
-  jobSkip: number;
-  jobFail: number;
-  jobTotal: number;
 }
 
+const TYPE_ICONS: Record<DeviceSyncSource['type'], React.ReactNode> = {
+  album: <Disc3 size={16} aria-hidden="true" />,
+  playlist: <ListMusic size={16} aria-hidden="true" />,
+  artist: <Users size={16} aria-hidden="true" />,
+};
+
+const TYPE_LABEL_KEYS: Record<DeviceSyncSource['type'], string> = {
+  album: 'deviceSync.typeAlbum',
+  playlist: 'deviceSync.typePlaylist',
+  artist: 'deviceSync.typeArtist',
+};
+
+const STATUS_LABEL_KEYS: Record<SyncStatus, string> = {
+  synced: 'deviceSync.statusSynced',
+  pending: 'deviceSync.statusPending',
+  deletion: 'deviceSync.statusDeletion',
+};
+
+const STATUS_ICONS: Record<SyncStatus, React.ReactNode> = {
+  synced: <CheckCircle2 size={12} aria-hidden="true" />,
+  pending: <Clock size={12} aria-hidden="true" />,
+  deletion: <Trash2 size={12} aria-hidden="true" />,
+};
+
+/** Step 3: what is (or will be) on the device. */
 export default function DeviceSyncDevicePanel({
   sources, sourceStatuses, driveDetected, scanning,
   checkedIds, toggleChecked, allChecked, toggleAll,
-  syncedCount, pendingCount, deletionCount,
-  isRunning, actionButtonLabel, actionButtonDisabled,
-  promptSyncSummary, handleMarkCheckedForDeletion, handleToggleSource,
-  markForDeletion, unmarkDeletion,
-  jobStatus, jobDone, jobSkip, jobFail, jobTotal,
+  isRunning, handleToggleSource, markForDeletion, unmarkDeletion,
 }: Props) {
   const { t } = useTranslation();
 
-  return (
-    <div className="device-sync-device-panel">
-      <div className="device-sync-panel-header">
-        <span className="device-sync-panel-title">
-          {t('deviceSync.onDevice')}
-          {scanning && <Loader2 size={12} className="spin" style={{ marginLeft: 6 }} />}
-        </span>
-        <div className="device-sync-panel-actions">
-          {/* Sync button */}
-          <button
-            className="btn btn-surface"
-            onClick={promptSyncSummary}
-            disabled={actionButtonDisabled}
-          >
-            {isRunning
-              ? <><Loader2 size={13} className="spin" /> {jobDone + jobSkip + jobFail}/{jobTotal}</>
-              : <>
-                  {deletionCount > 0 && pendingCount === 0
-                    ? <Trash2 size={13} />
-                    : <HardDriveUpload size={13} />}
-                  {actionButtonLabel}
-                </>
-            }
-          </button>
+  let notice: string | null = null;
+  if (!driveDetected) notice = t('deviceSync.targetMissing');
+  else if (sources.length === 0) notice = t('deviceSync.noSourcesSelected');
 
-          {/* Mark for deletion */}
-          {checkedIds.length > 0 && !isRunning && (
-            <button
-              className="btn btn-danger"
-              onClick={handleMarkCheckedForDeletion}
-            >
-              <Trash2 size={13} />
-              {t('deviceSync.deleteFromDevice', { count: checkedIds.length })}
-            </button>
-          )}
-        </div>
+  return (
+    <section className="device-sync-panel device-sync-device-panel" aria-labelledby="device-sync-device-title">
+      <div className="device-sync-panel-head">
+        <h2 id="device-sync-device-title" className="device-sync-step-title">
+          <span className="device-sync-step-num" aria-hidden="true">3</span>
+          {t('deviceSync.onDeviceTitle')}
+          {sources.length > 0 && <span className="device-sync-step-count">{sources.length}</span>}
+          {scanning && <Loader2 size={13} className="spin" aria-label={t('deviceSync.scanningDevice')} />}
+        </h2>
+        {!notice && (
+          <label className="device-sync-select-all">
+            <input type="checkbox" checked={allChecked} onChange={toggleAll} disabled={isRunning} />
+            {t('deviceSync.selectAll')}
+          </label>
+        )}
       </div>
 
-      {/* Status summary badges */}
-      {sources.length > 0 && driveDetected && (
-        <div className="device-sync-status-summary">
-          {syncedCount > 0 && (
-            <span className="device-sync-badge synced">
-              <CheckCircle2 size={11} /> {syncedCount} {t('deviceSync.statusSynced')}
-            </span>
-          )}
-          {pendingCount > 0 && (
-            <span className="device-sync-badge pending">
-              <Clock size={11} /> {pendingCount} {t('deviceSync.statusPending')}
-            </span>
-          )}
-          {deletionCount > 0 && (
-            <span className="device-sync-badge deletion">
-              <Trash2 size={11} /> {deletionCount} {t('deviceSync.statusDeletion')}
-            </span>
-          )}
-        </div>
-      )}
-
-      {sources.length === 0 || !driveDetected ? (
-        <p className="device-sync-empty">{t('deviceSync.noSourcesSelected')}</p>
+      {notice ? (
+        <p className="device-sync-panel-notice">{notice}</p>
       ) : (
-        <>
-          <div className="device-sync-list-header">
-            <label className="device-sync-check-label">
-              <input type="checkbox" checked={allChecked} onChange={toggleAll} disabled={isRunning} />
-            </label>
-            <span className="device-sync-list-col-name">{t('deviceSync.colName')}</span>
-            <span className="device-sync-list-col-type">{t('deviceSync.colType')}</span>
-            <span className="device-sync-list-col-status">{t('deviceSync.colStatus')}</span>
-            <span className="device-sync-list-col-actions" />
-          </div>
-          <div className="device-sync-device-list">
-            {sources.map(s => {
-              const sourceKey = deviceSyncSourceKey(s);
-              const status = sourceStatuses.get(sourceKey) ?? 'pending';
-              return (
-                <label
-                  key={sourceKey}
-                  className={`device-sync-device-row ${status}${checkedIds.includes(sourceKey) ? ' checked' : ''}`}
-                >
+        <ul className="device-sync-device-list">
+          {sources.map(source => {
+            const sourceKey = deviceSyncSourceKey(source);
+            const status = sourceStatuses.get(sourceKey) ?? 'pending';
+            const checked = checkedIds.includes(sourceKey);
+            const secondary = source.type === 'album' && source.artist
+              ? source.artist
+              : t(TYPE_LABEL_KEYS[source.type]);
+            return (
+              <li key={sourceKey} className={`device-sync-device-row ${status}${checked ? ' checked' : ''}`}>
+                <label className="device-sync-row-main">
                   <input
                     type="checkbox"
-                    checked={checkedIds.includes(sourceKey)}
+                    checked={checked}
                     onChange={() => toggleChecked(sourceKey)}
                     disabled={isRunning || status === 'deletion'}
                   />
-                  <span className="device-sync-row-name">
-                    {s.name}
-                    {s.artist && <span className="device-sync-row-artist"> · {s.artist}</span>}
+                  <span className="device-sync-row-type" title={t(TYPE_LABEL_KEYS[source.type])}>
+                    {TYPE_ICONS[source.type]}
                   </span>
-                  <span className="device-sync-source-type">{s.type}</span>
-                  <span className={`device-sync-status-icon ${status}`}>
-                    {status === 'synced'   && <CheckCircle2 size={13} />}
-                    {status === 'pending'  && <Clock size={13} />}
-                    {status === 'deletion' && <Trash2 size={13} />}
-                  </span>
-                  <span className="device-sync-row-actions">
-                    {status === 'synced' && (
-                      <button
-                        className="device-sync-action-btn danger"
-                        onClick={e => { e.preventDefault(); markForDeletion([sourceKey]); }}
-                        disabled={isRunning}
-                        data-tooltip={t('deviceSync.markForDeletion')}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                    {status === 'pending' && (
-                      <button
-                        className="device-sync-action-btn muted"
-                        onClick={e => { e.preventDefault(); handleToggleSource(s); }}
-                        disabled={isRunning}
-                        data-tooltip={t('deviceSync.removeSource')}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                    {status === 'deletion' && (
-                      <button
-                        className="device-sync-action-btn undo"
-                        onClick={e => { e.preventDefault(); unmarkDeletion(sourceKey); }}
-                        disabled={isRunning}
-                        data-tooltip={t('deviceSync.undoDeletion')}
-                      >
-                        <Undo2 size={12} />
-                      </button>
-                    )}
+                  <span className="device-sync-row-text">
+                    <span className="device-sync-row-title">{source.name}</span>
+                    <span className="device-sync-row-sub">{secondary}</span>
                   </span>
                 </label>
-              );
-            })}
-          </div>
-        </>
+                <span className={`device-sync-status-chip ${status}`}>
+                  {STATUS_ICONS[status]}{t(STATUS_LABEL_KEYS[status])}
+                </span>
+                {status === 'deletion' ? (
+                  <button
+                    type="button"
+                    className="device-sync-action-btn undo"
+                    onClick={() => unmarkDeletion(sourceKey)}
+                    disabled={isRunning}
+                    aria-label={`${t('deviceSync.undoDeletion')}: ${source.name}`}
+                    data-tooltip={t('deviceSync.undoDeletion')}
+                  >
+                    <Undo2 size={15} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className={`device-sync-action-btn ${status === 'synced' ? 'danger' : 'muted'}`}
+                    onClick={() => (status === 'synced'
+                      ? markForDeletion([sourceKey])
+                      : handleToggleSource(source))}
+                    disabled={isRunning}
+                    aria-label={`${t(status === 'synced' ? 'deviceSync.markForDeletion' : 'deviceSync.removeSource')}: ${source.name}`}
+                    data-tooltip={t(status === 'synced' ? 'deviceSync.markForDeletion' : 'deviceSync.removeSource')}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                )}
+              </li>
+            );
+          })}
+        </ul>
       )}
-
-      {/* Background sync progress (non-blocking) */}
-      {(jobStatus === 'running' || jobStatus === 'cancelling' || jobStatus === 'finalizing') && (
-        <div className="device-sync-bg-progress">
-          <div className="device-sync-bg-progress-bar-wrap">
-            <div
-              className="device-sync-bg-progress-bar"
-              style={{ width: jobTotal > 0
-                ? `${((jobDone + jobSkip + jobFail) / jobTotal) * 100}%`
-                : '0%' }}
-            />
-          </div>
-          <span className="device-sync-bg-progress-text">
-            <Loader2 size={12} className="spin" />
-            {t('deviceSync.syncInProgress', { done: jobDone + jobSkip, total: jobTotal })}
-            {jobFail > 0 && <span className="device-sync-stat-error"><AlertCircle size={11} /> {jobFail}</span>}
-          </span>
-          {jobStatus === 'running' && (
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: '2px 10px' }}
-              onClick={() => {
-                const store = useDeviceSyncJobStore.getState();
-                if (!store.jobId) return;
-                store.requestCancel();
-                void cancelDeviceSync({ jobId: store.jobId }).catch(() => {
-                  useDeviceSyncJobStore.getState().cancelRequestFailed();
-                });
-              }}
-            >
-              {t('deviceSync.cancelSync')}
-            </button>
-          )}
-        </div>
-      )}
-
-      {jobStatus === 'cancelled' && (
-        <div className="device-sync-bg-progress done">
-          <span className="device-sync-bg-progress-text">
-            <AlertCircle size={12} style={{ color: 'var(--text-muted)' }} />
-            {t('deviceSync.syncCancelled', { done: jobDone, total: jobTotal })}
-          </span>
-          <button className="btn btn-ghost" onClick={() => useDeviceSyncJobStore.getState().reset()}>
-            {t('deviceSync.dismiss')}
-          </button>
-        </div>
-      )}
-
-      {jobStatus === 'done' && (
-        <div className="device-sync-bg-progress done">
-          <span className="device-sync-bg-progress-text">
-            <CheckCircle2 size={12} className="color-success" />
-            {t('deviceSync.syncResult', { done: jobDone, skipped: jobSkip, total: jobTotal })}
-          </span>
-          <button className="btn btn-ghost" onClick={() => useDeviceSyncJobStore.getState().reset()}>
-            {t('deviceSync.dismiss')}
-          </button>
-        </div>
-      )}
-
-      {jobStatus === 'failed' && (
-        <div className="device-sync-bg-progress done">
-          <span className="device-sync-bg-progress-text">
-            <AlertCircle size={12} className="color-error" />
-            {t('deviceSync.fetchError')}
-          </span>
-          <button className="btn btn-ghost" onClick={() => useDeviceSyncJobStore.getState().reset()}>
-            {t('deviceSync.dismiss')}
-          </button>
-        </div>
-      )}
-    </div>
+    </section>
   );
 }

@@ -8,12 +8,12 @@ import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import type { Track } from '@/lib/media/trackTypes';
 
-vi.mock('@/lib/util/shuffleArray', () => ({
-  // Deterministic stand-in: a reversed list is a reordering the test can predict.
-  shuffleArray: <T,>(items: T[]) => [...items].reverse(),
-}));
 vi.mock('@/features/contextMenu/components/ContextMenu', () => ({ AddToPlaylistSubmenu: () => null }));
-vi.mock('@/features/playback', () => ({ BulkTrackRating: () => null }));
+vi.mock('@/features/playback', () => ({
+  BulkTrackRating: () => null,
+  // Deterministic stand-in: a reversed list is a reordering the test can predict.
+  shuffleTracks: <T,>(items: T[]) => [...items].reverse(),
+}));
 vi.mock('@/features/offline', () => ({
   useOfflineBrowseContext: () => ({ active: false }),
   offlineActionPolicy: () => ({ canRate: true }),

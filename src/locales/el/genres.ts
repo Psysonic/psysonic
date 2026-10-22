@@ -1,0 +1,15 @@
+export const genres = {
+  title: 'Είδη',
+  genreCount: 'Είδη',
+  albumCount_one: '{{count}} άλμπουμ',
+  albumCount_other: '{{count}} άλμπουμ',
+  loading: 'Φόρτωση ειδών…',
+  empty: 'Δεν βρέθηκαν είδη.',
+  albumsLoading: 'Φόρτωση άλμπουμ…',
+  albumsEmpty: 'Δεν βρέθηκαν άλμπουμ για αυτό το είδος.',
+  loadMore: 'Φόρτωση περισσότερων',
+  back: 'Πίσω',
+  playTooltip: 'Αναπαραγωγή (κρατήστε για ανακάτεμα)',
+  shuffle: 'Ανακάτεμα',
+  addToQueue: 'Προσθήκη στην ουρά',
+};

@@ -12,6 +12,9 @@ import {
 import { formatTrackTime } from '@/lib/format/formatDuration';
 import { OptionalQueueTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSettings';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 
 interface Props {
   onClose: () => void;
@@ -97,8 +100,11 @@ export const FsQueueModal = memo(function FsQueueModal({ onClose }: Props) {
                     className="track-row-cover-thumb--mini"
                   />
                 )}
+                {showCovers && <ExplicitCoverVeil explicit={isExplicit(track)} />}
                 <span className="fsq-item-info">
-                  <span className="fsq-item-title">{track.title}</span>
+                  <ExplicitTitle status={track.explicitStatus}>
+                    <span className="fsq-item-title">{track.title}</span>
+                  </ExplicitTitle>
                   <span className="fsq-item-artist">{track.artist}</span>
                 </span>
                 <span className="fsq-item-dur">{formatTrackTime(track.duration ?? 0)}</span>

@@ -18,19 +18,11 @@ import {
   findSessionPlaylistId,
   readOrbitState,
   OrbitJoinError,
+  ORBIT_JOIN_ERROR_KEYS,
 } from '@/features/orbit';
 import { switchActiveServer } from '@/utils/server/switchActiveServer';
 import { useOrbitAccountPickerStore } from '@/features/orbit';
 import ConfirmModal from '@/ui/ConfirmModal';
-
-const ORBIT_JOIN_ERROR_KEYS: Record<string, string> = {
-  'not-found':    'orbit.joinErrNotFound',
-  'ended':        'orbit.joinErrEnded',
-  'full':         'orbit.joinErrFull',
-  'kicked':       'orbit.joinErrKicked',
-  'no-user':      'orbit.joinErrNoUser',
-  'server-error': 'orbit.joinErrServerError',
-};
 
 /**
  * Global paste: library share links (`psysonic2-`) and server invites (`psysonic1-`)
@@ -74,7 +66,7 @@ export default function PasteClipboardHandler() {
   // dialog — from the guest's POV both mean the same thing: the invite
   // doesn't lead anywhere any more. Other reasons stay as toasts because
   // they're actionable (full → wait, kicked → talk to host, etc.).
-  const handleJoinError = (reason: string | null, fallback?: string) => {
+  const handleJoinError = (reason: OrbitJoinError['reason'] | null, fallback?: string) => {
     if (reason === 'not-found' || reason === 'ended') {
       setOrbitInvalid(true);
       return;

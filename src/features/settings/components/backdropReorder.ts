@@ -32,3 +32,14 @@ export function dropSourceBefore<T extends { source: string }>(
   next.splice(from < beforeIndex ? beforeIndex - 1 : beforeIndex, 0, item);
   return next;
 }
+
+/**
+ * Write an edit of a filtered view back into the full list: the rows of `visible`
+ * take the slots the visible rows held in `full`, in their new order and with
+ * their new switches; hidden rows keep their place and their switch.
+ */
+export function mergeVisibleSources<T extends { source: string }>(full: T[], visible: T[]): T[] {
+  const shown = new Set(visible.map((s) => s.source));
+  let next = 0;
+  return full.map((s) => (shown.has(s.source) ? visible[next++] : s));
+}

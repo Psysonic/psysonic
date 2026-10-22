@@ -5,10 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{params, Connection, OptionalExtension};
 use tauri::{AppHandle, Emitter};
 
-use crate::mood_tags::{moods_for_track_extracted, replace_track_mood_rows};
+use crate::mood_tags::moods_for_track_extracted;
 use crate::store::LibraryStore;
 
-pub const MOOD_TAGS_MIGRATION_ID: &str = "mood_tags_v1";
+pub const MOOD_TAGS_MIGRATION_ID: &str = "mood_tags_v2";
 
 const BATCH_SIZE: i64 = 10_000;
 
@@ -142,11 +142,12 @@ fn run_mood_tags_backfill_impl(
     }
 
     let total = inspect.total_tracks;
+    let mut done = inspect.done_tracks;
 
     loop {
-        let (batch_done, finished) = store.with_conn_mut("mood_tags.backfill", |conn| {
+        let (batch_processed, finished) = store.with_conn_mut("mood_tags.backfill", |conn| {
             if migration_completed(conn)? {
-                return Ok::<(i64, bool), rusqlite::Error>((total as i64, true));
+                return Ok::<(u64, bool), rusqlite::Error>((0, true));
             }
 
             conn.execute(
@@ -170,6 +171,15 @@ fn run_mood_tags_backfill_impl(
                          id,
                          CASE WHEN json_valid(raw_json) THEN
                                 CASE
+                                    -- A Navidrome native tag snapshot is authoritative when present.
+                                    -- Missing `tags.mood` therefore means the mood was cleared.
+                                    WHEN json_type(raw_json, '$.tags') = 'object'
+                                    THEN CASE
+                                        WHEN json_type(raw_json, '$.tags.mood') IN ('array', 'text')
+                                        THEN json_extract(raw_json, '$.tags.mood')
+                                    END
+
+                                    -- Otherwise use the OpenSubsonic representation.
                                     WHEN json_type(raw_json, '$.moods') IN ('array', 'text')
                                     THEN json_extract(raw_json, '$.moods')
                                 END
@@ -209,25 +219,42 @@ fn run_mood_tags_backfill_impl(
                     params![MOOD_TAGS_MIGRATION_ID, now_unix()],
                 )?;
 
-                return Ok((total as i64, true));
+                return Ok((0_u64, true));
             }
 
+            let batch_processed = rows.len() as u64;
             let tx = conn.unchecked_transaction()?;
             let mut last_rowid = cursor;
 
-            for (rowid, server_id, track_id, moods_json, album_id, library_id) in rows {
-                let moods = moods_for_track_extracted(moods_json.as_deref());
-
-                replace_track_mood_rows(
-                    &tx,
-                    &server_id,
-                    &track_id,
-                    album_id.as_deref(),
-                    library_id.as_deref(),
-                    &moods,
+            {
+                let mut delete = tx.prepare_cached(
+                    "DELETE FROM track_mood
+                    WHERE server_id = ?1 AND track_id = ?2",
                 )?;
 
-                last_rowid = rowid;
+                let mut insert = tx.prepare_cached(
+                    "INSERT OR IGNORE INTO track_mood
+                    (server_id, track_id, mood, album_id, library_id)
+                    VALUES (?1, ?2, ?3, ?4, ?5)",
+                )?;
+
+                for (rowid, server_id, track_id, moods_json, album_id, library_id) in rows {
+                    let moods = moods_for_track_extracted(moods_json.as_deref());
+
+                    delete.execute(params![server_id, track_id])?;
+
+                    for mood in &moods {
+                        insert.execute(params![
+                            server_id,
+                            track_id,
+                            mood,
+                            album_id,
+                            library_id,
+                        ])?;
+                    }
+
+                    last_rowid = rowid;
+                }
             }
 
             tx.commit()?;
@@ -239,20 +266,15 @@ fn run_mood_tags_backfill_impl(
                 params![MOOD_TAGS_MIGRATION_ID, last_rowid],
             )?;
 
-            let done: i64 = conn.query_row(
-                "SELECT COUNT(*)
-                     FROM track
-                     WHERE deleted = 0
-                       AND rowid <= ?1",
-                params![last_rowid],
-                |row| row.get(0),
-            )?;
-
-            Ok((done, false))
+            Ok((batch_processed, false))
         })?;
 
-        if let Some(app) = app {
-            emit_progress(app, batch_done.max(0) as u64, total)?;
+        if batch_processed > 0 {
+            done = done.saturating_add(batch_processed).min(total);
+
+            if let Some(app) = app {
+                emit_progress(app, done, total)?;
+            }
         }
 
         if finished {
@@ -412,6 +434,85 @@ mod tests {
         assert!(!inspect.needed);
         assert_eq!(inspect.total_tracks, 1);
         assert_eq!(inspect.done_tracks, 1);
+    }
+
+    #[test]
+    fn backfill_restores_moods_from_navidrome_native_tags_after_v1() {
+        let store = LibraryStore::open_in_memory();
+
+        let mut track = track_with_moods("t1");
+        track.raw_json = r#"{
+            "tags": {
+                "mood": [
+                    "Atmospheric",
+                    "Melancholic",
+                    "Nocturnal"
+                ]
+            }
+        }"#
+        .into();
+
+        TrackRepository::new(&store).upsert_batch(&[track]).unwrap();
+
+        store
+            .with_conn_mut("test.simulate_v1_mood_projection", |conn| {
+                // Simulate an RC1 database: the original mood backfill was
+                // already marked complete, but native `tags.mood` was not
+                // understood and therefore produced no projection rows.
+                conn.execute("DELETE FROM track_mood", [])?;
+
+                conn.execute(
+                    "INSERT INTO library_data_migration
+                         (id, cursor_rowid, started_at, completed_at)
+                     VALUES ('mood_tags_v1', 1, 1, 1)",
+                    [],
+                )?;
+
+                Ok(())
+            })
+            .unwrap();
+
+        let before: i64 = store
+            .with_read_conn(|conn| {
+                conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| row.get(0))
+            })
+            .unwrap();
+
+        assert_eq!(before, 0);
+
+        // `mood_tags_v1` being complete must not suppress the new v2 repair.
+        assert!(inspect_mood_tags_backfill(&store).unwrap().needed);
+
+        run_mood_tags_backfill_impl(&store, None).unwrap();
+
+        let moods: Vec<String> = store
+            .with_read_conn(|conn| {
+                let mut stmt = conn.prepare(
+                    "SELECT mood
+                     FROM track_mood
+                     WHERE server_id = 's1'
+                       AND track_id = 't1'
+                     ORDER BY mood COLLATE NOCASE",
+                )?;
+
+                let rows = stmt
+                    .query_map([], |row| row.get::<_, String>(0))?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+
+                Ok(rows)
+            })
+            .unwrap();
+
+        assert_eq!(
+            moods,
+            vec![
+                "Atmospheric".to_string(),
+                "Melancholic".to_string(),
+                "Nocturnal".to_string(),
+            ]
+        );
+
+        assert!(!inspect_mood_tags_backfill(&store).unwrap().needed);
     }
 
     #[test]

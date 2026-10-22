@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { Play, ChevronsRight, ChevronRight, Flame, FolderTree, ListMusic, ListPlus, Sparkles, Trash2 } from 'lucide-react';
+import { Play, ChevronsRight, ChevronRight, Flame, FolderTree, ListMusic, ListPlus, Sparkles, Tag, Trash2 } from 'lucide-react';
 import type { SubsonicPlaylist } from '@/lib/api/subsonicTypes';
 import {
   deleteOwnedPlaylist,
@@ -14,9 +14,11 @@ import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAv
 import { isSmartPlaylist } from '@/lib/format/playlistClassification';
 import { MultiPlaylistToPlaylistSubmenu, SinglePlaylistToPlaylistSubmenu } from '@/features/contextMenu/components/PlaylistToPlaylistSubmenus';
 import MoveToFolderSubmenu from '@/features/contextMenu/components/MoveToFolderSubmenu';
+import PlaylistTagsSubmenu from '@/features/contextMenu/components/PlaylistTagsSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { ContextShareMenuItem } from '@/features/share';
+import { withQueueSource } from '@/features/playback';
 
 export default function PlaylistContextItems(props: ContextMenuItemsProps) {
   const {
@@ -41,7 +43,10 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
               <div className="context-menu-item" onClick={() => handleAction(async () => {
                 const tracks = await resolvePlaylistTracks(playlist.id, playlist.serverId);
                 if (tracks.length === 0) return;
-                playTrack(tracks[0], tracks);
+                withQueueSource(
+                  { kind: 'playlist', id: playlist.id, serverId: playlist.serverId },
+                  () => playTrack(tracks[0], tracks),
+                );
               })}>
                 <Play size={14} /> {t('contextMenu.playNow')}
               </div>
@@ -85,6 +90,19 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
                 <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
                 {activeSubmenuId === `folder:${playlist.id}` && (
                   <MoveToFolderSubmenu playlistId={playlist.id} serverId={playlist.serverId} triggerId={`folder:${playlist.id}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
+                )}
+              </div>}
+              {/* Tags are local as well, so they stay available offline too. */}
+              {playlist.serverId && <div
+                className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `tags:${playlist.id}` ? 'active' : ''}`}
+                data-submenu-id={`tags:${playlist.id}`}
+                onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`tags:${playlist.id}`); }}
+                onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
+              >
+                <Tag size={14} /> {t('playlists.tags.menu')}
+                <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
+                {activeSubmenuId === `tags:${playlist.id}` && (
+                  <PlaylistTagsSubmenu targets={[{ serverId: playlist.serverId, playlistId: playlist.id }]} triggerId={`tags:${playlist.id}`} />
                 )}
               </div>}
               {offlinePolicy.canEditPlaylist && isSmartPlaylist(playlist) && (
@@ -167,6 +185,11 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
           const selectedServerIds = new Set(selectedPlaylists.map(pl => pl.serverId).filter(Boolean));
           const oneServerSelection = selectedServerIds.size === 1
             && selectedPlaylists.every(pl => Boolean(pl.serverId));
+          // Tags are keyed per server, so a mixed-server selection is fine; only
+          // playlists without an owner cannot carry one.
+          const tagTargets = selectedPlaylists.flatMap(pl => (
+            pl.serverId ? [{ serverId: pl.serverId, playlistId: pl.id }] : []
+          ));
           return (
             <>
               <div className="context-menu-header" style={{ padding: '8px 12px', fontSize: 13, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -184,6 +207,20 @@ export default function PlaylistContextItems(props: ContextMenuItemsProps) {
                   <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
                   {activeSubmenuId === `multi-playlist:${playlistIds.join(',')}` && (
                     <MultiPlaylistToPlaylistSubmenu playlists={selectedPlaylists} triggerId={`multi-playlist:${playlistIds.join(',')}`} onDone={() => { setActiveSubmenuId(null); closeContextMenu(); }} />
+                  )}
+                </div>
+              )}
+              {tagTargets.length === selectedPlaylists.length && (
+                <div
+                  className={`context-menu-item context-menu-item--submenu ${activeSubmenuId === `multi-tags:${playlistIds.join(',')}` ? 'active' : ''}`}
+                  data-submenu-id={`multi-tags:${playlistIds.join(',')}`}
+                  onMouseEnter={() => { cancelPlaylistSubmenuCloseTimer(); setActiveSubmenuId(`multi-tags:${playlistIds.join(',')}`); }}
+                  onMouseLeave={onPlaylistSubmenuTriggerMouseLeave}
+                >
+                  <Tag size={14} /> {t('playlists.tags.menu')}
+                  <ChevronRight size={13} style={{ marginLeft: 'auto' }} />
+                  {activeSubmenuId === `multi-tags:${playlistIds.join(',')}` && (
+                    <PlaylistTagsSubmenu targets={tagTargets} triggerId={`multi-tags:${playlistIds.join(',')}`} />
                   )}
                 </div>
               )}

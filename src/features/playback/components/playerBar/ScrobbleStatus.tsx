@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { TFunction } from 'i18next';
 import { BadgeCheck, SendHorizontal } from 'lucide-react';
 import { offlineActionPolicy, useOfflineBrowseActive } from '@/features/offline';
+import { usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerBarAnchoredPopover } from '@/features/playback/hooks/usePlayerBarAnchoredPopover';
 import {
   getPlaybackProgressSnapshot,
@@ -23,6 +24,7 @@ function useScrobbleStatusState(t: TFunction, trackProgress: boolean) {
   const hasTrack = usePlayerStore(s => s.currentTrack != null);
   const hasRadio = usePlayerStore(s => s.currentRadio != null);
   const previewing = usePreviewStore(s => s.previewingId != null);
+  const privateMode = usePrivateModeStore(s => s.active);
   const threshold = useAuthStore(s => s.scrobbleThresholdPercent);
   const offline = useOfflineBrowseActive();
   const canScrobble = offlineActionPolicy('playerBar', offline).canScrobble;
@@ -44,7 +46,9 @@ function useScrobbleStatusState(t: TFunction, trackProgress: boolean) {
           ? t('player.scrobbleOffline')
           : scrobbled
             ? t('player.scrobbleAlreadySent')
-            : null;
+            : privateMode
+              ? t('player.scrobblePrivate')
+              : null;
 
   return {
     heardPercent,

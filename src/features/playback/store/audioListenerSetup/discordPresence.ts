@@ -1,6 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { commands } from '@/generated/bindings';
 import { useAuthStore } from '@/store/authStore';
+import { isPrivateModeActive, usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { getPlaybackProgressSnapshot } from '@/features/playback/store/playbackProgress';
 import { resolveCoverForDiscord } from '@/cover/integrations/discord';
@@ -40,7 +41,7 @@ export function setupDiscordPresence(): () => void {
       activeServerId,
     } = useAuthStore.getState();
 
-    if (!discordRichPresence || !currentTrack) {
+    if (!discordRichPresence || !currentTrack || isPrivateModeActive()) {
       if (discordPrevTrackKey !== null) {
         discordPrevTrackKey = null;
         discordPrevIsPlaying = null;
@@ -135,7 +136,7 @@ export function setupDiscordPresence(): () => void {
       const latest = useAuthStore.getState();
       const liveTrack = usePlayerStore.getState().currentTrack;
       if (!liveTrack || ownedEntityKey(liveTrack) !== trackKey) return;
-      if (!latest.discordRichPresence) return;
+      if (!latest.discordRichPresence || isPrivateModeActive()) return;
       if (latest.discordCoverSource !== discordCoverSource || latest.coverSources !== coverSources) return;
       sendPresence(url);
     })();
@@ -143,9 +144,11 @@ export function setupDiscordPresence(): () => void {
 
   const unsubDiscordPlayer = usePlayerStore.subscribe(syncDiscord);
   const unsubDiscordAuth = useAuthStore.subscribe(syncDiscord);
+  const unsubDiscordPrivate = usePrivateModeStore.subscribe(syncDiscord);
 
   return () => {
     unsubDiscordPlayer();
     unsubDiscordAuth();
+    unsubDiscordPrivate();
   };
 }

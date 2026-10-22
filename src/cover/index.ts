@@ -51,6 +51,7 @@ export {
 } from './resolveCoverArtId';
 export { ensureCoverTierJs } from './resolveJs';
 export { ensureCoverTierDiskSrc, ensureCoverTierDiskBlob } from './resolveDisk';
+export { invalidateCoverEntity } from './invalidate';
 export { buildCoverArtFetchUrl } from './fetchUrl';
 export {
   coverStorageKey,

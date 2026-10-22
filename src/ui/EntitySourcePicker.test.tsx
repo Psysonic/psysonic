@@ -67,6 +67,43 @@ describe('EntitySourcePicker', () => {
     expect(screen.queryByRole('button', { name: /available from/i })).not.toBeInTheDocument();
   });
 
+  it('does not offer a sibling from the same server and library', async () => {
+    // Issue #1711: two album ids in one library share a key. Opening the other
+    // one renders the same merged page, so it is not a source to switch to.
+    const sameLibrarySibling = { ...currentSource, id: 'album-a-split', priority: 0 };
+    resolveSources.mockResolvedValue([currentSource, sameLibrarySibling]);
+
+    renderWithProviders(<EntitySourcePicker {...props()} />);
+
+    await waitFor(() => expect(resolveSources).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('button', { name: /available from/i })).not.toBeInTheDocument();
+  });
+
+  it('keeps copies on other servers or in other libraries next to a same-library sibling', async () => {
+    const sameLibrarySibling = { ...currentSource, id: 'album-a-split', priority: 0 };
+    const otherLibrarySameServer = {
+      ...currentSource,
+      id: 'album-a-lossless',
+      libraryId: 'music-a-lossless',
+      priority: 1,
+    };
+    resolveSources.mockResolvedValue([
+      currentSource,
+      sameLibrarySibling,
+      otherLibrarySameServer,
+      alternateSource,
+    ]);
+    const user = userEvent.setup();
+    renderWithProviders(<EntitySourcePicker {...props()} />);
+
+    await user.click(await screen.findByRole('button', { name: 'Available from 3 sources' }));
+
+    const items = screen.getAllByRole('menuitem');
+    expect(items).toHaveLength(3);
+    expect(screen.getByText('Primary · music-a-lossless')).toBeInTheDocument();
+    expect(screen.getByText('Archive · Lossless')).toBeInTheDocument();
+  });
+
   it('lists labeled sources and selects only a concrete alternative', async () => {
     resolveSources.mockResolvedValue([currentSource, alternateSource]);
     const onSelect = vi.fn();

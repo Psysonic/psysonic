@@ -24,6 +24,11 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 - The new **Moods** page groups the mood tags in your tracks, letting you browse albums by mood across your selected libraries. Album counts and incremental loading help with larger collections.
 - Existing libraries build the mood index from cached track information after updating. Nothing is changed in your music files; if your server does not expose track moods, there are no moods to browse.
 
+### Full Bandcamp support
+
+- Psysonic now fully supports Bandcamp through its Subsonic API. **Waveforms, loudness normalization and measured BPM** close the remaining gap in playback analysis.
+- Loudness adjusts while a song downloads, then receives its final correction. Analysis of Bandcamp's MP3 streams is cached and reused for repeat playback, with the existing checks for changed content.
+
 ### Discover music with AudioMuse
 
 - The album page can show **Similar albums** that sound like the open album, excluding albums by the same artist.

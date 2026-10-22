@@ -12,9 +12,26 @@ import { resetAllStores } from '@/test/helpers/storeReset';
 import { makeTracks } from '@/test/helpers/factories';
 import { onInvoke, registerDefaultCoverInvokeHandlers } from '@/test/mocks/tauri';
 import { useAuthStore } from '@/store/authStore';
+import type { Track } from '@/lib/media/trackTypes';
 
 const queueIds = (): string[] =>
   usePlayerStore.getState().queueItems.map(ref => ref.trackId);
+
+/** Four artists with four tracks each, listed artist by artist. */
+const groupedByArtist = (): Track[] =>
+  makeTracks(16, i => ({
+    id: `g-${i}`,
+    artist: `Artist ${Math.floor(i / 4)}`,
+    albumId: `al-${Math.floor(i / 4)}`,
+  }));
+
+const artistsInQueue = (list: Track[]): string[] => {
+  const artistById = new Map(list.map(track => [track.id, track.artist]));
+  return queueIds().map(id => artistById.get(id) ?? '');
+};
+
+const sameArtistRepeats = (artists: string[]): number =>
+  artists.filter((artist, i) => i > 0 && artist === artists[i - 1]).length;
 
 beforeEach(() => {
   resetAllStores();
@@ -101,6 +118,20 @@ describe('playTrack replacing the queue while shuffle is on', () => {
     expect(usePlayerStore.getState().queueIndex).toBe(3);
   });
 
+  it('does not open the mixed list with the artist of the chosen track', async () => {
+    const list = groupedByArtist();
+    usePlayerStore.setState({ shuffleMode: true });
+
+    usePlayerStore.getState().playTrack(list[0]!, list, true, true, 0);
+
+    await vi.waitFor(() => {
+      expect(usePlayerStore.getState().queueItems).toHaveLength(list.length);
+    });
+    const artists = artistsInQueue(list);
+    expect(artists[0]).toBe('Artist 0');
+    expect(sameArtistRepeats(artists)).toBe(0);
+  });
+
   it('does not touch a navigation call that hands over no queue', async () => {
     const album = makeTracks(4);
     usePlayerStore.getState().playTrack(album[0]!, album, true, true);
@@ -115,5 +146,36 @@ describe('playTrack replacing the queue while shuffle is on', () => {
       expect(usePlayerStore.getState().queueIndex).toBe(2);
     });
     expect(queueIds()).toEqual(album.map(track => track.id));
+  });
+});
+
+describe('switching shuffle on for a queue that is already playing', () => {
+  async function playGroupedList(): Promise<Track[]> {
+    const list = groupedByArtist();
+    usePlayerStore.getState().playTrack(list[0]!, list, true, true);
+    await vi.waitFor(() => {
+      expect(usePlayerStore.getState().queueItems).toHaveLength(list.length);
+    });
+    return list;
+  }
+
+  it('spreads the artists of the upcoming tracks with Smart Shuffle on', async () => {
+    const list = await playGroupedList();
+
+    usePlayerStore.getState().toggleShuffleMode();
+
+    const artists = artistsInQueue(list);
+    expect(artists[0]).toBe('Artist 0');
+    expect(sameArtistRepeats(artists)).toBe(0);
+  });
+
+  it('leaves them to chance with Smart Shuffle off', async () => {
+    useAuthStore.getState().setSmartShuffleEnabled(false);
+    const list = await playGroupedList();
+
+    usePlayerStore.getState().toggleShuffleMode();
+
+    // Same list, same pinned random draws: plain shuffle keeps runs of one artist.
+    expect(sameArtistRepeats(artistsInQueue(list))).toBeGreaterThan(0);
   });
 });

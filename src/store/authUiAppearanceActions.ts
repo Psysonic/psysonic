@@ -1,5 +1,6 @@
 import type { AuthState } from './authStoreTypes';
 import { clampLibraryGridMaxColumns } from './authStoreHelpers';
+import { sanitizeFullscreenAutoOpenMinutes } from './authStoreDefaults';
 
 type SetState = (
   partial: Partial<AuthState> | ((state: AuthState) => Partial<AuthState>),
@@ -18,6 +19,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setShowTrayIcon'
   | 'setMinimizeToTray'
   | 'setStartMinimizedToTray'
+  | 'setTrackChangeNotificationsEnabled'
   | 'setClockFormat'
   | 'setShowOrbitTrigger'
   | 'setUseCustomTitlebar'
@@ -40,6 +42,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setShowFsArtistPortrait'
   | 'setFsPortraitDim'
   | 'setFullscreenPlayerStyle'
+  | 'setFullscreenAutoOpenMinutes'
   | 'setShowChangelogOnUpdate'
   | 'setLastSeenChangelogVersion'
   | 'setLastDismissedThemeUpdateSig'
@@ -60,6 +63,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
       startMinimizedToTray: v,
       ...(v && !state.showTrayIcon ? { showTrayIcon: true } : {}),
     })),
+    setTrackChangeNotificationsEnabled: (v) => set({ trackChangeNotificationsEnabled: v }),
     setClockFormat: (v) => set({ clockFormat: v }),
     setShowOrbitTrigger: (v) => set({ showOrbitTrigger: v }),
     setUseCustomTitlebar: (v) => set({ useCustomTitlebar: v }),
@@ -82,6 +86,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
     setShowFsArtistPortrait: (v) => set({ showFsArtistPortrait: v }),
     setFsPortraitDim: (v) => set({ fsPortraitDim: v }),
     setFullscreenPlayerStyle: (v) => set({ fullscreenPlayerStyle: v }),
+    setFullscreenAutoOpenMinutes: (v) => set({ fullscreenAutoOpenMinutes: sanitizeFullscreenAutoOpenMinutes(v) }),
     setShowChangelogOnUpdate: (v) => set({ showChangelogOnUpdate: v }),
     setLastSeenChangelogVersion: (v) => set({ lastSeenChangelogVersion: v }),
     setLastDismissedThemeUpdateSig: (v) => set({ lastDismissedThemeUpdateSig: v }),

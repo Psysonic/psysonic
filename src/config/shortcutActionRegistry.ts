@@ -7,9 +7,11 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import i18n from '@/lib/i18n';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { usePreviewStore } from '@/features/playback/store/previewStore';
+import { skipToNextAlbum, skipToPreviousAlbum } from '@/features/playback/store/albumSkip';
 import { useLyricsStore } from '../store/lyricsStore';
 import { showToast } from '@/lib/dom/toast';
 import { requestOpenSearch } from '@/lib/dom/openSearch';
+import { IS_MACOS } from '@/lib/util/platform';
 import type { ActionContext, ShortcutSlot, ShortcutActionMeta } from '@/config/shortcutTypes';
 
 let cliPremuteVolume: number | null = null;
@@ -92,6 +94,20 @@ export const SHORTCUT_ACTION_REGISTRY = {
       usePlayerStore.getState().previous();
     }),
     cli: { verb: 'prev', description: 'previous track' },
+  },
+  'next-album': {
+    getLabel: t => t('settings.shortcutNextAlbum'),
+    inApp: { defaultBinding: null },
+    global: { defaultBinding: null },
+    runInMiniWindow: true,
+    run: ({ previewPolicy }) => withPreviewPolicy('next', { navigate: () => {}, previewPolicy }, skipToNextAlbum),
+  },
+  'prev-album': {
+    getLabel: t => t('settings.shortcutPrevAlbum'),
+    inApp: { defaultBinding: null },
+    global: { defaultBinding: null },
+    runInMiniWindow: true,
+    run: ({ previewPolicy }) => withPreviewPolicy('prev', { navigate: () => {}, previewPolicy }, skipToPreviousAlbum),
   },
   'volume-up': {
     getLabel: t => t('settings.shortcutVolumeUp'),
@@ -252,6 +268,17 @@ export const SHORTCUT_ACTION_REGISTRY = {
       const player = usePlayerStore.getState();
       player.setQueueVisible(true);
       useLyricsStore.getState().showLyrics();
+    },
+  },
+  'open-settings': {
+    getLabel: t => t('settings.shortcutOpenSettings', { defaultValue: 'Open settings' }),
+    // Mac convention: ⌘, opens settings; elsewhere Ctrl+, (the desktop-app
+    // convention). Both are re-assignable in Settings, and neither overrides a
+    // chord the user already claimed — see `migrateBindings` in the keybindings store.
+    inApp: { defaultBinding: IS_MACOS ? 'super+Comma' : 'ctrl+Comma' },
+    runInMiniWindow: false,
+    run: ({ navigate }) => {
+      navigate('/settings');
     },
   },
   'favorite-current-track': {

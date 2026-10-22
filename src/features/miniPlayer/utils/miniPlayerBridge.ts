@@ -1,6 +1,7 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen, emitTo } from '@tauri-apps/api/event';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import { skipToNextAlbum, skipToPreviousAlbum } from '@/features/playback';
 import { useAuthStore } from '@/store/authStore';
 import { setTransitionMode, type TransitionMode } from '@/features/playback/utils/playback/playbackTransition';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
@@ -31,6 +32,8 @@ export type MiniControlAction =
   | 'toggle'
   | 'next'
   | 'prev'
+  | 'next-album'
+  | 'prev-album'
   | 'show-main';
 
 /** Cap the queue pushed to the mini at ±100 tracks around the playing song — a
@@ -145,6 +148,8 @@ export function initMiniPlayerBridgeOnMain(): () => void {
       case 'toggle':   store.togglePlay(); break;
       case 'next':     store.next(true); break;
       case 'prev':     store.previous(); break;
+      case 'next-album': skipToNextAlbum(); break;
+      case 'prev-album': skipToPreviousAlbum(); break;
       case 'show-main': {
         restoreMainWindow();
         break;

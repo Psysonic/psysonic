@@ -55,6 +55,13 @@ export const MIX_MIN_RATING_FILTER_MAX_STARS = 3;
 
 export const RANDOM_MIX_SIZE_OPTIONS: readonly number[] = [50, 75, 100, 125, 150];
 
+/** Minutes without input before the fullscreen player opens on its own; 0 = off. */
+export const FULLSCREEN_AUTO_OPEN_MINUTE_OPTIONS: readonly number[] = [0, 1, 2, 5, 10, 15, 30];
+
+export function sanitizeFullscreenAutoOpenMinutes(v: unknown): number {
+  return typeof v === 'number' && FULLSCREEN_AUTO_OPEN_MINUTE_OPTIONS.includes(v) ? v : 0;
+}
+
 /** Feishin-style scrobble percentage range. Default keeps the historical 50% rule. */
 export const SCROBBLE_THRESHOLD_PERCENT_MIN = 25;
 export const SCROBBLE_THRESHOLD_PERCENT_MAX = 90;

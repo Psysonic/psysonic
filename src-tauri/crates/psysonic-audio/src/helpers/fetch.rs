@@ -91,7 +91,7 @@ pub(crate) async fn fetch_http_data(
     let response = crate::engine::playback_scoped_get(state, app, url, None)
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     let status = response.status();
     let ct = response
         .headers()

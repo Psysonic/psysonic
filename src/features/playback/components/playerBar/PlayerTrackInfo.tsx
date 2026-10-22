@@ -12,6 +12,9 @@ import { radioCoverRef } from '@/cover/ref';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
 import { usePlaybackTrackCoverRef } from '@/cover/useLibraryCoverRef';
 import MarqueeText from '@/ui/MarqueeText';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { useAuthStore } from '@/store/authStore';
 import StarRating from '@/ui/StarRating';
@@ -28,6 +31,7 @@ import { useOfflineBrowseContext } from '@/features/offline';
 import { offlineActionPolicy } from '@/features/offline';
 import { buildAlbumDetailPath, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
+import { useShowStarRatings } from '@/store/starRatings';
 
 interface Props {
   currentTrack: Track | null;
@@ -66,6 +70,7 @@ export function PlayerTrackInfo({
   const showBufferingOverlay = useDebouncedBuffering(isPlaybackBuffering);
   // `track.serverId` is only stamped on owned/multi-server rows.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
+  const showStarRatings = useShowStarRatings();
   const networkLabel = useEnrichmentPrimaryLabel() ?? '';
   const networkIcon = useEnrichmentPrimaryIcon();
   const playbackCoverRef = usePlaybackTrackCoverRef(
@@ -142,6 +147,7 @@ export function PlayerTrackInfo({
             <Music size={22} />
           </div>
         )}
+        <ExplicitCoverVeil explicit={!isRadio && !showPreviewMeta && isExplicit(currentTrack)} />
         {currentTrack && !isRadio && !showPreviewMeta && (
           <div className="player-art-expand-hint" aria-hidden="true">
             <Maximize2 size={16} />
@@ -157,6 +163,7 @@ export function PlayerTrackInfo({
             {t('player.previewLabel')}
           </span>
         )}
+        <ExplicitTitle status={!isRadio && !showPreviewMeta ? currentTrack?.explicitStatus : undefined}>
         <MarqueeText
           text={isRadio
             ? (radioMeta.currentTitle
@@ -182,6 +189,7 @@ export function PlayerTrackInfo({
               }
             : undefined}
         />
+        </ExplicitTitle>
         {!isRadio && displayArtistRefs && displayArtistRefs.length > 0 ? (
           <div className="marquee-wrap player-track-artist">
             <ResolvedArtistRefInline
@@ -220,7 +228,7 @@ export function PlayerTrackInfo({
             )}
           />
         )}
-        {currentTrack && !isRadio && !showPreviewMeta && isLayoutVisible('starRating') && playerPolicy.canRate && (
+        {currentTrack && !isRadio && !showPreviewMeta && isLayoutVisible('starRating') && playerPolicy.canRate && showStarRatings && (
           <StarRating
             value={ownedOverrideValue(userRatingOverrides, currentTrack) ?? currentTrack.userRating ?? 0}
             onChange={r => queueSongRating(currentTrack.id, r, currentTrack.serverId)}

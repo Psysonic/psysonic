@@ -320,33 +320,61 @@ fn merge_sparse_raw_from_remap_source(
 
     tx.query_row(
         "SELECT CASE \
-           WHEN json_valid(?1) AND json_valid(?2) THEN CASE \
-             WHEN json_type(?2, '$.albumVersion') IS NOT NULL THEN json_remove( \
-               json_patch(?1, ?2), \
-               '$.tags.albumversion', \
-               '$._psysonicAlbumVersionFromList', \
-               '$._psysonicAlbumVersionNeedsListRefresh' \
-             ) \
-             WHEN json_type(?2, '$.tags.albumversion') IS NOT NULL THEN json_remove( \
-               json_patch(?1, ?2), \
-               '$.albumVersion', \
-               '$._psysonicAlbumVersionFromList', \
-               '$._psysonicAlbumVersionNeedsListRefresh' \
-             ) \
-             WHEN ( \
-               NULLIF(TRIM(json_extract(?1, '$.albumVersion')), '') IS NOT NULL \
-               OR NULLIF(TRIM(json_extract(?1, '$.tags.albumversion[0]')), '') IS NOT NULL \
-             ) AND NOT COALESCE( \
-               json_extract(?1, '$._psysonicAlbumVersionFromList') = 1, 0 \
-             ) THEN json_set( \
-               json_patch(?1, ?2), \
-               '$._psysonicAlbumVersionNeedsListRefresh', \
-               json('true') \
-             ) \
-             ELSE json_patch(?1, ?2) \
-           END \
-           ELSE ?2 \
-         END",
+        WHEN json_valid(?1) AND json_valid(?2) THEN CASE \
+            WHEN json_type(?2, '$.albumVersion') IS NOT NULL THEN json_remove( \
+            json_patch( \
+                CASE \
+                WHEN json_type(?2, '$.tags') = 'object' \
+                    THEN json_remove(?1, '$.tags.mood') \
+                ELSE ?1 \
+                END, \
+                ?2 \
+            ), \
+            '$.tags.albumversion', \
+            '$._psysonicAlbumVersionFromList', \
+            '$._psysonicAlbumVersionNeedsListRefresh' \
+            ) \
+            WHEN json_type(?2, '$.tags.albumversion') IS NOT NULL THEN json_remove( \
+            json_patch( \
+                CASE \
+                WHEN json_type(?2, '$.tags') = 'object' \
+                    THEN json_remove(?1, '$.tags.mood') \
+                ELSE ?1 \
+                END, \
+                ?2 \
+            ), \
+            '$.albumVersion', \
+            '$._psysonicAlbumVersionFromList', \
+            '$._psysonicAlbumVersionNeedsListRefresh' \
+            ) \
+            WHEN ( \
+            NULLIF(TRIM(json_extract(?1, '$.albumVersion')), '') IS NOT NULL \
+            OR NULLIF(TRIM(json_extract(?1, '$.tags.albumversion[0]')), '') IS NOT NULL \
+            ) AND NOT COALESCE( \
+            json_extract(?1, '$._psysonicAlbumVersionFromList') = 1, 0 \
+            ) THEN json_set( \
+            json_patch( \
+                CASE \
+                WHEN json_type(?2, '$.tags') = 'object' \
+                    THEN json_remove(?1, '$.tags.mood') \
+                ELSE ?1 \
+                END, \
+                ?2 \
+            ), \
+            '$._psysonicAlbumVersionNeedsListRefresh', \
+            json('true') \
+            ) \
+            ELSE json_patch( \
+            CASE \
+                WHEN json_type(?2, '$.tags') = 'object' \
+                THEN json_remove(?1, '$.tags.mood') \
+                ELSE ?1 \
+            END, \
+            ?2 \
+            ) \
+        END \
+        ELSE ?2 \
+        END",
         params![old_raw, incoming_raw],
         |row| row.get(0),
     )

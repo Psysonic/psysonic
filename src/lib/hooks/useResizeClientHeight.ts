@@ -40,6 +40,29 @@ export function useRefElementClientHeight(
   return h;
 }
 
+/**
+ * Track an element's `clientWidth` (ResizeObserver). For layouts that switch on
+ * the space a page really gets: a CSS size container would do the same, but
+ * Chromium then starts colour and background transitions from the browser
+ * defaults when the page mounts, so every transitioning control flashes.
+ */
+export function useRefElementClientWidth(
+  ref: RefObject<HTMLElement | null>,
+  fallback = 1200,
+): number {
+  const [w, setW] = useState(fallback);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const update = () => setW(el.clientWidth);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    update();
+    return () => ro.disconnect();
+  }, [ref, fallback]);
+  return w;
+}
+
 /** ResizeObserver on a concrete element (e.g. callback-ref state for in-page scrollers). */
 export function useElementClientHeightForElement(
   element: HTMLElement | null,

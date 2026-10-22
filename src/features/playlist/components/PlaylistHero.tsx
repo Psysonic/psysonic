@@ -24,6 +24,7 @@ import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { ShareMethodMenuButton } from '@/features/share';
 import { tooltipAttrs } from '@/ui/tooltipAttrs';
 import PlaylistCommentLinks from '@/features/playlist/components/PlaylistCommentLinks';
+import { ResumeButton } from '@/features/resume';
 
 interface Props {
   playlist: SubsonicPlaylist;
@@ -323,6 +324,12 @@ export default function PlaylistHero({
                 >
                   <Play size={15} /> <span className="compact-btn-label">{t('common.play', 'Reproducir')}</span>
                 </button>
+                <ResumeButton
+                  kind="playlist"
+                  id={id}
+                  serverId={playlist.serverId ?? activeServerId}
+                  className="btn btn-ghost"
+                />
                 {layoutItems.map(item => {
                   if (!item.visible) return null;
                   const node = renderActionButton(item.id);

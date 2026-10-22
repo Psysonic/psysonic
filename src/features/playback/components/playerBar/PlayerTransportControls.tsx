@@ -9,6 +9,8 @@ import PlaybackScheduleBadge from '@/features/playback/components/PlaybackSchedu
 import { usePlaybackDelayPress } from '@/features/playback/hooks/usePlaybackDelayPress';
 import { usePlaybackScheduleRemaining } from '@/features/playback/utils/playbackScheduleFormat';
 import { usePlayerBarLayoutStore } from '@/features/playback/store/playerBarLayoutStore';
+import { skipToNextAlbum, skipToPreviousAlbum } from '@/features/playback/store/albumSkip';
+import { albumSkipTooltip } from '@/features/playback/utils/albumSkipTooltip';
 
 type RepeatMode = PlayerState['repeatMode'];
 type PlayPauseBind = ReturnType<typeof usePlaybackDelayPress>['playPauseBind'];
@@ -85,9 +87,9 @@ export function PlayerTransportControls({
       )}
       <button
         className="player-btn"
-        onClick={() => previous()}
+        onClick={e => (e.altKey ? skipToPreviousAlbum() : previous())}
         aria-label={t('player.prev')}
-        data-tooltip={t('player.prev')}
+        data-tooltip={albumSkipTooltip(t, 'prev')}
         disabled={isRadio}
         style={isRadio ? { opacity: 0.3, pointerEvents: 'none' } : undefined}
       >
@@ -145,9 +147,9 @@ export function PlayerTransportControls({
       </span>
       <button
         className="player-btn"
-        onClick={() => next()}
+        onClick={e => (e.altKey ? skipToNextAlbum() : next())}
         aria-label={t('player.next')}
-        data-tooltip={t('player.next')}
+        data-tooltip={albumSkipTooltip(t, 'next')}
         disabled={isRadio}
         style={isRadio ? { opacity: 0.3, pointerEvents: 'none' } : undefined}
       >

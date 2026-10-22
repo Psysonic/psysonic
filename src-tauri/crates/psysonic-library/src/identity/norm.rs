@@ -7,7 +7,8 @@
 //! so it must be kept in step with the languages the app actually ships as UI
 //! locales (`src/locales/*`). The table currently covers the Latin scripts
 //! (incl. German ß→ss, Norwegian/Danish æ→ae, French œ→oe, Romanian comma-below
-//! ș/ț) and the Cyrillic folds (ru/bg/uk: ё→е, й→и, ї→і). CJK locales (ja, zh) are left
+//! ș/ț), the Cyrillic folds (ru/bg/uk: ё→е, й→и, ї→і) and the Greek folds (el: tonos,
+//! dialytika, final sigma ς→σ). CJK locales (ja, zh) are left
 //! intact on purpose — Han/Kana are kept verbatim and Japanese dakuten are
 //! phonemic, so they must NOT be stripped.
 //!
@@ -31,7 +32,8 @@ pub(crate) const KEY_SEP: char = '\u{001f}';
 /// v8: album identity includes the OpenSubsonic/Navidrome album version when present.
 /// v9: version suffix stripping uses identity normalization and album-level
 ///     list metadata no longer outranks an authoritative track version.
-pub const NORM_VERSION: &str = "9";
+/// v10: Greek folding (tonos/dialytika removed, final sigma ς→σ).
+pub const NORM_VERSION: &str = "10";
 
 /// Normalize one identity field. Returns `None` when input is empty/whitespace-only
 /// or when normalization strips everything (punctuation-only, etc.).
@@ -104,7 +106,7 @@ fn decompose_canonical(chars: impl IntoIterator<Item = char>) -> Vec<char> {
 }
 
 /// Canonical single-char decomposition for the shipped UI-locale scripts
-/// (Latin incl. ligatures + Romanian comma-below, and Cyrillic ё/й). Unmapped
+/// (Latin incl. ligatures + Romanian comma-below, Cyrillic ё/й, and Greek). Unmapped
 /// chars — notably CJK — pass through untouched. Keep in sync with `src/locales/*`.
 fn canonical_decomposition(c: char) -> Option<Vec<char>> {
     let cp = c as u32;
@@ -217,6 +219,23 @@ fn canonical_decomposition(c: char) -> Option<Vec<char>> {
         0x0401 | 0x0451 => ('\u{0415}', '\u{0308}'),
         0x0419 | 0x0439 => ('\u{0418}', '\u{0306}'),
         0x0407 | 0x0457 => ('\u{0406}', '\u{0308}'),
+        // Greek (el) tonos: Ά→Α, Έ→Ε, Ή→Η, Ί→Ι, Ό→Ο, Ύ→Υ, Ώ→Ω (+acute); the
+        // mark is dropped so accented and unaccented spellings fold together.
+        0x0386 | 0x03AC => ('\u{0391}', '\u{0301}'),
+        0x0388 | 0x03AD => ('\u{0395}', '\u{0301}'),
+        0x0389 | 0x03AE => ('\u{0397}', '\u{0301}'),
+        0x038A | 0x03AF => ('\u{0399}', '\u{0301}'),
+        0x038C | 0x03CC => ('\u{039F}', '\u{0301}'),
+        0x038E | 0x03CD => ('\u{03A5}', '\u{0301}'),
+        0x038F | 0x03CE => ('\u{03A9}', '\u{0301}'),
+        // Greek dialytika: Ϊ/ϊ→Ι/ι, Ϋ/ϋ→Υ/υ; ΐ/ΰ carry dialytika + tonos.
+        0x03AA | 0x03CA => ('\u{0399}', '\u{0308}'),
+        0x03AB | 0x03CB => ('\u{03A5}', '\u{0308}'),
+        0x0390 => return Some(vec!['\u{03B9}', '\u{0308}', '\u{0301}']),
+        0x03B0 => return Some(vec!['\u{03C5}', '\u{0308}', '\u{0301}']),
+        // Final sigma ς is the word-final form of σ; lowercasing leaves it
+        // distinct, so fold it (Σ already lowercases to σ).
+        0x03C2 => return Some(vec!['\u{03C3}']),
         _ => return None,
     };
     let base_out = if c.is_uppercase() {
@@ -262,6 +281,18 @@ mod tests {
         assert_eq!(norm_part("Київ"), norm_part("Киів"));
         assert_eq!(norm_part("Київ"), Some("киів".into()));
         assert_eq!(norm_part("Пётр Ильич"), Some("петрильич".into()));
+    }
+
+    #[test]
+    fn norm_folds_greek_diacritics_and_final_sigma() {
+        // Tonos and dialytika fold away; other Greek letters survive lowercased.
+        assert_eq!(norm_part("Μία"), norm_part("Μια"));
+        assert_eq!(norm_part("Μία"), Some("μια".into()));
+        assert_eq!(norm_part("ΆΈΉΊΌΎΏ"), Some("αεηιουω".into()));
+        assert_eq!(norm_part("ϊϋΐΰ"), Some("ιυιυ".into()));
+        // Final sigma folds to σ so mixed-case and all-caps spellings match.
+        assert_eq!(norm_part("Σωκράτης"), norm_part("ΣΩΚΡΑΤΗΣ"));
+        assert_eq!(norm_part("Σωκράτης"), Some("σωκρατησ".into()));
     }
 
     #[test]

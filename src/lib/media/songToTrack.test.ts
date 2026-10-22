@@ -93,6 +93,11 @@ describe('songToTrack', () => {
     expect(t.artists).toEqual(song.artists);
   });
 
+  it('carries the OpenSubsonic explicit status', () => {
+    expect(songToTrack(makeSubsonicSong({ explicitStatus: 'explicit' })).explicitStatus).toBe('explicit');
+    expect(songToTrack(makeSubsonicSong({})).explicitStatus).toBeUndefined();
+  });
+
   it('does not invent fields that the Subsonic song lacks', () => {
     const song = makeSubsonicSong({});
     const t = songToTrack(song);

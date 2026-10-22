@@ -490,6 +490,13 @@ impl<S: Source<Item = f32>> PriorityBoostSource<S> {
     }
 }
 
+impl<S: Source<Item = f32>> PriorityBoostSource<CountingSource<S>> {
+    /// Isolate a private startup seek from the live engine's progress counter.
+    pub(crate) fn replace_sample_counter(&mut self, counter: Arc<AtomicU64>) {
+        self.inner.counter = counter;
+    }
+}
+
 impl<S: Source<Item = f32>> Iterator for PriorityBoostSource<S> {
     type Item = f32;
     #[inline]

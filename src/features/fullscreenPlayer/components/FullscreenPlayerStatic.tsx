@@ -4,7 +4,7 @@ import {
   Shuffle, ListMusic, ChevronDown, Star, MicVocal,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { ScrobbleActionButton, usePlayerStore } from '@/features/playback';
+import { ScrobbleActionButton, usePlayerStore, skipToNextAlbum, skipToPreviousAlbum, albumSkipTooltip } from '@/features/playback';
 import { queueSongStar, queueSongRating } from '@/features/playback/store/pendingStarSync';
 import { TrackArtistLinks, usePlaybackLibraryNavigate } from '@/features/playback';
 import { useAlbumCoverRef } from '@/cover/useLibraryCoverRef';
@@ -24,6 +24,10 @@ import { FsVolume } from '@/features/fullscreenPlayer/components/FsVolume';
 import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import { VisualizerPanel } from '@/features/visualizer';
 import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
+import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
+import { isExplicit } from '@/lib/media/explicitStatus';
+import { useShowStarRatings } from '@/store/starRatings';
 
 interface Props {
   onClose: () => void;
@@ -59,6 +63,7 @@ function FsBackground({ url }: { url: string }) {
 
 export default function FullscreenPlayerStatic({ onClose }: Props) {
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const navigatePlaybackLibrary = usePlaybackLibraryNavigate();
   const currentTrack = usePlayerStore(s => s.currentTrack);
   const repeatMode = usePlayerStore(s => s.repeatMode);
@@ -189,9 +194,12 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
             {thumbUrl
               ? <img className="fsp-cover-img" src={thumbUrl} alt="" draggable={false} />
               : <div className="fsp-cover-img fsp-cover-img--empty" />}
+            <ExplicitCoverVeil explicit={isExplicit(currentTrack)} />
           </div>
           <div className="fsp-info-text">
-            <p className="fsp-title">{currentTrack?.title ?? '—'}</p>
+            <ExplicitTitle status={currentTrack?.explicitStatus}>
+              <p className="fsp-title">{currentTrack?.title ?? '—'}</p>
+            </ExplicitTitle>
             {currentTrack ? (
               <TrackArtistLinks
                 track={currentTrack}
@@ -214,31 +222,33 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
                     <span>{part}</span>
                   </React.Fragment>
                 ))}
-                <span
-                  className="fsp-stars"
-                  role="radiogroup"
-                  aria-label={t('albumDetail.ratingLabel')}
-                  onMouseLeave={() => setHoverRating(0)}
-                >
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const n = i + 1;
-                    const filled = (hoverRating || rating) >= n;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        className="fsp-star-btn"
-                        role="radio"
-                        aria-checked={rating === n}
-                        aria-label={`${n}`}
-                        onMouseEnter={() => setHoverRating(n)}
-                        onClick={() => applyRating(n)}
-                      >
-                        <Star size={16} fill={filled ? 'currentColor' : 'none'} strokeWidth={1.5} />
-                      </button>
-                    );
-                  })}
-                </span>
+                {showStarRatings && (
+                  <span
+                    className="fsp-stars"
+                    role="radiogroup"
+                    aria-label={t('albumDetail.ratingLabel')}
+                    onMouseLeave={() => setHoverRating(0)}
+                  >
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const n = i + 1;
+                      const filled = (hoverRating || rating) >= n;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className="fsp-star-btn"
+                          role="radio"
+                          aria-checked={rating === n}
+                          aria-label={`${n}`}
+                          onMouseEnter={() => setHoverRating(n)}
+                          onClick={() => applyRating(n)}
+                        >
+                          <Star size={16} fill={filled ? 'currentColor' : 'none'} strokeWidth={1.5} />
+                        </button>
+                      );
+                    })}
+                  </span>
+                )}
               </div>
             )}
             {nextTrack && (
@@ -260,14 +270,14 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
           data-visualizer-transport="fullscreen"
         >
           <div className="fsp-transport">
-            <button className="fsp-btn" onClick={() => previous()} aria-label={t('player.prev')} data-tooltip={t('player.prev')}>
+            <button className="fsp-btn" onClick={e => (e.altKey ? skipToPreviousAlbum() : previous())} aria-label={t('player.prev')} data-tooltip={albumSkipTooltip(t, 'prev')}>
               <SkipBack size={20} />
             </button>
             <FsPlayBtn controlsAnchorRef={controlsRef} />
             <button className="fsp-btn fsp-btn-sm" onClick={stop} aria-label={t('player.stop')} data-tooltip={t('player.stop')}>
               <Square size={14} fill="currentColor" />
             </button>
-            <button className="fsp-btn" onClick={() => next()} aria-label={t('player.next')} data-tooltip={t('player.next')}>
+            <button className="fsp-btn" onClick={e => (e.altKey ? skipToNextAlbum() : next())} aria-label={t('player.next')} data-tooltip={albumSkipTooltip(t, 'next')}>
               <SkipForward size={20} />
             </button>
           </div>

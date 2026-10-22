@@ -11,6 +11,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
 import { previewInputFromSong, usePreviewStore } from '@/features/playback/store/previewStore';
 import StarRating from '@/ui/StarRating';
+import { ExplicitTitle } from '@/ui/ExplicitBadge';
 import { codecLabel, type ColKey } from '@/features/album/utils/albumTrackListHelpers';
 import { genresLabel, moodsLabel } from '@/lib/format/playlistDetailHelpers';
 import { formatLongDuration } from '@/lib/format/formatDuration';
@@ -186,7 +187,7 @@ export const TrackRow = React.memo(function TrackRow({
                 ? <Square size={9} fill="currentColor" strokeWidth={0} className="playlist-suggestion-preview-icon" />
                 : <ChevronRight size={14} className="playlist-suggestion-preview-icon playlist-suggestion-preview-icon-play" />}
             </button>
-            <span className="track-title">{song.title}</span>
+            <ExplicitTitle status={song.explicitStatus}><span className="track-title">{song.title}</span></ExplicitTitle>
           </div>
         );
       case 'artist':

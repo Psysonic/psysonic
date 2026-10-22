@@ -56,4 +56,23 @@ describe('startup language', () => {
     expect(i18n.language).toBe('fr');
     expect(localStorage.getItem('psysonic_language')).toBe('fr');
   });
+
+  it('sets <html lang> to the stored language on startup', async () => {
+    localStorage.setItem('psysonic_language', 'fr');
+    await import('@/lib/i18n');
+    expect(document.documentElement.lang).toBe('fr');
+  });
+
+  it('sets <html lang> to English when the stored value is unusable', async () => {
+    localStorage.setItem('psysonic_language', 'not a language');
+    await import('@/lib/i18n');
+    expect(document.documentElement.lang).toBe('en');
+  });
+
+  it('keeps <html lang> in sync when the language changes', async () => {
+    localStorage.setItem('psysonic_language', 'de');
+    const { default: i18n } = await import('@/lib/i18n');
+    await i18n.changeLanguage('fr');
+    expect(document.documentElement.lang).toBe('fr');
+  });
 });

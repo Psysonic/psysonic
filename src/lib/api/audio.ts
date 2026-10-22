@@ -156,8 +156,8 @@ export function audioCanonicalizeSelectedDevice(): Promise<string | null> {
 
 // ── Result-wrapped (facade re-throws so callers keep reject semantics) ────────
 
-export async function audioResume(args: { fadeSecs?: number | null } = {}): Promise<void> {
-  const res = await commands.audioResume(args.fadeSecs ?? null);
+export async function audioResume(args: { fadeSecs?: number | null; notifyPlaying?: boolean } = {}): Promise<void> {
+  const res = await commands.audioResume(args.fadeSecs ?? null, args.notifyPlaying ?? null);
   if (res.status === 'error') throw new Error(res.error);
 }
 

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { AudioLines, Languages, Music2 } from 'lucide-react';
+import { AudioLines, Globe, Languages, Music2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import type { LyricsWordHighlightMode } from '@/store/authStoreTypes';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
@@ -15,6 +15,8 @@ export function LyricsTab() {
   const setSidebarLyricsStyle = useAuthStore(s => s.setSidebarLyricsStyle);
   const lyricsRomanizationEnabled = useAuthStore(s => s.lyricsRomanizationEnabled);
   const setLyricsRomanizationEnabled = useAuthStore(s => s.setLyricsRomanizationEnabled);
+  const lyricsTranslationEnabled = useAuthStore(s => s.lyricsTranslationEnabled);
+  const setLyricsTranslationEnabled = useAuthStore(s => s.setLyricsTranslationEnabled);
   const wordHighlightMode = useAuthStore(s => s.lyricsWordHighlightMode);
   const setWordHighlightMode = useAuthStore(s => s.setLyricsWordHighlightMode);
 
@@ -52,7 +54,6 @@ export function LyricsTab() {
       <SettingsSubSection
         title={t('settings.lyricsWordHighlightTitle')}
         icon={<AudioLines size={16} />}
-        searchText={`${t('settings.lyricsWordHighlightTitle')} ${t('settings.lyricsWordHighlightStep')} ${t('settings.lyricsWordHighlightSmooth')} ${t('settings.lyricsWordHighlightFlowing')} ${t(wordHighlightDescKey)}`}
       >
         <SettingsGroup>
           <SettingsSegmented
@@ -88,13 +89,26 @@ export function LyricsTab() {
         title={t('settings.lyricsPronunciationTitle')}
         icon={<Languages size={16} />}
         description={t('settings.lyricsRomanizationDesc')}
-        searchText={`${t('settings.lyricsPronunciationTitle')} ${t('settings.lyricsRomanization')} ${t('settings.lyricsRomanizationDesc')}`}
       >
         <SettingsGroup>
           <SettingsToggle
             label={t('settings.lyricsRomanization')}
             checked={lyricsRomanizationEnabled}
             onChange={setLyricsRomanizationEnabled}
+          />
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('settings.lyricsTranslationTitle')}
+        icon={<Globe size={16} />}
+        description={t('settings.lyricsTranslationDesc')}
+      >
+        <SettingsGroup>
+          <SettingsToggle
+            label={t('settings.lyricsTranslation')}
+            checked={lyricsTranslationEnabled}
+            onChange={setLyricsTranslationEnabled}
           />
         </SettingsGroup>
       </SettingsSubSection>

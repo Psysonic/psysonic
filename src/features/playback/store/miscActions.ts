@@ -27,6 +27,7 @@ import {
   setRadioVolume,
 } from '@/features/playback/store/radioPlayer';
 import { clearAllPlaybackScheduleTimers } from '@/features/playback/store/scheduleTimers';
+import { hintIfVolumeIsZero } from '@/features/playback/store/volumeZeroHint';
 import { clearSeekDebounce } from '@/features/playback/store/seekDebounce';
 import {
   resetSeekStateForPlaybackChange,
@@ -73,10 +74,11 @@ export function createMiscActions(set: SetState, get: GetState): Pick<
   return {
     playRadio: async (station) => {
       const { volume } = get();
+      hintIfVolumeIsZero(volume);
       prepareRadioPlaybackFromUserGesture();
       const generation = bumpPlayGeneration();
       clearAllPlaybackScheduleTimers();
-      set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
+      set({ scheduledPauseAtMs: null, scheduledPauseStartMs: null, scheduledPauseBoundary: null, scheduledResumeAtMs: null, scheduledResumeStartMs: null });
       setIsAudioPaused(false);
       clearRadioReconnectTimer();
       clearPreloadingIds();
@@ -190,6 +192,7 @@ export function createMiscActions(set: SetState, get: GetState): Pick<
       set({
         queueItems: newItems,
         queueIndex: 0,
+        queueSource: null,
         currentTrack: track,
       });
       syncUserQueueMutationToServer(s.queueItems, newItems, track, s.currentTime);

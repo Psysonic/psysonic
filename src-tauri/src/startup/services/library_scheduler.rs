@@ -219,11 +219,34 @@ fn scheduler_idle_payload(
         })
 }
 
+/// Sync errors stored by older versions can hold a request URL with the
+/// Subsonic token; redact them once per start.
+async fn redact_stored_sync_errors(app: &tauri::AppHandle) {
+    let Some(runtime) = app.try_state::<psysonic_library::LibraryRuntime>() else {
+        return;
+    };
+    let store = Arc::clone(&runtime.store);
+    let result = tauri::async_runtime::spawn_blocking(move || {
+        psysonic_library::repos::SyncStateRepository::new(&store).redact_last_errors()
+    })
+    .await;
+    match result {
+        Ok(Ok(_)) => {}
+        Ok(Err(error)) => {
+            crate::app_eprintln!("[library-sync] stored error redaction failed: {error}")
+        }
+        Err(error) => {
+            crate::app_eprintln!("[library-sync] stored error redaction task failed: {error}")
+        }
+    }
+}
+
 pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
         use std::sync::atomic::Ordering;
         use tokio::time::MissedTickBehavior;
 
+        redact_stored_sync_errors(&app_for_sched).await;
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut background_repair_startup_deferred = true;

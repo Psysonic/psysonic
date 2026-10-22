@@ -65,7 +65,7 @@ where
                         crate::app_eprintln!(
                             "[audio] ranged reconnect failed after {} attempts: {}",
                             reconnects,
-                            err
+                            psysonic_core::log_sanitize::reqwest_error_text(err)
                         );
                         return (downloaded, RangedHttpLoopOutcome::Aborted);
                     }

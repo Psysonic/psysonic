@@ -24,7 +24,7 @@ export * from './hooks/useArtistSimilarArtists';
 export * from './hooks/useArtistsInfiniteScroll';
 export * from './hooks/useBrowseArtistTextSearch';
 export * from './hooks/useNavigateToArtist';
-export * from './store/artistAlbumYearSortStore';
+export * from './store/artistAlbumSortStore';
 export * from './store/artistBrowseSessionStore';
 export * from './store/artistLayoutStore';
 export * from './utils/artistBrowseRoutePrefetch';

@@ -140,6 +140,7 @@ export function SystemTab() {
                     { value: 'pl', label: t('settings.languagePl') },
                     { value: 'bg', label: t('settings.languageBg') },
                     { value: 'uk', label: t('settings.languageUk') },
+                    { value: 'el', label: t('settings.languageEl') },
                   ]}
                 />
               </SettingsField>
@@ -184,6 +185,15 @@ export function SystemTab() {
               checked={auth.startMinimizedToTray}
               disabled={!auth.showTrayIcon}
               onChange={auth.setStartMinimizedToTray}
+            />
+          </SettingsGroup>
+
+          <SettingsGroup title={t('settings.groupNotifications')}>
+            <SettingsToggle
+              label={t('settings.trackChangeNotifications')}
+              desc={t('settings.trackChangeNotificationsDesc')}
+              checked={auth.trackChangeNotificationsEnabled}
+              onChange={auth.setTrackChangeNotificationsEnabled}
             />
           </SettingsGroup>
 

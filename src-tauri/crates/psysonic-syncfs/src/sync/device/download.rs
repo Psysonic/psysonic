@@ -28,7 +28,7 @@ pub(crate) async fn sync_download_one_track(
     let response = apply_server_http_get(client, registry, server_ref, url)
         .send()
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     if !response.status().is_success() {
         return Err(format!("HTTP {}", response.status().as_u16()));
     }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties, type ImgHTMLAttributes } from 'react';
 import type { SubsonicArtistInfo } from '@/lib/api/subsonicTypes';
-import { isRealArtistImage } from './isRealArtistImage';
+import { isRealArtistImage, isServerArtworkUrl } from './isRealArtistImage';
 import { CoverArtImage } from './CoverArtImage';
 import type { CoverArtRef, CoverSurfaceKind } from './types';
 
@@ -32,13 +32,18 @@ export function ArtistHeroCover({
   const [externalUrl, setExternalUrl] = useState('');
   const [externalFailed, setExternalFailed] = useState(false);
 
+  const hasCoverFallback = Boolean(coverFallback?.fetchCoverArtId);
   const candidateUrl = useMemo(() => {
+    // Server art (Navidrome `/share/img/…`) renders through the cover pipeline
+    // below when a cover ref exists; only external URLs take precedence.
+    const usable = (url?: string) =>
+      isRealArtistImage(url) && !(hasCoverFallback && isServerArtworkUrl(url));
     const rawLarge = artistInfo?.largeImageUrl;
     const rawMed = artistInfo?.mediumImageUrl;
-    if (isRealArtistImage(rawLarge)) return rawLarge!;
-    if (isRealArtistImage(rawMed)) return rawMed!;
+    if (usable(rawLarge)) return rawLarge!;
+    if (usable(rawMed)) return rawMed!;
     return '';
-  }, [artistInfo?.largeImageUrl, artistInfo?.mediumImageUrl]);
+  }, [artistInfo?.largeImageUrl, artistInfo?.mediumImageUrl, hasCoverFallback]);
 
   useEffect(() => {
     // React Compiler set-state-in-effect rule: local state synced with store/prop inputs when the effect’s dependencies change.

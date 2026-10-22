@@ -18,7 +18,7 @@ export const connection = {
   offlineLibraryEmpty: '尚未缓存任何专辑。请联网，打开专辑并点击"设为离线可用"。',
   offlineCachedOnServer: '来自 {{server}}',
   offlineAlbumCount_one: '{{n}} 张专辑',
-  offlineAlbumCount_plural: '{{n}} 张专辑',
+  offlineAlbumCount_other: '{{n}} 张专辑',
   offlineCacheQueueTitle: '离线缓存',
   offlineCacheQueueSubtitle: '磁盘上 {{n}} 首曲目 — 随机播放',
   offlineCacheQueuePlayAria: '随机播放所有已缓存曲目',

@@ -1,6 +1,6 @@
 import { resolveAlbum, resolveArtist, resolveMediaServerId } from '@/store/mediaResolver';
 import { songToTrack } from '@/lib/media/songToTrack';
-import { shuffleArray } from '@/lib/util/shuffleArray';
+import { shuffleTracks } from '@/features/playback/utils/playback/shuffleTracks';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 /**
  * All tracks from the artist’s albums, shuffled — same idea as Artist page “shuffle play”.
@@ -26,6 +26,6 @@ export async function playArtistShuffled(artistId: string, serverId?: string): P
     throw new Error('play_artist_no_tracks');
   }
 
-  const shuffled = shuffleArray(tracks);
+  const shuffled = shuffleTracks(tracks);
   usePlayerStore.getState().playTrack(shuffled[0], shuffled);
 }

@@ -135,3 +135,56 @@ describe('trackToSong title and album from a native payload', () => {
     expect(song.album).toBe('Album (Deluxe)');
   });
 });
+
+describe('trackToSong moods from a native payload', () => {
+  it("maps Navidrome's tags.mood to OpenSubsonic moods", () => {
+    const song = trackToSong(
+      dto({
+        rawJson: {
+          tags: {
+            mood: ['Atmospheric', 'Melancholic', 'Nocturnal'],
+          },
+        },
+      }),
+    );
+
+    expect(song.moods).toEqual([
+      'Atmospheric',
+      'Melancholic',
+      'Nocturnal',
+    ]);
+  });
+
+  it('prefers Navidrome native mood tags over stale top-level moods', () => {
+    const song = trackToSong(
+      dto({
+        rawJson: {
+          moods: ['Old Mood'],
+          tags: {
+            mood: ['Atmospheric', 'Melancholic'],
+          },
+        },
+      }),
+    );
+
+    expect(song.moods).toEqual([
+      'Atmospheric',
+      'Melancholic',
+    ]);
+  });
+
+  it('clears stale top-level moods when native tags contain no mood', () => {
+    const song = trackToSong(
+      dto({
+        rawJson: {
+          moods: ['Old Mood'],
+          tags: {
+            genre: ['Ambient'],
+          },
+        },
+      }),
+    );
+
+    expect(song.moods).toEqual([]);
+  });
+});

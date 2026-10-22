@@ -8,6 +8,7 @@ import {
   applyMappedQueueProjection,
 } from '@/features/playback/store/applyServerPlayQueue';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
+import { isPlayQueueSyncEnabled } from '@/features/playback/store/playQueueSyncSettingsStore';
 import { filterQueueRefsForServerProfile } from '@/features/playback/utils/playback/trackServerScope';
 import { sameQueueTrack } from '@/features/playback/utils/playback/queueIdentity';
 
@@ -85,6 +86,8 @@ function localSnapshotStillCurrent(snapshot: LocalQueueSnapshot): boolean {
  * ignored because local playback position is not persisted in the queue blob.
  */
 export async function reconcileStartupPlayQueues(): Promise<StartupQueueReconcileResult> {
+  if (!isPlayQueueSyncEnabled()) return 'kept-local';
+
   const selectedServerIds = [...new Set(useAuthStore.getState().libraryBrowseServerIds.filter(Boolean))];
   if (selectedServerIds.length === 0) return 'kept-local';
 
@@ -100,6 +103,8 @@ export async function reconcileStartupPlayQueues(): Promise<StartupQueueReconcil
     serverId,
     queue: await fetchPlayQueueForServer(serverId),
   })));
+  // The user can disable sync while a remote queue request is in flight.
+  if (!isPlayQueueSyncEnabled()) return 'kept-local';
   if (settled.some(result => result.status === 'rejected')) return 'kept-local';
   if (!localSnapshotStillCurrent(snapshot)) return 'kept-local';
 

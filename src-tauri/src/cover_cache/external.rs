@@ -234,17 +234,23 @@ async fn http_get_text_scoped(
     )
     .send()
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     let status = resp.status();
     if !status.is_success() {
         return Err(format!("HTTP {status}"));
     }
-    resp.text().await.map_err(|e| e.to_string())
+    resp.text()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)
 }
 
 /// Single GET → `Some(text)` on success, `None` on 404, error otherwise.
 async fn http_get_text_opt(client: &Client, url: &str) -> Result<Option<String>, String> {
-    let resp = client.get(url).send().await.map_err(|e| e.to_string())?;
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     let status = resp.status();
     if status == reqwest::StatusCode::NOT_FOUND {
         return Ok(None);
@@ -252,7 +258,10 @@ async fn http_get_text_opt(client: &Client, url: &str) -> Result<Option<String>,
     if !status.is_success() {
         return Err(format!("HTTP {status}"));
     }
-    resp.text().await.map(Some).map_err(|e| e.to_string())
+    resp.text()
+        .await
+        .map(Some)
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)
 }
 
 #[cfg(test)]

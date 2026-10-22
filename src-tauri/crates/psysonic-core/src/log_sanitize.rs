@@ -14,6 +14,11 @@ const SENSITIVE_QUERY_KEYS: &[&str] = &[
     "access_token",
     "refresh_token",
     "auth",
+    // Last.fm session key and request signature.
+    "sk",
+    "api_sig",
+    // A user's personal fanart.tv key.
+    "client_key",
 ];
 
 const SENSITIVE_KV_KEYS: &[&str] = &[
@@ -39,13 +44,67 @@ pub fn sanitize_log_line(line: &str) -> String {
     let mut out = redact_bearer_tokens(line);
     out = redact_pangolin_headers(&out);
     out = redact_sensitive_key_values(&out);
-    out = redact_urls_in_text(&out);
-    out
+    redact_urls(&out, true)
 }
 
 /// Never panic on the logging hot path — fall back to the raw line if needed.
 pub fn sanitize_log_line_infallible(line: &str) -> String {
     std::panic::catch_unwind(|| sanitize_log_line(line)).unwrap_or_else(|_| line.to_string())
+}
+
+/// Redact credentials only, keeping hostnames readable: for the terminal copy
+/// of a log line and for error text that reaches the UI. Hostname masking
+/// stays with [`sanitize_log_line`], whose output is meant to be shared.
+pub fn redact_secrets(text: &str) -> String {
+    let mut out = redact_bearer_tokens(text);
+    out = redact_pangolin_headers(&out);
+    out = redact_sensitive_key_values(&out);
+    redact_urls(&out, false)
+}
+
+/// [`redact_secrets`] that never panics. When redaction fails the text is
+/// withheld rather than printed with its credentials.
+pub fn redact_secrets_infallible(text: &str) -> String {
+    std::panic::catch_unwind(|| redact_secrets(text))
+        .unwrap_or_else(|_| "[withheld: redaction failed]".to_string())
+}
+
+/// Strip the credentials from the request URL a `reqwest::Error` carries —
+/// Subsonic `t`/`s`/`p`, API keys, userinfo — so the error's text can be
+/// logged, returned to the UI or stored. Host and path stay.
+pub fn redact_reqwest_error(mut error: reqwest::Error) -> reqwest::Error {
+    if let Some(url) = error.url_mut() {
+        redact_url_credentials(url);
+    }
+    error
+}
+
+/// The text of a `reqwest::Error` for logs, the UI and stored errors: the URL
+/// redacted ([`redact_reqwest_error`]) and the source chain appended, so the
+/// cause (TLS, DNS, a refused connection) is not lost behind "error sending
+/// request".
+pub fn reqwest_error_text(error: reqwest::Error) -> String {
+    let error = redact_reqwest_error(error);
+    let mut text = error.to_string();
+    let mut source = std::error::Error::source(&error);
+    while let Some(cause) = source {
+        text.push_str(" | ");
+        text.push_str(&cause.to_string());
+        source = cause.source();
+    }
+    redact_secrets(&text)
+}
+
+fn redact_url_credentials(url: &mut url::Url) {
+    if !url.username().is_empty() {
+        let _ = url.set_username("***");
+    }
+    if url.password().is_some() {
+        let _ = url.set_password(None);
+    }
+    if let Some(query) = url.query().map(redact_query_string) {
+        url.set_query(Some(&query));
+    }
 }
 
 fn redact_bearer_tokens(line: &str) -> String {
@@ -142,7 +201,7 @@ fn url_char_ends_url(ch: char, s: &str, byte_off: usize) -> bool {
     false
 }
 
-fn redact_urls_in_text(line: &str) -> String {
+fn redact_urls(line: &str, mask_host: bool) -> String {
     let mut out = String::with_capacity(line.len());
     let mut cursor = 0;
     while cursor < line.len() {
@@ -173,13 +232,16 @@ fn redact_urls_in_text(line: &str) -> String {
             }
             url_end = abs + ch.len_utf8();
         }
-        out.push_str(&redact_url(&line[url_start..url_start + url_end]));
+        out.push_str(&redact_url(
+            &line[url_start..url_start + url_end],
+            mask_host,
+        ));
         cursor = url_start + url_end;
     }
     out
 }
 
-fn redact_url(raw: &str) -> String {
+fn redact_url(raw: &str, mask_host: bool) -> String {
     let (url, suffix) = split_trailing_punct(raw);
     let mut out = String::new();
 
@@ -195,8 +257,11 @@ fn redact_url(raw: &str) -> String {
 
     let (hostport, path) = split_host_path(rest);
     let (host, port) = split_host_port(&hostport);
-    let masked_host = mask_hostname(&host);
-    out.push_str(&masked_host);
+    if mask_host {
+        out.push_str(&mask_hostname(&host));
+    } else {
+        out.push_str(&host);
+    }
     if let Some(p) = port {
         out.push(':');
         out.push_str(&p);
@@ -447,6 +512,64 @@ mod tests {
         assert!(!out.contains("tok123"));
         assert!(out.contains("x-pangolin-auth: REDACTED"));
         assert!(!out.contains("pangolin-key"));
+    }
+
+    #[test]
+    fn redact_secrets_keeps_the_host_and_drops_the_wire_auth() {
+        let line = "sync transport: error sending request for url \
+            (https://music.example.com/rest/getArtists.view?u=alice&t=tok123&s=salt456&v=1.16.1&f=json) \
+            | client error (Connect) | tls handshake eof";
+        let out = redact_secrets(line);
+        assert!(out.contains("https://music.example.com/rest/getArtists.view?"));
+        assert!(out.contains("t=REDACTED&s=REDACTED"));
+        assert!(out.contains("u=alice&"));
+        assert!(out.contains("v=1.16.1&f=json)"));
+        assert!(out.ends_with("| tls handshake eof"));
+        assert!(!out.contains("tok123"));
+        assert!(!out.contains("salt456"));
+    }
+
+    #[test]
+    fn redact_secrets_drops_userinfo_password_and_bearer() {
+        let out = redact_secrets(
+            "fetch https://user:pass@music.example.com/rest/ping?p=enc:6869 Bearer abc.def password=hunter2",
+        );
+        assert!(out.contains("https://***@music.example.com/rest/ping?p=REDACTED"));
+        assert!(out.contains("Bearer REDACTED"));
+        assert!(out.contains("password=REDACTED"));
+        assert!(!out.contains("user:pass"));
+        assert!(!out.contains("6869"));
+        assert!(!out.contains("abc.def"));
+        assert!(!out.contains("hunter2"));
+    }
+
+    #[test]
+    fn redacted_reqwest_error_keeps_the_endpoint_and_drops_the_credentials() {
+        // Port 1 on loopback refuses the connection: a real send error that
+        // carries its request URL.
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let error = runtime
+            .block_on(
+                reqwest::Client::new()
+                    .get("http://alice:pw@127.0.0.1:1/rest/stream.view?id=7&u=alice&t=tok123&s=salt456&sk=sess789")
+                    .send(),
+            )
+            .unwrap_err();
+        assert!(error.to_string().contains("tok123"));
+
+        let text = reqwest_error_text(error);
+        assert!(text.contains(
+            "127.0.0.1:1/rest/stream.view?id=7&u=alice&t=REDACTED&s=REDACTED&sk=REDACTED"
+        ));
+        assert!(!text.contains("tok123"));
+        assert!(!text.contains("salt456"));
+        assert!(!text.contains("sess789"));
+        assert!(!text.contains("pw@"));
+        // The cause behind "error sending request" comes along.
+        assert!(text.contains(" | "), "no source chain in {text}");
     }
 
     #[test]

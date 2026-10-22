@@ -1,5 +1,6 @@
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
+import { useRefElementClientWidth } from '@/lib/hooks/useResizeClientHeight';
 import { useTranslation } from 'react-i18next';
 import {
   deviceSyncSourceKey,
@@ -31,13 +32,22 @@ import {
   type SyncDelta,
 } from '@/features/deviceSync/utils/runDeviceSyncExecution';
 import { runDeviceSyncChooseFolder } from '@/features/deviceSync/utils/runDeviceSyncChooseFolder';
-import DeviceSyncHeader from '@/features/deviceSync/components/DeviceSyncHeader';
+import { HardDriveUpload } from 'lucide-react';
+import DeviceSyncTargetBar from '@/features/deviceSync/components/DeviceSyncTargetBar';
+import DeviceSyncOptions from '@/features/deviceSync/components/DeviceSyncOptions';
+import DeviceSyncTargetEmpty from '@/features/deviceSync/components/DeviceSyncTargetEmpty';
+import DeviceSyncActionBar from '@/features/deviceSync/components/DeviceSyncActionBar';
 import DeviceSyncPreSyncModal from '@/features/deviceSync/components/DeviceSyncPreSyncModal';
 import DeviceSyncMigrationModal from '@/features/deviceSync/components/DeviceSyncMigrationModal';
 import DeviceSyncBrowserPanel from '@/features/deviceSync/components/DeviceSyncBrowserPanel';
 import DeviceSyncDevicePanel from '@/features/deviceSync/components/DeviceSyncDevicePanel';
 import DeviceSyncLegacyRecovery from '@/features/deviceSync/components/DeviceSyncLegacyRecovery';
 import DeviceSyncOwnerRepair from '@/features/deviceSync/components/DeviceSyncOwnerRepair';
+
+/** Below this page width the two lists stack (page padding included). */
+const DEVICE_SYNC_NARROW_WIDTH = 780;
+/** Below this the source tabs show icons only. */
+const DEVICE_SYNC_TINY_WIDTH = 440;
 
 // ─── component ───────────────────────────────────────────────────────────────
 
@@ -60,6 +70,7 @@ export default function DeviceSync() {
   const pendingPlanChecked = useDeviceSyncStore(s => s.pendingPlanChecked);
   const deviceFilePaths  = useDeviceSyncStore(s => s.deviceFilePaths);
   const scanning         = useDeviceSyncStore(s => s.scanning);
+  const deviceHasLegacyTemplate = useDeviceSyncStore(s => s.deviceHasLegacyTemplate);
   const {
     setTargetDir, setLayoutMode, setPlaylistPathMode, setTranscode, addSource, removeSource,
     toggleChecked, setCheckedIds, markForDeletion,
@@ -94,6 +105,7 @@ export default function DeviceSync() {
     deletePaths: [],
     deferredDeletePaths: [],
     moveCount: 0,
+    skippedCount: 0,
     playlists: [],
     manifestFiles: [],
     manifestPlaylists: [],
@@ -244,6 +256,13 @@ export default function DeviceSync() {
     return t('deviceSync.syncButton'); // both zero — button will be disabled
   }, [pendingCount, deletionCount, t]);
 
+  // The page width, not the window: sidebar and queue panel take their share.
+  const pageRef = useRef<HTMLDivElement>(null);
+  const pageWidth = useRefElementClientWidth(pageRef);
+  const pageLayout = pageWidth < DEVICE_SYNC_TINY_WIDTH
+    ? 'tiny'
+    : pageWidth < DEVICE_SYNC_NARROW_WIDTH ? 'narrow' : 'wide';
+
   const actionButtonDisabled =
     !targetDir ||
     sources.length === 0 ||
@@ -254,19 +273,27 @@ export default function DeviceSync() {
     (pendingCount === 0 && deletionCount === 0 && !pendingPlan);
 
   return (
-    <div className="device-sync-page">
+    <div className="device-sync-page" ref={pageRef} data-layout={pageLayout}>
 
-      <DeviceSyncHeader
+      <div className="device-sync-page-title">
+        <HardDriveUpload size={20} aria-hidden="true" />
+        <h1>{t('deviceSync.title')}</h1>
+      </div>
+
+      <DeviceSyncTargetBar
         targetDir={targetDir}
         setTargetDir={setTargetDir}
-        sources={sources}
         drives={drives}
         drivesLoading={drivesLoading}
         activeDrive={activeDrive}
         refreshDrives={refreshDrives}
         scanDevice={scanDevice}
         handleChooseFolder={handleChooseFolder}
-        startMigrationPreview={startMigrationPreview}
+        targetIsLocal={targetIsLocal}
+        isRunning={isRunning}
+      />
+
+      <DeviceSyncOptions
         layoutMode={layoutMode}
         playlistPathMode={playlistPathMode}
         setLayoutMode={setLayoutMode}
@@ -275,12 +302,21 @@ export default function DeviceSync() {
         setTranscode={setTranscode}
         targetIsLocal={targetIsLocal}
         isRunning={isRunning}
+        showMigrate={Boolean(targetDir) && sources.length > 0 && deviceHasLegacyTemplate}
+        startMigrationPreview={startMigrationPreview}
       />
 
       <DeviceSyncLegacyRecovery />
       <DeviceSyncOwnerRepair />
 
-      {/* ── Main ── */}
+      {!targetDir ? (
+        <DeviceSyncTargetEmpty
+          drivesLoading={drivesLoading}
+          isRunning={isRunning}
+          refreshDrives={refreshDrives}
+          handleChooseFolder={handleChooseFolder}
+        />
+      ) : (
       <div className="device-sync-main">
 
         <DeviceSyncBrowserPanel
@@ -317,25 +353,33 @@ export default function DeviceSync() {
           toggleChecked={toggleChecked}
           allChecked={allChecked}
           toggleAll={toggleAll}
+          isRunning={isRunning}
+          handleToggleSource={handleToggleSource}
+          markForDeletion={markForDeletion}
+          unmarkDeletion={unmarkDeletion}
+        />
+
+      </div>
+      )}
+
+      {targetDir && (
+        <DeviceSyncActionBar
           syncedCount={syncedCount}
           pendingCount={pendingCount}
           deletionCount={deletionCount}
+          checkedCount={checkedIds.length}
           isRunning={isRunning}
           actionButtonLabel={actionButtonLabel}
           actionButtonDisabled={actionButtonDisabled}
           promptSyncSummary={promptSyncSummary}
           handleMarkCheckedForDeletion={handleMarkCheckedForDeletion}
-          handleToggleSource={handleToggleSource}
-          markForDeletion={markForDeletion}
-          unmarkDeletion={unmarkDeletion}
           jobStatus={jobStatus}
           jobDone={jobDone}
           jobSkip={jobSkip}
           jobFail={jobFail}
           jobTotal={jobTotal}
         />
-
-      </div>
+      )}
 
       <DeviceSyncPreSyncModal
         preSyncOpen={preSyncOpen}

@@ -49,7 +49,35 @@ describe('ensureCoverTierDiskSrc — full-res exact-tier guard', () => {
       tier: 2000,
     });
     expect(await ensureCoverTierDiskSrc(ref, 2000)).toBe(
-      'asset://C:\\cc\\srv\\album\\al-1\\2000.webp',
+      'asset://C:\\cc\\srv\\album\\al-1\\2000.webp|1787826019',
+    );
+  });
+
+  it('remembers the tier with its mtime version so a rewritten file gets a new URL', async () => {
+    vi.mocked(coverCacheEnsure).mockResolvedValue({
+      hit: true,
+      pathVersion: 1791881478,
+      path: '/cc/srv/artist/ar-1/2000.webp',
+      tier: 2000,
+    });
+    await ensureCoverTierDiskSrc(ref, 2000);
+    expect(rememberDiskSrc).toHaveBeenCalledWith(
+      expect.any(String),
+      '/cc/srv/artist/ar-1/2000.webp|1791881478',
+    );
+  });
+
+  it('does not append a second version to a path that already carries one', async () => {
+    vi.mocked(coverCacheEnsure).mockResolvedValue({
+      hit: true,
+      pathVersion: 1791881478,
+      path: '/cc/srv/artist/ar-1/2000.webp|1791881478',
+      tier: 2000,
+    });
+    await ensureCoverTierDiskSrc(ref, 2000);
+    expect(rememberDiskSrc).toHaveBeenCalledWith(
+      expect.any(String),
+      '/cc/srv/artist/ar-1/2000.webp|1791881478',
     );
   });
 
@@ -81,7 +109,7 @@ describe('ensureCoverTierDiskSrc — chain ladder serve (coverless _0 album)', (
       tier: 2000,
     });
     expect(await ensureCoverTierDiskSrc(coverlessRef, 2000)).toBe(
-      'asset:///cc/srv/album/al-2/800.webp',
+      'asset:///cc/srv/album/al-2/800.webp|1787826019',
     );
   });
 

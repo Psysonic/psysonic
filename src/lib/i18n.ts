@@ -15,6 +15,7 @@ import { huTranslation } from '@/locales/hu';
 import { plTranslation } from '@/locales/pl';
 import { bgTranslation } from '@/locales/bg';
 import { ukTranslation } from '@/locales/uk';
+import { elTranslation } from '@/locales/el';
 
 const LANGUAGE_STORAGE_KEY = 'psysonic_language';
 
@@ -34,6 +35,7 @@ const resources = {
   pl: { translation: plTranslation },
   bg: { translation: bgTranslation },
   uk: { translation: ukTranslation },
+  el: { translation: elTranslation }
 };
 
 /** Every language we ship — the only values `i18n.language` may ever take. */
@@ -76,6 +78,11 @@ function readSavedLanguage(): string {
   return code;
 }
 
+i18n.on('languageChanged', lng => {
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
+  document.documentElement.lang = lng;
+});
+
 i18n
   .use(initReactI18next)
   .init({
@@ -87,8 +94,5 @@ i18n
     },
   });
 
-i18n.on('languageChanged', lng => {
-  localStorage.setItem(LANGUAGE_STORAGE_KEY, lng);
-});
 
 export default i18n;

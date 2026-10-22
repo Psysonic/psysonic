@@ -21,7 +21,7 @@ import { useOrbitSongRowBehavior } from '@/features/orbit';
 import { songToTrack } from '@/lib/media/songToTrack';
 import type { PlaylistSortKey, PlaylistSortDir } from '@/features/playlist/utils/playlistDisplayedSongs';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/ContextMenu';
-import { BulkTrackRating } from '@/features/playback';
+import { BulkTrackRating, withQueueSource } from '@/features/playback';
 import { offlineActionPolicy, useOfflineBrowseContext } from '@/features/offline';
 import { COVER_ARTIST_TOP_TRACK_CSS_PX } from '@/cover/layoutSizes';
 import { useWarmTrackListAlbumCovers } from '@/cover/useWarmTrackListAlbumCovers';
@@ -113,7 +113,14 @@ export default function PlaylistTracklist({
   const location = useLocation();
   const currentTrack = usePlayerStore(s => s.currentTrack);
   const isPlaying = usePlayerStore(s => s.isPlaying);
-  const playTrack = usePlayerStore(s => s.playTrack);
+  const playTrackFromStore = usePlayerStore(s => s.playTrack);
+  // Every play started from this list plays the playlist: record it as the
+  // queue source so its card and sidebar row show the now-playing marker.
+  const playTrack = useCallback((track: Track, list: Track[]) => (
+    id
+      ? withQueueSource({ kind: 'playlist', id, serverId }, () => playTrackFromStore(track, list))
+      : playTrackFromStore(track, list)
+  ), [id, serverId, playTrackFromStore]);
   const openContextMenu = usePlayerStore(s => s.openContextMenu);
   const starredOverrides = usePlayerStore(s => s.starredOverrides);
   const userRatingOverrides = usePlayerStore(s => s.userRatingOverrides);
