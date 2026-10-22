@@ -478,6 +478,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Integrations → External Artwork Scraper → Backgrounds** only appeared with the fanart.tv scraper turned on, although the artist image from your server fills the mainstage hero, the artist page header and the fullscreen player without it. So with the scraper off, there was no way to switch these backgrounds off, and **Open Backgrounds** in the fullscreen player settings led nowhere. The section is now always there; without the scraper it lists only the server image.
 * The hint in the fullscreen player settings now names the full path to the section.
 
+### Streaming playback no longer keeps a CPU core busy
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+
+* Since 1.55, the decoder thread for streamed tracks ran in a tight loop for the whole track and kept one CPU core at nearly 100 %. It now waits while enough audio is buffered; on Windows its load dropped from about 98 % to about 2 % of one core. Local and downloaded files were not affected.
+
 ## [1.55.0]
 
 ## Added

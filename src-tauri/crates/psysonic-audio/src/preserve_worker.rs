@@ -399,6 +399,16 @@ impl PreserveState {
         self.last_speed = f32::NAN;
     }
 
+    /// Nothing to clear for `reset(channels)`: no pitch work since the last reset
+    /// (`process_block` sets `last_pitch` before it touches a shifter).
+    fn is_reset(&self, channels: u16) -> bool {
+        self.channels.len() == channels.max(1) as usize
+            && self.last_pitch.is_nan()
+            && self.pending.is_empty()
+            && self.channel_idx == 0
+            && self.channels.iter().all(|ch| ch.frame.is_empty())
+    }
+
     fn reset_if_params_changed(&mut self, pitch: f32, speed: f32) {
         if self.last_pitch.is_nan() {
             self.last_pitch = pitch;
@@ -445,6 +455,11 @@ impl PreserveState {
 
 fn ring_fill(prod: &HeapProd<f32>, capacity: usize) -> f32 {
     1.0 - prod.vacant_len() as f32 / capacity as f32
+}
+
+/// The ring holds at least what `forward_passthrough` refills it to.
+fn ring_at_passthrough_target(prod: &HeapProd<f32>, capacity: usize) -> bool {
+    prod.occupied_len() >= (capacity as f32 * RB_TARGET_FILL) as usize
 }
 
 fn push_pending(prod: &mut HeapProd<f32>, pending: &mut VecDeque<f32>, stop: &AtomicBool) {
@@ -560,7 +575,11 @@ fn worker_main<S: Source<Item = f32> + Send>(
             && is_effect_active(&env.atomics);
 
         if !use_preserve {
-            preserve.reset(env.channels);
+            // Without pitch work there is nothing to reset; a reset per pass rebuilt
+            // the zeroed shifter buffers on every iteration (#1760).
+            if !preserve.is_reset(env.channels) {
+                preserve.reset(env.channels);
+            }
             push_pending(&mut prod, &mut preserve.pending, &env.stop);
             let fill = ring_fill(&prod, env.capacity);
             if fill >= RB_FILL_HIGH {
@@ -587,6 +606,11 @@ fn worker_main<S: Source<Item = f32> + Send>(
                     break;
                 }
                 env.done.store(true, Ordering::Release);
+                std::thread::sleep(WORKER_IDLE_SLEEP);
+            } else if ring_at_passthrough_target(&prod, env.capacity) {
+                // `forward_passthrough` stops at RB_TARGET_FILL but the wait above only
+                // starts at RB_FILL_HIGH: without this the loop spins a core between
+                // the two marks for the whole track (#1760).
                 std::thread::sleep(WORKER_IDLE_SLEEP);
             }
             continue;

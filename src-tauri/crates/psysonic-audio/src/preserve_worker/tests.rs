@@ -576,3 +576,33 @@ fn worker_failure_releases_a_newer_soft_timed_out_seek() {
     assert!(first.join().unwrap().is_err());
     assert!(latest.join().unwrap().is_err());
 }
+
+#[test]
+fn preserve_state_reports_reset_until_pitch_work_runs() {
+    let mut state = PreserveState::for_channels(2);
+    assert!(state.is_reset(2));
+    assert!(
+        !state.is_reset(1),
+        "a channel-count change still needs a reset"
+    );
+
+    for ch in &mut state.channels {
+        ch.frame.extend(std::iter::repeat_n(0.0, FRAME_BLOCK));
+    }
+    state.process_block(1.25, 1.0, 44_100.0);
+    assert!(!state.is_reset(2), "pitch work leaves state to clear");
+
+    state.reset(2);
+    assert!(state.is_reset(2));
+}
+
+#[test]
+fn passthrough_target_matches_the_refill_mark() {
+    let capacity = 1_000;
+    let (mut prod, _cons) = HeapRb::<f32>::new(capacity).split();
+    let target = (capacity as f32 * RB_TARGET_FILL) as usize;
+    prod.push_iter(std::iter::repeat_n(0.0, target - 1));
+    assert!(!ring_at_passthrough_target(&prod, capacity));
+    let _ = prod.try_push(0.0);
+    assert!(ring_at_passthrough_target(&prod, capacity));
+}
