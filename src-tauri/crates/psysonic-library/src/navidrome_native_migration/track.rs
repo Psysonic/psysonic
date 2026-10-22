@@ -20,6 +20,21 @@ struct TrackOwner {
     row: TrackRow,
 }
 
+// A reciprocal alias between two live owners cannot establish ownership.
+// Use the same selection in preflight and the batch destination cache.
+const EXISTING_ALIAS_DESTINATIONS: &str = "SELECT history.new_id FROM track_id_history AS history \
+     JOIN track AS destination \
+        ON destination.server_id = history.server_id \
+       AND destination.id = history.new_id AND destination.deleted = 0 \
+     WHERE history.server_id = ?1 AND NOT EXISTS( \
+       SELECT 1 FROM track_id_history AS reverse \
+       JOIN track AS source ON source.server_id = reverse.server_id \
+         AND source.id = reverse.new_id AND source.deleted = 0 \
+       WHERE reverse.server_id = history.server_id \
+         AND reverse.old_id = history.new_id AND reverse.new_id = history.old_id \
+         AND history.old_id != history.new_id \
+     )";
+
 pub(super) fn preflight(tx: &Transaction<'_>, server_id: &str) -> rusqlite::Result<u64> {
     let upper_rowid: i64 = tx.query_row(
         "SELECT COALESCE(MAX(rowid), 0) FROM track WHERE server_id = ?1",
@@ -107,6 +122,9 @@ pub(super) fn run_batch(
             selected
         };
         let old_id = source.row.id.clone();
+        if requires_full_retarget && !source.row.deleted {
+            discard_live_alias_cycle(tx, server_id, &old_id)?;
+        }
         let destination_id = migration_destination_id(tx, server_id, &source.row.id)?;
         if old_id == destination_id {
             let row = canonicalize_owner(source.row, destination_id)?;
@@ -285,7 +303,7 @@ fn load_existing_destination_ids(
     tx: &Transaction<'_>,
     server_id: &str,
 ) -> rusqlite::Result<HashSet<String>> {
-    let mut statement = tx.prepare(
+    let mut statement = tx.prepare(&format!(
         "SELECT mapping.new_id \
          FROM navidrome_id_batch_mapping AS mapping \
          JOIN track AS destination \
@@ -295,13 +313,8 @@ fn load_existing_destination_ids(
          SELECT new_id FROM navidrome_id_batch_mapping \
          WHERE entity_kind = 'track' AND old_id != new_id \
          GROUP BY new_id HAVING COUNT(*) > 1 \
-         UNION \
-         SELECT history.new_id FROM track_id_history AS history \
-         JOIN track AS destination \
-            ON destination.server_id = history.server_id \
-           AND destination.id = history.new_id AND destination.deleted = 0 \
-         WHERE history.server_id = ?1",
-    )?;
+          UNION {EXISTING_ALIAS_DESTINATIONS}",
+    ))?;
     let rows = statement
         .query_map(params![server_id], |row| row.get(0))?
         .collect();
@@ -315,16 +328,41 @@ fn migration_destination_id(
 ) -> rusqlite::Result<String> {
     let existing_owner = tx
         .query_row(
-            "SELECT history.new_id FROM track_id_history AS history \
-             JOIN track AS destination \
-                ON destination.server_id = history.server_id \
-               AND destination.id = history.new_id AND destination.deleted = 0 \
-              WHERE history.server_id = ?1 AND history.old_id = ?2",
+            &format!("{EXISTING_ALIAS_DESTINATIONS} AND history.old_id = ?2"),
             params![server_id, old_id],
             |row| row.get(0),
         )
         .optional()?;
     Ok(existing_owner.unwrap_or_else(|| canonical_id(old_id)))
+}
+
+fn discard_live_alias_cycle(
+    tx: &Transaction<'_>,
+    server_id: &str,
+    old_id: &str,
+) -> rusqlite::Result<()> {
+    let reciprocal_owner: Option<String> = tx
+        .query_row(
+            "SELECT history.new_id FROM track_id_history AS history \
+             JOIN track AS destination ON destination.server_id = history.server_id \
+               AND destination.id = history.new_id AND destination.deleted = 0 \
+             JOIN track_id_history AS reverse ON reverse.server_id = history.server_id \
+               AND reverse.old_id = history.new_id AND reverse.new_id = history.old_id \
+             WHERE history.server_id = ?1 AND history.old_id = ?2 \
+               AND history.old_id != history.new_id",
+            params![server_id, old_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(other_id) = reciprocal_owner {
+        // Remove both edges before retarget rewrites incoming aliases; otherwise
+        // the second live owner would become an alias of the first across batches.
+        tx.execute(
+            "DELETE FROM track_id_history WHERE server_id = ?1 AND old_id IN (?2, ?3)",
+            params![server_id, old_id, other_id],
+        )?;
+    }
+    Ok(())
 }
 
 fn discard_stale_source_alias(
