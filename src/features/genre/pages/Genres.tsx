@@ -20,30 +20,12 @@ import { useLibrarySyncRevision } from '@/store/offlineLocalLibrarySyncRevision'
 import { useLocalPlaybackStore } from '@/store/localPlaybackStore';
 import { deriveLibraryBrowseIndexScopes } from '@/lib/library/libraryBrowseScope';
 import TagCatalogToolbar, { type TagCatalogSort } from '@/ui/TagCatalogToolbar';
+import { readTagCatalogReturnState, tagCatalogPopularityLog, type CatalogReturnState } from '@/lib/library/tagCatalogSession';
 
 const RETURN_STATE_KEY = 'genres-return-state';
 const SORT_KEY = 'genres-sort';
 const FONT_MIN_REM = 0.78;
 const FONT_MAX_REM = 1.7;
-
-interface CatalogReturnState {
-  search: string;
-  scrollTop: number;
-}
-
-function readReturnState(): CatalogReturnState | null {
-  const raw = sessionStorage.getItem(RETURN_STATE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<CatalogReturnState>;
-    if (typeof parsed.search !== 'string' || typeof parsed.scrollTop !== 'number' || !Number.isFinite(parsed.scrollTop)) {
-      return null;
-    }
-    return { search: parsed.search, scrollTop: parsed.scrollTop };
-  } catch {
-    return null;
-  }
-}
 
 function readSort(): TagCatalogSort {
   return sessionStorage.getItem(SORT_KEY) === 'alphabetical'
@@ -54,7 +36,7 @@ function readSort(): TagCatalogSort {
 export default function Genres() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [search, setSearch] = useState(() => readReturnState()?.search ?? '');
+  const [search, setSearch] = useState(() => readTagCatalogReturnState(RETURN_STATE_KEY)?.search ?? '');
   const [sort, setSort] = useState<TagCatalogSort>(readSort);
   const serverId = useAuthStore(s => s.activeServerId ?? '');
   const indexEnabled = useLibraryIndexStore(s => s.isIndexEnabled(serverId));
@@ -144,14 +126,11 @@ export default function Genres() {
 
   // Keep popularity sizing stable when search/sort changes: filtering should
   // move/hide pills, not make the remaining ones suddenly grow.
-  const maxLog = useMemo(() => {
-    if (catalogGenres.length === 0) return 1;
-    return Math.log(Math.max(2, ...catalogGenres.map(genre => genre.albumCount)));
-  }, [catalogGenres]);
+  const maxLog = useMemo(() => tagCatalogPopularityLog(catalogGenres), [catalogGenres]);
 
   useEffect(() => {
     if (loading) return;
-    const saved = readReturnState();
+    const saved = readTagCatalogReturnState(RETURN_STATE_KEY);
     if (!saved) return;
     sessionStorage.removeItem(RETURN_STATE_KEY);
     requestAnimationFrame(() => {

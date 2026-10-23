@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'Genres zoeken…',
+  searchLabel: 'Genres zoeken',
+  clearSearch: 'Genrezoekopdracht wissen',
+  filteredCount: '{{visible}} van {{total}} genres',
+  noSearchResults: 'Geen genres komen overeen met ‘{{query}}’.',
+  sortLabel: 'Genres sorteren',
+  sortPopularity: 'Populariteit',
+  sortAlphabetical: 'Alfabetisch',
   title: 'Genres',
   genreCount: 'genres',
   albumCount_one: '{{count}} album',

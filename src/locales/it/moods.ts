@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Cerca stati d’animo…',
+  searchLabel: 'Cerca stati d’animo',
+  clearSearch: 'Cancella ricerca stati d’animo',
+  filteredCount: '{{visible}} di {{total}} stati d’animo',
+  noSearchResults: 'Nessuno stato d’animo corrisponde a «{{query}}».',
+  sortLabel: 'Ordina stati d’animo',
+  sortPopularity: 'Popolarità',
+  sortAlphabetical: 'Alfabetico',
   title: 'Stati d’animo',
   moodCount: 'stati d’animo',
   moodCount_one: 'stato d’animo',

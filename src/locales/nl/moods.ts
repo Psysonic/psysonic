@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Stemmingen zoeken…',
+  searchLabel: 'Stemmingen zoeken',
+  clearSearch: 'Stemmingszoekopdracht wissen',
+  filteredCount: '{{visible}} van {{total}} stemmingen',
+  noSearchResults: 'Geen stemmingen komen overeen met ‘{{query}}’.',
+  sortLabel: 'Stemmingen sorteren',
+  sortPopularity: 'Populariteit',
+  sortAlphabetical: 'Alfabetisch',
   title: 'Stemmingen',
   moodCount: 'stemmingen',
   moodCount_one: 'stemming',

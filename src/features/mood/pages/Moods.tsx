@@ -12,31 +12,13 @@ import { genreColor } from '@/lib/library/genreColor';
 import { useAuthStore } from '@/store/authStore';
 import { useLibrarySyncRevision } from '@/store/offlineLocalLibrarySyncRevision';
 import TagCatalogToolbar, { type TagCatalogSort } from '@/ui/TagCatalogToolbar';
+import { readTagCatalogReturnState, tagCatalogPopularityLog, type CatalogReturnState } from '@/lib/library/tagCatalogSession';
 
 const RETURN_STATE_KEY = 'moods-return-state';
 const SORT_KEY = 'moods-sort';
 
 const FONT_MIN_REM = 0.78;
 const FONT_MAX_REM = 1.7;
-
-interface CatalogReturnState {
-  search: string;
-  scrollTop: number;
-}
-
-function readReturnState(): CatalogReturnState | null {
-  const raw = sessionStorage.getItem(RETURN_STATE_KEY);
-  if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw) as Partial<CatalogReturnState>;
-    if (typeof parsed.search !== 'string' || typeof parsed.scrollTop !== 'number' || !Number.isFinite(parsed.scrollTop)) {
-      return null;
-    }
-    return { search: parsed.search, scrollTop: parsed.scrollTop };
-  } catch {
-    return null;
-  }
-}
 
 function readSort(): TagCatalogSort {
   return sessionStorage.getItem(SORT_KEY) === 'alphabetical'
@@ -77,7 +59,7 @@ function mergeMoodCatalogs(
 export default function Moods() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [search, setSearch] = useState(() => readReturnState()?.search ?? '');
+  const [search, setSearch] = useState(() => readTagCatalogReturnState(RETURN_STATE_KEY)?.search ?? '');
   const [sort, setSort] = useState<TagCatalogSort>(readSort);
 
   const musicLibraryFilterVersion = useAuthStore(
@@ -163,18 +145,12 @@ export default function Moods() {
     ));
   }, [catalogMoods, search, sort]);
 
-  const maxLog = useMemo(() => {
-    if (catalogMoods.length === 0) return 1;
-
-    return Math.log(
-      Math.max(2, ...catalogMoods.map(mood => mood.albumCount)),
-    );
-  }, [catalogMoods]);
+  const maxLog = useMemo(() => tagCatalogPopularityLog(catalogMoods), [catalogMoods]);
 
   useEffect(() => {
     if (loading) return;
 
-    const saved = readReturnState();
+    const saved = readTagCatalogReturnState(RETURN_STATE_KEY);
     if (!saved) return;
 
     sessionStorage.removeItem(RETURN_STATE_KEY);

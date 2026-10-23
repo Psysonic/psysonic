@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Hangulatok keresése…',
+  searchLabel: 'Hangulatok keresése',
+  clearSearch: 'Hangulatkeresés törlése',
+  filteredCount: '{{visible}} / {{total}} hangulat',
+  noSearchResults: 'Nincs ilyen hangulat: „{{query}}”.',
+  sortLabel: 'Hangulatok rendezése',
+  sortPopularity: 'Népszerűség',
+  sortAlphabetical: 'Betűrend',
   title: 'Hangulatok',
   moodCount: 'hangulat',
   moodCount_one: 'hangulat',

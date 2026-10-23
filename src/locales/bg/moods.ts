@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Търсене на настроения…',
+  searchLabel: 'Търсене на настроения',
+  clearSearch: 'Изчистване на търсенето',
+  filteredCount: '{{visible}} от {{total}} настроения',
+  noSearchResults: 'Няма настроения за „{{query}}“.',
+  sortLabel: 'Подреждане на настроенията',
+  sortPopularity: 'Популярност',
+  sortAlphabetical: 'По азбучен ред',
   title: 'Настроения',
   moodCount: 'настроения',
   moodCount_one: 'настроение',

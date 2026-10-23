@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Stimmungen suchen…',
+  searchLabel: 'Stimmungen suchen',
+  clearSearch: 'Stimmungssuche löschen',
+  filteredCount: '{{visible}} von {{total}} Stimmungen',
+  noSearchResults: 'Keine Stimmungen für „{{query}}“.',
+  sortLabel: 'Stimmungen sortieren',
+  sortPopularity: 'Beliebtheit',
+  sortAlphabetical: 'Alphabetisch',
   title: 'Stimmungen',
   moodCount: 'Stimmungen',
   moodCount_one: 'Stimmung',

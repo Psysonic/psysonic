@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'ジャンルを検索…',
+  searchLabel: 'ジャンルを検索',
+  clearSearch: 'ジャンル検索をクリア',
+  filteredCount: '{{total}} ジャンル中 {{visible}} 件',
+  noSearchResults: '「{{query}}」に一致するジャンルはありません。',
+  sortLabel: 'ジャンルの並べ替え',
+  sortPopularity: '人気順',
+  sortAlphabetical: '名前順',
   title: 'ジャンル',
   genreCount: 'ジャンル',
   albumCount_one: '{{count}} 枚のアルバム',

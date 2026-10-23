@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Rechercher des ambiances…',
+  searchLabel: 'Rechercher des ambiances',
+  clearSearch: 'Effacer la recherche d’ambiances',
+  filteredCount: '{{visible}} sur {{total}} ambiances',
+  noSearchResults: 'Aucune ambiance ne correspond à « {{query}} ».',
+  sortLabel: 'Trier les ambiances',
+  sortPopularity: 'Popularité',
+  sortAlphabetical: 'Alphabétique',
   title: 'Ambiances',
   moodCount: 'ambiances',
   moodCount_one: 'ambiance',

@@ -1,4 +1,5 @@
 import { Search, X } from 'lucide-react';
+import { useRef } from 'react';
 import SortDropdown from '@/ui/SortDropdown';
 
 export type TagCatalogSort = 'popularity' | 'alphabetical';
@@ -30,6 +31,7 @@ export default function TagCatalogToolbar({
   alphabeticalLabel,
   benchmarkKind,
 }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="genre-catalog-toolbar">
       <div className="genre-catalog-search">
@@ -39,6 +41,7 @@ export default function TagCatalogToolbar({
           aria-hidden="true"
         />
         <input
+          ref={inputRef}
           type="text"
           role="searchbox"
           className="input-search"
@@ -52,7 +55,7 @@ export default function TagCatalogToolbar({
           <button
             type="button"
             className="genre-catalog-search__clear"
-            onClick={() => onQueryChange('')}
+            onClick={() => { onQueryChange(''); inputRef.current?.focus(); }}
             aria-label={clearSearchLabel}
           >
             <X size={14} />

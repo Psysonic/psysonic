@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Αναζήτηση διαθέσεων…',
+  searchLabel: 'Αναζήτηση διαθέσεων',
+  clearSearch: 'Εκκαθάριση αναζήτησης',
+  filteredCount: '{{visible}} από {{total}} διαθέσεις',
+  noSearchResults: 'Δεν βρέθηκαν διαθέσεις για «{{query}}».',
+  sortLabel: 'Ταξινόμηση διαθέσεων',
+  sortPopularity: 'Δημοτικότητα',
+  sortAlphabetical: 'Αλφαβητικά',
   title: 'Διαθέσεις',
   moodCount: 'Διαθέσεις',
   moodCount_one: 'Διαθέση',

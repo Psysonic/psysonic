@@ -197,12 +197,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Blur explicit covers** hides the cover art of those songs behind a soft blur; clicking an album cover still shows it in full. It is off by default; both options are in **Settings → Appearance → Visual Options**.
 * Works with servers that report explicit tags through OpenSubsonic, such as Navidrome.
 
-### Greek translation
+### Find genres and moods in large catalogs
 
-**By [@stefnto](https://github.com/stefnto), PR [#1737](https://github.com/Psysonic/psysonic/pull/1737)**
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1733](https://github.com/Psysonic/psysonic/pull/1733)**
 
-* Full Greek (Ελληνικά) UI translation — selectable from the language picker on the Settings and Login screens.
-* Library matching now ignores Greek accents (tonos, dialytika) and the final sigma, so `Μάνος`, `Μανος` and `ΜΑΝΟΣ` resolve to the same entry. The first sync after the update rebuilds the library keys once.
+* **Genres** and **Moods** now have a search box and popularity or alphabetical sorting. Filtering happens locally, without extra server requests, and pill sizes still reflect popularity.
+* Returning from a detail page restores the search and scroll position; the selected sort is remembered for the current session.
 
 ### Open Settings with a keyboard shortcut
 
@@ -210,6 +210,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * ⌘, on macOS and Ctrl+, on Windows and Linux open Settings from any view. The shortcut can be changed or cleared under **Settings → Input → Keyboard shortcuts**.
 * If one of your shortcuts already uses that key combination, it keeps it, and **Open settings** starts unassigned.
+
+### Greek translation
+
+**By [@stefnto](https://github.com/stefnto), PR [#1737](https://github.com/Psysonic/psysonic/pull/1737)**
+
+* Full Greek (Ελληνικά) UI translation — selectable from the language picker on the Settings and Login screens.
+* Library matching now ignores Greek accents (tonos, dialytika) and the final sigma, so `Μάνος`, `Μανος` and `ΜΑΝΟΣ` resolve to the same entry. The first sync after the update rebuilds the library keys once.
 
 ### Settings search finds every option
 

@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Caută stări…',
+  searchLabel: 'Caută stări',
+  clearSearch: 'Șterge căutarea stărilor',
+  filteredCount: '{{visible}} din {{total}} stări',
+  noSearchResults: 'Nicio stare nu corespunde cu „{{query}}”.',
+  sortLabel: 'Sortează stările',
+  sortPopularity: 'Popularitate',
+  sortAlphabetical: 'Alfabetic',
   title: 'Stări de spirit',
   moodCount: 'stări de spirit',
   moodCount_one: 'stare de spirit',

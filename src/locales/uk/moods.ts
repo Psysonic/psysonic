@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Пошук настроїв…',
+  searchLabel: 'Пошук настроїв',
+  clearSearch: 'Очистити пошук настроїв',
+  filteredCount: '{{visible}} із {{total}} настроїв',
+  noSearchResults: 'Немає настроїв за запитом «{{query}}».',
+  sortLabel: 'Сортування настроїв',
+  sortPopularity: 'Популярність',
+  sortAlphabetical: 'За абеткою',
   title: 'Настрої',
   moodCount: 'настроїв',
   moodCount_one: 'настрій',

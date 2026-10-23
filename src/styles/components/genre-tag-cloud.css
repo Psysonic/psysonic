@@ -30,6 +30,8 @@
 }
 
 .genre-catalog-search__clear {
+  min-width: 28px;
+  min-height: 28px;
   position: absolute;
   right: 6px;
   top: 50%;
@@ -84,4 +86,3 @@
   outline: var(--focus-ring-width) solid var(--genre-color, var(--focus-ring-color));
   outline-offset: var(--focus-ring-offset);
 }
-

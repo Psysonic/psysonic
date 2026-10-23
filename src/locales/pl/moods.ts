@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Szukaj nastrojów…',
+  searchLabel: 'Szukaj nastrojów',
+  clearSearch: 'Wyczyść wyszukiwanie nastrojów',
+  filteredCount: '{{visible}} z {{total}} nastrojów',
+  noSearchResults: 'Brak nastrojów pasujących do „{{query}}”.',
+  sortLabel: 'Sortuj nastroje',
+  sortPopularity: 'Popularność',
+  sortAlphabetical: 'Alfabetycznie',
   title: 'Nastroje',
   moodCount: 'nastrojów',
   moodCount_one: 'nastrój',
