@@ -89,7 +89,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@circle3451](https://github.com/circle3451), PR [#1695](https://github.com/Psysonic/psysonic/pull/1695)**
 
 * Swipe left or right with two fingers on a touchpad to go back or forward, like in a web browser. Sideways scrolling in carousels and lists is not affected, and **Settings → Input → Touchpad** can turn it off.
-* In the full-size cover view, pinch or use Ctrl/⌘ + scroll to zoom in around the pointer, drag to move around, and double-click to zoom in or back out.
+* In the full-size cover view, pinch or use Ctrl/⌘ + scroll to zoom in around the pointer, drag to move around, and double-click to zoom in or back out. With a keyboard, use +/− to zoom, the arrow keys to move around, and 0 to reset.
+
 ### Shuffle spreads artists and albums over the list
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1698](https://github.com/Psysonic/psysonic/pull/1698)**
