@@ -30,7 +30,7 @@ import {
   coverTrafficBenchmarkHoldActive,
   coverTrafficSetBenchmarkHold,
 } from '@/cover/coverTraffic';
-import { benchmarkRouteMatchesLocation, resolveBenchmarkRoutes } from './benchmarkRoutes';
+import { benchmarkMoodDetailReady, benchmarkRouteMatchesLocation, resolveBenchmarkRoutes } from './benchmarkRoutes';
 import { runBenchmarkInteractions } from './benchmarkInteractions';
 import {
   benchmarkRouteTerminalSteps,
@@ -116,6 +116,9 @@ function waitForPath(route: string, timeoutMs: number): Promise<number> {
 }
 
 function semanticRouteReady(route: string): boolean {
+  if (route.startsWith('/moods/')) {
+    return benchmarkMoodDetailReady(route, document.querySelector('[data-benchmark-mood-name]'));
+  }
   if (route === '/') {
     const sections = Object.values(useMainstageDiagnosticStore.getState().sections);
     return benchmarkSectionsReady(sections.map(section => section.status));
@@ -137,6 +140,14 @@ function currentRoute(): string {
 }
 
 function routeReadinessDetails(route: string): unknown {
+  if (route.startsWith('/moods/')) {
+    const root = document.querySelector('[data-benchmark-mood-name]');
+    return {
+      view: root?.getAttribute('data-benchmark-mood-view'),
+      state: root?.getAttribute('data-benchmark-mood-state'),
+      resultCount: root?.getAttribute('data-benchmark-result-count'),
+    };
+  }
   if (route === '/') return useMainstageDiagnosticStore.getState().sections;
   if (route === '/albums') return getAlbumBrowseTraceSnapshot().slice(-12);
   if (route === '/artists') return getArtistBrowseTraceSnapshot().slice(-12);
