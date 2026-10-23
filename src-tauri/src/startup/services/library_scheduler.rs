@@ -190,7 +190,7 @@ fn foreground_blocks_scheduler_session(
     job.is_some_and(|job| job.kind == "initial_sync" || job.server_id == server_id)
 }
 
-fn scheduler_session_still_current(
+pub(super) fn scheduler_session_still_current(
     runtime: &psysonic_library::LibraryRuntime,
     snapshot: &psysonic_library::runtime::SyncSession,
 ) -> bool {
@@ -247,9 +247,11 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
         use tokio::time::MissedTickBehavior;
 
         redact_stored_sync_errors(&app_for_sched).await;
+
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut background_repair_startup_deferred = true;
+        let mood_reconciler = super::mood_reconcile::MoodReconciler::default();
         loop {
             interval.tick().await;
             let Some(state) = app_for_sched.try_state::<psysonic_library::LibraryRuntime>() else {
@@ -282,6 +284,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
             run_bounded_scheduler_sessions(sessions, |session| {
                 let registry = Arc::clone(&registry);
                 let app_for_session = app_for_sched.clone();
+                let mood_reconciler = &mood_reconciler;
                 async move {
                     if runtime.ensure_ordinary_sync_activity_allowed().is_err() {
                         return;
@@ -341,6 +344,26 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                         .await
                     {
                         Ok(report) => {
+                            let mood_reconcile = match mood_reconciler.reconcile(
+                                runtime,
+                                &registry,
+                                &session,
+                                flags,
+                                now_ms,
+                            )
+                            .await
+                            {
+                                Ok(outcome) => outcome,
+                                Err(error) => {
+                                    crate::app_deprintln!(
+                                        "[library-sync] legacy mood reconcile failed server_id={}: {}",
+                                        session.server_id,
+                                        error
+                                    );
+                                    0
+                                }
+                            };
+
                             let identity_store = Arc::clone(&runtime.store);
                             let identity_server_id = session.server_id.clone();
                             let identity_error = match tokio::task::spawn_blocking(move || {
@@ -369,9 +392,19 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                                     Some(error.to_string())
                                 }
                             };
-                            if let Some(mut payload) =
-                                scheduler_idle_payload(&report, &session.server_id, &scope)
-                            {
+                            let mut idle_payload =
+                                scheduler_idle_payload(&report, &session.server_id, &scope);
+                            if idle_payload.is_none() && mood_reconcile > 0 {
+                                idle_payload = Some(
+                                    psysonic_library::LibrarySyncIdlePayload::ok(
+                                        &session.server_id,
+                                        &scope,
+                                        "mood_legacy_reconcile",
+                                        "background",
+                                    ),
+                                );
+                            }
+                            if let Some(mut payload) = idle_payload {
                                 if let Some(error) = identity_error {
                                     payload.mark_failed(format!(
                                         "identity maintenance failed: {error}"
