@@ -324,7 +324,7 @@ fn merge_sparse_raw_from_remap_source(
             WHEN json_type(?2, '$.albumVersion') IS NOT NULL THEN json_remove( \
             json_patch( \
                 CASE \
-                WHEN json_type(?2, '$.tags') = 'object' \
+                WHEN json_type(?2, '$.moods') IS NOT NULL \
                     THEN json_remove(?1, '$.tags.mood') \
                 ELSE ?1 \
                 END, \
@@ -337,7 +337,7 @@ fn merge_sparse_raw_from_remap_source(
             WHEN json_type(?2, '$.tags.albumversion') IS NOT NULL THEN json_remove( \
             json_patch( \
                 CASE \
-                WHEN json_type(?2, '$.tags') = 'object' \
+                WHEN json_type(?2, '$.moods') IS NOT NULL \
                     THEN json_remove(?1, '$.tags.mood') \
                 ELSE ?1 \
                 END, \
@@ -355,7 +355,7 @@ fn merge_sparse_raw_from_remap_source(
             ) THEN json_set( \
             json_patch( \
                 CASE \
-                WHEN json_type(?2, '$.tags') = 'object' \
+                WHEN json_type(?2, '$.moods') IS NOT NULL \
                     THEN json_remove(?1, '$.tags.mood') \
                 ELSE ?1 \
                 END, \
@@ -366,7 +366,7 @@ fn merge_sparse_raw_from_remap_source(
             ) \
             ELSE json_patch( \
             CASE \
-                WHEN json_type(?2, '$.tags') = 'object' \
+                WHEN json_type(?2, '$.moods') IS NOT NULL \
                 THEN json_remove(?1, '$.tags.mood') \
                 ELSE ?1 \
             END, \

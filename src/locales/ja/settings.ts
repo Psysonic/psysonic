@@ -247,7 +247,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'オーディオ出力デバイスごとにイコライザー設定を保存し、デバイスを切り替えたときに自動的に復元します。システム既定を選択している場合、Psysonic外で変更された場合も含め、アクティブなシステム出力にプロファイルが追従します。',
   hiResTitle: 'ネイティブ Hi-Res 再生',
   hiResEnabled: 'ネイティブ Hi-Res 再生を有効化',
-  hiResDesc: 'すべてを 44.1 kHz にリサンプリングせず、各トラックを元のサンプルレートで再生し、ファイルに合わせて音声デバイスを切り替えます (88.2 kHz 以上)。高サンプルレートをハードウェアとネットワークが安定して扱える場合のみ有効にしてください。',
+  hiResDesc: 'システムの出力サンプルレートにリサンプリングせず、各トラックを元のサンプルレートで再生し、ファイルに合わせて音声デバイスを切り替えます。高サンプルレートをハードウェアとネットワークが安定して扱える場合のみ有効にしてください。',
   hiResCrossfadeResampleTitle: 'クロスフェード / AutoDJ / Gapless ブレンドレート',
   hiResCrossfadeResampleDesc: '隣接トラックのサンプルレートが異なる場合、クロスフェード・AutoDJ・ギャップレス遷移中は両方をこのレートにリサンプリングします。',
   hiResCrossfadeResample44: '44.1 kHz',

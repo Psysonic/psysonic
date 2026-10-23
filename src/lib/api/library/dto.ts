@@ -506,6 +506,24 @@ export type LibraryMoodAlbumsResponse = {
   source: 'local';
 };
 
+export type LibraryMoodTracksRequest = {
+  serverId: string;
+  mood: string;
+  libraryScope?: string | null;
+  libraryScopes?: LibraryScopePair[];
+  limit?: number;
+  offset?: number;
+  includeTotal?: boolean;
+  countOnly?: boolean;
+};
+
+export type LibraryMoodTracksResponse = {
+  tracks: LibraryTrackDto[];
+  hasMore: boolean;
+  total?: number | null;
+  source: 'local';
+};
+
 export type LibraryLabelAlbumsRequest = {
   serverId: string;
   label: string;

@@ -15,5 +15,9 @@ export const moods = {
   sortPopularity: 'Popularity',
   sortAlphabetical: 'Alphabetical',
   albumsEmpty: 'No albums found for this mood.',
+  albumsTab: "Albums",
+  tracksTab: "Tracks",
+  viewTabsLabel: "Mood results",
+  tracksEmpty: "No tracks found for this mood.",
   back: 'Back',
 };

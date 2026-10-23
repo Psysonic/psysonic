@@ -243,7 +243,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Slaat de equalizer-instellingen op voor elk audio-uitvoerapparaat en herstelt ze automatisch wanneer je van apparaat wisselt. Bij Systeemstandaard volgen profielen de actieve systeemuitvoer, ook wanneer die buiten Psysonic wordt gewijzigd.',
   hiResTitle: 'Natieve hi-res-weergave',
   hiResEnabled: 'Natieve hi-res-weergave inschakelen',
-  hiResDesc: "Speelt elke track af op zijn oorspronkelijke samplerate in plaats van alles te herbemonsteren naar 44,1 kHz, en stelt het uitvoerapparaat af op het bestand (88,2 kHz en hoger). Alleen inschakelen als hardware en netwerk hoge samplerates betrouwbaar aankunnen.",
+  hiResDesc: "Speelt elke track af op zijn oorspronkelijke samplerate in plaats van te herbemonsteren naar de uitvoerfrequentie van het systeem, en stelt het uitvoerapparaat af op het bestand. Alleen inschakelen als hardware en netwerk hoge samplerates betrouwbaar aankunnen.",
   hiResCrossfadeResampleTitle: 'Crossfade / AutoDJ / Gapless mengfrequentie',
   hiResCrossfadeResampleDesc: 'Als aangrenzende tracks verschillende samplerates hebben, worden beide kanten naar deze frequentie geresampled tijdens crossfade-, AutoDJ- en gapless-overgangen.',
   hiResCrossfadeResample44: '44,1 kHz',

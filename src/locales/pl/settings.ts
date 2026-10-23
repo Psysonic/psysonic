@@ -247,7 +247,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Zapisuje ustawienia korektora dla każdego urządzenia wyjściowego audio i automatycznie przywraca je po przełączeniu urządzenia. Przy wybranej domyślnej systemowej konfiguracja podąża za aktywnym wyjściem systemowym, także gdy zmieni się poza Psysonic.',
   hiResTitle: 'Natywne odtwarzanie w wysokiej rozdzielczości',
   hiResEnabled: 'Włącz natywne odtwarzanie w wysokiej rozdzielczości',
-  hiResDesc: "Wymusza 44.1 kHz dla maksymalnej stabilności. Włącz tylko wtedy, gdy sprzęt i sieć niezawodnie obsługują wysokie częstotliwości próbkowania (88.2 kHz+).",
+  hiResDesc: "Odtwarza każdy utwór z oryginalną częstotliwością próbkowania zamiast przeliczać ją na systemową częstotliwość wyjściową, dostosowując urządzenie audio do pliku. Włącz tylko wtedy, gdy sprzęt i sieć niezawodnie obsługują wysokie częstotliwości próbkowania.",
   hiResCrossfadeResampleTitle: 'Częstotliwość mieszania dla Crossfade / AutoDJ / przejść bez przerw',
   hiResCrossfadeResampleDesc: 'Gdy sąsiednie utwory mają różne częstotliwości próbkowania, obie strony są resamplowane do tej częstotliwości podczas crossfade, AutoDJ i przejść bez przerw.',
   hiResCrossfadeResample44: '44.1 kHz',

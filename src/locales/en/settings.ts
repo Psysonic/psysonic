@@ -247,7 +247,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Save the equalizer settings for each audio output device and restore them automatically when you switch devices. With System Default selected, profiles follow the active system output, including when it changes outside Psysonic.',
   hiResTitle: 'Native Hi-Res Playback',
   hiResEnabled: 'Enable native hi-res playback',
-  hiResDesc: "Plays each track at its original sample rate instead of resampling everything to 44.1 kHz, switching the audio device to match the file (88.2 kHz and up). Enable only if your hardware and network reliably handle high sample rates.",
+  hiResDesc: "Plays each track at its original sample rate instead of resampling to the system output rate, switching the audio device to match the file. Enable only if your hardware and network reliably handle high sample rates.",
   hiResCrossfadeResampleTitle: 'Crossfade / AutoDJ / Gapless blend rate',
   hiResCrossfadeResampleDesc: 'When adjacent tracks have different sample rates, both sides are resampled to this rate during crossfade, AutoDJ, and gapless transitions.',
   hiResCrossfadeResample44: '44.1 kHz',

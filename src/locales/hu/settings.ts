@@ -247,7 +247,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Elmenti a hangszínszabályzó beállításait minden hangkimeneti eszközhöz, és automatikusan visszaállítja őket eszközváltáskor. Rendszer alapértelmezés mellett a profilok követik az aktív rendszerkimenetet, beleértve a Psysonic-on kívüli váltásokat is.',
   hiResTitle: 'Natív Hi-Res lejátszás',
   hiResEnabled: 'Natív Hi-Res lejátszás engedélyezése',
-  hiResDesc: 'Minden számot az eredeti mintavételezési frekvenciáján játszik le, ahelyett, hogy mindent 44,1 kHz-re mintavételezne újra, és a hangeszközt a fájlhoz igazítja (88,2 kHz-től felfelé). Csak akkor engedélyezd, ha a hardvered és a hálózatod megbízhatóan kezeli a magas mintavételezési frekvenciákat.',
+  hiResDesc: 'Minden számot az eredeti mintavételezési frekvenciáján játszik le a rendszer kimeneti frekvenciájára történő újramintavételezés helyett, és a hangeszközt a fájlhoz igazítja. Csak akkor engedélyezd, ha a hardvered és a hálózatod megbízhatóan kezeli a magas mintavételezési frekvenciákat.',
   hiResCrossfadeResampleTitle: 'Crossfade / AutoDJ / Gapless keverési frekvencia',
   hiResCrossfadeResampleDesc: 'Ha a szomszédos számok mintavételezési frekvenciája eltér, mindkét oldal erre a frekvenciára kerül átmintavételezésre crossfade, AutoDJ és gapless átmeneteknél.',
   hiResCrossfadeResample44: '44,1 kHz',

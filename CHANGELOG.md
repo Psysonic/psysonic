@@ -91,6 +91,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A new **Labels** entry in the sidebar lists the record labels in your library, A–Z, with a filter box, a letter jump bar and the album count of each label. It covers every server and library you browse, like Genres and Moods. It is hidden by default; turn it on under **Settings → Personalisation → Sidebar**.
 * Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, loading more as you scroll. After upgrading, the app builds the label index once before opening the library, with progress shown while it works.
 
+### Browse individual tracks by mood
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1685](https://github.com/Psysonic/psysonic/pull/1685)**
+
+* Mood detail now has **Albums** and **Tracks** tabs. Albums remains the default; Tracks pages through songs carrying that exact mood, using the standard song-list controls.
+* Switching tabs or returning from an album or artist preserves the loaded results and scroll position. Track browsing uses the local library index and does not require a new server endpoint.
+
 ### Touchpad gestures: swipe to go back, pinch to zoom covers
 
 **By [@circle3451](https://github.com/circle3451), PR [#1695](https://github.com/Psysonic/psysonic/pull/1695)**
@@ -341,6 +348,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The short notices at the bottom of the window, such as confirmations, warnings and errors, were never read out by screen readers. They are now announced: notices politely, errors right away.
 
+### Mood tags survive unrelated metadata updates
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1712](https://github.com/Psysonic/psysonic/pull/1712)**
+
+* Valid file moods are no longer hidden when an unrelated Navidrome tag snapshot is cached beside them. Explicit mood removal still clears the old value.
+* Existing ambiguous entries are checked against current Navidrome metadata while playback is idle and the server is available; cached values are not guessed while offline.
+
 ### Bandcamp playback now includes waveform, loudness and BPM analysis
 
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1713](https://github.com/Psysonic/psysonic/pull/1713)**
@@ -510,6 +524,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1791](https://github.com/Psysonic/psysonic/pull/1791)**
 
 * After upgrading Navidrome, migration could fail repeatedly when two distinct tracks had stale aliases pointing at each other. They now migrate separately, keeping their listening history, ratings and offline copies, without manual database edits.
+
+### Linux playback follows the system output rate
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1793](https://github.com/Psysonic/psysonic/pull/1793)**
+
+* With Native Hi-Res Playback off, PipeWire output now uses the system clock instead of an artificial 44.1 kHz default. If the system rate cannot be discovered, Psysonic prefers supported 48 kHz; latency hints follow the actual output rate.
 
 ## [1.55.0]
 
