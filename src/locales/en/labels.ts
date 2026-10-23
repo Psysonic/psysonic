@@ -1,0 +1,15 @@
+export const labels = {
+  title: 'Labels',
+  labelCount: 'Labels',
+  labelCount_one: 'Label',
+  albumCount_one: '{{count}} album',
+  albumCount_other: '{{count}} albums',
+  loading: 'Loading labels…',
+  empty: 'No record labels found.',
+  noMatches: 'No labels match your filter.',
+  albumsEmpty: 'No albums found for this label.',
+  back: 'Back',
+  filterPlaceholder: 'Filter labels',
+  jumpTo: 'Jump to letter',
+  other: 'Other',
+};

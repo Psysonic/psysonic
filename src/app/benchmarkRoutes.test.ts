@@ -30,7 +30,6 @@ describe('benchmark routes', () => {
       artist: 'Artist',
       songCount: 1,
       duration: 1,
-      recordLabel: 'A & B',
       genre: 'Rock & Roll',
     }] as SubsonicAlbum[];
     const artists = [{ id: 'artist-1', serverId: 'srv-1', name: 'Artist' }] as SubsonicArtist[];
@@ -42,9 +41,12 @@ describe('benchmark routes', () => {
       artists,
       composers,
       playlists,
+      labels: [
+        { value: 'Small', albumCount: 2, songCount: 20 },
+        { value: 'A & B', albumCount: 40, songCount: 400 },
+      ],
       activeServerId: 'srv-1',
       configuredServerIds: new Set(['srv-1']),
-      networkAllowedServerIds: new Set(['srv-1']),
     });
 
     expect(result.skippedRoutes).toEqual([]);
@@ -52,7 +54,7 @@ describe('benchmark routes', () => {
       '/album/album-1?server=srv-1',
       '/artist/artist-1?server=srv-1',
       '/composer/composer-1?server=srv-1',
-      '/label/A%20%26%20B?server=srv-1',
+      '/label/A%20%26%20B',
       '/genres/Rock%20%26%20Roll',
       '/playlists/playlist-1?server=srv-1',
     ]);
@@ -64,9 +66,9 @@ describe('benchmark routes', () => {
       artists: [],
       composers: [],
       playlists: [],
+      labels: [],
       activeServerId: null,
       configuredServerIds: new Set(),
-      networkAllowedServerIds: new Set(),
     });
 
     expect(result.routes).toEqual([]);

@@ -4,16 +4,15 @@ import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import { useEffect, useState, Fragment, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { AlbumCard } from '@/features/album';
-import { ArrowDownUp } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
 import { useTranslation } from 'react-i18next';
 import { useArtistLayoutStore, type ArtistSectionId } from '@/features/artist/store/artistLayoutStore';
 import {
-  DEFAULT_ARTIST_ALBUM_YEAR_ORDER,
-  useArtistAlbumYearSortStore,
-} from '@/features/artist/store/artistAlbumYearSortStore';
+  DEFAULT_ARTIST_ALBUM_ORDER,
+  useArtistAlbumSortStore,
+} from '@/features/artist/store/artistAlbumSortStore';
 
 import { useArtistDetailData } from '@/features/artist/hooks/useArtistDetailData';
 import { useArtistSimilarArtists } from '@/features/artist/hooks/useArtistSimilarArtists';
@@ -42,7 +41,8 @@ import { useLibraryCoverPrefetch } from '@/cover/useLibraryCoverPrefetch';
 import { useWarmGridCovers } from '@/cover/useWarmGridCovers';
 import { VirtualCardGrid } from '@/ui/VirtualCardGrid';
 import { LOSSLESS_MODE_QUERY } from '@/lib/library/losslessMode';
-import { sortArtistAlbumsByYear } from '@/features/artist/utils/sortArtistAlbums';
+import { sortArtistAlbums, type ArtistAlbumOrder } from '@/features/artist/utils/sortArtistAlbums';
+import CustomSelect from '@/ui/CustomSelect';
 import { readDetailServerId } from '@/lib/navigation/detailServerScope';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { deriveEntitySourceScopes } from '@/lib/library/libraryBrowseScope';
@@ -100,10 +100,10 @@ export default function ArtistDetail() {
 
   const playTrack = usePlayerStore(state => state.playTrack);
   const enqueue = usePlayerStore(state => state.enqueue);
-  const albumYearOrder = useArtistAlbumYearSortStore(
-    s => s.orderByServer[activeServerId] ?? DEFAULT_ARTIST_ALBUM_YEAR_ORDER,
+  const albumOrder = useArtistAlbumSortStore(
+    s => s.orderByServer[activeServerId] ?? DEFAULT_ARTIST_ALBUM_ORDER,
   );
-  const toggleAlbumYearOrder = useArtistAlbumYearSortStore(s => s.toggleYearOrder);
+  const setAlbumOrder = useArtistAlbumSortStore(s => s.setOrder);
   // MUST stay above the loading / !artist early returns or React's hook
   // call order will mismatch between renders.
   const sectionConfig = useArtistLayoutStore(s => s.sections);
@@ -209,7 +209,7 @@ export default function ArtistDetail() {
     }
 
     const sortGroup = (group: SubsonicAlbum[]) =>
-      sortArtistAlbumsByYear(group, albumYearOrder);
+      sortArtistAlbums(group, albumOrder);
 
     if (groups.size === 1 && groups.has(defaultKey)) {
       return [[translateType(defaultKey), sortGroup(albums)] as const];
@@ -226,7 +226,7 @@ export default function ArtistDetail() {
         key.split(' · ').map(translateType).join(' · '),
         sortGroup(group),
       ] as const);
-  }, [albums, albumYearOrder, t]);
+  }, [albums, albumOrder, t]);
 
   useEffect(() => {
     // React Compiler set-state-in-effect rule: state set from an async result resolved in this effect.
@@ -423,18 +423,18 @@ export default function ArtistDetail() {
                     : t('artistDetail.albumsBy', { name: artist.name })}
                 </h2>
                 {albums.length > 0 && (
-                  <button
-                    type="button"
-                    className="btn btn-surface btn-sort-active"
-                    onClick={() => toggleAlbumYearOrder(activeServerId)}
-                    aria-label={t('artistDetail.sortYearToggleAria')}
-                    style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                  >
-                    <ArrowDownUp size={14} />
-                    {albumYearOrder === 'yearDesc'
-                      ? t('artistDetail.sortYearDesc')
-                      : t('artistDetail.sortYearAsc')}
-                  </button>
+                  <CustomSelect
+                    value={albumOrder}
+                    options={[
+                      { value: 'yearDesc', label: t('artistDetail.sortYearDesc') },
+                      { value: 'yearAsc', label: t('artistDetail.sortYearAsc') },
+                      { value: 'nameAsc', label: t('artistDetail.sortNameAsc') },
+                      { value: 'nameDesc', label: t('artistDetail.sortNameDesc') },
+                    ]}
+                    onChange={v => setAlbumOrder(activeServerId, v as ArtistAlbumOrder)}
+                    ariaLabel={t('artistDetail.sortAlbumsAria')}
+                    style={{ width: 'max-content', minWidth: 170, maxWidth: 240, flexShrink: 0 }}
+                  />
                 )}
               </div>
               {albums.length > 0 ? (

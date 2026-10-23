@@ -16,6 +16,7 @@ import { useNavigateToArtist } from '@/features/artist';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { resolveTrackArtistRefs } from '@/features/playback/utils/playback/trackArtistRefs';
 import { shuffleArray } from '@/lib/util/shuffleArray';
+import { useShowStarRatings } from '@/store/starRatings';
 
 const RANDOM_RAIL_SIZE = 18;
 const RATED_RAIL_FETCH = 60;
@@ -46,6 +47,7 @@ export default function TracksPageChrome({
   const [random, setRandom] = useState<SubsonicSong[]>([]);
   const [randomLoading, setRandomLoading] = useState(true);
   const [rated, setRated] = useState<SubsonicSong[]>([]);
+  const showStarRatings = useShowStarRatings();
   const [ratedLoading, setRatedLoading] = useState(true);
   const [ratedSupported, setRatedSupported] = useState(true);
   const layoutReadyNotifiedRef = useRef(false);
@@ -195,7 +197,7 @@ export default function TracksPageChrome({
         </section>
       )}
 
-      {!perfFlags.disableMainstageRails && !hideDiscoveryChrome && ratedSupported && (ratedLoading || rated.length > 0) && (
+      {!perfFlags.disableMainstageRails && !hideDiscoveryChrome && showStarRatings && ratedSupported && (ratedLoading || rated.length > 0) && (
         <SongRail
           title={t('tracks.railHighlyRated')}
           songs={rated}

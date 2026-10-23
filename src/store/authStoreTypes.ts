@@ -358,6 +358,8 @@ export interface AuthState {
   /** Parent directory; actual cache is `<dir>/psysonic-hot-cache/`. Empty = app data. */
   hotCacheDownloadDir: string;
 
+  /** Show star ratings and rating controls. Off for servers with ratings disabled (#1779). */
+  showStarRatings: boolean;
   /** After this many manual skips of the same track, set track rating to 1 if still unrated (below 1 star). */
   skipStarOnManualSkipsEnabled: boolean;
   /** Manual skips per track before applying rating 1 (when enabled). */
@@ -566,6 +568,7 @@ export interface AuthState {
   setHotCacheDebounceSec: (v: number) => void;
   setHotCacheDownloadDir: (v: string) => void;
   setMediaDir: (v: string) => void;
+  setShowStarRatings: (v: boolean) => void;
   setSkipStarOnManualSkipsEnabled: (v: boolean) => void;
   setSkipStarManualSkipThreshold: (v: number) => void;
   setMixMinRatingFilterEnabled: (v: boolean) => void;
