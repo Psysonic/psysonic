@@ -246,7 +246,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Salvează setările egalizatorului pentru fiecare dispozitiv de ieșire audio și le restaurează automat la schimbarea dispozitivului. Cu Ieșirea sistemului selectată, profilele urmăresc ieșirea activă a sistemului, inclusiv când se schimbă în afara Psysonic.',
   hiResTitle: 'Playback Hi-Res nativ',
   hiResEnabled: 'Pornește playback-ul hi-res nativ',
-  hiResDesc: "Redă fiecare piesă la rata sa de eșantionare originală în loc să reeșantioneze totul la 44.1 kHz, comutând dispozitivul de ieșire pentru a se potrivi cu fișierul (88.2 kHz și peste). Pornește doar dacă hardware-ul și rețeaua gestionează fiabil rate mari de eșantionare.",
+  hiResDesc: "Redă fiecare piesă la rata sa de eșantionare originală în loc să o reeșantioneze la rata de ieșire a sistemului, adaptând dispozitivul audio la fișier. Pornește doar dacă hardware-ul și rețeaua gestionează fiabil rate mari de eșantionare.",
   hiResCrossfadeResampleTitle: 'Rată de mixaj Crossfade / AutoDJ / Gapless',
   hiResCrossfadeResampleDesc: 'Când piesele adiacente au rate de eșantionare diferite, ambele părți sunt reeșantionate la această rată în timpul crossfade-ului, AutoDJ și tranzițiilor gapless.',
   hiResCrossfadeResample44: '44,1 kHz',

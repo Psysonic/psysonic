@@ -247,7 +247,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Salva le impostazioni dell\'equalizzatore per ogni dispositivo di uscita audio e ripristinale automaticamente quando cambi dispositivo. Con Uscita di sistema selezionata, i profili seguono l\'uscita di sistema attiva, anche se cambiata al di fuori di Psysonic.',
   hiResTitle: 'Riproduzione Hi-Res nativa',
   hiResEnabled: 'Attiva riproduzione hi-res nativa',
-  hiResDesc: 'Riproduce ogni brano al suo sample rate originale invece di ricampionare tutto a 44,1 kHz, cambiando il dispositivo audio in base al file (da 88,2 kHz in su). Attivalo solo se il tuo hardware e la tua rete gestiscono in modo affidabile sample rate elevati.',
+  hiResDesc: 'Riproduce ogni brano alla frequenza di campionamento originale invece di ricampionarlo alla frequenza di uscita del sistema, adattando il dispositivo audio al file. Attivalo solo se il tuo hardware e la tua rete gestiscono in modo affidabile frequenze di campionamento elevate.',
   hiResCrossfadeResampleTitle: 'Frequenza di miscelazione per Crossfade / AutoDJ / Gapless',
   hiResCrossfadeResampleDesc: 'Quando i brani adiacenti hanno sample rate diversi, entrambi vengono ricampionati a questa frequenza durante crossfade, AutoDJ e transizioni gapless.',
   hiResCrossfadeResample44: '44,1 kHz',

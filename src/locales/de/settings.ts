@@ -244,7 +244,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Speichert die Equalizer-Einstellungen für jedes Audioausgabegerät und stellt sie beim Wechsel automatisch wieder her. Bei Systemstandard folgen die Profile der aktiven Systemausgabe, auch wenn sie außerhalb von Psysonic gewechselt wird.',
   hiResTitle: 'Native Hi-Res-Wiedergabe',
   hiResEnabled: 'Native Hi-Res-Wiedergabe aktivieren',
-  hiResDesc: "Spielt jeden Titel mit seiner ursprünglichen Abtastrate ab, statt alles auf 44,1 kHz herunterzurechnen, und stellt das Ausgabegerät passend zur Datei um (88,2 kHz und höher). Nur aktivieren, wenn Hardware und Netzwerk hohe Abtastraten zuverlässig verarbeiten.",
+  hiResDesc: "Spielt jeden Titel mit seiner ursprünglichen Abtastrate ab, statt ihn auf die System-Ausgaberate umzurechnen, und stellt das Ausgabegerät passend zur Datei um. Nur aktivieren, wenn Hardware und Netzwerk hohe Abtastraten zuverlässig verarbeiten.",
   hiResCrossfadeResampleTitle: 'Crossfade / AutoDJ / Gapless Mischrate',
   hiResCrossfadeResampleDesc: 'Wenn benachbarte Titel unterschiedliche Abtastraten haben, werden beide Seiten für Crossfade-, AutoDJ- und Gapless-Übergänge auf diese Rate resampled.',
   hiResCrossfadeResample44: '44,1 kHz',

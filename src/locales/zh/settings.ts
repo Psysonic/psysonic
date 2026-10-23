@@ -243,7 +243,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: '为每个音频输出设备保存均衡器设置，并在切换设备时自动恢复。选择系统默认时，配置会跟随当前系统输出，包括在 Psysonic 外部切换时。',
   hiResTitle: '原生高清晰度播放',
   hiResEnabled: '启用原生高清晰度播放',
-  hiResDesc: "以每个曲目的原始采样率播放，而不是将所有内容重采样到 44.1 kHz，并将输出设备切换为与文件匹配（88.2 kHz 及以上）。仅在硬件和网络能可靠处理高采样率时启用。",
+  hiResDesc: "以每个曲目的原始采样率播放，而不是重采样到系统输出采样率，并将音频设备切换为与文件匹配。仅在硬件和网络能可靠处理高采样率时启用。",
   hiResCrossfadeResampleTitle: '交叉淡化 / AutoDJ / Gapless 混合采样率',
   hiResCrossfadeResampleDesc: '当相邻曲目的采样率不同时，在交叉淡化、AutoDJ 和无缝过渡期间将两侧重采样到此采样率。',
   hiResCrossfadeResample44: '44.1 kHz',

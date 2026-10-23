@@ -243,7 +243,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Guarda los ajustes del ecualizador para cada dispositivo de salida de audio y los restaura automáticamente al cambiar de dispositivo. Con Salida del sistema seleccionada, los perfiles siguen la salida activa del sistema, incluso si cambia fuera de Psysonic.',
   hiResTitle: 'Reproducción Nativa Hi-Res',
   hiResEnabled: 'Habilitar reproducción nativa hi-res',
-  hiResDesc: "Reproduce cada pista a su frecuencia de muestreo original en vez de remuestrear todo a 44.1 kHz, ajustando el dispositivo de salida para que coincida con el archivo (88.2 kHz o más). Habilítalo solo si tu hardware y tu red soportan de forma fiable altas tasas de muestreo.",
+  hiResDesc: "Reproduce cada pista a su frecuencia de muestreo original en vez de remuestrearla a la frecuencia de salida del sistema, ajustando el dispositivo al archivo. Habilítalo solo si tu hardware y tu red soportan de forma fiable altas tasas de muestreo.",
   hiResCrossfadeResampleTitle: 'Frecuencia de mezcla Crossfade / AutoDJ / Gapless',
   hiResCrossfadeResampleDesc: 'Cuando pistas adyacentes tienen distinta frecuencia de muestreo, ambos lados se remuestrean a esta frecuencia durante crossfade, AutoDJ y transiciones gapless.',
   hiResCrossfadeResample44: '44,1 kHz',

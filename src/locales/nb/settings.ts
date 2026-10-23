@@ -244,7 +244,7 @@ export const settings = {
   audioOutputDeviceRememberEqDesc: 'Lagrer equalizer-innstillingene for hver lydutgangsenhet og gjenoppretter dem automatisk når du bytter enhet. Med systemstandard følger profilene den aktive systemutgangen, også når den endres utenfor Psysonic.',
   hiResTitle: 'Innebygd hi-res-avspilling',
   hiResEnabled: 'Aktiver innebygd hi-res-avspilling',
-  hiResDesc: "Spiller hvert spor med sin opprinnelige samplingsrate i stedet for å nedsample alt til 44,1 kHz, og stiller utdataenheten etter filen (88,2 kHz og høyere). Aktiver kun hvis maskinvare og nettverk håndterer høye samplingsrater pålitelig.",
+  hiResDesc: "Spiller hvert spor med sin opprinnelige samplingsrate i stedet for å resample til systemets utdatafrekvens, og stiller utdataenheten etter filen. Aktiver kun hvis maskinvare og nettverk håndterer høye samplingsrater pålitelig.",
   hiResCrossfadeResampleTitle: 'Crossfade / AutoDJ / Gapless blandingsrate',
   hiResCrossfadeResampleDesc: 'Når nabospor har ulik samplingsrate, resamples begge sider til denne raten under crossfade-, AutoDJ- og gapless-overganger.',
   hiResCrossfadeResample44: '44,1 kHz',
