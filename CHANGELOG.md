@@ -531,6 +531,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * With Native Hi-Res Playback off, PipeWire output now uses the system clock instead of an artificial 44.1 kHz default. If the system rate cannot be discovered, Psysonic prefers supported 48 kHz; latency hints follow the actual output rate.
 
+### Gapless playback repeats the same song without restarting
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1794](https://github.com/Psysonic/psysonic/pull/1794)**
+
+* With gapless playback enabled, repeat-one, a one-song repeat-all queue and consecutive copies of the same song now prepare the next playback in advance instead of pausing to restart. Changing repeat mode also cancels an already prepared successor.
+
 ## [1.55.0]
 
 ## Added
