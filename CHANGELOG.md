@@ -334,6 +334,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The short notices at the bottom of the window, such as confirmations, warnings and errors, were never read out by screen readers. They are now announced: notices politely, errors right away.
 
+### Mood tags survive unrelated metadata updates
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1712](https://github.com/Psysonic/psysonic/pull/1712)**
+
+* Valid file moods are no longer hidden when an unrelated Navidrome tag snapshot is cached beside them. Explicit mood removal still clears the old value.
+* Existing ambiguous entries are checked against current Navidrome metadata while playback is idle and the server is available; cached values are not guessed while offline.
+
 ### Bandcamp playback now includes waveform, loudness and BPM analysis
 
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1713](https://github.com/Psysonic/psysonic/pull/1713)**
