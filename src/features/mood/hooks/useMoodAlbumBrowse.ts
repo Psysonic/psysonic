@@ -94,7 +94,8 @@ export function useMoodAlbumBrowse(
     useLibraryScopeSyncRevision(syncServerIds);
   const cacheKey = JSON.stringify([
     serverId,
-    mood.trim().toLowerCase(),
+    // Match the exact identity used by mood requests and detail-session stashes.
+    mood.trim(),
     indexEnabled,
     sort,
     musicLibraryFilterVersion,

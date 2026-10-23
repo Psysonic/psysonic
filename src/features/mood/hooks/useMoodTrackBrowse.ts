@@ -28,7 +28,8 @@ function moodTrackBrowseCacheKey(
 ): string {
   return JSON.stringify([
     serverId,
-    mood.trim().toLowerCase(),
+    // SQLite NOCASE only folds ASCII; never merge distinct Unicode moods.
+    mood.trim(),
     indexEnabled,
     musicLibraryFilterVersion,
     librarySyncRevision,

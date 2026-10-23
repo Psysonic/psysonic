@@ -159,6 +159,21 @@ describe('MoodDetail', () => {
     );
   });
 
+  it.each([
+    ['', false, true, 'albums', 'ready'],
+    ['', true, false, 'albums', 'loading'],
+    ['?view=tracks', false, true, 'tracks', 'ready'],
+    ['?view=tracks', false, false, 'tracks', 'loading'],
+  ] as const)('reports semantic readiness for %s loading=%s session=%s', (search, loading, sessionReady, tab, state) => {
+    hoisted.useMoodAlbumBrowse.mockReturnValue({ ...emptyBrowseResult, loading, sessionReady });
+    hoisted.useMoodTrackBrowse.mockReturnValue({ ...emptyTrackBrowseResult, loading, sessionReady });
+    const rendered = renderMoodDetail('Night Drive', search);
+    const root = rendered.container.querySelector('[data-benchmark-mood-name]');
+    expect(root).toHaveAttribute('data-benchmark-mood-name', 'Night Drive');
+    expect(root).toHaveAttribute('data-benchmark-mood-view', tab);
+    expect(root).toHaveAttribute('data-benchmark-mood-state', state);
+  });
+
   it('renders the selected mood and matching albums', async () => {
     hoisted.useMoodAlbumBrowse.mockReturnValue({
       ...emptyBrowseResult,

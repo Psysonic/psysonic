@@ -537,6 +537,10 @@ export default function MoodDetail() {
 
   return (
     <div
+      data-benchmark-mood-name={mood}
+      data-benchmark-mood-view={view}
+      data-benchmark-mood-state={!indexEnabled ? 'unavailable' : activeLoading || !activeSessionReady ? 'loading' : 'ready'}
+      data-benchmark-result-count={activeDisplayCount}
       className={
         `content-body animate-fade-in mainstage-inpage-split${mainstageHeaderTight
           ? ' mainstage-inpage--header-tight'
