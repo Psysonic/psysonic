@@ -25,8 +25,8 @@ vi.mock('@/lib/util/shuffleArray', () => ({
 }));
 
 vi.mock('@/store/authStore', () => ({
-  useAuthStore: (selector: (state: { activeServerId: string }) => unknown) =>
-    selector({ activeServerId: 'server-1' }),
+  useAuthStore: (selector: (state: { activeServerId: string; showStarRatings: boolean }) => unknown) =>
+    selector({ activeServerId: 'server-1', showStarRatings: true }),
 }));
 
 vi.mock('@/features/playback/store/playerStore', () => ({

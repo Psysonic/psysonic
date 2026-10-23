@@ -9,6 +9,7 @@ import { resolveMediaServerId } from '@/features/offline';
 import { AddToPlaylistSubmenu } from '@/features/contextMenu/components/AddToPlaylistSubmenu';
 import type { ContextMenuItemsProps } from '@/features/contextMenu/components/contextMenuItemTypes';
 import { useBurnMenuAvailable } from '@/features/contextMenu/hooks/useBurnMenuAvailable';
+import { useShowStarRatings } from '@/store/starRatings';
 
 /**
  * Menu for a multi-row track selection.
@@ -27,6 +28,7 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
     handleAction, isStarred, offlinePolicy,
   } = props;
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const { available: burnAvailable, busy: burnBusy } = useBurnMenuAvailable(offlinePolicy);
   const songs = item as Track[];
   const ratingId = multiTrackRatingId(songs);
@@ -100,7 +102,7 @@ export default function MultiSongContextItems(props: ContextMenuItemsProps) {
           </div>
         </>
       )}
-      {offlinePolicy.canRate && (
+      {offlinePolicy.canRate && showStarRatings && (
         <div
           className="context-menu-rating-row"
           data-rating-kind="song"

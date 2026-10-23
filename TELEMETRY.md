@@ -44,6 +44,8 @@ If you enable one of these integrations, data may be transmitted to the respecti
 
 You decide which integrations you want to use.
 
+Apart from these integrations, Psysonic only checks GitHub for app updates, release notes and theme updates. Those requests carry no usage data. [PRIVACY.md](PRIVACY.md) lists every connection the app makes and what it sends.
+
 ## Community Feedback Instead of Silent Tracking
 
 Instead of telemetry, Psysonic relies on direct community feedback.

@@ -23,6 +23,21 @@ describe('InputTab row click to play', () => {
   });
 });
 
+describe('InputTab touchpad swipe', () => {
+  afterEach(() => {
+    useThemeStore.setState({ touchpadSwipeNavigation: true });
+  });
+
+  it('turns swipe-to-navigate off and on', () => {
+    renderWithProviders(<InputTab />);
+    const toggle = screen.getByRole('checkbox', { name: 'Swipe to go back and forward' });
+    expect(toggle).toBeChecked();
+
+    fireEvent.click(toggle);
+    expect(useThemeStore.getState().touchpadSwipeNavigation).toBe(false);
+  });
+});
+
 describe('InputTab shortcut capture', () => {
   function badges(label: string): HTMLElement[] {
     return screen.getAllByText(label).map(

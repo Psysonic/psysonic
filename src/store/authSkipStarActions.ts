@@ -19,15 +19,19 @@ type GetState = () => AuthState;
  *
  * Disabling the feature wipes the counter map so re-enabling later
  * doesn't resume from stale partial counts.
+ *
+ * Also holds the switch that hides star ratings altogether.
  */
 export function createSkipStarActions(set: SetState, get: GetState): Pick<
   AuthState,
+  | 'setShowStarRatings'
   | 'setSkipStarOnManualSkipsEnabled'
   | 'setSkipStarManualSkipThreshold'
   | 'recordSkipStarManualAdvance'
   | 'clearSkipStarManualCountForTrack'
 > {
   return {
+    setShowStarRatings: (v) => set({ showStarRatings: v }),
     setSkipStarOnManualSkipsEnabled: (v) =>
       set({
         skipStarOnManualSkipsEnabled: v,

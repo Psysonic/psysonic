@@ -39,6 +39,10 @@ export const migration = {
   fileMoodTagsBody:
     'Indexing file mood tags for browse and filters. This runs once after upgrade.',
   fileMoodTagsFailed: 'Mood index update failed',
+  recordLabelTagsTitle: 'Updating label index…',
+  recordLabelTagsBody:
+    'Indexing record labels for browsing. This runs once after upgrade.',
+  recordLabelTagsFailed: 'Label index update failed',
   scopeBrowseProjectionTitle: 'Updating library browse index…',
   scopeBrowseProjectionBody: 'Preparing your album catalogue for faster browsing. This runs once after upgrade.',
   scopeBrowseProjectionFailed: 'Library browse index update failed',
