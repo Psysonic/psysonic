@@ -142,9 +142,10 @@ describe('requestGaplessChainPreload', () => {
       currentTrack: track('t1'), nextTrack: track('t1'), nextRef: ref('t1'),
       nextIdx: 0, queueItems, repeatMode: 'one', volume: 0.75,
     });
+    await Promise.resolve();
     if (change === 'slot') usePlayerStore.setState({ queueIndex: 1 });
     if (change === 'disabled') useAuthStore.setState({ gaplessEnabled: false });
-    if (change === 'repeat') usePlayerStore.setState({ repeatMode: 'off', queueItems: [ref('t1')] });
+    if (change === 'repeat') usePlayerStore.setState({ repeatMode: 'all' });
     if (change === 'generation') bumpPlayGeneration();
     if (change === 'boundary') markGaplessSwitch();
     finish(track('t1'));

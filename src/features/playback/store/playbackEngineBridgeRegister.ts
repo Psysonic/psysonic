@@ -35,3 +35,12 @@ registerPlaybackEngineBridge({
 subscribeConnectCache(() => {
   void invalidateNativePreloads().catch(() => {});
 });
+
+// A repeat-mode change can replace the already decoded successor (including
+// a repeated current song). Cancel that source before progress prepares the
+// new successor; keep the currently audible source and playback position.
+usePlayerStore.subscribe((state, previous) => {
+  if (state.repeatMode !== previous.repeatMode) {
+    void invalidateNativePreloads().catch(() => {});
+  }
+});

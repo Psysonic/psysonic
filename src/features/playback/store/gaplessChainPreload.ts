@@ -103,6 +103,7 @@ export function requestGaplessChainPreload(ctx: GaplessChainPreloadContext): voi
   const { nextTrack } = ctx;
   const startIndex = usePlayerStore.getState().queueIndex;
   const startTrack = usePlayerStore.getState().currentTrack;
+  const startRepeatMode = usePlayerStore.getState().repeatMode;
   const startGeneration = getPlayGeneration();
   const startSwitchTime = getLastGaplessSwitchTime();
   const preloadIdentity = ctx.nextRef
@@ -111,7 +112,10 @@ export function requestGaplessChainPreload(ctx: GaplessChainPreloadContext): voi
   if (getGaplessPreloadingId() === preloadIdentity) return;
   if (gaplessChainPrepareInflight.has(preloadIdentity)) return;
 
-  const job = (async () => {
+  // Install the in-flight marker before work begins, even when an unscoped
+  // source needs no async metadata lookup. Otherwise its synchronous finally
+  // runs before Map.set and permanently blocks the following repeat.
+  const job = Promise.resolve().then(async () => {
     try {
       const serverId = ctx.nextRef
         ? playbackCacheKeyForRef(ctx.nextRef)
@@ -129,6 +133,7 @@ export function requestGaplessChainPreload(ctx: GaplessChainPreloadContext): voi
       const store = usePlayerStore.getState();
       if (!store.isPlaying || store.currentRadio) return;
       if (!useAuthStore.getState().gaplessEnabled) return;
+      if (store.repeatMode !== startRepeatMode) return;
       if (getPlayGeneration() !== startGeneration || getLastGaplessSwitchTime() !== startSwitchTime) return;
       if (store.queueIndex !== startIndex || store.currentTrack !== startTrack) return;
       if (!sameQueueTrack(store.currentTrack, ctx.currentTrack)) return;
@@ -159,7 +164,7 @@ export function requestGaplessChainPreload(ctx: GaplessChainPreloadContext): voi
     } finally {
       gaplessChainPrepareInflight.delete(preloadIdentity);
     }
-  })().catch(() => {});
+  }).catch(() => {});
   gaplessChainPrepareInflight.set(preloadIdentity, job);
 }
 
