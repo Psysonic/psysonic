@@ -13,8 +13,10 @@ import {
   resolvePlaybackUrlForTrack,
 } from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { resolveQueueTrack } from '@/features/playback/store/queueTrackView';
+import { resolveGaplessSuccessor } from '@/features/playback/store/gaplessSuccessor';
 import {
   getGaplessPreloadingId,
+  getLastGaplessSwitchTime,
   setGaplessPreloadingId,
 } from '@/features/playback/store/gaplessPreloadState';
 import {
@@ -25,6 +27,7 @@ import { refreshLoudnessForTrack } from '@/features/playback/store/loudnessRefre
 import { analysisTrackRef } from '@/features/playback/store/analysisTrackRef';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
+import { getPlayGeneration } from '@/features/playback/store/engineState';
 import {
   queueItemIdentityKey,
   queueItemRefMatchesTrack,
@@ -49,6 +52,7 @@ function gaplessNextNeighbour(
   ctx: GaplessChainPreloadContext,
 ): Track | null {
   const { nextIdx, queueItems, repeatMode } = ctx;
+  if (repeatMode === 'one') return ctx.nextTrack;
   const nextNeighbourRef = nextIdx + 1 < queueItems.length
     ? queueItems[nextIdx + 1]
     : (repeatMode === 'all' && queueItems.length > 0 ? queueItems[0] : null);
@@ -90,18 +94,6 @@ function invokeGaplessChainPreload(
   }).catch(() => {});
 }
 
-function liveNextRefForContext(
-  queueItems: QueueItemRef[],
-  queueIndex: number,
-  repeatMode: 'off' | 'one' | 'all',
-): QueueItemRef | null {
-  if (repeatMode === 'one') return null;
-  const nextIdx = queueIndex + 1;
-  if (nextIdx < queueItems.length) return queueItems[nextIdx] ?? null;
-  if (repeatMode === 'all' && queueItems.length > 0) return queueItems[0] ?? null;
-  return null;
-}
-
 /**
  * Prefetch metadata + loudness, then hand the next track to `audio_chain_preload`.
  * Coalesces concurrent prepares for the same id; retries on the next progress
@@ -109,6 +101,10 @@ function liveNextRefForContext(
  */
 export function requestGaplessChainPreload(ctx: GaplessChainPreloadContext): void {
   const { nextTrack } = ctx;
+  const startIndex = usePlayerStore.getState().queueIndex;
+  const startTrack = usePlayerStore.getState().currentTrack;
+  const startGeneration = getPlayGeneration();
+  const startSwitchTime = getLastGaplessSwitchTime();
   const preloadIdentity = ctx.nextRef
     ? queueItemIdentityKey(ctx.nextRef)
     : queueTrackIdentityKey(nextTrack.id, nextTrack.serverId);
@@ -132,13 +128,18 @@ export function requestGaplessChainPreload(ctx: GaplessChainPreloadContext): voi
 
       const store = usePlayerStore.getState();
       if (!store.isPlaying || store.currentRadio) return;
+      if (!useAuthStore.getState().gaplessEnabled) return;
+      if (getPlayGeneration() !== startGeneration || getLastGaplessSwitchTime() !== startSwitchTime) return;
+      if (store.queueIndex !== startIndex || store.currentTrack !== startTrack) return;
       if (!sameQueueTrack(store.currentTrack, ctx.currentTrack)) return;
 
-      const liveNextRef = liveNextRefForContext(
+      const { nextTrack: liveNextTrack, newIndex } = resolveGaplessSuccessor(
         store.queueItems,
         store.queueIndex,
         store.repeatMode,
+        store.currentTrack,
       );
+      const liveNextRef = liveNextTrack ? store.queueItems[newIndex] ?? null : null;
       if (!liveNextRef) return;
       if (ctx.nextRef
         ? !sameQueueItemRef(liveNextRef, ctx.nextRef)
@@ -151,6 +152,9 @@ export function requestGaplessChainPreload(ctx: GaplessChainPreloadContext): voi
         currentTrack: store.currentTrack ?? ctx.currentTrack,
         nextTrack: prepared,
         nextRef: liveNextRef,
+        nextIdx: newIndex,
+        queueItems: store.queueItems,
+        repeatMode: store.repeatMode,
       });
     } finally {
       gaplessChainPrepareInflight.delete(preloadIdentity);
