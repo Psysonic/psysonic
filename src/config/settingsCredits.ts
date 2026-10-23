@@ -647,6 +647,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.56.0',
     contributions: [
       'Browse albums by file mood tags (PR #1675)',
+      'Browse individual tracks by mood (PR #1685)',
     ],
   },
   {
