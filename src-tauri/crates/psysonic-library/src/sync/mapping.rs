@@ -27,6 +27,7 @@ const ALBUM_TO_TRACK_RAW_KEYS: &[(&str, &str)] = &[
     ("albumArtists", "albumArtists"),
     ("displayArtist", "displayAlbumArtist"),
     ("displayAlbumArtist", "displayAlbumArtist"),
+    ("recordLabels", "recordLabels"),
 ];
 
 pub(crate) fn album_version_from_tags(raw: &Value) -> Option<&str> {
@@ -100,7 +101,8 @@ fn track_raw_json(raw: &Value) -> String {
 
 /// Copy album-level OpenSubsonic fields onto each track `raw_json` during S2/getAlbum
 /// ingest, so track-grouped album browse can filter compilations and the album header
-/// can show individually linkable artists instead of one joined credit string.
+/// can show individually linkable artists instead of one joined credit string. The
+/// album's `recordLabels` ride along so label browse works for OpenSubsonic rows too.
 ///
 /// Never overwrites a value the track already carries — the track's own field is more
 /// specific — and never writes an explicit null. Entries are applied in order, so the

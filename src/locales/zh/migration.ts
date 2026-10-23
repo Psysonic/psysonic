@@ -16,6 +16,10 @@ export const migration = {
   fileMoodTagsBody:
     '正在索引音乐文件中的情绪标签，以供浏览和筛选。升级后只执行一次。',
   fileMoodTagsFailed: '情绪索引更新失败',
+  recordLabelTagsTitle: '正在更新厂牌索引…',
+  recordLabelTagsBody:
+    '正在索引唱片厂牌，以供浏览。升级后只执行一次。',
+  recordLabelTagsFailed: '厂牌索引更新失败',
   scopeBrowseProjectionTitle: '正在更新资料库浏览索引…',
   scopeBrowseProjectionBody: '正在准备专辑目录以便更快浏览。更新后只会运行一次。',
   scopeBrowseProjectionFailed: '更新资料库浏览索引失败',

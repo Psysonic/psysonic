@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useLocation, useNavigationType, type NavigationType } from 'react-router';
 import {
+  clearLabelDetailReturnStash,
   clearMoodDetailReturnStash,
+  peekLabelDetailScrollRestore,
   peekMoodDetailScrollRestore,
   clearGenreDetailReturnStash,
   peekAlbumBrowseScrollRestore,
@@ -24,6 +26,8 @@ export type UseAlbumBrowseScrollRestoreArgs = {
   genreName?: string;
   /** Mood detail page — uses mood-scoped stash instead of `surface`. */
   moodName?: string;
+  /** Label detail page — uses label-scoped stash instead of `surface`. */
+  labelName?: string;
   scrollBodyEl: HTMLElement | null;
   displayAlbumsLength: number;
   loading: boolean;
@@ -42,6 +46,7 @@ function readPendingScrollRestore(
   surface: AlbumBrowseSurface | undefined,
   genreName: string | undefined,
   moodName: string | undefined,
+  labelName: string | undefined,
   navigationType: NavigationType,
   locationState: unknown,
 ): PendingScroll | null {
@@ -69,6 +74,10 @@ function readPendingScrollRestore(
     );
   }
 
+  if (labelName) {
+    return peekLabelDetailScrollRestore(serverId, labelName);
+  }
+
   if (surface) {
     return peekAlbumBrowseScrollRestore(
       serverId,
@@ -84,6 +93,7 @@ function clearScrollRestoreStash(
   surface: AlbumBrowseSurface | undefined,
   genreName: string | undefined,
   moodName: string | undefined,
+  labelName: string | undefined,
 ): void {
   if (genreName) {
     clearGenreDetailReturnStash(
@@ -98,6 +108,11 @@ function clearScrollRestoreStash(
       serverId,
       moodName,
     );
+    return;
+  }
+
+  if (labelName) {
+    clearLabelDetailReturnStash(serverId, labelName);
     return;
   }
 
@@ -117,6 +132,7 @@ export function useAlbumBrowseScrollRestore({
   surface,
   genreName,
   moodName,
+  labelName,
   scrollBodyEl,
   displayAlbumsLength,
   loading,
@@ -141,13 +157,14 @@ export function useAlbumBrowseScrollRestore({
       surface,
       genreName,
       moodName,
+      labelName,
       navigationType,
       location.state,
     );
   }
 
   const [isScrollRestorePending, setIsScrollRestorePending] = useState(
-    () => readPendingScrollRestore(serverId, surface, genreName, moodName, navigationType, location.state) !== null,
+    () => readPendingScrollRestore(serverId, surface, genreName, moodName, labelName, navigationType, location.state) !== null,
   );
 
   // React Compiler immutability rule: intentional imperative mutation of an external/DOM target inside an effect.
@@ -173,7 +190,7 @@ export function useAlbumBrowseScrollRestore({
     // React Compiler set-state-in-effect rule: state set from a DOM/layout measurement.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsScrollRestorePending(false);
-    clearScrollRestoreStash(serverId, surface, genreName, moodName);
+    clearScrollRestoreStash(serverId, surface, genreName, moodName, labelName);
   }, [
     scrollBodyEl,
     displayAlbumsLength,
@@ -185,6 +202,7 @@ export function useAlbumBrowseScrollRestore({
     surface,
     genreName,
     moodName,
+    labelName,
   ]);
 
   return { isScrollRestorePending };

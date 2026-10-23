@@ -25,6 +25,7 @@ export const sidebar = {
   offlineLibrary: 'オフラインライブラリ',
   genres: 'ジャンル',
   moods: 'ムード',
+  labels: 'レーベル',
   tracks: 'トラック',
   playlists: 'プレイリスト',
   shared: 'ND 共有',

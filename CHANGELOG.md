@@ -84,6 +84,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
 * AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
 
+### Browse by record label
+
+**By [@circle3451](https://github.com/circle3451), PR [#1682](https://github.com/Psysonic/psysonic/pull/1682)**
+
+* A new **Labels** entry in the sidebar lists the record labels in your library, A–Z, with a filter box, a letter jump bar and the album count of each label. It covers every server and library you browse, like Genres and Moods. It is hidden by default; turn it on under **Settings → Personalisation → Sidebar**.
+* Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, loading more as you scroll. After upgrading, the app builds the label index once before opening the library, with progress shown while it works.
+
 ### Touchpad gestures: swipe to go back, pinch to zoom covers
 
 **By [@circle3451](https://github.com/circle3451), PR [#1695](https://github.com/Psysonic/psysonic/pull/1695)**
