@@ -8,7 +8,6 @@ use tauri::{Emitter, Manager};
 const MAX_BACKGROUND_SCHEDULER_CONCURRENCY: usize = 2;
 const BACKGROUND_SCHEDULER_TICK_TIMEOUT: Duration = Duration::from_secs(120);
 
-
 fn background_repair_is_allowed(runtime: &psysonic_library::LibraryRuntime) -> bool {
     use psysonic_library::sync::bandwidth::PlaybackHint;
     use std::sync::atomic::Ordering;
