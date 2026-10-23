@@ -518,6 +518,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * After upgrading Navidrome, migration could fail repeatedly when two distinct tracks had stale aliases pointing at each other. They now migrate separately, keeping their listening history, ratings and offline copies, without manual database edits.
 
+### Linux playback follows the system output rate
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1793](https://github.com/Psysonic/psysonic/pull/1793)**
+
+* With Native Hi-Res Playback off, PipeWire output now uses the system clock instead of an artificial 44.1 kHz default. If the system rate cannot be discovered, Psysonic prefers supported 48 kHz; latency hints follow the actual output rate.
+
 ## [1.55.0]
 
 ## Added
