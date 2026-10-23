@@ -12,6 +12,7 @@ import { buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { buildAlbumDetailPath } from '@/lib/navigation/detailServerScope';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { ContextShareMenuItem } from '@/features/share';
+import { useShowStarRatings } from '@/store/starRatings';
 
 export default function QueueItemContextItems(props: ContextMenuItemsProps) {
   const {
@@ -26,6 +27,7 @@ export default function QueueItemContextItems(props: ContextMenuItemsProps) {
     navigateLibrary,
   } = props;
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const auth = useAuthStore();
   const networkPrimary = useEnrichmentPrimary();
   const networkLabel = networkPrimary?.label ?? '';
@@ -100,22 +102,24 @@ export default function QueueItemContextItems(props: ContextMenuItemsProps) {
                   </div>
                 );
               })()}
-              <div
-                className="context-menu-rating-row"
-                data-rating-kind="song"
-                data-rating-id={song.id}
-                data-rating-disabled="false"
-                onClick={e => e.stopPropagation()}
-              >
-                <Star size={14} className="context-menu-rating-icon" aria-hidden />
-                <StarRating
-                  value={keyboardRating?.kind === 'song' && keyboardRating.id === song.id
-                    ? keyboardRating.value
-                      : userRatingOverrides[ownedEntityKey(song)] ?? userRatingOverrides[song.id] ?? song.userRating ?? 0}
-                  onChange={r => { setKeyboardRating({ kind: 'song', id: song.id, value: r }); applySongRating(song, r); }}
-                  ariaLabel={t('albumDetail.ratingLabel')}
-                />
-              </div>
+              {showStarRatings && (
+                <div
+                  className="context-menu-rating-row"
+                  data-rating-kind="song"
+                  data-rating-id={song.id}
+                  data-rating-disabled="false"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <Star size={14} className="context-menu-rating-icon" aria-hidden />
+                  <StarRating
+                    value={keyboardRating?.kind === 'song' && keyboardRating.id === song.id
+                      ? keyboardRating.value
+                        : userRatingOverrides[ownedEntityKey(song)] ?? userRatingOverrides[song.id] ?? song.userRating ?? 0}
+                    onChange={r => { setKeyboardRating({ kind: 'song', id: song.id, value: r }); applySongRating(song, r); }}
+                    ariaLabel={t('albumDetail.ratingLabel')}
+                  />
+                </div>
+              )}
               <div className="context-menu-divider" />
               <ContextShareMenuItem
                 request={{ kind: 'track', resourceIds: [song.id], serverIds: song.serverId ? [song.serverId] : [] }}

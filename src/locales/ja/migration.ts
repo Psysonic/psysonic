@@ -16,6 +16,10 @@ export const migration = {
   fileMoodTagsBody:
     '閲覧と絞り込みのため、ファイルのムードタグをインデックスに登録しています。アップデート後に一度だけ実行します。',
   fileMoodTagsFailed: 'ムードのインデックスの更新に失敗しました',
+  recordLabelTagsTitle: 'レーベルのインデックスを更新中…',
+  recordLabelTagsBody:
+    '閲覧のため、レコードレーベルをインデックスに登録しています。アップデート後に一度だけ実行します。',
+  recordLabelTagsFailed: 'レーベルのインデックスの更新に失敗しました',
   scopeBrowseProjectionTitle: 'ライブラリ閲覧インデックスを更新中…',
   scopeBrowseProjectionBody: 'より速く閲覧できるようにアルバムカタログを準備しています。更新後に一度だけ実行されます。',
   scopeBrowseProjectionFailed: 'ライブラリ閲覧インデックスの更新に失敗しました',

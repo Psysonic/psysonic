@@ -84,6 +84,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
 * AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
 
+### Browse by record label
+
+**By [@circle3451](https://github.com/circle3451), PR [#1682](https://github.com/Psysonic/psysonic/pull/1682)**
+
+* A new **Labels** entry in the sidebar lists the record labels in your library, A–Z, with a filter box, a letter jump bar and the album count of each label. It covers every server and library you browse, like Genres and Moods. It is hidden by default; turn it on under **Settings → Personalisation → Sidebar**.
+* Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, loading more as you scroll. After upgrading, the app builds the label index once before opening the library, with progress shown while it works.
+
+### Touchpad gestures: swipe to go back, pinch to zoom covers
+
+**By [@circle3451](https://github.com/circle3451), PR [#1695](https://github.com/Psysonic/psysonic/pull/1695)**
+
+* Swipe left or right with two fingers on a touchpad to go back or forward, like in a web browser. Sideways scrolling in carousels and lists is not affected, and **Settings → Input → Touchpad** can turn it off.
+* In the full-size cover view, pinch or use Ctrl/⌘ + scroll to zoom in around the pointer, drag to move around, and double-click to zoom in or back out. With a keyboard, use +/− to zoom, the arrow keys to move around, and 0 to reset.
+
 ### Shuffle spreads artists and albums over the list
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1698](https://github.com/Psysonic/psysonic/pull/1698)**
@@ -205,6 +219,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Each result names the option that matched; selecting it opens the section and highlights that option.
 * Small typos are forgiven, and English terms work in every UI language.
 * Sections that only appear in Advanced Mode, and the Users tab, show up in the results only when they are available.
+
+### Sort an artist's albums by name
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), requested by CaptainStormfield on GitHub, PR [#1786](https://github.com/Psysonic/psysonic/pull/1786)**
+
+* The sort button on an artist page is now a list: year (newest or oldest first) or name (A–Z or Z–A), still within each release type.
+* Numbers in names sort naturally, so "Live 2" comes before "Live 10".
+
+### Hide star ratings
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), requested by untitled-operator on GitHub, PR [#1787](https://github.com/Psysonic/psysonic/pull/1787)**
+
+* **Settings → Library → Ratings → Show star ratings** can be turned off when ratings are disabled on your server. The stars disappear from album and artist pages, track lists (including the rating column), context menus, the player bar, the fullscreen player and multi-selection, and the "Highest rated" rows on Statistics and Tracks are hidden.
 
 ## Fixed
 
@@ -452,11 +479,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
 
+### The system media controls show the right song after quick skips
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1785](https://github.com/Psysonic/psysonic/pull/1785)**
+
+* When two track changes came close together, for example a skip right as a song ended, the media controls of the system (MPRIS on Linux, the Windows media overlay, Now Playing on macOS) could show the previous song while the next one played, until the next track change. Psysonic now drops the update of a song that is no longer playing.
+
 ### The Live window shows your other devices
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1769](https://github.com/Psysonic/psysonic/pull/1769)**
 
 * Playback on another device or client signed in with the same account did not appear in the Live window unless this Psysonic was playing at the same time. With Navidrome 0.62 or newer it now shows like any other listener. Older servers keep hiding entries of your own account while you are not playing, because they keep showing a stopped track for several minutes.
+
+### The artist photo behind the player can be switched off without fanart.tv
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator on GitHub, PR [#1784](https://github.com/Psysonic/psysonic/pull/1784)**
+
+* **Settings → Integrations → External Artwork Scraper → Backgrounds** only appeared with the fanart.tv scraper turned on, although the artist image from your server fills the mainstage hero, the artist page header and the fullscreen player without it. So with the scraper off, there was no way to switch these backgrounds off, and **Open Backgrounds** in the fullscreen player settings led nowhere. The section is now always there; without the scraper it lists only the server image.
+* The hint in the fullscreen player settings now names the full path to the section.
+
+### Navidrome migration recovers from reciprocal track aliases
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1791](https://github.com/Psysonic/psysonic/pull/1791)**
+
+* After upgrading Navidrome, migration could fail repeatedly when two distinct tracks had stale aliases pointing at each other. They now migrate separately, keeping their listening history, ratings and offline copies, without manual database edits.
 
 ## [1.55.0]
 

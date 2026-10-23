@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import StarRating from '@/ui/StarRating';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { unifiedTrackRating, type RatableTrack } from '@/lib/media/trackRating';
+import { useShowStarRatings } from '@/store/starRatings';
 
 interface Props<T extends RatableTrack> {
   /** The rows the surrounding bulk toolbar currently acts on. */
@@ -21,8 +22,9 @@ interface Props<T extends RatableTrack> {
 /** Star row that rates every row of a tracklist selection at once. */
 export function BulkTrackRating<T extends RatableTrack>({ tracks, onRate, ratings }: Props<T>) {
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const userRatingOverrides = usePlayerStore(s => s.userRatingOverrides);
-  if (tracks.length === 0) return null;
+  if (!showStarRatings || tracks.length === 0) return null;
   return (
     <div className="bulk-action-rating">
       <Star size={14} className="bulk-action-rating-icon" aria-hidden />

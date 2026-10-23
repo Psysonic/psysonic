@@ -38,7 +38,8 @@ const WhatsNew = lazy(() => import('@/features/whatsNew/pages/WhatsNew'));
 const DeviceSync = lazy(() => import('@/features/deviceSync/pages/DeviceSync'));
 const Burner = lazy(() => import('@/features/burner/pages/Burner'));
 const OfflineLibrary = lazy(() => import('@/features/offline/pages/OfflineLibrary'));
-const LabelAlbums = lazy(() => import('@/features/album/pages/LabelAlbums'));
+const Labels = lazy(() => import('@/features/label/pages/Labels'));
+const LabelDetail = lazy(() => import('@/features/label/pages/LabelDetail'));
 const SearchBrowsePage = lazy(() => import('@/features/search/pages/SearchBrowsePage'));
 const FolderBrowser = lazy(() => import('@/features/folderBrowser/pages/FolderBrowser'));
 const InternetRadio = lazy(() => import('@/features/radio/pages/InternetRadio'));
@@ -107,7 +108,8 @@ export default function AppRoutes() {
       <Route path="/favorites" element={<Favorites />} />
       <Route path="/random/mix" element={<RandomMix />} />
       <Route path="/lucky-mix" element={<LuckyMixPage />} />
-      <Route path="/label/:name" element={<LabelAlbums />} />
+      <Route path="/labels" element={<Labels />} />
+      <Route path="/label/:name" element={<LabelDetail />} />
       <Route path="/search" element={<SearchBrowsePage />} />
       <Route path="/search/advanced" element={<SearchBrowsePage />} />
       <Route path="/statistics" element={<Statistics />} />
