@@ -1,4 +1,3 @@
-use std::collections::HashSet;
 use std::future::Future;
 use std::sync::Arc;
 use std::time::Duration;
@@ -9,11 +8,6 @@ use tauri::{Emitter, Manager};
 const MAX_BACKGROUND_SCHEDULER_CONCURRENCY: usize = 2;
 const BACKGROUND_SCHEDULER_TICK_TIMEOUT: Duration = Duration::from_secs(120);
 
-const MOOD_RECONCILE_TARGET_SCAN_LIMIT: i64 = 512;
-const MOOD_RECONCILE_ALBUMS_PER_TICK: usize = 24;
-const MOOD_RECONCILE_TRACKS_WITHOUT_ALBUM_PER_TICK: usize = 24;
-const MOOD_RECONCILE_PAGE_SIZE: u32 = 500;
-const MOOD_RECONCILE_HTTP_CONCURRENCY: usize = 4;
 
 fn background_repair_is_allowed(runtime: &psysonic_library::LibraryRuntime) -> bool {
     use psysonic_library::sync::bandwidth::PlaybackHint;
@@ -197,7 +191,7 @@ fn foreground_blocks_scheduler_session(
     job.is_some_and(|job| job.kind == "initial_sync" || job.server_id == server_id)
 }
 
-fn scheduler_session_still_current(
+pub(super) fn scheduler_session_still_current(
     runtime: &psysonic_library::LibraryRuntime,
     snapshot: &psysonic_library::runtime::SyncSession,
 ) -> bool {
@@ -224,194 +218,6 @@ fn scheduler_idle_payload(
                 "background",
             )
         })
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-struct MoodReconcileOutcome {
-    updated_rows: usize,
-    remaining_ambiguous: bool,
-}
-
-impl MoodReconcileOutcome {
-    fn should_publish_idle(self) -> bool {
-        self.updated_rows > 0 && !self.remaining_ambiguous
-    }
-}
-
-async fn reconcile_ambiguous_moods_for_session(
-    runtime: &psysonic_library::LibraryRuntime,
-    registry: &Arc<psysonic_core::server_http::ServerHttpRegistry>,
-    session: &psysonic_library::runtime::SyncSession,
-    flags: psysonic_library::sync::capability::CapabilityFlags,
-    synced_at: i64,
-) -> Result<MoodReconcileOutcome, String> {
-    use psysonic_library::sync::bandwidth::PlaybackHint;
-
-    if runtime.current_playback_hint() != PlaybackHint::Idle
-        || !flags
-            .contains(psysonic_library::sync::capability::CapabilityFlags::NAVIDROME_NATIVE_BULK)
-    {
-        return Ok(MoodReconcileOutcome::default());
-    }
-
-    let Some(token) = session.navidrome_token.clone() else {
-        return Ok(MoodReconcileOutcome::default());
-    };
-
-    let targets = psysonic_library::mood_tags_reconcile::ambiguous_mood_targets(
-        &runtime.store,
-        &session.server_id,
-        MOOD_RECONCILE_TARGET_SCAN_LIMIT,
-    )?;
-    if targets.is_empty() {
-        return Ok(MoodReconcileOutcome::default());
-    }
-
-    let mut seen_albums = HashSet::new();
-    let mut album_ids = Vec::new();
-    let mut track_ids = Vec::new();
-
-    for target in targets {
-        if let Some(album_id) = target.album_id {
-            if album_ids.len() < MOOD_RECONCILE_ALBUMS_PER_TICK
-                && seen_albums.insert(album_id.clone())
-            {
-                album_ids.push(album_id);
-            }
-        } else if track_ids.len() < MOOD_RECONCILE_TRACKS_WITHOUT_ALBUM_PER_TICK {
-            track_ids.push(target.track_id);
-        }
-
-        if album_ids.len() >= MOOD_RECONCILE_ALBUMS_PER_TICK
-            && track_ids.len() >= MOOD_RECONCILE_TRACKS_WITHOUT_ALBUM_PER_TICK
-        {
-            break;
-        }
-    }
-
-    let http = psysonic_integration::navidrome::nd_bulk_http_client();
-    let server_id = session.server_id.clone();
-    let server_url = session.base_url.clone();
-
-    let album_results = stream::iter(album_ids)
-        .map(|album_id| {
-            let http = http.clone();
-            let registry = Arc::clone(registry);
-            let server_id = server_id.clone();
-            let server_url = server_url.clone();
-            let token = token.clone();
-            async move {
-                let mut rows = Vec::new();
-                let mut start = 0_u32;
-
-                loop {
-                    let end = start.saturating_add(MOOD_RECONCILE_PAGE_SIZE);
-                    let response =
-                        psysonic_integration::navidrome::queries::nd_list_songs_for_album_internal_with_client(
-                            &http,
-                            Some(registry.as_ref()),
-                            Some(&server_id),
-                            &server_url,
-                            &token,
-                            &album_id,
-                            start,
-                            end,
-                        )
-                        .await?;
-                    let page = response.as_array().cloned().unwrap_or_default();
-                    let page_len = page.len() as u32;
-
-                    rows.extend(page.iter().filter_map(|raw| {
-                        psysonic_library::sync::mapping::navidrome_song_to_track_row(
-                            &server_id,
-                            raw,
-                            synced_at,
-                            None,
-                        )
-                    }));
-
-                    if page_len < MOOD_RECONCILE_PAGE_SIZE {
-                        break;
-                    }
-                    start = end;
-                }
-
-                Ok::<_, String>(rows)
-            }
-        })
-        .buffer_unordered(MOOD_RECONCILE_HTTP_CONCURRENCY)
-        .collect::<Vec<_>>()
-        .await;
-
-    let track_results = stream::iter(track_ids)
-        .map(|track_id| {
-            let registry = Arc::clone(registry);
-            let server_id = server_id.clone();
-            let server_url = server_url.clone();
-            let token = token.clone();
-            async move {
-                let raw = psysonic_integration::navidrome::queries::nd_get_song_internal(
-                    Some(registry.as_ref()),
-                    Some(&server_id),
-                    &server_url,
-                    &token,
-                    &track_id,
-                )
-                .await?;
-                Ok::<_, String>(
-                    psysonic_library::sync::mapping::navidrome_song_to_track_row(
-                        &server_id, &raw, synced_at, None,
-                    ),
-                )
-            }
-        })
-        .buffer_unordered(MOOD_RECONCILE_HTTP_CONCURRENCY)
-        .collect::<Vec<_>>()
-        .await;
-
-    let mut rows = Vec::new();
-    for result in album_results {
-        match result {
-            Ok(mut album_rows) => rows.append(&mut album_rows),
-            Err(error) => crate::app_deprintln!(
-                "[library-sync] legacy mood album reconcile failed server_id={}: {}",
-                session.server_id,
-                error
-            ),
-        }
-    }
-    for result in track_results {
-        match result {
-            Ok(Some(row)) => rows.push(row),
-            Ok(None) => {}
-            Err(error) => crate::app_deprintln!(
-                "[library-sync] legacy mood track reconcile failed server_id={}: {}",
-                session.server_id,
-                error
-            ),
-        }
-    }
-
-    if rows.is_empty() {
-        return Ok(MoodReconcileOutcome::default());
-    }
-
-    let updated_rows = psysonic_library::mood_tags_reconcile::apply_authoritative_native_mood_rows(
-        &runtime.store,
-        &rows,
-        flags.contains(psysonic_library::sync::capability::CapabilityFlags::UNSTABLE_TRACK_IDS),
-    )?;
-    let remaining_ambiguous = !psysonic_library::mood_tags_reconcile::ambiguous_mood_targets(
-        &runtime.store,
-        &session.server_id,
-        1,
-    )?
-    .is_empty();
-
-    Ok(MoodReconcileOutcome {
-        updated_rows,
-        remaining_ambiguous,
-    })
 }
 
 /// Sync errors stored by older versions can hold a request URL with the
@@ -446,6 +252,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
         let mut interval = tokio::time::interval(Duration::from_secs(30));
         interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
         let mut background_repair_startup_deferred = true;
+        let mood_reconciler = super::mood_reconcile::MoodReconciler::default();
         loop {
             interval.tick().await;
             let Some(state) = app_for_sched.try_state::<psysonic_library::LibraryRuntime>() else {
@@ -478,6 +285,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
             run_bounded_scheduler_sessions(sessions, |session| {
                 let registry = Arc::clone(&registry);
                 let app_for_session = app_for_sched.clone();
+                let mood_reconciler = &mood_reconciler;
                 async move {
                     if runtime.ensure_ordinary_sync_activity_allowed().is_err() {
                         return;
@@ -537,7 +345,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                         .await
                     {
                         Ok(report) => {
-                            let mood_reconcile = match reconcile_ambiguous_moods_for_session(
+                            let mood_reconcile = match mood_reconciler.reconcile(
                                 runtime,
                                 &registry,
                                 &session,
@@ -553,7 +361,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                                         session.server_id,
                                         error
                                     );
-                                    MoodReconcileOutcome::default()
+                                    0
                                 }
                             };
 
@@ -587,7 +395,7 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                             };
                             let mut idle_payload =
                                 scheduler_idle_payload(&report, &session.server_id, &scope);
-                            if idle_payload.is_none() && mood_reconcile.should_publish_idle() {
+                            if idle_payload.is_none() && mood_reconcile > 0 {
                                 idle_payload = Some(
                                     psysonic_library::LibrarySyncIdlePayload::ok(
                                         &session.server_id,
@@ -927,21 +735,6 @@ mod tests {
                 ("s2", true, "background", "display_suffix_backfill"),
             ]
         );
-    }
-
-    #[test]
-    fn mood_reconcile_idle_refresh_waits_until_repair_finishes() {
-        assert!(!MoodReconcileOutcome {
-            updated_rows: 24,
-            remaining_ambiguous: true,
-        }
-        .should_publish_idle());
-        assert!(MoodReconcileOutcome {
-            updated_rows: 24,
-            remaining_ambiguous: false,
-        }
-        .should_publish_idle());
-        assert!(!MoodReconcileOutcome::default().should_publish_idle());
     }
 
     #[test]

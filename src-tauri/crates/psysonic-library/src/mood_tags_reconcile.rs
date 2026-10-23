@@ -17,6 +17,7 @@ use crate::store::LibraryStore;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AmbiguousMoodTarget {
+    pub rowid: i64,
     pub track_id: String,
     /// Prefer the server-facing album id preserved in raw_json; fall back to
     /// the indexed album_id column when the raw payload did not carry one.
@@ -28,9 +29,19 @@ pub fn ambiguous_mood_targets(
     server_id: &str,
     limit: i64,
 ) -> Result<Vec<AmbiguousMoodTarget>, String> {
+    ambiguous_mood_targets_after(store, server_id, 0, limit)
+}
+
+/// Continue a bounded repair pass beyond already attempted rows, including failures.
+pub fn ambiguous_mood_targets_after(
+    store: &LibraryStore,
+    server_id: &str,
+    after_rowid: i64,
+    limit: i64,
+) -> Result<Vec<AmbiguousMoodTarget>, String> {
     store.with_read_conn(|conn| {
         let mut stmt = conn.prepare(
-            "SELECT
+            "SELECT rowid,
                  COALESCE(
                      NULLIF(TRIM(CASE
                          WHEN json_type(raw_json, '$.id') = 'text'
@@ -50,7 +61,7 @@ pub fn ambiguous_mood_targets(
                      NULLIF(TRIM(album_id), '')
                  ) AS server_album_id
              FROM track
-             WHERE server_id = ?1
+             WHERE server_id = ?1 AND rowid > ?3
                AND deleted = 0
                AND json_valid(raw_json)
                AND json_type(raw_json, '$.tags') = 'object'
@@ -74,10 +85,11 @@ pub fn ambiguous_mood_targets(
         )?;
 
         let rows = stmt
-            .query_map(params![server_id, limit.max(1)], |row| {
+            .query_map(params![server_id, limit.max(1), after_rowid], |row| {
                 Ok(AmbiguousMoodTarget {
-                    track_id: row.get(0)?,
-                    album_id: row.get(1)?,
+                    rowid: row.get(0)?,
+                    track_id: row.get(1)?,
+                    album_id: row.get(2)?,
                 })
             })?
             .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -185,6 +197,7 @@ mod tests {
         assert_eq!(
             targets,
             vec![AmbiguousMoodTarget {
+                rowid: 1,
                 track_id: "t1".into(),
                 album_id: Some("al1".into()),
             }]

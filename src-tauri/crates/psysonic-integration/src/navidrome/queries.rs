@@ -91,57 +91,6 @@ pub async fn nd_list_songs_internal_with_client(
     resp.json::<serde_json::Value>().await.map_err(nd_err)
 }
 
-/// Fetch one album's current native song rows. Used by the legacy mood
-/// reconciler so ambiguous cached rows can be resolved from authoritative
-/// server metadata without a full library resync.
-#[allow(clippy::too_many_arguments)]
-pub async fn nd_list_songs_for_album_internal_with_client(
-    http: &reqwest::Client,
-    registry: Option<&ServerHttpRegistry>,
-    server_ref: Option<&str>,
-    server_url: &str,
-    token: &str,
-    album_id: &str,
-    start: u32,
-    end: u32,
-) -> Result<serde_json::Value, String> {
-    let filters = nd_song_list_album_filter(album_id);
-    let start_s = start.to_string();
-    let end_s = end.to_string();
-    let url = format!("{}/api/song", server_url);
-    let auth = format!("Bearer {token}");
-    let resp = nd_retry(|| {
-        let url = url.clone();
-        let auth = auth.clone();
-        let filters = filters.clone();
-        let start_s = start_s.clone();
-        let end_s = end_s.clone();
-        async move {
-            nd_apply_request(
-                registry,
-                server_ref,
-                &url,
-                http.get(&url)
-                    .query(&[
-                        ("_filters", filters.as_str()),
-                        ("_sort", "id"),
-                        ("_order", "ASC"),
-                        ("_start", start_s.as_str()),
-                        ("_end", end_s.as_str()),
-                    ])
-                    .header("X-ND-Authorization", auth),
-            )
-            .send()
-            .await
-        }
-    })
-    .await?;
-    if !resp.status().is_success() {
-        return Err(format!("HTTP {}", resp.status()));
-    }
-    resp.json::<serde_json::Value>().await.map_err(nd_err)
-}
-
 /// Tauri-visible variant — owned-String arguments to keep the IPC
 /// surface unchanged for existing call sites in the WebView.
 // NOT specta-collected: serde_json::Value in the command signature — specta rc.25 can't export it. Stays hand-written on generate_handler!.
@@ -187,15 +136,6 @@ fn nd_song_list_filter_seed() -> serde_json::Map<String, serde_json::Value> {
         serde_json::Value::String("false".to_string()),
     );
     seed
-}
-
-fn nd_song_list_album_filter(album_id: &str) -> String {
-    let mut seed = nd_song_list_filter_seed();
-    seed.insert(
-        "album_id".to_string(),
-        serde_json::Value::String(album_id.to_string()),
-    );
-    nd_build_filters(seed, None)
 }
 
 fn nd_build_filters(
@@ -498,19 +438,6 @@ mod tests {
         assert!(
             missing.as_bool().is_none(),
             "a JSON boolean here makes Navidrome return HTTP 500, got {missing}"
-        );
-    }
-
-    #[test]
-    fn song_list_album_filter_keeps_missing_and_album_id() {
-        let parsed = parse_json_object(&nd_song_list_album_filter("album-7"));
-        assert_eq!(
-            parsed.get("missing").and_then(|v| v.as_str()),
-            Some("false")
-        );
-        assert_eq!(
-            parsed.get("album_id").and_then(|v| v.as_str()),
-            Some("album-7")
         );
     }
 
