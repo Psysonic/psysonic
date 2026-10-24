@@ -1684,6 +1684,8 @@ export type LibraryAlbumOverlayCandidateDto = {
 	artist: string | null,
 	version?: string | null,
 	year?: number | null,
+	/**  Library the album was listed under, when the fetch was scoped to one. */
+	libraryId?: string | null,
 };
 
 /**

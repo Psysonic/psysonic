@@ -46,7 +46,8 @@ fn indexed_album_exists(
 }
 
 /// `?1`/`?2` bound the keys `<base>␟@…` on any server; `?3` is the album's
-/// server, `?4` the base key, `?5` the album's year.
+/// server, `?4` the base key, `?5` the album's year, `?6` the library it was
+/// listed under (NULL when the fetch was not scoped to one).
 const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
     WITH RECURSIVE release_server(server_id) AS ( \
       SELECT MIN(server_id) FROM cluster.track_cluster_key \
@@ -61,14 +62,15 @@ const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
         ON ck.server_id = srv.server_id AND ck.album_key >= ?1 AND ck.album_key < ?2 \
       WHERE srv.server_id IS NOT NULL \
     ) OR ( \
-      (SELECT COUNT(*) FROM ( \
+      (?6 IS NOT NULL OR (SELECT COUNT(*) FROM ( \
          SELECT DISTINCT library_id FROM cluster.track_cluster_key INDEXED BY idx_ck_scope_album \
-         WHERE server_id = ?3 LIMIT 2)) = 1 \
+         WHERE server_id = ?3 LIMIT 2)) = 1) \
       AND EXISTS ( \
         SELECT 1 FROM cluster.track_cluster_key ck INDEXED BY idx_ck_server_album \
         INNER JOIN track t INDEXED BY sqlite_autoindex_track_1 \
           ON t.server_id = ck.server_id AND t.id = ck.track_id \
         WHERE ck.server_id = ?3 AND ck.album_key = ?4 AND t.deleted = 0 \
+          AND (?6 IS NULL OR ck.library_id = ?6) \
         GROUP BY t.album_id \
         HAVING MAX(NULLIF(t.year, 0)) IS NOT NULL AND MAX(NULLIF(t.year, 0)) != ?5 \
       ) \
@@ -76,15 +78,18 @@ const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
 
 /// Key for an album the index does not hold yet, placed where the next identity
 /// pass will put it (`identity::rebuild::release_year`). Once a base key is
-/// split anywhere, every album under it carries its year. On a server with a
-/// single library, an indexed album under the base with another year is the
-/// conflict that splits it. With several libraries the network album's library
-/// is unknown, so the base key stands there until the album is indexed.
+/// split anywhere, every album under it carries its year. An indexed album
+/// under the base with another year in the album's own library is the conflict
+/// that splits it. When the library the album was listed under is known, that
+/// is the library compared. When it is not, the comparison only runs on a
+/// server with a single indexed library, and the base key stands on a server
+/// with several until the album is indexed.
 fn unindexed_release_key(
     conn: &rusqlite::Connection,
     server_id: &str,
     base_key: String,
     year: Option<i32>,
+    library_id: Option<&str>,
 ) -> rusqlite::Result<String> {
     let Some(year) = year.filter(|year| *year > 0) else {
         return Ok(base_key);
@@ -97,7 +102,8 @@ fn unindexed_release_key(
             format!("{base_key}{sep}A"),
             server_id,
             base_key,
-            year
+            year,
+            library_id
         ],
         |row| row.get::<_, bool>(0),
     )?;
@@ -223,7 +229,17 @@ pub fn resolve_album_overlay(
             let normalized_key = match normalized_key {
                 Some(base_key) => {
                     let started = std::time::Instant::now();
-                    let key = unindexed_release_key(conn, server_id, base_key, album.year)?;
+                    let key = unindexed_release_key(
+                        conn,
+                        server_id,
+                        base_key,
+                        album.year,
+                        album
+                            .library_id
+                            .as_deref()
+                            .map(str::trim)
+                            .filter(|value| !value.is_empty()),
+                    )?;
                     phases.release_key_ms += started.elapsed().as_millis();
                     Some(key)
                 }
@@ -360,6 +376,7 @@ mod tests {
             artist: Some("Artist".into()),
             version: None,
             year,
+            library_id: None,
         }
     }
 
@@ -456,6 +473,64 @@ mod tests {
         );
     }
 
+    fn candidate_in(
+        server_id: &str,
+        id: &str,
+        year: i32,
+        library_id: &str,
+    ) -> LibraryAlbumOverlayCandidateDto {
+        LibraryAlbumOverlayCandidateDto {
+            library_id: Some(library_id.into()),
+            ..candidate(server_id, id, Some(year))
+        }
+    }
+
+    #[test]
+    fn a_copy_listed_under_an_unindexed_library_stays_with_the_original() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-original", "original", "l1");
+        set_year(&store, "s1", "t-original", 1991);
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1"), scope("s1", "l2")],
+                albums: vec![candidate_in("s1", "fresh-copy", 2021, "l2")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolutions[0].representative_id.as_deref(),
+            Some("original")
+        );
+    }
+
+    #[test]
+    fn a_reissue_listed_under_the_originals_library_splits_on_a_multi_library_server() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-original", "original", "l1");
+        set_year(&store, "s1", "t-original", 1991);
+        insert_album_track(&store, "s1", "t-elsewhere", "elsewhere", "l2");
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![
+                    candidate_in("s1", "original", 1991, "l1"),
+                    candidate_in("s1", "reissue", 2021, "l1"),
+                ],
+            },
+        )
+        .unwrap();
+
+        assert_ne!(resolutions[0].group, resolutions[1].group);
+        assert_eq!(resolutions[1].representative_id, None);
+    }
+
     #[test]
     fn maps_physical_copies_to_the_scope_representative() {
         let store = LibraryStore::open_in_memory();
@@ -477,6 +552,7 @@ mod tests {
                         artist: Some("Artist".into()),
                         version: None,
                         year: None,
+                        library_id: None,
                     },
                     LibraryAlbumOverlayCandidateDto {
                         server_id: "s2".into(),
@@ -485,6 +561,7 @@ mod tests {
                         artist: Some("Artist".into()),
                         version: None,
                         year: None,
+                        library_id: None,
                     },
                 ],
             },
@@ -571,6 +648,7 @@ mod tests {
                         artist: Some("Opeth".into()),
                         version: None,
                         year: None,
+                        library_id: None,
                     },
                     LibraryAlbumOverlayCandidateDto {
                         server_id: "s2".into(),
@@ -579,6 +657,7 @@ mod tests {
                         artist: Some("Opeth".into()),
                         version: None,
                         year: None,
+                        library_id: None,
                     },
                 ],
             },
@@ -606,6 +685,7 @@ mod tests {
                         artist: Some("Artist".into()),
                         version: Some("Standard".into()),
                         year: None,
+                        library_id: None,
                     },
                     LibraryAlbumOverlayCandidateDto {
                         server_id: "s1".into(),
@@ -614,6 +694,7 @@ mod tests {
                         artist: Some("Artist".into()),
                         version: Some("Deluxe Edition".into()),
                         year: None,
+                        library_id: None,
                     },
                 ],
             },
@@ -640,6 +721,7 @@ mod tests {
                     artist: Some("Artist".into()),
                     version: None,
                     year: None,
+                    library_id: None,
                 }],
             },
         )

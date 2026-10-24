@@ -117,9 +117,10 @@ describe('hot New Releases overlay', () => {
           artist: 'Artist',
           version: 'Deluxe Edition',
           year: 2021,
+          libraryId: 'l1',
         },
         {
-          serverId: 's2', id: 's2-fresh', name: 's2-fresh', artist: 'Artist', version: '[Remaster]', year: null,
+          serverId: 's2', id: 's2-fresh', name: 's2-fresh', artist: 'Artist', version: '[Remaster]', year: null, libraryId: 'l2',
         },
       ],
     });
@@ -153,6 +154,7 @@ describe('hot New Releases overlay', () => {
         artist: 'Artist',
         version: expected,
         year: null,
+        libraryId: 'l1',
       })),
     });
   });
