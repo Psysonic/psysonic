@@ -47,7 +47,8 @@ fn indexed_album_exists(
 
 /// `?1`/`?2` bound the keys `<base>␟@…` on any server; `?3` is the album's
 /// server, `?4` the base key, `?5` the album's year, `?6` the library it was
-/// listed under (NULL when the fetch was not scoped to one).
+/// listed under (NULL when the fetch was not scoped to one, which leaves only
+/// the "already split" branch).
 const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
     WITH RECURSIVE release_server(server_id) AS ( \
       SELECT MIN(server_id) FROM cluster.track_cluster_key \
@@ -62,15 +63,13 @@ const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
         ON ck.server_id = srv.server_id AND ck.album_key >= ?1 AND ck.album_key < ?2 \
       WHERE srv.server_id IS NOT NULL \
     ) OR ( \
-      (?6 IS NOT NULL OR (SELECT COUNT(*) FROM ( \
-         SELECT DISTINCT library_id FROM cluster.track_cluster_key INDEXED BY idx_ck_scope_album \
-         WHERE server_id = ?3 LIMIT 2)) = 1) \
+      ?6 IS NOT NULL \
       AND EXISTS ( \
         SELECT 1 FROM cluster.track_cluster_key ck INDEXED BY idx_ck_server_album \
         INNER JOIN track t INDEXED BY sqlite_autoindex_track_1 \
           ON t.server_id = ck.server_id AND t.id = ck.track_id \
         WHERE ck.server_id = ?3 AND ck.album_key = ?4 AND t.deleted = 0 \
-          AND (?6 IS NULL OR ck.library_id = ?6) \
+          AND ck.library_id = ?6 \
         GROUP BY t.album_id \
         HAVING MAX(NULLIF(t.year, 0)) IS NOT NULL AND MAX(NULLIF(t.year, 0)) != ?5 \
       ) \
@@ -80,10 +79,9 @@ const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
 /// pass will put it (`identity::rebuild::release_year`). Once a base key is
 /// split anywhere, every album under it carries its year. An indexed album
 /// under the base with another year in the album's own library is the conflict
-/// that splits it. When the library the album was listed under is known, that
-/// is the library compared. When it is not, the comparison only runs on a
-/// server with a single indexed library, and the base key stands on a server
-/// with several until the album is indexed.
+/// that splits it, so that comparison needs the library the album was listed
+/// under. Without it the indexed libraries cannot say whether the server has
+/// others still unindexed, so the base key stands until the album is indexed.
 fn unindexed_release_key(
     conn: &rusqlite::Connection,
     server_id: &str,
@@ -392,8 +390,8 @@ mod tests {
             &LibraryResolveAlbumOverlayRequest {
                 scopes: vec![scope("s1", "l1")],
                 albums: vec![
-                    candidate("s1", "original", Some(1991)),
-                    candidate("s1", "reissue", Some(2021)),
+                    candidate_in("s1", "original", 1991, "l1"),
+                    candidate_in("s1", "reissue", 2021, "l1"),
                 ],
             },
         )
@@ -401,6 +399,31 @@ mod tests {
 
         assert_ne!(resolutions[0].group, resolutions[1].group);
         assert_eq!(resolutions[1].representative_id, None);
+    }
+
+    /// One indexed library does not prove the server has only one: l2 may
+    /// exist and still be unindexed. Without the listing library the copy
+    /// keeps the base key.
+    #[test]
+    fn an_unscoped_copy_keeps_the_base_key_while_only_one_library_is_indexed() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-original", "original", "l1");
+        set_year(&store, "s1", "t-original", 1991);
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1"), scope("s1", "l2")],
+                albums: vec![candidate("s1", "fresh-copy", Some(2021))],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(
+            resolutions[0].representative_id.as_deref(),
+            Some("original")
+        );
     }
 
     #[test]
