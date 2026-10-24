@@ -7,6 +7,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { commands } from '@/generated/bindings';
 import { serverIndexKeyForId, mapServerIdFromIndexKey, mapTracksServerId } from './internal';
 import { mapScopePairs } from './scopeReads';
+import { enqueueLibraryWrite } from './writeQueue';
 import type {
   SyncStateDto,
   LibraryTracksEnvelope,
@@ -232,7 +233,9 @@ export function libraryUpsertSongsFromApi(
   songs: unknown[],
 ): Promise<number> {
   const indexKey = serverIndexKeyForId(serverId);
-  return invoke<number>('library_upsert_songs_from_api', { serverId: indexKey, songs });
+  return enqueueLibraryWrite(() =>
+    invoke<number>('library_upsert_songs_from_api', { serverId: indexKey, songs }),
+  );
 }
 
 /** `library_get_tracks_batch` cap (spec §7.1). */

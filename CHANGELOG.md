@@ -537,6 +537,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * With gapless playback enabled, repeat-one, a one-song repeat-all queue and consecutive copies of the same song now prepare the next playback in advance instead of pausing to restart. Changing repeat mode also cancels an already prepared successor.
 
+### The app stays responsive while the library is busy
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1743](https://github.com/Psysonic/psysonic/pull/1743)**
+
+* While the library held a long write — for example the one-time rebuild of the album list after an update — some library requests waited for it on the app's main thread, and everything else that needs that thread waited with them, for up to about 20 seconds. At startup this could also make part of the window setup time out. These requests now wait in the background.
+* Root cause: these requests were set up to run on the main thread, which keeps them in order but blocks it while they wait. Their order is now kept separately, so starring and unstarring quickly still ends in the right state.
+
 ## [1.55.0]
 
 ## Added
