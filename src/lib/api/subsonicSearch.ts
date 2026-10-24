@@ -15,11 +15,13 @@ import type {
 
 /**
  * search3 sometimes returns duplicate or junk artist rows with **zero** albums (e.g. Navidrome indexing).
- * Drop only rows that explicitly report `albumCount === 0`; keep artists when the field is absent.
+ * Keep catalog-provider rows (`isExternal` present): their local album count
+ * does not establish whether the artist can be browsed through the provider.
+ * Otherwise drop explicit zero counts and keep artists when the count is absent.
  * Thanks to zunoz for the report on the Psysonic Discord.
  */
 export function filterSearchArtistsWithNoAlbums(artists: SubsonicArtist[]): SubsonicArtist[] {
-  return artists.filter((a) => a.albumCount !== 0);
+  return artists.filter((a) => a.isExternal !== undefined || a.albumCount !== 0);
 }
 
 export async function search(
