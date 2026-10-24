@@ -179,7 +179,9 @@ From a **flake-enabled** clone of the repo:
 - **`nix develop`** — enters the upstream `devShell` (Rust, Node 24, WebKitGTK, GStreamer plugins for the webview, env hooks aligned with `package.json` / Tauri dev).
 - **`nix shell .#devShells.default`** — same packages and hooks without `nix develop`’s subshell semantics.
 
-The flake **`devShell`** uses the same **`nixpkgs`** input as **`packages.psysonic`** (see **`flake.nix`**).
+The flake **`devShell`** uses the same **`nixpkgs`** input as **`packages.psysonic`** for system libraries. Its Rust toolchain comes from the official stable binary distribution via **`rust-overlay`**, pinned in **`flake.lock`**. Rust, Clippy, rustfmt and `llvm-tools-preview` come from the same release; `cargo-llvm-cov` is built and tested with that toolchain and its LLVM tools.
+
+This is a temporary workaround for the pinned nixpkgs Rust coverage failure (instrumented tests crash or produce incompatible profiles). The installable app still uses the unmodified nixpkgs toolchain. Remove the dev-shell workaround once nixpkgs' native toolchain passes both `cargo-llvm-cov`'s package tests and an instrumented coverage smoke test. No tests are disabled by this workaround.
 
 ## Desktop entry
 
