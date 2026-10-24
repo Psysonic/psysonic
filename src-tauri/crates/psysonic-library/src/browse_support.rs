@@ -745,7 +745,7 @@ pub async fn library_get_mood_album_counts(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_label_album_counts(
+pub async fn library_get_label_album_counts(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     library_scope: Option<String>,
@@ -759,7 +759,8 @@ pub fn library_get_label_album_counts(
         vec![]
     };
 
-    label_album_counts_for_server(&runtime.store, &server_id, &scopes)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || label_album_counts_for_server(&store, &server_id, &scopes)).await
 }
 
 #[cfg(test)]

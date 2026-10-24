@@ -895,10 +895,12 @@ pub async fn library_file_mood_tags_run(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_record_label_tags_inspect(
+pub async fn library_record_label_tags_inspect(
     runtime: State<'_, LibraryRuntime>,
 ) -> Result<crate::label_tags_backfill::LabelTagsInspectDto, String> {
-    crate::label_tags_backfill::inspect_label_tags_backfill(&runtime.store)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || crate::label_tags_backfill::inspect_label_tags_backfill(&store))
+        .await
 }
 
 #[tauri::command]
