@@ -1,0 +1,15 @@
+export const labels = {
+  title: 'Labels',
+  labelCount: 'labels',
+  labelCount_one: 'label',
+  albumCount_one: '{{count}} album',
+  albumCount_other: '{{count}} albums',
+  loading: 'Labels laden…',
+  empty: 'Geen platenlabels gevonden.',
+  noMatches: 'Geen labels komen overeen met je filter.',
+  albumsEmpty: 'Geen albums gevonden voor dit label.',
+  back: 'Terug',
+  filterPlaceholder: 'Labels filteren',
+  jumpTo: 'Naar letter springen',
+  other: 'Overig',
+};

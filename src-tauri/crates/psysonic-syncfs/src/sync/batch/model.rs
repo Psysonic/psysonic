@@ -216,8 +216,11 @@ pub async fn fetch_subsonic_songs(
         .query(&query)
         .send()
         .await
-        .map_err(|error| error.to_string())?;
-    let json: serde_json::Value = res.json().await.map_err(|error| error.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     parse_subsonic_songs(&json, endpoint)
 }
 
@@ -242,11 +245,14 @@ pub(crate) async fn fetch_subsonic_song(
         .query(&query)
         .send()
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     if !res.status().is_success() {
         return Err(format!("HTTP {}", res.status().as_u16()));
     }
-    let json: serde_json::Value = res.json().await.map_err(|error| error.to_string())?;
+    let json: serde_json::Value = res
+        .json()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     Ok(parse_subsonic_song(&json, id))
 }
 

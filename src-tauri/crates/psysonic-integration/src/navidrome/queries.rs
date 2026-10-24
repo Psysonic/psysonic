@@ -355,6 +355,39 @@ pub async fn nd_set_user_libraries(
     Ok(())
 }
 
+/// Fetch one current native song row with an already-resolved Navidrome token.
+pub async fn nd_get_song_internal(
+    registry: Option<&ServerHttpRegistry>,
+    server_ref: Option<&str>,
+    server_url: &str,
+    token: &str,
+    id: &str,
+) -> Result<serde_json::Value, String> {
+    let url = format!("{}/api/song/{}", server_url, id);
+    let auth = format!("Bearer {token}");
+    let resp = nd_retry(|| {
+        let url = url.clone();
+        let auth = auth.clone();
+        async move {
+            nd_apply_request(
+                registry,
+                server_ref,
+                &url,
+                nd_http_client()
+                    .get(&url)
+                    .header("X-ND-Authorization", auth),
+            )
+            .send()
+            .await
+        }
+    })
+    .await?;
+    if !resp.status().is_success() {
+        return Err(format!("HTTP {}", resp.status()));
+    }
+    resp.json::<serde_json::Value>().await.map_err(nd_err)
+}
+
 /// GET `/api/song/{id}` and return the absolute filesystem `path` field.
 ///
 /// Subsonic `getSong.view` returns at most a relative path (`Artist/Album/track.flac`),
@@ -377,29 +410,7 @@ pub async fn nd_get_song_path(
 ) -> Result<Option<String>, String> {
     let reg = http_registry.as_ref();
     let token = navidrome_token_with_registry(Some(reg), &server_url, &username, &password).await?;
-    let url = format!("{}/api/song/{}", server_url, id);
-    let auth = format!("Bearer {}", token);
-    let resp = nd_retry(|| {
-        let url = url.clone();
-        let auth = auth.clone();
-        async move {
-            nd_apply_request(
-                Some(reg),
-                None,
-                &url,
-                nd_http_client()
-                    .get(&url)
-                    .header("X-ND-Authorization", auth),
-            )
-            .send()
-            .await
-        }
-    })
-    .await?;
-    if !resp.status().is_success() {
-        return Err(format!("HTTP {}", resp.status()));
-    }
-    let data: serde_json::Value = resp.json().await.map_err(nd_err)?;
+    let data = nd_get_song_internal(Some(reg), None, &server_url, &token, &id).await?;
     Ok(data["path"]
         .as_str()
         .map(|s| s.to_string())

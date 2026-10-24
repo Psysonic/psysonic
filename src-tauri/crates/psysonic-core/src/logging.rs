@@ -120,6 +120,11 @@ pub fn should_log_artists_browse_trace() -> bool {
     should_log_debug() && PSYLAB_ARTISTS_BROWSE_TRACE.load(Ordering::Relaxed)
 }
 
+/// Terminal copy of a log line: credentials redacted, hostnames kept.
+pub fn print_log_line(line: &str) {
+    eprintln!("{}", crate::log_sanitize::redact_secrets_infallible(line));
+}
+
 pub fn append_log_line(line: String) {
     let line = crate::log_sanitize::sanitize_log_line_infallible(&line);
     let seq = LOG_SEQ.fetch_add(1, Ordering::Relaxed) + 1;
@@ -252,7 +257,7 @@ macro_rules! app_eprintln {
             let ts = $crate::logging::log_timestamp_local();
             let line = format!("[{}]", ts);
             $crate::logging::append_log_line(line.clone());
-            ::std::eprintln!("{}", line);
+            $crate::logging::print_log_line(&line);
         }
     }};
     ($($arg:tt)*) => {{
@@ -260,7 +265,7 @@ macro_rules! app_eprintln {
             let ts = $crate::logging::log_timestamp_local();
             let line = format!("[{}] {}", ts, format_args!($($arg)*));
             $crate::logging::append_log_line(line.clone());
-            ::std::eprintln!("{}", line);
+            $crate::logging::print_log_line(&line);
         }
     }};
 }
@@ -272,7 +277,7 @@ macro_rules! app_deprintln {
             let ts = $crate::logging::log_timestamp_local();
             let line = format!("[{}]", ts);
             $crate::logging::append_log_line(line.clone());
-            ::std::eprintln!("{}", line);
+            $crate::logging::print_log_line(&line);
         }
     }};
     ($($arg:tt)*) => {{
@@ -280,7 +285,7 @@ macro_rules! app_deprintln {
             let ts = $crate::logging::log_timestamp_local();
             let line = format!("[{}] {}", ts, format_args!($($arg)*));
             $crate::logging::append_log_line(line.clone());
-            ::std::eprintln!("{}", line);
+            $crate::logging::print_log_line(&line);
         }
     }};
 }

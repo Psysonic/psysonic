@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Stemmingen zoeken…',
+  searchLabel: 'Stemmingen zoeken',
+  clearSearch: 'Stemmingszoekopdracht wissen',
+  filteredCount: '{{visible}} van {{total}} stemmingen',
+  noSearchResults: 'Geen stemmingen komen overeen met ‘{{query}}’.',
+  sortLabel: 'Stemmingen sorteren',
+  sortPopularity: 'Populariteit',
+  sortAlphabetical: 'Alfabetisch',
   title: 'Stemmingen',
   moodCount: 'stemmingen',
   moodCount_one: 'stemming',
@@ -7,5 +15,9 @@ export const moods = {
   loading: 'Stemmingen laden…',
   empty: 'Geen stemmingen gevonden.',
   albumsEmpty: 'Geen albums gevonden voor deze stemming.',
+  albumsTab: "Albums",
+  tracksTab: "Nummers",
+  viewTabsLabel: "Stemmingsresultaten",
+  tracksEmpty: "Geen nummers gevonden voor deze stemming.",
   back: 'Terug',
 };

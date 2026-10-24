@@ -5,16 +5,19 @@ import {
   libraryScopeListComposers,
   type LibraryScopePair,
 } from '@/lib/api/library/scopeReads';
+import { libraryGetLabelAlbumCounts, libraryGetMoodAlbumCounts, type LabelAlbumCountRow, type MoodAlbumCountRow } from '@/lib/api/library';
 import { libraryScopePairsForServer } from '@/lib/api/subsonicClient';
 import { albumToAlbum, artistToArtist } from '@/lib/library/advancedSearchLocal';
 import { filterArtistsWithRoleAlbumCredits } from '@/lib/library/composerBrowse';
-import { deriveLibraryBrowseScope } from '@/lib/library/libraryBrowseScope';
+import {
+  deriveLibraryBrowseIndexScopes,
+  deriveLibraryBrowseScope,
+} from '@/lib/library/libraryBrowseScope';
 import {
   buildAlbumDetailPath,
   buildArtistDetailPath,
   buildComposerDetailPath,
 } from '@/lib/navigation/detailServerScope';
-import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGuard';
 import { useAuthStore } from '@/store/authStore';
 import { usePlaylistStore } from '@/features/playlist/store/playlistStore';
 import { playlistDetailPath } from '@/features/playlist/utils/playlistServer';
@@ -24,7 +27,7 @@ const CORE_ROUTES = ['/', '/albums', '/artists', '/tracks', '/favorites'] as con
 
 const ALL_STATIC_ROUTES = [
   '/', '/albums', '/artists', '/composers', '/tracks', '/favorites',
-  '/new-releases', '/genres', '/playlists', '/most-played',
+  '/new-releases', '/genres', '/moods', '/labels', '/playlists', '/most-played',
   '/lossless-albums', '/folders', '/statistics', '/player-stats', '/help',
   '/settings', '/whats-new', '/offline', '/radio', '/random',
   '/random/albums', '/random/mix', '/search', '/search/advanced',
@@ -37,6 +40,8 @@ const DYNAMIC_ROUTE_TEMPLATES = [
   '/composer/:id',
   '/label/:name',
   '/genres/:name',
+  '/moods/:name',
+  '/moods/:name?view=tracks',
   '/playlists/:id',
 ] as const;
 
@@ -45,15 +50,24 @@ interface DynamicRouteCandidates {
   artists: SubsonicArtist[];
   composers: SubsonicArtist[];
   playlists: SubsonicPlaylist[];
+  /** Label album counts from the local index, across the library scope. */
+  labels: LabelAlbumCountRow[];
+  moods: MoodAlbumCountRow[];
   activeServerId: string | null;
   configuredServerIds: ReadonlySet<string>;
-  networkAllowedServerIds: ReadonlySet<string>;
 }
 
 export interface BenchmarkRouteResolution {
   routes: string[];
   skippedRoutes: BenchmarkSkippedRoute[];
   searchQuery: string | null;
+}
+
+function largestCatalogTag<T extends { value: string; albumCount: number }>(rows: readonly T[]): T | null {
+  return rows.reduce<T | null>(
+    (best, row) => (row.value.trim() && row.albumCount > (best?.albumCount ?? 0) ? row : best),
+    null,
+  );
 }
 
 function ownedEntity<T extends { serverId?: string }>(
@@ -94,18 +108,13 @@ export function buildDynamicBenchmarkRoutes(
     'no owned indexed composer available',
   );
 
-  const labelAlbum = candidates.albums.find(candidate => (
-    !!candidate.serverId
-      && candidates.configuredServerIds.has(candidate.serverId)
-      && !!candidate.recordLabel?.trim()
-      && candidates.networkAllowedServerIds.has(candidate.serverId)
-  ));
+  // The label with the most albums: its first page fills the grid and the
+  // header total comes from the index, the same work a large label costs.
+  const label = largestCatalogTag(candidates.labels);
   add(
     '/label/:name',
-    labelAlbum
-      ? `/label/${encodeURIComponent(labelAlbum.recordLabel!.trim())}?server=${encodeURIComponent(labelAlbum.serverId!)}`
-      : null,
-    'no reachable owned album with a record label available',
+    label ? `/label/${encodeURIComponent(label.value.trim())}` : null,
+    'no indexed record label available in the library scope',
   );
 
   const genreAlbum = candidates.albums.find(candidate => (
@@ -116,6 +125,12 @@ export function buildDynamicBenchmarkRoutes(
     genreAlbum ? `/genres/${encodeURIComponent(genreAlbum.genre!.trim())}` : null,
     'no indexed genre available for the active server',
   );
+
+  const mood = largestCatalogTag(candidates.moods);
+  const moodRoute = mood ? `/moods/${encodeURIComponent(mood.value.trim())}` : null;
+  add('/moods/:name', moodRoute, 'no indexed mood available in the library scope');
+  add('/moods/:name?view=tracks', moodRoute ? `${moodRoute}?view=tracks` : null,
+    'no indexed mood available in the library scope');
 
   const playlist = ownedEntity(candidates.playlists, candidates.configuredServerIds);
   add(
@@ -152,6 +167,21 @@ async function resolveScopeRows<T>(
   } catch {
     return [];
   }
+}
+
+async function resolveCatalogCounts<T>(
+  auth: ReturnType<typeof useAuthStore.getState>,
+  load: (args: { serverId: string; libraryScopes?: string[] }) => Promise<T[]>,
+): Promise<T[]> {
+  const results = await Promise.allSettled(
+    deriveLibraryBrowseIndexScopes(auth, new Set()).map(scope =>
+      load({
+        serverId: scope.serverId,
+        libraryScopes: scope.libraryIds.length > 0 ? scope.libraryIds : undefined,
+      }),
+    ),
+  );
+  return results.flatMap(result => (result.status === 'fulfilled' ? result.value : []));
 }
 
 export async function resolveBenchmarkRoutes(scenario: string): Promise<BenchmarkRouteResolution> {
@@ -195,16 +225,20 @@ export async function resolveBenchmarkRoutes(scenario: string): Promise<Benchmar
     playlists = usePlaylistStore.getState().playlists;
   }
 
+  const [labels, moods] = await Promise.all([
+    resolveCatalogCounts(auth, libraryGetLabelAlbumCounts),
+    resolveCatalogCounts(auth, libraryGetMoodAlbumCounts),
+  ]);
+
   const dynamic = buildDynamicBenchmarkRoutes({
     albums: albumRows.map(albumToAlbum),
     artists: artistRows.map(artistToArtist),
     composers: filterArtistsWithRoleAlbumCredits(composerRows.map(artistToArtist)),
     playlists,
+    labels,
+    moods,
     activeServerId: auth.activeServerId,
     configuredServerIds: new Set(auth.servers.map(server => server.id)),
-    networkAllowedServerIds: new Set(
-      auth.servers.filter(server => shouldAttemptSubsonicForServer(server.id)).map(server => server.id),
-    ),
   });
 
   return {
@@ -226,4 +260,14 @@ export function benchmarkRouteMatchesLocation(
   return location.pathname === target.pathname
     && location.search === target.search
     && location.hash === target.hash;
+}
+
+/** Reject stale content from a preceding mood or tab while React commits navigation. */
+export function benchmarkMoodDetailReady(route: string, root: Element | null): boolean {
+  const target = new URL(route, 'http://benchmark.invalid');
+  if (!target.pathname.startsWith('/moods/')) return false;
+  const view = target.searchParams.get('view') === 'tracks' ? 'tracks' : 'albums';
+  return root?.getAttribute('data-benchmark-mood-name') === decodeURIComponent(target.pathname.slice('/moods/'.length))
+    && root.getAttribute('data-benchmark-mood-view') === view
+    && root.getAttribute('data-benchmark-mood-state') === 'ready';
 }

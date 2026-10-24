@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { moveSourceTo, dropSourceBefore } from '@/features/settings/components/backdropReorder';
+import { moveSourceTo, dropSourceBefore, mergeVisibleSources } from '@/features/settings/components/backdropReorder';
 import type { BackdropSource, BackdropSourcePref } from '@/cover/artistBackdrop';
 
 const S = (...names: BackdropSource[]): BackdropSourcePref[] =>
@@ -32,5 +32,21 @@ describe('dropSourceBefore (drag-drop — insert before target row)', () => {
   });
   it('returns null when dropping a row onto itself', () => {
     expect(dropSourceBefore(S('banner', 'fanart'), 1, 1)).toBeNull();
+  });
+});
+
+describe('mergeVisibleSources (edit of a filtered list)', () => {
+  it('keeps hidden rows in place and applies the visible switch', () => {
+    const full = S('fanart', 'navidrome', 'banner');
+    const merged = mergeVisibleSources(full, [{ source: 'navidrome', enabled: false }]);
+    expect(merged).toEqual([
+      { source: 'fanart', enabled: true },
+      { source: 'navidrome', enabled: false },
+      { source: 'banner', enabled: true },
+    ]);
+  });
+  it('puts reordered visible rows into the slots the visible rows held', () => {
+    const merged = mergeVisibleSources(S('fanart', 'navidrome', 'banner'), S('banner', 'fanart'));
+    expect(ids(merged)).toEqual(['banner', 'navidrome', 'fanart']);
   });
 });

@@ -10,6 +10,7 @@ export const commands = {
 	/**  Distinct album counts per track genre — same grouping as genre album browse. */
 	libraryGetGenreAlbumCounts: (serverId: string, libraryScope: string | null, libraryScopes: string[] | null) => typedError<GenreAlbumCountDto[], string>(__TAURI_INVOKE("library_get_genre_album_counts", { serverId, libraryScope, libraryScopes })),
 	libraryGetMoodAlbumCounts: (serverId: string, libraryScope: string | null, libraryScopes: string[] | null) => typedError<MoodAlbumCountDto[], string>(__TAURI_INVOKE("library_get_mood_album_counts", { serverId, libraryScope, libraryScopes })),
+	libraryGetLabelAlbumCounts: (serverId: string, libraryScope: string | null, libraryScopes: string[] | null) => typedError<LabelAlbumCountDto[], string>(__TAURI_INVOKE("library_get_label_album_counts", { serverId, libraryScope, libraryScopes })),
 	/**
 	 *  Align `album.starred_at` with server favorites: UPDATE existing rows only
 	 *  (no INSERT / stub rows). Clears local stars absent from `starred_albums`.
@@ -73,6 +74,8 @@ export const commands = {
 	libraryGenreTagsRun: () => typedError<null, string>(__TAURI_INVOKE("library_genre_tags_run")),
 	libraryFileMoodTagsInspect: () => typedError<MoodTagsInspectDto, string>(__TAURI_INVOKE("library_file_mood_tags_inspect")),
 	libraryFileMoodTagsRun: () => typedError<null, string>(__TAURI_INVOKE("library_file_mood_tags_run")),
+	libraryRecordLabelTagsInspect: () => typedError<LabelTagsInspectDto, string>(__TAURI_INVOKE("library_record_label_tags_inspect")),
+	libraryRecordLabelTagsRun: () => typedError<null, string>(__TAURI_INVOKE("library_record_label_tags_run")),
 	/**  Ensure precomputed cluster identity keys are current without blocking Tauri's main thread. */
 	libraryClusterRebuild: (serverId: string | null) => typedError<number, string>(__TAURI_INVOKE("library_cluster_rebuild", { serverId })),
 	libraryResolveEntitySources: (request: LibraryResolveEntitySourcesRequest) => typedError<LibraryEntitySourceDto[], string>(__TAURI_INVOKE("library_resolve_entity_sources", { request })),
@@ -680,6 +683,12 @@ export const commands = {
 	mprisSetMetadata: (title: string | null, artist: string | null, album: string | null, coverUrl: string | null, durationSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_metadata", { title, artist, album, coverUrl, durationSecs })),
 	mprisSetPlayback: (playing: boolean, positionSecs: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_playback", { playing, positionSecs })),
 	mprisSetVolume: (volume: number | null) => typedError<null, string>(__TAURI_INVOKE("mpris_set_volume", { volume })),
+	/**
+	 *  Desktop notification for a track change. It is skipped while a Psysonic
+	 *  window has focus: the user is looking at the player then. Returns whether a
+	 *  notification was shown.
+	 */
+	showTrackNotification: (title: string, body: string, coverPath: string | null) => typedError<boolean, string>(__TAURI_INVOKE("show_track_notification", { title, body, coverPath })),
 	/**  Returns true if `path` is an accessible directory (used for pre-flight checks in the frontend). */
 	checkDirAccessible: (path: string) => __TAURI_INVOKE<boolean>("check_dir_accessible", { path }),
 	/**
@@ -1639,6 +1648,19 @@ export type ImportedThemeFiles = {
 	manifest: string,
 	css: string,
 	assets: ImportedThemeAsset[],
+};
+
+/**  Per-record-label album/track totals from the local label index. */
+export type LabelAlbumCountDto = {
+	value: string,
+	albumCount: number,
+	songCount: number,
+};
+
+export type LabelTagsInspectDto = {
+	needed: boolean,
+	totalTracks: number,
+	doneTracks: number,
 };
 
 export type LegacyOfflineMigrationResult = {

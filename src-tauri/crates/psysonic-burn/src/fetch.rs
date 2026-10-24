@@ -233,7 +233,13 @@ pub async fn fetch_track(
     let response = apply_server_http_get(client, registry, track.server_id.as_deref(), url)
         .send()
         .await
-        .map_err(|e| format!("“{}” could not be downloaded: {e}", track.title))?;
+        .map_err(|e| {
+            format!(
+                "“{}” could not be downloaded: {}",
+                track.title,
+                psysonic_core::log_sanitize::redact_reqwest_error(e)
+            )
+        })?;
 
     if !response.status().is_success() {
         return Err(format!(

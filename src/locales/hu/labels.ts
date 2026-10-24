@@ -1,0 +1,15 @@
+export const labels = {
+  title: 'Kiadók',
+  labelCount: 'kiadó',
+  labelCount_one: 'kiadó',
+  albumCount_one: '{{count}} album',
+  albumCount_other: '{{count}} album',
+  loading: 'Kiadók betöltése…',
+  empty: 'Nem találhatók kiadók.',
+  noMatches: 'Egy kiadó sem felel meg a szűrőnek.',
+  albumsEmpty: 'Ehhez a kiadóhoz nem található album.',
+  back: 'Vissza',
+  filterPlaceholder: 'Kiadók szűrése',
+  jumpTo: 'Ugrás betűre',
+  other: 'Egyéb',
+};

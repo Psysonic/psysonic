@@ -39,7 +39,7 @@ impl BackgroundScheduler<'_> {
     }
 
     fn record_tick_error(&self, now_ms: i64, err: &SyncError) {
-        let rendered = err.to_string();
+        let rendered = psysonic_core::log_sanitize::redact_secrets(&err.to_string());
         let persisted: String = rendered.chars().take(MAX_PERSISTED_ERROR_CHARS).collect();
         crate::app_eprintln!(
             "[library-sync] scheduler tick failed server_id={} scope={}: {}",

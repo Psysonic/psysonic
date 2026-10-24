@@ -84,6 +84,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Settings → Personalisation → Home** now lets you choose where the "Because you listened" row finds its albums: **Similar artists**, as before, or **AudioMuse**, which suggests albums that sound like the one you listened to. The row is then titled "If you like the sound of …".
 * AudioMuse can only be chosen once a server with Navidrome 0.62 or newer and the AudioMuse plugin is detected. Servers without it keep using similar artists.
 
+### Browse by record label
+
+**By [@circle3451](https://github.com/circle3451), PR [#1682](https://github.com/Psysonic/psysonic/pull/1682)**
+
+* A new **Labels** entry in the sidebar lists the record labels in your library, A–Z, with a filter box, a letter jump bar and the album count of each label. It covers every server and library you browse, like Genres and Moods. It is hidden by default; turn it on under **Settings → Personalisation → Sidebar**.
+* Opening a label — from this list or from the label link on an album page — shows exactly the albums tagged with it, loading more as you scroll. After upgrading, the app builds the label index once before opening the library, with progress shown while it works.
+
+### Browse individual tracks by mood
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1685](https://github.com/Psysonic/psysonic/pull/1685)**
+
+* Mood detail now has **Albums** and **Tracks** tabs. Albums remains the default; Tracks pages through songs carrying that exact mood, using the standard song-list controls.
+* Switching tabs or returning from an album or artist preserves the loaded results and scroll position. Track browsing uses the local library index and does not require a new server endpoint.
+
+### Touchpad gestures: swipe to go back, pinch to zoom covers
+
+**By [@circle3451](https://github.com/circle3451), PR [#1695](https://github.com/Psysonic/psysonic/pull/1695)**
+
+* Swipe left or right with two fingers on a touchpad to go back or forward, like in a web browser. Sideways scrolling in carousels and lists is not affected, and **Settings → Input → Touchpad** can turn it off.
+* In the full-size cover view, pinch or use Ctrl/⌘ + scroll to zoom in around the pointer, drag to move around, and double-click to zoom in or back out. With a keyboard, use +/− to zoom, the arrow keys to move around, and 0 to reset.
+
 ### Shuffle spreads artists and albums over the list
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1698](https://github.com/Psysonic/psysonic/pull/1698)**
@@ -159,6 +180,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * When the lyrics on your server include a translation, it can show as a smaller line under each lyric line — in the sidebar, the mobile view and the fullscreen player. Turn it on in **Settings → Lyrics → Translation**, or with the **Translation** button below the lyrics, which appears only for songs that have one.
 * Needs Navidrome 0.63 or later and lyrics files that carry translations, such as TTML. If there are several, the one in your app language is shown.
 
+### Desktop notification when the song changes
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1723](https://github.com/Psysonic/psysonic/pull/1723)**
+
+* Turn on **Settings → System → App Behavior → Notifications → Notify on Track Change** to get a desktop notification with title, artist, album, length and cover whenever a new song starts, as long as Psysonic is not the window you are looking at. Radio stations announce each new song title, with the station logo if there is one. It is off by default.
+* Skipping quickly through the queue announces only the song that keeps playing, and pausing or resuming never shows one.
+* The Flatpak build cannot show these notifications yet.
+
 ### Tags for playlists
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1730](https://github.com/Psysonic/psysonic/pull/1730)**
@@ -175,12 +204,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Blur explicit covers** hides the cover art of those songs behind a soft blur; clicking an album cover still shows it in full. It is off by default; both options are in **Settings → Appearance → Visual Options**.
 * Works with servers that report explicit tags through OpenSubsonic, such as Navidrome.
 
-### Greek translation
+### Find genres and moods in large catalogs
 
-**By [@stefnto](https://github.com/stefnto), PR [#1737](https://github.com/Psysonic/psysonic/pull/1737)**
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1733](https://github.com/Psysonic/psysonic/pull/1733)**
 
-* Full Greek (Ελληνικά) UI translation — selectable from the language picker on the Settings and Login screens.
-* Library matching now ignores Greek accents (tonos, dialytika) and the final sigma, so `Μάνος`, `Μανος` and `ΜΑΝΟΣ` resolve to the same entry. The first sync after the update rebuilds the library keys once.
+* **Genres** and **Moods** now have a search box and popularity or alphabetical sorting. Filtering happens locally, without extra server requests, and pill sizes still reflect popularity.
+* Returning from a detail page restores the search and scroll position; the selected sort is remembered for the current session.
 
 ### Open Settings with a keyboard shortcut
 
@@ -188,6 +217,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * ⌘, on macOS and Ctrl+, on Windows and Linux open Settings from any view. The shortcut can be changed or cleared under **Settings → Input → Keyboard shortcuts**.
 * If one of your shortcuts already uses that key combination, it keeps it, and **Open settings** starts unassigned.
+
+### Greek translation
+
+**By [@stefnto](https://github.com/stefnto), PR [#1737](https://github.com/Psysonic/psysonic/pull/1737)**
+
+* Full Greek (Ελληνικά) UI translation — selectable from the language picker on the Settings and Login screens.
+* Library matching now ignores Greek accents (tonos, dialytika) and the final sigma, so `Μάνος`, `Μανος` and `ΜΑΝΟΣ` resolve to the same entry. The first sync after the update rebuilds the library keys once.
+
+### Settings search finds every option
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1747](https://github.com/Psysonic/psysonic/pull/1747)**
+
+* The search in Settings now looks through every option, its choices and hints, not only the section names. For example, `sharing` or `downloads` lead to **Integrations → Navidrome → Navidrome sharing**.
+* Each result names the option that matched; selecting it opens the section and highlights that option.
+* Small typos are forgiven, and English terms work in every UI language.
+* Sections that only appear in Advanced Mode, and the Users tab, show up in the results only when they are available.
+
+### Sort an artist's albums by name
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), requested by CaptainStormfield on GitHub, PR [#1786](https://github.com/Psysonic/psysonic/pull/1786)**
+
+* The sort button on an artist page is now a list: year (newest or oldest first) or name (A–Z or Z–A), still within each release type.
+* Numbers in names sort naturally, so "Live 2" comes before "Live 10".
+
+### Hide star ratings
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), requested by untitled-operator on GitHub, PR [#1787](https://github.com/Psysonic/psysonic/pull/1787)**
+
+* **Settings → Library → Ratings → Show star ratings** can be turned off when ratings are disabled on your server. The stars disappear from album and artist pages, track lists (including the rating column), context menus, the player bar, the fullscreen player and multi-selection, and the "Highest rated" rows on Statistics and Tracks are hidden.
 
 ## Fixed
 
@@ -290,6 +348,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The short notices at the bottom of the window, such as confirmations, warnings and errors, were never read out by screen readers. They are now announced: notices politely, errors right away.
 
+### Mood tags survive unrelated metadata updates
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1712](https://github.com/Psysonic/psysonic/pull/1712)**
+
+* Valid file moods are no longer hidden when an unrelated Navidrome tag snapshot is cached beside them. Explicit mood removal still clears the old value.
+* Existing ambiguous entries are checked against current Navidrome metadata while playback is idle and the server is available; cached values are not guessed while offline.
+
 ### Bandcamp playback now includes waveform, loudness and BPM analysis
 
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1713](https://github.com/Psysonic/psysonic/pull/1713)**
@@ -365,6 +430,112 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * After uploading an image with the camera button on an artist page, the round picture, the header background and the picture under **About the artist** kept showing the previous image. All three now switch to the new image right away, also when you upload again.
 * Root cause: the upload did not clear the saved copies of the artist's picture, and with Navidrome the round picture loaded an address that stays the same after an upload, so the old image was shown again.
+
+### The source picker no longer offers the same library twice
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by netherguy4 on GitHub, PR [#1741](https://github.com/Psysonic/psysonic/pull/1741)**
+
+* When the server splits one album into two (for example because of a stray track in a sibling folder), the album page offered **Available from 2 sources** with two identical entries, and choosing the other one showed the same page. Entries from the album's own server and library are now left out, so the button only appears for copies on another server or in another library.
+
+### Login tokens no longer appear in logs and error messages
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1742](https://github.com/Psysonic/psysonic/pull/1742)**
+
+* When a request to your server failed, the error text could contain the full request address including the login token, which is enough to sign in as you until the password changes. That text showed up in the terminal output, in some error messages in the app and in the saved sync status. The token is now removed everywhere; the server address stays readable.
+* Sync errors saved by earlier versions are cleaned once when the app starts.
+
+### Error messages say why a connection failed
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1745](https://github.com/Psysonic/psysonic/pull/1745)**
+
+* When a request to your server failed, error messages and the log only said that sending the request failed. They now include the reason, for example a certificate problem, a server name that does not resolve or a refused connection.
+* When the library cannot connect to a server, the reason is now written to the log. Before, the log only showed later that no connection existed.
+
+### Servers connect again when a system proxy is set
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by noaccou on GitHub, PR [#1749](https://github.com/Psysonic/psysonic/pull/1749)**
+
+* With an HTTP or HTTPS proxy set in the system network settings, the library sync, covers and streaming sent their requests through that proxy — on macOS also for servers listed under **Bypass proxy settings for these Hosts & Domains** — and failed with "no bound session" or "error sending request". Psysonic no longer uses the system proxy settings, as up to 1.53.
+* Root cause: a dependency update in 1.54.0 made the app read the system proxy settings, but on macOS without the list of hosts to bypass.
+
+### Orbit labels in Polish and Romanian are corrected
+
+**By [@Jah-yee](https://github.com/Jah-yee), PR [#1758](https://github.com/Psysonic/psysonic/pull/1758)**
+
+* Three Orbit labels in Polish and Romanian had spelling mistakes, and the Polish song menu entry for adding a song to the session read as "add an Orbit session".
+
+### Screen readers name the back button in the narrow Now Playing view
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1763](https://github.com/Psysonic/psysonic/pull/1763)**
+
+* In a narrow window, the back button of the Now Playing view was announced as "player.back". It is now read as "Back" in the app language.
+
+### Screen readers name two buttons in the Orbit session bar
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1764](https://github.com/Psysonic/psysonic/pull/1764)**
+
+* The host's session settings button had no name for screen readers, and the participants button was read only as its count. They are now announced as "Session settings" and "Participants: 1/10".
+
+### The Orbit join dialog explains failures in the app language
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1765](https://github.com/Psysonic/psysonic/pull/1765)**
+
+* When joining a session from **Orbit → Join a session** failed, the dialog showed an internal English message with the session id, for example "Session abc123 is full (10/10)". It now shows the reason in the app language, as pasting an invite link already did.
+
+### The playlist page shows whether the playlist is offline
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1766](https://github.com/Psysonic/psysonic/pull/1766)**
+
+* The offline button on a playlist page always offered **Cache playlist offline**, also while the playlist was waiting, downloading or already saved, so a saved playlist could not be removed from its page. The button now shows the queue, the download progress and **Remove from offline cache** as on album pages.
+
+### Offline playlists keep tracks they share with an offline album
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1767](https://github.com/Psysonic/psysonic/pull/1767)**
+
+* When a playlist was cached offline while some of its tracks were already saved through an album, those tracks did not count for the playlist: the playlist was not complete, and removing the album from the offline cache deleted them although the playlist still listed them. Tracks already saved now belong to the playlist as well, and only the missing ones are downloaded.
+
+### Orbit guests' queue additions reach the host
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1768](https://github.com/Psysonic/psysonic/pull/1768)**
+
+* As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
+
+### The system media controls show the right song after quick skips
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1785](https://github.com/Psysonic/psysonic/pull/1785)**
+
+* When two track changes came close together, for example a skip right as a song ended, the media controls of the system (MPRIS on Linux, the Windows media overlay, Now Playing on macOS) could show the previous song while the next one played, until the next track change. Psysonic now drops the update of a song that is no longer playing.
+
+### The Live window shows your other devices
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1769](https://github.com/Psysonic/psysonic/pull/1769)**
+
+* Playback on another device or client signed in with the same account did not appear in the Live window unless this Psysonic was playing at the same time. With Navidrome 0.62 or newer it now shows like any other listener. Older servers keep hiding entries of your own account while you are not playing, because they keep showing a stopped track for several minutes.
+
+### The artist photo behind the player can be switched off without fanart.tv
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator on GitHub, PR [#1784](https://github.com/Psysonic/psysonic/pull/1784)**
+
+* **Settings → Integrations → External Artwork Scraper → Backgrounds** only appeared with the fanart.tv scraper turned on, although the artist image from your server fills the mainstage hero, the artist page header and the fullscreen player without it. So with the scraper off, there was no way to switch these backgrounds off, and **Open Backgrounds** in the fullscreen player settings led nowhere. The section is now always there; without the scraper it lists only the server image.
+* The hint in the fullscreen player settings now names the full path to the section.
+
+### Navidrome migration recovers from reciprocal track aliases
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1791](https://github.com/Psysonic/psysonic/pull/1791)**
+
+* After upgrading Navidrome, migration could fail repeatedly when two distinct tracks had stale aliases pointing at each other. They now migrate separately, keeping their listening history, ratings and offline copies, without manual database edits.
+
+### Linux playback follows the system output rate
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1793](https://github.com/Psysonic/psysonic/pull/1793)**
+
+* With Native Hi-Res Playback off, PipeWire output now uses the system clock instead of an artificial 44.1 kHz default. If the system rate cannot be discovered, Psysonic prefers supported 48 kHz; latency hints follow the actual output rate.
+
+### Gapless playback repeats the same song without restarting
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1794](https://github.com/Psysonic/psysonic/pull/1794)**
+
+* With gapless playback enabled, repeat-one, a one-song repeat-all queue and consecutive copies of the same song now prepare the next playback in advance instead of pausing to restart. Changing repeat mode also cancels an already prepared successor.
 
 ### The app stays responsive while the library is busy
 

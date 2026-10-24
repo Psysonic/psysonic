@@ -253,6 +253,7 @@ export default function OrbitSessionBar() {
           data-tooltip={t('orbit.participantsTooltip')}
           aria-haspopup="menu"
           aria-expanded={peopleOpen || undefined}
+          aria-label={`${t('orbit.participantsTooltip')}: ${participantCount}/${state.maxUsers}`}
         >
           {participantCount}/{state.maxUsers}
         </button>
@@ -278,6 +279,7 @@ export default function OrbitSessionBar() {
             data-tooltip={t('orbit.settingsTooltip')}
             aria-haspopup="menu"
             aria-expanded={settingsOpen || undefined}
+            aria-label={t('orbit.settingsTooltip')}
           >
             <Settings2 size={14} />
           </button>

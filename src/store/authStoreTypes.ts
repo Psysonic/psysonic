@@ -234,6 +234,8 @@ export interface AuthState {
   minimizeToTray: boolean;
   /** Cold start: keep the main window hidden and run in the system tray. */
   startMinimizedToTray: boolean;
+  /** Desktop notification on each new track (and radio title) while no Psysonic window has focus. */
+  trackChangeNotificationsEnabled: boolean;
   clockFormat: ClockFormat;
   /** Whether the "Orbit" topbar trigger is rendered. Users who never
    *  touch Orbit can hide it so the header stays uncluttered. */
@@ -356,6 +358,8 @@ export interface AuthState {
   /** Parent directory; actual cache is `<dir>/psysonic-hot-cache/`. Empty = app data. */
   hotCacheDownloadDir: string;
 
+  /** Show star ratings and rating controls. Off for servers with ratings disabled (#1779). */
+  showStarRatings: boolean;
   /** After this many manual skips of the same track, set track rating to 1 if still unrated (below 1 star). */
   skipStarOnManualSkipsEnabled: boolean;
   /** Manual skips per track before applying rating 1 (when enabled). */
@@ -506,6 +510,7 @@ export interface AuthState {
   setShowTrayIcon: (v: boolean) => void;
   setMinimizeToTray: (v: boolean) => void;
   setStartMinimizedToTray: (v: boolean) => void;
+  setTrackChangeNotificationsEnabled: (v: boolean) => void;
   setClockFormat: (v: ClockFormat) => void;
   setShowOrbitTrigger: (v: boolean) => void;
   setDiscordRichPresence: (v: boolean) => void;
@@ -563,6 +568,7 @@ export interface AuthState {
   setHotCacheDebounceSec: (v: number) => void;
   setHotCacheDownloadDir: (v: string) => void;
   setMediaDir: (v: string) => void;
+  setShowStarRatings: (v: boolean) => void;
   setSkipStarOnManualSkipsEnabled: (v: boolean) => void;
   setSkipStarManualSkipThreshold: (v: number) => void;
   setMixMinRatingFilterEnabled: (v: boolean) => void;

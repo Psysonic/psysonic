@@ -73,9 +73,19 @@ pub(super) async fn open_preview_decoder(
         .apply(url, preview_http.get(url))
         .send()
         .await
-        .map_err(|e| format!("preview: connection failed: {e}"))?
+        .map_err(|e| {
+            format!(
+                "preview: connection failed: {}",
+                psysonic_core::log_sanitize::redact_reqwest_error(e)
+            )
+        })?
         .error_for_status()
-        .map_err(|e| format!("preview: HTTP {e}"))?;
+        .map_err(|e| {
+            format!(
+                "preview: HTTP {}",
+                psysonic_core::log_sanitize::redact_reqwest_error(e)
+            )
+        })?;
 
     let mut stream_hint = content_type_to_hint(
         response
@@ -243,7 +253,12 @@ pub(super) async fn open_preview_decoder(
     let bytes = response
         .bytes()
         .await
-        .map_err(|e| format!("preview: read body: {e}"))?
+        .map_err(|e| {
+            format!(
+                "preview: read body: {}",
+                psysonic_core::log_sanitize::redact_reqwest_error(e)
+            )
+        })?
         .to_vec();
     if state.preview_gen.load(Ordering::SeqCst) != gen {
         return Ok(None);

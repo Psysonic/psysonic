@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Αναζήτηση διαθέσεων…',
+  searchLabel: 'Αναζήτηση διαθέσεων',
+  clearSearch: 'Εκκαθάριση αναζήτησης',
+  filteredCount: '{{visible}} από {{total}} διαθέσεις',
+  noSearchResults: 'Δεν βρέθηκαν διαθέσεις για «{{query}}».',
+  sortLabel: 'Ταξινόμηση διαθέσεων',
+  sortPopularity: 'Δημοτικότητα',
+  sortAlphabetical: 'Αλφαβητικά',
   title: 'Διαθέσεις',
   moodCount: 'Διαθέσεις',
   moodCount_one: 'Διαθέση',
@@ -7,5 +15,9 @@ export const moods = {
   loading: 'Φόρτωση διαθέσεων…',
   empty: 'Δεν βρέθηκαν διαθέσεις.',
   albumsEmpty: 'Δεν βρέθηκαν άλμπουμ για αυτή τη διάθεση.',
+  albumsTab: 'Άλμπουμ',
+  tracksTab: 'Τραγούδια',
+  viewTabsLabel: 'Αποτελέσματα διάθεσης',
+  tracksEmpty: 'Δεν βρέθηκαν τραγούδια για αυτή τη διάθεση.',
   back: 'Πίσω',
 };

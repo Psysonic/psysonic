@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'ムードを検索…',
+  searchLabel: 'ムードを検索',
+  clearSearch: 'ムード検索をクリア',
+  filteredCount: '{{total}} ムード中 {{visible}} 件',
+  noSearchResults: '「{{query}}」に一致するムードはありません。',
+  sortLabel: 'ムードの並べ替え',
+  sortPopularity: '人気順',
+  sortAlphabetical: '名前順',
   title: 'ムード',
   moodCount: '件のムード',
   albumCount_one: '{{count}} 枚のアルバム',
@@ -6,5 +14,9 @@ export const moods = {
   loading: 'ムードを読み込み中…',
   empty: 'ムードが見つかりません。',
   albumsEmpty: 'このムードのアルバムは見つかりません。',
+  albumsTab: "アルバム",
+  tracksTab: "トラック",
+  viewTabsLabel: "ムードの結果",
+  tracksEmpty: "このムードのトラックは見つかりませんでした。",
   back: '戻る',
 };

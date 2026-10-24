@@ -1,8 +1,10 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { BulkTrackRating } from './BulkTrackRating';
+import { useAuthStore } from '@/store/authStore';
+import { resetAuthStore } from '@/test/helpers/storeReset';
 
 const TWO_TRACKS = [
   { id: 'one', serverId: 'srv-a', userRating: 0 },
@@ -10,6 +12,14 @@ const TWO_TRACKS = [
 ];
 
 describe('BulkTrackRating', () => {
+  afterEach(resetAuthStore);
+
+  it('renders nothing while star ratings are hidden', () => {
+    useAuthStore.setState({ showStarRatings: false });
+    renderWithProviders(<BulkTrackRating tracks={TWO_TRACKS} onRate={vi.fn()} />);
+    expect(screen.queryAllByRole('radio')).toHaveLength(0);
+  });
+
   it('rates every selected track through the row handler', async () => {
     const user = userEvent.setup();
     const onRate = vi.fn();

@@ -6,15 +6,17 @@ import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
 import {
   _resetGaplessPreloadStateForTest,
   getGaplessPreloadingId,
+  markGaplessSwitch,
 } from '@/features/playback/store/gaplessPreloadState';
 import {
   _resetGaplessChainPrepareInflightForTest,
   requestGaplessChainPreload,
 } from '@/features/playback/store/gaplessChainPreload';
 import { queueItemIdentityKey } from '@/features/playback/utils/playback/queueIdentity';
+import { bumpPlayGeneration } from '@/features/playback/store/engineState';
 
 const prepareMock = vi.hoisted(() =>
-  vi.fn(async (track: Track) => ({
+  vi.fn(async (track: Track): Promise<Track> => ({
     ...track,
     title: 'Next indexed',
     duration: 180,
@@ -99,6 +101,17 @@ describe('requestGaplessChainPreload', () => {
     });
   });
 
+  it('chains the current queue slot in repeat-one mode', async () => {
+    usePlayerStore.setState({ repeatMode: 'one' });
+    requestGaplessChainPreload({
+      currentTrack: track('t1'), nextTrack: track('t1'), nextRef: ref('t1'),
+      nextIdx: 0, queueItems: [ref('t1'), ref('t2')], repeatMode: 'one', volume: 0.75,
+    });
+    await vi.waitFor(() => {
+      expect(invokeMock.mock.calls.filter(c => c[0] === 'audio_chain_preload')).toHaveLength(1);
+    });
+  });
+
   it('no-ops when playback context changed before prepare finished', async () => {
     requestGaplessChainPreload({
       currentTrack: track('t1'),
@@ -118,5 +131,28 @@ describe('requestGaplessChainPreload', () => {
 
     expect(getGaplessPreloadingId()).toBeNull();
     expect(invokeMock.mock.calls.filter(c => c[0] === 'audio_chain_preload').length).toBe(0);
+  });
+
+  it.each(['slot', 'disabled', 'repeat', 'generation', 'boundary'] as const)('rejects a stale same-track prepare after %s changes', async (change) => {
+    let finish!: (value: Track) => void;
+    prepareMock.mockImplementationOnce(() => new Promise<Track>(resolve => { finish = resolve; }));
+    const queueItems = [ref('t1'), ref('t1')];
+    usePlayerStore.setState({ queueItems, repeatMode: 'one' });
+    requestGaplessChainPreload({
+      currentTrack: track('t1'), nextTrack: track('t1'), nextRef: ref('t1'),
+      nextIdx: 0, queueItems, repeatMode: 'one', volume: 0.75,
+    });
+    await Promise.resolve();
+    if (change === 'slot') usePlayerStore.setState({ queueIndex: 1 });
+    if (change === 'disabled') useAuthStore.setState({ gaplessEnabled: false });
+    if (change === 'repeat') usePlayerStore.setState({ repeatMode: 'all' });
+    if (change === 'generation') bumpPlayGeneration();
+    if (change === 'boundary') markGaplessSwitch();
+    finish(track('t1'));
+    // Wait for the async prepare and its stale-context validation to finish.
+    await vi.waitFor(() => expect(prepareMock).toHaveBeenCalledTimes(1));
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(getGaplessPreloadingId()).toBeNull();
+    expect(invokeMock.mock.calls.filter(c => c[0] === 'audio_chain_preload')).toHaveLength(0);
   });
 });

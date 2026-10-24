@@ -73,6 +73,9 @@ export default function SortDropdown<V extends string>({ value, options, onChang
   useLayoutEffect(() => {
     if (!open) return;
     updatePopStyle();
+    const options = popRef.current?.querySelectorAll<HTMLElement>('[role="option"]');
+    const selected = popRef.current?.querySelector<HTMLElement>('[aria-selected="true"]');
+    (selected ?? options?.[0])?.focus();
   }, [open, updatePopStyle]);
 
   useEffect(() => {
@@ -94,7 +97,12 @@ export default function SortDropdown<V extends string>({ value, options, onChang
         !popRef.current?.contains(e.target as Node)
       ) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
     document.addEventListener('mousedown', onDown);
     document.addEventListener('keydown', onKey);
     return () => {
@@ -125,7 +133,21 @@ export default function SortDropdown<V extends string>({ value, options, onChang
           ref={popRef}
           className="genre-filter-popover"
           style={popStyle}
-          role="listbox"
+            role="listbox"
+            aria-label={ariaLabel}
+            onKeyDown={event => {
+              const nodes = Array.from(popRef.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? []);
+              const index = nodes.indexOf(document.activeElement as HTMLElement);
+              if (!nodes.length || index < 0) return;
+              const next = event.key === 'ArrowDown' ? (index + 1) % nodes.length
+                : event.key === 'ArrowUp' ? (index + nodes.length - 1) % nodes.length
+                  : event.key === 'Home' ? 0 : event.key === 'End' ? nodes.length - 1 : null;
+              if (next !== null) {
+                event.preventDefault();
+                event.stopPropagation();
+                nodes[next].focus();
+              }
+            }}
         >
           <div className="genre-filter-popover__list">
             {options.map(opt => {
@@ -134,7 +156,17 @@ export default function SortDropdown<V extends string>({ value, options, onChang
                 <div
                   key={opt.value}
                   className={`genre-filter-popover__option${isSel ? ' genre-filter-popover__option--selected' : ''}`}
-                  onClick={() => { onChange(opt.value); setOpen(false); }}
+                  onClick={() => { onChange(opt.value); setOpen(false); triggerRef.current?.focus(); }}
+                  tabIndex={0}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      onChange(opt.value);
+                      setOpen(false);
+                      triggerRef.current?.focus();
+                    }
+                  }}
                   role="option"
                   aria-selected={isSel}
                 >

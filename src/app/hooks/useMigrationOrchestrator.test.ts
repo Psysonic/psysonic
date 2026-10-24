@@ -9,6 +9,8 @@ const libraryGenreTagsInspectMock = vi.fn();
 const libraryGenreTagsRunMock = vi.fn();
 const libraryFileMoodTagsInspectMock = vi.fn();
 const libraryFileMoodTagsRunMock = vi.fn();
+const libraryRecordLabelTagsInspectMock = vi.fn();
+const libraryRecordLabelTagsRunMock = vi.fn();
 const libraryScopeBrowseProjectionInspectMock = vi.fn();
 const libraryScopeBrowseProjectionRunMock = vi.fn();
 const rewriteFrontendStoreKeysMock = vi.fn(async (_servers: unknown) => undefined);
@@ -27,6 +29,8 @@ vi.mock('@/lib/api/library', () => ({
   libraryGenreTagsRun: () => libraryGenreTagsRunMock(),
   libraryFileMoodTagsInspect: () => libraryFileMoodTagsInspectMock(),
   libraryFileMoodTagsRun: () => libraryFileMoodTagsRunMock(),
+  libraryRecordLabelTagsInspect: () => libraryRecordLabelTagsInspectMock(),
+  libraryRecordLabelTagsRun: () => libraryRecordLabelTagsRunMock(),
   libraryScopeBrowseProjectionInspect: () => libraryScopeBrowseProjectionInspectMock(),
   libraryScopeBrowseProjectionRun: () => libraryScopeBrowseProjectionRunMock(),
 }));
@@ -48,12 +52,16 @@ describe('useMigrationOrchestrator', () => {
     libraryGenreTagsRunMock.mockReset();
     libraryFileMoodTagsInspectMock.mockReset();
     libraryFileMoodTagsRunMock.mockReset();
+    libraryRecordLabelTagsInspectMock.mockReset();
+    libraryRecordLabelTagsRunMock.mockReset();
     libraryScopeBrowseProjectionInspectMock.mockReset();
     libraryScopeBrowseProjectionRunMock.mockReset();
     libraryGenreTagsInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
     libraryGenreTagsRunMock.mockResolvedValue(undefined);
     libraryFileMoodTagsInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
     libraryFileMoodTagsRunMock.mockResolvedValue(undefined);
+    libraryRecordLabelTagsInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
+    libraryRecordLabelTagsRunMock.mockResolvedValue(undefined);
     libraryScopeBrowseProjectionInspectMock.mockResolvedValue({ needed: false, totalTracks: 0, doneTracks: 0 });
     libraryScopeBrowseProjectionRunMock.mockResolvedValue(undefined);
     rewriteFrontendStoreKeysMock.mockClear();
@@ -75,6 +83,8 @@ describe('useMigrationOrchestrator', () => {
       genreTagsProgress: null,
       fileMoodTagsInspect: null,
       fileMoodTagsProgress: null,
+      recordLabelTagsInspect: null,
+      recordLabelTagsProgress: null,
       scopeBrowseProjectionInspect: null,
       scopeBrowseProjectionProgress: null,
       lastError: null,
@@ -368,5 +378,43 @@ describe('useMigrationOrchestrator', () => {
     expect(libraryFileMoodTagsRunMock).toHaveBeenCalledTimes(2);
     expect(libraryScopeBrowseProjectionInspectMock).toHaveBeenCalledTimes(2);
     expect(libraryScopeBrowseProjectionRunMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs the record label backfill after moods and retries it from the gate', async () => {
+    migrationInspectMock.mockResolvedValue({
+      needsMigration: false,
+      hasSkippedUnknownServerRows: false,
+      canRun: true,
+      warnings: [],
+      unmappedEmptyBucket: false,
+      library: { totalLegacyRows: 0, skippedUnknownServerRows: 0, tables: {} },
+      analysis: { totalLegacyRows: 0, skippedUnknownServerRows: 0, tables: {} },
+      mappings: [{ legacyId: 'legacy-a', indexKey: 'a.test' }],
+    });
+    const needed = { needed: true, totalTracks: 100, doneTracks: 0 };
+    libraryRecordLabelTagsInspectMock
+      .mockResolvedValueOnce(needed)
+      .mockResolvedValueOnce(needed)
+      .mockResolvedValueOnce({ needed: false, totalTracks: 100, doneTracks: 100 });
+    libraryRecordLabelTagsRunMock
+      .mockRejectedValueOnce(new Error('label backfill failed'))
+      .mockResolvedValueOnce(undefined);
+
+    renderHook(() => useMigrationOrchestrator());
+
+    await waitFor(() => {
+      expect(useMigrationStore.getState().phase).toBe('error');
+    });
+    expect(useMigrationStore.getState().step).toBe('recordLabelTags');
+    expect(libraryFileMoodTagsInspectMock).toHaveBeenCalled();
+    expect(libraryScopeBrowseProjectionInspectMock).not.toHaveBeenCalled();
+
+    retryBlockingMigration();
+
+    await waitFor(() => {
+      expect(useMigrationStore.getState().phase).toBe('completed');
+    });
+    expect(libraryRecordLabelTagsRunMock).toHaveBeenCalledTimes(2);
+    expect(libraryScopeBrowseProjectionInspectMock).toHaveBeenCalled();
   });
 });

@@ -37,6 +37,7 @@ export function setupMprisSync(): () => void {
       const artist = currentTrack.artist;
       const album = currentTrack.album;
       const durationSecs = currentTrack.duration;
+      const trackId = currentTrack.id;
       if (currentTrack.coverArt && currentTrack.albumId) {
         void resolveTrackCoverRefFromLibrary(
           {
@@ -49,13 +50,17 @@ export function setupMprisSync(): () => void {
         ).then(ref => {
           if (!ref) return;
           coverArtUrlForMpris(ref)
-            .then(coverUrl => mprisSetMetadata({
-              title,
-              artist,
-              album,
-              coverUrl: coverUrl || undefined,
-              durationSecs,
-            }))
+            .then(coverUrl => {
+              // The cover resolves late: a skip meanwhile must not show the old title again.
+              if (usePlayerStore.getState().currentTrack?.id !== trackId) return;
+              return mprisSetMetadata({
+                title,
+                artist,
+                album,
+                coverUrl: coverUrl || undefined,
+                durationSecs,
+              });
+            })
             .catch(() => {});
         });
       } else {

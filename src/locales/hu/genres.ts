@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'Műfajok keresése…',
+  searchLabel: 'Műfajok keresése',
+  clearSearch: 'Műfajkeresés törlése',
+  filteredCount: '{{visible}} / {{total}} műfaj',
+  noSearchResults: 'Nincs ilyen műfaj: „{{query}}”.',
+  sortLabel: 'Műfajok rendezése',
+  sortPopularity: 'Népszerűség',
+  sortAlphabetical: 'Betűrend',
   title: 'Műfajok',
   genreCount: 'Műfaj',
   albumCount_one: '{{count}} album',

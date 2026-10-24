@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Stimmungen suchen…',
+  searchLabel: 'Stimmungen suchen',
+  clearSearch: 'Stimmungssuche löschen',
+  filteredCount: '{{visible}} von {{total}} Stimmungen',
+  noSearchResults: 'Keine Stimmungen für „{{query}}“.',
+  sortLabel: 'Stimmungen sortieren',
+  sortPopularity: 'Beliebtheit',
+  sortAlphabetical: 'Alphabetisch',
   title: 'Stimmungen',
   moodCount: 'Stimmungen',
   moodCount_one: 'Stimmung',
@@ -7,5 +15,9 @@ export const moods = {
   loading: 'Stimmungen werden geladen…',
   empty: 'Keine Stimmungen gefunden.',
   albumsEmpty: 'Keine Alben für diese Stimmung gefunden.',
+  albumsTab: "Alben",
+  tracksTab: "Titel",
+  viewTabsLabel: "Stimmungsergebnisse",
+  tracksEmpty: "Keine Titel für diese Stimmung gefunden.",
   back: 'Zurück',
 };

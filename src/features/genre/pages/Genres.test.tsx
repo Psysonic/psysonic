@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { act } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 
 const hoisted = vi.hoisted(() => ({
   fetchGenreCatalog: vi.fn(),
@@ -38,12 +39,44 @@ import { useAuthStore } from '@/store/authStore';
 
 describe('Genres', () => {
   beforeEach(() => {
+    sessionStorage.clear();
     resetAllStores();
+    useAuthStore.setState({
+      servers: [{ id: 's1', name: 'Test', url: 'https://test.invalid', username: 'u', password: 'p' }],
+      activeServerId: 's1',
+    });
     hoisted.fetchGenreCatalog.mockReset();
     hoisted.fetchScopedGenreCatalog.mockReset().mockResolvedValue([
       { value: 'Rock', albumCount: 4, songCount: 9 },
     ]);
     hoisted.peekScopedGenreCatalog.mockReturnValue(null);
+  });
+
+  it('filters locally, clears empty results and keeps pill sizes stable when sorted', async () => {
+    hoisted.fetchScopedGenreCatalog.mockResolvedValue([
+      { value: 'Zed', albumCount: 100, songCount: 100 },
+      { value: 'Ambient', albumCount: 2, songCount: 2 },
+    ]);
+    renderWithProviders(<Genres />);
+    const ambient = await screen.findByRole('button', { name: 'Ambient' });
+    const fontSize = ambient.style.fontSize;
+    expect([...document.querySelectorAll('.genre-pill')].map(el => el.textContent)).toEqual(['Zed', 'Ambient']);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Sort genres' }));
+    await user.click(screen.getByRole('option', { name: 'Alphabetical' }));
+    expect([...document.querySelectorAll('.genre-pill')].map(el => el.textContent)).toEqual(['Ambient', 'Zed']);
+    expect(ambient.style.fontSize).toBe(fontSize);
+    const input = screen.getByRole('searchbox', { name: 'Search genres' });
+    fireEvent.change(input, { target: { value: 'AMBI' } });
+    expect(screen.queryByRole('button', { name: 'Zed' })).not.toBeInTheDocument();
+    expect(ambient.style.fontSize).toBe(fontSize);
+    expect(screen.getByText('1 of 2 Genres')).toBeInTheDocument();
+    fireEvent.change(input, { target: { value: 'missing' } });
+    expect(screen.getByText('No genres match “missing”.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Clear genre search' }));
+    expect(screen.getByRole('button', { name: 'Zed' })).toBeInTheDocument();
+    expect(hoisted.fetchScopedGenreCatalog).toHaveBeenCalledTimes(1);
+    expect(sessionStorage.getItem('genres-sort')).toBe('alphabetical');
   });
 
   it('loads the derived selected owner while active-server switching catches up', async () => {

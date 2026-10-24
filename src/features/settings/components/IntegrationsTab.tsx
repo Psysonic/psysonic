@@ -8,6 +8,7 @@ import { SettingsToggle } from '@/features/settings/components/SettingsToggle';
 import { SettingsSegmented, type SegmentedOption } from '@/features/settings/components/SettingsSegmented';
 import { SettingsSubCard, SettingsField } from '@/features/settings/components/SettingsSubCard';
 import { BackdropSourceList } from '@/features/settings/components/BackdropSourceList';
+import { mergeVisibleSources } from '@/features/settings/components/backdropReorder';
 import type { DiscordCoverSource } from '@/store/authStoreTypes';
 import type { BackdropSurface } from '@/store/themeStore';
 import type { BackdropSource } from '@/cover/artistBackdrop';
@@ -284,13 +285,21 @@ export function IntegrationsTab() {
               </SettingsSubCard>
             </SettingsGroup>
           )}
-          {theme.externalArtworkEnabled && (
-            <SettingsGroup
-              title={t('settings.backdropSourcesTitle')}
-              desc={t('settings.backdropSourcesSub')}
-            >
-              <SettingsSubCard>
-                {backdropSurfaces.map(({ key, label }) => (
+          {/* Shown with the scraper off too: the server's artist image still
+              fills these backdrops, and the fullscreen style picker sends people
+              here to switch it off (#1780). Without the scraper only the server
+              source is listed, since fanart and banner come from fanart.tv. */}
+          <SettingsGroup
+            title={t('settings.backdropSourcesTitle')}
+            desc={t('settings.backdropSourcesSub')}
+          >
+            <SettingsSubCard>
+              {backdropSurfaces.map(({ key, label }) => {
+                const sources = theme.backdrops[key].sources;
+                const visible = theme.externalArtworkEnabled
+                  ? sources
+                  : sources.filter((s) => s.source === 'navidrome');
+                return (
                   <div className="backdrop-surface-block" key={key}>
                     <SettingsToggle
                       label={label}
@@ -300,18 +309,18 @@ export function IntegrationsTab() {
                     {theme.backdrops[key].enabled && (
                       <BackdropSourceList
                         surface={key}
-                        sources={theme.backdrops[key].sources}
+                        sources={visible}
                         labelFor={backdropSourceLabel}
-                        onChange={(next) => theme.setBackdropSources(key, next)}
+                        onChange={(next) => theme.setBackdropSources(key, mergeVisibleSources(sources, next))}
                         moveUpLabel={t('settings.backdropMoveUp')}
                         moveDownLabel={t('settings.backdropMoveDown')}
                       />
                     )}
                   </div>
-                ))}
-              </SettingsSubCard>
-            </SettingsGroup>
-          )}
+                );
+              })}
+            </SettingsSubCard>
+          </SettingsGroup>
         </div>
       </SettingsSubSection>
 

@@ -47,11 +47,13 @@ import {
 import { resetSeekRequestForPlaybackChange } from '@/features/playback/store/seekRequestState';
 import { isSeekDebouncePending } from '@/features/playback/store/seekDebounce';
 import { getSeekTarget } from '@/features/playback/store/seekTargetState';
-import type { QueueItemRef, Track } from '@/lib/media/trackTypes';
+import type { Track } from '@/lib/media/trackTypes';
 import {
   queueItemRefMatchesTrack,
   sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
+import { resolveGaplessSuccessor } from '@/features/playback/store/gaplessSuccessor';
+export { resolveGaplessSuccessor } from '@/features/playback/store/gaplessSuccessor';
 
 /**
  * How far a track must have run before a fall back to zero can be read as the
@@ -68,32 +70,6 @@ export type GaplessQueueAdvanceResult = {
   nextTrack: Track | null;
   newIndex: number;
 };
-
-/** Resolve the queue successor for a gapless engine transition. */
-export function resolveGaplessSuccessor(
-  queueItems: QueueItemRef[],
-  queueIndex: number,
-  repeatMode: 'off' | 'one' | 'all',
-  currentTrack: Track | null,
-): { nextTrack: Track | null; newIndex: number } {
-  const nextIdx = queueIndex + 1;
-  if (repeatMode === 'one' && currentTrack) {
-    return { nextTrack: currentTrack, newIndex: queueIndex };
-  }
-  if (nextIdx < queueItems.length) {
-    return {
-      nextTrack: resolveQueueTrack(queueItems[nextIdx]),
-      newIndex: nextIdx,
-    };
-  }
-  if (repeatMode === 'all' && queueItems.length > 0) {
-    return {
-      nextTrack: resolveQueueTrack(queueItems[0]),
-      newIndex: 0,
-    };
-  }
-  return { nextTrack: null, newIndex: queueIndex };
-}
 
 function applyGaplessSuccessorUi(
   store: ReturnType<typeof usePlayerStore.getState>,
