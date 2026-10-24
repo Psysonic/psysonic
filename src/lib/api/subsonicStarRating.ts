@@ -79,15 +79,17 @@ export async function star(
   if (type === 'artist') params.artistId = id;
   const serverId = resolveStarServerId(meta);
   await starApi(serverId, 'star.view', params);
+  let localWrite: Promise<void> = Promise.resolve();
   if (type === 'song') {
-    patchLibraryTrackOnUse(serverId, id, { starredAt: Date.now() });
+    localWrite = patchLibraryTrackOnUse(serverId, id, { starredAt: Date.now() });
   } else if (type === 'album' && serverId) {
-    patchLibraryAlbumOnUse(serverId, id, { starredAt: Date.now() });
+    localWrite = patchLibraryAlbumOnUse(serverId, id, { starredAt: Date.now() });
     invalidateStarredAlbumBrowse(serverId);
     const indexEnabled = useLibraryIndexStore.getState().isIndexEnabled(serverId);
     void refreshStarredAlbumIndexFromServer(serverId, indexEnabled).catch(() => {});
   }
-  notifyFavoritesChanged();
+  // Favorites reload from the local index, so only once the mirror landed.
+  void localWrite.then(notifyFavoritesChanged);
   void import('@/features/offline')
     .then(m => m.onFavoritesOfflineStarChange(id, type, true, serverId ?? undefined))
     .catch(() => {});
@@ -104,15 +106,17 @@ export async function unstar(
   if (type === 'artist') params.artistId = id;
   const serverId = resolveStarServerId(meta);
   await starApi(serverId, 'unstar.view', params);
+  let localWrite: Promise<void> = Promise.resolve();
   if (type === 'song') {
-    patchLibraryTrackOnUse(serverId, id, { starredAt: null });
+    localWrite = patchLibraryTrackOnUse(serverId, id, { starredAt: null });
   } else if (type === 'album' && serverId) {
-    patchLibraryAlbumOnUse(serverId, id, { starredAt: null });
+    localWrite = patchLibraryAlbumOnUse(serverId, id, { starredAt: null });
     invalidateStarredAlbumBrowse(serverId);
     const indexEnabled = useLibraryIndexStore.getState().isIndexEnabled(serverId);
     void refreshStarredAlbumIndexFromServer(serverId, indexEnabled).catch(() => {});
   }
-  notifyFavoritesChanged();
+  // Favorites reload from the local index, so only once the mirror landed.
+  void localWrite.then(notifyFavoritesChanged);
   void import('@/features/offline')
     .then(m => m.onFavoritesOfflineStarChange(id, type, false, serverId ?? undefined))
     .catch(() => {});
