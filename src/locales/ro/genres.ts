@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'Caută genuri…',
+  searchLabel: 'Caută genuri',
+  clearSearch: 'Șterge căutarea genurilor',
+  filteredCount: '{{visible}} din {{total}} genuri',
+  noSearchResults: 'Niciun gen nu corespunde cu „{{query}}”.',
+  sortLabel: 'Sortează genurile',
+  sortPopularity: 'Popularitate',
+  sortAlphabetical: 'Alfabetic',
   title: 'Genuri',
   genreCount: 'Genuri',
   albumCount_one: '{{count}} album',

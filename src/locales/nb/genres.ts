@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'Søk etter sjangre…',
+  searchLabel: 'Søk etter sjangre',
+  clearSearch: 'Tøm sjangersøk',
+  filteredCount: '{{visible}} av {{total}} sjangre',
+  noSearchResults: 'Ingen sjangre samsvarer med «{{query}}».',
+  sortLabel: 'Sorter sjangre',
+  sortPopularity: 'Popularitet',
+  sortAlphabetical: 'Alfabetisk',
   title: 'Sjangre',
   genreCount: 'Sjangre',
   albumCount_one: '{{count}} album',

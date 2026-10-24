@@ -155,6 +155,7 @@ export const useAuthStore = create<AuthState>()(
       hotCacheMaxMb: 256,
       hotCacheDebounceSec: 30,
       hotCacheDownloadDir: '',
+      showStarRatings: true,
       skipStarOnManualSkipsEnabled: false,
       skipStarManualSkipThreshold: 3,
       skipStarManualSkipCountsByKey: {},

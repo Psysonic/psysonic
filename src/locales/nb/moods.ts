@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Søk etter stemninger…',
+  searchLabel: 'Søk etter stemninger',
+  clearSearch: 'Tøm stemningssøk',
+  filteredCount: '{{visible}} av {{total}} stemninger',
+  noSearchResults: 'Ingen stemninger samsvarer med «{{query}}».',
+  sortLabel: 'Sorter stemninger',
+  sortPopularity: 'Popularitet',
+  sortAlphabetical: 'Alfabetisk',
   title: 'Stemninger',
   moodCount: 'stemninger',
   moodCount_one: 'stemning',
@@ -7,5 +15,9 @@ export const moods = {
   loading: 'Laster stemninger…',
   empty: 'Ingen stemninger funnet.',
   albumsEmpty: 'Ingen album funnet for denne stemningen.',
+  albumsTab: "Album",
+  tracksTab: "Spor",
+  viewTabsLabel: "Stemningsresultater",
+  tracksEmpty: "Fant ingen spor for denne stemningen.",
   back: 'Tilbake',
 };

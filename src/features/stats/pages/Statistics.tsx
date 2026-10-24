@@ -15,6 +15,7 @@ import { getMusicNetworkRuntime, type RecentTrack, type StatsPeriod, type TopIte
 import { useEnrichmentPrimaryLabel } from '@/music-network/ui';
 import { useOfflineBrowseContext } from '@/features/offline';
 import { usePlayerStatsRecordingEnabled } from '@/features/stats/hooks/usePlayerStatsRecordingEnabled';
+import { useShowStarRatings } from '@/store/starRatings';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function relativeTime(timestamp: number, t: (key: string, opts?: any) => string): string {
@@ -46,6 +47,7 @@ function StatisticsLoadingDots({ label }: { label: string }) {
 
 export default function Statistics() {
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const location = useLocation();
   const navigate = useNavigate();
   const isPlayerStats = location.pathname === '/player-stats';
@@ -320,11 +322,11 @@ export default function Statistics() {
             ) : undefined}
           />}
 
-          {overviewLoading ? <div className="statistics-row-loading"><StatisticsLoadingDots label={t('statistics.computing')} /></div> : <AlbumRow
+          {showStarRatings && (overviewLoading ? <div className="statistics-row-loading"><StatisticsLoadingDots label={t('statistics.computing')} /></div> : <AlbumRow
             title={t('statistics.highestRated')}
             albums={highest}
             showRating
-          />}
+          />)}
 
           {/* Music Network Stats */}
           {enrichmentPrimaryId !== null && (

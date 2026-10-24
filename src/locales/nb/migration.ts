@@ -16,6 +16,10 @@ export const migration = {
   fileMoodTagsBody:
     'Indekserer stemningsmerker fra musikkfiler for navigering og filtrering. Dette kjøres én gang etter oppdatering.',
   fileMoodTagsFailed: 'Kunne ikke oppdatere stemningsindeksen',
+  recordLabelTagsTitle: 'Oppdaterer etikettindeksen…',
+  recordLabelTagsBody:
+    'Indekserer plateselskaper for navigering. Dette kjøres én gang etter oppdatering.',
+  recordLabelTagsFailed: 'Kunne ikke oppdatere etikettindeksen',
   scopeBrowseProjectionTitle: 'Oppdaterer bibliotekets nettlesingsindeks…',
   scopeBrowseProjectionBody: 'Forbereder albumkatalogen for raskere navigering. Dette kjøres én gang etter oppdatering.',
   scopeBrowseProjectionFailed: 'Kunne ikke oppdatere bibliotekets nettlesingsindeks',

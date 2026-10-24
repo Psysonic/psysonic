@@ -638,6 +638,8 @@ const CONTRIBUTOR_ENTRIES = [
       'Device Sync — move relocated copies, remove departed tracks (PR #1670)',
       'Device Sync — sync to a local folder (PR #1671)',
       'Albums — sort by year (PR #1672)',
+      'Labels tab — browse albums by record label (PR #1682)',
+      'Touchpad swipe navigation and pinch-to-zoom covers (PR #1695)',
     ],
   },
   {
@@ -645,6 +647,8 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.56.0',
     contributions: [
       'Browse albums by file mood tags (PR #1675)',
+      'Browse individual tracks by mood (PR #1685)',
+      'Search and sort genre and mood catalogs (PR #1733)',
     ],
   },
   {

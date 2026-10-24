@@ -44,6 +44,15 @@ fn open_stream_with_verified_rate(
     }
 
     #[cfg(target_os = "linux")]
+    {
+        // Set the hint after configuration/ALSA negotiation, not from the
+        // caller's requested rate: a plugin override may change that rate.
+        let (pipewire, pulse) = super::linux_output_rate::latency_hint(actual_rate);
+        std::env::set_var("PIPEWIRE_LATENCY", pipewire);
+        std::env::set_var("PULSE_LATENCY_MSEC", pulse);
+    }
+
+    #[cfg(target_os = "linux")]
     // Preserve Rodio's stability-focused fixed buffer while overriding the
     // fields whose exact ALSA-negotiated values the mixer must use.
     let builder = rodio::DeviceSinkBuilder::from_device(device.clone())
@@ -97,10 +106,19 @@ fn select_verified_stream_config(
         }
     }
 
-    device
-        .default_output_config()
-        .map(|config| (config, "device default"))
-        .map_err(|error| format!("failed to query default audio output configuration: {error}"))
+    super::linux_output_rate::default_config(device).map(|config| (config, "device default"))
+}
+
+/// Keep startup probing and actual opens on the same Linux server-facing PCM.
+fn default_output_device() -> Option<rodio::cpal::Device> {
+    use rodio::cpal::traits::HostTrait;
+    #[cfg(target_os = "linux")]
+    if let Some(device) = crate::dev_io::resolve_output_device("pipewire")
+        .or_else(|| crate::dev_io::resolve_output_device("pulse"))
+    {
+        return Some(device);
+    }
+    rodio::cpal::default_host().default_output_device()
 }
 
 /// Returns `(stream_handle, actual_sample_rate)`.
@@ -110,8 +128,7 @@ pub(super) fn open_stream_for_device_and_rate(
     require_named_device: bool,
 ) -> StreamOpenResult {
     #[cfg(not(target_os = "linux"))]
-    use rodio::cpal::traits::DeviceTrait;
-    use rodio::cpal::traits::HostTrait;
+    use rodio::cpal::traits::{DeviceTrait, HostTrait};
 
     #[cfg(unix)]
     let _guard = unsafe {
@@ -131,6 +148,7 @@ pub(super) fn open_stream_for_device_and_rate(
         StderrGuard(saved)
     };
 
+    #[cfg(not(target_os = "linux"))]
     let host = rodio::cpal::default_host();
     let find_by_key = |key: &str| crate::dev_io::resolve_output_device(key);
     let named_device = device_name.and_then(find_by_key);
@@ -141,18 +159,7 @@ pub(super) fn open_stream_for_device_and_rate(
         ));
     }
 
-    let device = named_device
-        .or_else(|| {
-            #[cfg(target_os = "linux")]
-            {
-                find_by_key("pipewire").or_else(|| find_by_key("pulse"))
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
-                None
-            }
-        })
-        .or_else(|| host.default_output_device());
+    let device = named_device.or_else(default_output_device);
 
     if let Some(device) = device {
         #[cfg(target_os = "linux")]
@@ -239,13 +246,22 @@ pub(super) fn open_stream_for_device_and_rate(
 }
 
 pub(super) fn probe_device_default_rate() -> u32 {
-    use rodio::cpal::traits::{DeviceTrait, HostTrait};
+    #[cfg(target_os = "linux")]
+    return default_output_device()
+        .and_then(|device| super::linux_output_rate::default_config(&device).ok())
+        .map(|config| config.sample_rate())
+        .unwrap_or(super::linux_output_rate::FALLBACK_RATE);
 
-    rodio::cpal::default_host()
-        .default_output_device()
-        .and_then(|d| d.default_output_config().ok())
-        .map(|c| c.sample_rate())
-        .unwrap_or(44_100)
+    #[cfg(not(target_os = "linux"))]
+    {
+        use rodio::cpal::traits::{DeviceTrait, HostTrait};
+
+        rodio::cpal::default_host()
+            .default_output_device()
+            .and_then(|d| d.default_output_config().ok())
+            .map(|c| c.sample_rate())
+            .unwrap_or(44_100)
+    }
 }
 
 pub(crate) fn open_output_stream_blocking_locked(

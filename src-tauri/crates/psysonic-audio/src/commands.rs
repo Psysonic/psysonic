@@ -76,7 +76,7 @@ pub async fn audio_play(
     pre_gain_db: f32,
     fallback_db: f32,
     manual: bool, // true = user-initiated skip → bypass crossfade, start immediately
-    hi_res_enabled: bool, // false = safe 44.1 kHz mode; true = native rate (alpha)
+    hi_res_enabled: bool, // false = system output rate; true = native file rate
     hi_res_crossfade_resample_hz: Option<u32>, // 44100 / 88200 / 96000 when hi-res + crossfade
     analysis_track_id: Option<String>,
     server_id: Option<String>,

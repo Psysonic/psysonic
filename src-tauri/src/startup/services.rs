@@ -7,6 +7,7 @@ use crate::{
 };
 
 mod library_scheduler;
+mod mood_reconcile;
 
 pub(crate) fn initialize(app: &mut tauri::App) -> Result<(), String> {
     let migration_write_barrier =

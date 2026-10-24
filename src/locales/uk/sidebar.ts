@@ -25,6 +25,7 @@ export const sidebar = {
   offlineLibrary: 'Офлайн-медіатека',
   genres: 'Жанри',
   moods: 'Настрої',
+  labels: 'Лейбли',
   tracks: 'Треки',
   playlists: 'Плейлісти',
   shared: 'ND Спільний доступ',

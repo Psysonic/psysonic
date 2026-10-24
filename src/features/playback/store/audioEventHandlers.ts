@@ -30,6 +30,7 @@ import {
   resolvePlaybackUrlForTrack,
 } from '@/features/playback/utils/playback/resolvePlaybackUrl';
 import { requestGaplessChainPreload } from '@/features/playback/store/gaplessChainPreload';
+import { resolveGaplessSuccessor } from '@/features/playback/store/gaplessSuccessor';
 import {
   applyGaplessQueueAdvance,
   maybeReconcileGaplessFromProgress,
@@ -108,7 +109,6 @@ import { armCrossfadeDynamicOverlap, getCrossfadeTransition } from '@/features/p
 import { armAutodjMixing } from '@/features/playback/store/autodjTransitionUi';
 import {
   queueItemIdentityKey,
-  sameQueueTrack,
 } from '@/features/playback/utils/playback/queueIdentity';
 import {
   clearUnavailablePlaybackFailures,
@@ -513,19 +513,18 @@ export function handleAudioProgress(
 
   if (gaplessEnabled) {
     const { queueItems, queueIndex, repeatMode } = store;
-    const nextIdx = queueIndex + 1;
     // Next track for preload/chain. The resolver bridge keeps the window around
     // queueIndex warm, so the next ref is cache-hot; resolveQueueTrack falls
     // back to a placeholder (correct trackId, so URL building still works) on a
     // cold miss. current track = `track` (full) — never resolved.
-    const nextRef = repeatMode === 'one'
-      ? null
-      : (nextIdx < queueItems.length ? queueItems[nextIdx] : (repeatMode === 'all' ? queueItems[0] : null));
-    const nextTrack = repeatMode === 'one'
-      ? track
-      : (nextRef ? resolveQueueTrack(nextRef) : null);
+    const { nextTrack, newIndex: nextIdx } = resolveGaplessSuccessor(
+      queueItems, queueIndex, repeatMode, track,
+    );
+    const nextRef = nextTrack ? queueItems[nextIdx] ?? null : null;
 
-    if (nextTrack && !sameQueueTrack(nextTrack, track)) {
+    // Track identity is not playback identity: repeat-one and consecutive
+    // duplicate slots still need a separately decoded source at the boundary.
+    if (nextTrack) {
       // Gapless backup: keep next-track bytes ready even if chain/decode misses
       // the boundary. Start earlier for larger files / slower conservative link.
       const estBytes = (() => {

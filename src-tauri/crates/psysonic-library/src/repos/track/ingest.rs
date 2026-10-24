@@ -6,6 +6,7 @@ use serde_json::Value as JsonValue;
 
 use super::{TrackRepository, TrackRow};
 use crate::genre_tags::{self, genres_for_track_value};
+use crate::label_tags::{self, labels_for_track_value};
 use crate::mood_tags::{self, moods_for_track_value};
 use crate::store::WriteOpTiming;
 
@@ -27,6 +28,8 @@ fn sync_track_tag_state(
         genre_tags::delete_track_genre_for_track(tx, server_id, &state.track_id)?;
 
         mood_tags::delete_track_mood_for_track(tx, server_id, &state.track_id)?;
+
+        label_tags::delete_track_label_for_track(tx, server_id, &state.track_id)?;
 
         return Ok(());
     }
@@ -53,6 +56,17 @@ fn sync_track_tag_state(
         state.album_id.as_deref(),
         state.library_id.as_deref(),
         &moods,
+    )?;
+
+    let labels = labels_for_track_value(&raw_json);
+
+    label_tags::replace_track_label_rows(
+        tx,
+        server_id,
+        &state.track_id,
+        state.album_id.as_deref(),
+        state.library_id.as_deref(),
+        &labels,
     )?;
 
     Ok(())
@@ -519,7 +533,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -533,7 +547,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -553,7 +567,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_set(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -564,7 +578,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           )
         ELSE json_patch(
           CASE
-            WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+            WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
               THEN json_remove(track.raw_json, '$.tags.mood')
             ELSE track.raw_json
           END,
@@ -673,7 +687,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -687,7 +701,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_remove(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -707,7 +721,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           THEN json_set(
             json_patch(
               CASE
-                WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+                WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
                   THEN json_remove(track.raw_json, '$.tags.mood')
                 ELSE track.raw_json
               END,
@@ -718,7 +732,7 @@ ON CONFLICT(server_id, id) DO UPDATE SET
           )
         ELSE json_patch(
           CASE
-            WHEN json_type(excluded.raw_json, '$.tags') = 'object'
+            WHEN json_type(excluded.raw_json, '$.moods') IS NOT NULL
               THEN json_remove(track.raw_json, '$.tags.mood')
             ELSE track.raw_json
           END,

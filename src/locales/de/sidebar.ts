@@ -22,6 +22,7 @@ export const sidebar = {
   offlineLibrary: 'Offline-Bibliothek',
   genres: 'Genres',
   moods: 'Stimmungen',
+  labels: 'Labels',
   tracks: 'Titel',
   playlists: 'Playlists',
   shared: 'ND Freigaben',

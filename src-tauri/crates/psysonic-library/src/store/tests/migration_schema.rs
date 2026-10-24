@@ -58,7 +58,7 @@ fn migration_031_repairs_preexisting_version_30_without_mood_table() {
                 [crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )?;
-            assert_eq!((version, track_count, backfill_marker), (31, 1, 0));
+            assert_eq!((version, track_count, backfill_marker), (33, 1, 0));
             let mood_count: i64 =
                 conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| row.get(0))?;
             assert_eq!(mood_count, 0);
@@ -156,7 +156,7 @@ fn additive_schema_guard_refuses_incompatible_existing_table_without_rewriting_i
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 31);
+    assert_eq!(version, 33);
     let columns: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM pragma_table_info('track_mood')",
@@ -261,6 +261,212 @@ fn migration_030_refuses_incompatible_preexisting_table_before_modifying_it() {
         )
         .unwrap();
     assert_eq!(index_count, 0);
+}
+
+#[test]
+fn migration_032_adds_label_projection_to_a_version_31_database() {
+    let conn = Connection::open_in_memory().unwrap();
+    let through_31 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 31)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &through_31,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        no_op_hook,
+    )
+    .unwrap();
+    let before: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sqlite_master WHERE name IN ('track_label', 'idx_track_label_browse')",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(before, 0);
+
+    run_migrations(&conn).unwrap();
+
+    let (version, objects): (i64, i64) = conn
+        .query_row(
+            "SELECT (SELECT MAX(version) FROM schema_migrations), \
+                    (SELECT COUNT(*) FROM sqlite_master \
+                     WHERE name IN ('track_label', 'idx_track_label_browse'))",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!((version, objects), (33, 2));
+    ensure_additive_schema(&conn).unwrap();
+}
+
+#[test]
+fn label_schema_repair_on_reopen_invalidates_backfill_when_table_was_lost() {
+    let db = TestDatabase::new("label-repair-on-reopen");
+    {
+        let store = LibraryStore::open_path_for_test(&db.path).unwrap();
+        store
+            .with_conn_mut("test", |conn| {
+                conn.execute(
+                    "INSERT INTO track (server_id, id, title, album, synced_at, raw_json) \
+                     VALUES ('s1', 't1', 'Existing track', 'Album', 1, \
+                             '{\"tags\":{\"recordlabel\":[\"Warp\"]}}')",
+                    [],
+                )?;
+                conn.execute(
+                    "INSERT INTO library_data_migration (id, cursor_rowid, started_at, completed_at) \
+                     VALUES (?1, 1, 1, 1)",
+                    [crate::label_tags_backfill::LABEL_TAGS_MIGRATION_ID],
+                )?;
+                conn.execute("DROP TABLE track_label", [])?;
+                Ok(())
+            })
+            .unwrap();
+    }
+    let reopened = LibraryStore::open_path_for_test(&db.path).expect("restore missing table");
+    assert!(
+        crate::label_tags_backfill::inspect_label_tags_backfill(&reopened)
+            .unwrap()
+            .needed
+    );
+    reopened.verify_operational_schema().unwrap();
+}
+
+#[test]
+fn migration_033_preserves_version_32_rows_and_reschedules_the_label_backfill() {
+    for lose_table in [false, true] {
+        let conn = Connection::open_in_memory().unwrap();
+        let through_32 = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(version, _)| *version <= 32)
+            .collect::<Vec<_>>();
+        run_migrations_with(
+            &conn,
+            &through_32,
+            LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+            no_op_hook,
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO track (server_id, id, title, album, synced_at, raw_json) \
+            VALUES ('s1', 't1', 'Track', 'Album', 1, '{}')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO track_label (server_id, track_id, label) \
+            VALUES ('s1', 't1', 'Éditions')",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO library_data_migration (id, completed_at) \
+            VALUES ('label_tags_v1', 1)",
+            [],
+        )
+        .unwrap();
+        if lose_table {
+            conn.execute("DROP TABLE track_label", []).unwrap();
+        }
+        run_migrations(&conn).unwrap();
+        run_migrations(&conn).unwrap();
+        ensure_additive_schema(&conn).unwrap();
+        let marker: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM library_data_migration \
+            WHERE id = 'label_tags_v1'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(marker, 0);
+        let tracks: i64 = conn
+            .query_row("SELECT COUNT(*) FROM track", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(tracks, 1);
+        let labels: i64 = conn
+            .query_row("SELECT COUNT(*) FROM track_label", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(labels, if lose_table { 0 } else { 1 });
+        if !lose_table {
+            let key: Option<String> = conn
+                .query_row("SELECT label_key FROM track_label", [], |row| row.get(0))
+                .unwrap();
+            assert_eq!(
+                key, None,
+                "DDL must leave data backfill to the resumable job"
+            );
+        }
+        conn.execute("DROP INDEX idx_track_label_key_browse", [])
+            .unwrap();
+        ensure_additive_schema(&conn).unwrap();
+    }
+}
+
+#[test]
+fn migration_032_refuses_incompatible_preexisting_table_before_modifying_it() {
+    let conn = Connection::open_in_memory().unwrap();
+    let through_31 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 31)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &through_31,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        no_op_hook,
+    )
+    .unwrap();
+    conn.execute("CREATE TABLE track_label (server_id TEXT)", [])
+        .unwrap();
+
+    let error = run_migrations(&conn).unwrap_err().to_string();
+    assert!(
+        error.contains("incompatible library schema: track_label"),
+        "{error}"
+    );
+    let version: i64 = conn
+        .query_row("SELECT MAX(version) FROM schema_migrations", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    assert_eq!(version, 31);
+}
+
+#[test]
+fn failed_label_key_migration_rolls_back_the_column_and_can_retry() {
+    let conn = Connection::open_in_memory().unwrap();
+    let through_32 = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(version, _)| *version <= 32)
+        .collect::<Vec<_>>();
+    run_migrations_with(
+        &conn,
+        &through_32,
+        LIBRARY_DB_MIN_COMPATIBLE_VERSION,
+        no_op_hook,
+    )
+    .unwrap();
+    conn.execute(
+        "CREATE TABLE idx_track_label_key_browse (unrelated TEXT)",
+        [],
+    )
+    .unwrap();
+    assert!(run_migrations(&conn).is_err());
+    let (columns, version): (i64, i64) = conn.query_row(
+        "SELECT (SELECT COUNT(*) FROM pragma_table_info('track_label') WHERE name = 'label_key'), \
+            (SELECT MAX(version) FROM schema_migrations)", [], |row| Ok((row.get(0)?, row.get(1)?))
+    ).unwrap();
+    assert_eq!((columns, version), (0, 32));
+    conn.execute("DROP TABLE idx_track_label_key_browse", [])
+        .unwrap();
+    run_migrations(&conn).unwrap();
+    ensure_additive_schema(&conn).unwrap();
 }
 
 #[test]

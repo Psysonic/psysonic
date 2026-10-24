@@ -119,6 +119,33 @@ afterEach(() => {
 });
 
 describe('audio:progress', () => {
+  it.each(['one', 'off', 'all'] as const)('pre-chains identical successor with repeat=%s', async (repeatMode) => {
+    const track = makeTrack({ duration: 100 });
+    seedQueue(repeatMode === 'off' ? [track, track, track] : [track], { index: 0, currentTrack: track });
+    useAuthStore.setState({ gaplessEnabled: true, crossfadeEnabled: false });
+    usePlayerStore.setState({ repeatMode, isPlaying: true });
+    const chain = vi.fn();
+    onInvoke('audio_chain_preload', chain);
+    onInvoke('audio_preload', () => undefined);
+    emitTauriEvent('audio:progress', { current_time: 80, duration: 100 });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(chain).toHaveBeenCalledTimes(1);
+    emitTauriEvent('audio:progress', { current_time: 81, duration: 100 });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(chain).toHaveBeenCalledTimes(1);
+
+    const play = vi.fn();
+    onInvoke('audio_play', play);
+    emitTauriEvent('audio:track_switched', 100);
+    expect(usePlayerStore.getState().queueIndex).toBe(repeatMode === 'off' ? 1 : 0);
+    expect(usePlayerStore.getState().isPlaying).toBe(true);
+    expect(play).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1000);
+    emitTauriEvent('audio:progress', { current_time: 80, duration: 100 });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(chain).toHaveBeenCalledTimes(2);
+  });
+
   it('commits currentTime to the store when transport is active', () => {
     const track = makeTrack({ duration: 100 });
     usePlayerStore.setState({ currentTrack: track, isPlaying: true });

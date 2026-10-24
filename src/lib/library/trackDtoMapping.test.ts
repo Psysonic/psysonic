@@ -155,6 +155,43 @@ describe('trackToSong moods from a native payload', () => {
     ]);
   });
 
+  it('keeps ambiguous legacy top-level moods hidden until authoritative reconciliation', () => {
+    const song = trackToSong(
+      dto({
+        rawJson: {
+          moods: ['heavy', 'aggressive', 'depressive'],
+          tags: {
+            genre: ['Sludge', 'Doom Metal'],
+            recordlabel: ['Black Star Foundation'],
+            tracktotal: ['7'],
+          },
+        },
+      }),
+    );
+
+    expect(song.moods).toEqual([]);
+  });
+
+  it('trusts marked top-level moods beside unrelated native tags', () => {
+    const song = trackToSong(
+      dto({
+        rawJson: {
+          _psysonicMoodsAuthoritative: true,
+          moods: ['male vocalist', 'melodic', 'progressive'],
+          tags: {
+            genre: ['Progressive Rock'],
+          },
+        },
+      }),
+    );
+
+    expect(song.moods).toEqual([
+      'male vocalist',
+      'melodic',
+      'progressive',
+    ]);
+  });
+
   it('prefers Navidrome native mood tags over stale top-level moods', () => {
     const song = trackToSong(
       dto({
@@ -173,11 +210,12 @@ describe('trackToSong moods from a native payload', () => {
     ]);
   });
 
-  it('clears stale top-level moods when native tags contain no mood', () => {
+  it('honors an explicit normalized native mood clear', () => {
     const song = trackToSong(
       dto({
         rawJson: {
-          moods: ['Old Mood'],
+          _psysonicMoodsAuthoritative: true,
+          moods: [],
           tags: {
             genre: ['Ambient'],
           },

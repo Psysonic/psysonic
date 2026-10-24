@@ -24,6 +24,8 @@ pub(crate) use output_stream::{
     wait_for_stream_attachments_timeout_locked, StreamAttachGuard,
 };
 use output_stream::{open_stream_for_device_and_rate, probe_device_default_rate};
+#[cfg(target_os = "linux")]
+mod linux_output_rate;
 
 /// Reply channel handed back to the audio-stream thread once an open finishes.
 pub type StreamOpenResult = Result<(Arc<rodio::MixerDeviceSink>, u32), String>;
@@ -329,20 +331,6 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
                         }
 
                         _stream = None;
-
-                        // Scale the PipeWire quantum with the sample rate so wall-clock
-                        // latency stays roughly constant (≈93 ms) at all rates.
-                        #[cfg(target_os = "linux")]
-                        if desired_rate > 0 {
-                            let frames: u32 = if desired_rate > 48_000 { 8192 } else { 4096 };
-                            std::env::set_var(
-                                "PIPEWIRE_LATENCY",
-                                format!("{frames}/{desired_rate}"),
-                            );
-                            let latency_ms =
-                                (frames as f64 / desired_rate as f64 * 1000.0).round() as u64;
-                            std::env::set_var("PULSE_LATENCY_MSEC", latency_ms.to_string());
-                        }
 
                         match open_stream_for_device_and_rate(
                             device_name.as_deref(),

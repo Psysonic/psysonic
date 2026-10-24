@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Caută stări…',
+  searchLabel: 'Caută stări',
+  clearSearch: 'Șterge căutarea stărilor',
+  filteredCount: '{{visible}} din {{total}} stări',
+  noSearchResults: 'Nicio stare nu corespunde cu „{{query}}”.',
+  sortLabel: 'Sortează stările',
+  sortPopularity: 'Popularitate',
+  sortAlphabetical: 'Alfabetic',
   title: 'Stări de spirit',
   moodCount: 'stări de spirit',
   moodCount_one: 'stare de spirit',
@@ -8,5 +16,9 @@ export const moods = {
   loading: 'Se încarcă stările de spirit…',
   empty: 'Nu s-au găsit stări de spirit.',
   albumsEmpty: 'Nu s-au găsit albume pentru această stare de spirit.',
+  albumsTab: "Albume",
+  tracksTab: "Piese",
+  viewTabsLabel: "Rezultate pentru starea de spirit",
+  tracksEmpty: "Nu s-au găsit piese pentru această stare de spirit.",
   back: 'Înapoi',
 };

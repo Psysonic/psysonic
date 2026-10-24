@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'Пошук жанрів…',
+  searchLabel: 'Пошук жанрів',
+  clearSearch: 'Очистити пошук жанрів',
+  filteredCount: '{{visible}} із {{total}} жанрів',
+  noSearchResults: 'Немає жанрів за запитом «{{query}}».',
+  sortLabel: 'Сортування жанрів',
+  sortPopularity: 'Популярність',
+  sortAlphabetical: 'За абеткою',
   title: 'Жанри',
   genreCount: 'Жанри',
   albumCount_one: '{{count}} альбом',
