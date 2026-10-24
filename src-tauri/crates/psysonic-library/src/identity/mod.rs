@@ -12,15 +12,15 @@ pub use attach::{
     remove_cluster_files_for_library, CLUSTER_DB_FILENAME, CLUSTER_SCHEMA,
 };
 pub(crate) use invalidation::{record_album_scopes, record_albums, record_artists, record_tracks};
-pub(crate) use norm::norm_part;
 pub use norm::NORM_VERSION;
+pub(crate) use norm::{norm_part, KEY_SEP};
 pub use rebuild::{
     cluster_rebuild_needed, ensure_cluster_keys_built, ensure_pending_cluster_keys,
     identity_maintenance_needed, rebuild_cluster_keys,
 };
 pub(crate) use rebuild::{
     concrete_physical_album_key, mark_cluster_keys_dirty, prune_cluster_keys_for_scope,
-    refresh_library_ids_for_albums,
+    refresh_library_ids_for_albums, RELEASE_MEMBER_CTE_SQL,
 };
 
 pub(crate) use keys::build_album_key_with_version;

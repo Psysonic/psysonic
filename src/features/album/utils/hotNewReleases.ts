@@ -83,7 +83,7 @@ export async function fetchHotNewReleases(
   now = Date.now(),
 ): Promise<ResolvedHotNewRelease[]> {
   const cutoff = now - HOT_NEW_RELEASE_WINDOW_MS;
-  const results: SubsonicAlbum[] = [];
+  const results: Array<{ album: SubsonicAlbum; libraryId: string | null }> = [];
   let next = 0;
   const worker = async () => {
     for (;;) {
@@ -100,7 +100,7 @@ export async function fetchHotNewReleases(
         );
         results.push(...albums
           .filter(album => (createdAtMs(album) ?? -Infinity) >= cutoff)
-          .map(album => ({ ...album, serverId: scope.serverId })));
+          .map(album => ({ album: { ...album, serverId: scope.serverId }, libraryId: scope.libraryId })));
       } catch {
         // Local results remain useful when one selected server is unavailable.
       }
@@ -111,7 +111,7 @@ export async function fetchHotNewReleases(
   try {
     const resolutions = await libraryResolveAlbumOverlay({
       scopes,
-      albums: results.map(album => ({
+      albums: results.map(({ album, libraryId }) => ({
         serverId: album.serverId ?? '',
           id: album.id,
           name: album.name,
@@ -119,10 +119,12 @@ export async function fetchHotNewReleases(
           version: album.version?.trim()
             || albumVersionFromTags(album.tags)
             || null,
+          year: album.year ?? null,
+          libraryId,
         })),
     });
     if (resolutions.length !== results.length) return [];
-    return results.map((album, index) => ({ album, ...resolutions[index]! }));
+    return results.map(({ album }, index) => ({ album, ...resolutions[index]! }));
   } catch {
     // The overlay is optional; never reintroduce raw, identity-unsafe rows.
     return [];

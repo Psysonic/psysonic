@@ -11,6 +11,9 @@ use super::norm::NORM_VERSION;
 
 mod pipeline;
 mod ranks;
+mod release_year;
+
+pub(crate) use release_year::RELEASE_MEMBER_CTE_SQL;
 
 #[cfg(test)]
 use pipeline::rebuild_cluster_keys_on_conn;

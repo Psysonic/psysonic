@@ -4,6 +4,7 @@ use super::ranks::{
     capture_invalidated_rank_partitions, recompute_affected_occurrence_ranks,
     recompute_all_occurrence_ranks, reset_affected_rank_partitions,
 };
+use super::release_year;
 use super::{concrete_physical_album_key, dirty_meta_key, set_cluster_meta, DIRTY_META_PREFIX};
 use crate::identity::keys::{
     build_album_key_with_version, build_track_cluster_key_with_version, build_track_cluster_keys,
@@ -180,6 +181,10 @@ pub(super) fn rebuild_cluster_keys_on_conn(
     server_id: Option<&str>,
 ) -> rusqlite::Result<u64> {
     let tx = conn.transaction()?;
+    // Bases before and after the rewrite: a group that loses its conflict here
+    // has to drop the year again.
+    let mut affected_bases = release_year::AffectedBases::default();
+    affected_bases.capture_rebuild(&tx, server_id)?;
     let album_server_filter = if server_id.is_some() {
         " AND source.server_id = ?1"
     } else {
@@ -291,8 +296,17 @@ pub(super) fn rebuild_cluster_keys_on_conn(
             [],
         )?;
     }
+    affected_bases.capture_rebuild(&tx, server_id)?;
+    let affected_bases = affected_bases.to_json();
+    if let Some(bases) = affected_bases.as_deref() {
+        release_year::separate_same_library_releases(&tx, bases)?;
+    }
     recompute_all_occurrence_ranks(&tx, server_id)?;
     crate::browse_projection::reconcile_identity_keys(&tx, server_id)?;
+    if let (Some(_), Some(bases)) = (server_id, affected_bases.as_deref()) {
+        // A split key applies to copies on other servers as well.
+        crate::browse_projection::reconcile_release_base_identity_keys(&tx, bases)?;
+    }
     match server_id {
         Some(server_id) => {
             tx.execute(
@@ -320,6 +334,8 @@ pub(super) fn apply_identity_invalidations_on_conn(
     let tx = conn.transaction()?;
     reset_affected_rank_partitions(&tx)?;
     capture_invalidated_rank_partitions(&tx, server_id)?;
+    let mut affected_bases = release_year::AffectedBases::default();
+    affected_bases.capture_invalidated(&tx, server_id)?;
     // Same label test as the full rebuild — the two paths must derive identical
     // keys or an album's card merges or splits depending on which maintenance
     // pass ran last.
@@ -412,6 +428,8 @@ pub(super) fn apply_identity_invalidations_on_conn(
     drop(upsert);
 
     capture_invalidated_rank_partitions(&tx, server_id)?;
+    affected_bases.capture_invalidated(&tx, server_id)?;
+    let affected_bases = affected_bases.to_json();
 
     tx.execute(
         "DELETE FROM cluster.track_cluster_key AS ck \
@@ -426,6 +444,9 @@ pub(super) fn apply_identity_invalidations_on_conn(
            )",
         params![server_id],
     )?;
+    if let Some(bases) = affected_bases.as_deref() {
+        release_year::separate_same_library_releases(&tx, bases)?;
+    }
     recompute_affected_occurrence_ranks(&tx, server_id)?;
     set_cluster_meta(&tx)?;
     tx.commit()?;
@@ -436,6 +457,9 @@ pub(super) fn apply_identity_invalidations_on_conn(
     // instead of paying a cross-database FULL-sync commit for every delta.
     let tx = conn.transaction()?;
     crate::browse_projection::reconcile_invalidated_identity_keys(&tx, server_id)?;
+    if let Some(bases) = affected_bases.as_deref() {
+        crate::browse_projection::reconcile_release_base_identity_keys(&tx, bases)?;
+    }
     super::super::invalidation::clear(&tx, Some(server_id))?;
     tx.commit()?;
     Ok(refreshed)

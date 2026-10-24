@@ -544,6 +544,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * While the library held a long write — for example the one-time rebuild of the album list after an update — some library requests waited for it on the app's main thread, and everything else that needs that thread waited with them, for up to about 20 seconds. At startup this could also make part of the window setup time out. These requests now wait in the background.
 * Root cause: these requests were set up to run on the main thread, which keeps them in order but blocks it while they wait. Their order is now kept separately, so starring and unstarring quickly still ends in the right state.
 
+### More consistent Greek translations
+
+**By [@stefnto](https://github.com/stefnto), PR [#1795](https://github.com/Psysonic/psysonic/pull/1795)**
+
+* Greek labels for record labels and their index update now use consistent, shorter wording, with a small correction to the empty mood track list message.
+
+### An original and its reissue are two albums again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by netherguy4 on GitHub, PR [#1744](https://github.com/Psysonic/psysonic/pull/1744)**
+
+* When one library held two albums with the same artist and title but different years — an original and its remaster, or two self-titled albums — Psysonic showed them as one album with both track lists. They now appear as separate albums with their own pages. Copies on other servers or in other libraries join the release with the same year.
+* Existing libraries are updated once in the background after the update.
+
 ### Streaming playback no longer keeps a CPU core busy
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1788](https://github.com/Psysonic/psysonic/pull/1788)**

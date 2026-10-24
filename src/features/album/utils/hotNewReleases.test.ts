@@ -75,8 +75,10 @@ describe('hot New Releases overlay', () => {
     const now = Date.parse('2026-07-16T12:00:00Z');
     getAlbumListForServer.mockImplementation(async (serverId: string) => {
       const fresh = album(`${serverId}-fresh`, '2026-07-16T11:00:00Z', serverId);
-      if (serverId === 's1') fresh.version = 'Deluxe Edition';
-      else fresh.tags = { albumversion: ['[Remaster]'] };
+      if (serverId === 's1') {
+        fresh.version = 'Deluxe Edition';
+        fresh.year = 2021;
+      } else fresh.tags = { albumversion: ['[Remaster]'] };
       return [
         fresh,
         album(`${serverId}-old`, '2026-07-12T11:00:00Z', serverId),
@@ -114,9 +116,11 @@ describe('hot New Releases overlay', () => {
           name: 's1-fresh',
           artist: 'Artist',
           version: 'Deluxe Edition',
+          year: 2021,
+          libraryId: 'l1',
         },
         {
-          serverId: 's2', id: 's2-fresh', name: 's2-fresh', artist: 'Artist', version: '[Remaster]',
+          serverId: 's2', id: 's2-fresh', name: 's2-fresh', artist: 'Artist', version: '[Remaster]', year: null, libraryId: 'l2',
         },
       ],
     });
@@ -149,6 +153,8 @@ describe('hot New Releases overlay', () => {
         name: id,
         artist: 'Artist',
         version: expected,
+        year: null,
+        libraryId: 'l1',
       })),
     });
   });
