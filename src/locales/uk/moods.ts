@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Пошук настроїв…',
+  searchLabel: 'Пошук настроїв',
+  clearSearch: 'Очистити пошук настроїв',
+  filteredCount: '{{visible}} із {{total}} настроїв',
+  noSearchResults: 'Немає настроїв за запитом «{{query}}».',
+  sortLabel: 'Сортування настроїв',
+  sortPopularity: 'Популярність',
+  sortAlphabetical: 'За абеткою',
   title: 'Настрої',
   moodCount: 'настроїв',
   moodCount_one: 'настрій',
@@ -12,5 +20,9 @@ export const moods = {
   loading: 'Завантаження настроїв…',
   empty: 'Настроїв не знайдено.',
   albumsEmpty: 'Для цього настрою альбомів не знайдено.',
+  albumsTab: "Альбоми",
+  tracksTab: "Треки",
+  viewTabsLabel: "Результати за настроєм",
+  tracksEmpty: "Для цього настрою треків не знайдено.",
   back: 'Назад',
 };

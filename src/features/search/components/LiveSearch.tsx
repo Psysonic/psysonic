@@ -10,6 +10,7 @@ import { useLiveSearchHeaderCollapse } from '@/features/search/hooks/useLiveSear
 import { useLiveSearchQuery } from '@/features/search/hooks/useLiveSearchQuery';
 import LiveSearchDropdown, { type LiveSearchSource } from '@/features/search/components/LiveSearchDropdown';
 import { showToast } from '@/lib/dom/toast';
+import { orbitGuestSuggestsQueueAdds } from '@/store/orbitRuntime';
 import { useShareSearch } from '@/features/search/hooks/useShareSearch';
 import {
   LiveSearchScopeBadge,
@@ -183,7 +184,7 @@ export default function LiveSearch() {
    ...(results.songs.map(s => ({ id: s.id, action: () => {
        const track = songToTrack(s);
        enqueue([track]);
-       showToast(t('search.addedToQueueToast', { title: track.title }), 2200, 'info');
+       if (!orbitGuestSuggestsQueueAdds()) showToast(t('search.addedToQueueToast', { title: track.title }), 2200, 'info');
        setOpen(false); setQuery('');
      }}))),
   ] : [];

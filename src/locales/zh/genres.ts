@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: '搜索流派…',
+  searchLabel: '搜索流派',
+  clearSearch: '清除流派搜索',
+  filteredCount: '{{total}} 个流派中的 {{visible}} 个',
+  noSearchResults: '没有与“{{query}}”匹配的流派。',
+  sortLabel: '流派排序',
+  sortPopularity: '热门程度',
+  sortAlphabetical: '字母顺序',
   title: '流派',
   genreCount: '个流派',
   albumCount_one: '{{count}} 张专辑',

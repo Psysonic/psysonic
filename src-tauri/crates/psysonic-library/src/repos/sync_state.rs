@@ -45,4 +45,41 @@ impl<'a> SyncStateRepository<'a> {
             Ok(())
         })
     }
+
+    /// Errors stored before they were redacted can carry a Subsonic request URL
+    /// with its token and salt. Rewrite those once; an error recorded in the
+    /// meantime is left alone.
+    pub fn redact_last_errors(&self) -> Result<usize, String> {
+        let stored: Vec<(String, String, String)> = self.read(|conn| {
+            let mut statement = conn.prepare(
+                "SELECT server_id, library_scope, last_error FROM sync_state \
+                 WHERE last_error IS NOT NULL",
+            )?;
+            let rows =
+                statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?;
+            rows.collect()
+        })?;
+        let rewrites: Vec<_> = stored
+            .into_iter()
+            .filter_map(|(server_id, library_scope, error)| {
+                let redacted = psysonic_core::log_sanitize::redact_secrets(&error);
+                (redacted != error).then_some((server_id, library_scope, error, redacted))
+            })
+            .collect();
+        if rewrites.is_empty() {
+            return Ok(0);
+        }
+        self.store
+            .with_conn("sync_state.redact_last_errors", |conn| {
+                let mut rewritten = 0;
+                for (server_id, library_scope, error, redacted) in &rewrites {
+                    rewritten += conn.execute(
+                        "UPDATE sync_state SET last_error = ?4 \
+                     WHERE server_id = ?1 AND library_scope = ?2 AND last_error = ?3",
+                        params![server_id, library_scope, error, redacted],
+                    )?;
+                }
+                Ok(rewritten)
+            })
+    }
 }

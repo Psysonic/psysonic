@@ -71,9 +71,9 @@ pub async fn fetch_url_bytes(url: String) -> Result<(Vec<u8>, String), String> {
         .get(&url)
         .send()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?
         .error_for_status()
-        .map_err(|e| e.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     let content_type = resp
         .headers()
         .get(reqwest::header::CONTENT_TYPE)
@@ -84,7 +84,10 @@ pub async fn fetch_url_bytes(url: String) -> Result<(Vec<u8>, String), String> {
         .unwrap_or("image/jpeg")
         .trim()
         .to_string();
-    let bytes = resp.bytes().await.map_err(|e| e.to_string())?;
+    let bytes = resp
+        .bytes()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     Ok((bytes.to_vec(), content_type))
 }
 
@@ -103,10 +106,13 @@ pub async fn fetch_json_url(url: String) -> Result<String, String> {
         .header("Accept", "application/json")
         .send()
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?
         .error_for_status()
-        .map_err(|e| e.to_string())?;
-    let text = resp.text().await.map_err(|e| e.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
+    let text = resp
+        .text()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     Ok(text)
 }
 
@@ -388,9 +394,12 @@ pub async fn audioscrobbler_request(
             .send()
             .await
     }
-    .map_err(|e| e.to_string())?;
+    .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
 
-    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
 
     if let Some(err) = json.get("error") {
         return Err(format!(
@@ -469,10 +478,13 @@ pub async fn maloja_request(
     .header("User-Agent", subsonic_wire_user_agent())
     .send()
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
 
     let status = resp.status();
-    let json: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
 
     if !status.is_success() {
         let msg = json

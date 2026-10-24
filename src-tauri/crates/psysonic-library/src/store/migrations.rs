@@ -10,7 +10,7 @@ use super::reconciles::{
 ///
 /// Migration checklist (wiring, data backfill, open/swap path):
 /// psysonic-workdocs `ai/agent-rules/08-library-db-migrations.md`.
-pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 31;
+pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 33;
 
 /// Lowest applied schema version the current code can advance from purely
 /// additively. If a DB carries a version below this, the breaking-bump hook
@@ -83,6 +83,12 @@ pub(crate) const MIGRATION_030_TRACK_MOOD: &str =
 /// without creating the mood projection.
 pub(crate) const MIGRATION_031_TRACK_MOOD_SCHEMA_REPAIR: &str =
     include_str!("../../migrations/031_track_mood_schema_repair.sql");
+/// Version 32: normalized record labels for local label browsing.
+pub(crate) const MIGRATION_032_TRACK_LABEL: &str =
+    include_str!("../../migrations/032_track_label.sql");
+pub(crate) const MIGRATION_033_TRACK_LABEL_KEY: &str =
+    include_str!("../../migrations/033_track_label_key.sql");
+const TRACK_LABEL_SCHEMA: &str = include_str!("track_label_schema.sql");
 
 /// Embedded migrations. Ordered ascending by `version`; the runner sorts
 /// defensively before applying so the source order can stay readable.
@@ -108,6 +114,8 @@ pub(super) const MIGRATIONS: &[(i64, &str)] = &[
     (29, MIGRATION_029_ARTIST_CREDIT_KEY_INDEX),
     (30, MIGRATION_030_TRACK_MOOD),
     (31, MIGRATION_031_TRACK_MOOD_SCHEMA_REPAIR),
+    (32, MIGRATION_032_TRACK_LABEL),
+    (33, MIGRATION_033_TRACK_LABEL_KEY),
 ];
 
 /// Additive schema invariants that can be restored without rewriting user data.
@@ -144,7 +152,50 @@ const TRACK_MOOD_GUARD: AdditiveSchemaGuard = AdditiveSchemaGuard {
     backfill_id: Some(crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID),
 };
 
-const ADDITIVE_SCHEMA_GUARDS: &[&AdditiveSchemaGuard] = &[&TRACK_MOOD_GUARD];
+const TRACK_LABEL_V32_GUARD: AdditiveSchemaGuard = AdditiveSchemaGuard {
+    table: "track_label",
+    columns: &[
+        ("server_id", "TEXT", 1, 1),
+        ("track_id", "TEXT", 1, 2),
+        ("label", "TEXT", 1, 3),
+        ("album_id", "TEXT", 0, 0),
+        ("library_id", "TEXT", 0, 0),
+    ],
+    table_constraints: &[
+        "primarykey(server_id,track_id,labelcollatenocase)",
+        "foreignkey(server_id,track_id)referencestrack(server_id,id)ondeletecascade",
+    ],
+    index: "idx_track_label_browse",
+    index_columns: "ontrack_label(server_id,labelcollatenocase,album_id,track_id)",
+    index_predicate: "wherealbum_idisnotnullandalbum_id!=''",
+    repair_sql: MIGRATION_032_TRACK_LABEL,
+    backfill_id: Some(crate::label_tags_backfill::LABEL_TAGS_MIGRATION_ID),
+};
+
+const TRACK_LABEL_GUARD: AdditiveSchemaGuard = AdditiveSchemaGuard {
+    columns: &[
+        ("server_id", "TEXT", 1, 1),
+        ("track_id", "TEXT", 1, 2),
+        ("label", "TEXT", 1, 3),
+        ("album_id", "TEXT", 0, 0),
+        ("library_id", "TEXT", 0, 0),
+        ("label_key", "TEXT", 0, 0),
+    ],
+    repair_sql: TRACK_LABEL_SCHEMA,
+    ..TRACK_LABEL_V32_GUARD
+};
+
+const TRACK_LABEL_KEY_GUARD: AdditiveSchemaGuard = AdditiveSchemaGuard {
+    index: "idx_track_label_key_browse",
+    index_columns: "ontrack_label(server_id,label_key,album_id,track_id,label,library_id)",
+    ..TRACK_LABEL_GUARD
+};
+
+const ADDITIVE_SCHEMA_GUARDS: &[&AdditiveSchemaGuard] = &[
+    &TRACK_MOOD_GUARD,
+    &TRACK_LABEL_GUARD,
+    &TRACK_LABEL_KEY_GUARD,
+];
 
 #[derive(PartialEq, Eq)]
 enum AdditiveSchemaState {
@@ -265,7 +316,14 @@ fn validate_additive_schema_guard(
 /// marker is present but an object is missing. Never reset version markers or
 /// replay data-changing migrations to guess what happened on a user's DB.
 pub(crate) fn ensure_additive_schema(conn: &Connection) -> rusqlite::Result<()> {
-    for guard in ADDITIVE_SCHEMA_GUARDS {
+    ensure_additive_schema_guards(conn, ADDITIVE_SCHEMA_GUARDS)
+}
+
+fn ensure_additive_schema_guards(
+    conn: &Connection,
+    guards: &[&AdditiveSchemaGuard],
+) -> rusqlite::Result<()> {
+    for guard in guards {
         let state = validate_additive_schema_guard(conn, guard)?;
         if state == AdditiveSchemaState::Complete {
             continue;
@@ -447,8 +505,26 @@ pub(crate) fn run_migrations_with(
             // incompatible object and then build an index on it.
             validate_additive_schema_guard(conn, &TRACK_MOOD_GUARD)?;
         }
+        if version == 32 {
+            validate_additive_schema_guard(conn, &TRACK_LABEL_V32_GUARD)?;
+        }
+        if version == 33 {
+            // A version-32 marker can outlive a lost derived table. Repair
+            // that base first, then apply the additive column migration.
+            ensure_additive_schema_guards(conn, &[&TRACK_LABEL_V32_GUARD])?;
+            // ALTER and its version marker must commit together: a crash
+            // between them would otherwise retry ADD COLUMN on restart.
+            let tx = conn.unchecked_transaction()?;
+            tx.execute_batch(sql)?;
+            validate_additive_schema_guard(&tx, &TRACK_LABEL_KEY_GUARD)?;
+            record_schema_migration(&tx, version)?;
+            tx.commit()?;
+            continue;
+        }
         if version == 31 {
-            ensure_additive_schema(conn)?;
+            // Only the mood repair belongs to version 31; later guards are
+            // created by their own migration and by the open-time repair.
+            ensure_additive_schema_guards(conn, &[&TRACK_MOOD_GUARD])?;
             record_schema_migration(conn, version)?;
             continue;
         }

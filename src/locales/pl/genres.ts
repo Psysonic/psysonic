@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'Szukaj gatunków…',
+  searchLabel: 'Szukaj gatunków',
+  clearSearch: 'Wyczyść wyszukiwanie gatunków',
+  filteredCount: '{{visible}} z {{total}} gatunków',
+  noSearchResults: 'Brak gatunków pasujących do „{{query}}”.',
+  sortLabel: 'Sortuj gatunki',
+  sortPopularity: 'Popularność',
+  sortAlphabetical: 'Alfabetycznie',
   title: 'Gatunki',
   genreCount: 'Gatunki',
   albumCount_one: '{{count}} album',

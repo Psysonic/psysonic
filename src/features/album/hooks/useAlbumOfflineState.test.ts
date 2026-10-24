@@ -133,4 +133,62 @@ describe('useAlbumOfflineState', () => {
     const { result } = renderHook(() => useAlbumOfflineState('alb-1', 'srv', ['t1']));
     expect(result.current.resolvedOfflineStatus).toBe('none');
   });
+
+  describe('playlist pins', () => {
+    const playlistEntry = (kind: 'album' | 'playlist') => ({
+      serverIndexKey: 'srv',
+      trackId: 't1',
+      localPath: '/x',
+      layoutFingerprint: 'fp',
+      sizeBytes: 1,
+      tier: 'library' as const,
+      pinSource: { kind, sourceId: 'pl-1' },
+      suffix: 'mp3',
+      originalBytesVerified: true,
+    });
+
+    it('reports a downloaded playlist as cached', () => {
+      useLocalPlaybackStore.getState().upsertEntry(playlistEntry('playlist'));
+
+      const { result } = renderHook(() => useAlbumOfflineState('pl-1', 'srv', ['t1'], 'playlist'));
+      expect(result.current.resolvedOfflineStatus).toBe('cached');
+    });
+
+    it('reports a queued and a downloading playlist', () => {
+      useOfflineJobStore.setState({
+        pinQueue: [{
+          albumId: 'pl-1', albumName: 'Mix', pinKind: 'playlist', status: 'queued', queuedAt: Date.now(), serverId: 'srv',
+        }],
+      });
+      const queued = renderHook(() => useAlbumOfflineState('pl-1', 'srv', ['t1'], 'playlist'));
+      expect(queued.result.current.resolvedOfflineStatus).toBe('queued');
+
+      useOfflineJobStore.setState({
+        pinQueue: [{
+          albumId: 'pl-1', albumName: 'Mix', pinKind: 'playlist', status: 'downloading', queuedAt: Date.now(), serverId: 'srv',
+        }],
+        jobs: [{
+          trackId: 't1', albumId: 'pl-1', albumName: 'Mix', trackTitle: 'T', trackIndex: 0, totalTracks: 1,
+          status: 'downloading', downloadId: 'dl-1', serverId: 'srv', pinKind: 'playlist',
+        }],
+      });
+      const downloading = renderHook(() => useAlbumOfflineState('pl-1', 'srv', ['t1'], 'playlist'));
+      expect(downloading.result.current.resolvedOfflineStatus).toBe('downloading');
+      expect(downloading.result.current.offlineProgress).toEqual({ done: 0, total: 1 });
+    });
+
+    it('keeps the album default blind to playlist pins', () => {
+      useLocalPlaybackStore.getState().upsertEntry(playlistEntry('playlist'));
+
+      const { result } = renderHook(() => useAlbumOfflineState('pl-1', 'srv', ['t1']));
+      expect(result.current.resolvedOfflineStatus).toBe('none');
+    });
+
+    it('does not take an album pin of the same id for the playlist', () => {
+      useLocalPlaybackStore.getState().upsertEntry(playlistEntry('album'));
+
+      const { result } = renderHook(() => useAlbumOfflineState('pl-1', 'srv', ['t1'], 'playlist'));
+      expect(result.current.resolvedOfflineStatus).toBe('none');
+    });
+  });
 });

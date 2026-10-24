@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Поиск настроений…',
+  searchLabel: 'Поиск настроений',
+  clearSearch: 'Очистить поиск настроений',
+  filteredCount: '{{visible}} из {{total}} настроений',
+  noSearchResults: 'Нет настроений по запросу «{{query}}».',
+  sortLabel: 'Сортировка настроений',
+  sortPopularity: 'Популярность',
+  sortAlphabetical: 'По алфавиту',
   title: 'Настроения',
   moodCount: 'настроений',
   moodCount_one: 'настроение',
@@ -11,5 +19,9 @@ export const moods = {
   loading: 'Загрузка настроений…',
   empty: 'Настроения не найдены.',
   albumsEmpty: 'Для этого настроения альбомов не найдено.',
+  albumsTab: "Альбомы",
+  tracksTab: "Треки",
+  viewTabsLabel: "Результаты по настроению",
+  tracksEmpty: "Для этого настроения треки не найдены.",
   back: 'Назад',
 };

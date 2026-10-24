@@ -1,0 +1,15 @@
+export const labels = {
+  title: 'Sellos',
+  labelCount: 'sellos',
+  labelCount_one: 'sello',
+  albumCount_one: '{{count}} álbum',
+  albumCount_other: '{{count}} álbumes',
+  loading: 'Cargando sellos…',
+  empty: 'No se encontraron sellos discográficos.',
+  noMatches: 'Ningún sello coincide con tu filtro.',
+  albumsEmpty: 'No se encontraron álbumes de este sello.',
+  back: 'Volver',
+  filterPlaceholder: 'Filtrar sellos',
+  jumpTo: 'Ir a la letra',
+  other: 'Otros',
+};

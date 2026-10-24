@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import {
@@ -19,7 +19,8 @@ import { SettingsBottomSpacer } from '@/features/settings/components/SettingsBot
 import { StorageTab } from '@/features/settings/components/StorageTab';
 import { SystemTab } from '@/features/settings/components/SystemTab';
 import { searchSettings, type SettingsSearchHit } from '@/features/settings/components/settingsSearch';
-import { type Tab, resolveTab } from '@/features/settings/components/settingsTabs';
+import { normalizeSearchText } from '@/features/settings/components/settingsSearchMatch';
+import { TAB_LABEL_KEY, type Tab, resolveTab } from '@/features/settings/components/settingsTabs';
 import { UserManagementSection } from '@/features/settings/components/UserManagementSection';
 import { ndLogin } from '@/lib/api/navidromeAdmin';
 import { type ServerMagicPayload } from '@/lib/server/serverMagicString';
@@ -30,19 +31,20 @@ export default function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
   const routeState = location.state;
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const tEn = useMemo(() => i18n.getFixedT('en'), [i18n]);
 
   const [activeTab, setActiveTab] = useState<Tab>(resolveTab((routeState as { tab?: string } | null)?.tab));
   const [searchQuery, setSearchQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchResults, setSearchResults] = useState<SettingsSearchHit[]>([]);
   const [selectedResultIdx, setSelectedResultIdx] = useState(0);
-  const [pendingFocusTitle, setPendingFocusTitle] = useState<string | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<PendingFocus | null>(null);
   const [pendingServerInvite, setPendingServerInvite] = useState<ServerMagicPayload | null>(null);
   const [ndAdminAuth, setNdAdminAuth] = useState<{ token: string; serverUrl: string; username: string } | null>(null);
   const [ndAuthChecked, setNdAuthChecked] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchResultsListRef = useRef<HTMLUListElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const st = routeState as { openAddServerInvite?: ServerMagicPayload; tab?: Tab; focus?: string } | null;
@@ -61,19 +63,21 @@ export default function Settings() {
     if (st?.tab) setActiveTab(st.tab);
     // A caller can name the sub-section it means, which lands on the same
     // scroll-and-flash path the settings search uses.
-    if (st?.focus) setPendingFocusTitle(st.focus);
+    if (st?.focus) setPendingFocus({ title: st.focus });
   }, [routeState, location.pathname, location.search, location.hash, navigate]);
 
-  // Settings-Suche: matcht SETTINGS_INDEX gegen den Query (Substring + Fuzzy).
-  // Ergebnis ist eine flache Liste; aktueller Tab zuerst, dann nach Score. Wenn
-  // eine Query aktiv ist, wird der Tab-Content gerendert-nicht und stattdessen
-  // die Ergebnisliste angezeigt.
-  useEffect(() => {
-    // React Compiler set-state-in-effect rule: local state synced with store/prop inputs when the effect’s dependencies change.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSearchResults(searchSettings(searchQuery, activeTab, t));
-    setSelectedResultIdx(0);
-  }, [searchQuery, activeTab, t]);
+  // Settings-Suche: Volltext ueber Ueberschriften, Zeilen und Hinweise jeder
+  // Section (generierter Index), tippfehlertolerant. Ergebnis ist eine flache
+  // Liste nach Score, bei Gleichstand aktueller Tab zuerst. Wenn eine Query
+  // aktiv ist, wird der Tab-Content nicht gerendert und stattdessen die
+  // Ergebnisliste angezeigt. Abgeleitet statt als State: ein Effekt, der die
+  // Liste setzt, rendert die Seite nach dem Admin-Login fuer den Users-Tab
+  // ein weiteres Mal.
+  const searchResults = useMemo(() => searchSettings(searchQuery, activeTab, t, {
+    tEn,
+    advancedEnabled: auth.advancedSettingsEnabled,
+    usersAvailable: ndAdminAuth !== null,
+  }), [searchQuery, activeTab, t, tEn, auth.advancedSettingsEnabled, ndAdminAuth]);
 
   // Selektion ins Blickfeld scrollen (nur wenn das Item out-of-view ist).
   useEffect(() => {
@@ -103,30 +107,43 @@ export default function Settings() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Nach Klick auf ein Ergebnis: Ziel-Sub-Section oeffnen, scrollen und kurz
-  // highlighten, damit der User auf dem neuen Tab sofort weiss welcher Eintrag
-  // gemeint war.
+  // Nach Klick auf ein Ergebnis: Ziel-Sub-Section oeffnen, die gefundene Zeile
+  // (sonst die Section) ins Bild scrollen und kurz highlighten, damit der User
+  // auf dem neuen Tab sofort weiss welcher Eintrag gemeint war.
   useEffect(() => {
-    if (!pendingFocusTitle) return;
-    const el = document.querySelector<HTMLElement>(
-      `[data-settings-search="${CSS.escape(pendingFocusTitle)}"]`,
-    );
-    if (!el) return;
-    if (el instanceof HTMLDetailsElement) el.open = true;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    el.classList.remove('settings-sub-section--flash');
+    if (!pendingFocus) return;
+    const section = pendingFocus.title
+      ? document.querySelector<HTMLElement>(`[data-settings-search="${CSS.escape(pendingFocus.title)}"]`)
+      : null;
+    const scope = pendingFocus.title ? section : pageRef.current;
+    if (!scope) return;
+    if (section instanceof HTMLDetailsElement) section.open = true;
+    const row = pendingFocus.text ? findTextTarget(scope, pendingFocus.text) : null;
+    const target = row ?? section;
+    if (!target) {
+      setPendingFocus(null);
+      return;
+    }
+    const flashClass = row ? 'settings-search-flash' : 'settings-sub-section--flash';
+    target.scrollIntoView({ behavior: 'smooth', block: row ? 'center' : 'start' });
+    target.classList.remove(flashClass);
     // reflow, damit die Animation bei wiederholtem Klick auf dasselbe Ziel
     // erneut abspielt.
-    void el.offsetWidth;
-    el.classList.add('settings-sub-section--flash');
+    void target.offsetWidth;
+    target.classList.add(flashClass);
     const timer = window.setTimeout(() => {
-      el.classList.remove('settings-sub-section--flash');
-    }, 1500);
-    // React Compiler set-state-in-effect rule: state set from a DOM/layout measurement.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPendingFocusTitle(null);
+      target.classList.remove(flashClass);
+    }, 1700);
+    setPendingFocus(null);
     return () => window.clearTimeout(timer);
-  }, [pendingFocusTitle, activeTab]);
+  }, [pendingFocus, activeTab]);
+
+  const openSearchHit = (hit: SettingsSearchHit) => {
+    setSearchQuery('');
+    setSearchOpen(false);
+    setPendingFocus({ title: hit.focusTitle, text: hit.focusText });
+    setActiveTab(hit.tab);
+  };
 
   useEffect(() => {
     const server = auth.getActiveServer();
@@ -172,7 +189,7 @@ export default function Settings() {
   ];
 
   return (
-    <div className="content-body animate-fade-in">
+    <div ref={pageRef} className="content-body animate-fade-in">
       <div className="settings-header">
         <h1 className="page-title">{t('settings.title')}</h1>
         <div className="settings-search">
@@ -195,7 +212,10 @@ export default function Settings() {
                 type="search"
                 className="input settings-search-input"
                 value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                onChange={e => {
+                  setSearchQuery(e.target.value);
+                  setSelectedResultIdx(0);
+                }}
                 placeholder={`${t('settings.searchPlaceholder')} (${IS_MACOS ? '⌘F' : 'Ctrl+F'})`}
                 aria-label={t('settings.searchPlaceholder')}
                 autoFocus
@@ -216,10 +236,7 @@ export default function Settings() {
                     e.preventDefault();
                     const hit = searchResults[selectedResultIdx];
                     if (!hit) return;
-                    setSearchQuery('');
-                    setSearchOpen(false);
-                    setPendingFocusTitle(hit.focusTitle);
-                    setActiveTab(hit.tab);
+                    openSearchHit(hit);
                   }
                 }}
               />
@@ -286,15 +303,15 @@ export default function Settings() {
                   className="settings-search-result-item"
                   data-selected={selected ? 'true' : undefined}
                   onMouseEnter={() => setSelectedResultIdx(idx)}
-                  onClick={() => {
-                    setSearchQuery('');
-                    setSearchOpen(false);
-                    setPendingFocusTitle(hit.focusTitle);
-                    setActiveTab(hit.tab);
-                  }}
+                  onClick={() => openSearchHit(hit)}
                 >
                   <span className="settings-search-result-badge">{t(tabLabelKey)}</span>
-                  <span className="settings-search-result-title">{hit.title}</span>
+                  <span className="settings-search-result-text">
+                    <span className="settings-search-result-title">{hit.title}</span>
+                    {hit.context && (
+                      <span className="settings-search-result-context">{stripMarkup(hit.context)}</span>
+                    )}
+                  </span>
                 </button>
               </li>
             );
@@ -357,18 +374,35 @@ export default function Settings() {
   );
 }
 
-const TAB_LABEL_KEY: Record<Tab, string> = {
-  library:         'settings.tabLibrary',
-  servers:         'settings.tabServers',
-  audio:           'settings.tabAudio',
-  lyrics:          'settings.tabLyrics',
-  appearance:      'settings.tabAppearance',
-  themes:          'settings.tabThemes',
-  personalisation: 'settings.tabPersonalisation',
-  integrations:    'settings.tabIntegrations',
-  input:           'settings.tabInput',
-  storage:         'settings.tabStorage',
-  system:          'settings.tabSystem',
-  users:           'settings.tabUsers',
-};
+/** Ziel nach einem Suchtreffer: Section ueber ihren `data-settings-search`-Titel, darin die gefundene Zeile. */
+type PendingFocus = { title?: string; text?: string };
+
+const ROW_SELECTOR = '.settings-toggle-row, .settings-norm-row';
+
+function stripMarkup(text: string): string {
+  return text.replace(/<[^>]*>/g, '').replace(/\{\{[^}]*\}\}/g, '…');
+}
+
+// Das Element mit dem kuerzesten Text, der den Treffer noch enthaelt — also die
+// Zeile bzw. das Label selbst, nicht die umgebende Gruppe. Platzhalter wie
+// {{count}} stehen im DOM als Zahl, daher zaehlt das laengste feste Stueck.
+function findTextTarget(scope: HTMLElement, text: string): HTMLElement | null {
+  const wanted = text
+    .split(/\{\{[^}]*\}\}|<[^>]*>/)
+    .map(normalizeSearchText)
+    .sort((a, b) => b.length - a.length)[0];
+  if (!wanted) return null;
+  let best: HTMLElement | null = null;
+  let bestLength = Infinity;
+  for (const el of scope.querySelectorAll<HTMLElement>('*')) {
+    const raw = el.textContent ?? '';
+    if (raw.length >= bestLength) continue;
+    const content = normalizeSearchText(raw);
+    if (!content.includes(wanted)) continue;
+    best = el;
+    bestLength = raw.length;
+  }
+  if (best instanceof HTMLOptionElement) best = best.parentElement;
+  return best?.closest<HTMLElement>(ROW_SELECTOR) ?? best;
+}
 

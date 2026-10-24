@@ -44,16 +44,10 @@ impl std::error::Error for SubsonicError {}
 
 /// Flatten a `reqwest::Error` source chain into one readable string —
 /// mirrors `psysonic-integration::navidrome::nd_err` so the two clients
-/// surface comparable diagnostic text.
+/// surface comparable diagnostic text. The request URL carries the wire
+/// auth, so it is redacted first: this text reaches the UI and `sync_state`.
 pub(crate) fn flatten_reqwest_error(e: reqwest::Error) -> String {
-    let mut msg = e.to_string();
-    let mut src: Option<&(dyn std::error::Error + 'static)> = std::error::Error::source(&e);
-    while let Some(s) = src {
-        msg.push_str(" | ");
-        msg.push_str(&s.to_string());
-        src = s.source();
-    }
-    msg
+    psysonic_core::log_sanitize::reqwest_error_text(e)
 }
 
 #[cfg(test)]
@@ -69,6 +63,20 @@ mod tests {
         let s = e.to_string();
         assert!(s.contains("40"));
         assert!(s.contains("Wrong username"));
+    }
+
+    #[tokio::test]
+    async fn transport_text_keeps_the_endpoint_and_drops_the_wire_auth() {
+        // Port 1 on loopback refuses the connection.
+        let error = reqwest::Client::new()
+            .get("http://127.0.0.1:1/rest/getArtists.view?u=alice&t=tok123&s=salt456&f=json")
+            .send()
+            .await
+            .unwrap_err();
+        let text = flatten_reqwest_error(error);
+        assert!(text.contains("127.0.0.1:1/rest/getArtists.view?u=alice&t=REDACTED&s=REDACTED"));
+        assert!(text.contains(" | "), "source chain kept: {text}");
+        assert!(!text.contains("tok123") && !text.contains("salt456"));
     }
 
     #[test]

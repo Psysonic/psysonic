@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Cerca stati d’animo…',
+  searchLabel: 'Cerca stati d’animo',
+  clearSearch: 'Cancella ricerca stati d’animo',
+  filteredCount: '{{visible}} di {{total}} stati d’animo',
+  noSearchResults: 'Nessuno stato d’animo corrisponde a «{{query}}».',
+  sortLabel: 'Ordina stati d’animo',
+  sortPopularity: 'Popolarità',
+  sortAlphabetical: 'Alfabetico',
   title: 'Stati d’animo',
   moodCount: 'stati d’animo',
   moodCount_one: 'stato d’animo',
@@ -7,5 +15,9 @@ export const moods = {
   loading: 'Caricamento degli stati d’animo…',
   empty: 'Nessuno stato d’animo trovato.',
   albumsEmpty: 'Nessun album trovato per questo stato d’animo.',
+  albumsTab: "Album",
+  tracksTab: "Brani",
+  viewTabsLabel: "Risultati per stato d’animo",
+  tracksEmpty: "Nessun brano trovato per questo stato d’animo.",
   back: 'Indietro',
 };

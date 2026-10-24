@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Szukaj nastrojów…',
+  searchLabel: 'Szukaj nastrojów',
+  clearSearch: 'Wyczyść wyszukiwanie nastrojów',
+  filteredCount: '{{visible}} z {{total}} nastrojów',
+  noSearchResults: 'Brak nastrojów pasujących do „{{query}}”.',
+  sortLabel: 'Sortuj nastroje',
+  sortPopularity: 'Popularność',
+  sortAlphabetical: 'Alfabetycznie',
   title: 'Nastroje',
   moodCount: 'nastrojów',
   moodCount_one: 'nastrój',
@@ -11,5 +19,9 @@ export const moods = {
   loading: 'Ładowanie nastrojów…',
   empty: 'Nie znaleziono nastrojów.',
   albumsEmpty: 'Nie znaleziono albumów dla tego nastroju.',
+  albumsTab: "Albumy",
+  tracksTab: "Utwory",
+  viewTabsLabel: "Wyniki nastroju",
+  tracksEmpty: "Nie znaleziono utworów dla tego nastroju.",
   back: 'Powrót',
 };

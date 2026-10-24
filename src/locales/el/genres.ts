@@ -1,4 +1,12 @@
 export const genres = {
+  searchPlaceholder: 'Αναζήτηση ειδών…',
+  searchLabel: 'Αναζήτηση ειδών',
+  clearSearch: 'Εκκαθάριση αναζήτησης',
+  filteredCount: '{{visible}} από {{total}} είδη',
+  noSearchResults: 'Δεν βρέθηκαν είδη για «{{query}}».',
+  sortLabel: 'Ταξινόμηση ειδών',
+  sortPopularity: 'Δημοτικότητα',
+  sortAlphabetical: 'Αλφαβητικά',
   title: 'Είδη',
   genreCount: 'Είδη',
   albumCount_one: '{{count}} άλμπουμ',

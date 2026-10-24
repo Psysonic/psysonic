@@ -27,6 +27,7 @@ import { prepareTransientUiOpen } from '@/lib/dom/transientUi';
 import { ExplicitTitle } from '@/ui/ExplicitBadge';
 import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
 import { isExplicit } from '@/lib/media/explicitStatus';
+import { useShowStarRatings } from '@/store/starRatings';
 
 interface Props {
   onClose: () => void;
@@ -62,6 +63,7 @@ function FsBackground({ url }: { url: string }) {
 
 export default function FullscreenPlayerStatic({ onClose }: Props) {
   const { t } = useTranslation();
+  const showStarRatings = useShowStarRatings();
   const navigatePlaybackLibrary = usePlaybackLibraryNavigate();
   const currentTrack = usePlayerStore(s => s.currentTrack);
   const repeatMode = usePlayerStore(s => s.repeatMode);
@@ -220,31 +222,33 @@ export default function FullscreenPlayerStatic({ onClose }: Props) {
                     <span>{part}</span>
                   </React.Fragment>
                 ))}
-                <span
-                  className="fsp-stars"
-                  role="radiogroup"
-                  aria-label={t('albumDetail.ratingLabel')}
-                  onMouseLeave={() => setHoverRating(0)}
-                >
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const n = i + 1;
-                    const filled = (hoverRating || rating) >= n;
-                    return (
-                      <button
-                        key={i}
-                        type="button"
-                        className="fsp-star-btn"
-                        role="radio"
-                        aria-checked={rating === n}
-                        aria-label={`${n}`}
-                        onMouseEnter={() => setHoverRating(n)}
-                        onClick={() => applyRating(n)}
-                      >
-                        <Star size={16} fill={filled ? 'currentColor' : 'none'} strokeWidth={1.5} />
-                      </button>
-                    );
-                  })}
-                </span>
+                {showStarRatings && (
+                  <span
+                    className="fsp-stars"
+                    role="radiogroup"
+                    aria-label={t('albumDetail.ratingLabel')}
+                    onMouseLeave={() => setHoverRating(0)}
+                  >
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const n = i + 1;
+                      const filled = (hoverRating || rating) >= n;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          className="fsp-star-btn"
+                          role="radio"
+                          aria-checked={rating === n}
+                          aria-label={`${n}`}
+                          onMouseEnter={() => setHoverRating(n)}
+                          onClick={() => applyRating(n)}
+                        >
+                          <Star size={16} fill={filled ? 'currentColor' : 'none'} strokeWidth={1.5} />
+                        </button>
+                      );
+                    })}
+                  </span>
+                )}
               </div>
             )}
             {nextTrack && (

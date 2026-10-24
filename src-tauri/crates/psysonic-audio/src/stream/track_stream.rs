@@ -158,7 +158,7 @@ pub(crate) async fn track_download_task(
                         crate::app_eprintln!(
                             "[audio] streaming reconnect failed after {} attempts: {}",
                             reconnects,
-                            err
+                            psysonic_core::log_sanitize::reqwest_error_text(err)
                         );
                         download_control.mark_ended_without_reusable_bytes();
                         return;

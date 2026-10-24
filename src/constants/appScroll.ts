@@ -10,6 +10,7 @@ export const LOSSLESS_ALBUMS_INPAGE_SCROLL_VIEWPORT_ID = 'lossless-albums-inpage
 export const COMPOSERS_INPAGE_SCROLL_VIEWPORT_ID = 'composers-inpage-scroll-viewport';
 export const GENRE_DETAIL_INPAGE_SCROLL_VIEWPORT_ID = 'genre-detail-inpage-scroll-viewport';
 export const MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID = 'mood-detail-inpage-scroll-viewport';
+export const LABEL_DETAIL_INPAGE_SCROLL_VIEWPORT_ID = 'label-detail-inpage-scroll-viewport';
 export const BURNER_INPAGE_SCROLL_VIEWPORT_ID = 'burner-inpage-scroll-viewport';
 
 export type AlbumGridInpageScrollSurface = 'albums' | 'new-releases' | 'random-albums';
@@ -47,5 +48,6 @@ export function mainRouteInpageScrollViewportId(pathname: string): string | unde
   const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
   if (/^\/genres\/[^/]+$/.test(path)) return GENRE_DETAIL_INPAGE_SCROLL_VIEWPORT_ID;
   if (/^\/moods\/[^/]+$/.test(path)) return MOOD_DETAIL_INPAGE_SCROLL_VIEWPORT_ID;
+  if (/^\/label\/[^/]+$/.test(path)) return LABEL_DETAIL_INPAGE_SCROLL_VIEWPORT_ID;
   return MAIN_ROUTE_INPAGE_SCROLL_VIEWPORT_ID_BY_PATH[path];
 }

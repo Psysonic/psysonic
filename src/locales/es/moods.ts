@@ -1,4 +1,12 @@
 export const moods = {
+  searchPlaceholder: 'Buscar estados de ánimo…',
+  searchLabel: 'Buscar estados de ánimo',
+  clearSearch: 'Borrar búsqueda de estados de ánimo',
+  filteredCount: '{{visible}} de {{total}} estados de ánimo',
+  noSearchResults: 'Ningún estado de ánimo coincide con «{{query}}».',
+  sortLabel: 'Ordenar estados de ánimo',
+  sortPopularity: 'Popularidad',
+  sortAlphabetical: 'Alfabético',
   title: 'Estados de ánimo',
   moodCount: 'estados de ánimo',
   moodCount_one: 'estado de ánimo',
@@ -7,5 +15,9 @@ export const moods = {
   loading: 'Cargando estados de ánimo…',
   empty: 'No se encontraron estados de ánimo.',
   albumsEmpty: 'No se encontraron álbumes para este estado de ánimo.',
+  albumsTab: "Álbumes",
+  tracksTab: "Canciones",
+  viewTabsLabel: "Resultados del estado de ánimo",
+  tracksEmpty: "No se encontraron canciones para este estado de ánimo.",
   back: 'Volver',
 };

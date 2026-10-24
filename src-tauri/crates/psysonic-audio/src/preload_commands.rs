@@ -291,12 +291,16 @@ pub async fn audio_preload(
     let response = crate::engine::playback_scoped_get(&state, &app, &url, server_id.as_deref())
         .send()
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?;
     if !response.status().is_success() {
         emit_preload_cancelled(&app, url, track_id_for_events);
         return Ok(());
     }
-    let data: Vec<u8> = response.bytes().await.map_err(|e| e.to_string())?.into();
+    let data: Vec<u8> = response
+        .bytes()
+        .await
+        .map_err(psysonic_core::log_sanitize::reqwest_error_text)?
+        .into();
 
     if !snapshot.is_current(&state) {
         emit_preload_cancelled(&app, url, track_id_for_events);

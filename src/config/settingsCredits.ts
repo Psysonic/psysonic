@@ -493,8 +493,10 @@ const CONTRIBUTOR_ENTRIES = [
       'Resume — continue albums and playlists where you left off, with a Continue listening row on Home (PR #1719)',
       'Home — arrange the rows by drag and drop (PR #1720)',
       'Lyrics — show server-provided translations under the lyrics (PR #1721)',
+      'Notifications — desktop notification with cover when the song changes (PR #1723)',
       'Playlists — tags with filter chips on the Playlists page (PR #1730)',
       'Tracks — explicit badges and optional cover blur (PR #1731)',
+      'Settings — full-text search across every option, typo-tolerant (PR #1747)',
     ],
   },
   {
@@ -636,6 +638,8 @@ const CONTRIBUTOR_ENTRIES = [
       'Device Sync — move relocated copies, remove departed tracks (PR #1670)',
       'Device Sync — sync to a local folder (PR #1671)',
       'Albums — sort by year (PR #1672)',
+      'Labels tab — browse albums by record label (PR #1682)',
+      'Touchpad swipe navigation and pinch-to-zoom covers (PR #1695)',
     ],
   },
   {
@@ -643,6 +647,8 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.56.0',
     contributions: [
       'Browse albums by file mood tags (PR #1675)',
+      'Browse individual tracks by mood (PR #1685)',
+      'Search and sort genre and mood catalogs (PR #1733)',
     ],
   },
   {

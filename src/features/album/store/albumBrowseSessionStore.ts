@@ -23,6 +23,16 @@ export type AlbumBrowseCompFilter = 'all' | 'only' | 'hide';
 /** Album grid browse surfaces that share leave-restore session behavior. */
 export type AlbumBrowseSurface = 'albums' | 'new-releases' | 'random-albums';
 
+export type MoodDetailTabScrollSnapshot = {
+  scrollTop: number;
+  displayCount: number;
+};
+
+export type MoodDetailTabScrollSnapshots = {
+  albums: MoodDetailTabScrollSnapshot;
+  tracks: MoodDetailTabScrollSnapshot;
+};
+
 /** Browse state restored when returning via browser/app back from album detail. */
 export interface AlbumBrowseReturnFilters {
   selectedGenres: string[];
@@ -57,6 +67,8 @@ interface AlbumBrowseSessionStore {
   sortByServer: Record<string, AlbumBrowseSort>;
   /** Stashed when leaving a browse surface → album detail; consumed after scroll restore. */
   returnStashByKey: Record<string, AlbumBrowseReturnFilters>;
+  /** Mood-detail Albums/Tracks positions kept for the lifetime of that browse session. */
+  moodDetailTabScrollByKey: Record<string, MoodDetailTabScrollSnapshots>;
   setSort: (serverId: string, sort: AlbumBrowseSort) => void;
   stashReturnFilters: (
     serverId: string,
@@ -75,6 +87,10 @@ function genreDetailStashKey(serverId: string, genreName: string): string {
   return `${serverId}:genre-detail:${genreName}`;
 }
 
+function labelDetailStashKey(serverId: string, labelName: string): string {
+  return `${serverId}:label-detail:${labelName}`;
+}
+
 function moodDetailStashKey(serverId: string, moodName: string): string {
   return `${serverId}:mood-detail:${moodName}`;
 }
@@ -84,6 +100,15 @@ function sortEntryFor(
   serverId: string,
 ): AlbumBrowseSort {
   return sortByServer[serverId] ?? DEFAULT_ALBUM_BROWSE_SORT;
+}
+
+function cloneMoodDetailTabScrollSnapshots(
+  snapshots: MoodDetailTabScrollSnapshots,
+): MoodDetailTabScrollSnapshots {
+  return {
+    albums: { ...snapshots.albums },
+    tracks: { ...snapshots.tracks },
+  };
 }
 
 function cloneReturnFilters(filters: AlbumBrowseReturnFilters): AlbumBrowseReturnFilters {
@@ -105,6 +130,7 @@ function cloneReturnFilters(filters: AlbumBrowseReturnFilters): AlbumBrowseRetur
 export const useAlbumBrowseSessionStore = create<AlbumBrowseSessionStore>((set, get) => ({
   sortByServer: {},
   returnStashByKey: {},
+  moodDetailTabScrollByKey: {},
 
   setSort: (serverId, sort) => {
     if (!serverId) return;
@@ -203,6 +229,46 @@ export function peekGenreDetailScrollRestore(
   };
 }
 
+/** Label detail leave-restore (scoped per label name). */
+export function stashLabelDetailReturnFilters(
+  serverId: string,
+  labelName: string,
+  filters: AlbumBrowseReturnFilters,
+): void {
+  if (!serverId || !labelName) return;
+  const key = labelDetailStashKey(serverId, labelName);
+  useAlbumBrowseSessionStore.setState((s) => ({
+    returnStashByKey: {
+      ...s.returnStashByKey,
+      [key]: cloneReturnFilters(filters),
+    },
+  }));
+}
+
+export function clearLabelDetailReturnStash(serverId: string, labelName: string): void {
+  if (!serverId || !labelName) return;
+  const key = labelDetailStashKey(serverId, labelName);
+  useAlbumBrowseSessionStore.setState((s) => {
+    const next = { ...s.returnStashByKey };
+    delete next[key];
+    return { returnStashByKey: next };
+  });
+}
+
+export function peekLabelDetailScrollRestore(
+  serverId: string,
+  labelName: string,
+): { scrollTop: number; displayCount: number } | null {
+  if (!serverId || !labelName) return null;
+  const stash = useAlbumBrowseSessionStore.getState().returnStashByKey[labelDetailStashKey(serverId, labelName)];
+  if (!stash) return null;
+  if (typeof stash.scrollTop !== 'number' || typeof stash.displayCount !== 'number') return null;
+  return {
+    scrollTop: Math.max(0, stash.scrollTop),
+    displayCount: Math.max(0, stash.displayCount),
+  };
+}
+
 /** Mood detail leave-restore (scoped per mood name). */
 export function stashMoodDetailReturnFilters(
   serverId: string,
@@ -267,6 +333,48 @@ export function peekMoodDetailScrollRestore(
   };
 }
 
+export function stashMoodDetailTabScrollSnapshots(
+  serverId: string,
+  moodName: string,
+  snapshots: MoodDetailTabScrollSnapshots,
+): void {
+  if (!serverId || !moodName) return;
+  const key = moodDetailStashKey(serverId, moodName);
+  useAlbumBrowseSessionStore.setState((state) => ({
+    moodDetailTabScrollByKey: {
+      ...state.moodDetailTabScrollByKey,
+      [key]: cloneMoodDetailTabScrollSnapshots(snapshots),
+    },
+  }));
+}
+
+export function clearMoodDetailTabScrollSnapshots(
+  serverId: string,
+  moodName: string,
+): void {
+  if (!serverId || !moodName) return;
+  const key = moodDetailStashKey(serverId, moodName);
+  useAlbumBrowseSessionStore.setState((state) => {
+    const next = { ...state.moodDetailTabScrollByKey };
+    delete next[key];
+    return { moodDetailTabScrollByKey: next };
+  });
+}
+
+export function peekMoodDetailTabScrollSnapshots(
+  serverId: string,
+  moodName: string,
+): MoodDetailTabScrollSnapshots | null {
+  if (!serverId || !moodName) return null;
+  const snapshots =
+    useAlbumBrowseSessionStore.getState().moodDetailTabScrollByKey[
+      moodDetailStashKey(serverId, moodName)
+    ];
+  return snapshots
+    ? cloneMoodDetailTabScrollSnapshots(snapshots)
+    : null;
+}
+
 export function albumBrowseSortForServer(
   sortByServer: Record<string, AlbumBrowseSort>,
   serverId: string,
@@ -303,6 +411,18 @@ export function isGenreDetailPath(pathname: string): boolean {
 export function genreDetailGenreFromPath(pathname: string): string | null {
   const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
   const match = path.match(/^\/genres\/([^/]+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/** Single label detail route (`/label/:name`), not the label list (`/labels`). */
+export function isLabelDetailPath(pathname: string): boolean {
+  const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
+  return /^\/label\/[^/]+$/.test(path);
+}
+
+export function labelDetailLabelFromPath(pathname: string): string | null {
+  const path = pathname.split('?')[0]?.replace(/\/$/, '') || pathname;
+  const match = path.match(/^\/label\/([^/]+)$/);
   return match ? decodeURIComponent(match[1]) : null;
 }
 
