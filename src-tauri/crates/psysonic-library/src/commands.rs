@@ -69,7 +69,12 @@ use sync_session_support::{
 };
 
 /// Run synchronous SQLite / library read work off the async runtime worker.
-async fn library_spawn_blocking<F, R>(f: F) -> Result<R, String>
+///
+/// Every command that touches the library database goes through here instead of
+/// being a sync command: Tauri runs sync commands on the main thread, and one
+/// waiting there for the write lock — a full identity rebuild holds it for
+/// seconds — stalls the window and every other sync command behind it.
+pub(crate) async fn library_spawn_blocking<F, R>(f: F) -> Result<R, String>
 where
     F: FnOnce() -> Result<R, String> + Send + 'static,
     R: Send + 'static,
@@ -77,6 +82,24 @@ where
     tauri::async_runtime::spawn_blocking(f)
         .await
         .map_err(|e| format!("library blocking worker failed: {e}"))?
+}
+
+/// [`library_spawn_blocking`] for work that needs the runtime, not just its store.
+pub(crate) async fn library_spawn_blocking_with_runtime<F, R>(
+    app: AppHandle,
+    f: F,
+) -> Result<R, String>
+where
+    F: FnOnce(&LibraryRuntime) -> Result<R, String> + Send + 'static,
+    R: Send + 'static,
+{
+    library_spawn_blocking(move || {
+        let runtime = app
+            .try_state::<LibraryRuntime>()
+            .ok_or_else(|| "library runtime unavailable".to_string())?;
+        f(&runtime)
+    })
+    .await
 }
 
 const ANALYSIS_PROGRESS_CACHE_TTL: Duration = Duration::from_secs(30);
@@ -102,26 +125,35 @@ pub struct LibraryMigrationBindSessionRequest {
 /// Resolve cover disk + fetch ids from the local library (`album` | `artist` | `track`).
 #[tauri::command]
 #[specta::specta]
-pub fn library_resolve_cover_entry(
+pub async fn library_resolve_cover_entry(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     entity: String,
     entity_id: String,
 ) -> Result<Option<CoverEntryDto>, String> {
-    let server_id = server_id.trim();
-    let entity_id = entity_id.trim();
-    if server_id.is_empty() || entity_id.is_empty() {
-        return Ok(None);
-    }
-    let store = &runtime.store;
-    match entity.trim() {
-        "album" => crate::cover_resolve::resolve_album_cover_entry(store, server_id, entity_id),
-        "artist" => crate::cover_resolve::resolve_artist_cover_entry(store, server_id, entity_id),
-        "track" => crate::cover_resolve::resolve_track_cover_entry(store, server_id, entity_id),
-        other => Err(format!(
-            "unknown cover entity kind: `{other}` (expected album|artist|track)"
-        )),
-    }
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        let server_id = server_id.trim();
+        let entity_id = entity_id.trim();
+        if server_id.is_empty() || entity_id.is_empty() {
+            return Ok(None);
+        }
+        match entity.trim() {
+            "album" => {
+                crate::cover_resolve::resolve_album_cover_entry(&store, server_id, entity_id)
+            }
+            "artist" => {
+                crate::cover_resolve::resolve_artist_cover_entry(&store, server_id, entity_id)
+            }
+            "track" => {
+                crate::cover_resolve::resolve_track_cover_entry(&store, server_id, entity_id)
+            }
+            other => Err(format!(
+                "unknown cover entity kind: `{other}` (expected album|artist|track)"
+            )),
+        }
+    })
+    .await
 }
 
 /// Distinct disc count for an album in the local index (`0` when unknown / no live
@@ -130,17 +162,21 @@ pub fn library_resolve_cover_entry(
 /// shared album cover slot across the queue, playbar and disc separators.
 #[tauri::command]
 #[specta::specta]
-pub fn library_album_disc_count(
+pub async fn library_album_disc_count(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     album_id: String,
 ) -> Result<u32, String> {
-    let server_id = server_id.trim();
-    let album_id = album_id.trim();
-    if server_id.is_empty() || album_id.is_empty() {
-        return Ok(0);
-    }
-    crate::cover_resolve::album_disc_count(&runtime.store, server_id, album_id)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        let server_id = server_id.trim();
+        let album_id = album_id.trim();
+        if server_id.is_empty() || album_id.is_empty() {
+            return Ok(0);
+        }
+        crate::cover_resolve::album_disc_count(&store, server_id, album_id)
+    })
+    .await
 }
 
 /// Hard cap on one `library_resolve_artist_ids` call. A joined credit has a handful of
@@ -156,36 +192,43 @@ const RESOLVE_ARTIST_IDS_MAX: usize = 32;
 /// just the primary one. Names with no artist row come back as `null`.
 #[tauri::command]
 #[specta::specta]
-pub fn library_resolve_artist_ids(
+pub async fn library_resolve_artist_ids(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     names: Vec<String>,
 ) -> Result<Vec<Option<String>>, String> {
-    let capped = names.len().min(RESOLVE_ARTIST_IDS_MAX);
-    let mut resolved = crate::repos::ArtistRepository::new(&runtime.store)
-        .resolve_ids_by_name(server_id.trim(), &names[..capped])?;
-    resolved.resize(names.len(), None);
-    Ok(resolved)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        let capped = names.len().min(RESOLVE_ARTIST_IDS_MAX);
+        let mut resolved = crate::repos::ArtistRepository::new(&store)
+            .resolve_ids_by_name(server_id.trim(), &names[..capped])?;
+        resolved.resize(names.len(), None);
+        Ok(resolved)
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_analysis_backfill_batch(
+pub async fn library_analysis_backfill_batch(
     app: AppHandle,
-    runtime: State<'_, LibraryRuntime>,
     server_id: String,
     cursor: Option<String>,
     limit: Option<u32>,
 ) -> Result<LibraryAnalysisBackfillBatchDto, String> {
-    let (dto, _) = analysis_backfill::collect_analysis_backfill_batch(
-        &app,
-        &runtime,
-        server_id.trim(),
-        analysis_backfill::AnalysisBackfillScanPhase::Candidates,
-        cursor.as_deref().filter(|s| !s.is_empty()),
-        limit,
-    )?;
-    Ok(dto)
+    let app_for_batch = app.clone();
+    library_spawn_blocking_with_runtime(app, move |runtime| {
+        let (dto, _) = analysis_backfill::collect_analysis_backfill_batch(
+            &app_for_batch,
+            runtime,
+            server_id.trim(),
+            analysis_backfill::AnalysisBackfillScanPhase::Candidates,
+            cursor.as_deref().filter(|s| !s.is_empty()),
+            limit,
+        )?;
+        Ok(dto)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -241,7 +284,7 @@ pub fn library_analysis_progress(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_count_live_tracks(
+pub async fn library_count_live_tracks(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
 ) -> Result<i64, String> {
@@ -249,8 +292,8 @@ pub fn library_count_live_tracks(
     if server_id.is_empty() {
         return Ok(0);
     }
-    let repo = TrackRepository::new(&runtime.store);
-    repo.count_live_tracks(&server_id)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || TrackRepository::new(&store).count_live_tracks(&server_id)).await
 }
 
 /// Index-backed Statistics aggregates for one or more selected servers/folders.
@@ -520,12 +563,13 @@ pub async fn library_get_tracks_by_album(
 /// build `media/library/…` paths before a full sync has ingested the rows.
 // NOT specta-collected: takes a serde_json::Value arg — specta rc.25 can't export it. Stays hand-written on generate_handler!.
 #[tauri::command]
-pub fn library_upsert_songs_from_api(
+pub async fn library_upsert_songs_from_api(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     songs: Vec<serde_json::Value>,
 ) -> Result<u32, String> {
-    upsert_songs_from_api(&runtime.store, &server_id, songs)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || upsert_songs_from_api(&store, &server_id, songs)).await
 }
 
 #[tauri::command]
@@ -807,10 +851,12 @@ pub async fn library_list_albums_by_label(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_genre_tags_inspect(
+pub async fn library_genre_tags_inspect(
     runtime: State<'_, LibraryRuntime>,
 ) -> Result<crate::genre_tags_backfill::GenreTagsInspectDto, String> {
-    crate::genre_tags_backfill::inspect_genre_tags_backfill(&runtime.store)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || crate::genre_tags_backfill::inspect_genre_tags_backfill(&store))
+        .await
 }
 
 #[tauri::command]
@@ -827,10 +873,12 @@ pub async fn library_genre_tags_run(
 }
 #[tauri::command]
 #[specta::specta]
-pub fn library_file_mood_tags_inspect(
+pub async fn library_file_mood_tags_inspect(
     runtime: State<'_, LibraryRuntime>,
 ) -> Result<crate::mood_tags_backfill::MoodTagsInspectDto, String> {
-    crate::mood_tags_backfill::inspect_mood_tags_backfill(&runtime.store)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || crate::mood_tags_backfill::inspect_mood_tags_backfill(&store))
+        .await
 }
 
 #[tauri::command]
@@ -847,10 +895,12 @@ pub async fn library_file_mood_tags_run(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_record_label_tags_inspect(
+pub async fn library_record_label_tags_inspect(
     runtime: State<'_, LibraryRuntime>,
 ) -> Result<crate::label_tags_backfill::LabelTagsInspectDto, String> {
-    crate::label_tags_backfill::inspect_label_tags_backfill(&runtime.store)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || crate::label_tags_backfill::inspect_label_tags_backfill(&store))
+        .await
 }
 
 #[tauri::command]
@@ -927,10 +977,11 @@ pub async fn library_scope_browse(
 }
 
 #[tauri::command]
-pub fn library_scope_browse_projection_inspect(
+pub async fn library_scope_browse_projection_inspect(
     runtime: State<'_, LibraryRuntime>,
 ) -> Result<crate::browse_projection::ScopeBrowseProjectionInspectDto, String> {
-    crate::browse_projection::inspect(&runtime.store)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || crate::browse_projection::inspect(&store)).await
 }
 
 #[tauri::command]
@@ -1368,120 +1419,140 @@ pub async fn library_sync_cancel(
 
 // NOT specta-collected: takes a serde_json::Value arg — specta rc.25 can't export it. Stays hand-written on generate_handler!.
 #[tauri::command]
-pub fn library_patch_track(
-    runtime: State<'_, LibraryRuntime>,
+pub async fn library_patch_track(
+    app: AppHandle,
     server_id: String,
     track_id: String,
     patch: Value,
 ) -> Result<(), String> {
-    apply_track_patch(&runtime, &server_id, &track_id, &patch)
+    library_spawn_blocking_with_runtime(app, move |runtime| {
+        apply_track_patch(runtime, &server_id, &track_id, &patch)
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_put_artifact(
+pub async fn library_put_artifact(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     track_id: String,
     artifact: ArtifactInputDto,
 ) -> Result<(), String> {
-    // E4: typed repo owns the upsert + the §5.12 512 KB size cap.
-    crate::repos::ArtifactRepository::new(&runtime.store).put(
-        &server_id,
-        &track_id,
-        &artifact,
-        now_unix_ms(),
-    )
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        // E4: typed repo owns the upsert + the §5.12 512 KB size cap.
+        crate::repos::ArtifactRepository::new(&store).put(
+            &server_id,
+            &track_id,
+            &artifact,
+            now_unix_ms(),
+        )
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_put_fact(
+pub async fn library_put_fact(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     track_id: String,
     fact: FactInputDto,
 ) -> Result<(), String> {
-    // E4: typed repo owns the upsert + the §5.12 user-override rule
-    // (a `user` bpm fact also writes the hot `track.bpm` column).
-    crate::repos::FactRepository::new(&runtime.store).put(
-        &server_id,
-        &track_id,
-        &fact,
-        now_unix_ms(),
-    )
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        // E4: typed repo owns the upsert + the §5.12 user-override rule
+        // (a `user` bpm fact also writes the hot `track.bpm` column).
+        crate::repos::FactRepository::new(&store).put(&server_id, &track_id, &fact, now_unix_ms())
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_record_play_session(
+pub async fn library_record_play_session(
     runtime: State<'_, LibraryRuntime>,
     input: PlaySessionInputDto,
 ) -> Result<(), String> {
-    PlaySessionRepository::new(&runtime.store).insert(&input)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || PlaySessionRepository::new(&store).insert(&input)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_player_stats_year_summary(
+pub async fn library_get_player_stats_year_summary(
     runtime: State<'_, LibraryRuntime>,
     year: i32,
 ) -> Result<PlaySessionYearSummaryDto, String> {
-    PlaySessionRepository::new(&runtime.store).year_summary(year)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || PlaySessionRepository::new(&store).year_summary(year)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_player_stats_heatmap(
+pub async fn library_get_player_stats_heatmap(
     runtime: State<'_, LibraryRuntime>,
     year: i32,
 ) -> Result<Vec<PlaySessionHeatmapDayDto>, String> {
-    PlaySessionRepository::new(&runtime.store).heatmap(year)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || PlaySessionRepository::new(&store).heatmap(year)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_player_stats_day_detail(
+pub async fn library_get_player_stats_day_detail(
     runtime: State<'_, LibraryRuntime>,
     date_iso: String,
 ) -> Result<PlaySessionDayDetailDto, String> {
-    PlaySessionRepository::new(&runtime.store).day_detail(&date_iso)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || PlaySessionRepository::new(&store).day_detail(&date_iso)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_player_stats_year_bounds(
+pub async fn library_get_player_stats_year_bounds(
     runtime: State<'_, LibraryRuntime>,
 ) -> Result<PlaySessionYearBoundsDto, String> {
-    PlaySessionRepository::new(&runtime.store).year_bounds()
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || PlaySessionRepository::new(&store).year_bounds()).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_player_stats_year_recap(
+pub async fn library_get_player_stats_year_recap(
     runtime: State<'_, LibraryRuntime>,
     year: i32,
 ) -> Result<PlaySessionYearRecapDto, String> {
-    PlaySessionRepository::new(&runtime.store).year_recap(year)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || PlaySessionRepository::new(&store).year_recap(year)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_player_stats_recent_days(
+pub async fn library_get_player_stats_recent_days(
     runtime: State<'_, LibraryRuntime>,
     limit: Option<u32>,
 ) -> Result<Vec<PlaySessionRecentDayDto>, String> {
-    PlaySessionRepository::new(&runtime.store).recent_days(limit.unwrap_or(30))
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        PlaySessionRepository::new(&store).recent_days(limit.unwrap_or(30))
+    })
+    .await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_recent_play_sessions(
+pub async fn library_get_recent_play_sessions(
     runtime: State<'_, LibraryRuntime>,
     limit: Option<u32>,
     since_ms: Option<i64>,
 ) -> Result<Vec<PlaySessionRecentTrackDto>, String> {
-    PlaySessionRepository::new(&runtime.store).recent_plays(limit.unwrap_or(50), since_ms)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        PlaySessionRepository::new(&store).recent_plays(limit.unwrap_or(50), since_ms)
+    })
+    .await
 }
 
 #[tauri::command]

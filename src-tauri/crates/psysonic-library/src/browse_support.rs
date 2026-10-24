@@ -1,10 +1,13 @@
 //! Album browse helpers: favorites reconcile and catalog year bounds.
 
+use std::sync::Arc;
+
 use rusqlite::{params, OptionalExtension};
 use serde_json::{Map, Value};
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::album_compilation_filter::pick_album_group_artist_id;
+use crate::commands::{library_spawn_blocking, library_spawn_blocking_with_runtime};
 use crate::dto::CatalogYearBoundsDto;
 use crate::dto::LibraryAlbumDto;
 use crate::dto::{GenreAlbumCountDto, LabelAlbumCountDto, MoodAlbumCountDto};
@@ -34,23 +37,29 @@ pub struct StarredArtistReconcileItem {
 /// (no INSERT / stub rows). Clears local stars absent from `starred_albums`.
 #[tauri::command]
 #[specta::specta]
-pub fn library_reconcile_album_stars(
-    runtime: State<'_, LibraryRuntime>,
+pub async fn library_reconcile_album_stars(
+    app: AppHandle,
     server_id: String,
     starred_albums: Vec<StarredAlbumReconcileItem>,
 ) -> Result<(), String> {
-    reconcile_album_stars(&runtime, &server_id, &starred_albums)
+    library_spawn_blocking_with_runtime(app, move |runtime| {
+        reconcile_album_stars(runtime, &server_id, &starred_albums)
+    })
+    .await
 }
 
 /// Align `artist.starred_at` with server favorites without creating artist stubs.
 #[tauri::command]
 #[specta::specta]
-pub fn library_reconcile_artist_stars(
-    runtime: State<'_, LibraryRuntime>,
+pub async fn library_reconcile_artist_stars(
+    app: AppHandle,
     server_id: String,
     starred_artists: Vec<StarredArtistReconcileItem>,
 ) -> Result<(), String> {
-    reconcile_artist_stars(&runtime, &server_id, &starred_artists)
+    library_spawn_blocking_with_runtime(app, move |runtime| {
+        reconcile_artist_stars(runtime, &server_id, &starred_artists)
+    })
+    .await
 }
 
 /// Read album-level favorite timestamp (`album.starred_at`), not track stars.
@@ -316,13 +325,16 @@ fn sync_album_raw_json_starred(
 
 // NOT specta-collected: serde_json::Value patch arg (same as library_patch_track).
 #[tauri::command]
-pub fn library_patch_album(
-    runtime: State<'_, LibraryRuntime>,
+pub async fn library_patch_album(
+    app: AppHandle,
     server_id: String,
     album_id: String,
     patch: Value,
 ) -> Result<(), String> {
-    apply_album_patch(&runtime, &server_id, &album_id, &patch)
+    library_spawn_blocking_with_runtime(app, move |runtime| {
+        apply_album_patch(runtime, &server_id, &album_id, &patch)
+    })
+    .await
 }
 
 pub(crate) fn reconcile_album_stars(
@@ -437,13 +449,17 @@ pub(crate) fn catalog_year_bounds_for_server(
 /// Min/max album years from the local track catalog (for Albums browse filter spinners).
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_catalog_year_bounds(
+pub async fn library_get_catalog_year_bounds(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
 ) -> Result<CatalogYearBoundsDto, String> {
     let trace = psysonic_core::logging::should_log_albums_browse_trace();
     let t0 = std::time::Instant::now();
-    let result = catalog_year_bounds_for_server(&runtime.store, &server_id);
+    let store = Arc::clone(&runtime.store);
+    let query_server_id = server_id.clone();
+    let result =
+        library_spawn_blocking(move || catalog_year_bounds_for_server(&store, &query_server_id))
+            .await;
     if trace {
         let step_ms = t0.elapsed().as_millis();
         let (min_year, max_year) = result
@@ -664,7 +680,7 @@ pub(crate) fn label_album_counts_for_server(
 /// Distinct album counts per track genre — same grouping as genre album browse.
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_genre_album_counts(
+pub async fn library_get_genre_album_counts(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     library_scope: Option<String>,
@@ -680,7 +696,12 @@ pub fn library_get_genre_album_counts(
     };
     let trace_scopes = scopes.clone();
     let t0 = std::time::Instant::now();
-    let result = genre_album_counts_for_server(&runtime.store, &server_id, &scopes);
+    let store = Arc::clone(&runtime.store);
+    let query_server_id = server_id.clone();
+    let result = library_spawn_blocking(move || {
+        genre_album_counts_for_server(&store, &query_server_id, &scopes)
+    })
+    .await;
     if trace {
         let step_ms = t0.elapsed().as_millis();
         let genre_count = result.as_ref().map(|rows| rows.len()).unwrap_or(0);
@@ -704,7 +725,7 @@ pub fn library_get_genre_album_counts(
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_mood_album_counts(
+pub async fn library_get_mood_album_counts(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     library_scope: Option<String>,
@@ -718,12 +739,13 @@ pub fn library_get_mood_album_counts(
         vec![]
     };
 
-    mood_album_counts_for_server(&runtime.store, &server_id, &scopes)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || mood_album_counts_for_server(&store, &server_id, &scopes)).await
 }
 
 #[tauri::command]
 #[specta::specta]
-pub fn library_get_label_album_counts(
+pub async fn library_get_label_album_counts(
     runtime: State<'_, LibraryRuntime>,
     server_id: String,
     library_scope: Option<String>,
@@ -737,7 +759,8 @@ pub fn library_get_label_album_counts(
         vec![]
     };
 
-    label_album_counts_for_server(&runtime.store, &server_id, &scopes)
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || label_album_counts_for_server(&store, &server_id, &scopes)).await
 }
 
 #[cfg(test)]

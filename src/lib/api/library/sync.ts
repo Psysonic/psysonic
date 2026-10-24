@@ -6,6 +6,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { commands } from '@/generated/bindings';
 import { serverIndexKeyForId } from './internal';
+import { enqueueLibraryWrite } from './writeQueue';
 import type {
   PlaybackHint,
   SyncMode,
@@ -91,7 +92,9 @@ export function libraryPatchTrack(args: {
   };
 }): Promise<void> {
   const indexKey = serverIndexKeyForId(args.serverId);
-  return invoke<void>('library_patch_track', { ...args, serverId: indexKey });
+  return enqueueLibraryWrite(() =>
+    invoke<void>('library_patch_track', { ...args, serverId: indexKey }),
+  );
 }
 
 export function libraryPatchAlbum(args: {
@@ -102,11 +105,13 @@ export function libraryPatchAlbum(args: {
   };
 }): Promise<void> {
   const indexKey = serverIndexKeyForId(args.serverId);
-  return invoke<void>('library_patch_album', {
-    serverId: indexKey,
-    albumId: args.albumId,
-    patch: args.patch,
-  });
+  return enqueueLibraryWrite(() =>
+    invoke<void>('library_patch_album', {
+      serverId: indexKey,
+      albumId: args.albumId,
+      patch: args.patch,
+    }),
+  );
 }
 
 /** Server favorites → `album.starred_at` (UPDATE only, no stub rows). */
@@ -115,9 +120,11 @@ export async function libraryReconcileAlbumStars(args: {
   starredAlbums: Array<{ id: string; starredAt: number }>;
 }): Promise<void> {
   const indexKey = serverIndexKeyForId(args.serverId);
-  const res = await commands.libraryReconcileAlbumStars(
-    indexKey,
-    args.starredAlbums.map(a => ({ id: a.id, starredAt: a.starredAt })),
+  const res = await enqueueLibraryWrite(() =>
+    commands.libraryReconcileAlbumStars(
+      indexKey,
+      args.starredAlbums.map(a => ({ id: a.id, starredAt: a.starredAt })),
+    ),
   );
   if (res.status === 'error') throw new Error(res.error);
 }
@@ -128,9 +135,11 @@ export async function libraryReconcileArtistStars(args: {
   starredArtists: Array<{ id: string; starredAt: number }>;
 }): Promise<void> {
   const indexKey = serverIndexKeyForId(args.serverId);
-  const res = await commands.libraryReconcileArtistStars(
-    indexKey,
-    args.starredArtists.map(artist => ({ id: artist.id, starredAt: artist.starredAt })),
+  const res = await enqueueLibraryWrite(() =>
+    commands.libraryReconcileArtistStars(
+      indexKey,
+      args.starredArtists.map(artist => ({ id: artist.id, starredAt: artist.starredAt })),
+    ),
   );
   if (res.status === 'error') throw new Error(res.error);
 }
@@ -141,7 +150,9 @@ export async function libraryPutArtifact(args: {
   artifact: ArtifactInputDto;
 }): Promise<void> {
   const indexKey = serverIndexKeyForId(args.serverId);
-  const res = await commands.libraryPutArtifact(indexKey, args.trackId, args.artifact);
+  const res = await enqueueLibraryWrite(() =>
+    commands.libraryPutArtifact(indexKey, args.trackId, args.artifact),
+  );
   if (res.status === 'error') throw new Error(res.error);
 }
 
@@ -151,7 +162,9 @@ export async function libraryPutFact(args: {
   fact: FactInputDto;
 }): Promise<void> {
   const indexKey = serverIndexKeyForId(args.serverId);
-  const res = await commands.libraryPutFact(indexKey, args.trackId, args.fact);
+  const res = await enqueueLibraryWrite(() =>
+    commands.libraryPutFact(indexKey, args.trackId, args.fact),
+  );
   if (res.status === 'error') throw new Error(res.error);
 }
 
