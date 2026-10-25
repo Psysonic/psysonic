@@ -98,6 +98,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Mood detail now has **Albums** and **Tracks** tabs. Albums remains the default; Tracks pages through songs carrying that exact mood, using the standard song-list controls.
 * Switching tabs or returning from an album or artist preserves the loaded results and scroll position. Track browsing uses the local library index and does not require a new server endpoint.
 
+### Open links in playlist descriptions
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1691](https://github.com/Psysonic/psysonic/pull/1691)**
+
+* Web links in a playlist's description are now clickable and open in your browser.
+
 ### Touchpad gestures: swipe to go back, pinch to zoom covers
 
 **By [@circle3451](https://github.com/circle3451), PR [#1695](https://github.com/Psysonic/psysonic/pull/1695)**
@@ -317,6 +323,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * One of the AppImage's start files could only be run by its owner, so starting the AppImage as another user, for example inside a firejail sandbox, failed with "Permission denied" on systems without WebKitGTK installed. All start files are now executable for every user.
 
+### A second Flatpak launch opens the existing player
+
+**By [@netherguy4](https://github.com/netherguy4), PR [#1693](https://github.com/Psysonic/psysonic/pull/1693)**
+
+* Launching the Flatpak again could start another player instead of reaching the existing one. It now uses the single-instance address permitted by the sandbox, also for command-line controls.
+
+### More complete Ukrainian translations
+
+**By [@albedych](https://github.com/albedych), PR [#1694](https://github.com/Psysonic/psysonic/pull/1694)**
+
+* Missing Ukrainian translations for migrations, moods and Music Network settings are filled in, including the correct plural forms.
+
+### Moods include Navidrome's native tags
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1697](https://github.com/Psysonic/psysonic/pull/1697)**
+
+* Mood browsing now recognises track moods supplied through Navidrome's native metadata as well as the standard server fields. Existing cached tracks are included when the mood index is rebuilt.
+
 ### The Offline Library counts albums with the right plural
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1699](https://github.com/Psysonic/psysonic/pull/1699)**
@@ -424,6 +448,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * With **Settings → Integrations → Navidrome → Play queue sync** turned off, Psysonic could bring back an older queue after a restart instead of the one you left. The queue and the current track now come back as you left them.
 * Root cause: the startup check still adopted the server queue, which is no longer updated while sync is off, and the mini player window saved its own outdated copy of the queue over the one from the main window.
 
+### More natural Polish filter and connection labels
+
+**By [@Rextens](https://github.com/Rextens), PR [#1738](https://github.com/Psysonic/psysonic/pull/1738)**
+
+* Polish wording for the genre filter and the external connection label now fits its context.
+
 ### A new artist image shows up right after uploading it
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by roman-redl on GitHub, PR [#1740](https://github.com/Psysonic/psysonic/pull/1740)**
@@ -443,6 +473,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * When a request to your server failed, the error text could contain the full request address including the login token, which is enough to sign in as you until the password changes. That text showed up in the terminal output, in some error messages in the app and in the saved sync status. The token is now removed everywhere; the server address stays readable.
 * Sync errors saved by earlier versions are cleaned once when the app starts.
+
+### The app stays responsive while the library is busy
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1743](https://github.com/Psysonic/psysonic/pull/1743)**
+
+* While the library held a long write — for example the one-time rebuild of the album list after an update — some library requests waited for it on the app's main thread, and everything else that needs that thread waited with them, for up to about 20 seconds. At startup this could also make part of the window setup time out. These requests now wait in the background.
+* Root cause: these requests were set up to run on the main thread, which keeps them in order but blocks it while they wait. Their order is now kept separately, so starring and unstarring quickly still ends in the right state.
+
+### An original and its reissue are two albums again
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by netherguy4 on GitHub, PR [#1744](https://github.com/Psysonic/psysonic/pull/1744)**
+
+* When one library held two albums with the same artist and title but different years — an original and its remaster, or two self-titled albums — Psysonic showed them as one album with both track lists. They now appear as separate albums with their own pages. Copies on other servers or in other libraries join the release with the same year.
+* Existing libraries are updated once in the background after the update.
 
 ### Error messages say why a connection failed
 
@@ -500,17 +544,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * As a guest in an Orbit session, **Add to queue**, **Play next** and **Play All** only changed your own queue, and the host's next track replaced it, so the tracks were lost. They now go to the host as suggestions, the same way a double-click does. For more than one track Psysonic asks first, then confirms once.
 
-### The system media controls show the right song after quick skips
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1785](https://github.com/Psysonic/psysonic/pull/1785)**
-
-* When two track changes came close together, for example a skip right as a song ended, the media controls of the system (MPRIS on Linux, the Windows media overlay, Now Playing on macOS) could show the previous song while the next one played, until the next track change. Psysonic now drops the update of a song that is no longer playing.
-
 ### The Live window shows your other devices
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1769](https://github.com/Psysonic/psysonic/pull/1769)**
 
 * Playback on another device or client signed in with the same account did not appear in the Live window unless this Psysonic was playing at the same time. With Navidrome 0.62 or newer it now shows like any other listener. Older servers keep hiding entries of your own account while you are not playing, because they keep showing a stopped track for several minutes.
+
+### Orbit search suggestions show only their own confirmation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1770](https://github.com/Psysonic/psysonic/pull/1770)**
+
+* Adding a song from search as an Orbit guest no longer also says it was added to your own queue. Only the confirmation that it was suggested to the host is shown, including in narrow windows.
 
 ### The artist photo behind the player can be switched off without fanart.tv
 
@@ -518,6 +562,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **Settings → Integrations → External Artwork Scraper → Backgrounds** only appeared with the fanart.tv scraper turned on, although the artist image from your server fills the mainstage hero, the artist page header and the fullscreen player without it. So with the scraper off, there was no way to switch these backgrounds off, and **Open Backgrounds** in the fullscreen player settings led nowhere. The section is now always there; without the scraper it lists only the server image.
 * The hint in the fullscreen player settings now names the full path to the section.
+
+### The system media controls show the right song after quick skips
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1785](https://github.com/Psysonic/psysonic/pull/1785)**
+
+* When two track changes came close together, for example a skip right as a song ended, the media controls of the system (MPRIS on Linux, the Windows media overlay, Now Playing on macOS) could show the previous song while the next one played, until the next track change. Psysonic now drops the update of a song that is no longer playing.
+
+### Streaming playback no longer keeps a CPU core busy
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1788](https://github.com/Psysonic/psysonic/pull/1788)**
+
+* Since 1.55, the decoder thread for streamed tracks ran in a tight loop for the whole track and kept one CPU core at nearly 100 %. It now waits while enough audio is buffered; on Windows its load dropped from about 98 % to about 2 % of one core. Local and downloaded files were not affected.
 
 ### Navidrome migration recovers from reciprocal track aliases
 
@@ -537,31 +593,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * With gapless playback enabled, repeat-one, a one-song repeat-all queue and consecutive copies of the same song now prepare the next playback in advance instead of pausing to restart. Changing repeat mode also cancels an already prepared successor.
 
-### The app stays responsive while the library is busy
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1743](https://github.com/Psysonic/psysonic/pull/1743)**
-
-* While the library held a long write — for example the one-time rebuild of the album list after an update — some library requests waited for it on the app's main thread, and everything else that needs that thread waited with them, for up to about 20 seconds. At startup this could also make part of the window setup time out. These requests now wait in the background.
-* Root cause: these requests were set up to run on the main thread, which keeps them in order but blocks it while they wait. Their order is now kept separately, so starring and unstarring quickly still ends in the right state.
-
 ### More consistent Greek translations
 
 **By [@stefnto](https://github.com/stefnto), PR [#1795](https://github.com/Psysonic/psysonic/pull/1795)**
 
 * Greek labels for record labels and their index update now use consistent, shorter wording, with a small correction to the empty mood track list message.
 
-### An original and its reissue are two albums again
+### The Nix package starts with newer Mesa drivers
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), reported by netherguy4 on GitHub, PR [#1744](https://github.com/Psysonic/psysonic/pull/1744)**
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1796](https://github.com/Psysonic/psysonic/pull/1796)**
 
-* When one library held two albums with the same artist and title but different years — an original and its remaster, or two self-titled albums — Psysonic showed them as one album with both track lists. They now appear as separate albums with their own pages. Copies on other servers or in other libraries join the release with the same year.
-* Existing libraries are updated once in the background after the update.
-
-### Streaming playback no longer keeps a CPU core busy
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1788](https://github.com/Psysonic/psysonic/pull/1788)**
-
-* Since 1.55, the decoder thread for streamed tracks ran in a tight loop for the whole track and kept one CPU core at nearly 100 %. It now waits while enough audio is buffered; on Windows its load dropped from about 98 % to about 2 % of one core. Local and downloaded files were not affected.
+* On newer NixOS systems, the native flake package could open a blank window because its older glibc could not load the system's Mesa driver. The flake dependencies are refreshed, including glibc, so the reported setup starts normally without system changes or loader overrides.
 
 ## [1.55.0]
 
