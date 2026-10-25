@@ -605,6 +605,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * On newer NixOS systems, the native flake package could open a blank window because its older glibc could not load the system's Mesa driver. The flake dependencies are refreshed, including glibc, so the reported setup starts normally without system changes or loader overrides.
 
+### Security updates for network libraries and development tools
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1799](https://github.com/Psysonic/psysonic/pull/1799)**
+
+* Updated network dependencies to include upstream fixes for TLS handling, certificate validation and request redirects. Compatible Vite and test-tooling updates address development-server and dependency security advisories as well.
+
 ## [1.55.0]
 
 ## Added
