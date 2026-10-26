@@ -34,7 +34,8 @@ export type SmartPlaylistCapability =
   | 'percentageLimit'
   | 'annotationFields'
   | 'presenceOperators'
-  | 'expandedFields';
+  | 'expandedFields'
+  | 'refreshDelay';
 
 export interface SmartPlaylistCapabilityMatrixEntry {
   capability: SmartPlaylistCapability;
@@ -50,6 +51,7 @@ export const SMART_PLAYLIST_CAPABILITY_MATRIX: readonly SmartPlaylistCapabilityM
   { capability: 'annotationFields', minimumVersion: [0, 61, 0] },
   { capability: 'presenceOperators', minimumVersion: [0, 62, 0] },
   { capability: 'expandedFields', minimumVersion: [0, 63, 0] },
+  { capability: 'refreshDelay', minimumVersion: [0, 64, 0] },
 ] as const;
 
 export interface SmartPlaylistCapabilities {
@@ -64,6 +66,7 @@ export interface SmartPlaylistCapabilities {
   annotationFields: boolean;
   presenceOperators: boolean;
   expandedFields: boolean;
+  refreshDelay: boolean;
 }
 
 function semverGte(
@@ -106,6 +109,7 @@ export function resolveSmartPlaylistCapabilities(
     annotationFields: has('annotationFields'),
     presenceOperators: has('presenceOperators'),
     expandedFields: has('expandedFields'),
+    refreshDelay: has('refreshDelay'),
   };
 }
 
@@ -134,6 +138,7 @@ const V052 = [0, 52, 0] as const;
 const V055 = [0, 55, 0] as const;
 const V061 = [0, 61, 0] as const;
 const V063 = [0, 63, 0] as const;
+const V064 = [0, 64, 0] as const;
 
 const FIELD_NAME_WORDS = [
   'musicbrainz', 'compilation', 'subtitle', 'comment',
@@ -149,7 +154,7 @@ const FIELD_NAME_WORDS = [
   'language', 'license', 'media', 'grouping', 'mood', 'key', 'asin',
   'barcode', 'script', 'performer', 'composer', 'lyricist', 'conductor',
   'director', 'arranger', 'producer', 'engineer', 'mixer', 'remixer',
-  'group', 'recording', 'sample', 'replaygain', 'mbz',
+  'group', 'recording', 'sample', 'replaygain', 'mbz', 'song',
 ].sort((left, right) => right.length - left.length);
 
 const FIELD_WORD_LABELS: Record<string, string> = {
@@ -272,6 +277,13 @@ const RELEASED_FIELD_SEEDS: FieldSeed[] = [
   ),
   ...fields(['missing'], 'boolean', { minimumVersion: V063 }),
 
+  ...fields(['albumdateadded', 'albumdatemodified'], 'date', { minimumVersion: V064 }),
+  ...fields(
+    ['albumduration', 'albumsongcount', 'albumsize'],
+    'number',
+    { minimumVersion: V064, min: 0 },
+  ),
+
   {
     name: 'replaygain_album_gain',
     type: 'number',
@@ -331,7 +343,7 @@ const NULLABLE_RELEASED_FIELDS = new Set([
   'engineer', 'mixer', 'djmixer', 'remixer', 'performer',
 ]);
 
-/** Static fields present in the latest released Navidrome criteria registry (v0.63.x). */
+/** Static fields present in the latest released Navidrome criteria registry (v0.64.x). */
 export const RELEASED_SMART_RULE_FIELDS: readonly SmartRuleFieldDefinition[] =
   RELEASED_FIELD_SEEDS.map(seed => ({
     label: seed.label ?? titleCaseSmartFieldName(seed.name),

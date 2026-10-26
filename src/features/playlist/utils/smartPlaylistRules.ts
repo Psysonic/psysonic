@@ -46,8 +46,9 @@ export interface SmartRulesDocument {
 }
 
 const ROOT_OPTIONS = new Set(['sort', 'order', 'limit', 'limitPercent', 'offset']);
-const UNRELEASED_ROOT_KEYS = new Set(['refreshDelay']);
-const UNRELEASED_FIELD_NAMES = new Set([
+// Added in Navidrome 0.64. Held in the document for any server, sent only to one that has them.
+const V064_ROOT_KEYS = new Set(['refreshDelay']);
+const V064_FIELD_NAMES = new Set([
   'albumdateadded',
   'albumdatemodified',
   'albumduration',
@@ -245,42 +246,51 @@ export function removeSmartRuleValue(
   return parseSmartRulesDocument(removeAtPath(document.raw as Record<string, unknown>, path));
 }
 
-function isUnreleasedLeaf(record: Record<string, unknown>): boolean {
+function supportsV064Keys(capabilities: SmartPlaylistCapabilities | undefined): boolean {
+  return capabilities?.refreshDelay === true;
+}
+
+function isV064Leaf(record: Record<string, unknown>): boolean {
   const operatorKeys = Object.keys(record);
   if (operatorKeys.length !== 1 || operatorKeys[0] === 'all' || operatorKeys[0] === 'any') return false;
   const fields = asRecord(record[operatorKeys[0]]);
   const fieldKeys = fields ? Object.keys(fields) : [];
-  return fieldKeys.length === 1 && UNRELEASED_FIELD_NAMES.has(fieldKeys[0].toLowerCase());
+  return fieldKeys.length === 1 && V064_FIELD_NAMES.has(fieldKeys[0].toLowerCase());
 }
 
 function cloneForEmission(
   value: unknown,
+  sendV064: boolean,
   atRoot = false,
   ruleNode = false,
 ): unknown | typeof OMIT_FROM_EMISSION {
   if (Array.isArray(value)) {
     return value
-      .map(item => cloneForEmission(item, false, ruleNode))
+      .map(item => cloneForEmission(item, sendV064, false, ruleNode))
       .filter(item => item !== OMIT_FROM_EMISSION);
   }
   const record = asRecord(value);
   if (!record) return value;
-  if (ruleNode && isUnreleasedLeaf(record)) return OMIT_FROM_EMISSION;
+  if (!sendV064 && ruleNode && isV064Leaf(record)) return OMIT_FROM_EMISSION;
   const output: Record<string, unknown> = {};
   for (const [key, child] of Object.entries(record)) {
-    if (atRoot && UNRELEASED_ROOT_KEYS.has(key)) continue;
-    const emitted = cloneForEmission(child, false, key === 'all' || key === 'any');
+    if (!sendV064 && atRoot && V064_ROOT_KEYS.has(key)) continue;
+    const emitted = cloneForEmission(child, sendV064, false, key === 'all' || key === 'any');
     if (emitted !== OMIT_FROM_EMISSION) output[key] = emitted;
   }
   return output;
 }
 
 /**
- * Builds the save payload. Unknown released/future JSON is retained; explicitly
- * unreleased root options are held in the document but never sent.
+ * Builds the save payload. Unknown released/future JSON is retained; options and
+ * fields newer than the target server are held in the document but not sent.
+ * Without capabilities the server is treated as older than 0.64.
  */
-export function emitSmartRulesDocument(document: SmartRulesDocument): Record<string, unknown> {
-  return cloneForEmission(document.raw, true) as Record<string, unknown>;
+export function emitSmartRulesDocument(
+  document: SmartRulesDocument,
+  capabilities?: SmartPlaylistCapabilities,
+): Record<string, unknown> {
+  return cloneForEmission(document.raw, supportsV064Keys(capabilities), true) as Record<string, unknown>;
 }
 
 export type SmartRuleValidationSeverity = 'error' | 'warning';
@@ -332,6 +342,14 @@ function validDate(value: unknown): value is string {
 
 export function isValidSmartRuleDate(value: unknown): boolean {
   return validDate(value);
+}
+
+// Navidrome's utils.ParseDuration: Go durations plus d (24h) and w (168h); negative values
+// are rejected and an empty string means "use the server default".
+const NAVIDROME_DURATION = /^\+?(?:0|(?:(?:\d+\.?\d*|\.\d+)(?:ns|us|µs|μs|ms|s|m|h)|\d+(?:\.\d+)?[dw])+)$/;
+
+function isNavidromeDuration(value: string): boolean {
+  return value === '' || NAVIDROME_DURATION.test(value);
 }
 
 function formatOperatorLabel(name: string): string {
@@ -580,12 +598,12 @@ function validateExpression(
 
   const fieldName = Object.keys(fields)[0];
   const fieldPath = childPath(childPath(path, operatorName), fieldName);
-  if (UNRELEASED_FIELD_NAMES.has(fieldName.toLowerCase())) {
+  if (V064_FIELD_NAMES.has(fieldName.toLowerCase()) && !supportsV064Keys(capabilities)) {
     issue(issues, {
       code: 'unsupported_field',
       severity: 'warning',
       path: fieldPath,
-      message: `Field "${fieldName}" is not present in a released Navidrome version and will not be emitted.`,
+      message: `Field "${fieldName}" requires Navidrome 0.64 or newer and will not be emitted.`,
     });
     return;
   }
@@ -731,14 +749,26 @@ function validateRootOptions(
     }
   }
 
+  const sendV064 = supportsV064Keys(capabilities);
+  if (sendV064 && Object.prototype.hasOwnProperty.call(raw, 'refreshDelay')
+    && (typeof raw.refreshDelay !== 'string' || !isNavidromeDuration(raw.refreshDelay))) {
+    issue(issues, {
+      code: 'invalid_option',
+      severity: 'error',
+      path: '/refreshDelay',
+      message: 'refreshDelay must be a duration such as 30m, 12h or 1d.',
+    });
+  }
+
   for (const key of Object.keys(raw)) {
     if (key === 'all' || key === 'any' || ROOT_OPTIONS.has(key)) continue;
+    if (sendV064 && V064_ROOT_KEYS.has(key)) continue;
     issue(issues, {
-      code: UNRELEASED_ROOT_KEYS.has(key) ? 'unsupported_option' : 'opaque_path',
+      code: V064_ROOT_KEYS.has(key) ? 'unsupported_option' : 'opaque_path',
       severity: 'warning',
       path: childPath('/', key),
-      message: UNRELEASED_ROOT_KEYS.has(key)
-        ? `${key} is not present in a released Navidrome version and will not be emitted.`
+      message: V064_ROOT_KEYS.has(key)
+        ? `${key} requires Navidrome 0.64 or newer and will not be emitted.`
         : `Unknown root property "${key}" is preserved for JSON editing.`,
     });
   }

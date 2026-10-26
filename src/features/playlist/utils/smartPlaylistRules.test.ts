@@ -27,6 +27,20 @@ const futureFixture = {
   clientMetadata: { untouched: ['yes'] },
 };
 
+// Rule shape as Navidrome 0.64 returns it: album aggregates plus a per-playlist refresh delay.
+const navidrome064Fixture = {
+  all: [
+    { gt: { albumduration: 3600 } },
+    { inTheLast: { albumdateadded: 30 } },
+    { inTheRange: { albumsongcount: [8, 20] } },
+    { lt: { albumsize: 900000000 } },
+    { after: { albumdatemodified: '2026-01-01' } },
+  ],
+  sort: '-albumdateadded,title',
+  limit: 50,
+  refreshDelay: '12h',
+};
+
 const feishinFixture = {
   all: [
     { is: { genre: 'Rock' } },
@@ -79,12 +93,13 @@ describe('smart-rule document adapters', () => {
     expect(document.opaquePaths).toEqual(['/any/0', '/any/1']);
   });
 
-  it('preserves known master-only fields in memory without emitting them', () => {
+  it('holds 0.64 fields and refreshDelay back from older servers', () => {
     const document = parseSmartRulesDocument({
       all: [
         { gt: { albumduration: 3600 } },
         { contains: { futureField: 'kept' } },
       ],
+      refreshDelay: '12h',
       metadata: { gt: { albumduration: 'opaque metadata remains' } },
     });
 
@@ -93,13 +108,26 @@ describe('smart-rule document adapters', () => {
         { gt: { albumduration: 3600 } },
         { contains: { futureField: 'kept' } },
       ],
+      refreshDelay: '12h',
       metadata: { gt: { albumduration: 'opaque metadata remains' } },
     });
-    expect(emitSmartRulesDocument(document)).toEqual({
+    const held = {
       all: [{ contains: { futureField: 'kept' } }],
       metadata: { gt: { albumduration: 'opaque metadata remains' } },
-    });
-    expect(unsupportedSmartRulePaths(document)).toContain('/all/0/gt/albumduration');
+    };
+    expect(emitSmartRulesDocument(document)).toEqual(held);
+    expect(emitSmartRulesDocument(document, resolveSmartPlaylistCapabilities('0.63.2'))).toEqual(held);
+    expect(unsupportedSmartRulePaths(document)).toEqual(
+      expect.arrayContaining(['/all/0/gt/albumduration', '/refreshDelay']),
+    );
+  });
+
+  it('round-trips 0.64 album fields and refreshDelay to a 0.64 server unchanged', () => {
+    const capabilities = resolveSmartPlaylistCapabilities('0.64.0');
+    const document = parseSmartRulesDocument(navidrome064Fixture);
+
+    expect(emitSmartRulesDocument(document, capabilities)).toEqual(navidrome064Fixture);
+    expect(validateSmartRulesDocument(document, { capabilities })).toEqual([]);
   });
 
   it('applies immutable targeted patches without rebuilding siblings or extras', () => {
@@ -283,6 +311,23 @@ describe('smart-rule semantic validation', () => {
       expect.objectContaining({ code: 'invalid_option', path: '/limitPercent' }),
       expect.objectContaining({ code: 'invalid_option', path: '/offset' }),
     ]));
+  });
+
+  it('checks refreshDelay against Navidrome duration syntax on 0.64', () => {
+    const v064 = resolveSmartPlaylistCapabilities('0.64.0');
+    const refreshDelayIssues = (refreshDelay: unknown) => validateSmartRulesDocument(
+      parseSmartRulesDocument({ all: [{ is: { loved: true } }], refreshDelay }),
+      { capabilities: v064 },
+    ).filter(item => item.path === '/refreshDelay');
+
+    for (const valid of ['', '0', '30m', '12h', '1d', '1w2d', '1d12h', '1.5h', '1.5d', '90s', '500ms', '+1h']) {
+      expect(refreshDelayIssues(valid), valid).toEqual([]);
+    }
+    for (const invalid of ['-1h', '1', '1x', '1.d', 'h', 'soon', 12]) {
+      expect(refreshDelayIssues(invalid), String(invalid)).toEqual([
+        expect.objectContaining({ code: 'invalid_option', severity: 'error' }),
+      ]);
+    }
   });
 
   it('reports exact opaque, unknown, unreleased, and version-gated paths', () => {

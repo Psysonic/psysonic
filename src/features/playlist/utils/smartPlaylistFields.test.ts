@@ -27,6 +27,8 @@ describe('resolveSmartPlaylistCapabilities', () => {
     ['0.62.0', 'presenceOperators', true],
     ['0.62.9', 'expandedFields', false],
     ['0.63.0', 'expandedFields', true],
+    ['0.63.9', 'refreshDelay', false],
+    ['0.64.0', 'refreshDelay', true],
   ] as const)('gates %s capability %s', (version, capability, expected) => {
     expect(resolveSmartPlaylistCapabilities(version)[capability]).toBe(expected);
   });
@@ -41,12 +43,10 @@ describe('resolveSmartPlaylistCapabilities', () => {
 });
 
 describe('released smart-rule registry', () => {
-  it('contains released 0.63 fields but excludes master-only album fields', () => {
+  it('contains released 0.63 fields', () => {
     const names = RELEASED_SMART_RULE_FIELDS.map(field => field.name);
     expect(names).toContain('library_id');
     expect(names).toContain('rgtrackgain');
-    expect(names).not.toContain('albumdateadded');
-    expect(names).not.toContain('albumduration');
     expect(findSmartRuleField('library_id')?.type).toBe('number');
     expect(findSmartRuleField('random')).toMatchObject({
       filterable: false,
@@ -67,6 +67,23 @@ describe('released smart-rule registry', () => {
     expect(findSmartRuleField('playcount')?.max).toBeUndefined();
     expect(findSmartRuleField('year')?.min).toBeUndefined();
     expect(findSmartRuleField('rgalbumgain')?.min).toBeUndefined();
+  });
+
+  it('adds the 0.64 album aggregate fields from 0.64 on', () => {
+    const albumFields = ['albumdateadded', 'albumdatemodified', 'albumduration', 'albumsongcount', 'albumsize'];
+    const v063 = getAvailableSmartRuleFields(resolveSmartPlaylistCapabilities('0.63.9')).map(field => field.name);
+    const v064 = getAvailableSmartRuleFields(resolveSmartPlaylistCapabilities('0.64.0')).map(field => field.name);
+    for (const name of albumFields) {
+      expect(v063).not.toContain(name);
+      expect(v064).toContain(name);
+    }
+    expect(findSmartRuleField('albumdateadded')).toMatchObject({ type: 'date', nullable: false });
+    expect(findSmartRuleField('albumdatemodified')?.type).toBe('date');
+    expect(findSmartRuleField('albumduration')).toMatchObject({ type: 'number', min: 0, nullable: false });
+    expect(findSmartRuleField('albumsongcount')).toMatchObject({ type: 'number', min: 0 });
+    expect(findSmartRuleField('albumsize')).toMatchObject({ type: 'number', min: 0 });
+    expect(findSmartRuleField('albumsongcount')?.label).toBe('Album Song Count');
+    expect(findSmartRuleField('albumdateadded')?.label).toBe('Album Date Added');
   });
 
   it('exposes playlist membership from 0.52 and keeps it out of sort fields', () => {

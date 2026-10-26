@@ -19,6 +19,7 @@ import {
   emitSmartRulesDocument,
   type SmartRulesDocument,
 } from '@/features/playlist/utils/smartPlaylistRules';
+import type { SmartPlaylistCapabilities } from '@/features/playlist/utils/smartPlaylistFields';
 import { showToast } from '@/lib/dom/toast';
 import { resolvePlaylistPersistedName } from '@/features/playlist/utils/playlistOwnedMutation';
 import { usePlaylistMembershipStore } from '@/store/playlistMembershipStore';
@@ -26,6 +27,7 @@ import { usePlaylistMembershipStore } from '@/store/playlistMembershipStore';
 export interface RunPlaylistsSaveSmartDeps {
   isNavidromeServer: boolean;
   serverId: string;
+  capabilities?: SmartPlaylistCapabilities;
   smartFilters: SmartFilters;
   smartSession: SmartEditorSession;
   allGenres: string[];
@@ -118,7 +120,7 @@ export async function runPlaylistsSaveSmart(deps: RunPlaylistsSaveSmartDeps): Pr
     const name = updating
       ? (existing ? resolvePlaylistPersistedName(existing, requestedName) : requestedName)
       : uniquePlaylistName(requestedName, playlists, serverId);
-    const rules = emitSmartRulesDocument(activeDocument);
+    const rules = emitSmartRulesDocument(activeDocument, deps.capabilities);
     const writeOptions = {
       serverId,
       comment: smartSession.comment,

@@ -32,6 +32,7 @@ import {
   syncSessionFromBasicFilters,
   type SmartEditorSession,
 } from '@/features/playlist/utils/smartPlaylistEditor';
+import { resolveSmartPlaylistCapabilities } from '@/features/playlist/utils/smartPlaylistFields';
 import { ndPreviewSmartPlaylist } from '@/lib/api/navidromeSmart';
 import { playlistDisplayName } from '@/lib/format/playlistClassification';
 import { useSmartCoverCollage } from '@/features/playlist/hooks/useSmartCoverCollage';
@@ -319,11 +320,13 @@ export default function Playlists() {
     .filter(v => !genreQuery.trim() || v.toLowerCase().includes(genreQuery.trim().toLowerCase()))
     .sort((a, b) => a.localeCompare(b));
   const ownerUsername = servers.find(server => server.id === smartEditorServerId)?.username;
+  const smartEditorCapabilities = resolveSmartPlaylistCapabilities(subsonicIdentityByServer[smartEditorServerId]);
   const handleCreateSmart = (saveAsCopy = false) => {
     if (!smartGenresReady) return Promise.resolve();
     const generation = ++smartOperationGenerationRef.current;
     return runPlaylistsSaveSmart({
-      isNavidromeServer: smartEditorIsNavidrome, serverId: smartEditorServerId, smartFilters,
+      isNavidromeServer: smartEditorIsNavidrome, serverId: smartEditorServerId,
+      capabilities: smartEditorCapabilities, smartFilters,
       smartSession, allGenres: smartEditorGenres.map(g => g.value), editingSmartId, playlists, fetchPlaylists, t,
       ownerUsername, saveAsCopy,
       setPendingSmart, setCreatingSmart, setEditingSmartId, setSmartFilters: setSmartFiltersState,
@@ -340,7 +343,7 @@ export default function Playlists() {
       : smartSession;
     const rules = previewRulesFromSession(sessionForPreview, {
       allGenres: smartEditorGenres.map(genre => genre.value),
-    });
+    }, smartEditorCapabilities);
     const tracks = await ndPreviewSmartPlaylist({
       owner,
       rules,

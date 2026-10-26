@@ -5,6 +5,7 @@ import {
   type SmartFilters,
 } from './playlistsSmart';
 import { projectSmartRulesToBasic } from './smartPlaylistBasicProjection';
+import type { SmartPlaylistCapabilities } from './smartPlaylistFields';
 import {
   emitSmartRulesDocument,
   parseSmartRulesDocument,
@@ -194,8 +195,9 @@ export function smartRulesDocumentFromSession(
 export function previewRulesFromSession(
   session: SmartEditorSession,
   options?: BuildSmartRulesOptions,
+  capabilities?: SmartPlaylistCapabilities,
 ): Record<string, unknown> {
-  return emitSmartRulesDocument(smartRulesDocumentFromSession(session, options));
+  return emitSmartRulesDocument(smartRulesDocumentFromSession(session, options), capabilities);
 }
 
 export function hasEmptySmartCriteria(document: SmartRulesDocument): boolean {

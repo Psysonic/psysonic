@@ -2,6 +2,7 @@ import type { TFunction } from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { defaultSmartFilters } from '@/features/playlist/utils/playlistsSmart';
 import { createSmartEditorSession } from '@/features/playlist/utils/smartPlaylistEditor';
+import { resolveSmartPlaylistCapabilities } from '@/features/playlist/utils/smartPlaylistFields';
 import { runPlaylistsSaveSmart } from '@/features/playlist/utils/runPlaylistsSaveSmart';
 
 const {
@@ -181,6 +182,44 @@ describe('runPlaylistsSaveSmart', () => {
     await runPlaylistsSaveSmart(deps);
 
     expect(showToastMock).toHaveBeenCalledWith('smartPlaylists.droppedClauses', 4500, 'warning');
+  });
+
+  it('keeps 0.64 album fields and refreshDelay when saving to a 0.64 server', async () => {
+    const rules = {
+      all: [{ gt: { albumduration: 3600 } }, { inTheLast: { albumdateadded: 30 } }],
+      sort: '-albumsongcount',
+      refreshDelay: '12h',
+    };
+    ndUpdateSmartPlaylistMock.mockResolvedValue({ id: 'smart-1' });
+    ndGetSmartPlaylistMock.mockResolvedValue({ id: 'smart-1', rules });
+    const smartSession = createSmartEditorSession({ name: 'Owned mix', rules });
+
+    await runPlaylistsSaveSmart(makeDeps({
+      smartSession,
+      capabilities: resolveSmartPlaylistCapabilities('0.64.2'),
+    }));
+
+    expect(smartSession.mode).toBe('advanced');
+    expect(ndUpdateSmartPlaylistMock.mock.calls[0]?.[2]).toEqual(rules);
+    expect(showToastMock).not.toHaveBeenCalledWith('smartPlaylists.droppedClauses', 4500, 'warning');
+  });
+
+  it('holds 0.64 album fields and refreshDelay back from a 0.63 server', async () => {
+    ndUpdateSmartPlaylistMock.mockResolvedValue({ id: 'smart-1' });
+    const smartSession = createSmartEditorSession({
+      name: 'Owned mix',
+      rules: {
+        all: [{ gt: { albumduration: 3600 } }, { is: { genre: 'Jazz' } }],
+        refreshDelay: '12h',
+      },
+    });
+
+    await runPlaylistsSaveSmart(makeDeps({
+      smartSession,
+      capabilities: resolveSmartPlaylistCapabilities('0.63.2'),
+    }));
+
+    expect(ndUpdateSmartPlaylistMock.mock.calls[0]?.[2]).toEqual({ all: [{ is: { genre: 'Jazz' } }] });
   });
 
   it('saves a copy as a create without rewriting the original', async () => {
