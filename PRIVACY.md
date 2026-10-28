@@ -1,5 +1,9 @@
 # Privacy Policy
 
+Last updated: 28 October 2026
+
+This policy covers the Psysonic desktop apps (Windows, macOS, Linux) and the mobile apps (iOS and Android).
+
 Psysonic is a self-hosted music player. It does not collect telemetry, analytics, or any data on its own, and there is no Psysonic account. The Psysonic project never receives your data. Everything stays on your device or travels directly between your device and the servers and services described below.
 
 ## Your Subsonic / Navidrome server
@@ -60,6 +64,27 @@ When you search headphone profiles in the equalizer, Psysonic loads the profile 
 - Pasting another user's Navidrome share link into the search loads that share from their server.
 - Links such as Wikipedia or Last.fm artist pages open in your browser only when you click them.
 
+## Mobile apps (iOS and Android)
+
+Everything above applies to the mobile apps as well, except the desktop-only parts: the mobile apps do not check for updates themselves (they are updated through their store) and have no Discord Rich Presence. In addition:
+
+- **Siri (iOS)** — voice requests such as "Play … in Psysonic" are processed by Apple under [Apple's privacy policy](https://www.apple.com/legal/privacy/). Psysonic only receives the recognised request.
+- **CarPlay (iOS) and Android Auto (Android)** — track information, covers and lists are shown on your car's display. Your phone sends them directly to the car system.
+- **Android Auto with the app closed** — so the car can play without opening the app on the phone, Psysonic keeps a copy of the car's lists in its private app storage: titles, covers, and the addresses to stream them from your server, which include your sign-in.
+- **Lock screen and notifications** — the current track is shown in the system's media controls.
+- **Files you export (iOS)** — logs and settings backups you export yourself are saved in the app's folder in the Files app.
+
+Android permissions and what they are used for:
+
+| Permission | Why |
+|---|---|
+| Internet, network state | Connect to your server and to the optional services above; wait for Wi-Fi before downloading on mobile data |
+| Foreground service (media playback), wake lock | Keep music playing with the screen off |
+| Foreground service (data sync) | Keep downloading a whole library with the screen off |
+| Notifications | Media controls and download progress |
+
+The mobile apps do not request location, contacts, camera, microphone or access to your photos and files.
+
 ## Data stored locally
 
 The following data is stored only on your device, in the app's local storage directory:
@@ -68,13 +93,24 @@ The following data is stored only on your device, in the app's local storage dir
 - Scrobble service credentials (session keys / API tokens) and the queue of scrobbles waiting to be sent
 - Playback preferences, themes, keybindings, and all other settings
 - Caches (covers, lyrics, library index) and synced device manifests
+- On mobile: offline downloads, the play queue and the copy of the lists for Android Auto
 
-These files are protected by your operating system's user account. Psysonic does not encrypt them separately. Settings backups and logs you export contain only what you choose to export; a settings backup can include your server details, so keep it safe.
+These files are protected by your operating system's user account (on mobile, by the app sandbox). Psysonic does not encrypt them separately. Settings backups and logs you export contain only what you choose to export; a settings backup can include your server details, so keep it safe.
 
 ## No telemetry
 
 Psysonic contains no crash reporting, analytics, usage tracking, or any form of telemetry. See [TELEMETRY.md](TELEMETRY.md).
 
+## Children
+
+Psysonic is not directed at children and does not knowingly collect data from anyone.
+
 ## Open source
 
 Psysonic is fully open source under the [GNU General Public License v3.0](LICENSE). You can verify exactly what data is sent by reading the source code.
+
+## Changes and contact
+
+If this policy changes, the new version is published here with a new date at the top.
+
+Questions: psysonic.dev.android@gmail.com or [GitHub issues](https://github.com/Psysonic/psysonic/issues).
