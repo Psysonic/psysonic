@@ -76,6 +76,38 @@ describe('loadScopedArtistTopSongs', () => {
     expect(result[0]?.serverId).toBe('srv-2');
   });
 
+  it('queries the whole server without a folder filter when all libraries are selected', async () => {
+    getTopSongsForServerMock.mockResolvedValue([
+      song('global-2', 'Second'),
+      song('not-indexed', 'Not Indexed'),
+      song('global-1', 'First'),
+    ]);
+    libraryGetTracksBatchMock.mockResolvedValue([
+      indexedTrack('global-2', 'lib-b'),
+      indexedTrack('global-1', 'lib-c'),
+    ]);
+
+    const result = await loadScopedArtistTopSongs({
+      artistName: 'Unique Artist Whole Server',
+      sourceServerId: 'srv-2',
+      scopes: [
+        { serverId: 'srv-1', libraryId: 'lib-a' },
+        { serverId: 'srv-2', libraryId: null },
+      ],
+      localFallback: [song('fallback-local', 'Local Favourite')],
+      tracksFingerprint: 'tracks-whole-server',
+    });
+
+    expect(getTopSongsForServerMock).toHaveBeenCalledWith('srv-2', 'Unique Artist Whole Server', {
+      requestCount: 20,
+      limit: 20,
+      timeout: 5000,
+      libraryIds: [],
+      filterToLibrary: false,
+    });
+    expect(result.map(track => track.id)).toEqual(['global-2', 'global-1', 'fallback-local']);
+  });
+
   it('uses the bounded local fallback when the chosen server fails', async () => {
     getTopSongsForServerMock.mockRejectedValue(new Error('offline'));
 

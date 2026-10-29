@@ -63,10 +63,14 @@ function mergeWithFallback(networkSongs: SubsonicSong[], localFallback: Subsonic
 async function fetchScopedTopSongs(
   options: LoadScopedArtistTopSongsOptions,
 ): Promise<SubsonicSong[]> {
-  const libraryIds = options.scopes
-    .filter(scope => scope.serverId === options.sourceServerId)
-    .flatMap(scope => scope.libraryId === null ? [] : [scope.libraryId]);
-  if (libraryIds.length === 0) return [];
+  const serverScopes = options.scopes.filter(scope => scope.serverId === options.sourceServerId);
+  if (serverScopes.length === 0) return [];
+  // A null library id is the whole server ("all libraries"): ask without a folder filter
+  // and accept any indexed track of that server.
+  const wholeServer = serverScopes.some(scope => scope.libraryId === null);
+  const libraryIds = wholeServer
+    ? []
+    : serverScopes.flatMap(scope => scope.libraryId === null ? [] : [scope.libraryId]);
 
   const candidates = await getTopSongsForServer(options.sourceServerId, options.artistName, {
     requestCount: REQUEST_COUNT,
@@ -95,7 +99,7 @@ async function fetchScopedTopSongs(
   const allowedLibraries = new Set(libraryIds);
   const allowedTrackIds = new Set(
     indexed
-      .filter(track => !!track.libraryId && allowedLibraries.has(track.libraryId))
+      .filter(track => wholeServer || (!!track.libraryId && allowedLibraries.has(track.libraryId)))
       .map(track => track.id),
   );
   return candidates
