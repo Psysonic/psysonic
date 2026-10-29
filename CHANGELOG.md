@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Saving a smart playlist in Psysonic dropped rules on the album fields Navidrome 0.64 added (date added, date modified, duration, song count and size of the album) as well as the playlist's own refresh delay. On Navidrome 0.64 and newer they are now kept, can be picked in the Advanced editor, and the refresh delay is checked for a valid duration such as 30m, 12h or 1d.
 * If you edited such a playlist in an earlier version, check its rules: the dropped clauses need to be added again.
 
+### Artist top tracks with all libraries selected
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1809](https://github.com/Psysonic/psysonic/pull/1809)**
+
+* With all libraries of a server selected, the artist page showed only your own most-played tracks instead of the server's Top Songs ranking (for example from Last.fm); with a single library it worked. The ranking is now requested for the whole server as well.
+
 ## [1.56.0]
 
 ## Added
