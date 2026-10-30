@@ -1,3 +1,4 @@
+import { hasOctoExtensions } from '@/lib/server/externalCatalog';
 import axios from 'axios';
 import md5 from 'md5';
 import { commands } from '@/generated/bindings';
@@ -42,6 +43,20 @@ export async function ping(): Promise<boolean> {
 }
 
 
+async function identifyProxy(
+  ping: PingWithCredentialsResult,
+  url: string,
+  username: string,
+  password: string,
+  headerProfile?: ServerHttpHeaderProfile,
+): Promise<PingWithCredentialsResult> {
+  if (!ping.ok || !ping.openSubsonic || ping.type !== 'navidrome') return ping;
+  const extensions = await fetchOpenSubsonicExtensionsWithCredentials(url, username, password, headerProfile);
+  return extensions && hasOctoExtensions(extensions)
+    ? { ...ping, type: 'octo', serverVersion: undefined }
+    : ping;
+}
+
 /** Test a connection with explicit credentials — does NOT depend on store state. */
 export async function pingWithCredentials(
   serverUrl: string,
@@ -59,12 +74,12 @@ export async function pingWithCredentials(
     });
     const data = resp.data?.['subsonic-response'];
     const ok = data?.status === 'ok';
-    return {
+    return identifyProxy({
       ok,
       type: typeof data?.type === 'string' ? data.type : undefined,
       serverVersion: typeof data?.serverVersion === 'string' ? data.serverVersion : undefined,
       openSubsonic: data?.openSubsonic === true,
-    };
+    }, serverUrl, username, password);
   } catch (err) {
     console.warn('[psysonic] pingWithCredentials failed:', serverUrl, err);
     return { ok: false };
@@ -137,13 +152,13 @@ export async function pingWithCredentialsForProfile(
     const ok = data?.status === 'ok';
     const serverMessage =
       typeof data?.error?.message === 'string' ? (data.error.message as string) : undefined;
-    return {
+    return identifyProxy({
       ok,
       type: typeof data?.type === 'string' ? data.type : undefined,
       serverVersion: typeof data?.serverVersion === 'string' ? data.serverVersion : undefined,
       openSubsonic: data?.openSubsonic === true,
       error: ok ? undefined : serverMessage,
-    };
+    }, endpointBaseUrl, profile.username, profile.password, profile);
   } catch (err) {
     // No HTTP response reached the WebView. The server may still be alive and
     // simply send no CORS headers (Bandcamp's Subsonic API, strict proxies), so

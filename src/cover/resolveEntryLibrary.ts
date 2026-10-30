@@ -18,6 +18,7 @@ import {
 } from './resolveEntry';
 import { rememberAlbumDiscCount, resolveAlbumDiscCount, resolveDistinctDiscCoversForAlbum } from './ref';
 import { coverIndexKeyFromScope } from './storageKeys';
+import { coverScopeHasExternalCatalog } from './serverCatalog';
 
 export type LibraryCoverEntryDto = {
   cacheKind: CoverCacheKind;
@@ -166,11 +167,14 @@ export async function resolveAlbumCoverRefFromLibrary(
   fallbackCoverArt: string | null | undefined,
   serverScope: CoverServerScope = COVER_SCOPE_ACTIVE,
 ): Promise<CoverArtRef> {
+  if (coverScopeHasExternalCatalog(serverScope)) {
+    return coverEntryToRef(resolveAlbumCoverEntry(albumId, fallbackCoverArt, false, true)!, serverScope);
+  }
   const raw =
     await libraryResolveCoverEntry(libraryServerIdFromScope(serverScope), 'album', albumId);
   const entry = raw
     ? normalizeAlbumLibraryEntry(albumId, raw)
-    : resolveAlbumCoverEntry(albumId, fallbackCoverArt);
+    : resolveAlbumCoverEntry(albumId, fallbackCoverArt, false, coverScopeHasExternalCatalog(serverScope));
   return coverEntryToRef(entry!, serverScope);
 }
 
@@ -189,9 +193,10 @@ function pickTrackCoverEntry(
   song: Parameters<typeof resolveTrackCoverEntry>[0],
   fromLibrary: CoverEntry | null,
   distinctDiscCovers: boolean,
+  preserveCoverId = false,
 ): CoverEntry | undefined {
   const albumId = song.albumId?.trim();
-  const fromClient = resolveTrackCoverEntry(song, distinctDiscCovers);
+  const fromClient = resolveTrackCoverEntry(song, distinctDiscCovers, preserveCoverId);
   if (!fromLibrary) return fromClient;
   if (!fromClient) {
     return albumId && fromLibrary.cacheKind === 'album'
@@ -236,10 +241,10 @@ export async function resolveTrackCoverRefFromLibrary(
     distinctDiscCovers
     ?? (albumId ? resolveDistinctDiscCoversForAlbum(albumId) : false);
   const trackId = song.id?.trim();
-  const fromLibrary = trackId
+  const fromLibrary = trackId && !song.isExternal && !coverScopeHasExternalCatalog(serverScope)
     ? await libraryResolveCoverEntry(libraryServerIdFromScope(serverScope), 'track', trackId)
     : null;
-  const entry = pickTrackCoverEntry(song, fromLibrary, distinct);
+  const entry = pickTrackCoverEntry(song, fromLibrary, distinct, coverScopeHasExternalCatalog(serverScope));
   return entry ? coverEntryToRef(entry, serverScope) : undefined;
 }
 

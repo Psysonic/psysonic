@@ -318,7 +318,7 @@ export function useArtistCoverRef(
 
 /** Track row / song card — album-scoped; multi-CD from library when indexed. */
 export function useTrackCoverRef(
-  song: Pick<SubsonicSong, 'id' | 'albumId' | 'coverArt' | 'discNumber' | 'serverId'> | null | undefined,
+  song: Pick<SubsonicSong, 'id' | 'albumId' | 'coverArt' | 'discNumber' | 'serverId' | 'isExternal'> | null | undefined,
   serverScope: CoverServerScope = COVER_SCOPE_ACTIVE,
   options?: LibraryCoverRefOptions,
 ): CoverArtRef | undefined {
@@ -352,13 +352,13 @@ export function useTrackCoverRef(
   const syncRef = useMemo(() => {
     if (!songId?.trim() || !albumId?.trim()) return undefined;
     return albumCoverRefForSong(
-      { id: songId, albumId, coverArt, discNumber, serverId },
+      { id: songId, albumId, coverArt, discNumber, serverId, isExternal: song?.isExternal },
       distinctDiscCovers,
       serverScope,
     );
     // `serverScope` is keyed via stable `scopeKey`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songId, albumId, coverArt, discNumber, serverId, distinctDiscCovers, scopeKey]);
+  }, [songId, albumId, coverArt, discNumber, serverId, song?.isExternal, distinctDiscCovers, scopeKey]);
 
   const [ref, setRef] = useState<CoverArtRef | undefined>(syncRef);
 

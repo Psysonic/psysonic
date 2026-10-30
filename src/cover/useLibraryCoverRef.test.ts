@@ -298,3 +298,10 @@ describe('useArtistCoverRef', () => {
     expect(result.current?.serverScope).toBe(serverScope);
   });
 });
+
+it('keeps a preview song cover ID in queue and track detail refs', () => {
+  const id = 'eYaVcNk6mlD3CL8aR6c637';
+  const song = { id, albumId: 'remote-album', coverArt: id, isExternal: true };
+  const view = renderHook(() => useTrackCoverRef(song, { kind: 'active' }, { libraryResolve: false }));
+  expect(view.result.current?.fetchCoverArtId).toBe(id);
+});
