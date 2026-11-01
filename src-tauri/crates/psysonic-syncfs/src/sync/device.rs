@@ -4,6 +4,7 @@ pub mod download;
 mod finalize;
 mod identity;
 mod manifest;
+mod mounts;
 mod rename;
 
 #[cfg(test)]
@@ -46,6 +47,9 @@ pub use manifest::write_device_manifest_for_migration;
 use manifest::write_device_manifest_payload;
 use manifest::DeviceManifestWrite;
 pub(crate) use manifest::{replace_device_text_file, sync_device_directory};
+pub(super) use mounts::ensure_mounted_target;
+pub use mounts::is_path_on_mounted_volume;
+pub(crate) use mounts::target_available_space;
 use rename::rename_pairs_within_root;
 pub use rename::RenameResult;
 pub(crate) use rename::{planned_path_stays_within, resolve_within_root};
@@ -141,20 +145,21 @@ pub async fn write_device_manifest(
     files: Option<serde_json::Value>,
     playlists: Option<serde_json::Value>,
 ) -> Result<(), String> {
-    let _device_sync_guard = device_sync_operation_guard().await;
-    let _filesystem_write_guard = crate::filesystem_write_guard().await?;
-    ensure_mounted_target(std::path::Path::new(&dest_dir))?;
-    manifest::write_device_manifest_payload(DeviceManifestWrite {
-        dest_dir,
-        owner_server_index_key,
-        owner_server_profile_id,
-        sources,
-        canonical_id_version,
-        layout_mode,
-        playlist_path_mode,
-        files,
-        playlists,
-    })
+    manifest::write_device_manifest_guarded(
+        DeviceManifestWrite {
+            dest_dir,
+            owner_server_index_key,
+            owner_server_profile_id,
+            sources,
+            canonical_id_version,
+            layout_mode,
+            playlist_path_mode,
+            files,
+            playlists,
+        },
+        mounts::system_mounts,
+    )
+    .await
 }
 
 /// Reads `psysonic-sync.json` from the target directory.
@@ -264,40 +269,6 @@ pub(super) fn write_playlist_m3u8_within_root(
     replace_device_text_file(root, &file_path, body.as_bytes())
 }
 
-/// Checks whether `path` sits on top of an active mount point (i.e. not the root
-/// filesystem). This prevents accidentally writing to `/media/usb` after the
-/// USB drive has been unmounted — at that point the path would fall through to `/`
-/// and fill the root partition.
-pub fn is_path_on_mounted_volume(path: &std::path::Path) -> bool {
-    use sysinfo::Disks;
-    let disks = Disks::new_with_refreshed_list();
-    let canonical = match path.canonicalize() {
-        Ok(c) => c,
-        Err(_) => return false, // path doesn't exist or isn't accessible
-    };
-    // Find the longest mount-point prefix that matches this path.
-    // Exclude the root "/" (or "C:\" on Windows) so we never "match" a fallback.
-    let mut best_len: usize = 0;
-    for disk in disks.list() {
-        let mount_point = disk.mount_point();
-        let mp = mount_point.to_string_lossy().to_string();
-        // Skip root mount points (Linux "/" and non-removable Windows drive roots like "C:\").
-        // Do NOT skip removable Windows drives (e.g. "E:\") — those are valid sync targets.
-        let is_windows_root = mp.len() == 3 && mp.ends_with(":\\") && !disk.is_removable();
-        if mp == "/" || is_windows_root {
-            continue;
-        }
-        let canonical_mount = match mount_point.canonicalize() {
-            Ok(path) => path,
-            Err(_) => continue,
-        };
-        if path_is_within_mount(&canonical, &canonical_mount) && mp.len() > best_len {
-            best_len = mp.len();
-        }
-    }
-    best_len > 0
-}
-
 /// Marks a folder on the system disk that the user explicitly chose as a sync
 /// target. A USB mount point that fell back to `/` after an unmount never
 /// carries it, so the unmounted-device protection above still holds.
@@ -306,35 +277,6 @@ pub(crate) const LOCAL_TARGET_MARKER: &str = ".psysonic-local-target";
 pub(crate) fn is_marked_local_target(path: &std::path::Path) -> bool {
     std::fs::symlink_metadata(path.join(LOCAL_TARGET_MARKER))
         .is_ok_and(|metadata| metadata.is_file() && !metadata.file_type().is_symlink())
-}
-
-pub(super) fn ensure_mounted_target(path: &std::path::Path) -> Result<(), String> {
-    if !path.is_dir() {
-        return Err("VOLUME_NOT_FOUND".to_string());
-    }
-    if !is_path_on_mounted_volume(path) && !is_marked_local_target(path) {
-        return Err("NOT_MOUNTED_VOLUME".to_string());
-    }
-    Ok(())
-}
-
-/// Free space of the volume holding `path`, including the system volume, so
-/// local-folder targets get the same capacity check as removable drives.
-pub(crate) fn target_available_space(path: &std::path::Path) -> Option<u64> {
-    use sysinfo::Disks;
-    let canonical = path.canonicalize().ok()?;
-    let disks = Disks::new_with_refreshed_list();
-    disks
-        .list()
-        .iter()
-        .filter_map(|disk| {
-            let mount = disk.mount_point().canonicalize().ok()?;
-            canonical
-                .starts_with(&mount)
-                .then(|| (mount.components().count(), disk.available_space()))
-        })
-        .max_by_key(|(depth, _)| *depth)
-        .map(|(_, available)| available)
 }
 
 #[derive(Clone, Debug, serde::Serialize, specta::Type)]
@@ -429,10 +371,6 @@ pub async fn mark_local_sync_target(dest_dir: String) -> Result<(), String> {
     let _device_sync_guard = device_sync_operation_guard().await;
     let _filesystem_write_guard = crate::filesystem_write_guard().await?;
     mark_local_sync_target_impl(std::path::Path::new(&dest_dir))
-}
-
-fn path_is_within_mount(path: &std::path::Path, mount_point: &std::path::Path) -> bool {
-    path.starts_with(mount_point)
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Clone, specta::Type)]

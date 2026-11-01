@@ -2,6 +2,20 @@ use super::*;
 
 static MANIFEST_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
+fn manifest_input(path: &std::path::Path) -> DeviceManifestWrite {
+    DeviceManifestWrite {
+        dest_dir: path.to_string_lossy().to_string(),
+        owner_server_index_key: "server.test".to_string(),
+        owner_server_profile_id: None,
+        sources: serde_json::json!([]),
+        canonical_id_version: Some(1),
+        layout_mode: None,
+        playlist_path_mode: None,
+        files: None,
+        playlists: None,
+    }
+}
+
 #[tokio::test]
 async fn manifest_v4_persists_the_server_owner_and_layout() {
     let _test_guard = MANIFEST_TEST_LOCK.lock().await;
@@ -157,33 +171,85 @@ async fn manifest_rejects_sources_from_another_server() {
 async fn ordinary_manifest_write_rejects_a_host_directory() {
     let _test_guard = MANIFEST_TEST_LOCK.lock().await;
     let dir = tempfile::tempdir().unwrap();
-    let result = write_device_manifest(
-        dir.path().to_string_lossy().to_string(),
-        "server.test".to_string(),
-        None,
-        serde_json::json!([]),
-        Some(1),
-        None,
-        None,
-        None,
-        None,
-    )
-    .await;
+    let result =
+        super::super::manifest::write_device_manifest_guarded(manifest_input(dir.path()), || {
+            vec![root_disk(dir.path())]
+        })
+        .await;
 
     assert_eq!(result, Err("NOT_MOUNTED_VOLUME".to_string()));
     assert!(!dir.path().join("psysonic-sync.json").exists());
 }
 
-#[test]
-fn mount_containment_requires_a_path_component_boundary() {
-    assert!(path_is_within_mount(
-        std::path::Path::new("/media/usb/Music"),
-        std::path::Path::new("/media/usb"),
-    ));
-    assert!(!path_is_within_mount(
-        std::path::Path::new("/media/usb-backup"),
-        std::path::Path::new("/media/usb"),
-    ));
+#[tokio::test]
+async fn ordinary_manifest_write_accepts_a_non_removable_non_root_mount() {
+    let _test_guard = MANIFEST_TEST_LOCK.lock().await;
+    let dir = tempfile::tempdir().unwrap();
+    let target = dir.path().join("Music");
+    std::fs::create_dir(&target).unwrap();
+    super::super::manifest::write_device_manifest_guarded(manifest_input(&target), || {
+        vec![root_disk(dir.path()), mounted_disk(dir.path(), false, 100)]
+    })
+    .await
+    .unwrap();
+
+    let manifest = read_device_manifest(target.to_string_lossy().to_string()).unwrap();
+    assert_eq!(manifest["version"], 4);
+    assert_eq!(manifest["ownerServerIndexKey"], "server.test");
+    assert_eq!(manifest["sources"], serde_json::json!([]));
+    assert_eq!(manifest["canonicalIdVersion"], 1);
+    assert!(!is_marked_local_target(&target));
+}
+
+#[tokio::test]
+async fn ordinary_manifest_write_accepts_an_explicit_local_target() {
+    let _test_guard = MANIFEST_TEST_LOCK.lock().await;
+    let dir = tempfile::tempdir().unwrap();
+    mark_local_sync_target_impl(dir.path()).unwrap();
+    super::super::manifest::write_device_manifest_guarded(manifest_input(dir.path()), || {
+        vec![root_disk(dir.path())]
+    })
+    .await
+    .unwrap();
+    assert!(read_device_manifest(dir.path().to_string_lossy().to_string()).is_some());
+}
+
+#[tokio::test]
+async fn ordinary_manifest_write_checks_the_volume_before_the_payload() {
+    let _test_guard = MANIFEST_TEST_LOCK.lock().await;
+    let dir = tempfile::tempdir().unwrap();
+    let mut input = manifest_input(dir.path());
+    input.owner_server_index_key.clear();
+    assert_eq!(
+        super::super::manifest::write_device_manifest_guarded(input, Vec::new).await,
+        Err("NOT_MOUNTED_VOLUME".to_string())
+    );
+    assert!(!dir.path().join("psysonic-sync.json").exists());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn ordinary_manifest_write_does_not_follow_a_manifest_symlink() {
+    let _test_guard = MANIFEST_TEST_LOCK.lock().await;
+    let dir = tempfile::tempdir().unwrap();
+    let elsewhere = tempfile::tempdir().unwrap();
+    let outside = elsewhere.path().join("manifest.json");
+    std::fs::write(&outside, b"{}").unwrap();
+    std::os::unix::fs::symlink(&outside, dir.path().join("psysonic-sync.json")).unwrap();
+    assert_eq!(
+        super::super::manifest::write_device_manifest_guarded(manifest_input(dir.path()), || {
+            vec![mounted_disk(dir.path(), false, 100)]
+        })
+        .await,
+        Err("DEVICE_SYNC_PATH_ESCAPES_ROOT".to_string())
+    );
+    assert_eq!(std::fs::read(&outside).unwrap(), b"{}");
+    assert!(
+        std::fs::symlink_metadata(dir.path().join("psysonic-sync.json"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
 }
 
 #[tokio::test]
@@ -211,8 +277,16 @@ async fn manifest_write_is_rejected_while_migration_is_active() {
         None,
     )
     .await;
+    let guarded_result = super::super::manifest::write_device_manifest_guarded(
+        manifest_input(dir.path()),
+        unexpected_inventory,
+    )
+    .await;
     crate::deactivate_filesystem_migration_generation(8_001).unwrap();
 
     assert!(result.unwrap_err().contains("migration generation 8001"));
+    assert!(guarded_result
+        .unwrap_err()
+        .contains("migration generation 8001"));
     assert!(!dir.path().join("psysonic-sync.json").exists());
 }

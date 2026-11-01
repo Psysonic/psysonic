@@ -19,6 +19,16 @@ pub(super) struct DeviceManifestWrite {
     pub(super) playlists: Option<serde_json::Value>,
 }
 
+pub(super) async fn write_device_manifest_guarded<I: super::mounts::MountInventory>(
+    input: DeviceManifestWrite,
+    inventory: impl FnOnce() -> I,
+) -> Result<(), String> {
+    let _device_sync_guard = super::device_sync_operation_guard().await;
+    let _filesystem_write_guard = crate::filesystem_write_guard().await?;
+    super::mounts::ensure_mounted_target_with(std::path::Path::new(&input.dest_dir), inventory)?;
+    write_device_manifest_payload(input)
+}
+
 pub fn write_device_manifest_for_migration(
     dest_dir: String,
     owner_server_index_key: String,

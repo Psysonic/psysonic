@@ -4,13 +4,20 @@ use super::*;
 fn marking_a_folder_admits_it_as_a_sync_target() {
     let folder = tempfile::tempdir().unwrap();
     assert!(!inspect_device_sync_target_impl(folder.path()).local_target);
+    assert_eq!(
+        mounts::ensure_mounted_target_with(folder.path(), || vec![root_disk(folder.path())]),
+        Err("NOT_MOUNTED_VOLUME".to_string())
+    );
 
     mark_local_sync_target_impl(folder.path()).unwrap();
 
     let info = inspect_device_sync_target_impl(folder.path());
     assert!(info.exists);
     assert!(info.local_target);
-    assert!(ensure_mounted_target(folder.path()).is_ok());
+    assert!(
+        mounts::ensure_mounted_target_with(folder.path(), || vec![root_disk(folder.path())])
+            .is_ok()
+    );
     // Marking twice is harmless.
     mark_local_sync_target_impl(folder.path()).unwrap();
 }
@@ -23,6 +30,10 @@ fn a_marked_parent_does_not_admit_its_subfolders() {
     std::fs::create_dir(&child).unwrap();
 
     assert!(!inspect_device_sync_target_impl(&child).local_target);
+    assert_eq!(
+        mounts::ensure_mounted_target_with(&child, || vec![root_disk(&child)]),
+        Err("NOT_MOUNTED_VOLUME".to_string())
+    );
 }
 
 #[test]
@@ -97,10 +108,64 @@ fn a_symlinked_marker_is_ignored() {
     .unwrap();
 
     assert!(!is_marked_local_target(folder.path()));
+    assert_eq!(
+        mounts::ensure_mounted_target_with(folder.path(), || vec![root_disk(folder.path())]),
+        Err("NOT_MOUNTED_VOLUME".to_string())
+    );
 }
 
 #[test]
 fn available_space_is_reported_for_a_local_folder() {
     let folder = tempfile::tempdir().unwrap();
-    assert!(target_available_space(folder.path()).is_some());
+    assert_eq!(
+        mounts::target_available_space_with(folder.path(), || vec![root_disk(folder.path())]),
+        Some(1_000)
+    );
+}
+
+#[test]
+fn available_space_uses_the_deepest_matching_mount() {
+    let folder = tempfile::tempdir().unwrap();
+    let mount = folder.path().join("usb");
+    let target = mount.join("Music");
+    let adjacent = folder.path().join("usb-backup");
+    std::fs::create_dir_all(&target).unwrap();
+    std::fs::create_dir(&adjacent).unwrap();
+    assert_eq!(
+        mounts::target_available_space_with(&target, || vec![
+            mounted_disk(&mount, false, 100),
+            mounted_disk(&adjacent, true, 200),
+            mounted_disk(&folder.path().join("missing"), true, 300),
+            root_disk(folder.path()),
+        ]),
+        Some(100)
+    );
+    assert_eq!(
+        mounts::target_available_space_with(&adjacent, || vec![
+            root_disk(folder.path()),
+            mounted_disk(&mount, false, 100),
+        ]),
+        Some(1_000)
+    );
+}
+
+#[test]
+fn available_space_requires_an_existing_target_and_matching_mount() {
+    let folder = tempfile::tempdir().unwrap();
+    assert_eq!(
+        mounts::target_available_space_with(&folder.path().join("missing"), unexpected_inventory),
+        None
+    );
+    assert_eq!(
+        mounts::target_available_space_with(folder.path(), Vec::new),
+        None
+    );
+    assert_eq!(
+        mounts::target_available_space_with(folder.path(), || vec![mounted_disk(
+            &folder.path().join("missing"),
+            false,
+            100
+        )]),
+        None
+    );
 }
