@@ -26,6 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * With all libraries of a server selected, the artist page showed only your own most-played tracks instead of the server's Top Songs ranking (for example from Last.fm); with a single library it worked. The ranking is now requested for the whole server as well.
 
+### Linux media widgets can find the Psysonic icon
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1814](https://github.com/Psysonic/psysonic/pull/1814)**
+
+* Linux media widgets that look up the application through MPRIS can now resolve Psysonic's icon instead of showing a generic or blank one. Media controls and desktop notifications use the package's desktop identity, including the different names used by Nix and Flatpak.
+
 ## [1.56.0]
 
 ## Added
