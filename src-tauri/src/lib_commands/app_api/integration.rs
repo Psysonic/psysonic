@@ -248,12 +248,13 @@ fn show_desktop_notification(
     if let Some(image) = image.as_deref() {
         notification.image_path(image);
     }
-    // The daemon takes the app icon from the desktop entry: `Psysonic.desktop`
-    // (deb/rpm), with Plasma also trying the lower-case `psysonic.desktop` (AUR,
-    // AppImage integration). No `app_icon` on purpose: with an image attached,
-    // Plasma would show it instead, and only packages that install a themed
-    // `psysonic` icon have one.
-    #[cfg(not(target_os = "macos"))]
+    // Match MPRIS to the package's desktop file. No `app_icon` on purpose:
+    // with an image attached, Plasma would show it instead.
+    #[cfg(target_os = "linux")]
+    notification.hint(notify_rust::Hint::DesktopEntry(
+        crate::linux_desktop_entry::for_app(app.config().product_name.as_deref()),
+    ));
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     if let Some(product_name) = app.config().product_name.as_deref() {
         notification.hint(notify_rust::Hint::DesktopEntry(product_name.to_string()));
     }

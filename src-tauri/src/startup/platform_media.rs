@@ -49,9 +49,17 @@ pub(crate) fn initialize(app: &mut tauri::App) {
             #[cfg(not(target_os = "windows"))]
             let hwnd: Option<*mut std::ffi::c_void> = None;
 
+            #[cfg(target_os = "linux")]
+            let desktop_entry =
+                crate::linux_desktop_entry::for_app(app.config().product_name.as_deref());
+
             let config = PlatformConfig {
                 dbus_name: "psysonic",
                 display_name: "Psysonic",
+                #[cfg(target_os = "linux")]
+                desktop_entry: Some(&desktop_entry),
+                #[cfg(not(target_os = "linux"))]
+                desktop_entry: None,
                 hwnd,
             };
 
