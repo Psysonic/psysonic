@@ -127,6 +127,8 @@ stdenv.mkDerivation (finalAttrs: {
   dontUseCargoParallelJobs = true;
 
   env = {
+    # makeDesktopItem below installs psysonic.desktop, not Psysonic.desktop.
+    PSYSONIC_DESKTOP_ENTRY = "psysonic";
     OPENSSL_DIR = "${openssl.dev}";
     OPENSSL_LIB_DIR = "${openssl.out}/lib";
     OPENSSL_INCLUDE_DIR = "${openssl.dev}/include";

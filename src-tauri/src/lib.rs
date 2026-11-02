@@ -9,6 +9,8 @@ pub(crate) mod desktop_palette;
 mod lib_commands;
 pub(crate) mod library_analysis_backfill;
 mod library_identity_maintenance;
+#[cfg(target_os = "linux")]
+mod linux_desktop_entry;
 mod startup;
 pub mod theme_animation;
 pub(crate) mod theme_import;

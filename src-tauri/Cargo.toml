@@ -1,5 +1,6 @@
 [workspace]
 members = ["crates/*"]
+exclude = ["patches/souvlaki"]
 resolver = "2"
 
 [workspace.package]
@@ -120,3 +121,5 @@ tauri-winrt-notification = "0.8"
 # repeated-EOF, and seekable-stream paths. Revalidate them before updating 0.6.1.
 [patch.crates-io]
 symphonia-format-isomp4 = { path = "patches/symphonia-format-isomp4" }
+# Registry 0.8.3 plus the optional MPRIS DesktopEntry property; keep both Linux backends aligned.
+souvlaki = { path = "patches/souvlaki" }
