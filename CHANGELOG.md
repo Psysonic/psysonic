@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Linux media widgets that look up the application through MPRIS can now resolve Psysonic's icon instead of showing a generic or blank one. Media controls and desktop notifications use the package's desktop identity, including the different names used by Nix and Flatpak.
 
+## Changed
+
+### New Italian translation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+
+* The Italian translation has been written anew from the English texts, since its original author did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772). Wording differs in many places; corrections from Italian speakers are welcome.
+
 ## [1.56.0]
 
 ## Added

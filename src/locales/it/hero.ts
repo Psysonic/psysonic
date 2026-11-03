@@ -1,9 +1,9 @@
 export const hero = {
-  eyebrow: 'Album in primo piano',
-  playAlbum: 'Riproduci Album',
-  playAlbumTooltip: 'Riproduci album (Tieni premuto per mescolare)',
+  eyebrow: 'Album in evidenza',
+  playAlbum: 'Riproduci album',
+  playAlbumTooltip: 'Riproduci album (tieni premuto per la riproduzione casuale)',
   enqueue: 'Accoda',
-  enqueueTooltip: 'Aggiungi l\'album alla coda',
+  enqueueTooltip: 'Aggiungi l’intero album alla coda',
   previousAlbum: 'Album precedente',
-  nextAlbum: 'prossimo album',
+  nextAlbum: 'Album successivo',
 };

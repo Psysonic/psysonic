@@ -3,6 +3,7 @@ export const burner = {
   discTitleLabel: 'Titolo del disco',
   discTitlePlaceholder: 'Dai un nome a questo disco…',
 
+  // Drive + media
   recorder: 'Masterizzatore',
   noRecorders: 'Nessun masterizzatore CD trovato',
   refreshDrives: 'Aggiorna unità',
@@ -11,7 +12,7 @@ export const burner = {
   reloading: 'Espulsione del disco…',
   reloadDone: 'Disco espulso. Reinseriscilo, poi premi Aggiorna.',
   reloadHint:
-    'L’unità potrebbe descrivere ancora questo disco come era alla fine dell’ultima prova. Espellerlo e ricaricarlo la costringe a guardarlo di nuovo.',
+    'L’unità potrebbe ancora descrivere il disco com’era alla fine dell’ultima prova. Espellerlo e ricaricarlo la costringe a rileggerlo.',
   erasing: 'Cancellazione del disco…',
   eraseDone: 'Disco cancellato.',
   mediaLabel: 'Supporto',
@@ -21,12 +22,15 @@ export const burner = {
   capacityValue: '{{minutes}} · {{sectors}} settori',
   platformUnsupported: 'La masterizzazione di CD non è disponibile su questa piattaforma.',
 
+  // Ring
   ringLabel: 'Capacità del disco: {{count}} brani, {{used}} usati su {{capacity}}',
   hubRemaining: 'RIMANENTE',
-  hubOverCapacity: 'OLTRE DI',
+  hubOverCapacity: 'ECCEDENZA',
   hubTrackOf: 'Brano {{number}} di {{total}}',
   hubTrackCount_one: '{{count}} brano',
+  hubTrackCount_many: '{{count}} brani',
   hubTrackCount_other: '{{count}} brani',
+  // One per phase. Nothing here claims the disc is being written until it is.
   hubPhaseNote: {
     fetching: 'Download dal tuo server',
     analyzing: 'Misurazione del volume',
@@ -36,126 +40,154 @@ export const burner = {
     closing: 'Finalizzazione del disco',
   },
 
+
+  // Running order
   runningOrder: 'Scaletta',
 
+  // Column headings for the running order. Terse on purpose: they sit at 10px
+  // in a row 24px tall, and the numbers beneath them are what is being read.
   colNumber: '#',
   colTrack: 'Brano',
   colArtist: 'Artista',
   colTime: 'Durata',
   colStart: 'Inizio',
 
-  metricHeadroom: 'Margine',
-  metricOverBy: 'Oltre di',
+  // Metrics, which change with what the page is doing.
+  metricHeadroom: 'Spazio libero',
+  metricOverBy: 'Eccedenza',
   metricToFetch: 'Da scaricare',
-  metricWritten: 'Scritti',
+  metricWritten: 'Scritto',
   metricTook: 'Durata',
 
+  // The mode, beside the button it changes.
   modeLabel: 'Modalità di scrittura',
   modeBurn: 'Masterizza',
   modeRehearse: 'Prova',
 
-  prepareStopFree: 'Non è stato ancora scritto nulla: fermarsi ora non costa niente.',
-  abort: 'Annulla la masterizzazione',
+  // Stopping. Only one of these costs anything.
+  prepareStopFree: 'Non è ancora stato scritto nulla: fermarsi ora non costa niente.',
+  abort: 'Interrompi masterizzazione',
   abortConfirm: 'Rovina il disco',
-  burnAnother: 'Masterizza un altro',
+  burnAnother: 'Masterizzane un altro',
 
-  outcomeWritten: 'Disco masterizzato — {{count}} brani · {{duration}} · durata {{elapsed}}',
-  outcomeRehearsed: 'Prova completata. Non è stato scritto nulla sul disco.',
+  // What happened, and what the disc is now. The two are said separately: a
+  // rehearsal can fail and leave a perfectly good blank, and a real burn can be
+  // stopped one sector in and leave a coaster.
+  outcomeWritten: 'Disco scritto — {{count}} brani · {{duration}} · in {{elapsed}}',
+  outcomeRehearsed: 'Prova terminata. Non è stato scritto nulla sul disco.',
   outcomeFailed: 'La masterizzazione non è riuscita.',
   outcomeCancelled: 'La masterizzazione è stata interrotta.',
   discSpoiled: 'Questo CD-R è stato scritto in parte e non può essere riutilizzato.',
   discBlank: 'Non è stato scritto nulla; il disco è ancora vuoto.',
   failHintBuffer:
-    'All’unità è finito l’audio da scrivere. Chiudere le operazioni su disco più pesanti e masterizzare più lentamente di solito risolve.',
+    'All’unità è mancato l’audio da scrivere. Di solito si risolve chiudendo i processi che usano molto il disco e masterizzando più lentamente.',
   failHintMedia: 'Controlla il disco: un CD audio richiede un CD-R o CD-RW vuoto.',
-  failHintPermission: 'Qualcos’altro sta occupando l’unità. Chiudilo e riprova.',
+  failHintPermission: 'Un altro programma sta usando l’unità. Chiudilo e riprova.',
 
   speedTraceLabel: 'Scrittura a {{now}}×, minimo {{low}}×',
   totalRuntime: '{{duration}}',
   trackCount_one: '{{count}} brano',
+  trackCount_many: '{{count}} brani',
   trackCount_other: '{{count}} brani',
-  emptyTitle: 'Nessun brano in coda per ora.',
-  emptyHint: 'Fai clic destro su un brano, un album o una playlist e scegli « Aggiungi al CD ».',
-  fetchNote:
-    'I brani non presenti nella cache locale vengono scaricati automaticamente all’avvio della masterizzazione.',
+  emptyTitle: 'Nessun brano in coda.',
+  emptyHint: 'Fai clic destro su un brano, un album o una playlist e scegli “Aggiungi al CD”.',
+  fetchNote: 'I brani non presenti nella cache locale vengono scaricati automaticamente all’avvio della masterizzazione.',
   removeTrack: 'Rimuovi {{title}}',
   rowWritten: 'Scritto sul disco',
   trackWillDownloadHint:
-    'Non ancora nella cache locale. La masterizzazione lo scarica dal tuo server prima di scrivere.',
+    'Non ancora nella cache locale. La masterizzazione lo scarica dal tuo server prima di scriverlo.',
   willDownload_one:
-    '{{count}} brano verrà scaricato prima (circa {{size}}). Nulla viene aggiunto alla tua libreria offline.',
+    'Verrà prima scaricato {{count}} brano (circa {{size}}). Nulla viene aggiunto alla tua libreria offline.',
+  willDownload_many:
+    'Verranno prima scaricati {{count}} brani (circa {{size}}). Nulla viene aggiunto alla tua libreria offline.',
   willDownload_other:
-    '{{count}} brani verranno scaricati prima (circa {{size}}). Nulla viene aggiunto alla tua libreria offline.',
+    'Verranno prima scaricati {{count}} brani (circa {{size}}). Nulla viene aggiunto alla tua libreria offline.',
 
+  // Metrics column
   metricElapsed: 'Tempo trascorso',
   metricRemaining: 'Tempo rimanente',
   metricTotal: 'Tempo totale',
   metricRuntime: 'Durata del disco',
   metricSpeed: 'Scrittura a {{speed}}×',
 
+  // Options
   options: 'Opzioni di masterizzazione',
   writeSpeed: 'Velocità di scrittura',
   speedAuto: 'Automatica',
-  gapless: 'Senza pause',
+  gapless: 'Senza pause (gapless)',
   gaplessHint: 'Nessuna pausa di 2 secondi tra i brani. Disc-At-Once, come un CD stampato.',
-  normalize: 'Uniforma i livelli',
-  normalizeHint: 'Analizza il volume e livella ogni brano, così una raccolta suona uniforme.',
+  normalize: 'Uniforma il volume dei brani',
+  normalizeHint: 'Analizza il volume e livella ogni brano, così una compilation suona omogenea.',
   ejectWhenDone: 'Espelli al termine',
   cdText: 'Scrivi CD-TEXT',
   cdTextHint:
-    'Salva i nomi di brano e artista sul disco, per i lettori che sanno mostrarli. La tua unità dichiara di poterlo fare.',
-  cdTextUnavailable: 'Questa unità non può scrivere il CD-TEXT.',
+    'Salva sul disco i nomi di brani e artisti, per i lettori in grado di mostrarli. La tua unità segnala di supportarlo.',
+  cdTextUnavailable: 'Questa unità non può scrivere CD-TEXT.',
   cdTextNoAnswer:
-    'Questa unità non ha dichiarato le sue capacità di scrittura, quindi il CD-TEXT non può essere offerto in sicurezza.',
+    'Questa unità non ha comunicato le sue capacità di scrittura, quindi il CD-TEXT non può essere offerto in sicurezza.',
   cdTextNoSao:
     'Il CD-TEXT richiede la registrazione Session-At-Once, che questa unità non supporta.',
   cdTextNoSubchannel:
-    'Questa unità non può scrivere il sottocanale R-W in cui risiede il CD-TEXT. Il disco verrà masterizzato lo stesso, senza i nomi dei brani.',
+    'Questa unità non può scrivere il sottocanale R-W in cui risiede il CD-TEXT. Il disco verrà comunque masterizzato, senza i nomi dei brani.',
 
+  // Transport
   startBurn: 'Masterizza disco',
   startTestWrite: 'Scrittura di prova',
   cancel: 'Ferma',
   cancelling: 'Interruzione…',
   clear: 'Svuota',
 
+  // The gutter between the disc and the running order.
+  // The always-present line above the split. The idle variants are the ones
+  // that show when there is nothing wrong, so they say what the disc will be
+  // rather than leaving the page silent.
   alertReady_one: 'Pronto · {{count}} brano · {{runtime}} · {{free}} liberi',
+  alertReady_many: 'Pronto · {{count}} brani · {{runtime}} · {{free}} liberi',
   alertReady_other: 'Pronto · {{count}} brani · {{runtime}} · {{free}} liberi',
   alertNoDisc: 'Inserisci un CD-R vuoto nell’unità per masterizzare questa scaletta.',
   alertMore_one: 'Mostra 1 altro messaggio',
+  alertMore_many: 'Mostra altri {{count}} messaggi',
   alertMore_other: 'Mostra altri {{count}} messaggi',
 
+  // A rehearsal keeps saying so the whole way through: a job that reports
+  // sectors with the laser off is exactly the one that can be misread as a
+  // real burn.
   pillRehearsal: 'Prova',
   pillWriting: 'Scrittura',
 
   seamLabel: 'Larghezza della scaletta',
   seamValue: '{{px}} pixel',
 
+  // Reordering and removal are silent to a screen reader without these.
   movedTo: '{{title}} spostato in posizione {{position}} di {{total}}',
   removedAnnounce: '{{title}} rimosso',
 
-  cancelSpoilsDisc:
-    'Il CD-R è in fase di masterizzazione. Fermarlo rende il disco inutilizzabile — un CD-R non può essere riscritto.',
 
+  cancelSpoilsDisc:
+    'Il CD-R è in fase di masterizzazione. Fermarsi ora lo rende inutilizzabile: un CD-R non può essere riscritto.',
+
+  // Blockers
+  // What the drive says about the disc in it. The backend sends a code
+  // rather than a sentence, so these can be translated.
   mediaBlockerNoDisc: 'Nessun disco nell’unità.',
-  mediaBlockerNotCd: 'Questo è {{mediaType}}. Un CD audio richiede un CD-R o CD-RW vuoto.',
+  mediaBlockerNotCd: 'Questo è un {{mediaType}}. I CD audio richiedono un CD-R o CD-RW vuoto.',
   mediaBlockerAlreadyWritten:
-    'Questo disco è già stato scritto e chiuso, quindi non può essere scritto.',
-  mediaBlockerNotBlankRewritable:
-    'Questo CD-RW contiene già dati. Cancellalo prima di masterizzare.',
-  mediaBlockerNotBlankRecordable:
-    'Questo CD-R non è vuoto. I CD audio devono essere scritti in una sola volta.',
+    'Questo disco è già stato scritto e chiuso, quindi non è possibile scriverci.',
+  mediaBlockerNotBlankRewritable: 'Questo CD-RW contiene già dati. Cancellalo prima di masterizzare.',
+  mediaBlockerNotBlankRecordable: 'Questo CD-R non è vuoto. I CD audio devono essere scritti in un’unica passata.',
   mediaBlockerDriveRefused: 'L’unità non accetta questo disco.',
-  mediaBlockerDriveSilent: 'L’unità non ha descritto questo disco.',
-  mediaBlockerUnknown: 'Questo disco non può essere scritto.',
+  mediaBlockerDriveSilent: 'L’unità non ha fornito informazioni su questo disco.',
+  mediaBlockerUnknown: 'Impossibile scrivere su questo disco.',
 
   blockerEmpty: 'Aggiungi almeno un brano per masterizzare un disco.',
-  blockerOverCapacity:
-    'Capacità superata di {{over}}. Rimuovi un brano o usa un disco da 80 minuti.',
+  blockerOverCapacity: 'Capacità superata di {{over}}. Rimuovi un brano o usa un disco da 80 minuti.',
   blockerTooManyTracks: 'Un CD contiene al massimo {{max}} brani; questa coda ne ha {{count}}.',
 
-  past74:
-    'Oltre 74:00. Sta su questo disco, ma alcuni lettori CD più vecchi faticano oltre quel punto.',
+  // An advisory, not a blocker: the queue fits the disc in the drive, but runs
+  // past the 74 minutes Red Book actually specifies.
+  past74: 'Oltre 74:00. Entra in questo disco, ma alcuni lettori CD più vecchi potrebbero avere problemi oltre quel limite.',
 
+  // Readout
   readoutPhase: 'Fase',
   readoutMode: 'Modalità di scrittura',
   readoutPosition: 'Posizione (MSF)',
@@ -164,6 +196,7 @@ export const burner = {
   modeDao: 'DAO / 2352',
   modeTest: 'DAO / TEST',
   phaseIdle: 'Inattivo',
+  // Shown instead of the phase while a rehearsal writes with the laser off.
   phaseRehearsing: 'Prova in corso',
   phase: {
     fetching: 'Download',
@@ -174,41 +207,48 @@ export const burner = {
     closing: 'Chiusura',
   },
 
-  toastAdded_one: 'Aggiunto {{count}} brano al CD.',
-  toastAdded_other: 'Aggiunti {{count}} brani al CD.',
-  toastAddedSome_one:
-    'Aggiunto {{count}} brano; {{skipped}} saltati perché già in coda o oltre il limite.',
-  toastAddedSome_other:
-    'Aggiunti {{count}} brani; {{skipped}} saltati perché già in coda o oltre il limite.',
-  toastNewDiscStarted:
-    'Nuovo disco iniziato. La scaletta della masterizzazione precedente è stata svuotata.',
-  toastAlreadyQueued: 'Già sul CD.',
+  // Toasts
+  toastAdded_one: '{{count}} brano aggiunto al CD.',
+  toastAdded_many: '{{count}} brani aggiunti al CD.',
+  toastAdded_other: '{{count}} brani aggiunti al CD.',
+  toastAddedSome_one: '{{count}} brano aggiunto; {{skipped}} saltati perché già in coda o oltre il limite.',
+  toastAddedSome_many: '{{count}} brani aggiunti; {{skipped}} saltati perché già in coda o oltre il limite.',
+  toastAddedSome_other: '{{count}} brani aggiunti; {{skipped}} saltati perché già in coda o oltre il limite.',
+  toastNewDiscStarted: 'Nuovo disco avviato. La scaletta dell’ultima masterizzazione è stata svuotata.',
+  toastAlreadyQueued: 'Già presente nel CD.',
   toastDiscFull: 'Il disco contiene già il massimo di {{max}} brani.',
-  toastBurnInProgress: 'È in corso una masterizzazione. Fermala prima di modificare la coda.',
+  // A running job took its track list when it started, so anything added
+  // after that would show a running order the drive is not writing.
+  toastBurnInProgress: 'Masterizzazione in corso. Fermala prima di modificare la coda.',
   toastCancelled: 'Masterizzazione interrotta.',
-  toastBurnDone_one: 'Disco masterizzato — {{count}} brano.',
-  toastBurnDone_other: 'Disco masterizzato — {{count}} brani.',
+  toastBurnDone_one: 'Disco scritto — {{count}} brano.',
+  toastBurnDone_many: 'Disco scritto — {{count}} brani.',
+  toastBurnDone_other: 'Disco scritto — {{count}} brani.',
   toastCdTextSkipped:
-    'Il disco è stato masterizzato senza CD-TEXT — questa unità non è riuscita a scriverlo qui, quindi i lettori non mostreranno i nomi dei brani.',
-  toastTestWriteDone: 'Scrittura di prova completata. Non è stato scritto nulla sul disco.',
+    'Il disco è stato masterizzato senza CD-TEXT: questa unità non è riuscita a scriverlo, quindi i lettori non mostreranno i nomi dei brani.',
+  toastTestWriteDone: 'Scrittura di prova terminata. Non è stato scritto nulla sul disco.',
   toastCdTextVerified_one: 'CD-TEXT verificato sul disco ({{count}} pacchetto).',
+  toastCdTextVerified_many: 'CD-TEXT verificato sul disco ({{count}} pacchetti).',
   toastCdTextVerified_other: 'CD-TEXT verificato sul disco ({{count}} pacchetti).',
   toastCdTextUnconfirmed:
-    'Il disco è stato masterizzato e l’audio è a posto, ma rileggendolo non è stato trovato alcun CD-TEXT. Le unità spesso conservano il contenuto del disco dal momento in cui è stato inserito, quindi può essere una lettura non aggiornata: prova il disco in un lettore che mostra i nomi dei brani.',
+    'Il disco è stato masterizzato e l’audio è a posto, ma rileggendolo non è stato trovato alcun CD-TEXT. Spesso le unità memorizzano il contenuto del disco al momento dell’inserimento, quindi potrebbe trattarsi solo di una lettura non aggiornata: prova il disco in un lettore che mostra i nomi dei brani.',
   toastCdTextUnreadable:
-    'Il disco è stato masterizzato e l’audio è a posto. Questa unità non ha voluto riportare il CD-TEXT del disco, quindi qui non si può confermare se sia stato scritto: prova il disco in un lettore che mostra i nomi dei brani.',
+    'Il disco è stato masterizzato e l’audio è a posto. Questa unità non ha restituito il CD-TEXT del disco, quindi qui non è possibile confermare se sia stato scritto: prova il disco in un lettore che mostra i nomi dei brani.',
 
-  trackListing: 'Elenco brani',
-  listingUntitled: 'CD compilation',
+  // Track listing
+  trackListing: 'Elenco dei brani',
+  listingUntitled: 'CD mix',
   listingSummary_one: '{{count}} brano · {{duration}}',
+  listingSummary_many: '{{count}} brani · {{duration}}',
   listingSummary_other: '{{count}} brani · {{duration}}',
   listingCopy: 'Copia',
-  listingCopied: 'Elenco brani copiato.',
-  listingCopyFailed: 'Impossibile copiare l’elenco brani.',
+  listingCopied: 'Elenco dei brani copiato.',
+  listingCopyFailed: 'Impossibile copiare l’elenco dei brani.',
   listingSave: 'Salva .txt',
-  listingSaveTitle: 'Salva l’elenco brani',
-  listingSaved: 'Elenco brani salvato.',
+  listingSaveTitle: 'Salva l’elenco dei brani',
+  listingSaved: 'Elenco dei brani salvato.',
   listingPrint: 'Stampa',
 
+  // Context menu
   addToCd: 'Aggiungi al CD',
 };

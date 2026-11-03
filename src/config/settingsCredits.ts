@@ -537,13 +537,6 @@ const CONTRIBUTOR_ENTRIES = [
     ],
   },
   {
-    github: 'daquino94',
-    since: '1.50.0',
-    contributions: [
-      'Italian (it) full UI translation (PR #1250)',
-    ],
-  },
-  {
     github: 'norperz',
     since: '1.50.0',
     contributions: [
