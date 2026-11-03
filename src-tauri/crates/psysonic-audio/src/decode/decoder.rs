@@ -17,6 +17,11 @@ const DECODE_MAX_RETRIES: usize = 3;
 /// this limit so a handful of corrupt MP3 frames never aborts an otherwise
 /// playable track (VLC-style frame dropping).
 pub(super) const MAX_CONSECUTIVE_DECODE_ERRORS: usize = 100;
+/// Error-text markers that callers match on to choose a retry path; keep the
+/// producers and the matchers on these constants instead of literal copies.
+pub(crate) const IN_MEMORY_PROBE_FAILED: &str = "could not probe the buffered stream";
+pub(crate) const NO_AUDIO_TRACK: &str = "the file holds no audio track";
+pub(crate) const PACKET_READ_FAILED: &str = "reading audio packets failed";
 /// Wall-clock cap for the streaming `probe()` call. A ranged-HTTP source whose
 /// download stalls (e.g. right after a server switch) can otherwise block the
 /// probe — and therefore playback start — indefinitely. On timeout we abort with
