@@ -14,19 +14,13 @@
  * (no "save anyway" escape hatch — see spec §7.3).
  */
 
-import md5 from 'md5';
 import {
   apiWithCredentials,
-  requiresNativeTransport,
-  restBaseFromUrl,
-  secureRandomSalt,
-  SUBSONIC_CLIENT,
   type ServerHttpHeaderProfile,
 } from '@/lib/api/subsonicClient';
 import { pingWithCredentialsForProfile } from '@/lib/api/subsonic';
 import type { ServerProfile } from '@/store/authStoreTypes';
 import { allNormalizedAddresses } from '@/lib/server/serverEndpoint';
-import { headersForServerRequest } from '@/lib/server/serverHttpHeaders';
 
 export type ServerFingerprint = {
   ping: {
@@ -52,14 +46,17 @@ export type VerifySameServerResult =
       unreachableHost?: string;
     };
 
-// ─── ping (with envelope `version`) ──────────────────────────────────────────
+// ─── ping ────────────────────────────────────────────────────────────────────
 //
-// `pingWithCredentials` in api/subsonic.ts drops the envelope `version`. We
-// need it for the fingerprint (informational, per spec §7.3) so we do the
-// ping call here against the same Subsonic shape. Failure → throws.
+// The ping rides the same probe the connect test uses. A WebView request cannot
+// carry a gate header (the browser preflights the non-safelisted header with a
+// token-less `OPTIONS` the gate rejects) and cannot read the reply of a server
+// that sends no CORS headers at all. Both look identical from here: an
+// unreachable address. The probe covers both, and remembers a CORS-less address
+// for the rest of the session.
 //
-// Gated servers are the exception: they go through the native probe, which
-// does not report the envelope version, so `apiVersion` stays null there.
+// The probe does not report the Subsonic envelope `version`, so `apiVersion` is
+// always null. It is informational in the fingerprint and compared nowhere.
 
 type PingFingerprint = ServerFingerprint['ping'] & { ok: boolean };
 
@@ -69,78 +66,16 @@ async function fetchPingFingerprint(
   password: string,
   headerProfile?: ServerHttpHeaderProfile,
 ): Promise<PingFingerprint> {
-  // A gated server (Pangolin / Cloudflare Access) must not be pinged from the
-  // WebView: the custom header is not CORS-safelisted, so the browser preflights
-  // it with a token-less `OPTIONS` the gate rejects, the real request never
-  // leaves, and verify reports the address as `unreachable`. Send it over the
-  // native reqwest probe instead, as the streaming / sync / proxy paths do.
-  if (headerProfile && requiresNativeTransport(headerProfile, baseUrl)) {
-    const probed = await pingWithCredentialsForProfile(
-      { ...headerProfile, username, password },
-      baseUrl,
-    );
-    return {
-      ok: probed.ok,
-      type: probed.type ?? null,
-      serverVersion: probed.serverVersion ?? null,
-      openSubsonic: probed.openSubsonic === true,
-      apiVersion: null,
-    };
-  }
-
-  // Mirrors pingWithCredentials but also extracts envelope `version`.
-  // Using fetch (the bundled axios pulls in extra noise here; one call is fine).
-  const salt = secureRandomSalt();
-  const token = md5(password + salt);
-  const params = new URLSearchParams({
-    u: username,
-    t: token,
-    s: salt,
-    v: '1.16.1',
-    c: SUBSONIC_CLIENT,
-    f: 'json',
-  });
-  const url = `${restBaseFromUrl(baseUrl)}/ping.view?${params.toString()}`;
-  const profileForHeaders: ServerHttpHeaderProfile = headerProfile ?? {
-    url: baseUrl,
-    alternateUrl: undefined,
-    customHeaders: undefined,
-    customHeadersApplyTo: undefined,
-  };
-  let body: Record<string, unknown> | null;
-  try {
-    const resp = await fetch(url, {
-      method: 'GET',
-      headers: headersForServerRequest(profileForHeaders, baseUrl),
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const json = (await resp.json()) as Record<string, unknown>;
-    body = (json?.['subsonic-response'] as Record<string, unknown>) ?? null;
-  } catch {
-    return {
-      ok: false,
-      type: null,
-      serverVersion: null,
-      openSubsonic: false,
-      apiVersion: null,
-    };
-  }
-  if (!body) {
-    return {
-      ok: false,
-      type: null,
-      serverVersion: null,
-      openSubsonic: false,
-      apiVersion: null,
-    };
-  }
-  const ok = body.status === 'ok';
+  const probed = await pingWithCredentialsForProfile(
+    { ...(headerProfile ?? { url: baseUrl, alternateUrl: undefined }), username, password },
+    baseUrl,
+  );
   return {
-    ok,
-    type: typeof body.type === 'string' ? body.type : null,
-    serverVersion: typeof body.serverVersion === 'string' ? body.serverVersion : null,
-    openSubsonic: body.openSubsonic === true,
-    apiVersion: typeof body.version === 'string' ? body.version : null,
+    ok: probed.ok,
+    type: probed.type ?? null,
+    serverVersion: probed.serverVersion ?? null,
+    openSubsonic: probed.openSubsonic === true,
+    apiVersion: null,
   };
 }
 
