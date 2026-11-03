@@ -127,6 +127,30 @@ describe('hot New Releases overlay', () => {
     expect(result.map(item => item.album.id).sort()).toEqual(['s1-fresh', 's2-fresh']);
   });
 
+  it('sends the edition release year, falling back to year', async () => {
+    const now = Date.parse('2026-07-16T12:00:00Z');
+    getAlbumListForServer.mockImplementation(async (serverId: string) => {
+      const reissue = album('reissue', '2026-07-16T11:00:00Z', serverId);
+      reissue.year = 1996;
+      reissue.releaseDate = { year: 2026 };
+      const undated = album('undated', '2026-07-16T11:00:00Z', serverId);
+      undated.year = 2001;
+      undated.releaseDate = {};
+      return [reissue, undated];
+    });
+    libraryResolveAlbumOverlay.mockImplementation(async ({ albums }: { albums: SubsonicAlbum[] }) => (
+      albums.map((_item, group) => ({ group, representativeServerId: null, representativeId: null }))
+    ));
+
+    await fetchHotNewReleases([{ serverId: 's1', libraryId: 'l1' }], now);
+
+    const sent = libraryResolveAlbumOverlay.mock.calls[0]![0].albums as Array<{ id: string; year: number | null }>;
+    expect(sent.map(({ id, year }) => ({ id, year }))).toEqual([
+      { id: 'reissue', year: 2026 },
+      { id: 'undated', year: 2001 },
+    ]);
+  });
+
   it('normalizes scalar and mixed albumversion tags without dropping the overlay', async () => {
     const now = Date.parse('2026-07-16T12:00:00Z');
     const variants = [

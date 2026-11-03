@@ -300,6 +300,32 @@ fn an_added_reissue_with_a_release_year_splits_through_the_journal() {
     assert_eq!(album_key(&store, "s1", "t2"), Some(with_year(2026)));
 }
 
+/// Known limitation, pinned so a change to it is deliberate: Subsonic-shaped
+/// song JSON (scoped and large initial Navidrome syncs, plain Subsonic
+/// servers) carries no `releaseYear`, only the year tag. A copy of the
+/// reissue read that way keys on the original's year and joins the original.
+#[test]
+fn a_subsonic_copy_of_a_reissue_tagged_with_the_original_year_joins_the_original() {
+    let store = LibraryStore::open_in_memory();
+    seed_artist(&store, "s1");
+    seed_artist(&store, "s2");
+    let mut subsonic_copy = release_track("s2", "t3", "remote-reissue", "lib-x", 1996);
+    subsonic_copy.raw_json = serde_json::json!({ "year": 1996, "mediaType": "song" }).to_string();
+    TrackRepository::new(&store)
+        .upsert_batch(&[
+            release_track("s1", "t1", "original", "lib-a", 1996),
+            reissue_tagged_with_original_year("s1", "t2", "reissue", "lib-a", 1996, 2026),
+            subsonic_copy,
+        ])
+        .unwrap();
+
+    rebuild_cluster_keys(&store, None).unwrap();
+
+    assert_eq!(album_key(&store, "s1", "t2"), Some(with_year(2026)));
+    assert_eq!(album_key(&store, "s2", "t3"), Some(with_year(1996)));
+    assert_eq!(album_key(&store, "s2", "t3"), album_key(&store, "s1", "t1"));
+}
+
 #[test]
 fn a_matching_release_year_keeps_one_release_on_one_key() {
     let store = LibraryStore::open_in_memory();

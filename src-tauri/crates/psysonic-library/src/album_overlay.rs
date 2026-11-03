@@ -589,6 +589,37 @@ mod tests {
         assert_eq!(resolutions[0].representative_id, None);
     }
 
+    /// The frontend sends the edition's year (`releaseDate`, else `year`), so an
+    /// unindexed copy of a reissue meets the indexed reissue on its release year.
+    #[test]
+    fn an_unindexed_copy_of_a_reissue_joins_the_indexed_reissue() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-reissue", "reissue", "l1");
+        set_year(&store, "s1", "t-reissue", 1996);
+        store
+            .with_conn_mut("test.album_overlay_release_year", |conn| {
+                conn.execute(
+                    "UPDATE track SET raw_json = '{\"releaseYear\":2026}' \
+                     WHERE server_id = 's1' AND id = 't-reissue'",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![candidate_in("s1", "reissue-copy", 2026, "l1")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(resolutions[0].representative_id.as_deref(), Some("reissue"));
+    }
+
     #[test]
     fn maps_physical_copies_to_the_scope_representative() {
         let store = LibraryStore::open_in_memory();
