@@ -35,7 +35,9 @@ pub(crate) const KEY_SEP: char = '\u{001f}';
 /// v10: Greek folding (tonos/dialytika removed, final sigma ς→σ).
 /// v11: two physical albums in one server library that share an album key but
 ///      carry different years get the year as part of the key.
-pub const NORM_VERSION: &str = "11";
+/// v12: that year is the track's release year when it carries one, so a
+///      reissue tagged with the original's year still splits.
+pub const NORM_VERSION: &str = "12";
 
 /// Normalize one identity field. Returns `None` when input is empty/whitespace-only
 /// or when normalization strips everything (punctuation-only, etc.).

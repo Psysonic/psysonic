@@ -13,7 +13,7 @@ mod pipeline;
 mod ranks;
 mod release_year;
 
-pub(crate) use release_year::RELEASE_MEMBER_CTE_SQL;
+pub(crate) use release_year::{RELEASE_MEMBER_CTE_SQL, TRACK_RELEASE_YEAR_SQL};
 
 #[cfg(test)]
 use pipeline::rebuild_cluster_keys_on_conn;
