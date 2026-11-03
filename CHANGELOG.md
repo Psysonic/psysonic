@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### New Italian translation
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1823](https://github.com/Psysonic/psysonic/pull/1823)**
 
 * The Italian translation has been written anew from the English texts, since its original author did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772). Wording differs in many places; corrections from Italian speakers are welcome.
 
