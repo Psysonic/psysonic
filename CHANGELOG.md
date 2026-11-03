@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Contributions whose authors did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772) have been rewritten: the toast notifications, the audio error messages, the link between a dialog and its title for screen readers, and parts of the Linux install script. They behave as before; some playback error messages are worded differently now.
 * The matching entries in the contributor list have been removed.
 
+### New Italian translation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1823](https://github.com/Psysonic/psysonic/pull/1823)**
+
+* The Italian translation has been written anew from the English texts, since its original author did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772). Wording differs in many places; corrections from Italian speakers are welcome.
+
 ## [1.56.0]
 
 ## Added
