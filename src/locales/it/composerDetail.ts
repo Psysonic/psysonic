@@ -1,11 +1,12 @@
 export const composerDetail = {
   back: 'Indietro',
   notFound: 'Compositore non trovato.',
-  about: 'Altro su questo compositore',
-  works: 'Lavori',
-  noWorks: 'Nessun lavoro trovato.',
-  workCount_one: '{{count}} lavoro',
-  workCount_other: '{{count}} lavori',
+  about: 'Informazioni sul compositore',
+  works: 'Opere',
+  noWorks: 'Nessuna opera trovata.',
+  workCount_one: '{{count}} opera',
+  workCount_many: '{{count}} opere',
+  workCount_other: '{{count}} opere',
   shareComposer: 'Condividi compositore',
   unknownComposer: 'Compositore',
 };

@@ -1,6 +1,6 @@
 export const luckyMix = {
-  done: 'Lucky Mix pronto: {{count}} brani',
-  failed: 'Impossibile creare Lucky Mix. Prova di nuovo.',
-  unavailable: 'Lucky Mix non disponibile per questo server.',
-  cancelTooltip: 'Cancella Lucky Mix creato',
+  done: 'Mix fortunato pronto: {{count}} brani',
+  failed: 'Impossibile creare il Mix fortunato. Riprova.',
+  unavailable: 'Il Mix fortunato non è disponibile per questo server.',
+  cancelTooltip: 'Annulla la creazione del Mix fortunato',
 };
