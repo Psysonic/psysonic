@@ -3,7 +3,7 @@ import { commands } from '@/generated/bindings';
 import { useAuthStore } from '@/store/authStore';
 import { isPrivateModeActive, usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
-import { getPlaybackProgressSnapshot } from '@/features/playback/store/playbackProgress';
+import { getPlaybackProgressSnapshot, subscribePlaybackSeek } from '@/features/playback/store/playbackProgress';
 import { resolveCoverForDiscord } from '@/cover/integrations/discord';
 import type { CoverSourcePref } from '@/cover/coverSources';
 import { serverShareBaseUrl } from '@/lib/server/serverEndpoint';
@@ -11,8 +11,8 @@ import { playbackServerDiffersFromActive } from '@/features/playback/utils/playb
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 
 /**
- * Discord Rich Presence sync. Updates on track change or play/pause toggle —
- * no per-tick updates needed. Discord counts from the start timestamp and draws
+ * Discord Rich Presence sync. Updates on track change, play/pause, or a committed
+ * seek — not on progress ticks. Discord counts from the start timestamp and draws
  * a progress bar when the track duration supplies an end timestamp too.
  * Returns a cleanup function.
  */
@@ -26,10 +26,41 @@ export function setupDiscordPresence(): () => void {
   let discordPrevCoverSources: CoverSourcePref[] | null = null;
   let discordPrevDiscordCoverSource: string | null = null;
   let discordPrevShareBase: string | null = null;
+  // null until this track's cover lookup has published once. A seek during
+  // that lookup must wait: the lookup sends the position it reads at the end,
+  // and publishing early would flash the app icon.
+  let publishedCover: { url: string | null } | null = null;
+
+  // Position is read here, not when the update was scheduled. A cover lookup
+  // can still be in flight when the listener seeks, and the position captured
+  // at the start of that lookup would put the bar back.
+  function publishPresence(coverArtUrl: string | null) {
+    const { currentTrack, isPlaying } = usePlayerStore.getState();
+    if (!currentTrack) return;
+    const {
+      discordTemplateDetails,
+      discordTemplateState,
+      discordTemplateLargeText,
+      discordTemplateName,
+    } = useAuthStore.getState();
+    publishedCover = { url: coverArtUrl };
+    invoke('discord_update_presence', {
+      title: currentTrack.title,
+      artist: currentTrack.artist ?? 'Unknown Artist',
+      album: currentTrack.album ?? null,
+      isPlaying,
+      elapsedSecs: isPlaying ? getPlaybackProgressSnapshot().currentTime : null,
+      durationSecs: currentTrack.duration,
+      coverArtUrl,
+      detailsTemplate: discordTemplateDetails,
+      stateTemplate: discordTemplateState,
+      largeTextTemplate: discordTemplateLargeText,
+      nameTemplate: discordTemplateName,
+    }).catch(() => {});
+  }
 
   function syncDiscord() {
     const { currentTrack, isPlaying } = usePlayerStore.getState();
-    const currentTime = getPlaybackProgressSnapshot().currentTime;
     const {
       discordRichPresence,
       discordCoverSource,
@@ -53,6 +84,7 @@ export function setupDiscordPresence(): () => void {
         discordPrevTemplateState = null;
         discordPrevTemplateLargeText = null;
         discordPrevTemplateName = null;
+        publishedCover = null;
         commands.discordClearPresence().catch(() => {});
       }
       return;
@@ -90,22 +122,7 @@ export function setupDiscordPresence(): () => void {
     discordPrevTemplateState = discordTemplateState;
     discordPrevTemplateLargeText = discordTemplateLargeText;
     discordPrevTemplateName = discordTemplateName;
-
-    const sendPresence = (coverArtUrl: string | null) => {
-      invoke('discord_update_presence', {
-        title: currentTrack.title,
-        artist: currentTrack.artist ?? 'Unknown Artist',
-        album: currentTrack.album ?? null,
-        isPlaying,
-        elapsedSecs: isPlaying ? currentTime : null,
-        durationSecs: currentTrack.duration,
-        coverArtUrl,
-        detailsTemplate: discordTemplateDetails,
-        stateTemplate: discordTemplateState,
-        largeTextTemplate: discordTemplateLargeText,
-        nameTemplate: discordTemplateName,
-      }).catch(() => {});
-    };
+    if (trackChanged) publishedCover = null;
 
     // What Discord may publish is a separate opt-in from the in-app chain
     // (#1299): 'none' shows the app icon only — nothing is fetched, nothing is
@@ -140,17 +157,30 @@ export function setupDiscordPresence(): () => void {
       if (!liveTrack || ownedEntityKey(liveTrack) !== trackKey) return;
       if (!latest.discordRichPresence || isPrivateModeActive()) return;
       if (latest.discordCoverSource !== discordCoverSource || latest.coverSources !== coverSources) return;
-      sendPresence(url);
+      publishPresence(url);
     })();
   }
 
   const unsubDiscordPlayer = usePlayerStore.subscribe(syncDiscord);
   const unsubDiscordAuth = useAuthStore.subscribe(syncDiscord);
   const unsubDiscordPrivate = usePrivateModeStore.subscribe(syncDiscord);
+  // Fires once per committed seek, including while paused (the engine emits
+  // nothing then). A drag only previews locally, so this is not one update
+  // per pixel.
+  const unsubDiscordSeek = subscribePlaybackSeek(() => {
+    if (discordPrevTrackKey == null) return;
+    const { currentTrack, isPlaying } = usePlayerStore.getState();
+    if (!currentTrack || !isPlaying) return;
+    if (ownedEntityKey(currentTrack) !== discordPrevTrackKey) return;
+    if (!useAuthStore.getState().discordRichPresence || isPrivateModeActive()) return;
+    if (!publishedCover) return;
+    publishPresence(publishedCover.url);
+  });
 
   return () => {
     unsubDiscordPlayer();
     unsubDiscordAuth();
     unsubDiscordPrivate();
+    unsubDiscordSeek();
   };
 }
