@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { resolveCoverForDiscord } from './discord';
+import {
+  clearServerCoverCacheForTest,
+  normalizeServerCoverUrl,
+  resolveCoverForDiscord,
+} from './discord';
 import { commands } from '@/generated/bindings';
 import { getAlbumInfo2 } from '@/lib/api/subsonicAlbumInfo';
 
@@ -20,6 +24,7 @@ const LASTFM_URL = 'https://lastfm.example/y.jpg';
 
 describe('resolveCoverForDiscord', () => {
   beforeEach(() => {
+    clearServerCoverCacheForTest();
     vi.mocked(getAlbumInfo2).mockReset();
     vi.mocked(commands.resolveAppleCover).mockReset();
     vi.mocked(commands.resolveLastfmCover).mockReset();
@@ -111,5 +116,97 @@ describe('resolveCoverForDiscord', () => {
       { artist: 'A', album: 'B', shareBase: null },
     );
     expect(url).toBeNull();
+  });
+
+  it('keeps external Last.fm HTTPS URLs intact without rewriting to shareBase', async () => {
+    vi.mocked(getAlbumInfo2).mockResolvedValue({
+      largeImageUrl: 'https://lastfm.freetls.fastly.net/i/u/300x300/abc.png',
+    } as never);
+    const url = await resolveCoverForDiscord(
+      [{ source: 'server', enabled: true }],
+      { albumId: 'a1', shareBase: 'https://music.example.com' },
+    );
+    expect(url).toBe('https://lastfm.freetls.fastly.net/i/u/300x300/abc.png');
+  });
+
+  it('upgrades external HTTP CDN URLs to HTTPS', async () => {
+    vi.mocked(getAlbumInfo2).mockResolvedValue({
+      largeImageUrl: 'http://lastfm.freetls.fastly.net/i/u/300x300/abc.png',
+    } as never);
+    const url = await resolveCoverForDiscord(
+      [{ source: 'server', enabled: true }],
+      { albumId: 'a1', shareBase: 'https://music.example.com' },
+    );
+    expect(url).toBe('https://lastfm.freetls.fastly.net/i/u/300x300/abc.png');
+  });
+
+  it('rewrites server /share/img/ URLs to public shareBase', async () => {
+    vi.mocked(getAlbumInfo2).mockResolvedValue({
+      largeImageUrl: 'http://192.168.1.50:4533/share/img/token-123?size=600',
+    } as never);
+    const url = await resolveCoverForDiscord(
+      [{ source: 'server', enabled: true }],
+      { albumId: 'a1', shareBase: 'https://music.example.com' },
+    );
+    expect(url).toBe('https://music.example.com/share/img/token-123?size=600');
+  });
+
+  it('resolves relative /share/img/ paths against shareBase with path prefix', async () => {
+    vi.mocked(getAlbumInfo2).mockResolvedValue({
+      largeImageUrl: '/share/img/token-456?size=300',
+    } as never);
+    const url = await resolveCoverForDiscord(
+      [{ source: 'server', enabled: true }],
+      { albumId: 'a1', shareBase: 'https://music.example.com/nav' },
+    );
+    expect(url).toBe('https://music.example.com/nav/share/img/token-456?size=300');
+  });
+});
+
+describe('normalizeServerCoverUrl', () => {
+  it('does not touch external HTTPS URLs', () => {
+    expect(
+      normalizeServerCoverUrl(
+        'https://lastfm.freetls.fastly.net/i/u/300x300/xyz.jpg',
+        'https://music.example.com',
+      ),
+    ).toBe('https://lastfm.freetls.fastly.net/i/u/300x300/xyz.jpg');
+  });
+
+  it('upgrades external HTTP URLs to HTTPS', () => {
+    expect(
+      normalizeServerCoverUrl(
+        'http://lastfm.freetls.fastly.net/i/u/300x300/xyz.jpg',
+        'https://music.example.com',
+      ),
+    ).toBe('https://lastfm.freetls.fastly.net/i/u/300x300/xyz.jpg');
+  });
+
+  it('does not upgrade local/LAN HTTP URLs', () => {
+    expect(
+      normalizeServerCoverUrl(
+        'http://192.168.1.10:8080/image.jpg',
+        'https://music.example.com',
+      ),
+    ).toBe('http://192.168.1.10:8080/image.jpg');
+  });
+
+  it('rewrites server artwork to public shareBase and preserves prefix', () => {
+    expect(
+      normalizeServerCoverUrl(
+        'http://192.168.1.10:4533/share/img/tok?size=500',
+        'https://sub.example.com/prefix',
+      ),
+    ).toBe('https://sub.example.com/prefix/share/img/tok?size=500');
+  });
+
+  it('resolves relative paths with shareBase prefix', () => {
+    expect(
+      normalizeServerCoverUrl('/share/img/tok?size=500', 'https://sub.example.com/prefix'),
+    ).toBe('https://sub.example.com/prefix/share/img/tok?size=500');
+  });
+
+  it('returns raw when shareBase is null for relative paths', () => {
+    expect(normalizeServerCoverUrl('/share/img/tok', null)).toBe('/share/img/tok');
   });
 });

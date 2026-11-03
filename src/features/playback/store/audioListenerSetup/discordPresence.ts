@@ -141,8 +141,12 @@ export function setupDiscordPresence(): () => void {
       : discordCoverSource === 'apple'
         ? coverSources.filter(s => s.source !== 'server')
         : coverSources;
+    const albumId =
+      !playbackServerDiffersFromActive()
+        ? (currentTrack.albumId || (currentTrack.coverArt?.startsWith('al-') ? currentTrack.coverArt : undefined))
+        : undefined;
     const chainCtx = {
-      albumId: !playbackServerDiffersFromActive() ? currentTrack.albumId : undefined,
+      albumId,
       artist: currentTrack.artist ?? undefined,
       album: currentTrack.album ?? undefined,
       title: currentTrack.title ?? undefined,
