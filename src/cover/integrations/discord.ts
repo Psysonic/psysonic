@@ -51,6 +51,16 @@ export function normalizeServerCoverUrl(raw: string, shareBase: string | null): 
   const trimmed = raw.trim();
   if (!trimmed) return raw;
 
+  // Protocol-relative URLs (e.g. "//cdn.example.com/art.jpg") -> force https:
+  if (trimmed.startsWith('//')) {
+    try {
+      const url = new URL(`https:${trimmed}`);
+      return url.toString();
+    } catch {
+      return raw;
+    }
+  }
+
   // Relative path on server (e.g. "/share/img/<token>?size=600")
   if (trimmed.startsWith('/') || !trimmed.includes('://')) {
     if (!shareBase) return raw;
@@ -58,10 +68,11 @@ export function normalizeServerCoverUrl(raw: string, shareBase: string | null): 
       const share = new URL(shareBase);
       const sharePrefix = share.pathname.replace(/\/$/, '');
       const pathWithSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      const prefixSegment = sharePrefix ? `${sharePrefix}/` : '';
       const fullPath =
-        sharePrefix && !pathWithSlash.startsWith(sharePrefix)
-          ? `${sharePrefix}${pathWithSlash}`
-          : pathWithSlash;
+        sharePrefix && (pathWithSlash === sharePrefix || pathWithSlash.startsWith(prefixSegment))
+          ? pathWithSlash
+          : `${sharePrefix}${pathWithSlash}`;
       return new URL(fullPath, share.origin).toString();
     } catch {
       return raw;
@@ -71,24 +82,30 @@ export function normalizeServerCoverUrl(raw: string, shareBase: string | null): 
   try {
     const url = new URL(trimmed);
 
-    // If it's a server public share endpoint (/share/img/), rewrite to public shareBase if available
-    if (url.pathname.includes('/share/img/')) {
+    // Only rewrite /share/img/ paths if the URL is on LAN or already matches shareBase's host
+    const isServerScoped =
+      isLanUrl(url.origin) ||
+      (shareBase ? url.hostname === new URL(shareBase).hostname : false);
+
+    if (url.pathname.includes('/share/img/') && isServerScoped) {
       if (!shareBase) return url.toString();
       const share = new URL(shareBase);
       url.protocol = share.protocol;
       url.hostname = share.hostname;
       url.port = share.port;
       const sharePrefix = share.pathname.replace(/\/$/, '');
-      if (sharePrefix && !url.pathname.startsWith(sharePrefix)) {
+      const prefixSegment = sharePrefix ? `${sharePrefix}/` : '';
+      if (sharePrefix && !(url.pathname === sharePrefix || url.pathname.startsWith(prefixSegment))) {
         url.pathname = `${sharePrefix}${url.pathname}`;
       }
       return url.toString();
     }
 
     // External image provider (e.g. Last.fm CDN, Spotify CDN).
-    // Do NOT rewrite origin to shareBase. Upgrade HTTP to HTTPS for public domains.
-    if (url.protocol === 'http:' && !isLanUrl(url.origin)) {
+    // Do NOT rewrite origin to shareBase. Upgrade standard HTTP (port 80 or omitted) to HTTPS for public domains.
+    if (url.protocol === 'http:' && !isLanUrl(url.origin) && (!url.port || url.port === '80')) {
       url.protocol = 'https:';
+      url.port = '';
     }
 
     return url.toString();
@@ -114,7 +131,7 @@ const SERVER_COVER_CACHE_TTL_MS = 60 * 60 * 1000;
 const SERVER_COVER_NEGATIVE_CACHE_TTL_MS = 30 * 1000;
 const serverCoverCache = new Map<string, ServerCoverCacheEntry>();
 
-export function clearServerCoverCacheForTest(): void {
+export function _resetServerCoverCacheForTest(): void {
   serverCoverCache.clear();
 }
 

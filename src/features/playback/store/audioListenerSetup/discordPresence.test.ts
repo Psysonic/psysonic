@@ -6,7 +6,7 @@ import { resetAllStores } from '@/test/helpers/storeReset';
 import { useAuthStore } from '@/store/authStore';
 import { usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
-import { emitPlaybackProgress, emitPlaybackSeek } from '@/features/playback/store/playbackProgress';
+import { emitPlaybackSeek } from '@/features/playback/store/playbackProgress';
 
 vi.mock('@/cover/integrations/discord', () => ({
   resolveCoverForDiscord: vi.fn(async () => null),
@@ -44,14 +44,25 @@ describe('Discord presence progress', () => {
 });
 
 describe('Discord presence seek', () => {
-  it('republishes the seeked position without resolving the cover again', async () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('republishes the seeked position without resolving the cover again (debounced)', async () => {
     const { resolveCoverForDiscord } = await import('@/cover/integrations/discord');
     usePlayerStore.setState({ currentTrack: makeTrack({ duration: 240 }), isPlaying: true });
     await flush();
     expect(vi.mocked(resolveCoverForDiscord)).toHaveBeenCalledTimes(1);
 
-    emitPlaybackProgress({ currentTime: 90, progress: 90 / 240, buffered: 0 });
+    // emitPlaybackSeek alone must convey the new position (proves seek event isn't relying on emitPlaybackProgress)
     emitPlaybackSeek(90);
+    expect(vi.mocked(invoke).mock.calls.filter(([name]) => name === 'discord_update_presence')).toHaveLength(1);
+
+    vi.advanceTimersByTime(300);
     await flush();
 
     const calls = vi.mocked(invoke).mock.calls.filter(([name]) => name === 'discord_update_presence');
@@ -70,8 +81,8 @@ describe('Discord presence seek', () => {
     await flush();
     expect(presenceCalls('discord_update_presence')).toBe(0);
 
-    emitPlaybackProgress({ currentTime: 90, progress: 90 / 240, buffered: 0 });
     emitPlaybackSeek(90);
+    vi.advanceTimersByTime(300);
     await flush();
     expect(presenceCalls('discord_update_presence')).toBe(0);
 
@@ -79,7 +90,7 @@ describe('Discord presence seek', () => {
     await flush();
     const call = vi.mocked(invoke).mock.calls.find(([name]) => name === 'discord_update_presence');
     expect(call?.[1]).toMatchObject({
-      elapsedSecs: 90,
+      elapsedSecs: 0,
       durationSecs: 240,
       coverArtUrl: 'https://cdn.example/cover.jpg',
     });
@@ -91,8 +102,8 @@ describe('Discord presence seek', () => {
     await flush();
     const before = presenceCalls('discord_update_presence');
 
-    emitPlaybackProgress({ currentTime: 40, progress: 40 / 180, buffered: 0 });
     emitPlaybackSeek(40);
+    vi.advanceTimersByTime(300);
     await flush();
 
     expect(presenceCalls('discord_update_presence')).toBe(before);

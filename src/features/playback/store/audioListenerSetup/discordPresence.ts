@@ -27,14 +27,12 @@ export function setupDiscordPresence(): () => void {
   let discordPrevDiscordCoverSource: string | null = null;
   let discordPrevShareBase: string | null = null;
   // null until this track's cover lookup has published once. A seek during
-  // that lookup must wait: the lookup sends the position it reads at the end,
-  // and publishing early would flash the app icon.
   let publishedCover: { url: string | null } | null = null;
+  let seekDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Position is read here, not when the update was scheduled. A cover lookup
-  // can still be in flight when the listener seeks, and the position captured
-  // at the start of that lookup would put the bar back.
-  function publishPresence(coverArtUrl: string | null) {
+  // Position is read here, not when the update was scheduled, unless an explicit
+  // elapsed position is passed (e.g. from a seek event).
+  function publishPresence(coverArtUrl: string | null, elapsedSecsOverride?: number | null) {
     const { currentTrack, isPlaying } = usePlayerStore.getState();
     if (!currentTrack) return;
     const {
@@ -44,12 +42,16 @@ export function setupDiscordPresence(): () => void {
       discordTemplateName,
     } = useAuthStore.getState();
     publishedCover = { url: coverArtUrl };
+    const elapsedSecs =
+      !isPlaying ? null
+      : elapsedSecsOverride !== undefined ? elapsedSecsOverride
+      : getPlaybackProgressSnapshot().currentTime;
     invoke('discord_update_presence', {
       title: currentTrack.title,
       artist: currentTrack.artist ?? 'Unknown Artist',
       album: currentTrack.album ?? null,
       isPlaying,
-      elapsedSecs: isPlaying ? getPlaybackProgressSnapshot().currentTime : null,
+      elapsedSecs,
       durationSecs: currentTrack.duration,
       coverArtUrl,
       detailsTemplate: discordTemplateDetails,
@@ -85,6 +87,10 @@ export function setupDiscordPresence(): () => void {
         discordPrevTemplateLargeText = null;
         discordPrevTemplateName = null;
         publishedCover = null;
+        if (seekDebounceTimer) {
+          clearTimeout(seekDebounceTimer);
+          seekDebounceTimer = null;
+        }
         commands.discordClearPresence().catch(() => {});
       }
       return;
@@ -168,20 +174,27 @@ export function setupDiscordPresence(): () => void {
   const unsubDiscordPlayer = usePlayerStore.subscribe(syncDiscord);
   const unsubDiscordAuth = useAuthStore.subscribe(syncDiscord);
   const unsubDiscordPrivate = usePrivateModeStore.subscribe(syncDiscord);
-  // Fires once per committed seek, including while paused (the engine emits
-  // nothing then). A drag only previews locally, so this is not one update
-  // per pixel.
-  const unsubDiscordSeek = subscribePlaybackSeek(() => {
+  // Fires once per committed seek. Trailing debounce (300ms) protects against
+  // Discord's activity rate limit when clicking rapidly or scrubbing with arrow keys.
+  const unsubDiscordSeek = subscribePlaybackSeek((targetSeconds: number) => {
     if (discordPrevTrackKey == null) return;
     const { currentTrack, isPlaying } = usePlayerStore.getState();
     if (!currentTrack || !isPlaying) return;
     if (ownedEntityKey(currentTrack) !== discordPrevTrackKey) return;
     if (!useAuthStore.getState().discordRichPresence || isPrivateModeActive()) return;
     if (!publishedCover) return;
-    publishPresence(publishedCover.url);
+    if (seekDebounceTimer) clearTimeout(seekDebounceTimer);
+    seekDebounceTimer = setTimeout(() => {
+      seekDebounceTimer = null;
+      publishPresence(publishedCover?.url ?? null, targetSeconds);
+    }, 300);
   });
 
   return () => {
+    if (seekDebounceTimer) {
+      clearTimeout(seekDebounceTimer);
+      seekDebounceTimer = null;
+    }
     unsubDiscordPlayer();
     unsubDiscordAuth();
     unsubDiscordPrivate();

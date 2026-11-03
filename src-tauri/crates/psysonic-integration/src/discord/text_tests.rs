@@ -157,3 +157,16 @@ fn end_timestamp_is_none_for_nan_duration() {
         None
     );
 }
+
+#[test]
+fn end_timestamp_is_none_for_overflowing_duration() {
+    assert_eq!(
+        compute_discord_end_timestamp(1_700_000_000, Some(1e300)),
+        None
+    );
+    assert_eq!(
+        compute_discord_end_timestamp(i64::MAX - 10, Some(20.0)),
+        None
+    );
+}
+

@@ -189,12 +189,11 @@ pub async fn discord_update_presence(
                 .unwrap_or_default()
                 .as_secs() as i64;
             let start = compute_discord_start_timestamp(elapsed, now);
-            let timestamps = Timestamps::new().start(start);
+            let mut ts = Timestamps::new().start(start);
             if let Some(end) = compute_discord_end_timestamp(start, duration_secs) {
-                timestamps.end(end)
-            } else {
-                timestamps
+                ts = ts.end(end);
             }
+            ts
         } else {
             Timestamps::new()
         });

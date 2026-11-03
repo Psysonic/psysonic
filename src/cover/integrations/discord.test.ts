@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  clearServerCoverCacheForTest,
+  _resetServerCoverCacheForTest,
   normalizeServerCoverUrl,
   resolveCoverForDiscord,
 } from './discord';
@@ -24,7 +24,7 @@ const LASTFM_URL = 'https://lastfm.example/y.jpg';
 
 describe('resolveCoverForDiscord', () => {
   beforeEach(() => {
-    clearServerCoverCacheForTest();
+    _resetServerCoverCacheForTest();
     vi.mocked(getAlbumInfo2).mockReset();
     vi.mocked(commands.resolveAppleCover).mockReset();
     vi.mocked(commands.resolveLastfmCover).mockReset();
@@ -161,6 +161,49 @@ describe('resolveCoverForDiscord', () => {
     );
     expect(url).toBe('https://music.example.com/nav/share/img/token-456?size=300');
   });
+
+  it('negative cache expires after 30 seconds while hit cache lasts 1 hour', async () => {
+    vi.useFakeTimers();
+    try {
+      // First call fails (negative cache)
+      vi.mocked(getAlbumInfo2).mockResolvedValueOnce(null as never);
+      await resolveCoverForDiscord(
+        [{ source: 'server', enabled: true }],
+        { albumId: 'a1', shareBase: null },
+      );
+      expect(getAlbumInfo2).toHaveBeenCalledTimes(1);
+
+      // Immediate second call should hit the negative cache
+      await resolveCoverForDiscord(
+        [{ source: 'server', enabled: true }],
+        { albumId: 'a1', shareBase: null },
+      );
+      expect(getAlbumInfo2).toHaveBeenCalledTimes(1);
+
+      // Advance 31 seconds -> negative cache should expire
+      vi.advanceTimersByTime(31 * 1000);
+      vi.mocked(getAlbumInfo2).mockResolvedValueOnce({
+        largeImageUrl: 'https://lastfm.example/cover.jpg',
+      } as never);
+      const url = await resolveCoverForDiscord(
+        [{ source: 'server', enabled: true }],
+        { albumId: 'a1', shareBase: null },
+      );
+      expect(url).toBe('https://lastfm.example/cover.jpg');
+      expect(getAlbumInfo2).toHaveBeenCalledTimes(2);
+
+      // Advance 30 minutes -> positive cache (1h TTL) should still be valid
+      vi.advanceTimersByTime(30 * 60 * 1000);
+      const cachedUrl = await resolveCoverForDiscord(
+        [{ source: 'server', enabled: true }],
+        { albumId: 'a1', shareBase: null },
+      );
+      expect(cachedUrl).toBe('https://lastfm.example/cover.jpg');
+      expect(getAlbumInfo2).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('normalizeServerCoverUrl', () => {
@@ -198,6 +241,24 @@ describe('normalizeServerCoverUrl', () => {
         'https://sub.example.com/prefix',
       ),
     ).toBe('https://sub.example.com/prefix/share/img/tok?size=500');
+  });
+
+  it('does not rewrite third-party URLs that happen to have /share/img/ in path', () => {
+    expect(
+      normalizeServerCoverUrl(
+        'https://external-cdn.example.com/share/img/abc.jpg',
+        'https://sub.example.com/prefix',
+      ),
+    ).toBe('https://external-cdn.example.com/share/img/abc.jpg');
+  });
+
+  it('handles protocol-relative URLs', () => {
+    expect(
+      normalizeServerCoverUrl(
+        '//cdn.example.com/art.jpg',
+        'https://sub.example.com/prefix',
+      ),
+    ).toBe('https://cdn.example.com/art.jpg');
   });
 
   it('resolves relative paths with shareBase prefix', () => {
