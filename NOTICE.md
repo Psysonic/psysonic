@@ -38,3 +38,13 @@ redistributions must preserve these notices intact:
 These terms do not restrict the freedoms granted by the GPLv3; they
 are attribution-preservation terms explicitly permitted by GPLv3
 §7(b) and must be carried forward in further redistribution.
+
+## Additional permission under GNU GPL version 3 section 7
+
+As a special exception, the copyright holders of Psysonic give you permission to convey this program and works based on it through app distribution services (for example Apple's App Store, Google Play or the Microsoft Store) whose terms of service, usage rules or technical measures impose restrictions on recipients that the GNU GPL would otherwise not allow, provided that the Corresponding Source of the conveyed work remains available to recipients under the terms of the GNU GPL version 3 or later.
+
+The contributors agreed to this permission in
+[#1772](https://github.com/Psysonic/psysonic/issues/1772); code by
+contributors who did not answer was rewritten. Contributions made after
+this permission was added are given under the same terms (see
+`CONTRIBUTING.md`).
