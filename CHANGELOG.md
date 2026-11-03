@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Linux media widgets that look up the application through MPRIS can now resolve Psysonic's icon instead of showing a generic or blank one. Media controls and desktop notifications use the package's desktop identity, including the different names used by Nix and Flatpak.
 
+## Changed
+
+### Code rewritten ahead of the app store releases
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#PRNUM](https://github.com/Psysonic/psysonic/pull/PRNUM)**
+
+* Contributions whose authors did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772) have been rewritten: the toast notifications, the audio error messages, the link between a dialog and its title for screen readers, and parts of the Linux install script. They behave as before; some playback error messages are worded differently now.
+* The matching entries in the contributor list have been removed.
+
 ## [1.56.0]
 
 ## Added

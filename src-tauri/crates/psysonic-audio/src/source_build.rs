@@ -90,8 +90,8 @@ fn play_input_download_control(input: &PlayInput) -> Option<Arc<StreamDownloadCo
 
 fn is_in_memory_probe_failure(err: &str) -> bool {
     err.contains("format probe failed")
-        || err.contains("could not open audio stream")
-        || err.contains("no playable audio track")
+        || err.contains(crate::decode::IN_MEMORY_PROBE_FAILED)
+        || err.contains(crate::decode::NO_AUDIO_TRACK)
 }
 
 /// Like [`build_source_from_play_input`], but on a retryable stream probe failure

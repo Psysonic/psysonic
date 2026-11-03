@@ -695,13 +695,18 @@ export function handleAudioTrackSwitched(duration: number): void {
   if (pauseAfterSwitch) usePlayerStore.getState().pause();
 }
 
+const ERROR_TOAST_DETAIL_CHARS = 80;
+
 export function handleAudioError(message: string): void {
   console.error('[psysonic] Audio error from backend:', message);
   setIsAudioPaused(false);
   void playbackReportStopped();
 
-  const detail = message.length > 80 ? message.slice(0, 80) + '…' : message;
-  showToast(`Couldn't play track. ${detail}`, 8000, 'error');
+  // Engine errors can carry whole URLs or decoder dumps; the toast keeps the start.
+  const shown = message.length <= ERROR_TOAST_DETAIL_CHARS
+    ? message
+    : `${message.slice(0, ERROR_TOAST_DETAIL_CHARS)}…`;
+  showToast(`Couldn't play track. ${shown}`, 8000, 'error');
 
   const gen = getPlayGeneration();
   const store = usePlayerStore.getState();
@@ -711,7 +716,7 @@ export function handleAudioError(message: string): void {
     queueIndex: store.queueIndex,
     queueItems: store.queueItems,
     track: store.currentTrack,
-    detail,
+    detail: shown,
   }, () => {
     setTimeout(() => {
       if (getPlayGeneration() !== gen) return;
