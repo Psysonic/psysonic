@@ -243,11 +243,32 @@ describe('normalizeServerCoverUrl', () => {
     ).toBe('https://sub.example.com/prefix/share/img/tok?size=500');
   });
 
+  it('rewrites server artwork to public shareBase for home-network hostnames matching serverAddresses', () => {
+    expect(
+      normalizeServerCoverUrl(
+        'http://my-nas.fritz.box:4533/share/img/tok?size=500',
+        'https://sub.example.com/prefix',
+        ['http://my-nas.fritz.box:4533'],
+      ),
+    ).toBe('https://sub.example.com/prefix/share/img/tok?size=500');
+  });
+
+  it('rewrites server artwork to public shareBase for Tailscale addresses matching serverAddresses', () => {
+    expect(
+      normalizeServerCoverUrl(
+        'http://100.64.1.2:4533/share/img/tok?size=500',
+        'https://sub.example.com/prefix',
+        ['http://100.64.1.2:4533'],
+      ),
+    ).toBe('https://sub.example.com/prefix/share/img/tok?size=500');
+  });
+
   it('does not rewrite third-party URLs that happen to have /share/img/ in path', () => {
     expect(
       normalizeServerCoverUrl(
         'https://external-cdn.example.com/share/img/abc.jpg',
         'https://sub.example.com/prefix',
+        ['http://my-nas.fritz.box:4533'],
       ),
     ).toBe('https://external-cdn.example.com/share/img/abc.jpg');
   });

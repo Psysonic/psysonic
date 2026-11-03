@@ -6,7 +6,7 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { getPlaybackProgressSnapshot, subscribePlaybackSeek } from '@/features/playback/store/playbackProgress';
 import { resolveCoverForDiscord } from '@/cover/integrations/discord';
 import type { CoverSourcePref } from '@/cover/coverSources';
-import { serverShareBaseUrl } from '@/lib/server/serverEndpoint';
+import { allNormalizedAddresses, serverShareBaseUrl } from '@/lib/server/serverEndpoint';
 import { playbackServerDiffersFromActive } from '@/features/playback/utils/playback/playbackServer';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 
@@ -27,6 +27,7 @@ export function setupDiscordPresence(): () => void {
   let discordPrevDiscordCoverSource: string | null = null;
   let discordPrevShareBase: string | null = null;
   // null until this track's cover lookup has published once. A seek during
+  // cover resolution waits out the lookup rather than publishing early with no image.
   let publishedCover: { url: string | null } | null = null;
   let seekDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -103,6 +104,7 @@ export function setupDiscordPresence(): () => void {
     // this value regardless, so there is no second `getState()` read for it.
     const profile = servers.find(s => s.id === activeServerId);
     const shareBase = profile ? serverShareBaseUrl(profile) : null;
+    const serverAddresses = profile ? allNormalizedAddresses(profile) : null;
 
     const currentTrackKey = ownedEntityKey(currentTrack);
     const trackChanged = currentTrackKey !== discordPrevTrackKey;
@@ -128,7 +130,13 @@ export function setupDiscordPresence(): () => void {
     discordPrevTemplateState = discordTemplateState;
     discordPrevTemplateLargeText = discordTemplateLargeText;
     discordPrevTemplateName = discordTemplateName;
-    if (trackChanged) publishedCover = null;
+    if (trackChanged) {
+      publishedCover = null;
+      if (seekDebounceTimer) {
+        clearTimeout(seekDebounceTimer);
+        seekDebounceTimer = null;
+      }
+    }
 
     // What Discord may publish is a separate opt-in from the in-app chain
     // (#1299): 'none' shows the app icon only — nothing is fetched, nothing is
@@ -157,6 +165,7 @@ export function setupDiscordPresence(): () => void {
       album: currentTrack.album ?? undefined,
       title: currentTrack.title ?? undefined,
       shareBase,
+      serverAddresses,
     };
     void (async () => {
       const url = await resolveCoverForDiscord(publishSources, chainCtx);
@@ -180,12 +189,15 @@ export function setupDiscordPresence(): () => void {
     if (discordPrevTrackKey == null) return;
     const { currentTrack, isPlaying } = usePlayerStore.getState();
     if (!currentTrack || !isPlaying) return;
-    if (ownedEntityKey(currentTrack) !== discordPrevTrackKey) return;
+    const seekTrackKey = ownedEntityKey(currentTrack);
+    if (seekTrackKey !== discordPrevTrackKey) return;
     if (!useAuthStore.getState().discordRichPresence || isPrivateModeActive()) return;
     if (!publishedCover) return;
     if (seekDebounceTimer) clearTimeout(seekDebounceTimer);
     seekDebounceTimer = setTimeout(() => {
       seekDebounceTimer = null;
+      const liveTrack = usePlayerStore.getState().currentTrack;
+      if (!liveTrack || ownedEntityKey(liveTrack) !== seekTrackKey) return;
       publishPresence(publishedCover?.url ?? null, targetSeconds);
     }, 300);
   });

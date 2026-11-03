@@ -121,10 +121,15 @@ fn start_timestamp_handles_fractional_seconds_via_floor() {
 // ── compute_discord_end_timestamp ──────────────────────────────────────
 
 #[test]
-fn end_timestamp_adds_ceiled_duration_to_start() {
-    // 42.2 → ceil 43; end = start + 43
+fn end_timestamp_adds_rounded_duration_to_start() {
+    // 42.2 → round 42; end = start + 42
     assert_eq!(
         compute_discord_end_timestamp(1_700_000_000, Some(42.2)),
+        Some(1_700_000_042)
+    );
+    // 42.8 → round 43; end = start + 43
+    assert_eq!(
+        compute_discord_end_timestamp(1_700_000_000, Some(42.8)),
         Some(1_700_000_043)
     );
 }

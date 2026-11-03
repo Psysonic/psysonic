@@ -47,7 +47,11 @@ export function sanitizeDiscordCoverUrl(raw: string | null | undefined): string 
  *    replaced with `shareBase` — doing so causes 404s on the user's music server.
  * 4. External HTTP URLs are upgraded to HTTPS when not on LAN so Discord's image proxy can fetch them.
  */
-export function normalizeServerCoverUrl(raw: string, shareBase: string | null): string {
+export function normalizeServerCoverUrl(
+  raw: string,
+  shareBase: string | null,
+  serverAddresses?: readonly string[] | null,
+): string {
   const trimmed = raw.trim();
   if (!trimmed) return raw;
 
@@ -82,10 +86,19 @@ export function normalizeServerCoverUrl(raw: string, shareBase: string | null): 
   try {
     const url = new URL(trimmed);
 
-    // Only rewrite /share/img/ paths if the URL is on LAN or already matches shareBase's host
+    // Only rewrite /share/img/ paths if the URL matches the server's addresses, shareBase, or is on LAN
     const isServerScoped =
-      isLanUrl(url.origin) ||
-      (shareBase ? url.hostname === new URL(shareBase).hostname : false);
+      Boolean(shareBase && url.hostname === new URL(shareBase).hostname) ||
+      Boolean(
+        serverAddresses?.some(addr => {
+          try {
+            return url.hostname === new URL(addr).hostname;
+          } catch {
+            return false;
+          }
+        }),
+      ) ||
+      isLanUrl(url.origin);
 
     if (url.pathname.includes('/share/img/') && isServerScoped) {
       if (!shareBase) return url.toString();
@@ -145,6 +158,7 @@ export function _resetServerCoverCacheForTest(): void {
 export async function resolveServerCoverForDiscord(
   albumId: string,
   shareBase: string | null,
+  serverAddresses?: readonly string[] | null,
 ): Promise<string | null> {
   const cacheKey = `${shareBase ?? ''}|${albumId}`;
   const cached = serverCoverCache.get(cacheKey);
@@ -159,7 +173,7 @@ export async function resolveServerCoverForDiscord(
   const info = await getAlbumInfo2(albumId);
   const raw = info?.largeImageUrl || info?.mediumImageUrl || info?.smallImageUrl;
   if (raw) {
-    const normalized = normalizeServerCoverUrl(raw, shareBase);
+    const normalized = normalizeServerCoverUrl(raw, shareBase, serverAddresses);
     const clean = sanitizeDiscordCoverUrl(normalized);
     if (clean && isRealArtistImage(clean)) {
       result = clean;
@@ -176,6 +190,7 @@ export interface CoverResolveContext {
   album?: string;
   title?: string;
   shareBase: string | null;
+  serverAddresses?: readonly string[] | null;
 }
 
 /**
@@ -193,7 +208,7 @@ export async function resolveCoverForDiscord(
     let raw: string | null = null;
     switch (source) {
       case 'server':
-        if (ctx.albumId) raw = await resolveServerCoverForDiscord(ctx.albumId, ctx.shareBase);
+        if (ctx.albumId) raw = await resolveServerCoverForDiscord(ctx.albumId, ctx.shareBase, ctx.serverAddresses);
         break;
       case 'apple':
         if (ctx.artist && ctx.album) {

@@ -111,6 +111,38 @@ describe('Discord presence seek', () => {
 
     expect(presenceCalls('discord_update_presence')).toBe(before);
   });
+
+  it('does not publish a stale seek position if track changes before debounce expires', async () => {
+    const trackA = makeTrack({ id: 'track-a', title: 'Track A', duration: 240 });
+    const trackB = makeTrack({ id: 'track-b', title: 'Track B', duration: 180 });
+
+    usePlayerStore.setState({ currentTrack: trackA, isPlaying: true });
+    await flush();
+
+    // User seeks to 200s on track A
+    emitPlaybackSeek(200);
+
+    // Immediately switches to track B before 300ms debounce fires
+    usePlayerStore.setState({ currentTrack: trackB, isPlaying: true });
+    await flush();
+
+    // Advance past the 300ms seek debounce timer
+    vi.advanceTimersByTime(350);
+    await flush();
+
+    // Verify no presence update was published for Track B with Track A's 200s seek position
+    const calls = vi.mocked(invoke).mock.calls.filter(([name]) => name === 'discord_update_presence');
+    const staleSeekCall = calls.find(
+      ([, payload]) =>
+        payload &&
+        typeof payload === 'object' &&
+        'title' in payload &&
+        (payload as { title?: string }).title === 'Track B' &&
+        'elapsedSecs' in payload &&
+        (payload as { elapsedSecs?: number }).elapsedSecs === 200,
+    );
+    expect(staleSeekCall).toBeUndefined();
+  });
 });
 
 describe('Discord presence in private mode', () => {
