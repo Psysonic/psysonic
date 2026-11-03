@@ -10,7 +10,17 @@ vi.mock('@/lib/api/subsonicClient', async importOriginal => {
   };
 });
 
+// The native connect probe stands in for the WebView ping on gated servers.
+vi.mock('@/lib/api/subsonic', async importOriginal => {
+  const original = await importOriginal<typeof import('@/lib/api/subsonic')>();
+  return {
+    ...original,
+    pingWithCredentialsForProfile: vi.fn(),
+  };
+});
+
 import { apiWithCredentials } from '@/lib/api/subsonicClient';
+import { pingWithCredentialsForProfile } from '@/lib/api/subsonic';
 import {
   compareFingerprints,
   fetchServerFingerprint,
@@ -298,6 +308,49 @@ describe('verifySameServerEndpoints', () => {
       expect(result.reason).toBe('unreachable');
       expect(result.unreachableHost).toBe('http://192.168.0.10');
     }
+  });
+
+  it('pings a gated endpoint over the native probe instead of the WebView fetch', async () => {
+    // A Pangolin/Cloudflare-Access-gated public address rejects the token-less
+    // CORS preflight that a non-safelisted `Authorization` header provokes, so
+    // the WebView fetch never receives a response. Before the fix that read as
+    // `unreachable` and blocked the save even though the header was correct.
+    vi.mocked(fetch).mockImplementation(async input => {
+      if (String(input).startsWith('https://music.example.com')) {
+        throw new TypeError('Failed to fetch');
+      }
+      return jsonResponse(navidromePingResponse());
+    });
+    vi.mocked(pingWithCredentialsForProfile).mockResolvedValue({
+      ok: true,
+      type: 'navidrome',
+      serverVersion: '0.55.0',
+      openSubsonic: true,
+    });
+    vi.mocked(apiWithCredentials).mockResolvedValue({
+      musicFolders: { musicFolder: [{ id: '1', name: 'Music' }] },
+    });
+
+    const result = await verifySameServerEndpoints(
+      {
+        url: 'https://music.example.com',
+        alternateUrl: 'http://192.168.0.10:4533',
+        customHeaders: [{ name: 'Authorization', value: 'Basic dXNlcjpwYXNz' }],
+        customHeadersApplyTo: 'public',
+      },
+      'u',
+      'p',
+    );
+
+    expect(result).toEqual({ ok: true });
+    // The gated public address goes native; the ungated LAN address keeps the
+    // WebView ping (which is the only one that reports the envelope version).
+    expect(pingWithCredentialsForProfile).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(pingWithCredentialsForProfile).mock.calls[0]![1]).toBe(
+      'https://music.example.com',
+    );
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(fetch).mock.calls[0]![0])).toContain('192.168.0.10:4533');
   });
 
   it('returns mismatch when fingerprints disagree on a body signal', async () => {

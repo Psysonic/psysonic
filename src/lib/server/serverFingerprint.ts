@@ -17,11 +17,13 @@
 import md5 from 'md5';
 import {
   apiWithCredentials,
+  requiresNativeTransport,
   restBaseFromUrl,
   secureRandomSalt,
   SUBSONIC_CLIENT,
   type ServerHttpHeaderProfile,
 } from '@/lib/api/subsonicClient';
+import { pingWithCredentialsForProfile } from '@/lib/api/subsonic';
 import type { ServerProfile } from '@/store/authStoreTypes';
 import { allNormalizedAddresses } from '@/lib/server/serverEndpoint';
 import { headersForServerRequest } from '@/lib/server/serverHttpHeaders';
@@ -55,6 +57,9 @@ export type VerifySameServerResult =
 // `pingWithCredentials` in api/subsonic.ts drops the envelope `version`. We
 // need it for the fingerprint (informational, per spec §7.3) so we do the
 // ping call here against the same Subsonic shape. Failure → throws.
+//
+// Gated servers are the exception: they go through the native probe, which
+// does not report the envelope version, so `apiVersion` stays null there.
 
 type PingFingerprint = ServerFingerprint['ping'] & { ok: boolean };
 
@@ -64,6 +69,25 @@ async function fetchPingFingerprint(
   password: string,
   headerProfile?: ServerHttpHeaderProfile,
 ): Promise<PingFingerprint> {
+  // A gated server (Pangolin / Cloudflare Access) must not be pinged from the
+  // WebView: the custom header is not CORS-safelisted, so the browser preflights
+  // it with a token-less `OPTIONS` the gate rejects, the real request never
+  // leaves, and verify reports the address as `unreachable`. Send it over the
+  // native reqwest probe instead, as the streaming / sync / proxy paths do.
+  if (headerProfile && requiresNativeTransport(headerProfile, baseUrl)) {
+    const probed = await pingWithCredentialsForProfile(
+      { ...headerProfile, username, password },
+      baseUrl,
+    );
+    return {
+      ok: probed.ok,
+      type: probed.type ?? null,
+      serverVersion: probed.serverVersion ?? null,
+      openSubsonic: probed.openSubsonic === true,
+      apiVersion: null,
+    };
+  }
+
   // Mirrors pingWithCredentials but also extracts envelope `version`.
   // Using fetch (the bundled axios pulls in extra noise here; one call is fine).
   const salt = secureRandomSalt();
