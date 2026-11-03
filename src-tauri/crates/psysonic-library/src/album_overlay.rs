@@ -620,6 +620,31 @@ mod tests {
         assert_eq!(resolutions[0].representative_id.as_deref(), Some("reissue"));
     }
 
+    /// Decided trade-off, pinned: the overlay cannot know whether an unindexed
+    /// album will be read natively (with its release year) or through Subsonic
+    /// (year only). It goes by the edition's year, so a copy of a reissue whose
+    /// indexed sibling came in through Subsonic shows as its own card until the
+    /// sync indexes it; a fresh reissue next to a Subsonic original is not
+    /// hidden on the original's card. After the sync the index decides.
+    #[test]
+    fn an_unindexed_reissue_copy_beside_a_subsonic_indexed_copy_stays_apart_until_synced() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-reissue", "reissue", "l1");
+        set_year(&store, "s1", "t-reissue", 1996);
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![candidate_in("s1", "reissue-copy", 2026, "l1")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(resolutions[0].representative_id, None);
+    }
+
     #[test]
     fn maps_physical_copies_to_the_scope_representative() {
         let store = LibraryStore::open_in_memory();
