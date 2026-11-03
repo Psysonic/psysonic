@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.57.0]
 
+## Added
+
+### Choose which release year album cards show
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1825](https://github.com/Psysonic/psysonic/pull/1825)**
+
+* A new setting under Settings → Appearance picks the year on album cards, album headers, the album table, the home hero and the "Because you like" row: the original release (the default), this edition, or both, for example "1971 · 2005". Which year Psysonic showed before depended on how your files are tagged, so a reissue could show up with the year it was reissued rather than the year the album first came out.
+* The years come from Navidrome. Albums your server reports no original or release date for keep showing the year they always did. After an update, the years fill in with the next library check, which runs every 15 minutes.
+* Sorting albums by year still uses the year from before; that is a separate change.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited
