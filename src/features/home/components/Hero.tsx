@@ -26,6 +26,8 @@ import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album'
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
 import { useHeroTitleFit } from '@/features/home/hooks/useHeroTitleFit';
+import { formatAlbumYear } from '@/features/album/utils/albumYear';
+import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
 
 const INTERVAL_MS = 10000;
 const HERO_ALBUM_COUNT = 8;
@@ -132,6 +134,7 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
   const musicLibraryFilterVersion = useAuthStore(s => s.musicLibraryFilterVersion);
   const mixMinRatingFilterEnabled = useAuthStore(s => s.mixMinRatingFilterEnabled);
   const mainstageBackdrop = useThemeStore(s => s.backdrops.mainstageHero);
+  const albumYearDisplay = useAlbumYearDisplay();
   const mixMinRatingAlbum = useAuthStore(s => s.mixMinRatingAlbum);
   const mixMinRatingArtist = useAuthStore(s => s.mixMinRatingArtist);
   const [albums, setAlbums] = useState<SubsonicAlbum[]>(() =>
@@ -386,6 +389,7 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
   });
 
   if (!album) return <div className="hero-placeholder" />;
+  const heroYear = formatAlbumYear(album, albumYearDisplay);
 
   return (
     <div
@@ -418,7 +422,7 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
           <h2 className="hero-title">{album.name}</h2>
           <p className="hero-artist">{heroArtistLabel}</p>
           <div className="hero-meta">
-            {album.year && <span className="badge">{album.year}</span>}
+            {heroYear && <span className="badge">{heroYear}</span>}
             {album.genre && <span className="badge">{album.genre}</span>}
             {!isMobile && album.songCount && <span className="badge">{album.songCount} Tracks</span>}
             {!isMobile && albumFormats[albumOwnerKey] && <span className="badge">{albumFormats[albumOwnerKey]}</span>}

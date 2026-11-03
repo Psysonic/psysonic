@@ -39,6 +39,7 @@ use super::ingest_parallel::{
 };
 use super::mapping::album_track_rows;
 use super::now_unix_ms;
+use crate::album_release_year::{store_album_release_years, AlbumReleaseYears};
 use crate::repos::TrackRepository;
 use crate::store::LibraryStore;
 
@@ -191,7 +192,10 @@ impl<'a> AlbumCensusRunner<'a> {
             ..CensusReport::default()
         };
         let server = match self.enumerate_server_albums().await? {
-            AlbumEnumeration::Complete(server) => server,
+            AlbumEnumeration::Complete(server, release_years) => {
+                report.release_years_updated = self.store_release_years(&release_years)?;
+                server
+            }
             AlbumEnumeration::Invalid => return Ok(report),
             AlbumEnumeration::BudgetExhausted => {
                 report.budget_exhausted = true;
@@ -379,6 +383,7 @@ impl<'a> AlbumCensusRunner<'a> {
     /// a partial list would make every album it never reached look absent.
     async fn enumerate_server_albums(&self) -> Result<AlbumEnumeration, SyncError> {
         let mut out: Vec<AlbumInventoryEntry> = Vec::new();
+        let mut release_years: Vec<AlbumReleaseYears> = Vec::new();
         let mut seen = HashSet::new();
         let mut offset: u32 = 0;
         for _ in 0..CENSUS_MAX_PAGES {
@@ -418,7 +423,7 @@ impl<'a> AlbumCensusRunner<'a> {
             let page = page?;
             let received = page.len();
             if received == 0 {
-                return Ok(AlbumEnumeration::Complete(out));
+                return Ok(AlbumEnumeration::Complete(out, release_years));
             }
             let mut new_ids = 0usize;
             for summary in page {
@@ -426,6 +431,11 @@ impl<'a> AlbumCensusRunner<'a> {
                     continue;
                 }
                 new_ids += 1;
+                release_years.push(AlbumReleaseYears {
+                    album_id: summary.id.clone(),
+                    original_year: summary.original_year,
+                    release_year: summary.release_year,
+                });
                 out.push(AlbumInventoryEntry {
                     album_id: summary.id,
                     // Kept as reported: an omitted field means "unknown", and
@@ -451,6 +461,24 @@ impl<'a> AlbumCensusRunner<'a> {
              discarding the enumeration"
         );
         Ok(AlbumEnumeration::Invalid)
+    }
+
+    /// Store the release years of a complete page run. Only a complete run: a
+    /// partial one would drop the rows of every album it never reached.
+    /// Subsonic song rows carry no original year, so this table is where most
+    /// tracks get theirs from (`album_release_year`).
+    fn store_release_years(&self, release_years: &[AlbumReleaseYears]) -> Result<usize, SyncError> {
+        if release_years.is_empty() {
+            return Ok(0);
+        }
+        self.store
+            .with_conn("census.release_years", |conn| {
+                let tx = conn.unchecked_transaction()?;
+                let changed = store_album_release_years(&tx, &self.server_id, release_years)?;
+                tx.commit()?;
+                Ok(changed)
+            })
+            .map_err(SyncError::Storage)
     }
 
     /// Same shape as the S2 ingest: album metadata first, then its songs with
@@ -538,7 +566,8 @@ impl<'a> AlbumCensusRunner<'a> {
 }
 
 enum AlbumEnumeration {
-    Complete(Vec<AlbumInventoryEntry>),
+    /// The inventory, plus the release years the same pages reported.
+    Complete(Vec<AlbumInventoryEntry>, Vec<AlbumReleaseYears>),
     Invalid,
     BudgetExhausted,
 }

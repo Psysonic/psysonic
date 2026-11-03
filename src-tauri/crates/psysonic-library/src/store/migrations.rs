@@ -10,7 +10,7 @@ use super::reconciles::{
 ///
 /// Migration checklist (wiring, data backfill, open/swap path):
 /// psysonic-workdocs `ai/agent-rules/08-library-db-migrations.md`.
-pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 33;
+pub const LIBRARY_DB_SCHEMA_VERSION: i64 = 34;
 
 /// Lowest applied schema version the current code can advance from purely
 /// additively. If a DB carries a version below this, the breaking-bump hook
@@ -88,6 +88,9 @@ pub(crate) const MIGRATION_032_TRACK_LABEL: &str =
     include_str!("../../migrations/032_track_label.sql");
 pub(crate) const MIGRATION_033_TRACK_LABEL_KEY: &str =
     include_str!("../../migrations/033_track_label_key.sql");
+/// Version 34: album-level original and edition release years from `getAlbumList2`.
+pub(crate) const MIGRATION_034_ALBUM_RELEASE_YEAR: &str =
+    include_str!("../../migrations/034_album_release_year.sql");
 const TRACK_LABEL_SCHEMA: &str = include_str!("track_label_schema.sql");
 
 /// Embedded migrations. Ordered ascending by `version`; the runner sorts
@@ -116,6 +119,7 @@ pub(super) const MIGRATIONS: &[(i64, &str)] = &[
     (31, MIGRATION_031_TRACK_MOOD_SCHEMA_REPAIR),
     (32, MIGRATION_032_TRACK_LABEL),
     (33, MIGRATION_033_TRACK_LABEL_KEY),
+    (34, MIGRATION_034_ALBUM_RELEASE_YEAR),
 ];
 
 /// Additive schema invariants that can be restored without rewriting user data.

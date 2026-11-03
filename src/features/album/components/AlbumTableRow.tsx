@@ -19,6 +19,8 @@ import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album/utils/deriveAlbumHeaderArtistRefs';
 import { appendServerQuery, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { formatLongDuration } from '@/lib/format/formatDuration';
+import { formatAlbumYear } from '@/features/album/utils/albumYear';
+import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
 
 /** Em dash for a column the server left empty. */
 const EMPTY_CELL = '\u2014';
@@ -62,6 +64,7 @@ function AlbumTableRow({
   observeScrollRootId,
 }: AlbumTableRowProps) {
   const { t, i18n } = useTranslation();
+  const albumYearDisplay = useAlbumYearDisplay();
   const navigate = useNavigate();
   const navigateToAlbum = useNavigateToAlbum();
   const openContextMenu = usePlayerStore(s => s.openContextMenu);
@@ -185,7 +188,7 @@ function AlbumTableRow({
         {album.songCount > 0 ? album.songCount : EMPTY_CELL}
       </div>
       <div className="album-table__cell album-table__cell--year" role="cell">
-        {album.year ? album.year : EMPTY_CELL}
+        {formatAlbumYear(album, albumYearDisplay) ?? EMPTY_CELL}
       </div>
       <div className="album-table__cell album-table__cell--duration" role="cell">
         {album.duration > 0 ? formatLongDuration(album.duration) : EMPTY_CELL}

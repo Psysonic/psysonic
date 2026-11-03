@@ -34,6 +34,8 @@ import ExplicitBadge from '@/ui/ExplicitBadge';
 import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
 import { hasExplicitTrack } from '@/lib/media/explicitStatus';
 import { useShowStarRatings } from '@/store/starRatings';
+import { formatAlbumYear } from '@/features/album/utils/albumYear';
+import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
 
 /** True when the album artist label means "no single artist" — `getArtistInfo`
  *  has nothing meaningful to return for these, so the Artist Bio entry is hidden.
@@ -228,6 +230,8 @@ export default function AlbumHeader({
 }: AlbumHeaderProps) {
   const policy = actionPolicy ?? offlineActionPolicy('albumDetail', false);
   const { t } = useTranslation();
+  const albumYearDisplay = useAlbumYearDisplay();
+  const yearLabel = formatAlbumYear(info, albumYearDisplay);
   const showStarRatings = useShowStarRatings();
   const navigate = useNavigate();
   const location = useLocation();
@@ -382,7 +386,7 @@ export default function AlbumHeader({
                 </div>
               )}
               <div className="album-detail-info">
-                {info.year && <span>{info.year}</span>}
+                {yearLabel && <span>{yearLabel}</span>}
                 <span>· {t('albumDetail.tracksCount', { n: songs.length })}</span>
                 <span>· {formatLongDuration(totalDuration)}</span>
                 {formatLabel && <span>· {formatLabel}</span>}

@@ -3,8 +3,9 @@ use rusqlite::{params, Connection};
 use super::super::migrations::{
     ensure_additive_schema, ensure_entity_user_rating_schema, ensure_genre_tags_schema,
     run_migrations, run_migrations_with, MigrationOutcome, INITIAL_SQL,
-    LIBRARY_DB_MIN_COMPATIBLE_VERSION, MIGRATIONS, MIGRATION_012_TRACK_GENRE_LEGACY,
-    MIGRATION_013_ARTIST_ARTWORK_LOOKUP, MIGRATION_014_ARTIST_NAME_SORT,
+    LIBRARY_DB_MIN_COMPATIBLE_VERSION, LIBRARY_DB_SCHEMA_VERSION, MIGRATIONS,
+    MIGRATION_012_TRACK_GENRE_LEGACY, MIGRATION_013_ARTIST_ARTWORK_LOOKUP,
+    MIGRATION_014_ARTIST_NAME_SORT,
 };
 use super::super::open::{configure_write_connection, in_memory_uri};
 use super::super::LibraryStore;
@@ -58,7 +59,10 @@ fn migration_031_repairs_preexisting_version_30_without_mood_table() {
                 [crate::mood_tags_backfill::MOOD_TAGS_MIGRATION_ID],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )?;
-            assert_eq!((version, track_count, backfill_marker), (33, 1, 0));
+            assert_eq!(
+                (version, track_count, backfill_marker),
+                (LIBRARY_DB_SCHEMA_VERSION, 1, 0)
+            );
             let mood_count: i64 =
                 conn.query_row("SELECT COUNT(*) FROM track_mood", [], |row| row.get(0))?;
             assert_eq!(mood_count, 0);
@@ -156,7 +160,7 @@ fn additive_schema_guard_refuses_incompatible_existing_table_without_rewriting_i
             row.get(0)
         })
         .unwrap();
-    assert_eq!(version, 33);
+    assert_eq!(version, LIBRARY_DB_SCHEMA_VERSION);
     let columns: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM pragma_table_info('track_mood')",
@@ -298,7 +302,7 @@ fn migration_032_adds_label_projection_to_a_version_31_database() {
             |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .unwrap();
-    assert_eq!((version, objects), (33, 2));
+    assert_eq!((version, objects), (LIBRARY_DB_SCHEMA_VERSION, 2));
     ensure_additive_schema(&conn).unwrap();
 }
 

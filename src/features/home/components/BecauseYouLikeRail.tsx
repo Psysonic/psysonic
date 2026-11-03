@@ -31,6 +31,8 @@ import {
 import { navidromeCanonicalBootstrapIsActive } from '@/lib/server/navidromeCanonicalCheckpointStatus';
 import { useHomeStore, type BecauseYouLikeSource } from '@/features/home/store/homeStore';
 import { resolveSonicPicks } from '@/features/home/utils/becauseYouLikeSonicPicks';
+import { formatAlbumYear } from '@/features/album/utils/albumYear';
+import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
 
 const ANCHOR_HISTORY_KEY_PREFIX = 'psysonic_because_anchor_history:';
 const PICKS_HISTORY_KEY_PREFIX = 'psysonic_because_picks:';
@@ -714,6 +716,8 @@ interface CardProps {
 
 const BecauseCard = memo(function BecauseCard({ album, anchor, bySound, disableArtwork, enter }: CardProps) {
   const { t } = useTranslation();
+  const albumYearDisplay = useAlbumYearDisplay();
+  const yearLabel = formatAlbumYear(album, albumYearDisplay);
   const ownerServerId = album.serverId;
   const { isHolding, pressBind } = useLongPressAction({
     onShortPress: () => playAlbum(album.id, ownerServerId ? { serverId: ownerServerId } : undefined),
@@ -828,7 +832,7 @@ const BecauseCard = memo(function BecauseCard({ album, anchor, bySound, disableA
           </div>
         ) : null}
         <div className="because-card-meta">
-          {album.year ? <span>{album.year}</span> : null}
+          {yearLabel ? <span>{yearLabel}</span> : null}
           {album.songCount ? <span>{t('home.becauseYouLikeTracks', { count: album.songCount })}</span> : null}
           {album.duration ? <span>{formatHumanHoursMinutes(album.duration)}</span> : null}
         </div>

@@ -384,11 +384,12 @@ impl<'a> BackgroundScheduler<'a> {
                     if census_report.changed_index()
                         || census_report.removal_refused
                         || census_report.budget_exhausted
+                        || census_report.release_years_updated > 0
                     {
                         crate::app_eprintln!(
                             "[library-sync] census: server_albums={} local_albums={} \
                              removed={} filled={} stale={} deferred={} refused={} budget_exhausted={} \
-                             enumeration_incomplete={}",
+                             enumeration_incomplete={} release_years_updated={}",
                             census_report.server_albums,
                             census_report.local_albums,
                             census_report.albums_removed,
@@ -398,6 +399,7 @@ impl<'a> BackgroundScheduler<'a> {
                             census_report.removal_refused,
                             census_report.budget_exhausted,
                             census_report.enumeration_incomplete,
+                            census_report.release_years_updated,
                         );
                     }
                     census_changed_index = census_report.changed_index();

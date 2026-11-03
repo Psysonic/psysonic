@@ -88,6 +88,10 @@ pub(super) fn purge_server_data(
                 params![server_id],
             )?;
             tx.execute(
+                "DELETE FROM album_release_year WHERE server_id = ?1",
+                params![server_id],
+            )?;
+            tx.execute(
                 "DELETE FROM composer_album_projection WHERE server_id = ?1",
                 params![server_id],
             )?;

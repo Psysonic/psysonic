@@ -7,6 +7,10 @@ use serde_json::{Map, Value};
 use tauri::{AppHandle, State};
 
 use crate::album_compilation_filter::pick_album_group_artist_id;
+use crate::album_release_year::{
+    set_album_release_years, stored_album_release_years, ResolvedReleaseYears,
+    TRACK_NATIVE_ORIGINAL_YEAR_SQL, TRACK_NATIVE_RELEASE_YEAR_SQL,
+};
 use crate::commands::{library_spawn_blocking, library_spawn_blocking_with_runtime};
 use crate::dto::CatalogYearBoundsDto;
 use crate::dto::LibraryAlbumDto;
@@ -109,10 +113,13 @@ pub(crate) fn overlay_album_artist_links(
     }
     let sql = format!(
         "SELECT MAX(t.album_artist), MAX({album_artist_id}), \
-                COUNT(*), COALESCE(SUM(t.duration_sec), 0), MIN(t.server_created_at) \
+                COUNT(*), COALESCE(SUM(t.duration_sec), 0), MIN(t.server_created_at), \
+                MAX({native_original}), MAX({native_release}) \
          FROM track t \
          WHERE t.server_id = ?1 AND t.album_id = ?2 AND t.deleted = 0",
         album_artist_id = crate::scope_merge::album_artist_id_expr("t.raw_json"),
+        native_original = TRACK_NATIVE_ORIGINAL_YEAR_SQL,
+        native_release = TRACK_NATIVE_RELEASE_YEAR_SQL,
     );
     let Ok(mut stmt) = conn.prepare_cached(&sql) else {
         return;
@@ -126,11 +133,21 @@ pub(crate) fn overlay_album_artist_links(
                     r.get::<_, i64>(2)?,
                     r.get::<_, i64>(3)?,
                     r.get::<_, Option<i64>>(4)?,
+                    r.get::<_, Option<i64>>(5)?,
+                    r.get::<_, Option<i64>>(6)?,
                 ))
             })
             .optional()
             .unwrap_or(None);
-        let Some((album_artist, album_artist_id, song_count, duration_sec, created_ms)) = owner
+        let Some((
+            album_artist,
+            album_artist_id,
+            song_count,
+            duration_sec,
+            created_ms,
+            native_original,
+            native_release,
+        )) = owner
         else {
             continue;
         };
@@ -146,6 +163,20 @@ pub(crate) fn overlay_album_artist_links(
         album.artist_id =
             pick_album_group_artist_id(album.artist_id.take(), credit, album_artist_id);
         overlay_album_size_and_added(album, song_count, duration_sec, created_ms);
+        // Same scan, same reason: the years belong to the physical album.
+        let (stored_original, stored_release) =
+            stored_album_release_years(conn, &album.server_id, &album.id)
+                .unwrap_or(None)
+                .unwrap_or((None, None));
+        set_album_release_years(
+            album,
+            ResolvedReleaseYears::resolve(
+                native_original,
+                native_release,
+                stored_original,
+                stored_release,
+            ),
+        );
     }
 }
 
