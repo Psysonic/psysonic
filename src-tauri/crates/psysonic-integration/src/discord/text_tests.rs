@@ -117,3 +117,43 @@ fn start_timestamp_handles_fractional_seconds_via_floor() {
         1_699_999_999
     );
 }
+
+// ── compute_discord_end_timestamp ──────────────────────────────────────
+
+#[test]
+fn end_timestamp_adds_ceiled_duration_to_start() {
+    // 42.2 → ceil 43; end = start + 43
+    assert_eq!(
+        compute_discord_end_timestamp(1_700_000_000, Some(42.2)),
+        Some(1_700_000_043)
+    );
+}
+
+#[test]
+fn end_timestamp_is_none_when_duration_is_missing() {
+    assert_eq!(compute_discord_end_timestamp(1_700_000_000, None), None);
+}
+
+#[test]
+fn end_timestamp_is_none_for_zero_duration() {
+    assert_eq!(
+        compute_discord_end_timestamp(1_700_000_000, Some(0.0)),
+        None
+    );
+}
+
+#[test]
+fn end_timestamp_is_none_for_negative_duration() {
+    assert_eq!(
+        compute_discord_end_timestamp(1_700_000_000, Some(-3.5)),
+        None
+    );
+}
+
+#[test]
+fn end_timestamp_is_none_for_nan_duration() {
+    assert_eq!(
+        compute_discord_end_timestamp(1_700_000_000, Some(f64::NAN)),
+        None
+    );
+}

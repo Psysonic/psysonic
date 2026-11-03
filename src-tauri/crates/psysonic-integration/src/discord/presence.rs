@@ -95,3 +95,14 @@ pub(super) fn compute_discord_text_fields(
 pub(super) fn compute_discord_start_timestamp(elapsed_secs: f64, now_unix_secs: i64) -> i64 {
     now_unix_secs - elapsed_secs.floor() as i64
 }
+
+/// Pure helper: Unix `end` so Discord draws a Listening progress bar.
+/// `Some(start + duration.ceil())` when `duration_secs` is finite and greater
+/// than 0; otherwise `None`, so no end timestamp is sent.
+pub(super) fn compute_discord_end_timestamp(start: i64, duration_secs: Option<f64>) -> Option<i64> {
+    let duration = duration_secs?;
+    if !duration.is_finite() || duration <= 0.0 {
+        return None;
+    }
+    Some(start + duration.ceil() as i64)
+}

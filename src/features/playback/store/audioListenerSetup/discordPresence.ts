@@ -12,8 +12,9 @@ import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 
 /**
  * Discord Rich Presence sync. Updates on track change or play/pause toggle —
- * no per-tick updates needed, Discord auto-counts up the elapsed timer from the
- * start_timestamp we set. Returns a cleanup function.
+ * no per-tick updates needed. Discord counts from the start timestamp and draws
+ * a progress bar when the track duration supplies an end timestamp too.
+ * Returns a cleanup function.
  */
 export function setupDiscordPresence(): () => void {
   let discordPrevTrackKey: string | null = null;
@@ -97,6 +98,7 @@ export function setupDiscordPresence(): () => void {
         album: currentTrack.album ?? null,
         isPlaying,
         elapsedSecs: isPlaying ? currentTime : null,
+        durationSecs: currentTrack.duration,
         coverArtUrl,
         detailsTemplate: discordTemplateDetails,
         stateTemplate: discordTemplateState,

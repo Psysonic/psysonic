@@ -33,6 +33,15 @@ afterEach(() => {
   stop = null;
 });
 
+describe('Discord presence progress', () => {
+  it('passes the track duration in seconds so Discord can draw a progress bar', async () => {
+    usePlayerStore.setState({ currentTrack: makeTrack({ duration: 240 }), isPlaying: true });
+    await flush();
+    const call = vi.mocked(invoke).mock.calls.find(([name]) => name === 'discord_update_presence');
+    expect(call?.[1]).toMatchObject({ durationSecs: 240 });
+  });
+});
+
 describe('Discord presence in private mode', () => {
   it('publishes nothing for a track that starts while private mode is on', async () => {
     usePrivateModeStore.setState({ active: true });
