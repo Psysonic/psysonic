@@ -309,7 +309,7 @@ Join the community, report bugs, suggest features, share themes and help shape t
 
 # License
 
-Psysonic is licensed under the **GNU GPL v3.0**.
+Psysonic is licensed under the **GNU GPL v3.0**, with an additional permission under section 7 that allows distribution through app stores such as Apple's App Store and Google Play; see [NOTICE.md](NOTICE.md).
 
 ---
 
