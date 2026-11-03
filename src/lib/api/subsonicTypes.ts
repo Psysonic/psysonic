@@ -5,6 +5,13 @@ export interface SubsonicItemGenre {
   name: string;
 }
 
+/** OpenSubsonic `ItemDate`; any part may be missing (`{}` is a valid value). */
+export interface SubsonicItemDate {
+  year?: number;
+  month?: number;
+  day?: number;
+}
+
 export interface SubsonicAlbum {
   id: string;
   name: string;
@@ -15,6 +22,8 @@ export interface SubsonicAlbum {
   duration: number;
   playCount?: number;
   year?: number;
+  /** OpenSubsonic: this edition's release date. Navidrome reports the original's year in `year`. */
+  releaseDate?: SubsonicItemDate;
   genre?: string;
   /** OpenSubsonic atomic genres — preferred over splitting `genre`. */
   genres?: SubsonicItemGenre[];

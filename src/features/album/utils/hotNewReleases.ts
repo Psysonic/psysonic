@@ -15,6 +15,17 @@ function createdAtMs(album: SubsonicAlbum): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
+/**
+ * The year the identity rebuild splits releases on: the edition's own release
+ * year when the server reports one, else `year`. Navidrome's album `year` is the
+ * original's year, while indexed tracks carry the edition's `releaseYear`.
+ */
+function editionYear(album: SubsonicAlbum): number | null {
+  const released = album.releaseDate?.year;
+  if (typeof released === 'number' && released > 0) return released;
+  return album.year ?? null;
+}
+
 function albumVersionFromTags(tags: unknown): string | null {
   if (!tags || typeof tags !== 'object' || Array.isArray(tags)) return null;
   const albumversion = (tags as Record<string, unknown>).albumversion;
@@ -119,7 +130,7 @@ export async function fetchHotNewReleases(
           version: album.version?.trim()
             || albumVersionFromTags(album.tags)
             || null,
-          year: album.year ?? null,
+          year: editionYear(album),
           libraryId,
         })),
     });

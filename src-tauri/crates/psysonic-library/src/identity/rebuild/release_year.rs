@@ -13,6 +13,10 @@
 //!
 //! `norm_part` output is alphanumeric, so `␟@` can only start the year suffix.
 //!
+//! The year is the release year where the track carries one (Navidrome's
+//! native `releaseYear`), else `year`. A reissue tagged with its original date
+//! has the original's `year`, so `year` alone cannot tell the two apart.
+//!
 //! The affected bases travel as a JSON array parameter rather than through a
 //! temp table, so a maintenance pass that changes nothing writes nothing.
 
@@ -24,6 +28,15 @@ use rusqlite::{params, params_from_iter, Transaction};
 const BASE_KEY_EXPR: &str = "CASE WHEN instr(ck.album_key, char(31) || '@') > 0 \
      THEN substr(ck.album_key, 1, instr(ck.album_key, char(31) || '@') - 1) \
      ELSE ck.album_key END";
+
+/// Release year of track `t`, else its `year`; NULL when neither is set. The
+/// `instr` test keeps tracks without the field from paying a JSON parse.
+/// `RELEASE_MEMBER_CTE_SQL` has to stay a literal for its callers and spells
+/// it out verbatim, which a test pins.
+pub(crate) const TRACK_RELEASE_YEAR_SQL: &str = "COALESCE( \
+       CASE WHEN instr(t.raw_json, '\"releaseYear\"') > 0 AND json_valid(t.raw_json) \
+            THEN NULLIF(CAST(json_extract(t.raw_json, '$.releaseYear') AS INTEGER), 0) END, \
+       NULLIF(t.year, 0))";
 
 /// Every live track whose stored album key belongs to one of the bases in the
 /// JSON array `?1`: the base itself or `<base>␟@<year>`. Walks the servers in
@@ -43,7 +56,10 @@ pub(crate) const RELEASE_MEMBER_CTE_SQL: &str = "\
     release_member AS MATERIALIZED ( \
       SELECT ck.server_id, ck.track_id, base.base_key, \
              COALESCE(t.library_id, '') AS library_id, t.album_id, \
-             NULLIF(t.year, 0) AS year \
+             COALESCE( \
+       CASE WHEN instr(t.raw_json, '\"releaseYear\"') > 0 AND json_valid(t.raw_json) \
+            THEN NULLIF(CAST(json_extract(t.raw_json, '$.releaseYear') AS INTEGER), 0) END, \
+       NULLIF(t.year, 0)) AS year \
       FROM release_base base \
       CROSS JOIN release_server srv \
       CROSS JOIN cluster.track_cluster_key ck INDEXED BY idx_ck_server_album \
