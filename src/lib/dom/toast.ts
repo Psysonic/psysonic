@@ -1,26 +1,108 @@
 /**
- * Lightweight DOM-based toast notification.
- * Uses the app's CSS custom properties so it respects the active theme.
- * Multiple toasts stack vertically above each other.
+ * Small toast notices drawn straight into the DOM, outside React, so any
+ * module can raise one. Colours come from the theme's CSS variables; several
+ * notices at once pile up from the bottom, the newest lowest.
  */
 
-const TOAST_GAP = 8;
-const TOAST_BOTTOM_ANCHOR = 100;
+export type ToastVariant = 'error' | 'info' | 'warning' | 'success';
 
-function getActiveToasts(): HTMLElement[] {
-  return Array.from(document.querySelectorAll<HTMLElement>('.psysonic-toast'));
+interface VariantLook {
+  glyph: string;
+  glyphSize: string;
+  color: string;
+  /** Faint outline in the variant colour, for the notices that need attention. */
+  ring: boolean;
 }
 
-function reflow(): void {
-  const toasts = getActiveToasts();
-  let bottom = TOAST_BOTTOM_ANCHOR;
-  for (let i = toasts.length - 1; i >= 0; i--) {
-    toasts[i].style.bottom = `${bottom}px`;
-    bottom += toasts[i].offsetHeight + TOAST_GAP;
+const LOOKS: Record<ToastVariant, VariantLook> = {
+  error: { glyph: '✕', glyphSize: '11px', color: 'var(--danger)', ring: true },
+  warning: { glyph: '!', glyphSize: '11px', color: 'var(--warning, #f59e0b)', ring: true },
+  success: { glyph: '✓', glyphSize: '10px', color: 'var(--positive, #10b981)', ring: false },
+  info: { glyph: 'ℹ', glyphSize: '11px', color: 'var(--accent)', ring: false },
+};
+
+/** Distance of the lowest notice from the window bottom, clear of the player bar. */
+const STACK_BASE_PX = 100;
+const STACK_SPACING_PX = 8;
+
+/** Notices on screen, oldest first. */
+const onScreen: HTMLElement[] = [];
+
+function placeStack(): void {
+  let offset = STACK_BASE_PX;
+  for (let i = onScreen.length - 1; i >= 0; i--) {
+    const el = onScreen[i];
+    el.style.bottom = `${offset}px`;
+    offset += el.offsetHeight + STACK_SPACING_PX;
   }
 }
 
-export type ToastVariant = 'error' | 'info' | 'warning' | 'success';
+function dismiss(el: HTMLElement): void {
+  const at = onScreen.indexOf(el);
+  if (at !== -1) onScreen.splice(at, 1);
+  el.remove();
+  placeStack();
+}
+
+function buildGlyph(look: VariantLook): HTMLElement {
+  const glyph = document.createElement('span');
+  glyph.textContent = look.glyph;
+  Object.assign(glyph.style, {
+    flexShrink: '0',
+    width: '18px',
+    height: '18px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '50%',
+    background: look.color,
+    color: 'var(--bg-app)',
+    fontSize: look.glyphSize,
+    fontWeight: '700',
+    lineHeight: '1',
+  });
+  return glyph;
+}
+
+function buildNotice(text: string, look: VariantLook): HTMLElement {
+  const notice = document.createElement('div');
+  notice.className = 'psysonic-toast';
+  const shadow = '0 4px 24px rgba(0,0,0,0.45)';
+  Object.assign(notice.style, {
+    position: 'fixed',
+    left: '50%',
+    bottom: `${STACK_BASE_PX}px`,
+    transform: 'translateX(-50%)',
+    zIndex: '999999',
+    pointerEvents: 'none',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+    width: 'max-content',
+    maxWidth: '480px',
+    padding: '10px 16px',
+    borderRadius: '8px',
+    border: `1px solid ${look.color}`,
+    borderLeft: `3px solid ${look.color}`,
+    background: 'var(--bg-card)',
+    color: 'var(--text-primary)',
+    fontSize: '13.5px',
+    fontWeight: '500',
+    whiteSpace: 'normal',
+    wordBreak: 'break-word',
+    boxShadow: look.ring
+      ? `${shadow}, 0 0 0 1px color-mix(in srgb, ${look.color} 20%, transparent)`
+      : shadow,
+    transition: 'bottom 150ms ease',
+  });
+
+  const label = document.createElement('span');
+  label.textContent = text;
+  Object.assign(label.style, { flex: '1', minWidth: '0' });
+
+  notice.append(buildGlyph(look), label);
+  return notice;
+}
 
 type Politeness = 'polite' | 'assertive';
 
@@ -56,84 +138,13 @@ function announce(text: string, politeness: Politeness): void {
 }
 
 export function showToast(text: string, durationMs = 4000, variant: ToastVariant = 'info'): void {
-  const isError = variant === 'error';
-  const isWarning = variant === 'warning';
-  const isSuccess = variant === 'success';
-
-  const toast = document.createElement('div');
-  toast.className = 'psysonic-toast';
-
-  const icon = document.createElement('span');
-  icon.textContent = isError ? '✕' : isWarning ? '!' : isSuccess ? '✓' : 'ℹ';
-  icon.style.cssText = `
-    flex-shrink: 0;
-    font-size: ${isSuccess ? '10px' : '11px'};
-    font-weight: 700;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: ${isError ? 'var(--danger)' : isWarning ? 'var(--warning, #f59e0b)' : isSuccess ? 'var(--positive, #10b981)' : 'var(--accent)'};
-    color: var(--bg-app);
-    line-height: 1;
-  `;
-
-  const msg = document.createElement('span');
-  msg.textContent = text;
-  msg.style.cssText = `flex: 1; min-width: 0;`;
-
-  const getBorderColor = () => {
-    if (isError) return 'var(--danger)';
-    if (isWarning) return 'var(--warning, #f59e0b)';
-    if (isSuccess) return 'var(--positive, #10b981)';
-    return 'var(--accent)';
-  };
-
-  const getBoxShadow = () => {
-    const base = '0 4px 24px rgba(0,0,0,0.45)';
-    if (isError) return `${base}, 0 0 0 1px color-mix(in srgb, var(--danger) 20%, transparent)`;
-    if (isWarning) return `${base}, 0 0 0 1px color-mix(in srgb, var(--warning, #f59e0b) 20%, transparent)`;
-    return base;
-  };
-
-  toast.style.cssText = `
-    position: fixed;
-    bottom: ${TOAST_BOTTOM_ANCHOR}px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--bg-card);
-    color: var(--text-primary);
-    border: 1px solid ${getBorderColor()};
-    border-left: 3px solid ${getBorderColor()};
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-size: 13.5px;
-    font-weight: 500;
-    z-index: 999999;
-    pointer-events: none;
-    box-shadow: ${getBoxShadow()};
-    white-space: normal;
-    word-break: break-word;
-    transition: bottom 150ms ease;
-    max-width: 480px;
-    width: max-content;
-  `;
-
-  toast.appendChild(icon);
-  toast.appendChild(msg);
+  const notice = buildNotice(text, LOOKS[variant]);
   // The live region speaks for it; hiding the visual copy keeps it from being read twice.
-  toast.setAttribute('aria-hidden', 'true');
-  document.body.appendChild(toast);
-  reflow();
-  announce(text, isError ? 'assertive' : 'polite');
+  notice.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(notice);
+  onScreen.push(notice);
+  placeStack();
+  announce(text, variant === 'error' ? 'assertive' : 'polite');
 
-  setTimeout(() => {
-    toast.remove();
-    reflow();
-  }, durationMs);
+  setTimeout(() => dismiss(notice), durationMs);
 }

@@ -39,6 +39,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * An original and its reissue in the same library were shown as one album when the reissue is tagged with the original's year. Psysonic now tells them apart by the release year Navidrome reports for each edition. Songs read through the Subsonic API carry no release year, so for those it still goes by the year tag.
 * After the update the library rebuilds its album groups once in the background.
 
+## Changed
+
+### Code rewritten ahead of the app store releases
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1821](https://github.com/Psysonic/psysonic/pull/1821)**
+
+* Contributions whose authors did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772) have been rewritten: the toast notifications, the audio error messages, the link between a dialog and its title for screen readers, and parts of the Linux install script. They behave as before; some playback error messages are worded differently now.
+* The matching entries in the contributor list have been removed.
+
 ## [1.56.0]
 
 ## Added
