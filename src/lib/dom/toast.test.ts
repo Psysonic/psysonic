@@ -13,6 +13,22 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('showToast stacking', () => {
+  it('keeps the newest toast lowest and closes the gap when one leaves', () => {
+    showToast('first', 1000);
+    showToast('second', 5000);
+    const [first, second] = document.querySelectorAll<HTMLElement>('.psysonic-toast');
+
+    // jsdom lays nothing out, so each toast is 0 px tall and only the spacing shows.
+    expect(second.style.bottom).toBe('100px');
+    expect(first.style.bottom).toBe('108px');
+
+    vi.advanceTimersByTime(1000);
+    expect(first.isConnected).toBe(false);
+    expect(second.style.bottom).toBe('100px');
+  });
+});
+
 describe('showToast for screen readers', () => {
   it('announces notices through a polite status region and hides the visual copy', () => {
     showToast('Added 3 songs', 4000, 'info');

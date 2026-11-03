@@ -14,23 +14,21 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Log helpers write to stderr so functions that return values via stdout
-# (e.g. get_download_url) stay clean when called in command substitution.
-info() {
-    echo -e "${BLUE}[INFO]${NC} $1" >&2
+# Every message goes to stderr: get_download_url hands its result back on
+# stdout, and a log line there would end up inside the captured URL.
+say() {
+    printf '%b[%s]%b %s\n' "$1" "$2" "$NC" "$3" >&2
 }
 
-success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1" >&2
-}
+info() { say "$BLUE" INFO "$1"; }
+success() { say "$GREEN" SUCCESS "$1"; }
+warn() { say "$YELLOW" WARN "$1"; }
+error() { say "$RED" ERROR "$1"; exit 1; }
 
-warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1" >&2
-}
-
-error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
-    exit 1
+# Save a release asset. A failed request must abort instead of leaving an
+# HTML error page behind as the package, and the URL is taken literally.
+download() {
+    curl --location --fail --globoff --output "$2" "$1"
 }
 
 # Check if running as root
@@ -107,7 +105,7 @@ install_package() {
     
     if [ "$OS_TYPE" = "debian" ]; then
         package_file="${package_file}.deb"
-        curl --fail --globoff -L -o "$package_file" "$download_url"
+        download "$download_url" "$package_file"
         
         info "Installing package..."
         $PACKAGE_MANAGER install -y "$package_file" || {
@@ -116,7 +114,7 @@ install_package() {
         }
     elif [ "$OS_TYPE" = "rhel" ]; then
         package_file="${package_file}.rpm"
-        curl --fail --globoff -L -o "$package_file" "$download_url"
+        download "$download_url" "$package_file"
         
         info "Installing package..."
         $PACKAGE_MANAGER install -y "$package_file"
@@ -130,17 +128,15 @@ install_package() {
 check_installed() {
     if command -v $APP_NAME &> /dev/null || command -v ${APP_NAME^} &> /dev/null; then
         warn "${APP_NAME} appears to be already installed."
-        # Under `curl ... | bash`, stdin is the script stream itself, so
-        # read the answer from the controlling terminal instead. Probe by
-        # opening: `[ -r /dev/tty ]` passes on the 0666 device node even
-        # without a controlling terminal; only open() reports the failure.
-        if { : < /dev/tty; } 2>/dev/null; then
-            read -p "Do you want to reinstall? (y/N): " -n 1 -r < /dev/tty
-            echo
-        else
-            warn "No terminal available for prompt; skipping reinstall."
+        # When the script arrives through `curl | bash`, stdin is the script
+        # itself, so the question has to go to the terminal. Whether one is
+        # attached only shows when /dev/tty is actually opened.
+        if ! (exec </dev/tty) 2>/dev/null; then
+            warn "No terminal to ask on; keeping the existing installation."
             exit 0
         fi
+        read -r -n 1 -p "Do you want to reinstall? (y/N): " REPLY </dev/tty
+        echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             info "Installation cancelled."
             exit 0

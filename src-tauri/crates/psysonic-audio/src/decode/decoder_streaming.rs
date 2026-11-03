@@ -14,7 +14,7 @@ use crate::codec::try_make_radio_decoder;
 
 use super::decoder::{
     encoder_gap_reported, should_use_builtin_gapless, SizedDecoder, MAX_CONSECUTIVE_DECODE_ERRORS,
-    STREAM_PROBE_TIMEOUT,
+    PACKET_READ_FAILED, STREAM_PROBE_TIMEOUT,
 };
 use super::format::{log_codec_resolution, resolve_codec_info};
 use super::source_probe::ProbeSeekGate;
@@ -291,7 +291,7 @@ impl SizedDecoder {
                 Err(e) => {
                     return Err(format!(
                         "{source_tag}: end of stream before any audio could be decoded \
-                         (could not read audio data: {e})"
+                         ({PACKET_READ_FAILED}: {e})"
                     ))
                 }
             };
