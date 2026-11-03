@@ -14,7 +14,10 @@ vi.mock('@/cover/integrations/discord', () => ({
 
 import { setupDiscordPresence } from './discordPresence';
 
-const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+const flush = async () => {
+  await Promise.resolve();
+  await Promise.resolve();
+};
 const presenceCalls = (cmd: string) =>
   vi.mocked(invoke).mock.calls.filter(([name]) => name === cmd).length;
 

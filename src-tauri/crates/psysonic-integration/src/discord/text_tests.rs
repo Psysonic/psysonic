@@ -169,4 +169,3 @@ fn end_timestamp_is_none_for_overflowing_duration() {
         None
     );
 }
-
