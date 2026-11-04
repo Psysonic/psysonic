@@ -15,7 +15,7 @@ import { useThemeStore } from '@/store/themeStore';
 import {
   useAlbumYearDisplayStore,
   type AlbumYearDisplay,
-} from '@/features/album/store/albumYearDisplayStore';
+} from '@/features/album';
 import { IS_LINUX, IS_WINDOWS } from '@/lib/util/platform';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';

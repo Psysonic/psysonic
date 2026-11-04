@@ -21,7 +21,13 @@ import { playAlbum, playAlbumShuffled } from '@/features/playback/utils/playback
 import { useLongPressAction } from '@/lib/hooks/useLongPressAction';
 import { LongPressWaveOverlay } from '@/ui/LongPressWaveOverlay';
 import { formatHumanHoursMinutes } from '@/lib/format/formatHumanDuration';
-import { AlbumRow, albumArtistDisplayName, useNavigateToAlbum } from '@/features/album';
+import {
+  AlbumRow,
+  albumArtistDisplayName,
+  formatAlbumYear,
+  useAlbumYearDisplay,
+  useNavigateToAlbum,
+} from '@/features/album';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
 import {
@@ -31,8 +37,6 @@ import {
 import { navidromeCanonicalBootstrapIsActive } from '@/lib/server/navidromeCanonicalCheckpointStatus';
 import { useHomeStore, type BecauseYouLikeSource } from '@/features/home/store/homeStore';
 import { resolveSonicPicks } from '@/features/home/utils/becauseYouLikeSonicPicks';
-import { formatAlbumYear } from '@/features/album/utils/albumYear';
-import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
 
 const ANCHOR_HISTORY_KEY_PREFIX = 'psysonic_because_anchor_history:';
 const PICKS_HISTORY_KEY_PREFIX = 'psysonic_because_picks:';

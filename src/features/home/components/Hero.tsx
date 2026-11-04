@@ -22,12 +22,15 @@ import { usePerfProbeFlags } from '@/lib/perf/perfFlags';
 import { playAlbum, playAlbumShuffled } from '@/features/playback/utils/playback/playAlbum';
 import { useLongPressAction } from '@/lib/hooks/useLongPressAction';
 import { LongPressWaveOverlay } from '@/ui/LongPressWaveOverlay';
-import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album';
+import {
+  albumArtistDisplayName,
+  deriveAlbumArtistRefs,
+  formatAlbumYear,
+  useAlbumYearDisplay,
+} from '@/features/album';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { appendServerQuery } from '@/lib/navigation/detailServerScope';
 import { useHeroTitleFit } from '@/features/home/hooks/useHeroTitleFit';
-import { formatAlbumYear } from '@/features/album/utils/albumYear';
-import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
 
 const INTERVAL_MS = 10000;
 const HERO_ALBUM_COUNT = 8;
