@@ -3,17 +3,18 @@ import { commands } from '@/generated/bindings';
 import { useAuthStore } from '@/store/authStore';
 import { isPrivateModeActive, usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
-import { getPlaybackProgressSnapshot } from '@/features/playback/store/playbackProgress';
+import { getPlaybackProgressSnapshot, subscribePlaybackSeek } from '@/features/playback/store/playbackProgress';
 import { resolveCoverForDiscord } from '@/cover/integrations/discord';
 import type { CoverSourcePref } from '@/cover/coverSources';
-import { serverShareBaseUrl } from '@/lib/server/serverEndpoint';
+import { allNormalizedAddresses, serverShareBaseUrl } from '@/lib/server/serverEndpoint';
 import { playbackServerDiffersFromActive } from '@/features/playback/utils/playback/playbackServer';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 
 /**
- * Discord Rich Presence sync. Updates on track change or play/pause toggle —
- * no per-tick updates needed, Discord auto-counts up the elapsed timer from the
- * start_timestamp we set. Returns a cleanup function.
+ * Discord Rich Presence sync. Updates on track change, play/pause, or a committed
+ * seek — not on progress ticks. Discord counts from the start timestamp and draws
+ * a progress bar when the track duration supplies an end timestamp too.
+ * Returns a cleanup function.
  */
 export function setupDiscordPresence(): () => void {
   let discordPrevTrackKey: string | null = null;
@@ -25,10 +26,44 @@ export function setupDiscordPresence(): () => void {
   let discordPrevCoverSources: CoverSourcePref[] | null = null;
   let discordPrevDiscordCoverSource: string | null = null;
   let discordPrevShareBase: string | null = null;
+  // null until this track's cover lookup has published once. A seek during
+  // cover resolution waits out the lookup rather than publishing early with no image.
+  let publishedCover: { url: string | null } | null = null;
+  let seekDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+  // Position is read here, not when the update was scheduled, unless an explicit
+  // elapsed position is passed (e.g. from a seek event).
+  function publishPresence(coverArtUrl: string | null, elapsedSecsOverride?: number | null) {
+    const { currentTrack, isPlaying } = usePlayerStore.getState();
+    if (!currentTrack) return;
+    const {
+      discordTemplateDetails,
+      discordTemplateState,
+      discordTemplateLargeText,
+      discordTemplateName,
+    } = useAuthStore.getState();
+    publishedCover = { url: coverArtUrl };
+    const elapsedSecs =
+      !isPlaying ? null
+      : elapsedSecsOverride !== undefined ? elapsedSecsOverride
+      : getPlaybackProgressSnapshot().currentTime;
+    invoke('discord_update_presence', {
+      title: currentTrack.title,
+      artist: currentTrack.artist ?? 'Unknown Artist',
+      album: currentTrack.album ?? null,
+      isPlaying,
+      elapsedSecs,
+      durationSecs: currentTrack.duration,
+      coverArtUrl,
+      detailsTemplate: discordTemplateDetails,
+      stateTemplate: discordTemplateState,
+      largeTextTemplate: discordTemplateLargeText,
+      nameTemplate: discordTemplateName,
+    }).catch(() => {});
+  }
 
   function syncDiscord() {
     const { currentTrack, isPlaying } = usePlayerStore.getState();
-    const currentTime = getPlaybackProgressSnapshot().currentTime;
     const {
       discordRichPresence,
       discordCoverSource,
@@ -52,6 +87,11 @@ export function setupDiscordPresence(): () => void {
         discordPrevTemplateState = null;
         discordPrevTemplateLargeText = null;
         discordPrevTemplateName = null;
+        publishedCover = null;
+        if (seekDebounceTimer) {
+          clearTimeout(seekDebounceTimer);
+          seekDebounceTimer = null;
+        }
         commands.discordClearPresence().catch(() => {});
       }
       return;
@@ -64,6 +104,7 @@ export function setupDiscordPresence(): () => void {
     // this value regardless, so there is no second `getState()` read for it.
     const profile = servers.find(s => s.id === activeServerId);
     const shareBase = profile ? serverShareBaseUrl(profile) : null;
+    const serverAddresses = profile ? allNormalizedAddresses(profile) : null;
 
     const currentTrackKey = ownedEntityKey(currentTrack);
     const trackChanged = currentTrackKey !== discordPrevTrackKey;
@@ -89,21 +130,13 @@ export function setupDiscordPresence(): () => void {
     discordPrevTemplateState = discordTemplateState;
     discordPrevTemplateLargeText = discordTemplateLargeText;
     discordPrevTemplateName = discordTemplateName;
-
-    const sendPresence = (coverArtUrl: string | null) => {
-      invoke('discord_update_presence', {
-        title: currentTrack.title,
-        artist: currentTrack.artist ?? 'Unknown Artist',
-        album: currentTrack.album ?? null,
-        isPlaying,
-        elapsedSecs: isPlaying ? currentTime : null,
-        coverArtUrl,
-        detailsTemplate: discordTemplateDetails,
-        stateTemplate: discordTemplateState,
-        largeTextTemplate: discordTemplateLargeText,
-        nameTemplate: discordTemplateName,
-      }).catch(() => {});
-    };
+    if (trackChanged) {
+      publishedCover = null;
+      if (seekDebounceTimer) {
+        clearTimeout(seekDebounceTimer);
+        seekDebounceTimer = null;
+      }
+    }
 
     // What Discord may publish is a separate opt-in from the in-app chain
     // (#1299): 'none' shows the app icon only — nothing is fetched, nothing is
@@ -122,12 +155,17 @@ export function setupDiscordPresence(): () => void {
       : discordCoverSource === 'apple'
         ? coverSources.filter(s => s.source !== 'server')
         : coverSources;
+    const albumId =
+      !playbackServerDiffersFromActive()
+        ? (currentTrack.albumId || (currentTrack.coverArt?.startsWith('al-') ? currentTrack.coverArt : undefined))
+        : undefined;
     const chainCtx = {
-      albumId: !playbackServerDiffersFromActive() ? currentTrack.albumId : undefined,
+      albumId,
       artist: currentTrack.artist ?? undefined,
       album: currentTrack.album ?? undefined,
       title: currentTrack.title ?? undefined,
       shareBase,
+      serverAddresses,
     };
     void (async () => {
       const url = await resolveCoverForDiscord(publishSources, chainCtx);
@@ -138,17 +176,40 @@ export function setupDiscordPresence(): () => void {
       if (!liveTrack || ownedEntityKey(liveTrack) !== trackKey) return;
       if (!latest.discordRichPresence || isPrivateModeActive()) return;
       if (latest.discordCoverSource !== discordCoverSource || latest.coverSources !== coverSources) return;
-      sendPresence(url);
+      publishPresence(url);
     })();
   }
 
   const unsubDiscordPlayer = usePlayerStore.subscribe(syncDiscord);
   const unsubDiscordAuth = useAuthStore.subscribe(syncDiscord);
   const unsubDiscordPrivate = usePrivateModeStore.subscribe(syncDiscord);
+  // Fires once per committed seek. Trailing debounce (300ms) protects against
+  // Discord's activity rate limit when clicking rapidly or scrubbing with arrow keys.
+  const unsubDiscordSeek = subscribePlaybackSeek((targetSeconds: number) => {
+    if (discordPrevTrackKey == null) return;
+    const { currentTrack, isPlaying } = usePlayerStore.getState();
+    if (!currentTrack || !isPlaying) return;
+    const seekTrackKey = ownedEntityKey(currentTrack);
+    if (seekTrackKey !== discordPrevTrackKey) return;
+    if (!useAuthStore.getState().discordRichPresence || isPrivateModeActive()) return;
+    if (!publishedCover) return;
+    if (seekDebounceTimer) clearTimeout(seekDebounceTimer);
+    seekDebounceTimer = setTimeout(() => {
+      seekDebounceTimer = null;
+      const liveTrack = usePlayerStore.getState().currentTrack;
+      if (!liveTrack || ownedEntityKey(liveTrack) !== seekTrackKey) return;
+      publishPresence(publishedCover?.url ?? null, targetSeconds);
+    }, 300);
+  });
 
   return () => {
+    if (seekDebounceTimer) {
+      clearTimeout(seekDebounceTimer);
+      seekDebounceTimer = null;
+    }
     unsubDiscordPlayer();
     unsubDiscordAuth();
     unsubDiscordPrivate();
+    unsubDiscordSeek();
   };
 }

@@ -23,7 +23,8 @@ pub use artwork::ArtworkCacheEntry;
 #[cfg(test)]
 use presence::apply_template;
 use presence::{
-    compute_discord_start_timestamp, compute_discord_text_fields, is_publishable_image_url,
+    compute_discord_end_timestamp, compute_discord_start_timestamp, compute_discord_text_fields,
+    is_publishable_image_url,
 };
 
 const DISCORD_APP_ID: &str = "1489544859718258779";
@@ -91,6 +92,8 @@ fn try_connect() -> Option<DiscordIpcClient> {
 ///   user list (e.g. "🎵 Bohemian Rhapsody" instead of "🎵 Psysonic"). Default: "{title}".
 ///   Empty string falls back to the registered Discord application name.
 ///   Supported placeholders: {title}, {artist}, {album}
+/// - `duration_secs`: total track length in seconds. When finite and greater than 0, an end
+///   timestamp is sent so Discord draws a progress bar. Otherwise omitted.
 // NOT specta-collected: >10 total params exceed specta's SpectaFn arg cap. Stays hand-written on generate_handler!.
 #[tauri::command]
 #[allow(clippy::too_many_arguments)]
@@ -106,6 +109,7 @@ pub async fn discord_update_presence(
     state_template: Option<String>,
     large_text_template: Option<String>,
     name_template: Option<String>,
+    duration_secs: Option<f64>,
 ) -> Result<(), String> {
     // The frontend resolves the cover chain (server/apple/lastfm) and passes a
     // publishable URL; this command only validates it. The iTunes fetch now
@@ -184,7 +188,12 @@ pub async fn discord_update_presence(
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs() as i64;
-            Timestamps::new().start(compute_discord_start_timestamp(elapsed, now))
+            let start = compute_discord_start_timestamp(elapsed, now);
+            let mut ts = Timestamps::new().start(start);
+            if let Some(end) = compute_discord_end_timestamp(start, duration_secs) {
+                ts = ts.end(end);
+            }
+            ts
         } else {
             Timestamps::new()
         });

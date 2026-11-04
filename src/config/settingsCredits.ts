@@ -635,6 +635,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Greek translation (PR #1737)',
     ],
   },
+  {
+    github: 'spoonkuh',
+    since: '1.57.0',
+    contributions: [
+      'Discord Rich Presence — progress bar, seek sync and server covers (PR #1819)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the
