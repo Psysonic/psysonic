@@ -57,7 +57,8 @@ describe('SongInfoModal server ownership', () => {
     const view = renderWithProviders(<SongInfoModal />);
 
     expect(await view.findByText('Owner Song')).toBeInTheDocument();
-    expect(mocks.getSongForServer).toHaveBeenCalledWith('srv-owner', 'shared');
+    // Asks the server even for a downloaded / hot-cached track (the dialog was empty for those).
+    expect(mocks.getSongForServer).toHaveBeenCalledWith('srv-owner', 'shared', { evenIfLocal: true });
     expect(mocks.getSong).not.toHaveBeenCalled();
     await waitFor(() => expect(mocks.libraryGetFacts).toHaveBeenCalledWith('srv-owner', 'shared'));
     expect(mocks.ndGetSongPath).toHaveBeenCalledWith(
