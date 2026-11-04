@@ -30,6 +30,23 @@ describe('album year display', () => {
     expect(formatAlbumYear({ year: 1999 }, 'both')).toBe('1999');
   });
 
+  it('uses the other known year when only one of the two is known', () => {
+    const editionOnly = { releaseYear: 2005 };
+    expect(formatAlbumYear(editionOnly, 'original')).toBe('2005');
+    expect(formatAlbumYear(editionOnly, 'both')).toBe('2005');
+    expect(formatAlbumYear(editionOnly, 'release')).toBe('2005');
+    const originalOnly = { originalYear: 1971 };
+    expect(formatAlbumYear(originalOnly, 'release')).toBe('1971');
+    expect(formatAlbumYear(originalOnly, 'both')).toBe('1971');
+    expect(formatAlbumYear({ releaseDate: { year: 2010 } }, 'original')).toBe('2010');
+    expect(formatAlbumYear({ originalReleaseDate: { year: 1980 } }, 'release')).toBe('1980');
+  });
+
+  it('prefers year over the other kind of date', () => {
+    expect(formatAlbumYear({ year: 1999, releaseYear: 2005 }, 'original')).toBe('1999');
+    expect(formatAlbumYear({ year: 1999, originalYear: 1971 }, 'release')).toBe('1999');
+  });
+
   it('ignores empty and zero years', () => {
     expect(formatAlbumYear({ year: 0 }, 'original')).toBeNull();
     expect(formatAlbumYear({ originalYear: 0, year: 1984 }, 'original')).toBe('1984');

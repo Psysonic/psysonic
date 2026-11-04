@@ -208,7 +208,10 @@ fn scheduler_idle_payload(
         .delta
         .as_ref()
         .is_some_and(|delta| !delta.deferred_scanning && !delta.up_to_date)
-        || report.census_changed_index)
+        || report.census_changed_index
+        // New release years change what loaded album views show, even when
+        // the index itself is untouched.
+        || report.census_release_years_updated)
         .then(|| {
             psysonic_library::LibrarySyncIdlePayload::ok(
                 server_id,
@@ -744,6 +747,7 @@ mod tests {
             skipped_sync_pass_active: false,
             delta: None,
             census_changed_index: false,
+            census_release_years_updated: false,
             next_poll_at_ms: 1,
         };
         assert!(scheduler_idle_payload(&skipped, "s1", "").is_none());
@@ -757,6 +761,7 @@ mod tests {
                 ..Default::default()
             }),
             census_changed_index: false,
+            census_release_years_updated: false,
             next_poll_at_ms: 1,
         };
         assert!(scheduler_idle_payload(&up_to_date, "s1", "").is_none());
@@ -770,6 +775,7 @@ mod tests {
                 ..Default::default()
             }),
             census_changed_index: false,
+            census_release_years_updated: false,
             next_poll_at_ms: 1,
         };
         let payload = scheduler_idle_payload(&completed, "s1", "scope").unwrap();
@@ -796,5 +802,15 @@ mod tests {
             ..skipped
         };
         assert!(scheduler_idle_payload(&census_only, "s1", "").is_some());
+
+        let release_years_only = psysonic_library::sync::scheduler::SchedulerTickReport {
+            census_release_years_updated: true,
+            delta: Some(psysonic_library::sync::delta::DeltaSyncReport {
+                up_to_date: true,
+                ..Default::default()
+            }),
+            ..skipped
+        };
+        assert!(scheduler_idle_payload(&release_years_only, "s1", "").is_some());
     }
 }
