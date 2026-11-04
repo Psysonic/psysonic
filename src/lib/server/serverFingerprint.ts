@@ -24,6 +24,13 @@ import { allNormalizedAddresses } from '@/lib/server/serverEndpoint';
 
 export type ServerFingerprint = {
   ping: {
+    /**
+     * Whether the server answered `ping` with `status="ok"`. This is the only
+     * trustworthy reachability signal: an older server can answer `ok` while
+     * omitting `type` / `serverVersion` / `openSubsonic` entirely, so nulls in
+     * those fields do **not** mean the address is down.
+     */
+    ok: boolean;
     type: string | null;
     serverVersion: string | null;
     openSubsonic: boolean;
@@ -58,14 +65,12 @@ export type VerifySameServerResult =
 // The probe does not report the Subsonic envelope `version`, so `apiVersion` is
 // always null. It is informational in the fingerprint and compared nowhere.
 
-type PingFingerprint = ServerFingerprint['ping'] & { ok: boolean };
-
 async function fetchPingFingerprint(
   baseUrl: string,
   username: string,
   password: string,
   headerProfile?: ServerHttpHeaderProfile,
-): Promise<PingFingerprint> {
+): Promise<ServerFingerprint['ping']> {
   const probed = await pingWithCredentialsForProfile(
     { ...(headerProfile ?? { url: baseUrl, alternateUrl: undefined }), username, password },
     baseUrl,
@@ -150,21 +155,16 @@ export async function fetchServerFingerprint(
   headerProfile?: ServerHttpHeaderProfile,
 ): Promise<ServerFingerprint> {
   // Ping is required — but we still build a (mostly-null) fingerprint when
-  // it fails so callers can tell the difference between "server unreachable"
-  // (verify reports `unreachable`) and "server reachable but disagrees"
-  // (verify reports `mismatch` / `insufficient`).
+  // it fails, carrying `ping.ok` so callers can tell the difference between
+  // "server unreachable" (verify reports `unreachable`) and "server reachable
+  // but disagrees" (verify reports `mismatch` / `insufficient`).
   const ping = await fetchPingFingerprint(baseUrl, username, password, headerProfile);
 
   // The optional calls only make sense once ping succeeded — without that,
   // any subsequent call against the same URL is just wasted bandwidth.
   if (!ping.ok) {
     return {
-      ping: {
-        type: ping.type,
-        serverVersion: ping.serverVersion,
-        openSubsonic: ping.openSubsonic,
-        apiVersion: ping.apiVersion,
-      },
+      ping,
       musicFolders: null,
       userId: null,
       licenseKey: null,
@@ -217,12 +217,7 @@ export async function fetchServerFingerprint(
     r.status === 'fulfilled' ? r.value : null;
 
   return {
-    ping: {
-      type: ping.type,
-      serverVersion: ping.serverVersion,
-      openSubsonic: ping.openSubsonic,
-      apiVersion: ping.apiVersion,
-    },
+    ping,
     musicFolders: extractMusicFolders(value(foldersResult)),
     userId: extractUserId(value(userResult)),
     licenseKey: extractLicenseEmail(value(licenseResult)),
@@ -323,10 +318,11 @@ export async function verifySameServerEndpoints(
   );
 
   // If any ping failed → unreachable (with the offending host for the UI).
+  // Keyed on `ping.ok`, never on the metadata fields: a minimal envelope that
+  // omits `type` / `serverVersion` is a *reachable* server, and belongs in the
+  // compare below (where it lands on `match` or `insufficient`).
   for (let i = 0; i < endpoints.length; i++) {
-    if (!fingerprints[i]!.ping.type && !fingerprints[i]!.ping.serverVersion) {
-      // ping.type/serverVersion are null only when the ping itself failed
-      // (fetchPingFingerprint zeroes everything on failure).
+    if (!fingerprints[i]!.ping.ok) {
       return { ok: false, reason: 'unreachable', unreachableHost: endpoints[i]! };
     }
   }

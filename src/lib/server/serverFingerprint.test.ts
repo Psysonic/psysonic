@@ -31,6 +31,7 @@ import {
 function makeFingerprint(overrides: Partial<ServerFingerprint> = {}): ServerFingerprint {
   return {
     ping: {
+      ok: true,
       type: 'navidrome',
       serverVersion: '0.55.0',
       openSubsonic: true,
@@ -248,6 +249,7 @@ describe('fetchServerFingerprint', () => {
   it('returns a null-bodied fingerprint when ping itself fails', async () => {
     vi.mocked(pingWithCredentialsForProfile).mockResolvedValue({ ok: false, error: 'HTTP 500' });
     const fp = await fetchServerFingerprint('https://broken.example.com', 'u', 'p');
+    expect(fp.ping.ok).toBe(false);
     expect(fp.ping.type).toBeNull();
     expect(fp.ping.serverVersion).toBeNull();
     expect(fp.musicFolders).toBeNull();
@@ -349,6 +351,38 @@ describe('verifySameServerEndpoints', () => {
       customHeadersApplyTo: 'public',
     });
     expect(lan![1]).toBe('http://192.168.0.10:4533');
+  });
+
+  it('verifies a minimal successful ping envelope as reachable, not unreachable', async () => {
+    // An older server can answer `{ status: "ok" }` and omit type / serverVersion
+    // / openSubsonic entirely — the Rust client pins that shape in
+    // `server_info_falls_back_to_defaults_for_minimal_envelope`. Reachability is
+    // keyed on the ping result, so a comparable body signal still verifies.
+    vi.mocked(pingWithCredentialsForProfile).mockResolvedValue({ ok: true });
+    vi.mocked(apiWithCredentials).mockResolvedValue({
+      musicFolders: { musicFolder: [{ id: '1', name: 'Music' }] },
+    });
+
+    const result = await verifySameServerEndpoints(
+      { url: 'https://music.example.com', alternateUrl: 'http://192.168.0.10:4533' },
+      'u',
+      'p',
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('returns insufficient, not unreachable, for a minimal envelope with no comparable body signal', async () => {
+    vi.mocked(pingWithCredentialsForProfile).mockResolvedValue({ ok: true });
+    vi.mocked(apiWithCredentials).mockRejectedValue(new Error('Not implemented'));
+
+    const result = await verifySameServerEndpoints(
+      { url: 'https://music.example.com', alternateUrl: 'http://192.168.0.10:4533' },
+      'u',
+      'p',
+    );
+
+    expect(result).toEqual({ ok: false, reason: 'insufficient' });
   });
 
   it('returns mismatch when fingerprints disagree on a body signal', async () => {
