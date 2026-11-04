@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Added
 
+### Discord shows a progress bar
+
+**By [@spoonkuh](https://github.com/spoonkuh), PR [#1819](https://github.com/Psysonic/psysonic/pull/1819)**
+
+* Discord Rich Presence now shows a progress bar for the playing song, and the bar jumps to the new position when you seek.
+* With **Cover art source → Follow in-app sources**, album covers your server takes from external services such as Last.fm now appear in Discord instead of the Psysonic icon. A cover lookup that failed is tried again after 30 seconds instead of an hour.
+
 ### Choose which release year album cards show
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1825](https://github.com/Psysonic/psysonic/pull/1825)**
