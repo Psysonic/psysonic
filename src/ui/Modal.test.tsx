@@ -1,111 +1,66 @@
-import { describe, it, expect, vi } from 'vitest';
-import { screen, fireEvent } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import Modal from '@/ui/Modal';
 
+function openModal(overrides: Partial<React.ComponentProps<typeof Modal>> = {}) {
+  const onClose = vi.fn();
+  renderWithProviders(
+    <Modal open onClose={onClose} title="Edit tags" {...overrides}>
+      <p>Tag form</p>
+    </Modal>,
+  );
+  return onClose;
+}
+
 describe('Modal', () => {
-  const defaultProps = {
-    open: true,
-    onClose: vi.fn(),
-    title: 'Test Modal',
-    children: <p>Modal body content</p>,
-  };
-
-  it('renders nothing when open is false', () => {
-    // Query the document, not the render container: Modal portals into
-    // document.body, so the container is empty whether it is open or not.
-    renderWithProviders(<Modal {...defaultProps} open={false} />);
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  it('stays out of the document while closed', () => {
+    openModal({ open: false });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.queryByText('Tag form')).toBeNull();
   });
 
-  it('renders the dialog when open is true', () => {
-    renderWithProviders(<Modal {...defaultProps} />);
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  it('is a modal dialog named after its title', () => {
+    openModal();
+    const dialog = screen.getByRole('dialog', { name: 'Edit tags' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(dialog).toHaveTextContent('Tag form');
   });
 
-  it('renders the title text', () => {
-    renderWithProviders(<Modal {...defaultProps} />);
-    expect(screen.getByText('Test Modal')).toBeInTheDocument();
-  });
-
-  it('renders children content', () => {
-    renderWithProviders(<Modal {...defaultProps} />);
-    expect(screen.getByText('Modal body content')).toBeInTheDocument();
-  });
-
-  it('has aria-modal="true" on the dialog', () => {
-    renderWithProviders(<Modal {...defaultProps} />);
-    expect(screen.getByRole('dialog')).toHaveAttribute('aria-modal', 'true');
-  });
-
-  it('links the dialog to its title via aria-labelledby', () => {
-    renderWithProviders(<Modal {...defaultProps} />);
-    const dialog = screen.getByRole('dialog');
-    const labelledBy = dialog.getAttribute('aria-labelledby');
-    expect(labelledBy).toBeTruthy();
-
-    const titleEl = document.getElementById(labelledBy!);
-    expect(titleEl).toBeTruthy();
-    expect(titleEl!.textContent).toContain('Test Modal');
-  });
-
-  it('uses a unique id per instance so multiple modals do not clash', () => {
+  it('keeps the names apart when two dialogs are open', () => {
     renderWithProviders(
       <>
-        <Modal {...defaultProps} title="First" />
-        <Modal {...defaultProps} title="Second" />
+        <Modal open onClose={vi.fn()} title="Rename playlist"><p>a</p></Modal>
+        <Modal open onClose={vi.fn()} title="Delete playlist"><p>b</p></Modal>
       </>,
     );
-
-    const dialogs = screen.getAllByRole('dialog');
-    const id1 = dialogs[0].getAttribute('aria-labelledby');
-    const id2 = dialogs[1].getAttribute('aria-labelledby');
-    expect(id1).not.toBe(id2);
+    expect(screen.getByRole('dialog', { name: 'Rename playlist' })).toHaveTextContent('a');
+    expect(screen.getByRole('dialog', { name: 'Delete playlist' })).toHaveTextContent('b');
   });
 
-  it('calls onClose when Escape is pressed', () => {
-    const onClose = vi.fn();
-    renderWithProviders(<Modal {...defaultProps} onClose={onClose} />);
+  it('closes on Escape, on the backdrop and on the close button', async () => {
+    const onClose = openModal({ closeLabel: 'Dismiss' });
     fireEvent.keyDown(window, { key: 'Escape' });
-    expect(onClose).toHaveBeenCalledOnce();
-  });
-
-  it('calls onClose when the backdrop is clicked', async () => {
-    const onClose = vi.fn();
-    renderWithProviders(<Modal {...defaultProps} onClose={onClose} />);
     await userEvent.click(screen.getByRole('dialog').parentElement!);
-    expect(onClose).toHaveBeenCalledOnce();
+    await userEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
+    expect(onClose).toHaveBeenCalledTimes(3);
   });
 
-  it('does not call onClose when the dialog content is clicked', async () => {
-    const onClose = vi.fn();
-    renderWithProviders(<Modal {...defaultProps} onClose={onClose} />);
-    await userEvent.click(screen.getByRole('dialog'));
+  it('ignores clicks inside the card', async () => {
+    const onClose = openModal();
+    await userEvent.click(screen.getByText('Tag form'));
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('calls onClose when the close button is clicked', async () => {
-    const onClose = vi.fn();
-    renderWithProviders(<Modal {...defaultProps} onClose={onClose} />);
-    await userEvent.click(screen.getByRole('button', { name: /close/i }));
-    expect(onClose).toHaveBeenCalledOnce();
+  it('can drop the close button', () => {
+    openModal({ hideClose: true });
+    expect(screen.queryByRole('button')).toBeNull();
   });
 
-  it('hides the close button when hideClose is true', () => {
-    renderWithProviders(<Modal {...defaultProps} hideClose />);
-    expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
-  });
-
-  it('renders the subtitle when provided', () => {
-    renderWithProviders(<Modal {...defaultProps} subtitle="v1.2.3" />);
-    expect(screen.getByText('v1.2.3')).toBeInTheDocument();
-  });
-
-  it('renders the footer when provided', () => {
-    renderWithProviders(
-      <Modal {...defaultProps} footer={<button type="button">Save</button>} />,
-    );
-    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument();
+  it('shows the optional subtitle and footer', () => {
+    openModal({ subtitle: '3 tracks', footer: <button type="button">Apply</button> });
+    expect(screen.getByText('3 tracks')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Apply' })).toBeInTheDocument();
   });
 });

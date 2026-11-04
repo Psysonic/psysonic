@@ -36,15 +36,6 @@ const CONTRIBUTOR_ENTRIES = [
     ],
   },
   {
-    github: 'JulianNymark',
-    since: '1.29.0',
-    contributions: [
-      'OGG/Vorbis container support via symphonia-format-ogg (PR #42)',
-      'Themed toast notifications for audio playback errors (PR #43)',
-      'Human-readable audio error messages (PR #44)',
-    ],
-  },
-  {
     github: 'zz5zz',
     since: '1.32.0',
     contributions: [
@@ -509,13 +500,6 @@ const CONTRIBUTOR_ENTRIES = [
     ],
   },
   {
-    github: 'kbennett2000',
-    since: '1.48.0',
-    contributions: [
-      'Linux auto-install script — fix curl | sudo bash URL capture bug (PR #1079)',
-    ],
-  },
-  {
     github: 'Soli0222',
     since: '1.49.0',
     contributions: [
@@ -537,24 +521,10 @@ const CONTRIBUTOR_ENTRIES = [
     ],
   },
   {
-    github: 'daquino94',
-    since: '1.50.0',
-    contributions: [
-      'Italian (it) full UI translation (PR #1250)',
-    ],
-  },
-  {
     github: 'norperz',
     since: '1.50.0',
     contributions: [
       'Sync: form POST for large play queues to avoid HTTP 414 behind reverse proxies (PR #1262)',
-    ],
-  },
-  {
-    github: 'AliMahmoudDev',
-    since: '1.50.0',
-    contributions: [
-      'Accessibility: modal dialogs announce their title to screen readers (aria-labelledby) (PR #1301)',
     ],
   },
   {

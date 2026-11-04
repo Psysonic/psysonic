@@ -32,6 +32,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Linux media widgets that look up the application through MPRIS can now resolve Psysonic's icon instead of showing a generic or blank one. Media controls and desktop notifications use the package's desktop identity, including the different names used by Nix and Flatpak.
 
+### Reissues tagged with the original year stay separate albums
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1820](https://github.com/Psysonic/psysonic/pull/1820)**
+
+* An original and its reissue in the same library were shown as one album when the reissue is tagged with the original's year. Psysonic now tells them apart by the release year Navidrome reports for each edition. Songs read through the Subsonic API carry no release year, so for those it still goes by the year tag. That includes Navidrome libraries synced that way, as scoped syncs and the first sync of a large library are; a copy of a reissue read like this can still be grouped with the original.
+* The New Releases row compares a not yet indexed album by its edition's release date as well, so a fresh reissue no longer lands on the original's card.
+* After the update the library rebuilds its album groups once in the background.
+
+## Changed
+
+### Code rewritten ahead of the app store releases
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1821](https://github.com/Psysonic/psysonic/pull/1821)**
+
+* Contributions whose authors did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772) have been rewritten: the toast notifications, the audio error messages, the link between a dialog and its title for screen readers, and parts of the Linux install script. They behave as before; some playback error messages are worded differently now.
+* The matching entries in the contributor list have been removed.
+
+### New Italian translation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1823](https://github.com/Psysonic/psysonic/pull/1823)**
+
+* The Italian translation has been written anew from the English texts, since its original author did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772). Wording differs in many places; corrections from Italian speakers are welcome.
+
 ## [1.56.0]
 
 ## Added

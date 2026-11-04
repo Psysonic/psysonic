@@ -31,7 +31,7 @@ interface ModalProps {
 export default function Modal({
   open, onClose, title, subtitle, icon, footer, size = 'md', hideClose, closeLabel, children,
 }: ModalProps) {
-  const titleId = useId();
+  const headingId = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -50,13 +50,13 @@ export default function Modal({
         className={`ui-modal ui-modal--${size}`}
         role="dialog"
         aria-modal="true"
-        aria-labelledby={titleId}
+        aria-labelledby={headingId}
         onClick={e => e.stopPropagation()}
       >
         <div className="ui-modal-header">
           {icon && <span className="ui-modal-icon">{icon}</span>}
           <div className="ui-modal-titles">
-            <span className="ui-modal-title" id={titleId}>{title}</span>
+            <span className="ui-modal-title" id={headingId}>{title}</span>
             {subtitle != null && <span className="ui-modal-subtitle">{subtitle}</span>}
           </div>
           {!hideClose && (

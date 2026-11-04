@@ -51,7 +51,7 @@ fn a_failing_read_is_an_error_not_an_empty_track() {
     // swallow the cut-off, this fails loudly and the cut-off gets retuned —
     // preferable to an assertion that also passes on the old behaviour.
     assert!(
-        err.contains("could not read audio data"),
+        err.contains(crate::decode::decoder::PACKET_READ_FAILED),
         "the read failure must surface from initialization, got: {err}"
     );
 }

@@ -3,8 +3,8 @@ export const entityRating = {
   artistShort: 'Valutazione artista',
   albumAriaLabel: 'Valutazione album',
   artistAriaLabel: 'Valutazione artista',
-  selectedArtistsRatingAriaLabel: 'Valutazione di {{count}} stelle per gli artisti selezionati',
-  selectedAlbumsRatingAriaLabel: 'Valutazione di {{count}} stelle per gli album selezionati',
-  selectedSongsRatingAriaLabel: 'Valutazione a stelle per {{count}} brani selezionati',
+  selectedArtistsRatingAriaLabel: 'Valutazione in stelle per {{count}} artisti selezionati',
+  selectedAlbumsRatingAriaLabel: 'Valutazione in stelle per {{count}} album selezionati',
+  selectedSongsRatingAriaLabel: 'Valutazione in stelle per {{count}} brani selezionati',
   saveFailed: 'Impossibile salvare la valutazione.',
 };

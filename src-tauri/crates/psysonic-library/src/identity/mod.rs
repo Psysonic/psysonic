@@ -20,7 +20,7 @@ pub use rebuild::{
 };
 pub(crate) use rebuild::{
     concrete_physical_album_key, mark_cluster_keys_dirty, prune_cluster_keys_for_scope,
-    refresh_library_ids_for_albums, RELEASE_MEMBER_CTE_SQL,
+    refresh_library_ids_for_albums, RELEASE_MEMBER_CTE_SQL, TRACK_RELEASE_YEAR_SQL,
 };
 
 pub(crate) use keys::build_album_key_with_version;

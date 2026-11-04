@@ -48,8 +48,11 @@ fn indexed_album_exists(
 /// `?1`/`?2` bound the keys `<base>␟@…` on any server; `?3` is the album's
 /// server, `?4` the base key, `?5` the album's year, `?6` the library it was
 /// listed under (NULL when the fetch was not scoped to one, which leaves only
-/// the "already split" branch).
-const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
+/// the "already split" branch). Indexed albums compare by the year the identity
+/// pass splits on.
+static UNINDEXED_RELEASE_SPLIT_SQL: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    format!(
+        "\
     WITH RECURSIVE release_server(server_id) AS ( \
       SELECT MIN(server_id) FROM cluster.track_cluster_key \
       UNION ALL \
@@ -71,9 +74,12 @@ const UNINDEXED_RELEASE_SPLIT_SQL: &str = "\
         WHERE ck.server_id = ?3 AND ck.album_key = ?4 AND t.deleted = 0 \
           AND ck.library_id = ?6 \
         GROUP BY t.album_id \
-        HAVING MAX(NULLIF(t.year, 0)) IS NOT NULL AND MAX(NULLIF(t.year, 0)) != ?5 \
+        HAVING MAX({year}) IS NOT NULL AND MAX({year}) != ?5 \
       ) \
-    )";
+    )",
+        year = crate::identity::TRACK_RELEASE_YEAR_SQL,
+    )
+});
 
 /// Key for an album the index does not hold yet, placed where the next identity
 /// pass will put it (`identity::rebuild::release_year`). Once a base key is
@@ -94,7 +100,7 @@ fn unindexed_release_key(
     };
     let sep = crate::identity::KEY_SEP;
     let splits = conn.query_row(
-        UNINDEXED_RELEASE_SPLIT_SQL,
+        UNINDEXED_RELEASE_SPLIT_SQL.as_str(),
         rusqlite::params![
             format!("{base_key}{sep}@"),
             format!("{base_key}{sep}A"),
@@ -552,6 +558,91 @@ mod tests {
 
         assert_ne!(resolutions[0].group, resolutions[1].group);
         assert_eq!(resolutions[1].representative_id, None);
+    }
+
+    #[test]
+    fn an_unindexed_copy_splits_from_an_indexed_reissue_with_the_original_year() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-reissue", "reissue", "l1");
+        set_year(&store, "s1", "t-reissue", 1996);
+        store
+            .with_conn_mut("test.album_overlay_release_year", |conn| {
+                conn.execute(
+                    "UPDATE track SET raw_json = '{\"releaseYear\":2026}' \
+                     WHERE server_id = 's1' AND id = 't-reissue'",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![candidate_in("s1", "original", 1996, "l1")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(resolutions[0].representative_id, None);
+    }
+
+    /// The frontend sends the edition's year (`releaseDate`, else `year`), so an
+    /// unindexed copy of a reissue meets the indexed reissue on its release year.
+    #[test]
+    fn an_unindexed_copy_of_a_reissue_joins_the_indexed_reissue() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-reissue", "reissue", "l1");
+        set_year(&store, "s1", "t-reissue", 1996);
+        store
+            .with_conn_mut("test.album_overlay_release_year", |conn| {
+                conn.execute(
+                    "UPDATE track SET raw_json = '{\"releaseYear\":2026}' \
+                     WHERE server_id = 's1' AND id = 't-reissue'",
+                    [],
+                )?;
+                Ok(())
+            })
+            .unwrap();
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![candidate_in("s1", "reissue-copy", 2026, "l1")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(resolutions[0].representative_id.as_deref(), Some("reissue"));
+    }
+
+    /// Decided trade-off, pinned: the overlay cannot know whether an unindexed
+    /// album will be read natively (with its release year) or through Subsonic
+    /// (year only). It goes by the edition's year, so a copy of a reissue whose
+    /// indexed sibling came in through Subsonic shows as its own card until the
+    /// sync indexes it; a fresh reissue next to a Subsonic original is not
+    /// hidden on the original's card. After the sync the index decides.
+    #[test]
+    fn an_unindexed_reissue_copy_beside_a_subsonic_indexed_copy_stays_apart_until_synced() {
+        let store = LibraryStore::open_in_memory();
+        insert_album_track(&store, "s1", "t-reissue", "reissue", "l1");
+        set_year(&store, "s1", "t-reissue", 1996);
+        ensure_cluster_keys_built(&store, "s1").unwrap();
+
+        let resolutions = resolve_album_overlay(
+            &store,
+            &LibraryResolveAlbumOverlayRequest {
+                scopes: vec![scope("s1", "l1")],
+                albums: vec![candidate_in("s1", "reissue-copy", 2026, "l1")],
+            },
+        )
+        .unwrap();
+
+        assert_eq!(resolutions[0].representative_id, None);
     }
 
     #[test]

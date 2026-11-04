@@ -242,6 +242,119 @@ fn a_server_rebuild_updates_the_split_on_other_servers() {
     assert_eq!(projection_key(&store, "s2", "remote-copy"), Some(base()));
 }
 
+/// Navidrome's native song JSON carries the edition's own year as
+/// `releaseYear`, while `year` follows the original date.
+fn reissue_tagged_with_original_year(
+    server: &str,
+    id: &str,
+    album_id: &str,
+    library_id: &str,
+    year: i64,
+    release_year: i64,
+) -> TrackRow {
+    let mut row = release_track(server, id, album_id, library_id, year);
+    row.raw_json =
+        serde_json::json!({ "releaseYear": release_year, "originalYear": year }).to_string();
+    row
+}
+
+#[test]
+fn a_reissue_tagged_with_the_original_year_splits_on_its_release_year() {
+    let store = LibraryStore::open_in_memory();
+    seed_artist(&store, "s1");
+    TrackRepository::new(&store)
+        .upsert_batch(&[
+            release_track("s1", "t1", "original", "lib-a", 1996),
+            reissue_tagged_with_original_year("s1", "t2", "reissue", "lib-a", 1996, 2026),
+        ])
+        .unwrap();
+
+    rebuild_cluster_keys(&store, None).unwrap();
+
+    assert_eq!(album_key(&store, "s1", "t1"), Some(with_year(1996)));
+    assert_eq!(album_key(&store, "s1", "t2"), Some(with_year(2026)));
+    assert_eq!(
+        projection_key(&store, "s1", "reissue"),
+        Some(with_year(2026))
+    );
+}
+
+#[test]
+fn an_added_reissue_with_a_release_year_splits_through_the_journal() {
+    let store = LibraryStore::open_in_memory();
+    seed_artist(&store, "s1");
+    TrackRepository::new(&store)
+        .upsert_batch(&[release_track("s1", "t1", "original", "lib-a", 1996)])
+        .unwrap();
+    rebuild_cluster_keys(&store, None).unwrap();
+    assert_eq!(album_key(&store, "s1", "t1"), Some(base()));
+
+    TrackRepository::new(&store)
+        .upsert_batch(&[reissue_tagged_with_original_year(
+            "s1", "t2", "reissue", "lib-a", 1996, 2026,
+        )])
+        .unwrap();
+    ensure_cluster_keys_built(&store, "s1").unwrap();
+
+    assert_eq!(album_key(&store, "s1", "t1"), Some(with_year(1996)));
+    assert_eq!(album_key(&store, "s1", "t2"), Some(with_year(2026)));
+}
+
+/// Known limitation, pinned so a change to it is deliberate: Subsonic-shaped
+/// song JSON (scoped and large initial Navidrome syncs, plain Subsonic
+/// servers) carries no `releaseYear`, only the year tag. A copy of the
+/// reissue read that way keys on the original's year and joins the original.
+#[test]
+fn a_subsonic_copy_of_a_reissue_tagged_with_the_original_year_joins_the_original() {
+    let store = LibraryStore::open_in_memory();
+    seed_artist(&store, "s1");
+    seed_artist(&store, "s2");
+    let mut subsonic_copy = release_track("s2", "t3", "remote-reissue", "lib-x", 1996);
+    subsonic_copy.raw_json = serde_json::json!({ "year": 1996, "mediaType": "song" }).to_string();
+    TrackRepository::new(&store)
+        .upsert_batch(&[
+            release_track("s1", "t1", "original", "lib-a", 1996),
+            reissue_tagged_with_original_year("s1", "t2", "reissue", "lib-a", 1996, 2026),
+            subsonic_copy,
+        ])
+        .unwrap();
+
+    rebuild_cluster_keys(&store, None).unwrap();
+
+    assert_eq!(album_key(&store, "s1", "t2"), Some(with_year(2026)));
+    assert_eq!(album_key(&store, "s2", "t3"), Some(with_year(1996)));
+    assert_eq!(album_key(&store, "s2", "t3"), album_key(&store, "s1", "t1"));
+}
+
+#[test]
+fn a_matching_release_year_keeps_one_release_on_one_key() {
+    let store = LibraryStore::open_in_memory();
+    seed_artist(&store, "s1");
+    TrackRepository::new(&store)
+        .upsert_batch(&[
+            reissue_tagged_with_original_year("s1", "t1", "album-main", "lib-a", 1996, 2026),
+            reissue_tagged_with_original_year("s1", "t2", "album-stray", "lib-a", 1996, 2026),
+        ])
+        .unwrap();
+
+    rebuild_cluster_keys(&store, None).unwrap();
+
+    assert_eq!(album_key(&store, "s1", "t1"), Some(base()));
+    assert_eq!(album_key(&store, "s1", "t2"), Some(base()));
+}
+
+/// The member CTE is a literal its callers splice into their own SQL, so it
+/// spells the year expression out instead of formatting it in.
+#[test]
+fn the_member_cte_uses_the_shared_release_year_expression() {
+    let cte = crate::identity::RELEASE_MEMBER_CTE_SQL;
+    let year = crate::identity::TRACK_RELEASE_YEAR_SQL;
+    assert!(
+        cte.contains(&format!("{year} AS year")),
+        "RELEASE_MEMBER_CTE_SQL no longer matches TRACK_RELEASE_YEAR_SQL"
+    );
+}
+
 #[test]
 fn a_copy_without_a_year_keeps_the_base_key_beside_a_split() {
     let store = LibraryStore::open_in_memory();
