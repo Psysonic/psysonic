@@ -62,8 +62,9 @@ export type VerifySameServerResult =
 // unreachable address. The probe covers both, and remembers a CORS-less address
 // for the rest of the session.
 //
-// The probe does not report the Subsonic envelope `version`, so `apiVersion` is
-// always null. It is informational in the fingerprint and compared nowhere.
+// The probe reports the Subsonic envelope `version` as `apiVersion`. It is
+// informational in the fingerprint and compared nowhere, but it is kept so a
+// fingerprint still says which protocol level the server claimed.
 
 async function fetchPingFingerprint(
   baseUrl: string,
@@ -80,7 +81,7 @@ async function fetchPingFingerprint(
     type: probed.type ?? null,
     serverVersion: probed.serverVersion ?? null,
     openSubsonic: probed.openSubsonic === true,
-    apiVersion: null,
+    apiVersion: probed.apiVersion ?? null,
   };
 }
 

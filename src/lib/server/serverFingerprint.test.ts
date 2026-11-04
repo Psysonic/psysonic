@@ -47,12 +47,24 @@ function makeFingerprint(overrides: Partial<ServerFingerprint> = {}): ServerFing
 
 /** Ping result the native probe reports for a Navidrome-shaped server. */
 function navidromeProbe() {
-  return { ok: true, type: 'navidrome', serverVersion: '0.55.0', openSubsonic: true };
+  return {
+    ok: true,
+    type: 'navidrome',
+    serverVersion: '0.55.0',
+    apiVersion: '1.16.1',
+    openSubsonic: true,
+  };
 }
 
 /** Minimal Subsonic shape — ampache does not always advertise openSubsonic. */
 function ampacheProbe() {
-  return { ok: true, type: 'ampache', serverVersion: '6.0.0', openSubsonic: false };
+  return {
+    ok: true,
+    type: 'ampache',
+    serverVersion: '6.0.0',
+    apiVersion: '1.13.0',
+    openSubsonic: false,
+  };
 }
 
 describe('compareFingerprints', () => {
@@ -163,8 +175,8 @@ describe('fetchServerFingerprint', () => {
     expect(fp.ping.type).toBe('navidrome');
     expect(fp.ping.serverVersion).toBe('0.55.0');
     expect(fp.ping.openSubsonic).toBe(true);
-    // The probe does not report the envelope version; it is informational only.
-    expect(fp.ping.apiVersion).toBeNull();
+    // Carried from the Subsonic envelope `version` through the probe.
+    expect(fp.ping.apiVersion).toBe('1.16.1');
     expect(fp.musicFolders).toEqual([{ id: '1', name: 'Music' }]);
     expect(fp.userId).toBe('tester');
     expect(fp.licenseKey).toBe('tester@example.com');
