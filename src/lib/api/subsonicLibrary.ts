@@ -345,8 +345,18 @@ export async function getSong(id: string): Promise<SubsonicSong | null> {
   }
 }
 
-export async function getSongForServer(serverId: string, id: string): Promise<SubsonicSong | null> {
-  if (!shouldAttemptSubsonicForServer(serverId, id)) return null;
+export interface GetSongForServerOptions {
+  /** Ask the server even when the track plays from local bytes (download or hot cache).
+   *  For an explicit request such as Song Info, which shows server metadata. */
+  evenIfLocal?: boolean;
+}
+
+export async function getSongForServer(
+  serverId: string,
+  id: string,
+  options: GetSongForServerOptions = {},
+): Promise<SubsonicSong | null> {
+  if (!shouldAttemptSubsonicForServer(serverId, options.evenIfLocal ? undefined : id)) return null;
   try {
     const data = await apiForServer<{ song: SubsonicSong }>(serverId, 'getSong.view', { id });
     return data.song ? { ...data.song, serverId } : null;
