@@ -49,6 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The New Releases row compares a not yet indexed album by its edition's release date as well, so a fresh reissue no longer lands on the original's card.
 * After the update the library rebuilds its album groups once in the background.
 
+### Song Info for downloaded and cached tracks
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1827](https://github.com/Psysonic/psysonic/pull/1827)**
+
+* Song Info stayed empty for a song that plays from a download or from the playback cache. It now asks the server for those songs too, as long as the server is reachable; offline it still shows nothing.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
