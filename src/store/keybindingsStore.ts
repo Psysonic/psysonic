@@ -24,16 +24,31 @@ function normalizeBindings(
   } as Bindings;
 }
 
-/** v0 blobs predate the Settings chord (⌘, on macOS, Ctrl+, elsewhere), so an
- * upgrade must not hand that key to Settings when it already belongs to another
- * action. One-shot: after the bump the user's own bindings are law. */
+/** Default chords added after a stored version: an upgrade must not hand such a
+ * key to the new action when it already belongs to another one. One-shot per
+ * version: after the bump the user's own bindings are law.
+ * v1 — the Settings chord (⌘, on macOS, Ctrl+, elsewhere).
+ * v2 — history back / forward (⌘[ / ⌘] on macOS, Alt+← / Alt+→ elsewhere). */
+const DEFAULTS_ADDED_IN: ReadonlyArray<readonly [number, readonly KeyAction[]]> = [
+  [1, ['open-settings']],
+  [2, ['navigate-back', 'navigate-forward']],
+];
+
 function migrateBindings(persisted: unknown, version: number) {
   const state = persisted as { bindings?: Partial<Record<KeyAction, string | null>> } | undefined;
-  const chord = DEFAULT_BINDINGS['open-settings'];
-  if (version >= 1 || !chord || !state?.bindings) return state;
-  const claimed = (Object.entries(state.bindings) as [KeyAction, string | null][])
-    .some(([action, bound]) => action !== 'open-settings' && bound === chord);
-  return claimed ? { ...state, bindings: { ...state.bindings, 'open-settings': null } } : state;
+  if (!state?.bindings) return state;
+  let bindings = state.bindings;
+  for (const [addedIn, actions] of DEFAULTS_ADDED_IN) {
+    if (version >= addedIn) continue;
+    for (const added of actions) {
+      const chord = DEFAULT_BINDINGS[added];
+      if (!chord) continue;
+      const claimed = (Object.entries(bindings) as [KeyAction, string | null][])
+        .some(([action, bound]) => action !== added && bound === chord);
+      if (claimed) bindings = { ...bindings, [added]: null };
+    }
+  }
+  return bindings === state.bindings ? state : { ...state, bindings };
 }
 
 interface KeybindingsState {
@@ -85,7 +100,7 @@ export const useKeybindingsStore = create<KeybindingsState>()(
     }),
     {
       name: 'psysonic_keybindings',
-      version: 1,
+      version: 2,
       migrate: migrateBindings,
       onRehydrateStorage: () => state => {
         if (!state) return;

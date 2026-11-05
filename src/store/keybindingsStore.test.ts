@@ -34,11 +34,17 @@ async function rehydrate(
 }
 
 const CASES = [
-  { platform: 'macOS', chord: 'super+Comma', load: loadMacStore },
-  { platform: 'Windows / Linux', chord: 'ctrl+Comma', load: loadDesktopStore },
+  {
+    platform: 'macOS', chord: 'super+Comma', load: loadMacStore,
+    back: 'super+BracketLeft', forward: 'super+BracketRight',
+  },
+  {
+    platform: 'Windows / Linux', chord: 'ctrl+Comma', load: loadDesktopStore,
+    back: 'alt+ArrowLeft', forward: 'alt+ArrowRight',
+  },
 ] as const;
 
-for (const { platform, chord, load } of CASES) {
+for (const { platform, chord, load, back, forward } of CASES) {
   describe(`keybindings persistence (${platform})`, () => {
     it(`ships ${chord} as the out-of-box Settings chord on a fresh install`, async () => {
       const [store, bindings] = await rehydrate(load, undefined, 1);
@@ -78,7 +84,48 @@ for (const { platform, chord, load } of CASES) {
 
       store.useKeybindingsStore.getState().setBinding('next', 'KeyJ');
 
-      expect(JSON.parse(localStorage.getItem(KEY) as string).version).toBe(1);
+      expect(JSON.parse(localStorage.getItem(KEY) as string).version).toBe(2);
+    });
+
+    it(`ships ${back} / ${forward} as the out-of-box history chords on a fresh install`, async () => {
+      const [, bindings] = await rehydrate(load, undefined, 2);
+
+      expect(bindings['navigate-back']).toBe(back);
+      expect(bindings['navigate-forward']).toBe(forward);
+    });
+
+    it(`does not take ${back} away from an action on a pre-history profile`, async () => {
+      const [, bindings] = await rehydrate(load, { 'seek-backward': back }, 1);
+
+      expect(bindings['seek-backward']).toBe(back);
+      expect(bindings['navigate-back']).toBeNull();
+      expect(bindings['navigate-forward']).toBe(forward);
+    });
+
+    it('gives a pre-history profile both history chords when nothing else holds them', async () => {
+      const [, bindings] = await rehydrate(load, { 'toggle-queue': 'ctrl+alt+KeyJ' }, 1);
+
+      expect(bindings['navigate-back']).toBe(back);
+      expect(bindings['navigate-forward']).toBe(forward);
+    });
+
+    it('runs both upgrade steps for a v0 profile', async () => {
+      const [, bindings] = await rehydrate(
+        load, { 'toggle-queue': chord, 'seek-forward': forward }, 0,
+      );
+
+      expect(bindings['open-settings']).toBeNull();
+      expect(bindings['navigate-back']).toBe(back);
+      expect(bindings['navigate-forward']).toBeNull();
+    });
+
+    it('leaves a v2 profile alone, even when the user duplicated a history chord', async () => {
+      const [, bindings] = await rehydrate(
+        load, { 'seek-backward': back, 'navigate-back': back }, 2,
+      );
+
+      expect(bindings['seek-backward']).toBe(back);
+      expect(bindings['navigate-back']).toBe(back);
     });
   });
 }
