@@ -18,6 +18,10 @@
   -webkit-backdrop-filter: none !important;
   background: rgba(17, 17, 27, 0.96);
   animation: none;
+  /* PsyLab takes most of the window height; centre it instead of the shared
+     10vh top offset so the footer never slides off the bottom. */
+  align-items: center;
+  padding-top: 0;
 }
 
 .modal-content {
@@ -75,11 +79,16 @@
   font-family: var(--font-display);
 }
 
+/* PsyLab follows the window instead of a fixed 680 × 860 px box, which shrank to a
+   third of a large screen. The caps keep rows and log lines readable on very large
+   windows; the tab body fills the rest and scrolls on its own. */
 .sidebar-perf-modal {
-  max-width: 680px;
+  width: min(80vw, 1280px);
+  max-width: none;
+  height: min(85vh, 1000px);
+  max-height: none;
   display: flex;
   flex-direction: column;
-  max-height: min(88vh, 860px);
   overflow: hidden;
   padding-bottom: var(--space-6);
 }
