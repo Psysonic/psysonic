@@ -43,6 +43,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The Orbit start dialog has an **Automatic reshuffle** switch, so you decide before the session starts whether the queue reshuffles on its own. It is off by default and remembers your last choice for the next session.
 * You can still turn it on or off in the session settings while the session runs.
 
+### Full Wave seekbar style
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by abstractjewel on Discord, PR [#1834](https://github.com/Psysonic/psysonic/pull/1834)**
+
+* A new seekbar style under **Settings → Appearance → Seekbar style**: the whole played part of the song is one calm wave that drifts slowly towards the current position, while the rest stays a flat line.
+* Pulse Wave stays as it was.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited

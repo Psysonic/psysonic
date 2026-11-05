@@ -853,6 +853,7 @@ export const settings = {
   seekbarSegmented: 'Szakaszolt',
   seekbarNeon: 'Neonfény',
   seekbarPulsewave: 'Pulzushullám',
+  seekbarFullwave: 'Teljes hullám',
   seekbarParticletrail: 'Részecskecsóva',
   seekbarLiquidfill: 'Folyadékkitöltés',
   seekbarRetrotape: 'Retro szalag',

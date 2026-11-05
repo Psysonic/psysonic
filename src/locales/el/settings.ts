@@ -853,6 +853,7 @@ export const settings = {
   seekbarSegmented: 'Κατατμημένη',
   seekbarNeon: 'Λάμψη Neon',
   seekbarPulsewave: 'Παλμικό Κύμα',
+  seekbarFullwave: 'Πλήρες Κύμα',
   seekbarParticletrail: 'Ουρά Σωματιδίου',
   seekbarLiquidfill: 'Δοχείο Υγρού',
   seekbarRetrotape: 'Ρετρό Κασέτα',

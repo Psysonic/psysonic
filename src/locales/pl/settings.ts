@@ -853,6 +853,7 @@ export const settings = {
   seekbarSegmented: 'Segmenty',
   seekbarNeon: 'Neon',
   seekbarPulsewave: 'Pulsująca fala',
+  seekbarFullwave: 'Pełna fala',
   seekbarParticletrail: 'Ślad cząstek',
   seekbarLiquidfill: 'Wypełnienie cieczą',
   seekbarRetrotape: 'Taśma retro',

@@ -765,6 +765,7 @@ export const settings = {
   seekbarSegmented: '分段式',
   seekbarNeon: '霓虹',
   seekbarPulsewave: '脉冲波',
+  seekbarFullwave: '全程波浪',
   seekbarParticletrail: '粒子轨迹',
   seekbarLiquidfill: '液体填充',
   seekbarRetrotape: '复古磁带',
