@@ -50,6 +50,12 @@ export const DEFAULT_COVER_SOURCES: CoverSourcePref[] = [
 /** Discord publishing opt-in default: app icon only (#1299 — server URLs are published to Discord's image proxy, so this stays off until the user opts in). */
 export const DEFAULT_DISCORD_COVER_SOURCE: DiscordCoverSource = 'none';
 
+/** Discord text templates. The member list shows the `state` line, and an
+ *  empty name lets the profile card header read "Listening to Psysonic". */
+export const DEFAULT_DISCORD_TEMPLATE_DETAILS = '{title}';
+export const DEFAULT_DISCORD_TEMPLATE_STATE = '{artist}';
+export const DEFAULT_DISCORD_TEMPLATE_NAME = '';
+
 /** Upper bound for mix min-rating thresholds (UI shows five stars, only 1…this many are selectable). */
 export const MIX_MIN_RATING_FILTER_MAX_STARS = 3;
 
