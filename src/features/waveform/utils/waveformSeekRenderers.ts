@@ -5,7 +5,7 @@ import {
   drawBar, drawLineDot, drawNeon, drawSegmented, drawThick, drawWaveform,
 } from '@/features/waveform/utils/waveformSeekRenderersStatic';
 import {
-  drawLiquidFill, drawParticleTrail, drawPulseWave, drawRetroTape,
+  drawFullWave, drawLiquidFill, drawParticleTrail, drawPulseWave, drawRetroTape,
 } from '@/features/waveform/utils/waveformSeekRenderersAnimated';
 
 export function drawSeekbar(
@@ -27,6 +27,7 @@ export function drawSeekbar(
     case 'segmented':     drawSegmented(canvas, progress, buffered); break;
     case 'neon':          drawNeon(canvas, progress, buffered); break;
     case 'pulsewave':     drawPulseWave(canvas, progress, buffered, anim); break;
+    case 'fullwave':      drawFullWave(canvas, progress, buffered, anim); break;
     case 'particletrail': drawParticleTrail(canvas, progress, buffered, anim); break;
     case 'liquidfill':    drawLiquidFill(canvas, progress, buffered, anim); break;
     case 'retrotape':     drawRetroTape(canvas, progress, buffered, anim); break;

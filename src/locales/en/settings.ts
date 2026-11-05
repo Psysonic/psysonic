@@ -853,6 +853,7 @@ export const settings = {
   seekbarSegmented: 'Segmented',
   seekbarNeon: 'Neon Glow',
   seekbarPulsewave: 'Pulse Wave',
+  seekbarFullwave: 'Full Wave',
   seekbarParticletrail: 'Particle Trail',
   seekbarLiquidfill: 'Liquid Fill',
   seekbarRetrotape: 'Retro Tape',

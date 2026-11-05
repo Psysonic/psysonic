@@ -71,7 +71,7 @@ export interface MusicFolder {
   name: string;
 }
 
-export type SeekbarStyle = 'truewave' | 'pseudowave' | 'linedot' | 'bar' | 'thick' | 'segmented' | 'neon' | 'pulsewave' | 'particletrail' | 'liquidfill' | 'retrotape';
+export type SeekbarStyle = 'truewave' | 'pseudowave' | 'linedot' | 'bar' | 'thick' | 'segmented' | 'neon' | 'pulsewave' | 'fullwave' | 'particletrail' | 'liquidfill' | 'retrotape';
 /**
  * Look of the custom-title-bar window buttons (minimize/maximize/close).
  * Form-descriptive names, not OS brands:

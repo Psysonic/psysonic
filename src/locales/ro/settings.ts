@@ -788,6 +788,7 @@ export const settings = {
   seekbarSegmented: 'Segmentat',
   seekbarNeon: 'Strălucire Neon',
   seekbarPulsewave: 'Undă de Puls',
+  seekbarFullwave: 'Undă Completă',
   seekbarParticletrail: 'Urmă de Particule',
   seekbarLiquidfill: 'Lichid',
   seekbarRetrotape: 'Bandă Retro',

@@ -443,7 +443,7 @@ export function AppearanceTab() {
             <SettingsSubCard>
               <SettingsField desc={t('settings.seekbarStyleDesc')}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                  {(['truewave', 'pseudowave', 'linedot', 'bar', 'thick', 'segmented', 'neon', 'pulsewave', 'particletrail', 'liquidfill', 'retrotape'] as SeekbarStyle[]).map(style => (
+                  {(['truewave', 'pseudowave', 'linedot', 'bar', 'thick', 'segmented', 'neon', 'pulsewave', 'fullwave', 'particletrail', 'liquidfill', 'retrotape'] as SeekbarStyle[]).map(style => (
                     <SeekbarPreview
                       key={style}
                       style={style}

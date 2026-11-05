@@ -765,6 +765,7 @@ export const settings = {
   seekbarSegmented: 'Segmentert',
   seekbarNeon: 'Neon',
   seekbarPulsewave: 'Pulsbølge',
+  seekbarFullwave: 'Hel bølge',
   seekbarParticletrail: 'Partikkelspor',
   seekbarLiquidfill: 'Væskerør',
   seekbarRetrotape: 'Retrotape',

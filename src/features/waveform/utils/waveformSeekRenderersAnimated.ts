@@ -62,6 +62,84 @@ export function drawPulseWave(
   ctx.globalAlpha = 1;
 }
 
+/** Full Wave: one wave length in CSS px. */
+export const FULL_WAVE_LENGTH_PX = 28;
+/** Full Wave: seconds the wave needs to travel one wave length — slow on purpose. */
+export const FULL_WAVE_PERIOD_S = 2.5;
+/** Full Wave: the wave flattens out over this many px at the track start. */
+const FULL_WAVE_FADE_IN_PX = 10;
+
+/**
+ * Vertical offset of the Full Wave line at `x` (0 at the track start), for an
+ * animation clock `t` in seconds. Crests drift slowly towards the playhead;
+ * the first few px fade in so the line leaves the start without a jump.
+ */
+export function fullWaveOffset(x: number, t: number, amp: number): number {
+  const phase = (2 * Math.PI) * (x / FULL_WAVE_LENGTH_PX - t / FULL_WAVE_PERIOD_S);
+  const fadeIn = Math.min(1, Math.max(0, x) / FULL_WAVE_FADE_IN_PX);
+  return amp * fadeIn * Math.sin(phase);
+}
+
+export function drawFullWave(
+  canvas: HTMLCanvasElement,
+  progress: number,
+  buffered: number,
+  animState: AnimState,
+) {
+  const r = setupCanvas(canvas);
+  if (!r) return;
+  const { ctx, w, h } = r;
+  const { played, buffered: buffCol, unplayed } = getColors();
+  const cy = h / 2;
+  const px = progress * w;
+  const t = animState.time;
+  const amp = Math.min(h * 0.32, 4);
+
+  // Flat rest of the track
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = unplayed;
+  ctx.fillRect(px, cy - 1, w - px, 2);
+
+  if (buffered > progress) {
+    ctx.globalAlpha = 0.45;
+    ctx.fillStyle = buffCol;
+    ctx.fillRect(px, cy - 1, buffered * w - px, 2);
+  }
+
+  if (progress <= 0) {
+    ctx.globalAlpha = 1;
+    return;
+  }
+
+  // The whole played part is one continuous wave
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = played;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = played;
+  setShadowBlur(ctx, 5);
+  ctx.lineJoin = 'round';
+  ctx.lineCap  = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, cy - fullWaveOffset(0, t, amp));
+  for (let x = 1; x < px; x += 1) {
+    ctx.lineTo(x, cy - fullWaveOffset(x, t, amp));
+  }
+  ctx.lineTo(px, cy - fullWaveOffset(px, t, amp));
+  ctx.stroke();
+
+  // Playhead tick, so the position stays readable on top of the wave
+  const tickX = Math.max(1.5, Math.min(w - 1.5, px));
+  const tickH = Math.min(h, amp * 2 + 6);
+  setShadowBlur(ctx, 6);
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(tickX, cy - tickH / 2);
+  ctx.lineTo(tickX, cy + tickH / 2);
+  ctx.stroke();
+  setShadowBlur(ctx, 0);
+  ctx.globalAlpha = 1;
+}
+
 export function drawParticleTrail(
   canvas: HTMLCanvasElement,
   progress: number,
