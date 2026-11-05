@@ -240,6 +240,9 @@ export interface AuthState {
   /** Whether the "Orbit" topbar trigger is rendered. Users who never
    *  touch Orbit can hide it so the header stays uncluttered. */
   showOrbitTrigger: boolean;
+  /** Automatic reshuffle switch in the Orbit start modal: the host's last
+   *  choice, off until they turn it on once. */
+  orbitStartAutoShuffle: boolean;
   discordRichPresence: boolean;
   /** Opt-in gate for what Discord may publish as cover art (#1299). Independent of the in-app `coverSources` chain. */
   discordCoverSource: DiscordCoverSource;
@@ -513,6 +516,7 @@ export interface AuthState {
   setTrackChangeNotificationsEnabled: (v: boolean) => void;
   setClockFormat: (v: ClockFormat) => void;
   setShowOrbitTrigger: (v: boolean) => void;
+  setOrbitStartAutoShuffle: (v: boolean) => void;
   setDiscordRichPresence: (v: boolean) => void;
   setDiscordCoverSource: (v: DiscordCoverSource) => void;
   setCoverSources: (v: CoverSourcePref[]) => void;
