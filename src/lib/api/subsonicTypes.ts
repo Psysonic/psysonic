@@ -21,9 +21,16 @@ export interface SubsonicAlbum {
   songCount: number;
   duration: number;
   playCount?: number;
+  /** Navidrome fills this from the `date` tag, so it is the original's year or the edition's, depending on tagging. */
   year?: number;
-  /** OpenSubsonic: this edition's release date. Navidrome reports the original's year in `year`. */
+  /** OpenSubsonic: this edition's release date. */
   releaseDate?: SubsonicItemDate;
+  /** OpenSubsonic: the date the release first came out. */
+  originalReleaseDate?: SubsonicItemDate;
+  /** Local index: original release year of the physical album (`album_release_year.rs`). */
+  originalYear?: number;
+  /** Local index: this edition's release year (`album_release_year.rs`). */
+  releaseYear?: number;
   genre?: string;
   /** OpenSubsonic atomic genres — preferred over splitting `genre`. */
   genres?: SubsonicItemGenre[];

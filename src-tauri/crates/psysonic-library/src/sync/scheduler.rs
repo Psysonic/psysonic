@@ -60,6 +60,10 @@ pub struct SchedulerTickReport {
     /// nothing — without this the surfaces would keep showing an album whose
     /// tracks were just retired.
     pub census_changed_index: bool,
+    /// The census stored changed release years this tick. Not an index change
+    /// (nothing derived needs a recount), but album rows already on screen
+    /// still carry the old years until the surfaces reload.
+    pub census_release_years_updated: bool,
     pub next_poll_at_ms: i64,
 }
 
@@ -210,6 +214,7 @@ impl<'a> BackgroundScheduler<'a> {
             skipped_sync_pass_active: false,
             delta: None,
             census_changed_index: false,
+            census_release_years_updated: false,
             next_poll_at_ms: now_ms,
         };
 
@@ -336,6 +341,7 @@ impl<'a> BackgroundScheduler<'a> {
         // we know from the local DB so the tier classifier has data.
         let mut stats = self.load_poll_stats(&sync_state)?;
         let mut census_changed_index = false;
+        let mut census_release_years_updated = false;
         let mut census_left_work = false;
         // The census reconciles what the delta structurally cannot see: a
         // deletion never appears in a changed-list, and a row missed once sits
@@ -384,11 +390,12 @@ impl<'a> BackgroundScheduler<'a> {
                     if census_report.changed_index()
                         || census_report.removal_refused
                         || census_report.budget_exhausted
+                        || census_report.release_years_updated > 0
                     {
                         crate::app_eprintln!(
                             "[library-sync] census: server_albums={} local_albums={} \
                              removed={} filled={} stale={} deferred={} refused={} budget_exhausted={} \
-                             enumeration_incomplete={}",
+                             enumeration_incomplete={} release_years_updated={}",
                             census_report.server_albums,
                             census_report.local_albums,
                             census_report.albums_removed,
@@ -398,9 +405,11 @@ impl<'a> BackgroundScheduler<'a> {
                             census_report.removal_refused,
                             census_report.budget_exhausted,
                             census_report.enumeration_incomplete,
+                            census_report.release_years_updated,
                         );
                     }
                     census_changed_index = census_report.changed_index();
+                    census_release_years_updated = census_report.release_years_updated > 0;
                     // Work left over by the per-run cap comes back sooner than a
                     // full interval, but not immediately: a candidate that can
                     // never resolve would otherwise turn every tick into a full
@@ -479,6 +488,7 @@ impl<'a> BackgroundScheduler<'a> {
             .map_err(SyncError::Storage)?;
 
         report.census_changed_index = census_changed_index;
+        report.census_release_years_updated = census_release_years_updated;
         report.delta = Some(delta_report);
         Ok(report)
     }

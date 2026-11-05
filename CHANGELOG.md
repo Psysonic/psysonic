@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Discord Rich Presence now shows a progress bar for the playing song, and the bar jumps to the new position when you seek.
 * With **Cover art source → Follow in-app sources**, album covers your server takes from external services such as Last.fm now appear in Discord instead of the Psysonic icon. A cover lookup that failed is tried again after 30 seconds instead of an hour.
 
+### Choose which release year album cards show
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1825](https://github.com/Psysonic/psysonic/pull/1825)**
+
+* A new choice picks the year on album cards, album headers, the album table, the home hero and the "Because you like" row: the original year (the default), the reissue year, or both, for example "1971 · 2005". It sits next to the album sorting on artist pages and under Settings → Appearance; both change the same setting. Which year Psysonic showed before depended on how your files are tagged, so a reissue could show up with the year it was reissued rather than the year the album first came out.
+* The years come from Navidrome. Albums your server reports no original or release date for keep showing the year they always did, and an album with only one known year shows that one whichever option is picked. New years show up on screen as soon as they come in. After an update, the years fill in with the next library check, which runs every 15 minutes.
+* Sorting albums by year still uses the year from before; that is a separate change.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited

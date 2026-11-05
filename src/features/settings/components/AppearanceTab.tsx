@@ -12,6 +12,10 @@ import {
 import type { SeekbarStyle, WindowButtonStyle } from '@/store/authStoreTypes';
 import { useFontStore, FontId } from '@/store/fontStore';
 import { useThemeStore } from '@/store/themeStore';
+import {
+  useAlbumYearDisplayStore,
+  type AlbumYearDisplay,
+} from '@/features/album';
 import { IS_LINUX, IS_WINDOWS } from '@/lib/util/platform';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
@@ -34,6 +38,13 @@ export function AppearanceTab() {
     { id: 'minimal', label: t('settings.fullscreenPlayerMinimal') },
     { id: 'immersive', label: t('settings.fullscreenPlayerImmersive') },
     { id: 'prism', label: t('settings.fullscreenPlayerPrism') },
+  ];
+  const albumYearDisplay = useAlbumYearDisplayStore(s => s.display);
+  const setAlbumYearDisplay = useAlbumYearDisplayStore(s => s.setDisplay);
+  const albumYearDisplayOptions: SegmentedOption<AlbumYearDisplay>[] = [
+    { id: 'original', label: t('settings.albumYearDisplayOriginal') },
+    { id: 'release', label: t('settings.albumYearDisplayRelease') },
+    { id: 'both', label: t('settings.albumYearDisplayBoth') },
   ];
   const fsAutoOpenOptions: SegmentedOption<string>[] = FULLSCREEN_AUTO_OPEN_MINUTE_OPTIONS.map(minutes => ({
     id: String(minutes),
@@ -140,6 +151,15 @@ export function AppearanceTab() {
               checked={theme.blurExplicitCovers}
               onChange={theme.setBlurExplicitCovers}
             />
+            <div className="settings-section-divider" />
+            <SettingsField label={t('settings.albumYearDisplay')} desc={t('settings.albumYearDisplaySub')}>
+              <SettingsSegmented
+                options={albumYearDisplayOptions}
+                value={albumYearDisplay}
+                onChange={setAlbumYearDisplay}
+                ariaLabel={t('settings.albumYearDisplay')}
+              />
+            </SettingsField>
             <div className="settings-section-divider" />
             <SettingsToggle
               label={t('settings.showCardTooltips')}

@@ -34,11 +34,15 @@ vi.mock('@/cover/useCoverArt', () => ({
   useCoverArt: () => ({ src: '', onImgError: vi.fn() }),
 }));
 vi.mock('@/lib/util/shuffleArray', () => ({ shuffleArray: <T,>(items: T[]) => items }));
-vi.mock('@/features/album', () => ({
+vi.mock('@/features/album', async () => ({
+  ...(await vi.importActual<typeof import('@/features/album/utils/albumYear')>(
+    '@/features/album/utils/albumYear',
+  )),
   AlbumRow: ({ albums, title }: { albums: SubsonicAlbum[]; title?: string }) => (
     <div data-testid="albums" data-title={title}>{albums.length}</div>
   ),
   albumArtistDisplayName: (item: SubsonicAlbum) => item.artist,
+  useAlbumYearDisplay: () => 'original',
   useNavigateToAlbum: () => vi.fn(),
 }));
 
