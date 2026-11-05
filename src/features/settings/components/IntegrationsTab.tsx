@@ -152,7 +152,7 @@ export function IntegrationsTab() {
                       type="text"
                       value={auth.discordTemplateName}
                       onChange={e => auth.setDiscordTemplateName(e.target.value)}
-                      placeholder="{title}"
+                      placeholder="Psysonic"
                     />
                   </SettingsField>
                   <SettingsField label={t('settings.discordTemplateDetails')}>
