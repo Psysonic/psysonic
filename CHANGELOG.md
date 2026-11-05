@@ -28,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The years come from Navidrome. Albums your server reports no original or release date for keep showing the year they always did, and an album with only one known year shows that one whichever option is picked. New years show up on screen as soon as they come in. After an update, the years fill in with the next library check, which runs every 15 minutes.
 * Sorting albums by year still uses the year from before; that is a separate change.
 
+### Back and forward buttons in the header
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by mikmik on Discord, PR [#1832](https://github.com/Psysonic/psysonic/pull/1832)**
+
+* Two arrows left of the search go back and forward through the pages you visited, so you no longer need a mouse with thumb buttons or a touchpad swipe for it. They are part of making Psysonic usable from the keyboard and with a screen reader: both have a name for screen readers and are greyed out when there is nowhere to go.
+* **Alt+← / Alt+→** (**⌘[ / ⌘]** on macOS) do the same and can be changed under **Settings → Input**. If one of these keys already belongs to another shortcut of yours, it stays there and the new shortcut starts unassigned.
+* Don't want the arrows? Turn off **Settings → Appearance → Show back / forward buttons in the header**; the keyboard shortcuts keep working.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited
