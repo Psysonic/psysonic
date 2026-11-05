@@ -37,7 +37,7 @@ fn apply_template_repeats_replacement_for_repeated_placeholder() {
 #[test]
 fn text_fields_use_documented_defaults_when_templates_are_none() {
     let f = compute_discord_text_fields("Song", "Artist", Some("Album"), None, None, None, None);
-    assert_eq!(f.name, "Song");
+    assert_eq!(f.name, "");
     assert_eq!(f.details, "Artist - Song");
     assert_eq!(f.state, "Album");
     assert_eq!(f.large_text, "Album");
@@ -64,7 +64,7 @@ fn text_fields_apply_supplied_templates_overriding_defaults() {
 fn text_fields_substitute_empty_for_missing_album() {
     let f = compute_discord_text_fields("Song", "Artist", None, None, None, None, None);
     // {album} placeholder → empty, but the surrounding template stays.
-    assert_eq!(f.name, "Song");
+    assert_eq!(f.name, "");
     assert_eq!(f.details, "Artist - Song");
     assert_eq!(f.state, "");
     assert_eq!(f.large_text, "");
@@ -81,7 +81,7 @@ fn text_fields_handle_unicode_and_special_characters() {
         None,
         None,
     );
-    assert_eq!(f.name, "Bohemian Rhapsody");
+    assert_eq!(f.name, "");
     assert_eq!(f.details, "Queen – Bohemian Rhapsody");
 }
 

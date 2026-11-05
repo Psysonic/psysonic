@@ -7,6 +7,7 @@ import { resetAllStores } from '@/test/helpers/storeReset';
 import { IntegrationsTab } from './IntegrationsTab';
 import { usePlayQueueSyncSettingsStore } from '@/features/playback/store/playQueueSyncSettingsStore';
 import { useThemeStore } from '@/store/themeStore';
+import { useAuthStore } from '@/store/authStore';
 
 vi.mock('./musicNetwork/MusicNetworkSection', () => ({
   MusicNetworkSection: () => null,
@@ -86,5 +87,27 @@ describe('IntegrationsTab backgrounds', () => {
     useThemeStore.setState({ externalArtworkEnabled: true });
     renderWithProviders(<IntegrationsTab />);
     expect(screen.getAllByRole('checkbox', { name: 'Fanart artist image' })).toHaveLength(3);
+  });
+});
+
+describe('IntegrationsTab Discord text templates', () => {
+  beforeEach(() => {
+    resetAllStores();
+    useAuthStore.setState({
+      discordRichPresence: true,
+      discordTemplateName: 'x',
+      discordTemplateDetails: 'x',
+      discordTemplateState: 'x',
+    });
+  });
+
+  it('names what each field drives and suggests the current defaults', () => {
+    renderWithProviders(<IntegrationsTab />);
+
+    const header = screen.getByText('Profile card header (name)').closest('div');
+    const state = screen.getByText('Secondary line and member list (state)').closest('div');
+    expect(header && within(header).getByRole('textbox')).toHaveAttribute('placeholder', 'Psysonic');
+    expect(state && within(state).getByRole('textbox')).toHaveAttribute('placeholder', '{artist}');
+    expect(screen.getByPlaceholderText('{title}')).toBeInTheDocument();
   });
 });

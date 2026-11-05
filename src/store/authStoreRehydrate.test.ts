@@ -176,7 +176,7 @@ describe('computeAuthStoreRehydration — Library browse scope', () => {
     expect(useAuthStore.getState().musicLibraryFilterByServer.a).toBe('all');
     expect(useAuthStore.getState().musicLibrarySelectionByServer.a).toEqual([]);
     const stored = JSON.parse(localStorage.getItem('psysonic-auth') ?? '{}');
-    expect(stored.version).toBe(2);
+    expect(stored.version).toBe(3);
     expect(stored.state.musicLibraryFilterByServer.a).toBe('all');
   });
 });

@@ -8,7 +8,7 @@
 //! so the app always starts cleanly regardless of Discord availability.
 
 use discord_rich_presence::{
-    activity::{Activity, ActivityType, Assets, Timestamps},
+    activity::{Activity, ActivityType, Assets, StatusDisplayType, Timestamps},
     DiscordIpc, DiscordIpcClient,
 };
 use reqwest::blocking::Client;
@@ -85,12 +85,13 @@ fn try_connect() -> Option<DiscordIpcClient> {
 /// - `details_template`: template string for the "details" field. Default: "{artist} - {title}".
 ///   Supported placeholders: {title}, {artist}, {album}
 /// - `state_template`: template string for the "state" field. Default: "{album}".
+///   The member list shows this line (`StatusDisplayType::State`).
 ///   Supported placeholders: {title}, {artist}, {album}
 /// - `large_text_template`: template string for the large image tooltip. Default: "{album}".
 ///   Supported placeholders: {title}, {artist}, {album}
-/// - `name_template`: template string overriding Discord's default application name in the
-///   user list (e.g. "🎵 Bohemian Rhapsody" instead of "🎵 Psysonic"). Default: "{title}".
-///   Empty string falls back to the registered Discord application name.
+/// - `name_template`: template string overriding the application name in the profile card
+///   header ("Listening to Bohemian Rhapsody" instead of "Listening to Psysonic").
+///   Default: "" (empty), which falls back to the registered Discord application name.
 ///   Supported placeholders: {title}, {artist}, {album}
 /// - `duration_secs`: total track length in seconds. When finite and greater than 0, an end
 ///   timestamp is sent so Discord draws a progress bar. Otherwise omitted.
@@ -175,7 +176,15 @@ pub async fn discord_update_presence(
     }
 
     // Only reach here when playing
-    let mut activity = Activity::new().activity_type(ActivityType::Listening);
+    let mut activity = Activity::new()
+        .activity_type(ActivityType::Listening)
+        // The big profile widget's header ("Listening to …") falls back to the
+        // application name whenever no per-track `name` is sent (empty name
+        // template), so it stays constant across tracks. The compact member-list
+        // status line is driven by `status_display_type`: point it at `state`
+        // (the artist) so the member list shows who is playing rather than the
+        // app name. The title/artist/album still fill the widget body below.
+        .status_display_type(StatusDisplayType::State);
     if !texts.name.is_empty() {
         activity = activity.name(texts.name.as_str());
     }
