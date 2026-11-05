@@ -23,8 +23,55 @@ pub(crate) fn gapless_output_source<S: Source<Item = f32>>(
     source: S,
     channels: rodio::ChannelCount,
     sample_rate: rodio::SampleRate,
-) -> UniformSourceIterator<S> {
-    UniformSourceIterator::new(source, channels, sample_rate)
+) -> UniformSourceIterator<PullToEnd<S>> {
+    UniformSourceIterator::new(PullToEnd { inner: source }, channels, sample_rate)
+}
+
+/// Input adapter for the per-track converter in `gapless_output_source`.
+///
+/// rodio's `UniformSourceIterator` ends its input on `Some(0)` without calling
+/// `next()` again, so `NotifyingSource` further down never sees the final
+/// `None`, never sets `done`, and the progress task neither switches to the
+/// chained track nor emits `audio:ended`. rodio's `TakeDuration` (the MP3/AAC
+/// end trim) reports `Some(0)` while a sub-sample remainder is left, so a
+/// trimmed track hits exactly that. One frame says "ask again" instead: the
+/// converter pulls `next()`, which returns the real `None`.
+///
+/// Scoped to the converter on purpose: a source appended straight to the
+/// Player queue must keep reporting `Some(0)`, because the queue reads it as
+/// exhaustion to look ahead at the next source's shape (see `channel_fold`).
+/// The converter itself always reports `None` to the queue.
+pub(crate) struct PullToEnd<S: Source<Item = f32>> {
+    inner: S,
+}
+
+impl<S: Source<Item = f32>> Iterator for PullToEnd<S> {
+    type Item = f32;
+    #[inline]
+    fn next(&mut self) -> Option<f32> {
+        self.inner.next()
+    }
+}
+
+impl<S: Source<Item = f32>> Source for PullToEnd<S> {
+    fn current_span_len(&self) -> Option<usize> {
+        match self.inner.current_span_len() {
+            Some(0) => Some(self.inner.channels().get() as usize),
+            other => other,
+        }
+    }
+    fn channels(&self) -> rodio::ChannelCount {
+        self.inner.channels()
+    }
+    fn sample_rate(&self) -> rodio::SampleRate {
+        self.inner.sample_rate()
+    }
+    fn total_duration(&self) -> Option<Duration> {
+        self.inner.total_duration()
+    }
+    fn try_seek(&mut self, pos: Duration) -> Result<(), rodio::source::SeekError> {
+        self.inner.try_seek(pos)
+    }
 }
 
 // ─── DynSource — type-erased Source wrapper ───────────────────────────────────

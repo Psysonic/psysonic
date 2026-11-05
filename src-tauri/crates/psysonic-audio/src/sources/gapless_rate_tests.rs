@@ -102,3 +102,36 @@ fn gapless_queue_keeps_pitch_in_reverse_with_stereo() {
         "second track: {second}"
     );
 }
+
+// MP3/AAC end trims run through rodio's `TakeDuration`, whose span length drops
+// to `Some(0)` while a sub-sample remainder of the duration is still left. The
+// per-source converter must still pull the final `None` through
+// `NotifyingSource`, or the engine never learns the track ended and the queue
+// stalls on the next gapless switch.
+fn trimmed_track_signals_done(rate: u32, channels: u16, trim: Duration) -> bool {
+    let channels = NonZeroU16::new(channels).unwrap();
+    let rate = NonZeroU32::new(rate).unwrap();
+    let samples = vec![0.25_f32; rate.get() as usize * channels.get() as usize * 2];
+    let trimmed = rodio::buffer::SamplesBuffer::new(channels, rate, samples).take_duration(trim);
+    let done = Arc::new(AtomicBool::new(false));
+    let mut out = gapless_output_source(
+        NotifyingSource::new(trimmed, done.clone()),
+        channels,
+        NonZeroU32::new(48_000).unwrap(),
+    );
+    while out.next().is_some() {}
+    done.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+#[test]
+fn trimmed_track_signals_done_through_gapless_converter() {
+    for (rate, channels) in [(44_100, 2), (44_100, 1), (48_000, 2)] {
+        for nanos in [0_u64, 5_000, 7_777, 11_000, 333_333] {
+            let trim = Duration::from_secs(1) + Duration::from_nanos(nanos);
+            assert!(
+                trimmed_track_signals_done(rate, channels, trim),
+                "done not signalled: {rate} Hz, {channels} ch, trim {trim:?}"
+            );
+        }
+    }
+}

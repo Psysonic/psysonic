@@ -63,6 +63,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Song Info stayed empty for a song that plays from a download or from the playback cache. It now asks the server for those songs too, as long as the server is reachable; offline it still shows nothing.
 
+### Gapless playlists no longer stop after an end-trimmed track
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1830](https://github.com/Psysonic/psysonic/pull/1830)**
+
+* With gapless playback on, a playlist could stop after a track whose encoder padding is trimmed from tag data (typical for AAC/M4A files from iTunes): the track ended, but Psysonic never moved on to the next one. Such tracks now hand over to the next track as they should.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
