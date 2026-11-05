@@ -69,6 +69,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * With gapless playback on, a playlist could stop after a track whose encoder padding is trimmed from tag data (typical for AAC/M4A files from iTunes): the track ended, but Psysonic never moved on to the next one. Such tracks now hand over to the next track as they should.
 
+### Radio stations show a play button
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1831](https://github.com/Psysonic/psysonic/pull/1831)**
+
+* The button on a radio station card showed a cast icon, which looked like sending audio to another device. It now shows a play icon, and stations without artwork use a radio icon as their placeholder instead of the cast icon.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
