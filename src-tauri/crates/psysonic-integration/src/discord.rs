@@ -88,8 +88,8 @@ fn try_connect() -> Option<DiscordIpcClient> {
 /// - `large_text_template`: template string for the large image tooltip. Default: "{album}".
 ///   Supported placeholders: {title}, {artist}, {album}
 /// - `name_template`: template string overriding Discord's default application name in the
-///   user list (e.g. "🎵 Bohemian Rhapsody" instead of "🎵 Psysonic"). Default: "{title}".
-///   Empty string falls back to the registered Discord application name.
+///   user list (e.g. "🎵 Bohemian Rhapsody" instead of "🎵 Psysonic"). Default: "" (empty),
+///   which falls back to the registered Discord application name.
 ///   Supported placeholders: {title}, {artist}, {album}
 // NOT specta-collected: >10 total params exceed specta's SpectaFn arg cap. Stays hand-written on generate_handler!.
 #[tauri::command]

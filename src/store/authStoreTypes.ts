@@ -256,8 +256,8 @@ export interface AuthState {
   discordTemplateState: string;
   discordTemplateLargeText: string;
   /** Template for Discord activity name (overrides the registered application
-   *  name in the user list / collapsed presence). Default "{title}".
-   *  Empty string falls back to "Psysonic". */
+   *  name in the user list / collapsed presence). Default "" (empty), which
+   *  falls back to "Psysonic". */
   discordTemplateName: string;
   useCustomTitlebar: boolean;
   /** Look of the custom-title-bar window buttons (Linux custom title bar only). */

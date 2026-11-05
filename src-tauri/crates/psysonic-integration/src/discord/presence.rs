@@ -68,7 +68,10 @@ pub(super) fn compute_discord_text_fields(
     large_text_template: Option<&str>,
     name_template: Option<&str>,
 ) -> DiscordTextFields {
-    let name = apply_template(name_template.unwrap_or("{title}"), title, artist, album);
+    // Empty default: no per-track activity name is sent, so Discord's profile
+    // header falls back to the registered application name. Matches the
+    // frontend store default (`discordTemplateName: ''`).
+    let name = apply_template(name_template.unwrap_or(""), title, artist, album);
     let details = apply_template(
         details_template.unwrap_or("{artist} - {title}"),
         title,
