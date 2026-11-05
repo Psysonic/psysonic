@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook, screen } from '@testing-library/react';
+import { fireEvent, renderHook, screen } from '@testing-library/react';
 import { useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { makeSubsonicSong } from '@/test/helpers/factories';
@@ -22,7 +22,7 @@ function renderTable(withGenre: boolean) {
   const columns = result.current;
   const displayCols = withGenre ? columns.visibleCols : columns.visibleCols.filter(c => c.key !== 'genre');
   return renderWithProviders(
-    <RandomMixTracklist columns={columns} displayCols={displayCols} songs={songs} listProps={{}}>
+    <RandomMixTracklist columns={columns} displayCols={displayCols} withGenre={withGenre} songs={songs} listProps={{}}>
       {gridStyle => songs.map((song, idx) => (
         <RandomMixTrackRow
           key={song.id}
@@ -89,5 +89,54 @@ describe('Random mix table — spreadsheet model', () => {
   it('marks title and album for measuring and tooltips', () => {
     renderTable(true);
     expect(screen.getByText('Second').closest('.tl-cell')).toHaveAttribute('data-tl-text', 'Second');
+  });
+
+  it('offers the genre column in the menu of the random mix', () => {
+    renderTable(true);
+    fireEvent.contextMenu(screen.getByText('Artist'), { clientX: 100, clientY: 20 });
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Genre' })).toBeInTheDocument();
+  });
+
+  it('does not offer the genre column in the menu of the genre mix', () => {
+    renderTable(false);
+    fireEvent.contextMenu(screen.getByText('Artist'), { clientX: 100, clientY: 20 });
+    expect(screen.getByRole('menuitemcheckbox', { name: 'Album' })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitemcheckbox', { name: 'Genre' })).toBeNull();
+  });
+});
+
+describe('Random mix table — names cut off in the artist and genre cells', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  function clip(el: HTMLElement, clipped: boolean) {
+    Object.defineProperty(el, 'clientWidth', { configurable: true, value: 100 });
+    Object.defineProperty(el, 'scrollWidth', { configurable: true, value: clipped ? 180 : 100 });
+  }
+
+  it('puts the full artist name before the hint when the name is cut off', () => {
+    renderTable(true);
+    const artist = screen.getByRole('button', { name: 'Band A' });
+    clip(artist, true);
+    fireEvent.mouseEnter(artist);
+    expect(artist.getAttribute('data-tooltip')).toBe('Band A\nClick to block this artist');
+  });
+
+  it('shows only the hint when the artist name fits', () => {
+    renderTable(true);
+    const artist = screen.getByRole('button', { name: 'Band A' });
+    clip(artist, false);
+    fireEvent.mouseEnter(artist);
+    expect(artist.getAttribute('data-tooltip')).toBe('Click to block this artist');
+  });
+
+  it('puts the full genre before the hint when the genre is cut off', () => {
+    renderTable(true);
+    const genre = screen.getByRole('button', { name: 'Rock' });
+    clip(genre, true);
+    fireEvent.mouseEnter(genre);
+    expect(genre.getAttribute('data-tooltip')?.startsWith('Rock\n')).toBe(true);
+    expect(genre).toHaveAttribute('data-tooltip-wrap');
   });
 });

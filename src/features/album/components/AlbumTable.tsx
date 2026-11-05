@@ -139,6 +139,7 @@ export default function AlbumTable({
       gridStyle={gridStyle}
       headCellClassName={col => `album-table__head-cell album-table__head-cell--${col.key}`}
       ariaSortOf={ariaSortOf}
+      ariaRowIndex={1}
       renderLabel={col => {
         const label = t(col.i18nKey ?? '');
         if (col.key === 'cover') return <span className="visually-hidden">{label}</span>;

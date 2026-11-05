@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Track tables that behave like real tables
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1837](https://github.com/Psysonic/psysonic/pull/1837)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PRs [#1837](https://github.com/Psysonic/psysonic/pull/1837), [#1838](https://github.com/Psysonic/psysonic/pull/1838)**
 
 * Every column has its own width now: dragging a divider changes only that column, and the divider follows your mouse. Long titles no longer get stuck at a fixed width.
 * When the columns are wider than the window, a thin scrollbar appears at the bottom of the view, only then. The header stays visible while you scroll down.

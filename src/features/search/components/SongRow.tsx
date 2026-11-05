@@ -30,7 +30,6 @@ interface Props {
   /** Columns in their current order (the list's `useTracklistColumns`). */
   visibleCols: readonly ColDef[];
   gridStyle: React.CSSProperties;
-  showBpm?: boolean;
   /** Position in the list, handed back with `onCursorClick`. */
   rowIndex?: number;
   /** Set only on the list's cursor row (`useTrackListCursor`). */
@@ -39,7 +38,7 @@ interface Props {
   onCursorClick?: (rowIndex: number, e: React.MouseEvent) => void;
 }
 
-function SongRow({ song, visibleCols, gridStyle, showBpm, rowIndex = 0, cursorRowId, onCursorClick }: Props) {
+function SongRow({ song, visibleCols, gridStyle, rowIndex = 0, cursorRowId, onCursorClick }: Props) {
   const navigateToAlbum = useNavigateToAlbum();
   const navigateToArtist = useNavigateToArtist();
   const { t } = useTranslation();
@@ -165,7 +164,7 @@ function SongRow({ song, visibleCols, gridStyle, showBpm, rowIndex = 0, cursorRo
     <div
       id={cursorRowId}
       style={gridStyle}
-      className={`song-list-row${isCurrent ? ' is-current' : ''}${showBpm ? ' song-list-row--with-bpm' : ''}${showCovers ? ' song-list-row--with-cover' : ''}${cursorRowId ? ' song-list-row--cursor' : ''}`}
+      className={`song-list-row${isCurrent ? ' is-current' : ''}${showCovers ? ' song-list-row--with-cover' : ''}${cursorRowId ? ' song-list-row--cursor' : ''}`}
       onClick={e => {
         if ((e.target as HTMLElement).closest('button, a, input')) return;
         onCursorClick?.(rowIndex, e);

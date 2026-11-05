@@ -14,6 +14,7 @@ import { isExplicit } from '@/lib/media/explicitStatus';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import { TracklistCell } from '@/ui/tracklist/TracklistCell';
 import { songCellText } from '@/ui/tracklist/measureColumnContent';
+import { setHintTooltip } from '@/ui/tracklist/cellTooltip';
 
 interface Props {
   song: SubsonicSong;
@@ -72,6 +73,12 @@ export default function RandomMixTrackRow({
   const isArtistBlocked = !!artist && customGenreBlacklist.some(bg => artist.toLowerCase().includes(bg.toLowerCase()));
   const isArtistJustAdded = addedArtist === artist;
   const isGenreJustAdded = addedGenre === genre;
+  const artistHint = isArtistBlocked
+    ? t('randomMix.artistBlocked')
+    : isArtistJustAdded ? t('randomMix.artistAddedToBlacklist') : t('randomMix.artistClickHint');
+  const genreHint = isGenreBlocked
+    ? t('randomMix.genreBlocked')
+    : isGenreJustAdded ? t('randomMix.genreAddedToBlacklist') : t('randomMix.genreClickHint');
   const starColor = isStarred
     ? 'var(--color-star-active, var(--accent))'
     : 'var(--color-star-inactive, var(--text-muted))';
@@ -130,7 +137,8 @@ export default function RandomMixTrackRow({
             <button
               className={`rm-artist-btn${isArtistBlocked ? ' is-blocked' : isArtistJustAdded ? ' just-added' : ''}`}
               onClick={() => { if (!isArtistBlocked) onBlacklistArtist(artist); }}
-              data-tooltip={isArtistBlocked ? t('randomMix.artistBlocked') : isArtistJustAdded ? t('randomMix.artistAddedToBlacklist') : t('randomMix.artistClickHint')}
+              onMouseEnter={e => setHintTooltip(e.currentTarget, artistHint, artist)}
+              data-tooltip={artistHint}
             >{artist}</button>
           ) : <span className="track-artist">—</span>}
         </div>
@@ -146,7 +154,8 @@ export default function RandomMixTrackRow({
             <button
               className={`rm-genre-chip${isGenreBlocked ? ' is-blocked' : isGenreJustAdded ? ' just-added' : ''}`}
               onClick={() => { if (!isGenreBlocked) onBlacklistGenre(genre); }}
-              data-tooltip={isGenreBlocked ? t('randomMix.genreBlocked') : isGenreJustAdded ? t('randomMix.genreAddedToBlacklist') : t('randomMix.genreClickHint')}
+              onMouseEnter={e => setHintTooltip(e.currentTarget, genreHint, genre)}
+              data-tooltip={genreHint}
             >{genre}</button>
           ) : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>}
         </div>

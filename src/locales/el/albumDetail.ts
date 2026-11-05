@@ -36,6 +36,7 @@ export const albumDetail = {
   trackAlbum: 'Άλμπουμ',
   trackArtist: 'Καλλιτέχνης',
   trackGenre: 'Είδος',
+  trackActions: 'Ενέργειες',
   trackGenres: 'Είδη',
   trackMood: 'Διάθεση',
   trackPlayCount: 'Αναπαραγωγές',

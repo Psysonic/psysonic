@@ -117,6 +117,15 @@ describe('TracklistHeader — right-click menu', () => {
     fireEvent.mouseDown(document.body);
     expect(screen.queryByText('albumDetail.fitAllColumns')).toBeNull();
   });
+
+  // The menu is portalled, but React still bubbles its events to the header.
+  it('stays as it is on a right-click inside it', () => {
+    setup();
+    openOn('ARTIST');
+    fireEvent.contextMenu(screen.getByText('albumDetail.fitAllColumns'), { clientX: 300, clientY: 200 });
+    expect(screen.getByText('albumDetail.moveColumnLeft')).toBeInTheDocument();
+    expect(screen.getByText('albumDetail.moveColumnRight')).toBeInTheDocument();
+  });
 });
 
 describe('TracklistHeader — right-click menu and the keyboard', () => {

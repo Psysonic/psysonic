@@ -36,6 +36,7 @@ export const albumDetail = {
   trackAlbum: 'Álbum',
   trackArtist: 'Artista',
   trackGenre: 'Género',
+  trackActions: 'Acciones',
   trackGenres: 'Géneros',
   trackMood: 'Estado de ánimo',
   trackPlayCount: 'Reproducciones',

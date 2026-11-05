@@ -106,8 +106,23 @@ describe('AlbumTable', () => {
     renderTable();
     expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('3');
     const rows = screen.getAllByRole('row');
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('1');
     expect(rows[1].getAttribute('aria-rowindex')).toBe('2');
     expect(rows[2].getAttribute('aria-rowindex')).toBe('3');
+  });
+
+  // Between the table and its rows only layout boxes sit (the sideways
+  // scrolling frame); they must not count as anything to assistive tech.
+  it('marks the layout boxes between table and rows as presentation', () => {
+    renderTable();
+    const table = screen.getByRole('table');
+    const [header, firstRow] = screen.getAllByRole('row');
+    for (const row of [header, firstRow]) {
+      const between: HTMLElement[] = [];
+      for (let el = row.parentElement; el && el !== table; el = el.parentElement) between.push(el);
+      expect(between.length).toBeGreaterThan(0);
+      expect(between.filter(el => el.getAttribute('role') !== 'presentation').map(el => el.className)).toEqual([]);
+    }
   });
 
   it('opens the album when a row is clicked outside selection mode', () => {

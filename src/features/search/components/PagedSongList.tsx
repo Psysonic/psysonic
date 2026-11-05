@@ -120,7 +120,6 @@ export default function PagedSongList({ songs, hasMore, loadingMore, onLoadMore,
             song={song}
             visibleCols={displayCols}
             gridStyle={gridStyle}
-            showBpm={showBpm}
             rowIndex={i}
             cursorRowId={cursor.cursorIndex === i ? cursor.cursorRowId : undefined}
             onCursorClick={cursor.setCursorFromClick}

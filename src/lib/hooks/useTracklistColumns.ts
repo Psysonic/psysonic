@@ -5,6 +5,11 @@ export type ColumnAlign = 'start' | 'center' | 'end';
 export interface ColDef {
   readonly key: string;
   readonly i18nKey?: string | null;
+  /**
+   * Full translation key of the column's name when its header shows no label
+   * (a column of row buttons): read out on its divider and shown while it is moved.
+   */
+  readonly nameKey?: string;
   readonly minWidth: number;
   readonly defaultWidth: number;
   readonly required: boolean;
@@ -220,6 +225,9 @@ export function useTracklistColumns(columns: readonly ColDef[], storageKey: stri
       const colKey = colDef.key;
       const startX = e.clientX;
       const startW = columnWidth(colDef, colWidthsRef.current);
+      // The ref only catches up after React has rendered a move; a release can
+      // arrive before that, so the width to save is kept here.
+      let lastW = startW;
       // Keep receiving the pointer even when it leaves the window mid-drag.
       const target = e.currentTarget as Element | null;
       try { target?.setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }
@@ -231,6 +239,7 @@ export function useTracklistColumns(columns: readonly ColDef[], storageKey: stri
           return;
         }
         const newW = resizedWidth(startW, me.clientX - startX, colDef.minWidth);
+        lastW = newW;
         setColWidths(prev => (prev[colKey] === newW ? prev : { ...prev, [colKey]: newW }));
       };
 
@@ -240,7 +249,9 @@ export function useTracklistColumns(columns: readonly ColDef[], storageKey: stri
         window.removeEventListener('pointercancel', onUp);
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        savePrefs(storageKey, colWidthsRef.current, colVisibleRef.current, colOrderRef.current);
+        const widths = { ...colWidthsRef.current, [colKey]: lastW };
+        colWidthsRef.current = widths;
+        savePrefs(storageKey, widths, colVisibleRef.current, colOrderRef.current);
       };
 
       document.body.style.cursor = 'col-resize';

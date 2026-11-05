@@ -1,6 +1,6 @@
 import { queueSongStar, queueSongRating } from '@/features/playback/store/pendingStarSync';
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { useTracklistColumns, type ColDef, TRACK_TITLE_COL } from '@/lib/hooks/useTracklistColumns';
+import { gridFor, useTracklistColumns, type ColDef, TRACK_TITLE_COL } from '@/lib/hooks/useTracklistColumns';
 import { TopFavoriteArtistsRow } from '@/features/favorites/components/TopFavoriteArtists';
 import { RadioStationRow } from '@/features/favorites/components/RadioFavorites';
 import FavoritesSongsSectionHeader from '@/features/favorites/components/FavoritesSongsSectionHeader';
@@ -51,7 +51,7 @@ const FAV_COLUMNS: readonly ColDef[] = [
   { key: 'playCount',  i18nKey: 'trackPlayCount', minWidth: 60,  defaultWidth: 80,  required: false },
   { key: 'lastPlayed', i18nKey: 'trackLastPlayed', minWidth: 90,  defaultWidth: 130, required: false },
   { key: 'bpm',        i18nKey: 'trackBpm',        minWidth: 50,  defaultWidth: 70,  required: false },
-  { key: 'remove',     i18nKey: null,              minWidth: 36,  defaultWidth: 36,  required: true, align: 'center' },
+  { key: 'remove',     i18nKey: null, nameKey: 'favorites.removeSong', minWidth: 36,  defaultWidth: 36,  required: true, align: 'center' },
 ];
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -140,11 +140,10 @@ export default function Favorites() {
     [isMobile, colVisible, visibleCols],
   );
   // Grid and width follow the columns actually shown (the compact layout adds `num`).
-  const tracklistGridStyle = useMemo(
-    () => ({ gridTemplateColumns: tracklistCols.map(c => `${colWidths[c.key]}px`).join(' ') }),
+  const { gridStyle: tracklistGridStyle, contentWidth: tracklistWidth } = useMemo(
+    () => gridFor(tracklistCols, colWidths),
     [tracklistCols, colWidths],
   );
-  const tracklistWidth = tracklistCols.reduce((sum, c) => sum + colWidths[c.key], 0);
   const sectionConfig = useFavoritesLayoutStore(s => s.sections);
   const activeServerId = useAuthStore(s => s.activeServerId);
   const resolvedBpmSongs = useResolvedTracklistBpm(
