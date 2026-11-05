@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/store/themeStore';
 import { useOverflowTooltip } from '@/lib/hooks/useOverflowTooltip';
-import { Cast, Globe, Heart, Square, Trash2, X } from 'lucide-react';
+import { Globe, Heart, Play, Radio, Square, Trash2, X } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-shell';
 import type { InternetRadioStation } from '@/lib/api/subsonicTypes';
 import { useDragDrop, useDragSource } from '@/lib/dnd/DragDropContext';
@@ -104,7 +104,7 @@ export default function RadioCard({
           />
         ) : (
           <div className="album-card-cover-placeholder playlist-card-icon">
-            <Cast size={48} strokeWidth={1.2} />
+            <Radio size={48} strokeWidth={1.2} />
           </div>
         )}
 
@@ -122,7 +122,7 @@ export default function RadioCard({
             data-tooltip={isActive && isPlaying ? t('radio.stopStation') : t('radio.playStation')}
             data-tooltip-pos="bottom"
           >
-            {isActive && isPlaying ? <Square size={13} fill="currentColor" /> : <Cast size={14} />}
+            {isActive && isPlaying ? <Square size={13} fill="currentColor" /> : <Play size={15} fill="currentColor" />}
           </button>
         </div>
 

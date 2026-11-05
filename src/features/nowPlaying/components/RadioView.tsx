@@ -1,6 +1,6 @@
 import React, { memo, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AudioLines, Cast, Clock, Radio, SkipForward, Users } from 'lucide-react';
+import { AudioLines, Clock, Radio, SkipForward, Users } from 'lucide-react';
 import type { useRadioMetadata } from '@/features/radio';
 import {
   getRadioSpectrumAvailability,
@@ -70,7 +70,7 @@ const RadioView = memo(function RadioView({
             ? <img src={resolvedCover} alt={currentRadio.name} className="np-cover" />
             : radioMeta.currentArt
               ? <img src={radioMeta.currentArt} alt="" className="np-cover" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-              : <div className="np-cover np-cover-fallback"><Cast size={52} /></div>}
+              : <div className="np-cover np-cover-fallback"><Radio size={52} /></div>}
         </div>
         <div style={{ flex: 1 }} />
       </div>
