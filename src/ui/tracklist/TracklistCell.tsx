@@ -2,13 +2,7 @@ import { useCallback, type MouseEvent, type ReactNode } from 'react';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import { useThemeStore } from '@/store/themeStore';
 import { columnAlign } from '@/ui/tracklist/columnAlign';
-
-/** True when the cell or anything inside it cuts its content off. */
-function clipsContent(cell: HTMLElement): boolean {
-  if (cell.scrollWidth > cell.clientWidth + 1) return true;
-  return Array.from(cell.querySelectorAll<HTMLElement>('*'))
-    .some(node => node.clientWidth > 0 && node.scrollWidth > node.clientWidth + 1);
-}
+import { clipsContent } from '@/ui/tracklist/cellTooltip';
 
 interface Props {
   col: ColDef;

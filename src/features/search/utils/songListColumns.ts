@@ -6,7 +6,7 @@ import { TRACK_TITLE_COL, type ColDef } from '@/lib/hooks/useTracklistColumns';
  * sort the rows loaded so far: these headers do not sort.
  */
 export const SONG_LIST_COLUMNS: readonly ColDef[] = [
-  { key: 'actions',  i18nKey: null,            minWidth: 64, defaultWidth: 72,  required: true, align: 'center' },
+  { key: 'actions',  i18nKey: null, nameKey: 'albumDetail.trackActions', minWidth: 64, defaultWidth: 72,  required: true, align: 'center' },
   { key: 'title',    i18nKey: 'trackTitle',    ...TRACK_TITLE_COL, required: true },
   { key: 'artist',   i18nKey: 'trackArtist',   minWidth: 80, defaultWidth: 200, required: false },
   { key: 'album',    i18nKey: 'trackAlbum',    minWidth: 80, defaultWidth: 200, required: false },

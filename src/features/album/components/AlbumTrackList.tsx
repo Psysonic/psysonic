@@ -1,7 +1,7 @@
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import type { Track } from '@/lib/media/trackTypes';
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
-import { fittedWidth, useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
+import { fittedWidth, gridFor, useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
 import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useTranslation } from 'react-i18next';
@@ -135,15 +135,10 @@ export default function AlbumTrackList({
     [policy.canFavorite, visibleCols],
   );
   // The grid follows the columns actually shown (offline drops `favorite`).
-  const displayGridStyle = useMemo(
-    () => (displayCols === visibleCols
-      ? gridStyle
-      : { gridTemplateColumns: displayCols.map(c => `${colWidths[c.key]}px`).join(' ') }),
-    [displayCols, visibleCols, gridStyle, colWidths],
+  const { gridStyle: displayGridStyle, contentWidth: displayWidth } = useMemo(
+    () => (displayCols === visibleCols ? { gridStyle, contentWidth } : gridFor(displayCols, colWidths)),
+    [displayCols, visibleCols, gridStyle, contentWidth, colWidths],
   );
-  const displayWidth = displayCols === visibleCols
-    ? contentWidth
-    : displayCols.reduce((sum, c) => sum + colWidths[c.key], 0);
 
   const handleResizeStart = useCallback(
     (e: React.PointerEvent, colIndex: number) => {

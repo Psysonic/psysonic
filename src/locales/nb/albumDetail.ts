@@ -36,6 +36,7 @@ export const albumDetail = {
   trackAlbum: 'Album',
   trackArtist: 'Artist',
   trackGenre: 'Sjanger',
+  trackActions: 'Handlinger',
   trackGenres: 'Sjangere',
   trackMood: 'Stemning',
   trackPlayCount: 'Avspillinger',

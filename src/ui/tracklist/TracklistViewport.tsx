@@ -7,6 +7,9 @@ import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
  */
 export const TRACKLIST_STICKY_HEADER_PX = 48;
 
+/** Pixels per line for wheel events that count in lines instead of pixels. */
+const WHEEL_LINE_PX = 16;
+
 interface Props {
   header: React.ReactNode;
   /** Sum of the visible column widths in px. */
@@ -60,17 +63,38 @@ export function TracklistViewport({ header, contentWidth, children }: Props) {
     if (head && head.scrollLeft !== x) head.scrollLeft = x;
   }, []);
 
+  // The header box clips instead of scrolling, so a sideways swipe or Shift +
+  // wheel over it is handed to the rows. A plain vertical wheel stays the page's.
+  const onHeadWheel = useCallback((e: React.WheelEvent) => {
+    const body = bodyRef.current;
+    if (!body) return;
+    const raw = e.deltaX !== 0 ? e.deltaX : e.shiftKey ? e.deltaY : 0;
+    if (raw === 0) return;
+    const unit = e.deltaMode === 1 ? WHEEL_LINE_PX : e.deltaMode === 2 ? body.clientWidth : 1;
+    body.scrollLeft += raw * unit;
+    align(body.scrollLeft);
+  }, [align]);
+
+  // Layout boxes only: inside a `role="table"` they must not stand between the
+  // table and its rows.
   return (
-    <div className="tl-viewport">
-      <div className="tl-head-clip" ref={headRef} onScroll={e => align(e.currentTarget.scrollLeft)}>
-        <div style={{ width: contentWidth, minWidth: '100%' }}>{header}</div>
+    <div className="tl-viewport" role="presentation">
+      <div
+        className="tl-head-clip"
+        role="presentation"
+        ref={headRef}
+        onScroll={e => align(e.currentTarget.scrollLeft)}
+        onWheel={onHeadWheel}
+      >
+        <div role="presentation" style={{ width: contentWidth, minWidth: '100%' }}>{header}</div>
       </div>
       <div
         className="tl-body"
+        role="presentation"
         ref={bodyRef}
         onScroll={e => align(e.currentTarget.scrollLeft)}
       >
-        <div style={{ width: contentWidth, minWidth: '100%' }}>{children}</div>
+        <div role="presentation" style={{ width: contentWidth, minWidth: '100%' }}>{children}</div>
       </div>
       {overflow && (
         <div

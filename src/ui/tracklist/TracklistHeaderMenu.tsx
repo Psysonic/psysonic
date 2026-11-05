@@ -129,7 +129,12 @@ export function TracklistHeaderMenu({
       aria-label={t('albumDetail.columns')}
       style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 10050 }}
       onKeyDown={onMenuKeyDown}
-      onContextMenu={e => e.preventDefault()}
+      // Portalled, but React bubbles its events to the header, which would
+      // reopen the menu there — without the column it was opened on.
+      onContextMenu={e => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
     >
       <div className="tracklist-col-picker-label">{t('albumDetail.columns')}</div>
       {allColumns.filter(c => !c.required).map(c => {

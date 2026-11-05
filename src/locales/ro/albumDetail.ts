@@ -36,6 +36,7 @@ export const albumDetail = {
   trackAlbum: 'Album',
   trackArtist: 'Artist',
   trackGenre: 'Gen',
+  trackActions: 'Acțiuni',
   trackGenres: 'Genuri',
   trackMood: 'Dispoziție',
   trackPlayCount: 'Redări',

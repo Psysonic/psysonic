@@ -324,7 +324,13 @@ export default function RandomMix() {
               {t('randomMix.noSongsMatchFilters')}
             </div>
           ) : (
-            <RandomMixTracklist columns={columns} displayCols={genreMixCols} songs={filteredGenreMixSongs} listProps={cursor.listProps}>
+            <RandomMixTracklist
+              columns={columns}
+              displayCols={genreMixCols}
+              withGenre={false}
+              songs={filteredGenreMixSongs}
+              listProps={cursor.listProps}
+            >
               {gridStyle => filteredGenreMixSongs.map((song, idx) => {
                 const track = songToTrack(song);
                 const queueSongs = filteredGenreMixSongs.map(songToTrack);

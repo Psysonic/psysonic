@@ -68,7 +68,7 @@ const PL_COLUMNS: readonly ColDef[] = [
   { key: 'playCount',  i18nKey: 'trackPlayCount', minWidth: 60,  defaultWidth: 80,  required: false },
   { key: 'lastPlayed', i18nKey: 'trackLastPlayed', minWidth: 90,  defaultWidth: 130, required: false },
   { key: 'bpm',        i18nKey: 'trackBpm',        minWidth: 50,  defaultWidth: 70,  required: false },
-  { key: 'delete',     i18nKey: null,              minWidth: 36,  defaultWidth: 36,  required: true, align: 'center' },
+  { key: 'delete',     i18nKey: null, nameKey: 'playlists.removeSong', minWidth: 36,  defaultWidth: 36,  required: true, align: 'center' },
 ];
 
 export default function PlaylistDetail() {

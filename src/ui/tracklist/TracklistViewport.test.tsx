@@ -85,6 +85,40 @@ describe('TracklistViewport', () => {
     expect(body.scrollLeft).toBe(60);
   });
 
+  it('scrolls sideways when the touchpad or wheel moves sideways over the header', () => {
+    stubClientWidth(500);
+    const { container } = render(
+      <TracklistViewport header={<div>head</div>} contentWidth={900}><div>rows</div></TracklistViewport>,
+    );
+    const bar = container.querySelector('.tl-hbar') as HTMLElement;
+    const body = container.querySelector('.tl-body') as HTMLElement;
+    const head = container.querySelector('.tl-head-clip') as HTMLElement;
+    fireEvent.wheel(head, { deltaX: 40 });
+    expect(body.scrollLeft).toBe(40);
+    expect(bar.scrollLeft).toBe(40);
+    expect(head.scrollLeft).toBe(40);
+  });
+
+  it('scrolls sideways on Shift + wheel over the header', () => {
+    stubClientWidth(500);
+    const { container } = render(
+      <TracklistViewport header={<div>head</div>} contentWidth={900}><div>rows</div></TracklistViewport>,
+    );
+    const body = container.querySelector('.tl-body') as HTMLElement;
+    fireEvent.wheel(container.querySelector('.tl-head-clip') as HTMLElement, { deltaY: 30, shiftKey: true });
+    expect(body.scrollLeft).toBe(30);
+  });
+
+  it('leaves a plain vertical wheel over the header to the page', () => {
+    stubClientWidth(500);
+    const { container } = render(
+      <TracklistViewport header={<div>head</div>} contentWidth={900}><div>rows</div></TracklistViewport>,
+    );
+    const body = container.querySelector('.tl-body') as HTMLElement;
+    fireEvent.wheel(container.querySelector('.tl-head-clip') as HTMLElement, { deltaY: 30 });
+    expect(body.scrollLeft).toBe(0);
+  });
+
   it('lays header and rows out at the full column width', () => {
     stubClientWidth(500);
     const { container } = render(

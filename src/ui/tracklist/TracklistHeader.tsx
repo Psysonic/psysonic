@@ -44,6 +44,8 @@ export interface TracklistHeaderProps {
   ariaSortOf?: (key: string) => 'ascending' | 'descending' | 'none' | undefined;
   /** Extra classes on a header cell (table-specific styling hooks). */
   headCellClassName?: (col: ColDef) => string;
+  /** `aria-rowindex` of the header row, for tables whose rows carry one (virtualised `role="table"`). */
+  ariaRowIndex?: number;
 }
 
 interface HoldState {
@@ -65,6 +67,7 @@ interface DragView {
 
 function columnName(col: ColDef, t: TFunction): string {
   if (col.i18nKey) return t(columnLabelKey(col.i18nKey));
+  if (col.nameKey) return t(col.nameKey);
   return col.key === 'num' ? '#' : col.key;
 }
 
@@ -86,7 +89,7 @@ function pressTime(): number {
 export function TracklistHeader({
   cols, gridStyle, renderLabel, sort, isSortable, onSort,
   onResizeStart, onAutofit, onResizeBy, widthOf, t, resizable = true, onReorder, menu,
-  ariaSortOf, headCellClassName,
+  ariaSortOf, headCellClassName, ariaRowIndex,
 }: TracklistHeaderProps) {
   // A column moved by keyboard keeps the focus on its new place.
   const refocusKey = useRef<string | null>(null);
@@ -216,9 +219,16 @@ export function TracklistHeader({
     };
   }, [dropTarget, endHold, onReorder]);
 
-  // Never leave a timer behind.
+  // Never leave a timer behind, nor the page cursor of a column held while the
+  // table went away.
   useEffect(() => () => {
-    if (hold.current) window.clearTimeout(hold.current.timer);
+    const h = hold.current;
+    if (!h) return;
+    window.clearTimeout(h.timer);
+    if (h.active) {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
   }, []);
 
   const onCellPointerDown = (e: React.PointerEvent, col: ColDef) => {
@@ -310,6 +320,7 @@ export function TracklistHeader({
       className="tracklist-header tl-header"
       style={gridStyle}
       role="row"
+      aria-rowindex={ariaRowIndex}
       ref={rowRef}
       onContextMenu={onHeaderContextMenu}
     >
@@ -379,7 +390,9 @@ export function TracklistHeader({
         <div className="tl-drag-ghost" style={{ left: drag.x, top: drag.y }} aria-hidden="true">
           {(() => {
             const dragged = cols.find(c => c.key === drag.key);
-            return dragged ? renderLabel(dragged) : drag.label;
+            const label = dragged ? renderLabel(dragged) : null;
+            // A column that shows no label (row buttons) is shown by its name.
+            return label === null || label === undefined || label === '' ? drag.label : label;
           })()}
         </div>,
         document.body,

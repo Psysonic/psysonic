@@ -38,6 +38,11 @@
   display: none;
 }
 
+/* The thin bar comes from the ::-webkit-scrollbar rules below, which WebView2,
+   WebKitGTK and WKWebView all support. Chromium (and WebKit, where it knows
+   scrollbar-width) ignores those rules once scrollbar-width or scrollbar-color
+   is set and draws its own bar instead, so the standard properties are only
+   for engines without the prefixed rules. */
 .tl-hbar {
   position: sticky;
   bottom: 0;
@@ -45,8 +50,12 @@
   height: 10px;
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--text-muted) 60%, transparent) transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .tl-hbar {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-muted) 60%, transparent) transparent;
+  }
 }
 .tl-hbar::-webkit-scrollbar {
   height: 6px;
@@ -70,6 +79,19 @@
   column-gap: 0;
   padding-left: 0;
   padding-right: 0;
+}
+
+/* Header cells fill the whole row, the row's vertical padding included: a cell
+   without a label (a column of row buttons) would otherwise collapse to 0 px,
+   and its divider and the area that holds or right-clicks the column with it. */
+.tl-viewport .tracklist-header {
+  align-items: stretch;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.tl-viewport .tl-head-cell {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
 }
 
 .tl-cell,

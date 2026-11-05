@@ -11,6 +11,8 @@ interface Props {
   columns: ReturnType<typeof useTracklistColumns>;
   /** The columns this table shows: the hook's visible ones, minus `genre` in the genre mix. */
   displayCols: readonly ColDef[];
+  /** False for the genre mix: it never shows the genre, so its menu does not offer it. */
+  withGenre?: boolean;
   songs: readonly SubsonicSong[];
   /** Row-cursor props of the list (`useTrackListCursor`). */
   listProps: React.HTMLAttributes<HTMLDivElement>;
@@ -22,7 +24,9 @@ interface Props {
  * Frame of a random mix table: header with dividers, column menu and moving,
  * plus the sideways-scrolling viewport the rows render into.
  */
-export default function RandomMixTracklist({ columns, displayCols, songs, listProps, children }: Props) {
+export default function RandomMixTracklist({
+  columns, displayCols, withGenre = true, songs, listProps, children,
+}: Props) {
   const { t } = useTranslation();
   const {
     colWidths, colVisible, setColumnWidth, startResize, moveColumn, toggleColumn, resetColumns, tracklistRef,
@@ -62,7 +66,7 @@ export default function RandomMixTracklist({ columns, displayCols, songs, listPr
       }}
       onReorder={moveColumn}
       menu={{
-        allColumns: RANDOM_MIX_COLUMNS,
+        allColumns: withGenre ? RANDOM_MIX_COLUMNS : RANDOM_MIX_COLUMNS.filter(c => c.key !== 'genre'),
         colVisible,
         toggleColumn,
         resetColumns,

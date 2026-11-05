@@ -36,6 +36,7 @@ export const albumDetail = {
   trackAlbum: '专辑',
   trackArtist: '艺术家',
   trackGenre: '流派',
+  trackActions: '操作',
   trackGenres: '流派',
   trackMood: '情绪',
   trackPlayCount: '播放次数',

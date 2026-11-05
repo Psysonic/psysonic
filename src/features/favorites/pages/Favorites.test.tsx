@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   },
   isMobile: false,
   tracklistCols: [] as string[][],
+  tracklistGrids: [] as { template: string; width: number }[],
   visibleSongTitles: [] as string[][],
 }));
 
@@ -89,8 +90,14 @@ vi.mock('@/features/favorites/components/FavoritesSongsSectionHeader', () => ({
   ),
 }));
 vi.mock('@/features/favorites/components/FavoritesSongsTracklist', () => ({
-  default: ({ visibleCols, visibleSongs }: { visibleCols: ColDef[]; visibleSongs: SubsonicSong[] }) => {
+  default: ({ visibleCols, visibleSongs, gridStyle, contentWidth }: {
+    visibleCols: ColDef[];
+    visibleSongs: SubsonicSong[];
+    gridStyle: { gridTemplateColumns?: unknown };
+    contentWidth: number;
+  }) => {
     mocks.tracklistCols.push(visibleCols.map(c => c.key));
+    mocks.tracklistGrids.push({ template: String(gridStyle.gridTemplateColumns), width: contentWidth });
     mocks.visibleSongTitles.push(visibleSongs.map(song => song.title));
     return null;
   },
@@ -99,6 +106,7 @@ vi.mock('@/features/favorites/components/FavoritesSongsTracklist', () => ({
 import Favorites from './Favorites';
 import { DEFAULT_FAVORITES_SECTIONS, useFavoritesLayoutStore } from '@/features/favorites/store/favoritesLayoutStore';
 import { useLiveSearchScopeStore } from '@/store/liveSearchScopeStore';
+import { useAuthStore } from '@/store/authStore';
 
 function sectionTitles(): string[] {
   return screen.getAllByTestId('fav-section').map(el => el.textContent ?? '');
@@ -123,6 +131,7 @@ describe('Favorites page layout', () => {
     resetPlayerStore();
     mocks.isMobile = false;
     mocks.tracklistCols = [];
+    mocks.tracklistGrids = [];
     mocks.visibleSongTitles = [];
     useFavoritesLayoutStore.setState({ sections: DEFAULT_FAVORITES_SECTIONS });
     useLiveSearchScopeStore.setState({ query: '', scope: null, undoStack: [] });
@@ -192,6 +201,20 @@ describe('Favorites page layout', () => {
     renderWithProviders(<Favorites />);
 
     expect(lastTracklistCols()).toEqual(['num', 'title', 'artist', 'remove']);
+  });
+
+  // Ratings switched on while the page is open: the rating column has no stored
+  // width yet and must get its default, not `undefinedpx`.
+  it('gives a column without a stored width its default width', () => {
+    localStorage.setItem('psysonic_favorites_columns', JSON.stringify({
+      v: 2, visible: ['title', 'rating', 'remove'], widths: {},
+    }));
+    useAuthStore.setState({ showStarRatings: false });
+    renderWithProviders(<Favorites />);
+    act(() => useAuthStore.setState({ showStarRatings: true }));
+
+    expect(lastTracklistCols()).toEqual(['title', 'rating', 'remove']);
+    expect(mocks.tracklistGrids[mocks.tracklistGrids.length - 1]).toEqual({ template: '340px 120px 36px', width: 496 });
   });
 
   it('filters every section and auto-collapses non-track rows', () => {

@@ -176,6 +176,18 @@ describe('useTracklistColumns — dragging a divider', () => {
     expect(saved()?.widths.artist).toBe(230);
   });
 
+  // Move and release can arrive before React has rendered the move.
+  it('saves the width of the last move when the release follows at once', () => {
+    const { result } = renderHook(() => useTracklistColumns(COLUMNS, KEY));
+    act(() => result.current.startResize(press(500), 'artist'));
+    act(() => {
+      fireEvent.pointerMove(window, { clientX: 560, buttons: 1 });
+      fireEvent.pointerUp(window, { clientX: 560 });
+    });
+    expect(saved()?.widths.artist).toBe(240);
+    expect(result.current.colWidths.artist).toBe(240);
+  });
+
   // A release outside the window can get lost; the next move then has no button down.
   it('stops resizing when the button is no longer held', () => {
     const { result } = renderHook(() => useTracklistColumns(COLUMNS, KEY));

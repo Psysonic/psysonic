@@ -1,7 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, screen } from '@testing-library/react';
+import { act, fireEvent, screen } from '@testing-library/react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
+import { useAuthStore } from '@/store/authStore';
+import { offlineActionPolicy } from '@/features/offline';
 
 vi.mock('@/lib/hooks/useIsMobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/ui/TracklistColumnPicker', () => ({ TracklistColumnPicker: () => null }));
@@ -122,6 +124,44 @@ describe('AlbumTrackList — header keys and the row cursor', () => {
     onPlaySong.mockClear();
     fireEvent.keyDown(container.querySelector('.tl-head-cell[data-tl-col="num"]')!, { key: 'Enter' });
     expect(onPlaySong).not.toHaveBeenCalled();
+  });
+});
+
+describe('AlbumTrackList — offline grid', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useAuthStore.setState({ showStarRatings: true });
+  });
+
+  // Offline drops `favorite`, so the list builds its own grid. A column that has
+  // no stored width yet (ratings switched on while the album is open) must get
+  // its default width there too, not `undefinedpx`.
+  it('gives a column without a stored width its default in the offline grid', () => {
+    localStorage.setItem('psysonic_tracklist_columns', JSON.stringify({
+      v: 2, visible: ['num', 'title', 'rating', 'duration'], widths: {},
+    }));
+    useAuthStore.setState({ showStarRatings: false });
+    const { container } = renderWithProviders(
+      <AlbumTrackList
+        songs={SONGS}
+        hasVariousArtists={false}
+        currentTrack={null}
+        isPlaying={false}
+        ratings={{}}
+        userRatingOverrides={{}}
+        starredSongs={new Set()}
+        onPlaySong={vi.fn()}
+        onRate={vi.fn()}
+        onToggleSongStar={vi.fn()}
+        onContextMenu={vi.fn()}
+        actionPolicy={offlineActionPolicy('trackRow', true)}
+      />,
+    );
+    act(() => useAuthStore.setState({ showStarRatings: true }));
+    const header = container.querySelector('.tl-header') as HTMLElement;
+    const cells = header.querySelectorAll('.tl-head-cell');
+    expect([...cells].map(c => c.getAttribute('data-tl-col'))).toEqual(['num', 'title', 'rating', 'duration']);
+    expect(header.style.gridTemplateColumns).toBe('60px 340px 120px 92px');
   });
 });
 

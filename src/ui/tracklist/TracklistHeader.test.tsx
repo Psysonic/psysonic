@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, createEvent, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, createEvent, fireEvent, render, screen } from '@testing-library/react';
 import type { TFunction } from 'i18next';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
 import { TracklistHeader } from '@/ui/tracklist/TracklistHeader';
@@ -205,6 +205,16 @@ describe('TracklistHeader — moving columns', () => {
     expect(props.onSort).not.toHaveBeenCalled();
   });
 
+  it('gives the page its cursor back when the header goes away during a move', () => {
+    setupMovable();
+    fireEvent.pointerDown(cell('DURATION'), { clientX: 450, clientY: 10, button: 0, pointerId: 1 });
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(document.body.style.cursor).toBe('grabbing');
+    cleanup();
+    expect(document.body.style.cursor).toBe('');
+    expect(document.body.style.userSelect).toBe('');
+  });
+
   it('drops the move on Escape', () => {
     const props = setupMovable();
     fireEvent.pointerDown(cell('DURATION'), { clientX: 450, clientY: 10, button: 0, pointerId: 1 });
@@ -214,6 +224,33 @@ describe('TracklistHeader — moving columns', () => {
     fireEvent.pointerUp(window, { clientX: 100, clientY: 10, pointerId: 1 });
     expect(props.onReorder).not.toHaveBeenCalled();
     expect(document.querySelector('.tl-drag-ghost')).toBeNull();
+  });
+});
+
+describe('TracklistHeader — columns that show no label', () => {
+  const WITH_REMOVE: readonly ColDef[] = [
+    ...COLS,
+    { key: 'remove', i18nKey: null, nameKey: 'favorites.removeSong', minWidth: 36, defaultWidth: 36, required: true, align: 'center' },
+  ];
+  const blankRemove = (col: ColDef) => (col.key === 'remove' ? '' : col.key.toUpperCase());
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('names the divider after the column, not its key', () => {
+    setup({ cols: WITH_REMOVE, renderLabel: blankRemove });
+    expect(screen.getAllByRole('separator')[3]).toHaveAttribute('aria-label', 'favorites.removeSong');
+  });
+
+  it('shows the column name under the pointer while it is moved', () => {
+    vi.useFakeTimers();
+    setup({ cols: WITH_REMOVE, renderLabel: blankRemove, onReorder: vi.fn() });
+    const remove = document.querySelector('.tl-head-cell[data-tl-col="remove"]') as HTMLElement;
+    fireEvent.pointerDown(remove, { clientX: 510, clientY: 10, button: 0, pointerId: 1 });
+    act(() => { vi.advanceTimersByTime(400); });
+    expect(document.querySelector('.tl-drag-ghost')).toHaveTextContent('favorites.removeSong');
+    fireEvent.pointerUp(window, { clientX: 510, clientY: 10, pointerId: 1 });
   });
 });
 
