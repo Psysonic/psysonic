@@ -489,6 +489,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Tracks — explicit badges and optional cover blur (PR #1731)',
       'Settings — full-text search across every option, typo-tolerant (PR #1747)',
       'Navigation — back and forward buttons in the header, with shortcuts (PR #1832)',
+      'Orbit — choose automatic reshuffle when starting a session (PR #1833)',
     ],
   },
   {

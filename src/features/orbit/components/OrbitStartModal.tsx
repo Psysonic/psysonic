@@ -38,6 +38,9 @@ export default function OrbitStartModal({ onClose }: Props) {
   const [copied, setCopied]       = useState(false);
   const [hasCopied, setHasCopied] = useState(false);
   const [clearQueue, setClearQueue] = useState(false);
+  // Starts from the host's last choice (off until they turn it on once), so
+  // nobody has to switch the reshuffle off — or on — again for every session.
+  const [autoShuffle, setAutoShuffle] = useState(() => useAuthStore.getState().orbitStartAutoShuffle);
 
   const servers = useAuthStore(state => state.servers);
   const libraryBrowseServerIds = useAuthStore(state => state.libraryBrowseServerIds);
@@ -101,7 +104,8 @@ export default function OrbitStartModal({ onClose }: Props) {
 
     setBusy(true);
     try {
-      await startOrbitSession({ name: trimmed, maxUsers, sid, serverId: server.id, clearQueue });
+      await startOrbitSession({ name: trimmed, maxUsers, sid, serverId: server.id, clearQueue, autoShuffle });
+      useAuthStore.getState().setOrbitStartAutoShuffle(autoShuffle);
       onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('orbit.errStartFailed'));
@@ -227,6 +231,23 @@ export default function OrbitStartModal({ onClose }: Props) {
                 type="checkbox"
                 checked={clearQueue}
                 onChange={e => setClearQueue(e.target.checked)}
+              />
+              <span className="toggle-track" />
+            </span>
+          </label>
+        </div>
+
+        <div className="orbit-start-modal__field">
+          <label className="orbit-start-modal__toggle-row">
+            <div className="orbit-start-modal__toggle-text">
+              <div className="orbit-start-modal__label">{t('orbit.settingAutoShuffle')}</div>
+              <div className="orbit-start-modal__helper">{t('orbit.settingAutoShuffleHint')}</div>
+            </div>
+            <span className="toggle-switch">
+              <input
+                type="checkbox"
+                checked={autoShuffle}
+                onChange={e => setAutoShuffle(e.target.checked)}
               />
               <span className="toggle-track" />
             </span>

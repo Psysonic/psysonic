@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **Alt+← / Alt+→** (**⌘[ / ⌘]** on macOS) do the same and can be changed under **Settings → Input**. If one of these keys already belongs to another shortcut of yours, it stays there and the new shortcut starts unassigned.
 * Don't want the arrows? Turn off **Settings → Appearance → Show back / forward buttons in the header**; the keyboard shortcuts keep working.
 
+### Choose automatic reshuffle when starting an Orbit session
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Misty on Discord, PR [#1833](https://github.com/Psysonic/psysonic/pull/1833)**
+
+* The Orbit start dialog has an **Automatic reshuffle** switch, so you decide before the session starts whether the queue reshuffles on its own. It is off by default and remembers your last choice for the next session.
+* You can still turn it on or off in the session settings while the session runs.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited

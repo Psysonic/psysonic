@@ -101,6 +101,7 @@ export const useAuthStore = create<AuthState>()(
       trackChangeNotificationsEnabled: false,
       clockFormat: 'auto',
       showOrbitTrigger: true,
+      orbitStartAutoShuffle: false,
       discordRichPresence: false,
       discordCoverSource: DEFAULT_DISCORD_COVER_SOURCE,
       coverSources: DEFAULT_COVER_SOURCES,

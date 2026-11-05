@@ -41,6 +41,12 @@ export interface StartOrbitArgs {
   serverId?: string;
   /** Start with an empty queue instead of retaining the chosen server's tracks. */
   clearQueue?: boolean;
+  /**
+   * Whether the session starts with the automatic reshuffle on. Omitted =
+   * `ORBIT_DEFAULT_SETTINGS.autoShuffle`. The host can still flip it in the
+   * session settings.
+   */
+  autoShuffle?: boolean;
 }
 
 function restoreHostScopeSnapshot(snapshot: OrbitHostScopeSnapshot | null): void {
@@ -142,7 +148,11 @@ export async function startOrbitSession(args: StartOrbitArgs): Promise<OrbitStat
     // Seed the host's current track-transition prefs so a guest joining
     // immediately adopts them from the very first blob; the host tick keeps
     // them fresh thereafter.
-    state.settings = { ...(state.settings ?? ORBIT_DEFAULT_SETTINGS), transitions: readOrbitTransitionSettings() };
+    state.settings = {
+      ...(state.settings ?? ORBIT_DEFAULT_SETTINGS),
+      ...(args.autoShuffle !== undefined ? { autoShuffle: args.autoShuffle } : {}),
+      transitions: readOrbitTransitionSettings(),
+    };
     await writeOrbitState(sessionPlaylistId, state, serverId);
     await writeOrbitHeartbeat(outboxPlaylistId, outboxName, serverId);
     if (!orbitBindingRevisionIsCurrent(startRevision)) throw new Error('Orbit start superseded');
