@@ -329,9 +329,9 @@ export const settings = {
   discordTemplates: 'Пользовательские шаблоны текста',
   discordTemplatesDesc: 'Настройте, какая информация отображается в профиле Discord. Переменные: {title}, {artist}, {album}',
   discordTemplateDetails: 'Основная строка (details)',
-  discordTemplateState: 'Вторичная строка (state)',
+  discordTemplateState: 'Вторичная строка и список участников (state)',
   discordTemplateLargeText: 'Подсказка альбома (largeText)',
-  discordTemplateName: 'Строка в списке пользователей (name)',
+  discordTemplateName: 'Заголовок карточки профиля (name)',
   nowPlayingEnabled: 'Показывать в «Сейчас играет»',
   nowPlayingEnabledDesc:
     'Отправлять на сервер, что вы сейчас слушаете. Отключите, чтобы не делиться этим.',

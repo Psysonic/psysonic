@@ -85,12 +85,13 @@ fn try_connect() -> Option<DiscordIpcClient> {
 /// - `details_template`: template string for the "details" field. Default: "{artist} - {title}".
 ///   Supported placeholders: {title}, {artist}, {album}
 /// - `state_template`: template string for the "state" field. Default: "{album}".
+///   The member list shows this line (`StatusDisplayType::State`).
 ///   Supported placeholders: {title}, {artist}, {album}
 /// - `large_text_template`: template string for the large image tooltip. Default: "{album}".
 ///   Supported placeholders: {title}, {artist}, {album}
-/// - `name_template`: template string overriding Discord's default application name in the
-///   user list (e.g. "🎵 Bohemian Rhapsody" instead of "🎵 Psysonic"). Default: "" (empty),
-///   which falls back to the registered Discord application name.
+/// - `name_template`: template string overriding the application name in the profile card
+///   header ("Listening to Bohemian Rhapsody" instead of "Listening to Psysonic").
+///   Default: "" (empty), which falls back to the registered Discord application name.
 ///   Supported placeholders: {title}, {artist}, {album}
 /// - `duration_secs`: total track length in seconds. When finite and greater than 0, an end
 ///   timestamp is sent so Discord draws a progress bar. Otherwise omitted.
