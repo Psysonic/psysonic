@@ -2,7 +2,7 @@ import { updatePlaylist } from '@/lib/api/subsonicPlaylists';
 import type { SubsonicPlaylist, SubsonicSong } from '@/lib/api/subsonicTypes';
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router';
-import { useTracklistColumns, type ColDef, TRACK_TITLE_FLEX_COL } from '@/lib/hooks/useTracklistColumns';
+import { useTracklistColumns, type ColDef, TRACK_TITLE_COL } from '@/lib/hooks/useTracklistColumns';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useShallow } from 'zustand/react/shallow';
 import { usePlaylistStore } from '@/features/playlist/store/playlistStore';
@@ -56,19 +56,19 @@ import { useShowStarRatings, withoutRatingColumn } from '@/store/starRatings';
 
 // ── Column configuration ──────────────────────────────────────────────────────
 const PL_COLUMNS: readonly ColDef[] = [
-  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true  },
-  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_FLEX_COL, required: true },
+  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true,  align: 'end' },
+  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_COL, required: true },
   { key: 'artist',     i18nKey: 'trackArtist',     minWidth: 80,  defaultWidth: 180, required: false },
   { key: 'album',      i18nKey: 'trackAlbum',      minWidth: 80,  defaultWidth: 180, required: false },
   { key: 'genre',      i18nKey: 'trackGenre',      minWidth: 60,  defaultWidth: 120, required: false },
-  { key: 'favorite',   i18nKey: 'trackFavorite',   minWidth: 50,  defaultWidth: 70,  required: false },
-  { key: 'rating',     i18nKey: 'trackRating',     minWidth: 80,  defaultWidth: 120, required: false },
+  { key: 'favorite',   i18nKey: 'trackFavorite',   minWidth: 50,  defaultWidth: 70,  required: false, align: 'center' },
+  { key: 'rating',     i18nKey: 'trackRating',     minWidth: 80,  defaultWidth: 120, required: false, align: 'center' },
   { key: 'duration',   i18nKey: 'trackDuration',   minWidth: 72,  defaultWidth: 92,  required: false },
   { key: 'format',     i18nKey: 'trackFormat',     minWidth: 60,  defaultWidth: 90,  required: false },
   { key: 'playCount',  i18nKey: 'trackPlayCount', minWidth: 60,  defaultWidth: 80,  required: false },
   { key: 'lastPlayed', i18nKey: 'trackLastPlayed', minWidth: 90,  defaultWidth: 130, required: false },
   { key: 'bpm',        i18nKey: 'trackBpm',        minWidth: 50,  defaultWidth: 70,  required: false },
-  { key: 'delete',     i18nKey: null,              minWidth: 36,  defaultWidth: 36,  required: true  },
+  { key: 'delete',     i18nKey: null, nameKey: 'playlists.removeSong', minWidth: 36,  defaultWidth: 36,  required: true, align: 'center' },
 ];
 
 export default function PlaylistDetail() {
@@ -201,8 +201,8 @@ export default function PlaylistDetail() {
     [tracksReadOnly, showStarRatings],
   );
   const {
-    colVisible, visibleCols, gridStyle,
-    startResize, startFlexColumnResize, toggleColumn, resetColumns,
+    colVisible, visibleCols, gridStyle, colWidths, contentWidth, setColumnWidth, moveColumn,
+    startResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
   } = useTracklistColumns(detailColumns, 'psysonic_playlist_columns');
   const resolvedBpmSongs = useResolvedTracklistBpm(
@@ -460,6 +460,10 @@ export default function PlaylistDetail() {
         allColumns={PL_COLUMNS}
         visibleCols={visibleCols}
         gridStyle={gridStyle}
+        colWidths={colWidths}
+        contentWidth={contentWidth}
+        setColumnWidth={setColumnWidth}
+        moveColumn={moveColumn}
         colVisible={colVisible}
         toggleColumn={toggleColumn}
         resetColumns={resetColumns}
@@ -467,7 +471,6 @@ export default function PlaylistDetail() {
         setPickerOpen={setPickerOpen}
         pickerRef={pickerRef}
         startResize={startResize}
-        startFlexColumnResize={startFlexColumnResize}
         tracklistRef={tracklistRef}
         songs={resolvedBpmSongs}
         displayedSongs={displayedSongs}
@@ -513,6 +516,8 @@ export default function PlaylistDetail() {
         loadSuggestions={loadSuggestions}
         visibleCols={visibleCols}
         gridStyle={gridStyle}
+        colWidths={colWidths}
+        contentWidth={contentWidth}
         contextMenuSongId={contextMenuSongId}
         setContextMenuSongId={setContextMenuSongId}
         hoveredSuggestionId={hoveredSuggestionId}

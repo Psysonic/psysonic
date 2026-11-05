@@ -4,9 +4,7 @@ import { Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import { useAuthStore } from '@/store/authStore';
-import { useThemeStore } from '@/store/themeStore';
 import { usePlayerStore } from '@/features/playback';
-import { useOverflowTooltip } from '@/lib/hooks/useOverflowTooltip';
 import { useNavigateToAlbum } from '@/features/album/hooks/useNavigateToAlbum';
 import { useAlbumDragStart } from '@/features/album/hooks/useAlbumDragStart';
 import { CoverArtImage } from '@/cover/CoverArtImage';
@@ -19,12 +17,19 @@ import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album/utils/deriveAlbumHeaderArtistRefs';
 import { appendServerQuery, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { formatLongDuration } from '@/lib/format/formatDuration';
+import { formatAlbumYear } from '@/features/album/utils/albumYear';
+import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
+import type { ColDef } from '@/lib/hooks/useTracklistColumns';
+import { TracklistCell } from '@/ui/tracklist/TracklistCell';
 
 /** Em dash for a column the server left empty. */
 const EMPTY_CELL = '\u2014';
 
 interface AlbumTableRowProps {
   album: SubsonicAlbum;
+  /** Columns in their current order (the table's `useTracklistColumns`). */
+  visibleCols: readonly ColDef[];
+  gridStyle: React.CSSProperties;
   /** 1-based position in the full list, for `aria-rowindex` under virtualization. */
   rowIndex: number;
   selected: boolean;
@@ -53,6 +58,8 @@ function formatAddedDate(created: string | undefined, locale: string): string {
 
 function AlbumTableRow({
   album,
+  visibleCols,
+  gridStyle,
   rowIndex,
   selected,
   selectionMode,
@@ -62,11 +69,11 @@ function AlbumTableRow({
   observeScrollRootId,
 }: AlbumTableRowProps) {
   const { t, i18n } = useTranslation();
+  const albumYearDisplay = useAlbumYearDisplay();
   const navigate = useNavigate();
   const navigateToAlbum = useNavigateToAlbum();
   const openContextMenu = usePlayerStore(s => s.openContextMenu);
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
-  const showCardTooltips = useThemeStore(s => s.showCardTooltips);
 
   const coverServerScope = useMemo(
     () => coverServerScopeForServerId(album.serverId),
@@ -93,8 +100,6 @@ function AlbumTableRow({
   );
   const artistRefs = useMemo(() => deriveAlbumArtistRefs(album), [album]);
   const artistLabel = useMemo(() => albumArtistDisplayName(album), [album]);
-  const titleTooltip = useOverflowTooltip(album.name, showCardTooltips);
-  const artistTooltip = useOverflowTooltip(artistLabel, showCardTooltips);
   const addedLabel = useMemo(
     () => formatAddedDate(album.created, i18n.language),
     [album.created, i18n.language],
@@ -105,8 +110,105 @@ function AlbumTableRow({
     navigateToAlbum(album.id, { search: albumLinkQuery });
   };
 
+  const renderCell = (key: string) => {
+    switch (key) {
+      case 'cover':
+        return (
+          <span className="album-table__cover-wrap">
+          {coverRef ? (
+            <CoverArtImage
+              coverRef={coverRef}
+              displayCssPx={COVER_TRACK_ROW_CSS_PX}
+              surface="dense"
+              className="album-table__cover"
+              ensureOpts={{ artistName: artistLabel, albumTitle: album.name }}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              observeScrollRootId={observeScrollRootId}
+            />
+          ) : (
+            <div className="album-table__cover album-table__cover--placeholder" aria-hidden="true" />
+          )}
+          {selectionMode && (
+            // Purely visual: the state it shows is announced on the title button,
+            // which is the element keyboard focus actually reaches and the control
+            // that toggles selection while the mode is on.
+            <span
+              className={`album-table__select${selected ? ' album-table__select--on' : ''}`}
+              aria-hidden="true"
+            >
+              {selected && <Check size={12} strokeWidth={3} />}
+            </span>
+          )}
+          </span>
+        );
+      case 'title':
+        return (
+          <>
+          <button
+            type="button"
+            className="album-table__title-btn truncate"
+            onClick={e => { e.stopPropagation(); activate({ shiftKey: e.shiftKey }); }}
+            aria-label={t('common.albumByArtist', { album: album.name, artist: artistLabel })}
+            // In selection mode this button toggles the row instead of opening the
+            // album, so it is also where the state belongs. `aria-selected` on the
+            // row would carry only inside role="grid"/"treegrid", and promoting the
+            // table to one would advertise cell-wise keyboard navigation it lacks.
+            aria-pressed={selectionMode ? selected : undefined}
+          >
+            {album.name}
+          </button>
+          </>
+        );
+      case 'artist':
+        return (
+          <>
+          <span className="album-table__artist truncate">
+            <ResolvedArtistRefInline
+              refs={artistRefs}
+              serverId={album.serverId ?? activeServerId}
+              fallbackName={artistLabel}
+              onGoArtist={id => navigate(buildArtistDetailPath(id, { serverId: album.serverId }))}
+              as="none"
+              linkTag="span"
+              linkClassName="track-artist-link"
+            />
+          </span>
+          </>
+        );
+      case 'songs':
+        return (
+          <>
+          {album.songCount > 0 ? album.songCount : EMPTY_CELL}
+          </>
+        );
+      case 'year':
+        return (
+          <>
+          {formatAlbumYear(album, albumYearDisplay) ?? EMPTY_CELL}
+          </>
+        );
+      case 'duration':
+        return (
+          <>
+          {album.duration > 0 ? formatLongDuration(album.duration) : EMPTY_CELL}
+          </>
+        );
+      case 'added':
+        return (
+          <>
+          {addedLabel}
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div
+      style={gridStyle}
       className={`album-table__row album-table__grid${selected ? ' album-table__row--selected' : ''}`}
       role="row"
       aria-rowindex={rowIndex}
@@ -121,78 +223,17 @@ function AlbumTableRow({
         }
       }}
     >
-      <div className="album-table__cell album-table__cell--cover" role="cell">
-        {coverRef ? (
-          <CoverArtImage
-            coverRef={coverRef}
-            displayCssPx={COVER_TRACK_ROW_CSS_PX}
-            surface="dense"
-            className="album-table__cover"
-            ensureOpts={{ artistName: artistLabel, albumTitle: album.name }}
-            alt=""
-            loading="lazy"
-            decoding="async"
-            observeScrollRootId={observeScrollRootId}
-          />
-        ) : (
-          <div className="album-table__cover album-table__cover--placeholder" aria-hidden="true" />
-        )}
-        {selectionMode && (
-          // Purely visual: the state it shows is announced on the title button,
-          // which is the element keyboard focus actually reaches and the control
-          // that toggles selection while the mode is on.
-          <span
-            className={`album-table__select${selected ? ' album-table__select--on' : ''}`}
-            aria-hidden="true"
-          >
-            {selected && <Check size={12} strokeWidth={3} />}
-          </span>
-        )}
-      </div>
-
-      <div className="album-table__cell album-table__cell--title" role="cell">
-        <button
-          type="button"
-          className="album-table__title-btn truncate"
-          onClick={e => { e.stopPropagation(); activate({ shiftKey: e.shiftKey }); }}
-          aria-label={t('common.albumByArtist', { album: album.name, artist: artistLabel })}
-          // In selection mode this button toggles the row instead of opening the
-          // album, so it is also where the state belongs. `aria-selected` on the
-          // row would carry only inside role="grid"/"treegrid", and promoting the
-          // table to one would advertise cell-wise keyboard navigation it lacks.
-          aria-pressed={selectionMode ? selected : undefined}
-          {...titleTooltip}
+      {visibleCols.map(col => (
+        <TracklistCell
+          key={col.key}
+          col={col}
+          role="cell"
+          className={`album-table__cell album-table__cell--${col.key}`}
+          text={col.key === 'title' ? album.name : col.key === 'artist' ? artistLabel : undefined}
         >
-          {album.name}
-        </button>
-      </div>
-
-      <div className="album-table__cell album-table__cell--artist" role="cell">
-        <span className="album-table__artist truncate" {...artistTooltip}>
-          <ResolvedArtistRefInline
-            refs={artistRefs}
-            serverId={album.serverId ?? activeServerId}
-            fallbackName={artistLabel}
-            onGoArtist={id => navigate(buildArtistDetailPath(id, { serverId: album.serverId }))}
-            as="none"
-            linkTag="span"
-            linkClassName="track-artist-link"
-          />
-        </span>
-      </div>
-
-      <div className="album-table__cell album-table__cell--songs" role="cell">
-        {album.songCount > 0 ? album.songCount : EMPTY_CELL}
-      </div>
-      <div className="album-table__cell album-table__cell--year" role="cell">
-        {album.year ? album.year : EMPTY_CELL}
-      </div>
-      <div className="album-table__cell album-table__cell--duration" role="cell">
-        {album.duration > 0 ? formatLongDuration(album.duration) : EMPTY_CELL}
-      </div>
-      <div className="album-table__cell album-table__cell--added" role="cell">
-        {addedLabel}
-      </div>
+          {renderCell(col.key)}
+        </TracklistCell>
+      ))}
     </div>
   );
 }

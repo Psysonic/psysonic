@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Cast, Check, Loader2, Plus, X } from 'lucide-react';
+import { Check, Loader2, Plus, Radio, X } from 'lucide-react';
 import {
   createInternetRadioStationForServer, fetchUrlBytes, getInternetRadioStationsForServer,
   getTopRadioStations, searchRadioBrowser, uploadRadioCoverArtBytesForServer,
@@ -242,7 +242,7 @@ export default function RadioDirectoryModal({
                       />
                     ) : (
                       <div className="radio-browser-favicon radio-browser-favicon--placeholder">
-                        <Cast size={16} strokeWidth={1.5} />
+                        <Radio size={16} strokeWidth={1.5} />
                       </div>
                     )}
                     <div className="radio-browser-info">

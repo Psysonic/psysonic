@@ -325,6 +325,26 @@ export const SHORTCUT_ACTION_REGISTRY = {
     runInMiniWindow: false,
     run: () => rateCurrentTrack(5),
   },
+  // Browser convention: ⌘[ / ⌘] on macOS, Alt+← / Alt+→ elsewhere. Plain
+  // history steps through the router's popstate listener, the same as the
+  // header buttons and the mouse thumb buttons. A user who already bound the
+  // chord to something else keeps it — see `migrateBindings`.
+  'navigate-back': {
+    getLabel: t => t('settings.shortcutNavigateBack', { defaultValue: 'Go back a page' }),
+    inApp: { defaultBinding: IS_MACOS ? 'super+BracketLeft' : 'alt+ArrowLeft' },
+    runInMiniWindow: false,
+    run: () => {
+      window.history.back();
+    },
+  },
+  'navigate-forward': {
+    getLabel: t => t('settings.shortcutNavigateForward', { defaultValue: 'Go forward a page' }),
+    inApp: { defaultBinding: IS_MACOS ? 'super+BracketRight' : 'alt+ArrowRight' },
+    runInMiniWindow: false,
+    run: () => {
+      window.history.forward();
+    },
+  },
   'open-help': {
     getLabel: t => t('settings.shortcutOpenHelp', { defaultValue: 'Help' }),
     inApp: { defaultBinding: 'F1', hidden: true },

@@ -21,10 +21,15 @@ import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSetting
 import { resolveIndexKey } from '@/lib/server/serverIndexKey';
 import { useAuthStore } from '@/store/authStore';
 import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
+import type { ColDef } from '@/lib/hooks/useTracklistColumns';
+import { TracklistCell } from '@/ui/tracklist/TracklistCell';
+import { songCellText } from '@/ui/tracklist/measureColumnContent';
 
 interface Props {
   song: SubsonicSong;
-  showBpm?: boolean;
+  /** Columns in their current order (the list's `useTracklistColumns`). */
+  visibleCols: readonly ColDef[];
+  gridStyle: React.CSSProperties;
   /** Position in the list, handed back with `onCursorClick`. */
   rowIndex?: number;
   /** Set only on the list's cursor row (`useTrackListCursor`). */
@@ -33,7 +38,7 @@ interface Props {
   onCursorClick?: (rowIndex: number, e: React.MouseEvent) => void;
 }
 
-function SongRow({ song, showBpm, rowIndex = 0, cursorRowId, onCursorClick }: Props) {
+function SongRow({ song, visibleCols, gridStyle, rowIndex = 0, cursorRowId, onCursorClick }: Props) {
   const navigateToAlbum = useNavigateToAlbum();
   const navigateToArtist = useNavigateToArtist();
   const { t } = useTranslation();
@@ -77,10 +82,89 @@ function SongRow({ song, showBpm, rowIndex = 0, cursorRowId, onCursorClick }: Pr
         ? t('search.bpmSourceTag')
         : undefined;
 
+  const renderCell = (col: ColDef) => {
+    switch (col.key) {
+      case 'actions':
+        return (
+          <div className="song-list-row-cell song-list-row-actions">
+            <button
+              className="song-list-row-btn song-list-row-btn--play"
+              onClick={(e) => { e.stopPropagation(); handlePlay(); }}
+              {...tooltipAttrs(t('common.play'))}
+            >
+              <Play size={14} fill="currentColor" />
+            </button>
+            <button
+              className="song-list-row-btn"
+              onClick={(e) => { e.stopPropagation(); handleEnqueue(); }}
+              {...tooltipAttrs(t('common.addToQueue'))}
+            >
+              <ListPlus size={14} />
+            </button>
+          </div>
+        );
+      case 'title':
+        return (
+          <div className="song-list-row-cell song-list-row-title truncate">
+            {showCovers && (
+              <OptionalBrowseTrackRowCoverThumb song={song} size="dense" className="song-list-row-cover-thumb" />
+            )}
+            {showCovers && <ExplicitCoverVeil explicit={isExplicit(song)} />}
+            <ExplicitTitle status={song.explicitStatus}>
+              <span className="song-list-row-title-text truncate">{song.title}</span>
+            </ExplicitTitle>
+          </div>
+        );
+      case 'artist':
+        return (
+          <div className="song-list-row-cell truncate">
+            <ResolvedArtistRefInline
+              refs={artistRefs}
+              serverId={song.serverId ?? activeServerId}
+              fallbackName={song.artist}
+              onGoArtist={id => navigateToArtist(id, { serverId: song.serverId })}
+              as="none"
+              linkTag="span"
+              linkClassName="track-artist-link"
+              separatorClassName="track-artist-sep"
+            />
+          </div>
+        );
+      case 'album':
+        return (
+          <div className="song-list-row-cell truncate">
+            {song.albumId ? (
+              <span
+                className="track-artist-link"
+                style={{ cursor: 'pointer' }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigateToAlbum(song.albumId!, { serverId: song.serverId });
+                }}
+              >{song.album}</span>
+            ) : <span>{song.album}</span>}
+          </div>
+        );
+      case 'genre':
+        return <div className="song-list-row-cell song-list-row-genre truncate">{song.genre ?? '—'}</div>;
+      case 'bpm':
+        return (
+          <div className="song-list-row-cell song-list-row-bpm" data-tooltip={bpmTooltip}>
+            {song.bpm != null && song.bpm > 0 ? song.bpm : '—'}
+          </div>
+        );
+      case 'duration':
+        return <div className="song-list-row-cell song-list-row-duration">{formatTrackTime(song.duration, '–')}</div>;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div
       id={cursorRowId}
-      className={`song-list-row${isCurrent ? ' is-current' : ''}${showBpm ? ' song-list-row--with-bpm' : ''}${showCovers ? ' song-list-row--with-cover' : ''}${cursorRowId ? ' song-list-row--cursor' : ''}`}
+      style={gridStyle}
+      className={`song-list-row${isCurrent ? ' is-current' : ''}${showCovers ? ' song-list-row--with-cover' : ''}${cursorRowId ? ' song-list-row--cursor' : ''}`}
       onClick={e => {
         if ((e.target as HTMLElement).closest('button, a, input')) return;
         onCursorClick?.(rowIndex, e);
@@ -98,89 +182,9 @@ function SongRow({ song, showBpm, rowIndex = 0, cursorRowId, onCursorClick }: Pr
       }}
       onMouseDown={onRowMouseDown}
     >
-      <div className="song-list-row-cell song-list-row-actions">
-        <button
-          className="song-list-row-btn song-list-row-btn--play"
-          onClick={(e) => { e.stopPropagation(); handlePlay(); }}
-          {...tooltipAttrs(t('common.play'))}
-        >
-          <Play size={14} fill="currentColor" />
-        </button>
-        <button
-          className="song-list-row-btn"
-          onClick={(e) => { e.stopPropagation(); handleEnqueue(); }}
-          {...tooltipAttrs(t('common.addToQueue'))}
-        >
-          <ListPlus size={14} />
-        </button>
-      </div>
-      <div className="song-list-row-cell song-list-row-title truncate" title={song.title}>
-        {showCovers && (
-          <OptionalBrowseTrackRowCoverThumb song={song} size="dense" className="song-list-row-cover-thumb" />
-        )}
-        {showCovers && <ExplicitCoverVeil explicit={isExplicit(song)} />}
-        <ExplicitTitle status={song.explicitStatus}>
-          <span className="song-list-row-title-text truncate">{song.title}</span>
-        </ExplicitTitle>
-      </div>
-      <div className="song-list-row-cell truncate" title={song.artist}>
-        <ResolvedArtistRefInline
-          refs={artistRefs}
-          serverId={song.serverId ?? activeServerId}
-          fallbackName={song.artist}
-          onGoArtist={id => navigateToArtist(id, { serverId: song.serverId })}
-          as="none"
-          linkTag="span"
-          linkClassName="track-artist-link"
-          separatorClassName="track-artist-sep"
-        />
-      </div>
-      <div className="song-list-row-cell truncate">
-        {song.albumId ? (
-          <span
-            className="track-artist-link"
-            style={{ cursor: 'pointer' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              navigateToAlbum(song.albumId!, { serverId: song.serverId });
-            }}
-            title={song.album}
-          >{song.album}</span>
-        ) : <span title={song.album}>{song.album}</span>}
-      </div>
-      <div className="song-list-row-cell song-list-row-genre truncate" title={song.genre ?? ''}>
-        {song.genre ?? '—'}
-      </div>
-      {showBpm && (
-        <div
-          className="song-list-row-cell song-list-row-bpm"
-          data-tooltip={bpmTooltip}
-        >
-          {song.bpm != null && song.bpm > 0 ? song.bpm : '—'}
-        </div>
-      )}
-      <div className="song-list-row-cell song-list-row-duration">{formatTrackTime(song.duration, '–')}</div>
-    </div>
-  );
-}
-
-/** Column header with the same grid as <SongRow>. Optional — pages can render it above the list. */
-export function SongListHeader({ showBpm }: { showBpm?: boolean } = {}) {
-  const { t } = useTranslation();
-  return (
-    <div
-      className={`song-list-row song-list-row--header${showBpm ? ' song-list-row--with-bpm' : ''}`}
-      role="row"
-    >
-      <div className="song-list-row-cell song-list-row-actions" />
-      <div className="song-list-row-cell">{t('albumDetail.trackTitle')}</div>
-      <div className="song-list-row-cell">{t('albumDetail.trackArtist')}</div>
-      <div className="song-list-row-cell">{t('albumDetail.trackAlbum')}</div>
-      <div className="song-list-row-cell">{t('randomMix.trackGenre')}</div>
-      {showBpm && (
-        <div className="song-list-row-cell song-list-row-bpm">{t('albumDetail.trackBpm')}</div>
-      )}
-      <div className="song-list-row-cell song-list-row-duration">{t('albumDetail.trackDuration')}</div>
+      {visibleCols.map(col => (
+        <TracklistCell key={col.key} col={col} text={songCellText(song, col.key)}>{renderCell(col)}</TracklistCell>
+      ))}
     </div>
   );
 }

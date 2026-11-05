@@ -277,6 +277,10 @@ pub fn album_detail(
         let albums: Vec<LibraryAlbumDto> = candidates.into_iter().map(|(_, album)| album).collect();
         let mut album = priority_album_candidate(&albums);
         overlay_priority_album_row(conn, &mut album)?;
+        crate::album_release_year::overlay_album_release_years(
+            conn,
+            std::slice::from_mut(&mut album),
+        );
         album.starred_at = read_album_starred_at(conn, &album.server_id, &album.id).unwrap_or(None);
         let tracks = fetch_scope_deduped_tracks_for_album_key(
             conn,

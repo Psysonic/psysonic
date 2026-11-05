@@ -1,5 +1,5 @@
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
-import { TRACK_TITLE_FLEX_COL } from '@/lib/hooks/useTracklistColumns';
+import { TRACK_TITLE_COL } from '@/lib/hooks/useTracklistColumns';
 
 export function codecLabel(song: { suffix?: string; bitRate?: number }, showBitrate: boolean): string {
   const parts: string[] = [];
@@ -9,11 +9,11 @@ export function codecLabel(song: { suffix?: string; bitRate?: number }, showBitr
 }
 
 export const COLUMNS: readonly ColDef[] = [
-  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true  },
-  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_FLEX_COL, required: true },
+  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true,  align: 'end' },
+  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_COL, required: true },
   { key: 'artist',     i18nKey: 'trackArtist',     minWidth: 80,  defaultWidth: 180, required: false },
-  { key: 'favorite',   i18nKey: 'trackFavorite',   minWidth: 50,  defaultWidth: 70,  required: false },
-  { key: 'rating',     i18nKey: 'trackRating',     minWidth: 80,  defaultWidth: 120, required: false },
+  { key: 'favorite',   i18nKey: 'trackFavorite',   minWidth: 50,  defaultWidth: 70,  required: false, align: 'center' },
+  { key: 'rating',     i18nKey: 'trackRating',     minWidth: 80,  defaultWidth: 120, required: false, align: 'center' },
   { key: 'duration',   i18nKey: 'trackDuration',   minWidth: 72,  defaultWidth: 92,  required: false },
   { key: 'format',     i18nKey: 'trackFormat',     minWidth: 60,  defaultWidth: 90,  required: false },
   { key: 'genre',      i18nKey: 'trackGenre',      minWidth: 60,  defaultWidth: 90,  required: false },
@@ -30,8 +30,6 @@ export const COLUMNS: readonly ColDef[] = [
 ];
 
 export type ColKey = 'num' | 'title' | 'artist' | 'favorite' | 'rating' | 'duration' | 'format' | 'genre' | 'genres' | 'mood' | 'playCount' | 'lastPlayed' | 'bpm';
-
-export const CENTERED_COLS = new Set<ColKey>(['favorite', 'rating', 'duration', 'playCount', 'bpm']);
 
 export type SortKey = 'natural' | 'title' | 'artist' | 'album' | 'favorite' | 'rating' | 'duration' | 'playCount' | 'lastPlayed' | 'bpm';
 

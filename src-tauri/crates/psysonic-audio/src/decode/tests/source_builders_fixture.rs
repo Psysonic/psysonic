@@ -304,3 +304,57 @@ fn every_channel_of_a_real_five_one_flac_reaches_stereo_output() {
         "right surround leaked left: {sr_on_left}"
     );
 }
+
+#[test]
+fn an_itunsmpb_trimmed_mp3_reports_its_end_through_the_gapless_converter() {
+    // A gapless chain only moves on when the outgoing track's `done` flag is set.
+    // An `iTunSMPB` end trim runs through rodio's `TakeDuration`, and whenever the
+    // trimmed length leaves a sub-sample remainder its span reads `Some(0)` before
+    // the final `None` — which the per-track converter took as the end without
+    // asking again, so `done` never fired and the queue stopped after the track.
+    // Built through the production path, no resampling in `build_source`, so the
+    // trim reaches the gapless converter directly; a range of valid-sample
+    // counts covers lengths that do and do not leave such a remainder.
+    let _globals = crate::spectrum::tests::lock_globals();
+    let mut stalled = Vec::new();
+    for total in 20_000u64..20_064 {
+        let mut data = NO_XING_MP3.to_vec();
+        data.extend_from_slice(&synth_itunsmpb_blob(
+            "00000840",
+            "00000000",
+            &format!("{total:08X}"),
+        ));
+        let (eq_gains, eq_enabled, eq_pre_gain, playback_rate, done_flag, sample_counter) =
+            default_source_args();
+        let built = build_source(
+            data,
+            0.0,
+            eq_gains,
+            eq_enabled,
+            eq_pre_gain,
+            playback_rate,
+            done_flag.clone(),
+            Duration::ZERO,
+            sample_counter,
+            0,
+            0,
+            Some("mp3"),
+            false,
+        )
+        .expect("the trimmed MP3 must build");
+        let mut out = crate::sources::gapless_output_source(
+            built.source,
+            std::num::NonZeroU16::new(2).unwrap(),
+            std::num::NonZeroU32::new(48_000).unwrap(),
+        );
+        while out.next().is_some() {}
+        if !done_flag.load(std::sync::atomic::Ordering::SeqCst) {
+            stalled.push(total);
+        }
+    }
+    assert!(
+        stalled.is_empty(),
+        "{} of 64 trimmed lengths never signalled done: {stalled:?}",
+        stalled.len()
+    );
+}

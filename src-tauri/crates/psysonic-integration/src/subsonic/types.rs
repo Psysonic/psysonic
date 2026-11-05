@@ -54,6 +54,22 @@ where
     })
 }
 
+/// The year of an OpenSubsonic `ItemDate` (`{ "year": 1996, "month": … }`).
+/// Anything that is not an object with a positive integer year reads as absent:
+/// servers send `{}` for an undated album, and a malformed date must not fail
+/// the whole album page.
+fn de_item_date_year<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<serde_json::Value>::deserialize(deserializer)?;
+    Ok(value
+        .as_ref()
+        .and_then(|date| date.get("year"))
+        .and_then(serde_json::Value::as_i64)
+        .filter(|year| *year > 0))
+}
+
 /// Navidrome often ships library ids as JSON numbers; Subsonic uses strings.
 fn de_string_or_number<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
@@ -215,6 +231,20 @@ pub struct AlbumSummary {
     pub duration: Option<i64>,
     #[serde(default)]
     pub year: Option<i64>,
+    /// OpenSubsonic `originalReleaseDate.year`: when the release first came out.
+    #[serde(
+        rename = "originalReleaseDate",
+        default,
+        deserialize_with = "de_item_date_year"
+    )]
+    pub original_year: Option<i64>,
+    /// OpenSubsonic `releaseDate.year`: when this edition came out.
+    #[serde(
+        rename = "releaseDate",
+        default,
+        deserialize_with = "de_item_date_year"
+    )]
+    pub release_year: Option<i64>,
     #[serde(default)]
     pub genre: Option<String>,
     #[serde(rename = "coverArt", default)]

@@ -89,6 +89,29 @@ describe('useTracklistWheelChaining', () => {
     expect(viewport.scrollTop).toBe(150);
   });
 
+  // Browse pages scroll an in-page viewport; the main route viewport is fixed there.
+  it('scrolls the table’s own scroll area on pages that have one', () => {
+    const inpage = document.createElement('div');
+    inpage.style.overflowY = 'auto';
+    Object.defineProperty(inpage, 'scrollHeight', { value: 3000, configurable: true });
+    Object.defineProperty(inpage, 'clientHeight', { value: 500, configurable: true });
+    inpage.scrollTop = 40;
+    const table = document.createElement('div');
+    table.className = 'tl-viewport';
+    const row = document.createElement('div');
+    table.appendChild(row);
+    inpage.appendChild(table);
+    viewport.appendChild(inpage);
+    renderHook(() => useTracklistWheelChaining());
+
+    row.dispatchEvent(createWheelEvent({ deltaX: 80, deltaY: 0 }));
+    const recovery = createWheelEvent({ deltaX: 0, deltaY: 50 });
+    row.dispatchEvent(recovery);
+
+    expect(inpage.scrollTop).toBe(90);
+    expect(viewport.scrollTop).toBe(100);
+  });
+
   it('preserves ctrlKey and metaKey modified wheel inputs even when armed', () => {
     renderHook(() => useTracklistWheelChaining());
 

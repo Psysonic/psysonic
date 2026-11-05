@@ -1,5 +1,5 @@
 /* ─ Album table view (All Albums / New Releases / Lossless) ─
-   Header and rows share `.album-table__grid` so the columns line up; the row
+   The header is the shared track-table header (tracklist-model-a.css); the row
    height is pinned from `ALBUM_TABLE_ROW_HEIGHT_PX` because the virtualiser
    positions rows on that exact pitch. */
 
@@ -7,10 +7,6 @@
   --album-table-cover-size: 40px;
   display: block;
   width: 100%;
-  /* Breakpoints below measure this element, not the window: the table sits in an
-     in-page viewport beside the sidebar and, when open, the queue panel, so a wide
-     window can still leave a narrow content column. */
-  container-type: inline-size;
 }
 
 .album-table__grid {
@@ -26,20 +22,6 @@
   gap: var(--space-3);
   align-items: center;
   padding: 0 var(--space-3);
-}
-
-.album-table__header {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  height: 34px;
-  background: var(--bg-app);
-  border-bottom: 1px solid var(--row-divider);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--col-header-text);
 }
 
 .album-table__row {
@@ -165,48 +147,27 @@
   outline-offset: var(--focus-ring-offset);
 }
 
-/* ── Narrow widths: drop columns right to left, cover + title + artist stay ── */
-@container (max-width: 1100px) {
-  .album-table__cell--added {
-    display: none;
-  }
-
-  .album-table__grid {
-    grid-template-columns:
-      var(--album-table-cover-size)
-      minmax(0, 3fr)
-      minmax(0, 2fr)
-      64px
-      64px
-      80px;
-  }
+/* Narrow widths: the columns keep their widths and the table scrolls sideways
+   (spreadsheet model, see tracklist-model-a.css); unwanted columns are hidden
+   from the header's right-click menu. */
+.tl-viewport .album-table__grid {
+  column-gap: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 
-@container (max-width: 900px) {
-  .album-table__cell--duration {
-    display: none;
-  }
-
-  .album-table__grid {
-    grid-template-columns:
-      var(--album-table-cover-size)
-      minmax(0, 3fr)
-      minmax(0, 2fr)
-      64px
-      64px;
-  }
+/* In the spreadsheet layout the cover column is a normal, resizable column:
+   the cover keeps its size inside it, centred, with the selection mark on it. */
+.tl-viewport .album-table__cell--cover {
+  width: auto;
+  height: auto;
+  position: static;
 }
 
-@container (max-width: 760px) {
-  .album-table__cell--songs {
-    display: none;
-  }
-
-  .album-table__grid {
-    grid-template-columns:
-      var(--album-table-cover-size)
-      minmax(0, 3fr)
-      minmax(0, 2fr)
-      64px;
-  }
+.album-table__cover-wrap {
+  position: relative;
+  display: block;
+  flex: none;
+  width: var(--album-table-cover-size);
+  height: var(--album-table-cover-size);
 }

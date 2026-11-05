@@ -24,6 +24,8 @@ import { ResolvedArtistRefInline } from '@/ui/ResolvedArtistRefInline';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
 import { sameQueueTrack, useTrackPlayStats } from '@/features/playback';
 import { useDragPress } from '@/lib/dnd/useDragPress';
+import { TracklistCell } from '@/ui/tracklist/TracklistCell';
+import { songCellText } from '@/ui/tracklist/measureColumnContent';
 
 type ContextMenuFn = (
   x: number,
@@ -301,7 +303,9 @@ export const TrackRow = React.memo(function TrackRow({
       role="row"
       onMouseDown={onRowMouseDown}
     >
-      {visibleCols.map(colDef => renderCell(colDef))}
+      {visibleCols.map(colDef => (
+        <TracklistCell key={colDef.key} col={colDef} text={songCellText(song, colDef.key)}>{renderCell(colDef)}</TracklistCell>
+      ))}
     </div>
   );
 });

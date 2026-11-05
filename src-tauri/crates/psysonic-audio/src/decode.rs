@@ -13,7 +13,7 @@ mod test_support;
 
 #[allow(unused_imports)]
 pub(crate) use builders::{build_source, build_streaming_source, BuiltSource, BuiltSourceStack};
-pub(crate) use decoder::SizedDecoder;
+pub(crate) use decoder::{SizedDecoder, IN_MEMORY_PROBE_FAILED, NO_AUDIO_TRACK};
 pub(crate) use format::{AudioFormatEvent, AudioFormatIdentity, ResolvedCodecInfo};
 
 #[cfg(test)]

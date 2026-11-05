@@ -56,6 +56,44 @@ describe('OrbitStartModal', () => {
     }));
   });
 
+  it('starts with the automatic reshuffle off on a fresh profile', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<OrbitStartModal onClose={vi.fn()} />);
+
+    expect(screen.getByRole('checkbox', { name: /Automatic reshuffle/ })).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Copy link & start' }));
+
+    expect(mocks.startOrbitSession).toHaveBeenCalledWith(expect.objectContaining({ autoShuffle: false }));
+    expect(useAuthStore.getState().orbitStartAutoShuffle).toBe(false);
+  });
+
+  it('starts with the reshuffle on when switched on, and remembers it for the next session', async () => {
+    const user = userEvent.setup();
+    const { unmount } = renderWithProviders(<OrbitStartModal onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('checkbox', { name: /Automatic reshuffle/ }));
+    await user.click(screen.getByRole('button', { name: 'Copy link & start' }));
+
+    expect(mocks.startOrbitSession).toHaveBeenCalledWith(expect.objectContaining({ autoShuffle: true }));
+    expect(useAuthStore.getState().orbitStartAutoShuffle).toBe(true);
+
+    unmount();
+    renderWithProviders(<OrbitStartModal onClose={vi.fn()} />);
+    expect(screen.getByRole('checkbox', { name: /Automatic reshuffle/ })).toBeChecked();
+  });
+
+  it('keeps the remembered choice when the start fails', async () => {
+    mocks.startOrbitSession.mockRejectedValueOnce(new Error('start failed'));
+    const user = userEvent.setup();
+    renderWithProviders(<OrbitStartModal onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('checkbox', { name: /Automatic reshuffle/ }));
+    await user.click(screen.getByRole('button', { name: 'Copy link & start' }));
+
+    expect(await screen.findByText('start failed')).toBeInTheDocument();
+    expect(useAuthStore.getState().orbitStartAutoShuffle).toBe(false);
+  });
+
   it('shows unavailable servers with a warning and no empty checkbox squares', () => {
     setServerReachability(secondServerId, 'unavailable');
 

@@ -106,8 +106,23 @@ describe('AlbumTable', () => {
     renderTable();
     expect(screen.getByRole('table').getAttribute('aria-rowcount')).toBe('3');
     const rows = screen.getAllByRole('row');
+    expect(rows[0].getAttribute('aria-rowindex')).toBe('1');
     expect(rows[1].getAttribute('aria-rowindex')).toBe('2');
     expect(rows[2].getAttribute('aria-rowindex')).toBe('3');
+  });
+
+  // Between the table and its rows only layout boxes sit (the sideways
+  // scrolling frame); they must not count as anything to assistive tech.
+  it('marks the layout boxes between table and rows as presentation', () => {
+    renderTable();
+    const table = screen.getByRole('table');
+    const [header, firstRow] = screen.getAllByRole('row');
+    for (const row of [header, firstRow]) {
+      const between: HTMLElement[] = [];
+      for (let el = row.parentElement; el && el !== table; el = el.parentElement) between.push(el);
+      expect(between.length).toBeGreaterThan(0);
+      expect(between.filter(el => el.getAttribute('role') !== 'presentation').map(el => el.className)).toEqual([]);
+    }
   });
 
   it('opens the album when a row is clicked outside selection mode', () => {
@@ -130,8 +145,8 @@ describe('AlbumTable', () => {
     renderTable({ sort: { value: 'alphabeticalByName', onChange } });
 
     const headers = screen.getAllByRole('columnheader');
-    const title = headers.find(h => h.classList.contains('album-table__cell--title'))!;
-    const artist = headers.find(h => h.classList.contains('album-table__cell--artist'))!;
+    const title = headers.find(h => h.classList.contains('album-table__head-cell--title'))!;
+    const artist = headers.find(h => h.classList.contains('album-table__head-cell--artist'))!;
     expect(title.getAttribute('aria-sort')).toBe('ascending');
     expect(artist.getAttribute('aria-sort')).toBe('none');
 
@@ -143,7 +158,7 @@ describe('AlbumTable', () => {
     const onChange = vi.fn();
     renderTable({ sort: { value: 'alphabeticalByName', onChange } });
 
-    const year = screen.getAllByRole('columnheader').find(h => h.classList.contains('album-table__cell--year'))!;
+    const year = screen.getAllByRole('columnheader').find(h => h.classList.contains('album-table__head-cell--year'))!;
     expect(year.getAttribute('aria-sort')).toBe('none');
 
     fireEvent.click(within(year).getByRole('button'));
@@ -155,8 +170,8 @@ describe('AlbumTable', () => {
     renderTable({ sort: { value: 'byYearDesc', onChange } });
 
     const headers = screen.getAllByRole('columnheader');
-    const title = headers.find(h => h.classList.contains('album-table__cell--title'))!;
-    const year = headers.find(h => h.classList.contains('album-table__cell--year'))!;
+    const title = headers.find(h => h.classList.contains('album-table__head-cell--title'))!;
+    const year = headers.find(h => h.classList.contains('album-table__head-cell--year'))!;
     expect(year.getAttribute('aria-sort')).toBe('descending');
     expect(title.getAttribute('aria-sort')).toBe('none');
 
@@ -168,7 +183,7 @@ describe('AlbumTable', () => {
     const onChange = vi.fn();
     renderTable({ sort: { value: 'byYear', onChange } });
 
-    const year = screen.getAllByRole('columnheader').find(h => h.classList.contains('album-table__cell--year'))!;
+    const year = screen.getAllByRole('columnheader').find(h => h.classList.contains('album-table__head-cell--year'))!;
     expect(year.getAttribute('aria-sort')).toBe('ascending');
 
     fireEvent.click(within(year).getByRole('button'));
@@ -180,7 +195,7 @@ describe('AlbumTable', () => {
   it('renders static headers on a page without a sort control', () => {
     renderTable();
     const headers = screen.getAllByRole('columnheader');
-    const title = headers.find(h => h.classList.contains('album-table__cell--title'))!;
+    const title = headers.find(h => h.classList.contains('album-table__head-cell--title'))!;
     expect(within(title).queryByRole('button')).toBeNull();
     expect(title.getAttribute('aria-sort')).toBeNull();
   });
@@ -206,5 +221,55 @@ describe('AlbumTable', () => {
       ALBUMS,
       'multi-album',
     );
+  });
+});
+
+describe('AlbumTable — spreadsheet model', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('puts the table into the sideways-scrolling viewport', () => {
+    const { container } = renderTable();
+    expect(container.querySelector('.album-table .tl-viewport .tl-head-clip .tl-header')).not.toBeNull();
+    expect(container.querySelectorAll('.tl-viewport .tl-body .album-table__row')).toHaveLength(2);
+  });
+
+  it('lays every row cell out like its header cell and keeps the table roles', () => {
+    const { container } = renderTable();
+    const headKeys = [...container.querySelectorAll('.tl-header .tl-head-cell')].map(c => c.getAttribute('data-tl-col'));
+    expect(headKeys).toEqual(['cover', 'title', 'artist', 'songs', 'year', 'duration', 'added']);
+    const row = container.querySelector('.album-table__row')!;
+    const cells = [...row.children];
+    expect(cells.map(c => c.getAttribute('data-tl-col'))).toEqual(headKeys);
+    expect(cells.every(c => c.getAttribute('role') === 'cell')).toBe(true);
+  });
+
+  it('lets a column be hidden from the header menu', () => {
+    const { container } = renderTable();
+    fireEvent.contextMenu(container.querySelector('.tl-head-cell[data-tl-col="artist"]')!, { clientX: 50, clientY: 10 });
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Added' }));
+    const headKeys = [...container.querySelectorAll('.tl-header .tl-head-cell')].map(c => c.getAttribute('data-tl-col'));
+    expect(headKeys).not.toContain('added');
+  });
+});
+
+describe('AlbumTable — header cells', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  // Row-cell styling (overflow, fixed cover size) must not reach the header,
+  // or it clips the dividers and moves them off the column boundary.
+  it('keeps the row-cell classes off the header cells', () => {
+    const { container } = renderTable();
+    const headCells = [...container.querySelectorAll('.tl-header .tl-head-cell')];
+    expect(headCells.some(c => c.classList.contains('album-table__cell'))).toBe(false);
+  });
+
+  it('wraps the cover so the selection mark sits on the cover, not on the whole cell', () => {
+    const { container } = renderTable({ selectionMode: true });
+    const cover = container.querySelector('.album-table__row .album-table__cell--cover')!;
+    expect(cover.querySelector('.album-table__cover-wrap .album-table__select')).not.toBeNull();
   });
 });

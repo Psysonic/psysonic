@@ -99,6 +99,9 @@ pub struct CensusReport {
     pub removal_refused: bool,
     pub enumeration_incomplete: bool,
     pub budget_exhausted: bool,
+    /// Albums whose stored release years changed. Not an index change: the
+    /// years are read when album rows are built, nothing derived needs a refresh.
+    pub release_years_updated: usize,
 }
 
 impl CensusReport {

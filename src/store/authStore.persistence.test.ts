@@ -140,6 +140,17 @@ describe('onRehydrate migrations', () => {
     expect(useAuthStore.getState().seekbarStyle).toBe('neon');
   });
 
+  it('keeps the `fullwave` seekbarStyle after a restart', async () => {
+    writePersistedState({
+      servers: [],
+      activeServerId: null,
+      seekbarStyle: 'fullwave',
+    });
+
+    await useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState().seekbarStyle).toBe('fullwave');
+  });
+
   it('falls back an invalid windowButtonStyle to `dots`', async () => {
     writePersistedState({
       servers: [],

@@ -36,15 +36,6 @@ const CONTRIBUTOR_ENTRIES = [
     ],
   },
   {
-    github: 'JulianNymark',
-    since: '1.29.0',
-    contributions: [
-      'OGG/Vorbis container support via symphonia-format-ogg (PR #42)',
-      'Themed toast notifications for audio playback errors (PR #43)',
-      'Human-readable audio error messages (PR #44)',
-    ],
-  },
-  {
     github: 'zz5zz',
     since: '1.32.0',
     contributions: [
@@ -497,6 +488,10 @@ const CONTRIBUTOR_ENTRIES = [
       'Playlists — tags with filter chips on the Playlists page (PR #1730)',
       'Tracks — explicit badges and optional cover blur (PR #1731)',
       'Settings — full-text search across every option, typo-tolerant (PR #1747)',
+      'Navigation — back and forward buttons in the header, with shortcuts (PR #1832)',
+      'Orbit — choose automatic reshuffle when starting a session (PR #1833)',
+      'Seekbar — Full Wave style with a calm wave over the played part (PR #1834)',
+      'Track tables — resizable, movable columns with autofit, header menu and keyboard support (PR #1837)',
     ],
   },
   {
@@ -506,13 +501,6 @@ const CONTRIBUTOR_ENTRIES = [
       'Long-press album Play to shuffle with hold progress animation (PR #888)',
       'WinGet release automation — GitHub Actions workflow that opens manifest PRs on each release (PR #1077)',
       'Dismissible Discord community banner (PR #1222)',
-    ],
-  },
-  {
-    github: 'kbennett2000',
-    since: '1.48.0',
-    contributions: [
-      'Linux auto-install script — fix curl | sudo bash URL capture bug (PR #1079)',
     ],
   },
   {
@@ -537,24 +525,10 @@ const CONTRIBUTOR_ENTRIES = [
     ],
   },
   {
-    github: 'daquino94',
-    since: '1.50.0',
-    contributions: [
-      'Italian (it) full UI translation (PR #1250)',
-    ],
-  },
-  {
     github: 'norperz',
     since: '1.50.0',
     contributions: [
       'Sync: form POST for large play queues to avoid HTTP 414 behind reverse proxies (PR #1262)',
-    ],
-  },
-  {
-    github: 'AliMahmoudDev',
-    since: '1.50.0',
-    contributions: [
-      'Accessibility: modal dialogs announce their title to screen readers (aria-labelledby) (PR #1301)',
     ],
   },
   {
@@ -663,6 +637,13 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.56.0',
     contributions: [
       'Greek translation (PR #1737)',
+    ],
+  },
+  {
+    github: 'spoonkuh',
+    since: '1.57.0',
+    contributions: [
+      'Discord Rich Presence — progress bar, seek sync and server covers (PR #1819)',
     ],
   },
 ] as const;

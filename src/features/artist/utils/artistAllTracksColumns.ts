@@ -1,4 +1,4 @@
-import { TRACK_TITLE_FLEX_COL, type ColDef } from '@/lib/hooks/useTracklistColumns';
+import { TRACK_TITLE_COL, type ColDef } from '@/lib/hooks/useTracklistColumns';
 
 /**
  * Columns of the artist's full track list.
@@ -12,8 +12,8 @@ import { TRACK_TITLE_FLEX_COL, type ColDef } from '@/lib/hooks/useTracklistColum
  * handlers and optimistic state this read-only list does not have.
  */
 export const ARTIST_ALL_TRACKS_COLUMNS: readonly ColDef[] = [
-  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true  },
-  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_FLEX_COL, required: true },
+  { key: 'num',        i18nKey: null,              minWidth: 60,  defaultWidth: 60,  required: true,  align: 'end' },
+  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_COL, required: true },
   { key: 'album',      i18nKey: 'trackAlbum',      minWidth: 80,  defaultWidth: 200, required: true  },
   { key: 'duration',   i18nKey: 'trackDuration',   minWidth: 72,  defaultWidth: 92,  required: false },
   // Off by default — on an artist page the performer repeats down the whole
@@ -35,11 +35,6 @@ export type ArtistAllTracksColKey =
   | 'num' | 'title' | 'album' | 'artist' | 'duration'
   | 'format' | 'genre' | 'genres' | 'mood' | 'year' | 'playCount' | 'lastPlayed' | 'bpm';
 
-/** Columns whose content is centred rather than left-aligned, as elsewhere. */
-export const ARTIST_ALL_TRACKS_CENTERED_COLS = new Set<ArtistAllTracksColKey>([
-  'duration', 'year', 'playCount', 'bpm',
-]);
-
 /** Persisted separately from the album tracklist so the two layouts stay independent. */
 export const ARTIST_ALL_TRACKS_STORAGE_KEY = 'psysonic_artist_all_tracks_columns';
 
@@ -50,3 +45,17 @@ export type ArtistAllTracksSortKey =
 export const ARTIST_ALL_TRACKS_SORTABLE = new Set<string>([
   'title', 'album', 'artist', 'duration', 'year', 'playCount', 'lastPlayed', 'bpm',
 ]);
+
+/**
+ * Columns of the artist's top tracks (the server's popularity ranking). The
+ * ranking is short and fixed in order, so it offers no sorting.
+ */
+export const ARTIST_TOP_TRACKS_COLUMNS: readonly ColDef[] = [
+  { key: 'num',      i18nKey: null,            minWidth: 50, defaultWidth: 60,  required: true, align: 'end' },
+  { key: 'title',    i18nKey: 'trackTitle',    ...TRACK_TITLE_COL, required: true },
+  { key: 'album',    i18nKey: 'trackAlbum',    minWidth: 80, defaultWidth: 220, required: false },
+  { key: 'duration', i18nKey: 'trackDuration', minWidth: 60, defaultWidth: 80,  required: false },
+];
+
+/** Persisted separately from the full track list below it. */
+export const ARTIST_TOP_TRACKS_STORAGE_KEY = 'psysonic_artist_top_tracks_columns';

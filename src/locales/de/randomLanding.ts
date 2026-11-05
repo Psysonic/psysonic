@@ -4,6 +4,6 @@ export const randomLanding = {
   mixByTracksDesc: 'Zufällige Auswahl aus deiner gesamten Mediathek',
   mixByAlbums: 'Mix nach Alben',
   mixByAlbumsDesc: 'Zufällige Alben für neue Entdeckungen',
-  mixByLucky: 'Glücks-Mix',
+  mixByLucky: 'Lucky Mix',
   mixByLuckyDesc: 'Smarter Instant Mix aus Top-Künstlern, Alben und Bewertungen',
 };

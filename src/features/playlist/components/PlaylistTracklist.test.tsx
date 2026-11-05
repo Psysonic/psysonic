@@ -14,8 +14,9 @@ vi.mock('@/lib/dnd/DragDropContext', () => ({
 }));
 
 // jsdom has no layout, so the real virtualizer would render no rows at all.
+const virtualOpts = vi.hoisted(() => ({ last: null as null | { scrollPaddingStart?: number } }));
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: (opts: { count: number; getItemKey: (index: number) => string }) => ({
+  useVirtualizer: (opts: { count: number; getItemKey: (index: number) => string; scrollPaddingStart?: number }) => (virtualOpts.last = opts, {
     getVirtualItems: () => Array.from({ length: opts.count }, (_, index) => ({
       index, key: opts.getItemKey(index), start: index * 48, size: 48,
     })),
@@ -35,7 +36,11 @@ function renderList(tracksReadOnly: boolean, songs: SubsonicSong[] = []) {
     <PlaylistTracklist
       allColumns={columns}
       visibleCols={columns}
-      gridStyle={{}}
+      gridStyle={{ gridTemplateColumns: '60px 180px' }}
+      colWidths={{ num: 60, title: 180 }}
+      contentWidth={240}
+      setColumnWidth={vi.fn()}
+      moveColumn={vi.fn()}
       colVisible={new Set(['num', 'title'])}
       toggleColumn={vi.fn()}
       resetColumns={vi.fn()}
@@ -43,7 +48,6 @@ function renderList(tracksReadOnly: boolean, songs: SubsonicSong[] = []) {
       setPickerOpen={vi.fn()}
       pickerRef={{ current: null }}
       startResize={vi.fn()}
-      startFlexColumnResize={vi.fn()}
       tracklistRef={{ current: null }}
       songs={songs}
       displayedSongs={songs}
@@ -135,5 +139,37 @@ describe('PlaylistTracklist row click to play', () => {
     fireEvent.doubleClick(row);
     expect(playTrack).toHaveBeenCalledOnce();
     expect(playTrack.mock.calls[0]![0]).toMatchObject({ id: 'pl-song-2' });
+  });
+});
+
+describe('PlaylistTracklist — spreadsheet model', () => {
+  const songs = [
+    makeSubsonicSong({ id: 'pl-song-1', title: 'First' }),
+    makeSubsonicSong({ id: 'pl-song-2', title: 'Second' }),
+  ];
+
+  it('puts the header and the virtual rows into the sideways-scrolling viewport', () => {
+    const { container } = renderList(false, songs);
+    expect(container.querySelector('.tl-viewport .tl-head-clip .tl-header')).not.toBeNull();
+    expect(container.querySelectorAll('.tl-viewport .tl-body .track-row')).toHaveLength(2);
+  });
+
+  it('lays every row cell out like its header cell', () => {
+    const { container } = renderList(false, songs);
+    const headKeys = [...container.querySelectorAll('.tl-header .tl-head-cell')].map(c => c.getAttribute('data-tl-col'));
+    const row = container.querySelector('.track-row')!;
+    expect([...row.children].map(c => c.getAttribute('data-tl-col'))).toEqual(headKeys);
+  });
+
+  it('marks the title text for measuring', () => {
+    const view = renderList(false, songs);
+    expect(view.getByText('Second').closest('.tl-cell')).toHaveAttribute('data-tl-text', 'Second');
+  });
+});
+
+describe('PlaylistTracklist — sticky header', () => {
+  it('keeps a row reached with the arrow keys clear of the sticky header', () => {
+    renderList(false, [makeSubsonicSong({ id: 'pl-song-1', title: 'First' })]);
+    expect(virtualOpts.last?.scrollPaddingStart ?? 0).toBeGreaterThanOrEqual(40);
   });
 });
