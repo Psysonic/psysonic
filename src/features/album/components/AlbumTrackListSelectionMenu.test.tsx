@@ -19,7 +19,6 @@ vi.mock('@/lib/hooks/useTracklistColumns', async importOriginal => ({
     visibleCols: [{ key: 'title', width: 100 }],
     gridStyle: {},
     startResize: vi.fn(),
-    startFlexColumnResize: vi.fn(),
     toggleColumn: vi.fn(),
     resetColumns: vi.fn(),
     pickerOpen: false,

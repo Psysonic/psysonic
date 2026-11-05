@@ -4,7 +4,10 @@ import FavoriteSongRow, { type FavoriteSongRowCallbacks } from '@/features/favor
 import { TracklistColumnPicker } from '@/ui/TracklistColumnPicker';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import type { ColDef } from '@/lib/hooks/useTracklistColumns';
+import { fittedWidth, type ColDef } from '@/lib/hooks/useTracklistColumns';
+import { TracklistHeader } from '@/ui/tracklist/TracklistHeader';
+import { TracklistViewport, TRACKLIST_STICKY_HEADER_PX } from '@/ui/tracklist/TracklistViewport';
+import { measureColumnContent, songColumnTexts } from '@/ui/tracklist/measureColumnContent';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { previewInputFromSong, usePreviewStore } from '@/features/playback/store/previewStore';
@@ -33,6 +36,10 @@ interface Props {
   allColumns: readonly ColDef[];
   visibleCols: ColDef[];
   gridStyle: React.CSSProperties;
+  colWidths: Record<string, number>;
+  contentWidth: number;
+  setColumnWidth: (key: string, px: number) => void;
+  moveColumn: (key: string, targetKey: string, side: 'before' | 'after') => void;
   colVisible: Set<string>;
   toggleColumn: (key: string) => void;
   resetColumns: () => void;
@@ -40,10 +47,9 @@ interface Props {
   setPickerOpen: React.Dispatch<React.SetStateAction<boolean>>;
   pickerRef: React.RefObject<HTMLDivElement | null>;
   tracklistRef: React.RefObject<HTMLDivElement | null>;
-  startResize: (e: React.MouseEvent, colIndex: number, direction?: 1 | -1) => void;
-  startFlexColumnResize: (e: React.MouseEvent, colIndex: number, direction?: 1 | -1) => void;
+  startResize: (e: React.PointerEvent, key: string) => void;
   handleSortClick: (key: string) => void;
-  getSortIndicator: (key: string) => React.ReactNode;
+  sort: { key: string; dir: 'asc' | 'desc' } | null;
   ratings: Record<string, number>;
   handleRate: (song: SubsonicSong, rating: number) => void;
   removeSong: (song: SubsonicSong) => void;
@@ -52,9 +58,10 @@ interface Props {
 
 export default function FavoritesSongsTracklist({
   visibleSongs, selectedIds, selectedCount, inSelectMode, toggleSelect,
-  allColumns, visibleCols, gridStyle, colVisible, toggleColumn, resetColumns,
+  allColumns, visibleCols, gridStyle, colWidths, contentWidth, setColumnWidth, moveColumn,
+  colVisible, toggleColumn, resetColumns,
   pickerOpen, setPickerOpen, pickerRef, tracklistRef,
-  startResize, startFlexColumnResize, handleSortClick, getSortIndicator,
+  startResize, handleSortClick, sort,
   ratings, handleRate, removeSong, hasFilters,
 }: Props) {
   const { t } = useTranslation();
@@ -210,6 +217,8 @@ export default function FavoritesSongsTracklist({
     estimateSize: () => 48,
     overscan: Math.max(8, Math.ceil(viewportH / 48)),
     scrollMargin,
+    // Keep a row reached with the arrow keys clear of the sticky header.
+    scrollPaddingStart: TRACKLIST_STICKY_HEADER_PX,
     getItemKey: i => ownedEntityKey(visibleSongs[i]),
   });
 
@@ -224,6 +233,66 @@ export default function FavoritesSongsTracklist({
     enabled: trackListCoversOn,
   });
 
+  const allSelected = selectedCount === visibleSongs.length && visibleSongs.length > 0;
+  const handleAutofit = (colIndex: number) => {
+    const col = visibleCols[colIndex];
+    const root = tracklistRef.current;
+    if (!col || !root) return;
+    const content = measureColumnContent(root, col.key, songColumnTexts(visibleSongs, col.key));
+    setColumnWidth(col.key, fittedWidth(content, col.minWidth));
+  };
+
+  const header = (
+    <TracklistHeader
+      cols={visibleCols}
+      gridStyle={gridStyle}
+      renderLabel={col => {
+        if (col.key === 'num') {
+          return (
+            <span className="track-num">
+              <span
+                className={`bulk-check${allSelected ? ' checked' : ''}${inSelectMode ? ' bulk-check-visible' : ''}`}
+                style={{ cursor: 'pointer' }}
+                onClick={e => {
+                  e.stopPropagation();
+                  if (allSelected) {
+                    useSelectionStore.getState().clearAll();
+                  } else {
+                    useSelectionStore.getState().setSelectedIds(() => new Set(visibleSongs.map(ownedEntityKey)));
+                  }
+                }}
+              />
+              <span className="track-num-number">#</span>
+            </span>
+          );
+        }
+        return col.i18nKey ? t(`albumDetail.${col.i18nKey}`) : '';
+      }}
+      sort={sort}
+      isSortable={key => SORTABLE_COLUMNS.has(key)}
+      onSort={handleSortClick}
+      onResizeStart={(e, colIndex) => {
+        const col = visibleCols[colIndex];
+        if (col) startResize(e, col.key);
+      }}
+      onAutofit={handleAutofit}
+      onResizeBy={(colIndex, deltaPx) => {
+        const col = visibleCols[colIndex];
+        if (col) setColumnWidth(col.key, (colWidths[col.key] ?? col.defaultWidth) + deltaPx);
+      }}
+      onReorder={moveColumn}
+      menu={{
+        allColumns,
+        colVisible,
+        toggleColumn,
+        resetColumns,
+        onFitAll: () => visibleCols.forEach((_, i) => handleAutofit(i)),
+      }}
+      widthOf={key => colWidths[key] ?? 0}
+      t={t}
+    />
+  );
+
   return (
     <>
       <TracklistColumnPicker
@@ -236,104 +305,11 @@ export default function FavoritesSongsTracklist({
         resetColumns={resetColumns}
         t={t}
       />
-    <div className="tracklist" data-preview-loc="favorites" style={{ padding: 0 }} ref={tracklistRef} {...cursor.listProps} onClick={e => {
+    <div className="tracklist tracklist--model-a" data-preview-loc="favorites" style={{ padding: 0 }} ref={tracklistRef} {...cursor.listProps} onClick={e => {
       if (inSelectMode && e.target === e.currentTarget) useSelectionStore.getState().clearAll();
     }}>
 
-      <div style={{ position: 'relative' }}>
-        <div className="tracklist-header tracklist-va" style={gridStyle}>
-          {visibleCols.map((colDef, colIndex) => {
-            const key = colDef.key;
-            const isLastCol = colIndex === visibleCols.length - 1;
-            const label = colDef.i18nKey ? t(`albumDetail.${colDef.i18nKey}`) : '';
-            if (key === 'num') {
-              const allSelected = selectedCount === visibleSongs.length && visibleSongs.length > 0;
-              const titleColIndex = visibleCols.findIndex(c => c.key === 'title');
-              const titleCol = titleColIndex >= 0 ? visibleCols[titleColIndex] : undefined;
-              return (
-                <div key="num" className="track-num" style={{ position: 'relative' }}>
-                  <span
-                    className={`bulk-check${allSelected ? ' checked' : ''}${inSelectMode ? ' bulk-check-visible' : ''}`}
-                    style={{ cursor: 'pointer' }}
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (allSelected) {
-                        useSelectionStore.getState().clearAll();
-                      } else {
-                        useSelectionStore.getState().setSelectedIds(() => new Set(visibleSongs.map(ownedEntityKey)));
-                      }
-                    }}
-                  />
-                  <span className="track-num-number">#</span>
-                  {titleCol?.flex && (
-                    <div
-                      className="col-resize-handle"
-                      onMouseDown={e => startFlexColumnResize(e, titleColIndex, 1)}
-                    />
-                  )}
-                </div>
-              );
-            }
-            if (key === 'title') {
-              const hasNextCol = colIndex + 1 < visibleCols.length;
-              const canSort = SORTABLE_COLUMNS.has('title');
-              return (
-                <div key="title" style={{ position: 'relative', padding: 0, margin: 0, minWidth: 0, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      width: '100%',
-                      height: '100%',
-                      alignItems: 'center',
-                      justifyContent: 'flex-start',
-                      paddingLeft: 12,
-                      cursor: canSort ? 'pointer' : 'default',
-                      userSelect: 'none',
-                    }}
-                    onClick={() => handleSortClick('title')}
-                  >
-                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
-                    {canSort && getSortIndicator('title')}
-                  </div>
-                  {hasNextCol && (
-                    <div
-                      className="col-resize-handle"
-                      onMouseDown={e => startFlexColumnResize(e, colIndex, 1)}
-                    />
-                  )}
-                </div>
-              );
-            }
-            if (key === 'remove') return <div key="remove" />;
-
-            const isCentered = key === 'duration' || key === 'rating';
-            const canSort = SORTABLE_COLUMNS.has(key);
-
-            return (
-              <div key={key} style={{ position: 'relative', padding: 0, margin: 0, minWidth: 0, overflow: 'hidden' }}>
-                <div
-                  style={{
-                    display: 'flex',
-                    width: '100%',
-                    height: '100%',
-                    alignItems: 'center',
-                    justifyContent: isCentered ? 'center' : 'flex-start',
-                    paddingLeft: isCentered ? 0 : 12,
-                    cursor: canSort ? 'pointer' : 'default',
-                    userSelect: 'none',
-                  }}
-                  onClick={() => canSort && handleSortClick(key)}
-                >
-                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-                  {canSort && getSortIndicator(key)}
-                </div>
-                {!isLastCol && <div className="col-resize-handle" onMouseDown={e => startResize(e, colIndex, 1)} />}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
+      <TracklistViewport contentWidth={contentWidth} header={header}>
       <div ref={listWrapRef} style={{ height: rowVirtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
         {virtualItems.map(vi => {
           const song = visibleSongs[vi.index];
@@ -366,6 +342,7 @@ export default function FavoritesSongsTracklist({
           );
         })}
       </div>
+      </TracklistViewport>
 
       {/* Empty state when filters return no results */}
       {visibleSongs.length === 0 && hasFilters && (

@@ -85,6 +85,10 @@ export function useTrackListCursor({ keys, onActivate, scrollToIndex }: UseTrack
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
     if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
     if (isEditableTarget(e.target)) return;
+    // Keys from a portalled menu reach this handler through the React tree, and
+    // the table header answers its own keys: neither may move or use the cursor.
+    const target = e.target as Element;
+    if (!e.currentTarget.contains(target) || target.closest?.('.tl-header')) return;
     const { keys: rowKeys, cursorIndex: at, onActivate: activate, scrollToIndex: scrollTo } = latest.current;
     const count = rowKeys.length;
     if (count === 0) return;

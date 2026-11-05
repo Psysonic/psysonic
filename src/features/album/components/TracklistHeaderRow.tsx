@@ -1,7 +1,9 @@
 import React from 'react';
 import type { TFunction } from 'i18next';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
-import { CENTERED_COLS, isSortable, type ColKey, type SortKey } from '@/features/album/utils/albumTrackListHelpers';
+import { isSortable, type SortKey } from '@/features/album/utils/albumTrackListHelpers';
+import { TracklistHeader } from '@/ui/tracklist/TracklistHeader';
+import type { TracklistMenuConfig } from '@/ui/tracklist/TracklistHeaderMenu';
 
 interface Props {
   visibleCols: readonly ColDef[];
@@ -12,18 +14,18 @@ interface Props {
   allSelected: boolean;
   inSelectMode: boolean;
   toggleAll: () => void;
-  startResize: (e: React.MouseEvent, colIndex: number, direction: 1 | -1) => void;
-  startFlexColumnResize: (e: React.MouseEvent, colIndex: number, direction?: 1 | -1) => void;
+  startResize: (e: React.PointerEvent, colIndex: number) => void;
+  onAutofit: (colIndex: number) => void;
+  onResizeBy: (colIndex: number, deltaPx: number) => void;
+  widthOf: (key: string) => number;
+  onReorder: (key: string, targetKey: string, side: 'before' | 'after') => void;
+  menu: TracklistMenuConfig;
   t: TFunction;
 }
 
 /**
- * The fixed tracklist header row. Each cell is independently sortable
- * (when the column is in `SORTABLE_COLS` and `onSort` is provided) and
- * resizable via a 6px drop-target along its right edge.
- *
- * The `num` cell additionally hosts the bulk-selection toggle so that
- * shift-click-style ranges anchor against the header.
+ * Header row of the album track list: the shared track-table header, with the
+ * bulk-selection toggle in the `#` cell so shift-click ranges anchor against it.
  */
 export function TracklistHeaderRow({
   visibleCols,
@@ -35,118 +37,44 @@ export function TracklistHeaderRow({
   inSelectMode,
   toggleAll,
   startResize,
-  startFlexColumnResize,
+  onAutofit,
+  onResizeBy,
+  widthOf,
+  onReorder,
+  menu,
   t,
 }: Props) {
-  const handleHeaderClick = (key: ColKey | string) => {
-    if (!isSortable(key) || !onSort) return;
-    onSort(key);
-  };
-
-  const renderSortIndicator = (key: SortKey) => {
-    if (sortKey !== key) return null;
-    return (
-      <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.7 }}>
-        {sortDir === 'asc' ? '▲' : '▼'}
-      </span>
-    );
-  };
-
-  const renderHeaderCell = (colDef: ColDef, colIndex: number) => {
-    const key = colDef.key as ColKey;
-    const isLastCol = colIndex === visibleCols.length - 1;
-    const isCentered = CENTERED_COLS.has(key);
-    const label = colDef.i18nKey ? t(`albumDetail.${colDef.i18nKey as string}`) : '';
-    const canSort = isSortable(key) && onSort;
-    const isActive = canSort && sortKey === key;
-
-    if (key === 'num') {
-      const titleColIndex = visibleCols.findIndex(c => c.key === 'title');
-      const titleCol = titleColIndex >= 0 ? visibleCols[titleColIndex] : undefined;
+  const renderLabel = (col: ColDef) => {
+    if (col.key === 'num') {
       return (
-        <div key={key} className="track-num" style={{ position: 'relative' }}>
+        <span className="track-num">
           <span
             className={`bulk-check${allSelected ? ' checked' : ''}${inSelectMode ? ' bulk-check-visible' : ''}`}
             onClick={e => { e.stopPropagation(); toggleAll(); }}
             style={{ cursor: 'pointer' }}
           />
           <span className="track-num-number">#</span>
-          {titleCol?.flex && (
-            <div
-              className="col-resize-handle"
-              onMouseDown={e => startFlexColumnResize(e, titleColIndex, 1)}
-            />
-          )}
-        </div>
+        </span>
       );
     }
-
-    if (key === 'title') {
-      const hasNextCol = colIndex + 1 < visibleCols.length;
-      return (
-        <div
-          key={key}
-          style={{
-            position: 'relative',
-            padding: 0,
-            margin: 0,
-            minWidth: 0,
-            overflow: 'hidden',
-            cursor: canSort ? 'pointer' : 'default',
-            userSelect: 'none',
-          }}
-          onClick={() => handleHeaderClick(key)}
-          className={isActive ? 'tracklist-header-cell-active' : ''}
-        >
-          <div style={{ display: 'flex', width: '100%', height: '100%', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: 12 }}>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: isActive ? 600 : 400 }}>{label}</span>
-            {canSort && renderSortIndicator(key as SortKey)}
-          </div>
-          {hasNextCol && (
-            <div className="col-resize-handle" onMouseDown={e => startFlexColumnResize(e, colIndex, 1)} />
-          )}
-        </div>
-      );
-    }
-
-    const isResizable = !isLastCol;
-    return (
-      <div
-        key={key}
-        style={{
-          position: 'relative',
-          padding: 0,
-          margin: 0,
-          minWidth: 0,
-          overflow: 'hidden',
-          cursor: canSort ? 'pointer' : 'default',
-          userSelect: 'none',
-        }}
-        onClick={() => handleHeaderClick(key)}
-        className={isActive ? 'tracklist-header-cell-active' : ''}
-      >
-        <div
-          style={{
-            display: 'flex', width: '100%', height: '100%', alignItems: 'center',
-            justifyContent: isCentered ? 'center' : 'flex-start',
-            paddingLeft: isCentered ? 0 : 12,
-          }}
-        >
-          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: isActive ? 600 : 400 }}>{label}</span>
-          {canSort && isSortable(key) && renderSortIndicator(key as SortKey)}
-        </div>
-        {isResizable && (
-          <div className="col-resize-handle" onMouseDown={e => startResize(e, colIndex, 1)} />
-        )}
-      </div>
-    );
+    return col.i18nKey ? t(`albumDetail.${col.i18nKey}`) : '';
   };
 
   return (
-    <div className="tracklist-header-wrapper">
-      <div className="tracklist-header" style={gridStyle}>
-        {visibleCols.map((colDef, colIndex) => renderHeaderCell(colDef, colIndex))}
-      </div>
-    </div>
+    <TracklistHeader
+      cols={visibleCols}
+      gridStyle={gridStyle}
+      renderLabel={renderLabel}
+      sort={sortKey && sortDir && sortKey !== 'natural' ? { key: sortKey, dir: sortDir } : null}
+      isSortable={isSortable}
+      onSort={onSort ? key => onSort(key as SortKey) : undefined}
+      onResizeStart={startResize}
+      onAutofit={onAutofit}
+      onResizeBy={onResizeBy}
+      widthOf={widthOf}
+      onReorder={onReorder}
+      menu={menu}
+      t={t}
+    />
   );
 }

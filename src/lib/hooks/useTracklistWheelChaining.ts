@@ -2,10 +2,23 @@ import { useEffect } from 'react';
 import { APP_MAIN_SCROLL_VIEWPORT_ID } from '@/constants/appScroll';
 import { IS_LINUX, IS_MACOS } from '@/lib/util/platform';
 
+/**
+ * The element that scrolls the table vertically: the nearest ancestor that can
+ * scroll on its own (browse pages have an in-page scroller; the main route
+ * viewport is fixed there), else the main route viewport.
+ */
+function verticalScroller(from: Element | null): HTMLElement | null {
+  for (let el = from?.parentElement ?? null; el; el = el.parentElement) {
+    const { overflowY } = getComputedStyle(el);
+    if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+  }
+  return document.getElementById(APP_MAIN_SCROLL_VIEWPORT_ID);
+}
+
 function isInsideTracklist(target: EventTarget | null): boolean {
   if (!target) return false;
   const el = target instanceof Element ? target : (target as Node).parentElement;
-  return Boolean(el?.closest('.tracklist'));
+  return Boolean(el?.closest('.tracklist, .tl-viewport'));
 }
 
 /**
@@ -61,7 +74,7 @@ export function useTracklistWheelChaining(): void {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
 
       const target = e.target instanceof Element ? e.target : (e.target as Node | null)?.parentElement;
-      const tracklist = target?.closest('.tracklist');
+      const tracklist = target?.closest('.tracklist, .tl-viewport');
       if (tracklist) {
         arm(tracklist);
       }
@@ -82,7 +95,7 @@ export function useTracklistWheelChaining(): void {
       // Only recover vertical wheel events targeting the tracklist
       if (!isInsideTracklist(e.target)) return;
 
-      const viewport = document.getElementById(APP_MAIN_SCROLL_VIEWPORT_ID);
+      const viewport = verticalScroller(activeTracklist);
       if (!viewport) return;
 
       e.preventDefault();
