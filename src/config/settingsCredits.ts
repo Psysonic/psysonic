@@ -491,6 +491,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Navigation — back and forward buttons in the header, with shortcuts (PR #1832)',
       'Orbit — choose automatic reshuffle when starting a session (PR #1833)',
       'Seekbar — Full Wave style with a calm wave over the played part (PR #1834)',
+      'Track tables — resizable, movable columns with autofit, header menu and keyboard support (PR #1837)',
     ],
   },
   {

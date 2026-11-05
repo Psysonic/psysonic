@@ -50,6 +50,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A new seekbar style under **Settings → Appearance → Seekbar style**: the whole played part of the song is one calm wave that drifts slowly towards the current position, while the rest stays a flat line.
 * Pulse Wave stays as it was.
 
+### Track tables that behave like real tables
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1837](https://github.com/Psysonic/psysonic/pull/1837)**
+
+* Every column has its own width now: dragging a divider changes only that column, and the divider follows your mouse. Long titles no longer get stuck at a fixed width.
+* When the columns are wider than the window, a thin scrollbar appears at the bottom of the view, only then. The header stays visible while you scroll down.
+* **Double-click a divider** to fit the column to its longest entry. **Hold a column header and drag it** to move the column.
+* **Right-click the header** to show or hide columns, move a column, fit all columns or reset them.
+* Cut-off text shows its full value on hover. Titles, artists and albums stay left-aligned; the other columns are centred.
+* Works the same everywhere: albums, playlists, favourites, artist pages, random mix, the Tracks page, search and the albums list view — and fully from the keyboard (Tab to a header, Enter sorts, Ctrl+Shift+←/→ moves it, Shift+F10 opens the menu, arrow keys resize a focused divider).
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited

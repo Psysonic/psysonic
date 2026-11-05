@@ -1,6 +1,6 @@
 import { queueSongStar, queueSongRating } from '@/features/playback/store/pendingStarSync';
 import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
-import { useTracklistColumns, type ColDef, TRACK_TITLE_FLEX_COL } from '@/lib/hooks/useTracklistColumns';
+import { useTracklistColumns, type ColDef, TRACK_TITLE_COL } from '@/lib/hooks/useTracklistColumns';
 import { TopFavoriteArtistsRow } from '@/features/favorites/components/TopFavoriteArtists';
 import { RadioStationRow } from '@/features/favorites/components/RadioFavorites';
 import FavoritesSongsSectionHeader from '@/features/favorites/components/FavoritesSongsSectionHeader';
@@ -37,21 +37,21 @@ import { matchesFavoritesSearch, normalizeFavoritesSearchQuery } from '@/feature
 import { ChevronDown } from 'lucide-react';
 import { useShowStarRatings, withoutRatingColumn } from '@/store/starRatings';
 
-const FAV_NUM_COLUMN: ColDef = { key: 'num', i18nKey: 'trackRowNumber', minWidth: 60, defaultWidth: 60, required: false };
+const FAV_NUM_COLUMN: ColDef = { key: 'num', i18nKey: 'trackRowNumber', minWidth: 60, defaultWidth: 60, required: false, align: 'end' };
 
 const FAV_COLUMNS: readonly ColDef[] = [
   FAV_NUM_COLUMN,
-  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_FLEX_COL, required: true },
+  { key: 'title',      i18nKey: 'trackTitle',      ...TRACK_TITLE_COL, required: true },
   { key: 'artist',     i18nKey: 'trackArtist',     minWidth: 80,  defaultWidth: 180, required: false },
   { key: 'album',      i18nKey: 'trackAlbum',      minWidth: 80,  defaultWidth: 180, required: false },
   { key: 'genre',      i18nKey: 'trackGenre',      minWidth: 60,  defaultWidth: 120, required: false },
-  { key: 'rating',     i18nKey: 'trackRating',     minWidth: 80,  defaultWidth: 120, required: false },
+  { key: 'rating',     i18nKey: 'trackRating',     minWidth: 80,  defaultWidth: 120, required: false, align: 'center' },
   { key: 'duration',   i18nKey: 'trackDuration',   minWidth: 72,  defaultWidth: 92,  required: false },
   { key: 'format',     i18nKey: 'trackFormat',     minWidth: 60,  defaultWidth: 80,  required: false },
   { key: 'playCount',  i18nKey: 'trackPlayCount', minWidth: 60,  defaultWidth: 80,  required: false },
   { key: 'lastPlayed', i18nKey: 'trackLastPlayed', minWidth: 90,  defaultWidth: 130, required: false },
   { key: 'bpm',        i18nKey: 'trackBpm',        minWidth: 50,  defaultWidth: 70,  required: false },
-  { key: 'remove',     i18nKey: null,              minWidth: 36,  defaultWidth: 36,  required: true  },
+  { key: 'remove',     i18nKey: null,              minWidth: 36,  defaultWidth: 36,  required: true, align: 'center' },
 ];
 
 const CURRENT_YEAR = new Date().getFullYear();
@@ -128,8 +128,8 @@ export default function Favorites() {
   const showStarRatings = useShowStarRatings();
   const favColumns = useMemo(() => withoutRatingColumn(FAV_COLUMNS, showStarRatings), [showStarRatings]);
   const {
-    colVisible, visibleCols, gridStyle,
-    startResize, startFlexColumnResize, toggleColumn, resetColumns,
+    colVisible, visibleCols, colWidths, setColumnWidth, moveColumn,
+    startResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
   } = useTracklistColumns(favColumns, 'psysonic_favorites_columns');
   const isMobile = useIsMobile();
@@ -139,6 +139,12 @@ export default function Favorites() {
     () => (isMobile && !colVisible.has('num') ? [FAV_NUM_COLUMN, ...visibleCols] : visibleCols),
     [isMobile, colVisible, visibleCols],
   );
+  // Grid and width follow the columns actually shown (the compact layout adds `num`).
+  const tracklistGridStyle = useMemo(
+    () => ({ gridTemplateColumns: tracklistCols.map(c => `${colWidths[c.key]}px`).join(' ') }),
+    [tracklistCols, colWidths],
+  );
+  const tracklistWidth = tracklistCols.reduce((sum, c) => sum + colWidths[c.key], 0);
   const sectionConfig = useFavoritesLayoutStore(s => s.sections);
   const activeServerId = useAuthStore(s => s.activeServerId);
   const resolvedBpmSongs = useResolvedTracklistBpm(
@@ -176,7 +182,7 @@ export default function Favorites() {
     setSongs(prev => prev.filter(candidate => ownedEntityKey(candidate) !== key));
   }
 
-  const { visibleSongs, handleSortClick, getSortIndicator } = useFavoritesSongFiltering({
+  const { visibleSongs, handleSortClick } = useFavoritesSongFiltering({
     songs: resolvedBpmSongs,
     sortKey, setSortKey, sortDir, setSortDir, sortClickCount, setSortClickCount,
     selectedArtist, selectedGenres, yearRange, ratings, searchQuery: favoritesSearchQuery,
@@ -377,7 +383,11 @@ export default function Favorites() {
             toggleSelect={toggleSelect}
             allColumns={FAV_COLUMNS}
             visibleCols={tracklistCols}
-            gridStyle={gridStyle}
+            gridStyle={tracklistGridStyle}
+            colWidths={colWidths}
+            contentWidth={tracklistWidth}
+            setColumnWidth={setColumnWidth}
+            moveColumn={moveColumn}
             colVisible={colVisible}
             toggleColumn={toggleColumn}
             resetColumns={resetColumns}
@@ -386,9 +396,8 @@ export default function Favorites() {
             pickerRef={pickerRef}
             tracklistRef={tracklistRef}
             startResize={startResize}
-            startFlexColumnResize={startFlexColumnResize}
             handleSortClick={handleSortClick}
-            getSortIndicator={getSortIndicator}
+            sort={sortKey !== 'natural' && sortClickCount > 0 ? { key: sortKey, dir: sortDir } : null}
             ratings={ratings}
             handleRate={handleRate}
             removeSong={removeSong}

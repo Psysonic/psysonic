@@ -11,11 +11,15 @@ import { OptionalBrowseTrackRowCoverThumb } from '@/cover/TrackRowCoverThumb';
 import { ExplicitTitle } from '@/ui/ExplicitBadge';
 import ExplicitCoverVeil from '@/ui/ExplicitCoverVeil';
 import { isExplicit } from '@/lib/media/explicitStatus';
+import type { ColDef } from '@/lib/hooks/useTracklistColumns';
+import { TracklistCell } from '@/ui/tracklist/TracklistCell';
+import { songCellText } from '@/ui/tracklist/measureColumnContent';
 
 interface Props {
   song: SubsonicSong;
   idx: number;
-  gridTemplateColumns: string;
+  visibleCols: readonly ColDef[];
+  gridStyle: React.CSSProperties;
   track: Track;
   queueSongs: Track[];
   isCurrentTrack: boolean;
@@ -35,7 +39,6 @@ interface Props {
   customGenreBlacklist: string[];
   addedArtist: string | null;
   addedGenre: string | null;
-  showGenreCol: boolean;
   isGenreBlocked: boolean;
   onPlay: () => void;
   onQueueHint: () => void;
@@ -47,10 +50,10 @@ interface Props {
 }
 
 export default function RandomMixTrackRow({
-  song, idx, gridTemplateColumns, track,
+  song, idx, visibleCols, gridStyle, track,
   isCurrentTrack, isPlaying, isContextActive, orbitActive, doubleClickToPlay,
   cursorRowId, onCursorClick, previewingId, previewAudioStarted, isStarred,
-  customGenreBlacklist, addedArtist, addedGenre, showGenreCol, isGenreBlocked,
+  customGenreBlacklist, addedArtist, addedGenre, isGenreBlocked,
   onPlay, onQueueHint, onAddTrackToOrbit, onOpenContextMenu, onToggleStar,
   onBlacklistArtist, onBlacklistGenre,
 }: Props) {
@@ -73,11 +76,105 @@ export default function RandomMixTrackRow({
     ? 'var(--color-star-active, var(--accent))'
     : 'var(--color-star-inactive, var(--text-muted))';
 
+  const renderCell = (colDef: ColDef) => {
+    switch (colDef.key) {
+      case 'num': return (
+        <div className={`track-num${isCurrentTrack ? ' track-num-active' : ''}`}>
+          {isCurrentTrack && isPlaying ? (
+            <span className="track-num-eq"><AudioLines className="eq-bars" size={14} /></span>
+          ) : (
+            <span className="track-num-number">{idx + 1}</span>
+          )}
+        </div>
+      );
+      case 'title': return (
+        <div className="track-info track-info-suggestion">
+          <button
+            type="button"
+            className="playlist-suggestion-play-btn"
+            onClick={e => { e.stopPropagation(); if (orbitActive) { onQueueHint(); return; } onPlay(); }}
+            data-tooltip={t('common.play')}
+            aria-label={t('common.play')}
+          >
+            <Play size={10} fill="currentColor" strokeWidth={0} className="playlist-suggestion-play-icon" />
+          </button>
+          <button
+            type="button"
+            className={`playlist-suggestion-preview-btn${previewingId === song.id ? ' is-previewing' : ''}${previewingId === song.id && previewAudioStarted ? ' audio-started' : ''}`}
+            onClick={e => {
+              e.stopPropagation();
+              usePreviewStore.getState().startPreview(
+                previewInputFromSong(song),
+                'randomMix',
+              );
+            }}
+            data-tooltip={previewingId === song.id ? t('playlists.previewStop') : t('playlists.preview')}
+            aria-label={previewingId === song.id ? t('playlists.previewStop') : t('playlists.preview')}
+          >
+            <svg className="playlist-suggestion-preview-ring" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="10.5" className="playlist-suggestion-preview-ring-track" />
+              <circle cx="12" cy="12" r="10.5" className="playlist-suggestion-preview-ring-progress" />
+            </svg>
+            {previewingId === song.id
+              ? <Square size={9} fill="currentColor" strokeWidth={0} className="playlist-suggestion-preview-icon" />
+              : <ChevronRight size={14} className="playlist-suggestion-preview-icon playlist-suggestion-preview-icon-play" />}
+          </button>
+          <OptionalBrowseTrackRowCoverThumb song={song} size="dense" />
+          <ExplicitCoverVeil explicit={isExplicit(song)} />
+          <ExplicitTitle status={song.explicitStatus}><span className="track-title">{song.title}</span></ExplicitTitle>
+        </div>
+      );
+      case 'artist': return (
+        <div className="track-artist-cell">
+          {artist ? (
+            <button
+              className={`rm-artist-btn${isArtistBlocked ? ' is-blocked' : isArtistJustAdded ? ' just-added' : ''}`}
+              onClick={() => { if (!isArtistBlocked) onBlacklistArtist(artist); }}
+              data-tooltip={isArtistBlocked ? t('randomMix.artistBlocked') : isArtistJustAdded ? t('randomMix.artistAddedToBlacklist') : t('randomMix.artistClickHint')}
+            >{artist}</button>
+          ) : <span className="track-artist">—</span>}
+        </div>
+      );
+      case 'album': return (
+        <div className="track-info">
+          <span className="track-title" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{song.album ?? '—'}</span>
+        </div>
+      );
+      case 'genre': return (
+        <div>
+          {genre ? (
+            <button
+              className={`rm-genre-chip${isGenreBlocked ? ' is-blocked' : isGenreJustAdded ? ' just-added' : ''}`}
+              onClick={() => { if (!isGenreBlocked) onBlacklistGenre(genre); }}
+              data-tooltip={isGenreBlocked ? t('randomMix.genreBlocked') : isGenreJustAdded ? t('randomMix.genreAddedToBlacklist') : t('randomMix.genreClickHint')}
+            >{genre}</button>
+          ) : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>}
+        </div>
+      );
+      case 'favorite': return (
+        <div className="track-star-cell">
+          <button
+            className="btn btn-ghost track-star-btn"
+            onClick={onToggleStar}
+            data-tooltip={isStarred ? t('randomMix.favoriteRemove') : t('randomMix.favoriteAdd')}
+            style={{ color: starColor }}
+          >
+            <Heart size={14} fill={isStarred ? 'currentColor' : 'none'} />
+          </button>
+        </div>
+      );
+      case 'duration': return (
+        <div className="track-duration">{formatRandomMixDuration(song.duration)}</div>
+      );
+      default: return null;
+    }
+  };
+
   return (
     <div
       id={cursorRowId}
       className={`track-row track-row-with-actions${isCurrentTrack ? ' active' : ''}${isContextActive ? ' context-active' : ''}${cursorRowId ? ' track-row--cursor' : ''}`}
-      style={{ gridTemplateColumns }}
+      style={gridStyle}
       onClick={e => {
         if ((e.target as HTMLElement).closest('button, a, input')) return;
         onCursorClick(e);
@@ -94,88 +191,9 @@ export default function RandomMixTrackRow({
       onContextMenu={onOpenContextMenu}
       onMouseDown={onRowMouseDown}
     >
-      <div className={`track-num${isCurrentTrack ? ' track-num-active' : ''}`}>
-        {isCurrentTrack && isPlaying ? (
-          <span className="track-num-eq"><AudioLines className="eq-bars" size={14} /></span>
-        ) : (
-          <span className="track-num-number">{idx + 1}</span>
-        )}
-      </div>
-
-      <div className="track-info track-info-suggestion">
-        <button
-          type="button"
-          className="playlist-suggestion-play-btn"
-          onClick={e => { e.stopPropagation(); if (orbitActive) { onQueueHint(); return; } onPlay(); }}
-          data-tooltip={t('common.play')}
-          aria-label={t('common.play')}
-        >
-          <Play size={10} fill="currentColor" strokeWidth={0} className="playlist-suggestion-play-icon" />
-        </button>
-        <button
-          type="button"
-          className={`playlist-suggestion-preview-btn${previewingId === song.id ? ' is-previewing' : ''}${previewingId === song.id && previewAudioStarted ? ' audio-started' : ''}`}
-          onClick={e => {
-            e.stopPropagation();
-            usePreviewStore.getState().startPreview(
-              previewInputFromSong(song),
-              'randomMix',
-            );
-          }}
-          data-tooltip={previewingId === song.id ? t('playlists.previewStop') : t('playlists.preview')}
-          aria-label={previewingId === song.id ? t('playlists.previewStop') : t('playlists.preview')}
-        >
-          <svg className="playlist-suggestion-preview-ring" viewBox="0 0 24 24" aria-hidden="true">
-            <circle cx="12" cy="12" r="10.5" className="playlist-suggestion-preview-ring-track" />
-            <circle cx="12" cy="12" r="10.5" className="playlist-suggestion-preview-ring-progress" />
-          </svg>
-          {previewingId === song.id
-            ? <Square size={9} fill="currentColor" strokeWidth={0} className="playlist-suggestion-preview-icon" />
-            : <ChevronRight size={14} className="playlist-suggestion-preview-icon playlist-suggestion-preview-icon-play" />}
-        </button>
-        <OptionalBrowseTrackRowCoverThumb song={song} size="dense" />
-        <ExplicitCoverVeil explicit={isExplicit(song)} />
-        <ExplicitTitle status={song.explicitStatus}><span className="track-title">{song.title}</span></ExplicitTitle>
-      </div>
-
-      <div className="track-artist-cell">
-        {artist ? (
-          <button
-            className={`rm-artist-btn${isArtistBlocked ? ' is-blocked' : isArtistJustAdded ? ' just-added' : ''}`}
-            onClick={() => { if (!isArtistBlocked) onBlacklistArtist(artist); }}
-            data-tooltip={isArtistBlocked ? t('randomMix.artistBlocked') : isArtistJustAdded ? t('randomMix.artistAddedToBlacklist') : t('randomMix.artistClickHint')}
-          >{artist}</button>
-        ) : <span className="track-artist">—</span>}
-      </div>
-
-      <div className="track-info">
-        <span className="track-title" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{song.album ?? '—'}</span>
-      </div>
-
-      {showGenreCol && (
-        <div>
-          {genre ? (
-            <button
-              className={`rm-genre-chip${isGenreBlocked ? ' is-blocked' : isGenreJustAdded ? ' just-added' : ''}`}
-              onClick={() => { if (!isGenreBlocked) onBlacklistGenre(genre); }}
-              data-tooltip={isGenreBlocked ? t('randomMix.genreBlocked') : isGenreJustAdded ? t('randomMix.genreAddedToBlacklist') : t('randomMix.genreClickHint')}
-            >{genre}</button>
-          ) : <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>—</span>}
-        </div>
-      )}
-
-      <div className="track-star-cell">
-        <button
-          className="btn btn-ghost track-star-btn"
-          onClick={onToggleStar}
-          data-tooltip={isStarred ? t('randomMix.favoriteRemove') : t('randomMix.favoriteAdd')}
-          style={{ color: starColor }}
-        >
-          <Heart size={14} fill={isStarred ? 'currentColor' : 'none'} />
-        </button>
-      </div>
-
-      <div className="track-duration">{formatRandomMixDuration(song.duration)}</div>
+      {visibleCols.map(colDef => (
+        <TracklistCell key={colDef.key} col={colDef} text={songCellText(song, colDef.key)}>{renderCell(colDef)}</TracklistCell>
+      ))}
     </div>
   );
 }

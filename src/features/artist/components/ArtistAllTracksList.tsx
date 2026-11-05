@@ -2,9 +2,11 @@ import React, { useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
-import { ArrowDown, ArrowUp } from 'lucide-react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
-import type { useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
+import { fittedWidth, type useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
+import { TracklistHeader } from '@/ui/tracklist/TracklistHeader';
+import { TracklistViewport, TRACKLIST_STICKY_HEADER_PX } from '@/ui/tracklist/TracklistViewport';
+import { measureColumnContent, songColumnTexts } from '@/ui/tracklist/measureColumnContent';
 import {
   previewInputFromSong,
   sameQueueTrack,
@@ -28,9 +30,8 @@ import { useTrackListCoverArtEnabled } from '@/cover/useTrackListCoverArtSetting
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 import ArtistAllTracksRow, { type ArtistAllTracksRowCallbacks } from '@/features/artist/components/ArtistAllTracksRow';
 import {
-  ARTIST_ALL_TRACKS_CENTERED_COLS,
+  ARTIST_ALL_TRACKS_COLUMNS,
   ARTIST_ALL_TRACKS_SORTABLE,
-  type ArtistAllTracksColKey,
   type ArtistAllTracksSortKey,
 } from '@/features/artist/utils/artistAllTracksColumns';
 import {
@@ -80,7 +81,8 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
   const [sort, setSort] = useState<ArtistAllTracksSortState>({ key: 'natural', dir: 'asc' });
 
   const {
-    colVisible, visibleCols, gridStyle, pickerOpen, startResize, startFlexColumnResize, tracklistRef,
+    colVisible, visibleCols, gridStyle, pickerOpen, startResize, tracklistRef,
+    colWidths, contentWidth, setColumnWidth, moveColumn, toggleColumn, resetColumns,
   } = columns;
   const resolvedBpmSongs = useResolvedTracklistBpm(
     songs,
@@ -112,6 +114,8 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
     estimateSize: () => ROW_HEIGHT,
     overscan: Math.max(8, Math.ceil(viewportH / ROW_HEIGHT)),
     scrollMargin,
+    // Keep a row reached with the arrow keys clear of the sticky header.
+    scrollPaddingStart: TRACKLIST_STICKY_HEADER_PX,
     // Index-suffixed: the same track can legitimately appear twice (an album and
     // its compilation reissue), and a duplicate key would drop one of the rows.
     getItemKey: i => `${displayed[i].id}:${i}`,
@@ -129,12 +133,6 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
   const handleSortClick = (key: string) => {
     if (!ARTIST_ALL_TRACKS_SORTABLE.has(key)) return;
     setSort(prev => nextArtistAllTracksSort(prev, key as ArtistAllTracksSortKey));
-  };
-  const sortIndicator = (key: string) => {
-    if (sort.key !== key) return null;
-    return sort.dir === 'asc'
-      ? <ArrowUp size={12} style={{ marginLeft: 4, opacity: 0.7 }} />
-      : <ArrowDown size={12} style={{ marginLeft: 4, opacity: 0.7 }} />;
   };
 
   // Index-suffixed for the same reason as the virtualiser keys above.
@@ -211,59 +209,50 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
     );
   }
 
-  return (
-      <div className="tracklist" data-preview-loc="artist" style={{ padding: 0 }} ref={tracklistRef} {...cursor.listProps}>
-        <div style={{ position: 'relative' }}>
-          <div className="tracklist-header tracklist-va" style={gridStyle}>
-            {visibleCols.map((colDef, colIndex) => {
-              const key = colDef.key;
-              const isLastCol = colIndex === visibleCols.length - 1;
-              const label = colDef.i18nKey ? t(`albumDetail.${colDef.i18nKey}`) : '';
-              if (key === 'num') {
-                const titleColIndex = visibleCols.findIndex(c => c.key === 'title');
-                const titleCol = titleColIndex >= 0 ? visibleCols[titleColIndex] : undefined;
-                return (
-                  <div key="num" className="track-num" style={{ position: 'relative' }}>
-                    <span className="track-num-number">#</span>
-                    {titleCol?.flex && (
-                      <div className="col-resize-handle" onMouseDown={e => startFlexColumnResize(e, titleColIndex, 1)} />
-                    )}
-                  </div>
-                );
-              }
-              const isCentered = ARTIST_ALL_TRACKS_CENTERED_COLS.has(key as ArtistAllTracksColKey);
-              const canSort = ARTIST_ALL_TRACKS_SORTABLE.has(key);
-              const isFlexTitle = key === 'title';
-              return (
-                <div key={key} style={{ position: 'relative', padding: 0, margin: 0, minWidth: 0, overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      width: '100%',
-                      height: '100%',
-                      alignItems: 'center',
-                      justifyContent: isCentered ? 'center' : 'flex-start',
-                      paddingLeft: isCentered ? 0 : 12,
-                      cursor: canSort ? 'pointer' : 'default',
-                      userSelect: 'none',
-                    }}
-                    onClick={() => handleSortClick(key)}
-                  >
-                    <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-                    {canSort && sortIndicator(key)}
-                  </div>
-                  {!isLastCol && (
-                    <div
-                      className="col-resize-handle"
-                      onMouseDown={e => (isFlexTitle ? startFlexColumnResize(e, colIndex, 1) : startResize(e, colIndex, 1))}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+  const handleAutofit = (colIndex: number) => {
+    const col = visibleCols[colIndex];
+    const root = tracklistRef.current;
+    if (!col || !root) return;
+    const content = measureColumnContent(root, col.key, songColumnTexts(displayed, col.key));
+    setColumnWidth(col.key, fittedWidth(content, col.minWidth));
+  };
 
+  const header = (
+    <TracklistHeader
+      cols={visibleCols}
+      gridStyle={gridStyle}
+      renderLabel={col => {
+        if (col.key === 'num') return <span className="track-num"><span className="track-num-number">#</span></span>;
+        return col.i18nKey ? t(`albumDetail.${col.i18nKey}`) : '';
+      }}
+      sort={sort.key !== 'natural' ? { key: sort.key, dir: sort.dir } : null}
+      isSortable={key => ARTIST_ALL_TRACKS_SORTABLE.has(key)}
+      onSort={handleSortClick}
+      onResizeStart={(e, colIndex) => {
+        const col = visibleCols[colIndex];
+        if (col) startResize(e, col.key);
+      }}
+      onAutofit={handleAutofit}
+      onResizeBy={(colIndex, deltaPx) => {
+        const col = visibleCols[colIndex];
+        if (col) setColumnWidth(col.key, (colWidths[col.key] ?? col.defaultWidth) + deltaPx);
+      }}
+      onReorder={moveColumn}
+      menu={{
+        allColumns: ARTIST_ALL_TRACKS_COLUMNS,
+        colVisible,
+        toggleColumn,
+        resetColumns,
+        onFitAll: () => visibleCols.forEach((_, i) => handleAutofit(i)),
+      }}
+      widthOf={key => colWidths[key] ?? 0}
+      t={t}
+    />
+  );
+
+  return (
+      <div className="tracklist tracklist--model-a" data-preview-loc="artist" style={{ padding: 0 }} ref={tracklistRef} {...cursor.listProps}>
+        <TracklistViewport contentWidth={contentWidth} header={header}>
         <div ref={listWrapRef} style={{ height: rowVirtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
           {virtualItems.map(vi => {
             const song = displayed[vi.index];
@@ -299,6 +288,7 @@ export default function ArtistAllTracksList({ songs, loading, failed, onPlay, co
             );
           })}
         </div>
+        </TracklistViewport>
       </div>
   );
 }
