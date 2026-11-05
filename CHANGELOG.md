@@ -108,6 +108,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The button on a radio station card showed a cast icon, which looked like sending audio to another device. It now shows a play icon, and stations without artwork use a radio icon as their placeholder instead of the cast icon.
 
+### Track table polish
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1838](https://github.com/Psysonic/psysonic/pull/1838)**
+
+* The scrollbar under wide track tables is the thin one on Windows too, and a sideways touchpad swipe or Shift + mouse wheel over the header now scrolls the table.
+* Columns of row buttons (remove, delete, play/queue) can be resized and moved like the others, and screen readers name them instead of reading an internal key.
+* In the random mix, a cut-off artist or genre shows its full name above the click hint; the genre mix no longer offers a genre column it never shows.
+* A right-click inside the open column menu no longer resets it, and a column width set right before releasing the mouse is kept.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
