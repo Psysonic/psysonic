@@ -9,12 +9,14 @@ import { resetAuthStore } from '@/test/helpers/storeReset';
 const {
   libraryGetStatusMock,
   runLocalLiveSearchMock,
+  runNetworkLiveSearchMock,
   raceLiveSearchMock,
   showToastMock,
   subscribeLibrarySyncProgressMock,
   revisionState,
 } = vi.hoisted(() => ({
   libraryGetStatusMock: vi.fn(),
+  runNetworkLiveSearchMock: vi.fn(),
   runLocalLiveSearchMock: vi.fn<(
     serverId: string,
     query: string,
@@ -40,7 +42,7 @@ vi.mock('@/lib/library/liveSearchLocal', () => ({
   liveSearchQueryRejected: () => false,
   mergeLiveSearchResults: (primary: unknown) => primary,
   runLocalLiveSearch: runLocalLiveSearchMock,
-  runNetworkLiveSearch: vi.fn(async () => null),
+  runNetworkLiveSearch: runNetworkLiveSearchMock,
 }));
 
 vi.mock('@/lib/library/searchRace', () => ({
@@ -406,5 +408,36 @@ describe('useLiveSearchQuery indexIncomplete', () => {
 
     await act(async () => { firstRegistration.resolve(staleUnlisten); });
     expect(staleUnlisten).toHaveBeenCalledOnce();
+  });
+});
+
+describe('live Octo catalog search', () => {
+  it('contacts a selected proxy while the local multi-server index is incomplete', async () => {
+    vi.useFakeTimers();
+    resetAuthStore();
+    useAuthStore.setState({
+      activeServerId: 'a',
+      servers: [
+        { id: 'a', name: 'A', url: 'https://a.test', username: 'u', password: 'p' },
+        { id: 'b', name: 'B', url: 'https://b.test', username: 'u', password: 'p' },
+      ],
+      libraryBrowseServerIds: ['a', 'b'],
+      openSubsonicExtensionsByServer: { b: ['octoAcquisitions'] },
+    });
+    useLibraryIndexStore.setState({ masterEnabled: true });
+    libraryGetStatusMock.mockResolvedValue(buildingStatus());
+    const remote = { artists: [], albums: [], songs: [] };
+    runNetworkLiveSearchMock.mockResolvedValue(remote);
+    raceLiveSearchMock.mockImplementation(async (_local, network) => ({ result: await network(), source: 'network', durationMs: 0 }));
+    const params = { ...hookParams(), query: 'outside artist' };
+    const view = renderHook(() => useLiveSearchQuery(params));
+    try {
+      await act(async () => { await vi.advanceTimersByTimeAsync(500); });
+      expect(runNetworkLiveSearchMock).toHaveBeenCalledWith('outside artist', expect.anything(), 'b', 30000, 20);
+      expect(params.setResults).toHaveBeenLastCalledWith(remote);
+    } finally {
+      view.unmount();
+      vi.useRealTimers();
+    }
   });
 });

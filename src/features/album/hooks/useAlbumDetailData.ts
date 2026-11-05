@@ -1,3 +1,4 @@
+import { serverHasExternalCatalog } from '@/lib/server/externalCatalog';
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
@@ -101,8 +102,13 @@ export function useAlbumDetailData(id: string | undefined): UseAlbumDetailDataRe
       };
     }
 
+    let externalCatalogOnly = false;
     const applyAlbumPayload = (data: AlbumPayload): boolean => {
       if (!isCurrent()) return false;
+      if (externalCatalogOnly && data.album.isExternal === false) {
+        setLoading(false);
+        return false;
+      }
       setAlbum(data);
       const initialStarred = new Set<string>();
       data.songs.forEach(s => { if (s.starred) initialStarred.add(ownedEntityKey(s)); });
@@ -192,8 +198,15 @@ export function useAlbumDetailData(id: string | undefined): UseAlbumDetailDataRe
           );
           return;
         }
-        finishWithoutAlbum();
-        return;
+        const routeOwner = readDetailServerId(searchParams, null);
+        const catalogOwnerAllowed = routeOwner
+          && browseScope.serverIds.includes(routeOwner)
+          && serverHasExternalCatalog(useAuthStore.getState(), routeOwner);
+        if (!catalogOwnerAllowed) {
+          finishWithoutAlbum();
+          return;
+        }
+        externalCatalogOnly = true;
       }
 
       // Index-first when the local SQLite index is ready, not only when the

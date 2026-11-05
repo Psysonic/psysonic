@@ -114,3 +114,18 @@ describe('Navidrome canonical route history', () => {
     }
   });
 });
+
+it('preserves opaque Octo routes even with an older ready Navidrome checkpoint', () => {
+  seedReadyCheckpoint();
+  const root = JSON.parse(auth());
+  root.state.openSubsonicExtensionsByServer = { 'profile-a': ['octoAcquisitions'] };
+  localStorage.setItem('psysonic-auth', JSON.stringify(root));
+  const id = 'oiAqcKf8v0Ds0duXdDPVQz';
+  window.history.replaceState({ usr: { returnTo: `/playlists/${id}?server=profile-a` } }, '', `/playlists/${id}?server=profile-a`);
+  const uninstall = installNavidromeCanonicalHistoryNormalizer();
+  try {
+    expect(rewriteNavidromeCanonicalHistoryForReadyServers()).toBe(false);
+    window.history.pushState(null, '', `/album/eYaVcNk6mlD3CL8aR6c637?server=profile-a`);
+    expect(window.location.pathname).toBe('/album/eYaVcNk6mlD3CL8aR6c637');
+  } finally { uninstall(); }
+});

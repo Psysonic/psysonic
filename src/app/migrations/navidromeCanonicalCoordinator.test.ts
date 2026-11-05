@@ -116,6 +116,19 @@ describe('runNavidromeCanonicalMigrationCoordinator', () => {
     mocks.commitImportedBackupRecovery.mockClear();
   });
 
+  it('recognizes an Octo probe before running any ID migrations', async () => {
+    mocks.invoke.mockImplementation(async (command: string) => {
+      if (command === 'library_migration_inspect') return { state: 'inactive', lastGeneration: 0 };
+      if (command === 'probe_server_connection') return { ok: true, type: 'octo', openSubsonic: true };
+      throw new Error(`Unexpected command ${command}`);
+    });
+    await expect(runNavidromeCanonicalMigrationCoordinator({ windowKind: 'main' }))
+      .resolves.toEqual({ blocked: false, migratedServers: 0 });
+    expect(mocks.rewriteFrontend).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem('psysonic-auth')!).state.subsonicServerIdentityByServer.profile.type).toBe('octo');
+    expect(mocks.invoke).not.toHaveBeenCalledWith('library_migration_begin', expect.anything());
+  });
+
   it('records an old stable Navidrome release without taking the writer barrier', async () => {
     mocks.invoke.mockImplementation(async (command: string) => {
       if (command === 'library_migration_inspect') return { state: 'inactive', lastGeneration: 0 };

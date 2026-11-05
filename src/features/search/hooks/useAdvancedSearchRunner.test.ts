@@ -425,3 +425,31 @@ describe('useAdvancedSearchRunner multi-server readiness', () => {
     expect(state.setResults).toHaveBeenCalledTimes(callsAfterSearch);
   });
 });
+
+describe('Octo catalog search', () => {
+  it('queries the selected proxy even with a ready multi-server index and merges owned results', async () => {
+    useAuthStore.setState({ openSubsonicExtensionsByServer: { b: ['octoAcquisitions'] } });
+    const remote = { id: 'preview', title: 'Remote', artist: 'Artist', album: 'Album', albumId: 'remote-album', duration: 0, serverId: 'b.test', isExternal: true };
+    networkAdvancedTextSearchMock.mockResolvedValue({ artists: [], albums: [], songs: [remote], songsConsumed: 1 });
+    localSearchMock.mockResolvedValue({ artists: [], albums: [], songs: [{ ...remote, id: 'local', serverId: 'a.test' }], songsConsumed: 1 });
+    const state = setters();
+    const { result } = renderHook(() => useAdvancedSearchRunner({
+      serverId: 'a', indexEnabled: true, loadingMoreSongs: false, songsHasMore: false,
+      activeSearch: null, basicSearchMode: true, localMode: false, songsServerOffset: 0, ...state,
+    }));
+    await act(async () => { await result.current.runBasicSearch('artist'); });
+    expect(networkAdvancedTextSearchMock).toHaveBeenCalledWith(expect.objectContaining({ query: 'artist' }), 50, 'b', 30000);
+    expect(state.setResults).toHaveBeenLastCalledWith(expect.objectContaining({ songs: [remote, expect.objectContaining({ id: 'local' })] }));
+    expect(readyLibraryServerKeysMock).not.toHaveBeenCalled();
+  });
+  it('does not query an Octo server outside the selected browse scope', async () => {
+    useAuthStore.setState({ libraryBrowseServerIds: ['a'], openSubsonicExtensionsByServer: { b: ['octoAcquisitions'] } });
+    const state = setters();
+    const { result } = renderHook(() => useAdvancedSearchRunner({
+      serverId: 'a', indexEnabled: true, loadingMoreSongs: false, songsHasMore: false,
+      activeSearch: null, basicSearchMode: true, localMode: false, songsServerOffset: 0, ...state,
+    }));
+    await act(async () => { await result.current.runBasicSearch('artist'); });
+    expect(networkAdvancedTextSearchMock).not.toHaveBeenCalled();
+  });
+});

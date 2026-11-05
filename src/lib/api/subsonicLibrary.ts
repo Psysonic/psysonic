@@ -186,7 +186,7 @@ export async function filterSongsToServerLibrary(
 ): Promise<SubsonicSong[]> {
   const allowed = await albumIdsInLibraryScope(serverId, explicitLibraryIds);
   if (!allowed || (allowed.size === 0 && explicitLibraryIds === undefined)) return songs;
-  return songs.filter(s => s.albumId && allowed.has(s.albumId));
+  return songs.filter(s => s.isExternal === true || (s.albumId && allowed.has(s.albumId)));
 }
 
 export async function filterSongsToActiveLibrary(songs: SubsonicSong[]): Promise<SubsonicSong[]> {

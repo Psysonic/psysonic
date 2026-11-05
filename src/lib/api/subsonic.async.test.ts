@@ -659,3 +659,12 @@ describe('api() transport routing — gated servers use the native proxy', () =>
     expect(proxyCalled).toBe(false);
   });
 });
+
+it('identifies an Octo proxy on both WebView credential probe paths', async () => {
+  vi.mocked(axios.get).mockImplementation(async (url) => String(url).endsWith('/ping.view')
+    ? okResponse({ type: 'navidrome', serverVersion: '0.64.0', openSubsonic: true })
+    : okResponse({ openSubsonicExtensions: [{ name: 'octoAcquisitions', versions: [1] }] }));
+  await expect(pingWithCredentials('https://octo.test', 'u', 'p')).resolves.toMatchObject({ ok: true, type: 'octo', serverVersion: undefined });
+  await expect(pingWithCredentialsForProfile({ url: 'https://octo.test', username: 'u', password: 'p' }, 'https://octo.test'))
+    .resolves.toMatchObject({ ok: true, type: 'octo', serverVersion: undefined });
+});

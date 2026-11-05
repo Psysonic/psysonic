@@ -16,3 +16,11 @@ describe('filterSearchArtistsWithNoAlbums', () => {
     expect(filterSearchArtistsWithNoAlbums(artists)).toEqual(artists);
   });
 });
+
+it('keeps catalog artists with unknown local album counts, including local matches', () => {
+  const artists = [
+    { id: 'external', name: 'Outside', albumCount: 0, isExternal: true },
+    { id: 'local', name: 'Owned', albumCount: 0, isExternal: false },
+  ];
+  expect(filterSearchArtistsWithNoAlbums(artists)).toEqual(artists);
+});
