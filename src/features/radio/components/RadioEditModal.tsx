@@ -1,7 +1,7 @@
 import React, { useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { Camera, Cast, Loader2, X } from 'lucide-react';
+import { Camera, Loader2, Radio, X } from 'lucide-react';
 import type { InternetRadioStation } from '@/lib/api/subsonicTypes';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { radioCoverRef } from '@/cover/ref';
@@ -122,7 +122,7 @@ export default function RadioEditModal({
               />
             ) : (
               <div className="album-card-cover-placeholder playlist-card-icon" style={{ width: '100%', height: '100%', borderRadius: 0 }}>
-                <Cast size={36} strokeWidth={1.2} />
+                <Radio size={36} strokeWidth={1.2} />
               </div>
             )}
             <div className="playlist-edit-cover-overlay">
