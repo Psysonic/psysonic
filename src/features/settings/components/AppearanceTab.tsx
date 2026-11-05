@@ -195,6 +195,13 @@ export function AppearanceTab() {
               checked={auth.showOrbitTrigger}
               onChange={auth.setShowOrbitTrigger}
             />
+            <div className="settings-section-divider" />
+            <SettingsToggle
+              label={t('settings.showHistoryNavButtons')}
+              desc={t('settings.showHistoryNavButtonsDesc')}
+              checked={theme.showHistoryNavButtons}
+              onChange={theme.setShowHistoryNavButtons}
+            />
             {!IS_WINDOWS && (
               <>
                 <div className="settings-section-divider" />

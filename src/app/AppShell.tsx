@@ -29,6 +29,7 @@ import {
   mainRouteInpageScrollViewportId,
 } from '../constants/appScroll';
 import ConnectionIndicator from '@/app/ConnectionIndicator';
+import { HistoryNavButtons } from '@/app/HistoryNavButtons';
 import { MusicNetworkIndicator } from '@/music-network/ui';
 import AppUpdater from '@/features/updater/components/AppUpdater';
 import TitleBar from '@/app/TitleBar';
@@ -287,6 +288,7 @@ export function AppShell() {
       <main className="main-content">
         <div className="main-content-zoom">
         <header className="content-header">
+          {!isMobile && <HistoryNavButtons />}
           <LiveSearch />
           {import.meta.env.DEV && <DevNetworkModeToggle />}
           <div className="spacer" />

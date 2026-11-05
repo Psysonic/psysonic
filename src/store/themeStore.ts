@@ -103,6 +103,10 @@ interface ThemeState {
   /** Two-finger horizontal touchpad swipe goes back / forward (#935). */
   touchpadSwipeNavigation: boolean;
   setTouchpadSwipeNavigation: (v: boolean) => void;
+  /** Back / forward buttons left of the header search. Hiding them leaves the
+   *  back / forward shortcuts working. */
+  showHistoryNavButtons: boolean;
+  setShowHistoryNavButtons: (v: boolean) => void;
   /** Compact (icon-only) vs. large action/toolbar buttons across detail pages and browse views. */
   buttonSize: 'large' | 'small';
   setButtonSize: (v: 'large' | 'small') => void;
@@ -207,6 +211,8 @@ export const useThemeStore = create<ThemeState>()(
       setTrackRowPlayClick: (v) => set({ trackRowPlayClick: v }),
       touchpadSwipeNavigation: true,
       setTouchpadSwipeNavigation: (v) => set({ touchpadSwipeNavigation: v }),
+      showHistoryNavButtons: true,
+      setShowHistoryNavButtons: (v) => set({ showHistoryNavButtons: v }),
       buttonSize: 'large',
       setButtonSize: (v) => set({ buttonSize: v }),
       showRemainingTime: false,
