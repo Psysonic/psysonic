@@ -52,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Track tables that behave like real tables
 
-**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1837](https://github.com/Psysonic/psysonic/pull/1837)**
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PRs [#1837](https://github.com/Psysonic/psysonic/pull/1837), [#1838](https://github.com/Psysonic/psysonic/pull/1838)**
 
 * Every column has its own width now: dragging a divider changes only that column, and the divider follows your mouse. Long titles no longer get stuck at a fixed width.
 * When the columns are wider than the window, a thin scrollbar appears at the bottom of the view, only then. The header stays visible while you scroll down.
@@ -107,15 +107,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1831](https://github.com/Psysonic/psysonic/pull/1831)**
 
 * The button on a radio station card showed a cast icon, which looked like sending audio to another device. It now shows a play icon, and stations without artwork use a radio icon as their placeholder instead of the cast icon.
-
-### Track table polish
-
-**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1838](https://github.com/Psysonic/psysonic/pull/1838)**
-
-* The scrollbar under wide track tables is the thin one on Windows too, and a sideways touchpad swipe or Shift + mouse wheel over the header now scrolls the table.
-* Columns of row buttons (remove, delete, play/queue) can be resized and moved like the others, and screen readers name them instead of reading an internal key.
-* In the random mix, a cut-off artist or genre shows its full name above the click hint; the genre mix no longer offers a genre column it never shows.
-* A right-click inside the open column menu no longer resets it, and a column width set right before releasing the mouse is kept.
 
 ## Changed
 
