@@ -109,6 +109,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The button on a radio station card showed a cast icon, which looked like sending audio to another device. It now shows a play icon, and stations without artwork use a radio icon as their placeholder instead of the cast icon.
 
+### PsyLab grows with the window
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1839](https://github.com/Psysonic/psysonic/pull/1839)**
+
+* The PsyLab debug window (Ctrl+Shift+D) kept a fixed size, so on a large screen it was a small box with a cramped scroll area. It now takes most of the app window, up to 1280 × 1000 px, and still fits small windows with Reset all and Close in view.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
