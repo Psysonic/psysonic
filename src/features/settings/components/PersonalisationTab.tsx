@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Disc, Disc3, Heart, LayoutGrid, ListOrdered, ListTodo, Maximize2, PanelLeft, RotateCcw, Users } from 'lucide-react';
+import { Disc, Disc3, Heart, LayoutGrid, ListOrdered, ListTodo, Maximize2, PanelLeft, Radio, RotateCcw, Users } from 'lucide-react';
 import { useAlbumHeaderLayoutStore } from '@/features/album';
 import { useArtistLayoutStore } from '@/features/artist';
 import { useThemeStore } from '@/store/themeStore';
@@ -38,6 +38,8 @@ export function PersonalisationTab() {
   const advancedSettingsEnabled = useAuthStore(s => s.advancedSettingsEnabled);
   const buttonSize = useThemeStore(s => s.buttonSize);
   const setButtonSize = useThemeStore(s => s.setButtonSize);
+  const showNewReleasesExportButton = useThemeStore(s => s.showNewReleasesExportButton);
+  const setShowNewReleasesExportButton = useThemeStore(s => s.setShowNewReleasesExportButton);
 
   const queueModeOptions: SegmentedOption<QueueDisplayMode>[] = [
     { id: 'queue', label: t('queue.title') },
@@ -160,6 +162,20 @@ export function PersonalisationTab() {
       >
         <SettingsGroup>
           <AlbumHeaderLayoutCustomizer />
+        </SettingsGroup>
+      </SettingsSubSection>
+
+      <SettingsSubSection
+        title={t('sidebar.newReleases')}
+        icon={<Radio size={16} />}
+      >
+        <SettingsGroup>
+          <SettingsToggle
+            label={t('albumExport.settingsShowButton')}
+            desc={t('albumExport.settingsShowButtonDesc')}
+            checked={showNewReleasesExportButton}
+            onChange={setShowNewReleasesExportButton}
+          />
         </SettingsGroup>
       </SettingsSubSection>
 
