@@ -158,7 +158,7 @@ pub fn start_stream_idle_watcher(app: AppHandle) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
     use std::sync::{Arc, Mutex, RwLock};
@@ -198,7 +198,7 @@ mod tests {
         }
     }
 
-    fn minimal_engine() -> AudioEngine {
+    pub(crate) fn minimal_engine() -> AudioEngine {
         let (stream_thread_tx, _) = std::sync::mpsc::sync_channel(0);
         AudioEngine {
             stream_handle: Arc::new(Mutex::new(None)),
