@@ -7,6 +7,7 @@ import { contextMenu } from './contextMenu';
 import { sharePaste } from './sharePaste';
 import { shared } from './shared';
 import { albumDetail } from './albumDetail';
+import { albumExport } from './albumExport';
 import { entityRating } from './entityRating';
 import { artistDetail } from './artistDetail';
 import { favorites } from './favorites';
@@ -63,6 +64,7 @@ export const jaTranslation = {
   sharePaste,
   shared,
   albumDetail,
+  albumExport,
   entityRating,
   artistDetail,
   favorites,
