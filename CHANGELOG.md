@@ -62,6 +62,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Cut-off text shows its full value on hover. Titles, artists and albums stay left-aligned; the other columns are centred.
 * Works the same everywhere: albums, playlists, favourites, artist pages, random mix, the Tracks page, search and the albums list view — and fully from the keyboard (Tab to a header, Enter sorts, Ctrl+Shift+←/→ moves it, Shift+F10 opens the menu, arrow keys resize a focused divider).
 
+### Export new albums as an image
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1844](https://github.com/Psysonic/psysonic/pull/1844)**
+
+* The new **image button** in the New Releases header saves every album added since a chosen date as PNG images in a compact two-column catalog layout that stays readable when scaled down in a chat. Ctrl+Shift+Alt+N opens the same dialog.
+* Pick the start date and a dark or light color scheme; the dialog shows how many albums and images it will make, where they are saved, and the result.
+* All text in the image follows the app language. Hide the button under **Settings → Personalisation → New Releases**.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited

@@ -492,6 +492,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Orbit — choose automatic reshuffle when starting a session (PR #1833)',
       'Seekbar — Full Wave style with a calm wave over the played part (PR #1834)',
       'Track tables — resizable, movable columns with autofit, header menu and keyboard support (PR #1837)',
+      'New albums — image export in a catalog layout with a New Releases button (PR #1844)',
     ],
   },
   {

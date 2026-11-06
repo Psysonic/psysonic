@@ -2,7 +2,9 @@ import { buildDownloadUrlForServer } from '@/lib/api/subsonicStreamUrl';
 import { resolveAlbum } from '@/features/offline';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from 'react';
-import { Download, HardDriveDownload } from 'lucide-react';
+import { Download, HardDriveDownload, ImageDown } from 'lucide-react';
+import { useThemeStore } from '@/store/themeStore';
+import { useNewAlbumsExportDialogStore } from '@/features/album/store/newAlbumsExportStore';
 import SelectionToggleButton from '@/ui/SelectionToggleButton';
 import AlbumCard from '@/features/album/components/AlbumCard';
 import GenreFilterBar from '@/ui/GenreFilterBar';
@@ -135,6 +137,8 @@ export default function NewReleases() {
     enabled: !scopedSearchQuery,
   });
   const [selectionMode, setSelectionMode] = useState(false);
+  const showExportButton = useThemeStore(s => s.showNewReleasesExportButton);
+  const openExportDialog = useNewAlbumsExportDialogStore(s => s.openDialog);
   const viewMode = useAlbumViewMode('new-releases');
   const setViewMode = useAlbumViewModeStore(s => s.setViewMode);
   const genreFiltered = selectedGenres.length > 0;
@@ -450,6 +454,19 @@ export default function NewReleases() {
                   onSelectionChange={setSelectedGenres}
                   catalogGenres={genreCounts}
                 />
+                {showExportButton && (
+                  <button
+                    type="button"
+                    className="btn btn-surface"
+                    onClick={openExportDialog}
+                    style={{ padding: '0.5rem' }}
+                    aria-label={t('albumExport.openButton')}
+                    data-tooltip={t('albumExport.openButton')}
+                    data-tooltip-pos="bottom"
+                  >
+                    <ImageDown size={20} />
+                  </button>
+                )}
                 <AlbumViewModeToggle
                   value={viewMode}
                   onChange={mode => setViewMode('new-releases', mode)}

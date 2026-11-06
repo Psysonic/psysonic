@@ -96,6 +96,9 @@ interface ThemeState {
    *  Only shown when the text is actually cut off — measured on hover. */
   showCardTooltips: boolean;
   setShowCardTooltips: (v: boolean) => void;
+  /** Image-export button in the New Releases header (opens the new-albums export dialog). */
+  showNewReleasesExportButton: boolean;
+  setShowNewReleasesExportButton: (v: boolean) => void;
   /** How a click on a song row in a page tracklist starts playback. `double`
    *  keeps a stray single click from replacing what is playing. */
   trackRowPlayClick: TrackRowPlayClick;
@@ -207,6 +210,8 @@ export const useThemeStore = create<ThemeState>()(
       setBlurExplicitCovers: (v) => set({ blurExplicitCovers: v }),
       showCardTooltips: true,
       setShowCardTooltips: (v) => set({ showCardTooltips: v }),
+      showNewReleasesExportButton: true,
+      setShowNewReleasesExportButton: (v) => set({ showNewReleasesExportButton: v }),
       trackRowPlayClick: 'single',
       setTrackRowPlayClick: (v) => set({ trackRowPlayClick: v }),
       touchpadSwipeNavigation: true,
