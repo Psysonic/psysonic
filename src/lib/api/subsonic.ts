@@ -104,6 +104,7 @@ export async function pingWithCredentialsForProfile(
         ok: data.ok,
         type: data.type ?? undefined,
         serverVersion: data.serverVersion ?? undefined,
+        apiVersion: data.apiVersion ?? undefined,
         openSubsonic: data.openSubsonic,
         error: data.error ?? undefined,
       };
@@ -141,6 +142,7 @@ export async function pingWithCredentialsForProfile(
       ok,
       type: typeof data?.type === 'string' ? data.type : undefined,
       serverVersion: typeof data?.serverVersion === 'string' ? data.serverVersion : undefined,
+      apiVersion: typeof data?.version === 'string' ? data.version : undefined,
       openSubsonic: data?.openSubsonic === true,
       error: ok ? undefined : serverMessage,
     };
