@@ -1,13 +1,13 @@
 import { initAudioListeners } from '@/features/playback/store/initAudioListeners';
 import '@/features/playback/store/playbackEngineBridgeRegister'; // installs the playback-engine bridge at boot
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { preloadMiniPlayer as preloadMiniPlayerWindow } from '@/lib/api/miniPlayer';
-import { showToast } from '@/lib/dom/toast';
 import { WindowVisibilityProvider } from '@/lib/hooks/useWindowVisibility';
 import { DragDropProvider } from '@/lib/dnd/DragDropContext';
 import PasteClipboardHandler from '@/features/share/components/PasteClipboardHandler';
-import ExportPickerModal from '@/ui/ExportPickerModal';
+import NewAlbumsExportModal from '@/features/album/components/NewAlbumsExportModal';
+import { useNewAlbumsExportDialogStore } from '@/features/album/store/newAlbumsExportStore';
 import { ZipDownloadOverlay } from '@/features/offline/ui';
 import FpsOverlay from '@/app/FpsOverlay';
 import { useAuthStore } from '../store/authStore';
@@ -58,7 +58,7 @@ const Login = lazy(() => import('@/features/auth/pages/Login'));
  * global shortcuts, mini-player bridge, easter egg, scrollbar auto-hide).
  */
 export default function MainApp() {
-  const [exportPickerOpen, setExportPickerOpen] = useState(false);
+  const exportPickerOpen = useNewAlbumsExportDialogStore(s => s.open);
 
   // One-time bridge from the per-tab Advanced group (v1.46) to the global
   // Advanced Mode toggle. Idempotent — flagged in localStorage.
@@ -177,28 +177,11 @@ export default function MainApp() {
     const onKey = (e: KeyboardEvent) => {
       if (!e.ctrlKey || !e.shiftKey || !e.altKey || e.code !== 'KeyN') return;
       e.preventDefault();
-      setExportPickerOpen(true);
+      useNewAlbumsExportDialogStore.getState().openDialog();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
-
-  const handleExport = async (since: number) => {
-    setExportPickerOpen(false);
-    try {
-      const { exportNewAlbumsImage } = await import('@/features/album/utils/exportNewAlbums');
-      const result = await exportNewAlbumsImage(since);
-      if (result) {
-        const files = result.paths.length > 1 ? ` (${result.paths.length} Dateien)` : '';
-        showToast(`📸 ${result.count} Alben exportiert${files}`);
-      } else {
-        showToast('📭 Keine Alben in diesem Zeitraum gefunden');
-      }
-    } catch (err) {
-      showToast(`❌ Export fehlgeschlagen: ${(err instanceof Error ? err.message : String(err)).slice(0, 80)}`);
-      console.error('[easter egg] export failed:', err);
-    }
-  };
 
   useEffect(() => {
     const timers = new Map<HTMLElement, ReturnType<typeof setTimeout>>();
@@ -243,7 +226,7 @@ export default function MainApp() {
               />
             </Routes>
           </Suspense>
-          {exportPickerOpen && <ExportPickerModal onConfirm={handleExport} onClose={() => setExportPickerOpen(false)} />}
+          {exportPickerOpen && <NewAlbumsExportModal onClose={useNewAlbumsExportDialogStore.getState().closeDialog} />}
           <ZipDownloadOverlay />
           <FpsOverlay />
         </BlockingMigrationGate>

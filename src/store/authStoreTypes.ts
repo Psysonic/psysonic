@@ -71,7 +71,7 @@ export interface MusicFolder {
   name: string;
 }
 
-export type SeekbarStyle = 'truewave' | 'pseudowave' | 'linedot' | 'bar' | 'thick' | 'segmented' | 'neon' | 'pulsewave' | 'particletrail' | 'liquidfill' | 'retrotape';
+export type SeekbarStyle = 'truewave' | 'pseudowave' | 'linedot' | 'bar' | 'thick' | 'segmented' | 'neon' | 'pulsewave' | 'fullwave' | 'particletrail' | 'liquidfill' | 'retrotape';
 /**
  * Look of the custom-title-bar window buttons (minimize/maximize/close).
  * Form-descriptive names, not OS brands:
@@ -240,6 +240,9 @@ export interface AuthState {
   /** Whether the "Orbit" topbar trigger is rendered. Users who never
    *  touch Orbit can hide it so the header stays uncluttered. */
   showOrbitTrigger: boolean;
+  /** Automatic reshuffle switch in the Orbit start modal: the host's last
+   *  choice, off until they turn it on once. */
+  orbitStartAutoShuffle: boolean;
   discordRichPresence: boolean;
   /** Opt-in gate for what Discord may publish as cover art (#1299). Independent of the in-app `coverSources` chain. */
   discordCoverSource: DiscordCoverSource;
@@ -255,9 +258,9 @@ export interface AuthState {
   discordTemplateDetails: string;
   discordTemplateState: string;
   discordTemplateLargeText: string;
-  /** Template for Discord activity name (overrides the registered application
-   *  name in the user list / collapsed presence). Default "{title}".
-   *  Empty string falls back to "Psysonic". */
+  /** Template for the Discord activity name, shown in the profile card header
+   *  ("Listening to …"). The member list shows the state line instead.
+   *  Default "" (empty), which falls back to "Psysonic". */
   discordTemplateName: string;
   useCustomTitlebar: boolean;
   /** Look of the custom-title-bar window buttons (Linux custom title bar only). */
@@ -513,6 +516,7 @@ export interface AuthState {
   setTrackChangeNotificationsEnabled: (v: boolean) => void;
   setClockFormat: (v: ClockFormat) => void;
   setShowOrbitTrigger: (v: boolean) => void;
+  setOrbitStartAutoShuffle: (v: boolean) => void;
   setDiscordRichPresence: (v: boolean) => void;
   setDiscordCoverSource: (v: DiscordCoverSource) => void;
   setCoverSources: (v: CoverSourcePref[]) => void;

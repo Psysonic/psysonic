@@ -5,6 +5,7 @@ use std::sync::Arc;
 use symphonia::core::{
     codecs::audio::AudioDecoderOptions,
     common::Limit,
+    errors::Error as SymphoniaError,
     formats::probe::Hint,
     formats::FormatOptions,
     io::{MediaSource, MediaSourceStream, MediaSourceStreamOptions},
@@ -15,7 +16,8 @@ use symphonia::core::{
 use crate::codec::psysonic_codec_registry;
 
 use super::decoder::{
-    encoder_gap_reported, should_use_builtin_gapless, SizedDecoder, MAX_CONSECUTIVE_DECODE_ERRORS,
+    encoder_gap_reported, should_use_builtin_gapless, SizedDecoder, IN_MEMORY_PROBE_FAILED,
+    MAX_CONSECUTIVE_DECODE_ERRORS, NO_AUDIO_TRACK, PACKET_READ_FAILED,
 };
 use super::format::{log_codec_resolution, resolve_codec_info};
 use super::source_probe::{ProbeSeekGate, SizedCursorSource};
@@ -79,13 +81,14 @@ impl SizedDecoder {
         let mut format = symphonia::default::get_probe()
             .probe(&hint, mss, format_opts, meta_opts)
             .map_err(|e| {
-                let hint_str = format_hint.unwrap_or("unknown");
+                let ext = format_hint.unwrap_or("unknown");
                 // Always print the raw Symphonia error to the terminal for diagnosis.
-                crate::app_eprintln!("[psysonic] probe failed (hint={hint_str}): {e}");
-                if e.to_string().to_lowercase().contains("unsupported") {
-                    format!("unsupported format: .{hint_str} files cannot be played (no demuxer)")
-                } else {
-                    format!("could not open audio stream (.{hint_str}): {e}")
+                crate::app_eprintln!("[psysonic] probe failed (hint={ext}): {e}");
+                match e {
+                    SymphoniaError::Unsupported(_) => {
+                        format!("no reader for this container type (.{ext})")
+                    }
+                    other => format!("{IN_MEMORY_PROBE_FAILED} (.{ext}): {other}"),
                 }
             })?;
 
@@ -110,7 +113,7 @@ impl SizedDecoder {
                     "[psysonic] no audio track found among {} tracks",
                     format.tracks().len()
                 );
-                "no playable audio track found in file".to_string()
+                NO_AUDIO_TRACK.to_string()
             })?;
 
         let track_id = track.id;
@@ -175,10 +178,11 @@ impl SizedDecoder {
             )
             .map_err(|e| {
                 crate::app_eprintln!("[psysonic] codec init failed: {e}");
-                if e.to_string().to_lowercase().contains("unsupported") {
-                    "unsupported codec: no decoder available for this audio format".to_string()
-                } else {
-                    format!("failed to initialise audio decoder: {e}")
+                match e {
+                    SymphoniaError::Unsupported(_) => {
+                        "this audio codec has no decoder in Psysonic".to_string()
+                    }
+                    other => format!("decoder setup failed: {other}"),
                 }
             })?;
 
@@ -200,7 +204,7 @@ impl SizedDecoder {
                 }
                 Err(e) => {
                     crate::app_eprintln!("[psysonic] next_packet error: {e}");
-                    return Err(format!("could not read audio data: {e}"));
+                    return Err(format!("{PACKET_READ_FAILED}: {e}"));
                 }
             };
             if packet.track_id != track_id {
@@ -233,15 +237,15 @@ impl SizedDecoder {
                         "[psysonic] init: dropped corrupt frame #{decode_errors}: {msg}"
                     );
                     if decode_errors >= MAX_CONSECUTIVE_DECODE_ERRORS {
-                        return Err(
-                            "too many consecutive decode errors during init — file may be corrupt"
-                                .into(),
-                        );
+                        return Err(format!(
+                            "{decode_errors} unreadable frames in a row before the first \
+                             sample; the file looks damaged"
+                        ));
                     }
                 }
                 Err(e) => {
                     crate::app_eprintln!("[psysonic] fatal decode error: {e}");
-                    return Err(format!("audio decode error: {e}"));
+                    return Err(format!("decoding the first frame failed: {e}"));
                 }
             }
         };

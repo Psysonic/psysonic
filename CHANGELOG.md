@@ -11,6 +11,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.57.0]
 
+## Added
+
+### Discord shows a progress bar
+
+**By [@spoonkuh](https://github.com/spoonkuh), PRs [#1819](https://github.com/Psysonic/psysonic/pull/1819), [#1828](https://github.com/Psysonic/psysonic/pull/1828)**
+
+* Discord Rich Presence now shows a progress bar for the playing song, and the bar jumps to the new position when you seek.
+* With **Cover art source → Follow in-app sources**, album covers your server takes from external services such as Last.fm now appear in Discord instead of the Psysonic icon. A cover lookup that failed is tried again after 30 seconds instead of an hour.
+* Your status in the Discord member list now shows the artist, and the profile card reads **Listening to Psysonic** with the song title and artist below it. Text templates you never changed switch to this layout on their own; templates you edited stay as they are. The template fields in **Settings → Integrations** now say which part of Discord each one fills.
+
+### Choose which release year album cards show
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1825](https://github.com/Psysonic/psysonic/pull/1825)**
+
+* A new choice picks the year on album cards, album headers, the album table, the home hero and the "Because you like" row: the original year (the default), the reissue year, or both, for example "1971 · 2005". It sits next to the album sorting on artist pages and under Settings → Appearance; both change the same setting. Which year Psysonic showed before depended on how your files are tagged, so a reissue could show up with the year it was reissued rather than the year the album first came out.
+* The years come from Navidrome. Albums your server reports no original or release date for keep showing the year they always did, and an album with only one known year shows that one whichever option is picked. New years show up on screen as soon as they come in. After an update, the years fill in with the next library check, which runs every 15 minutes.
+* Sorting albums by year still uses the year from before; that is a separate change.
+
+### Back and forward buttons in the header
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by mikmik on Discord, PR [#1832](https://github.com/Psysonic/psysonic/pull/1832)**
+
+* Two arrows left of the search go back and forward through the pages you visited, so you no longer need a mouse with thumb buttons or a touchpad swipe for it. They are part of making Psysonic usable from the keyboard and with a screen reader: both have a name for screen readers and are greyed out when there is nowhere to go.
+* **Alt+← / Alt+→** (**⌘[ / ⌘]** on macOS) do the same and can be changed under **Settings → Input**. If one of these keys already belongs to another shortcut of yours, it stays there and the new shortcut starts unassigned.
+* Don't want the arrows? Turn off **Settings → Appearance → Show back / forward buttons in the header**; the keyboard shortcuts keep working.
+
+### Choose automatic reshuffle when starting an Orbit session
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Misty on Discord, PR [#1833](https://github.com/Psysonic/psysonic/pull/1833)**
+
+* The Orbit start dialog has an **Automatic reshuffle** switch, so you decide before the session starts whether the queue reshuffles on its own. It is off by default and remembers your last choice for the next session.
+* You can still turn it on or off in the session settings while the session runs.
+
+### Full Wave seekbar style
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by abstractjewel on Discord, PR [#1834](https://github.com/Psysonic/psysonic/pull/1834)**
+
+* A new seekbar style under **Settings → Appearance → Seekbar style**: the whole played part of the song is one calm wave that drifts slowly towards the current position, while the rest stays a flat line.
+* Pulse Wave stays as it was.
+
+### Track tables that behave like real tables
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PRs [#1837](https://github.com/Psysonic/psysonic/pull/1837), [#1838](https://github.com/Psysonic/psysonic/pull/1838)**
+
+* Every column has its own width now: dragging a divider changes only that column, and the divider follows your mouse. Long titles no longer get stuck at a fixed width.
+* When the columns are wider than the window, a thin scrollbar appears at the bottom of the view, only then. The header stays visible while you scroll down.
+* **Double-click a divider** to fit the column to its longest entry. **Hold a column header and drag it** to move the column.
+* **Right-click the header** to show or hide columns, move a column, fit all columns or reset them.
+* Cut-off text shows its full value on hover. Titles, artists and albums stay left-aligned; the other columns are centred.
+* Works the same everywhere: albums, playlists, favourites, artist pages, random mix, the Tracks page, search and the albums list view — and fully from the keyboard (Tab to a header, Enter sorts, Ctrl+Shift+←/→ moves it, Shift+F10 opens the menu, arrow keys resize a focused divider).
+
+### Export new albums as an image
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1844](https://github.com/Psysonic/psysonic/pull/1844)**
+
+* The new **image button** in the New Releases header saves every album added since a chosen date as PNG images in a compact two-column catalog layout that stays readable when scaled down in a chat. Ctrl+Shift+Alt+N opens the same dialog.
+* Pick the start date and a dark or light color scheme; the dialog shows how many albums and images it will make, where they are saved, and the result.
+* All text in the image follows the app language. Hide the button under **Settings → Personalisation → New Releases**.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited
@@ -37,6 +96,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@enncoded](https://github.com/enncoded), PR [#1817](https://github.com/Psysonic/psysonic/pull/1817)**
 
 * Adding a server whose public address sits behind a header-auth gate (Pangolin, Cloudflare Access) failed with "Could not reach <address>" as soon as a second address was filled in, even with a correct gate header. The same-server check pinged the gated address from the WebView, whose preflight carries no token, so the gate refused it. Those two addresses can be paired again.
+
+### Reissues tagged with the original year stay separate albums
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1820](https://github.com/Psysonic/psysonic/pull/1820)**
+
+* An original and its reissue in the same library were shown as one album when the reissue is tagged with the original's year. Psysonic now tells them apart by the release year Navidrome reports for each edition. Songs read through the Subsonic API carry no release year, so for those it still goes by the year tag. That includes Navidrome libraries synced that way, as scoped syncs and the first sync of a large library are; a copy of a reissue read like this can still be grouped with the original.
+* The New Releases row compares a not yet indexed album by its edition's release date as well, so a fresh reissue no longer lands on the original's card.
+* After the update the library rebuilds its album groups once in the background.
+
+### Song Info for downloaded and cached tracks
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1827](https://github.com/Psysonic/psysonic/pull/1827)**
+
+* Song Info stayed empty for a song that plays from a download or from the playback cache. It now asks the server for those songs too, as long as the server is reachable; offline it still shows nothing.
+
+### Gapless playlists no longer stop after an end-trimmed track
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1830](https://github.com/Psysonic/psysonic/pull/1830)**
+
+* With gapless playback on, a playlist could stop after a track whose encoder padding is trimmed from tag data (typical for AAC/M4A files from iTunes): the track ended, but Psysonic never moved on to the next one. Such tracks now hand over to the next track as they should.
+
+### Radio stations show a play button
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Fetta on Discord, PR [#1831](https://github.com/Psysonic/psysonic/pull/1831)**
+
+* The button on a radio station card showed a cast icon, which looked like sending audio to another device. It now shows a play icon, and stations without artwork use a radio icon as their placeholder instead of the cast icon.
+
+### PsyLab grows with the window
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1839](https://github.com/Psysonic/psysonic/pull/1839)**
+
+* The PsyLab debug window (Ctrl+Shift+D) kept a fixed size, so on a large screen it was a small box with a cramped scroll area. It now takes most of the app window, up to 1280 × 1000 px, and still fits small windows with Reset all and Close in view.
+
+### Security updates for the zip library and a network dependency
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1845](https://github.com/Psysonic/psysonic/pull/1845)**
+
+* Updated the zip library used for theme imports and backups to pick up upstream fixes for crafted archives, and updated a redirect-handling dependency with a fix for forwarding credentials on redirects. Backups and theme imports work as before.
+
+## Changed
+
+### Code rewritten ahead of the app store releases
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1821](https://github.com/Psysonic/psysonic/pull/1821)**
+
+* Contributions whose authors did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772) have been rewritten: the toast notifications, the audio error messages, the link between a dialog and its title for screen readers, and parts of the Linux install script. They behave as before; some playback error messages are worded differently now.
+* The matching entries in the contributor list have been removed.
+
+### New Italian translation
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1823](https://github.com/Psysonic/psysonic/pull/1823)**
+
+* The Italian translation has been written anew from the English texts, since its original author did not answer the app store permission request in [#1772](https://github.com/Psysonic/psysonic/issues/1772). Wording differs in many places; corrections from Italian speakers are welcome.
 
 ## [1.56.0]
 

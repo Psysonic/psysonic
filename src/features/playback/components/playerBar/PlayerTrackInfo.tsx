@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Cast, Heart, Maximize2, Music } from 'lucide-react';
+import { Heart, Maximize2, Music, Radio } from 'lucide-react';
 import type { TFunction } from 'i18next';
 import { queueSongRating } from '@/features/playback/store/pendingStarSync';
 import type { InternetRadioStation, SubsonicOpenArtistRef } from '@/lib/api/subsonicTypes';
@@ -123,7 +123,7 @@ export function PlayerTrackInfo({
             />
           ) : (
             <div className="player-album-art-placeholder">
-              <Cast size={20} />
+              <Radio size={20} />
             </div>
           )
         ) : !isRadio && directCoverUrl ? (

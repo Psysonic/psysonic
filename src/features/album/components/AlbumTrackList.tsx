@@ -1,7 +1,7 @@
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import type { Track } from '@/lib/media/trackTypes';
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
-import { useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
+import { fittedWidth, gridFor, useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
 import { useTrackListCursor } from '@/lib/hooks/useTrackListCursor';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,8 @@ import { TrackRow } from '@/features/album/components/TrackRow';
 import { AlbumTrackListMobile } from '@/features/album/components/AlbumTrackListMobile';
 import { TracklistColumnPicker } from '@/ui/TracklistColumnPicker';
 import { TracklistHeaderRow } from '@/features/album/components/TracklistHeaderRow';
+import { TracklistViewport } from '@/ui/tracklist/TracklistViewport';
+import { measureColumnContent, songColumnTexts } from '@/ui/tracklist/measureColumnContent';
 import { DiscHeaderCover } from '@/features/album/components/DiscHeaderCover';
 import { offlineActionPolicy, type OfflineActionPolicy } from '@/features/offline';
 import { songToTrack } from '@/lib/media/songToTrack';
@@ -96,8 +98,8 @@ export default function AlbumTrackList({
   const showStarRatings = useShowStarRatings();
   const albumColumns = useMemo(() => withoutRatingColumn(COLUMNS, showStarRatings), [showStarRatings]);
   const {
-    colVisible, visibleCols, gridStyle,
-    startResize, startFlexColumnResize, toggleColumn, resetColumns,
+    colVisible, visibleCols, gridStyle, colWidths, contentWidth, setColumnWidth, moveColumn,
+    startResize, toggleColumn, resetColumns,
     pickerOpen, setPickerOpen, pickerRef, tracklistRef,
   } = useTracklistColumns(albumColumns, 'psysonic_tracklist_columns');
 
@@ -132,6 +134,38 @@ export default function AlbumTrackList({
     () => (policy.canFavorite ? visibleCols : visibleCols.filter(c => c.key !== 'favorite')),
     [policy.canFavorite, visibleCols],
   );
+  // The grid follows the columns actually shown (offline drops `favorite`).
+  const { gridStyle: displayGridStyle, contentWidth: displayWidth } = useMemo(
+    () => (displayCols === visibleCols ? { gridStyle, contentWidth } : gridFor(displayCols, colWidths)),
+    [displayCols, visibleCols, gridStyle, contentWidth, colWidths],
+  );
+
+  const handleResizeStart = useCallback(
+    (e: React.PointerEvent, colIndex: number) => {
+      const col = displayCols[colIndex];
+      if (col) startResize(e, col.key);
+    },
+    [displayCols, startResize],
+  );
+  const handleAutofit = useCallback((colIndex: number) => {
+    const col = displayCols[colIndex];
+    const root = tracklistRef.current;
+    if (!col || !root) return;
+    const content = measureColumnContent(root, col.key, songColumnTexts(songs, col.key));
+    setColumnWidth(col.key, fittedWidth(content, col.minWidth));
+  }, [displayCols, tracklistRef, songs, setColumnWidth]);
+  const widthOf = useCallback((key: string) => colWidths[key] ?? 0, [colWidths]);
+  const handleResizeBy = useCallback((colIndex: number, deltaPx: number) => {
+    const col = displayCols[colIndex];
+    if (col) setColumnWidth(col.key, (colWidths[col.key] ?? col.defaultWidth) + deltaPx);
+  }, [displayCols, colWidths, setColumnWidth]);
+  const headerMenu = useMemo(() => ({
+    allColumns: albumColumns,
+    colVisible,
+    toggleColumn,
+    resetColumns,
+    onFitAll: () => displayCols.forEach((_, i) => handleAutofit(i)),
+  }), [albumColumns, colVisible, toggleColumn, resetColumns, displayCols, handleAutofit]);
 
   // Rows render disc by disc; a stable sort by disc gives the same top-to-bottom order.
   const cursorSongs = useMemo(
@@ -198,7 +232,7 @@ export default function AlbumTrackList({
       />
 
     <div
-        className="tracklist"
+        className="tracklist tracklist--model-a"
         ref={tracklistRef}
         data-preview-loc="albums"
         {...cursor.listProps}
@@ -207,20 +241,28 @@ export default function AlbumTrackList({
         }}
       >
 
-      <TracklistHeaderRow
-        visibleCols={displayCols}
-        gridStyle={gridStyle}
-        sortKey={sortKey}
-        sortDir={sortDir}
-        onSort={onSort}
-        allSelected={allSelected}
-        inSelectMode={inSelectMode}
-        toggleAll={toggleAll}
-        startResize={startResize}
-        startFlexColumnResize={startFlexColumnResize}
-        t={t}
-      />
-
+      <TracklistViewport
+        contentWidth={displayWidth}
+        header={(
+          <TracklistHeaderRow
+            visibleCols={displayCols}
+            gridStyle={displayGridStyle}
+            sortKey={sortKey}
+            sortDir={sortDir}
+            onSort={onSort}
+            allSelected={allSelected}
+            inSelectMode={inSelectMode}
+            toggleAll={toggleAll}
+            startResize={handleResizeStart}
+            onAutofit={handleAutofit}
+            onResizeBy={handleResizeBy}
+            widthOf={widthOf}
+            onReorder={moveColumn}
+            menu={headerMenu}
+            t={t}
+          />
+        )}
+      >
       {/* ── Tracks ── */}
       {discNums.map(discNum => (
         <div key={discNum}>
@@ -242,7 +284,7 @@ export default function AlbumTrackList({
                 song={song}
                 globalIdx={globalIdx}
                 visibleCols={displayCols}
-                gridStyle={gridStyle}
+                gridStyle={displayGridStyle}
                 currentTrack={currentTrack}
                 isPlaying={isPlaying}
                 ratingValue={ratings[songKey] ?? ownedOverrideValue(userRatingOverrides, song) ?? song.userRating ?? 0}
@@ -266,6 +308,7 @@ export default function AlbumTrackList({
           })}
         </div>
       ))}
+      </TracklistViewport>
 
     </div>
     </>

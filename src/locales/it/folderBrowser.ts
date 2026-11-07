@@ -1,4 +1,4 @@
 export const folderBrowser = {
   empty: 'Cartella vuota',
-  error: 'Errore caricamento',
+  error: 'Caricamento non riuscito',
 };

@@ -36,7 +36,7 @@ export function makeAnimState(): AnimState {
   return { particles: [], time: 0, lastProgress: 0, angle: 0 };
 }
 
-export const ANIMATED_STYLES = new Set<SeekbarStyle>(['particletrail', 'pulsewave', 'liquidfill', 'retrotape']);
+export const ANIMATED_STYLES = new Set<SeekbarStyle>(['particletrail', 'pulsewave', 'fullwave', 'liquidfill', 'retrotape']);
 
 export type SeekbarColors = {
   played: string;

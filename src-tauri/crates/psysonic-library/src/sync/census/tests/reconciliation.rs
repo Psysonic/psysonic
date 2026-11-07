@@ -278,3 +278,40 @@ async fn a_stale_projection_row_is_dropped_rather_than_counted() {
         .unwrap();
     assert_eq!(left, 0, "or the same album is probed again on every run");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn a_complete_census_stores_the_album_release_years() {
+    let server = MockServer::start().await;
+    let store = LibraryStore::open_in_memory();
+    mark_ready(&store);
+    seed_album(&store, "al-1", &["t-1"], 100);
+    let mut dated = album_summary("al-1", 1, 100);
+    dated["originalReleaseDate"] = json!({ "year": 1971 });
+    dated["releaseDate"] = json!({ "year": 2005 });
+    mount_album_list(&server, vec![dated]).await;
+
+    let run = || async {
+        AlbumCensusRunner::new(&store, &test_subsonic(&server.uri()), "s1")
+            .with_sleep_disabled()
+            .run()
+            .await
+            .unwrap()
+    };
+    let report = run().await;
+    assert_eq!(report.release_years_updated, 1);
+    assert!(
+        !report.changed_index(),
+        "the years are read when rows are built; nothing derived needs a refresh"
+    );
+    let stored = store
+        .with_read_conn(|conn| {
+            crate::album_release_year::stored_album_release_years(conn, "s1", "al-1")
+        })
+        .unwrap();
+    assert_eq!(stored, Some((Some(1971), Some(2005))));
+    assert_eq!(
+        run().await.release_years_updated,
+        0,
+        "an unchanged catalogue writes nothing"
+    );
+}

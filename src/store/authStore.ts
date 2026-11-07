@@ -16,6 +16,9 @@ import { createUiAppearanceActions } from './authUiAppearanceActions';
 import {
   DEFAULT_COVER_SOURCES,
   DEFAULT_DISCORD_COVER_SOURCE,
+  DEFAULT_DISCORD_TEMPLATE_DETAILS,
+  DEFAULT_DISCORD_TEMPLATE_NAME,
+  DEFAULT_DISCORD_TEMPLATE_STATE,
   DEFAULT_LOUDNESS_PRE_ANALYSIS_ATTENUATION_DB,
   DEFAULT_LYRICS_SOURCES,
   DEFAULT_TRACK_PREVIEW_LOCATIONS,
@@ -23,6 +26,7 @@ import {
   SCROBBLE_THRESHOLD_PERCENT_DEFAULT,
 } from './authStoreDefaults';
 import { computeAuthStoreRehydration } from './authStoreRehydrate';
+import { migrateLegacyDiscordTemplates } from './authDiscordTemplateMigration';
 import {
   setServerHttpContextIdentitySource,
   syncAllServerHttpContexts,
@@ -101,15 +105,16 @@ export const useAuthStore = create<AuthState>()(
       trackChangeNotificationsEnabled: false,
       clockFormat: 'auto',
       showOrbitTrigger: true,
+      orbitStartAutoShuffle: false,
       discordRichPresence: false,
       discordCoverSource: DEFAULT_DISCORD_COVER_SOURCE,
       coverSources: DEFAULT_COVER_SOURCES,
       enableBandsintown: false,
       bandsintownPromptDismissed: false,
-      discordTemplateDetails: '{artist}',
-      discordTemplateState: '{title}',
+      discordTemplateDetails: DEFAULT_DISCORD_TEMPLATE_DETAILS,
+      discordTemplateState: DEFAULT_DISCORD_TEMPLATE_STATE,
       discordTemplateLargeText: '{album}',
-      discordTemplateName: '{title}',
+      discordTemplateName: DEFAULT_DISCORD_TEMPLATE_NAME,
       useCustomTitlebar: false,
       windowButtonStyle: 'dots',
       showMinimizeButton: true,
@@ -221,10 +226,12 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'psysonic-auth',
       storage: createNavidromeCanonicalMigrationAwareJSONStorage(),
-      version: 2,
+      version: 3,
       // Version 2 writes repaired legacy library fields back to storage, so a
       // downgrade reads the same scope the sidebar displayed before rollback.
-      migrate: persistedState => persistedState,
+      // Version 3 moves Discord template sets nobody edited to the new defaults.
+      migrate: (persistedState, version) =>
+        version < 3 ? migrateLegacyDiscordTemplates(persistedState) : persistedState,
       merge: (persistedState, currentState) => {
         const state = {
           ...currentState,

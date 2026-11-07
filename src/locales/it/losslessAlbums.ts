@@ -1,7 +1,7 @@
 export const losslessAlbums = {
-  empty: 'Nessun album lossless nella libreria.',
-  unsupported: 'Questo server non espone i metadati necessari per trovare album lossless.',
-  slowFetchHint: 'Caricamento più lento rispetto ad altre pagine album — Psysonic analizza l\'intero catalogo per qualità.',
-  modeBanner: 'Modalità lossless — mostra solo formati FLAC, WAV e altri lossless.',
+  empty: 'Ancora nessun album lossless in questa libreria.',
+  unsupported: 'Questo server non fornisce i metadati necessari per trovare gli album lossless.',
+  slowFetchHint: 'Si carica più lentamente delle altre pagine degli album: Psysonic scorre l’intero catalogo dei brani per qualità.',
+  modeBanner: 'Modalità lossless: vengono mostrati solo FLAC, WAV e altri formati lossless.',
   modeBannerExit: 'Mostra tutti i formati',
 };

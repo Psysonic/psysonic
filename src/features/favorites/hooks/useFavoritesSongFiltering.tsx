@@ -1,5 +1,4 @@
 import React, { useMemo } from 'react';
-import { ArrowDown, ArrowUp } from 'lucide-react';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { ownedEntityKey } from '@/lib/util/ownedEntityKey';
@@ -35,7 +34,6 @@ export interface FavoritesSongFilteringResult {
   filteredSongs: SubsonicSong[];
   visibleSongs: SubsonicSong[];
   handleSortClick: (key: string) => void;
-  getSortIndicator: (key: string) => React.ReactNode;
 }
 
 export function useFavoritesSongFiltering(deps: FavoritesSongFilteringDeps): FavoritesSongFilteringResult {
@@ -67,12 +65,6 @@ export function useFavoritesSongFiltering(deps: FavoritesSongFilteringDeps): Fav
       setSortDir('asc');
       setSortClickCount(1);
     }
-  };
-
-  const getSortIndicator = (key: string) => {
-    if (sortKey !== key) return null;
-    if (sortClickCount === 0) return null;
-    return sortDir === 'asc' ? <ArrowUp size={12} style={{ marginLeft: 4, opacity: 0.7 }} /> : <ArrowDown size={12} style={{ marginLeft: 4, opacity: 0.7 }} />;
   };
 
   // ── Filter logic ─────────────────────────────────────────────────────────
@@ -153,5 +145,5 @@ export function useFavoritesSongFiltering(deps: FavoritesSongFilteringDeps): Fav
     });
   }, [filteredSongs, sortKey, sortDir, sortClickCount, ratings, userRatingOverrides]);
 
-  return { filteredSongs, visibleSongs, handleSortClick, getSortIndicator };
+  return { filteredSongs, visibleSongs, handleSortClick };
 }

@@ -22,6 +22,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
   | 'setTrackChangeNotificationsEnabled'
   | 'setClockFormat'
   | 'setShowOrbitTrigger'
+  | 'setOrbitStartAutoShuffle'
   | 'setUseCustomTitlebar'
   | 'setWindowButtonStyle'
   | 'setShowMinimizeButton'
@@ -66,6 +67,7 @@ export function createUiAppearanceActions(set: SetState): Pick<
     setTrackChangeNotificationsEnabled: (v) => set({ trackChangeNotificationsEnabled: v }),
     setClockFormat: (v) => set({ clockFormat: v }),
     setShowOrbitTrigger: (v) => set({ showOrbitTrigger: v }),
+    setOrbitStartAutoShuffle: (v) => set({ orbitStartAutoShuffle: v }),
     setUseCustomTitlebar: (v) => set({ useCustomTitlebar: v }),
     setWindowButtonStyle: (v) => set({ windowButtonStyle: v }),
     setShowMinimizeButton: (v) => set({ showMinimizeButton: v }),

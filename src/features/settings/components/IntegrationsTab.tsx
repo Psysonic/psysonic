@@ -1,6 +1,10 @@
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Check, Image as ImageIcon, Info, Sparkles, Wifi } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
+import {
+  DEFAULT_DISCORD_TEMPLATE_DETAILS,
+  DEFAULT_DISCORD_TEMPLATE_STATE,
+} from '@/store/authStoreDefaults';
 import { useThemeStore } from '@/store/themeStore';
 import SettingsSubSection from '@/features/settings/components/SettingsSubSection';
 import { SettingsGroup } from '@/features/settings/components/SettingsGroup';
@@ -152,7 +156,7 @@ export function IntegrationsTab() {
                       type="text"
                       value={auth.discordTemplateName}
                       onChange={e => auth.setDiscordTemplateName(e.target.value)}
-                      placeholder="{title}"
+                      placeholder="Psysonic"
                     />
                   </SettingsField>
                   <SettingsField label={t('settings.discordTemplateDetails')}>
@@ -161,7 +165,7 @@ export function IntegrationsTab() {
                       type="text"
                       value={auth.discordTemplateDetails}
                       onChange={e => auth.setDiscordTemplateDetails(e.target.value)}
-                      placeholder="{artist}"
+                      placeholder={DEFAULT_DISCORD_TEMPLATE_DETAILS}
                     />
                   </SettingsField>
                   <SettingsField label={t('settings.discordTemplateState')}>
@@ -170,7 +174,7 @@ export function IntegrationsTab() {
                       type="text"
                       value={auth.discordTemplateState}
                       onChange={e => auth.setDiscordTemplateState(e.target.value)}
-                      placeholder="{title}"
+                      placeholder={DEFAULT_DISCORD_TEMPLATE_STATE}
                     />
                   </SettingsField>
                   <SettingsField label={t('settings.discordTemplateLargeText')}>

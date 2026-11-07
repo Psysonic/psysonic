@@ -117,7 +117,7 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
   // dispatcher's switch finds no match and the seekbar renders blank.
   const VALID_SEEKBAR_STYLES = new Set<string>([
     'truewave', 'pseudowave', 'linedot', 'bar', 'thick',
-    'segmented', 'neon', 'pulsewave', 'particletrail', 'liquidfill', 'retrotape',
+    'segmented', 'neon', 'pulsewave', 'fullwave', 'particletrail', 'liquidfill', 'retrotape',
   ]);
   const seekbarStyleMigrated = VALID_SEEKBAR_STYLES.has(state.seekbarStyle as string)
     ? {}

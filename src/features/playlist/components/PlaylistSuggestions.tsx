@@ -3,6 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useLocation, useNavigate } from 'react-router';
 import { ChevronRight, Heart, Play, Plus, RefreshCw, Square } from 'lucide-react';
 import type { ColDef } from '@/lib/hooks/useTracklistColumns';
+import { TracklistHeader } from '@/ui/tracklist/TracklistHeader';
+import { TracklistViewport } from '@/ui/tracklist/TracklistViewport';
+import { TracklistCell } from '@/ui/tracklist/TracklistCell';
+import { songCellText } from '@/ui/tracklist/measureColumnContent';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { usePreviewStore } from '@/features/playback/store/previewStore';
@@ -28,7 +32,6 @@ import { trackPlayStats } from '@/lib/media/trackPlayStats';
 import { useResolvedTracklistBpm } from '@/lib/hooks/useResolvedTracklistBpm';
 import { navigateToAlbumDetail } from '@/lib/navigation/albumDetailNavigation';
 
-const PL_CENTERED = new Set(['favorite', 'rating', 'duration', 'playCount', 'bpm']);
 
 interface Props {
   songs: SubsonicSong[];
@@ -38,6 +41,8 @@ interface Props {
   loadSuggestions: (songs: SubsonicSong[]) => void;
   visibleCols: ColDef[];
   gridStyle: React.CSSProperties;
+  colWidths: Record<string, number>;
+  contentWidth: number;
   contextMenuSongId: string | null;
   setContextMenuSongId: React.Dispatch<React.SetStateAction<string | null>>;
   hoveredSuggestionId: string | null;
@@ -54,7 +59,7 @@ interface Props {
 export default function PlaylistSuggestions({
   songs, suggestions, existingIds,
   loadingSuggestions, loadSuggestions,
-  visibleCols, gridStyle,
+  visibleCols, gridStyle, colWidths, contentWidth,
   contextMenuSongId, setContextMenuSongId,
   hoveredSuggestionId, setHoveredSuggestionId,
   addSong, startPreview,
@@ -91,7 +96,7 @@ export default function PlaylistSuggestions({
   if (!suggestionsVisible) return null;
 
   return (
-    <div className="playlist-suggestions tracklist" data-preview-loc="suggestions">
+    <div className="playlist-suggestions tracklist tracklist--model-a" data-preview-loc="suggestions">
       <div className="playlist-suggestions-header compact-action-bar">
         <div className="playlist-suggestions-title">
           <h2 className="section-title" style={{ marginBottom: 0 }}>{t('playlists.suggestions')}</h2>
@@ -115,17 +120,25 @@ export default function PlaylistSuggestions({
 
       {filteredSuggestions.length > 0 && (
         <>
-          <div className="tracklist-header tracklist-va" style={{ ...gridStyle, marginTop: 'var(--space-3)' }}>
-            {visibleCols.map((colDef) => {
-              const key = colDef.key;
-              const isCentered = PL_CENTERED.has(key);
-              const label = colDef.i18nKey ? t(`albumDetail.${colDef.i18nKey}`) : '';
-              if (key === 'num') return <div key="num" className="col-center">#</div>;
-              if (key === 'title') return <div key="title" style={{ paddingLeft: 12 }}>{label}</div>;
-              if (key === 'delete') return <div key="delete" />;
-              return <div key={key} className={isCentered ? 'col-center' : ''} style={!isCentered ? { paddingLeft: 12 } : undefined}>{label}</div>;
-            })}
-          </div>
+          <div style={{ marginTop: 'var(--space-3)' }}>
+          <TracklistViewport
+            contentWidth={contentWidth}
+            header={(
+              <TracklistHeader
+                cols={visibleCols}
+                gridStyle={gridStyle}
+                renderLabel={col => {
+                  if (col.key === 'num') return '#';
+                  return col.i18nKey ? t(`albumDetail.${col.i18nKey}`) : '';
+                }}
+                onResizeStart={() => {}}
+                onAutofit={() => {}}
+                widthOf={key => colWidths[key] ?? 0}
+                t={t}
+                resizable={false}
+              />
+            )}
+          >
 
           {filteredSuggestions.map((song, idx) => {
             const isStarred = ownedOverrideValue(starredOverrides, song)
@@ -152,7 +165,7 @@ export default function PlaylistSuggestions({
                 openContextMenu(e.clientX, e.clientY, songToTrack(song), 'album-song');
               }}
             >
-              {visibleCols.map(colDef => {
+              {visibleCols.map(colDef => <TracklistCell key={colDef.key} col={colDef} text={songCellText(song, colDef.key)}>{(() => {
                 switch (colDef.key) {
                   case 'num': return <div key="num" className="track-num" style={{ color: 'var(--text-muted)' }}>{idx + 1}</div>;
                   case 'title': return (
@@ -249,10 +262,12 @@ export default function PlaylistSuggestions({
                   );
                   default: return null;
                 }
-              })}
+              })()}</TracklistCell>)}
             </div>
             );
           })}
+          </TracklistViewport>
+          </div>
         </>
       )}
     </div>

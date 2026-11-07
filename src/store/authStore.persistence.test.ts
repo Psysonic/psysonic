@@ -140,6 +140,17 @@ describe('onRehydrate migrations', () => {
     expect(useAuthStore.getState().seekbarStyle).toBe('neon');
   });
 
+  it('keeps the `fullwave` seekbarStyle after a restart', async () => {
+    writePersistedState({
+      servers: [],
+      activeServerId: null,
+      seekbarStyle: 'fullwave',
+    });
+
+    await useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState().seekbarStyle).toBe('fullwave');
+  });
+
   it('falls back an invalid windowButtonStyle to `dots`', async () => {
     writePersistedState({
       servers: [],
@@ -214,5 +225,50 @@ describe('synchronous storage invariant (CLAUDE.md gotcha)', () => {
     expect(active).not.toBeInstanceOf(Promise);
     expect(baseUrl).not.toBeInstanceOf(Promise);
     expect(typeof baseUrl).toBe('string');
+  });
+});
+
+describe('Discord text templates (#1828)', () => {
+  const legacy = {
+    servers: [],
+    activeServerId: null,
+    discordTemplateDetails: '{artist}',
+    discordTemplateState: '{title}',
+    discordTemplateName: '{title}',
+  };
+
+  it('moves untouched templates from a version 2 store to the new defaults and writes them back', async () => {
+    localStorage.setItem(PERSIST_KEY, JSON.stringify({ state: legacy, version: 2 }));
+
+    await useAuthStore.persist.rehydrate();
+
+    const s = useAuthStore.getState();
+    expect(s.discordTemplateDetails).toBe('{title}');
+    expect(s.discordTemplateState).toBe('{artist}');
+    expect(s.discordTemplateName).toBe('');
+    const stored = JSON.parse(localStorage.getItem(PERSIST_KEY) ?? '{}');
+    expect(stored.version).toBe(3);
+    expect(stored.state.discordTemplateState).toBe('{artist}');
+  });
+
+  it('leaves the same values alone once the store is on version 3, so a later choice stays', async () => {
+    localStorage.setItem(PERSIST_KEY, JSON.stringify({ state: legacy, version: 3 }));
+
+    await useAuthStore.persist.rehydrate();
+
+    const s = useAuthStore.getState();
+    expect(s.discordTemplateDetails).toBe('{artist}');
+    expect(s.discordTemplateState).toBe('{title}');
+    expect(s.discordTemplateName).toBe('{title}');
+  });
+});
+
+describe('auth store persist migrate', () => {
+  const legacy = { discordTemplateDetails: '{artist}', discordTemplateState: '{title}', discordTemplateName: '{title}' };
+
+  it('runs the Discord template step only for stores older than version 3', () => {
+    const migrate = useAuthStore.persist.getOptions().migrate;
+    expect(migrate?.({ ...legacy }, 2)).toMatchObject({ discordTemplateState: '{artist}' });
+    expect(migrate?.({ ...legacy }, 3)).toEqual(legacy);
   });
 });

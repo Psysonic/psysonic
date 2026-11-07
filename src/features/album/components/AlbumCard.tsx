@@ -27,6 +27,8 @@ import { albumArtistDisplayName, deriveAlbumArtistRefs } from '@/features/album/
 import { coverServerScopeForServerId } from '@/cover/serverScope';
 import { appendServerQuery, buildArtistDetailPath } from '@/lib/navigation/detailServerScope';
 import { NowPlayingMarker, useIsNowPlaying } from '@/features/playback';
+import { formatAlbumYear } from '@/features/album/utils/albumYear';
+import { useAlbumYearDisplay } from '@/features/album/store/albumYearDisplayStore';
 
 interface AlbumCardProps {
   album: SubsonicAlbum;
@@ -71,6 +73,8 @@ function AlbumCard({
   allowExternalAlbum = false,
 }: AlbumCardProps) {
   const { t } = useTranslation();
+  const albumYearDisplay = useAlbumYearDisplay();
+  const yearLabel = formatAlbumYear(album, albumYearDisplay);
   const { isHolding, pressBind } = useLongPressAction({
     onShortPress: () => playAlbum(album.id, album.serverId ? { serverId: album.serverId } : undefined),
     onLongPress: () => playAlbumShuffled(album.id, album.serverId ? { serverId: album.serverId } : undefined),
@@ -235,7 +239,7 @@ function AlbumCard({
             linkClassName="track-artist-link"
           />
         </p>
-        {album.year && <p className="album-card-year">{album.year}</p>}
+        {yearLabel && <p className="album-card-year">{yearLabel}</p>}
         {showRating && (album.userRating ?? 0) > 0 && (
           <div className="album-card-rating-row">
             <span className="album-card-rating-stars">

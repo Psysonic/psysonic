@@ -38,29 +38,89 @@ export function sanitizeDiscordCoverUrl(raw: string | null | undefined): string 
 }
 
 /**
- * Swap `raw`'s origin for `shareBase`'s, keeping query untouched and
- * preserving both URLs' paths. Navidrome's `getAlbumInfo2` derives the image
- * host from the request that reached it — when the app is connected over the
- * LAN address, the returned URL is LAN-scoped even though the server also
- * has a public address configured. The `/share/img/<jwt>` path itself is
- * host-independent, so pointing it at the profile's public share address
- * makes it reachable for Discord — but `shareBase` may itself carry a path
- * prefix (a server reachable behind a reverse proxy at e.g.
- * `https://host/nav`), which must be kept, not dropped, or the rewritten URL
- * 404s against the actual public endpoint.
+ * Prepare a raw cover URL returned by a server's `getAlbumInfo2` for Discord publishing.
+ *
+ * 1. Relative paths (`/share/img/...`) are joined onto `shareBase`, preserving any path prefix.
+ * 2. Server share endpoints (`/share/img/`) on absolute URLs are rewritten to `shareBase`'s origin
+ *    and path prefix (so LAN-scoped addresses point to the public share base).
+ * 3. External image providers (Last.fm, Spotify, MusicBrainz, etc.) must NEVER have their origin
+ *    replaced with `shareBase` — doing so causes 404s on the user's music server.
+ * 4. External HTTP URLs are upgraded to HTTPS when not on LAN so Discord's image proxy can fetch them.
  */
-function rewriteOriginToShareBase(raw: string, shareBase: string): string {
-  try {
-    const url = new URL(raw);
-    const share = new URL(shareBase);
-    if (url.origin === share.origin) return raw;
-    url.protocol = share.protocol;
-    url.hostname = share.hostname;
-    url.port = share.port;
-    const sharePrefix = share.pathname.replace(/\/$/, '');
-    if (sharePrefix && !url.pathname.startsWith(sharePrefix)) {
-      url.pathname = `${sharePrefix}${url.pathname}`;
+export function normalizeServerCoverUrl(
+  raw: string,
+  shareBase: string | null,
+  serverAddresses?: readonly string[] | null,
+): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return raw;
+
+  // Protocol-relative URLs (e.g. "//cdn.example.com/art.jpg") -> force https:
+  if (trimmed.startsWith('//')) {
+    try {
+      const url = new URL(`https:${trimmed}`);
+      return url.toString();
+    } catch {
+      return raw;
     }
+  }
+
+  // Relative path on server (e.g. "/share/img/<token>?size=600")
+  if (trimmed.startsWith('/') || !trimmed.includes('://')) {
+    if (!shareBase) return raw;
+    try {
+      const share = new URL(shareBase);
+      const sharePrefix = share.pathname.replace(/\/$/, '');
+      const pathWithSlash = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      const prefixSegment = sharePrefix ? `${sharePrefix}/` : '';
+      const fullPath =
+        sharePrefix && (pathWithSlash === sharePrefix || pathWithSlash.startsWith(prefixSegment))
+          ? pathWithSlash
+          : `${sharePrefix}${pathWithSlash}`;
+      return new URL(fullPath, share.origin).toString();
+    } catch {
+      return raw;
+    }
+  }
+
+  try {
+    const url = new URL(trimmed);
+
+    // Only rewrite /share/img/ paths if the URL matches the server's addresses, shareBase, or is on LAN
+    const isServerScoped =
+      Boolean(shareBase && url.hostname === new URL(shareBase).hostname) ||
+      Boolean(
+        serverAddresses?.some(addr => {
+          try {
+            return url.hostname === new URL(addr).hostname;
+          } catch {
+            return false;
+          }
+        }),
+      ) ||
+      isLanUrl(url.origin);
+
+    if (url.pathname.includes('/share/img/') && isServerScoped) {
+      if (!shareBase) return url.toString();
+      const share = new URL(shareBase);
+      url.protocol = share.protocol;
+      url.hostname = share.hostname;
+      url.port = share.port;
+      const sharePrefix = share.pathname.replace(/\/$/, '');
+      const prefixSegment = sharePrefix ? `${sharePrefix}/` : '';
+      if (sharePrefix && !(url.pathname === sharePrefix || url.pathname.startsWith(prefixSegment))) {
+        url.pathname = `${sharePrefix}${url.pathname}`;
+      }
+      return url.toString();
+    }
+
+    // External image provider (e.g. Last.fm CDN, Spotify CDN).
+    // Do NOT rewrite origin to shareBase. Upgrade standard HTTP (port 80 or omitted) to HTTPS for public domains.
+    if (url.protocol === 'http:' && !isLanUrl(url.origin) && (!url.port || url.port === '80')) {
+      url.protocol = 'https:';
+      url.port = '';
+    }
+
     return url.toString();
   } catch {
     return raw;
@@ -74,14 +134,19 @@ interface ServerCoverCacheEntry {
 
 /**
  * Session cache: `"<shareBase>|<albumId>"` -> resolved (already sanitized)
- * cover URL, or `null` for a miss/failure. Negative results are cached too —
- * at most one `getAlbumInfo2` call per album per server per TTL window.
- * TTL (not "forever") so a transient failure (server briefly unreachable,
- * timeout) doesn't hide an album's cover for the rest of the session —
- * mirrors the Rust-side iTunes artwork cache TTL for the same reason.
+ * cover URL, or `null` for a miss/failure.
+ *
+ * Hits are cached for 1 hour to prevent redundant requests. Misses and transient
+ * errors are cached for 30 seconds so a brief network glitch or startup delay does
+ * not poison the cover lookup for the rest of the session.
  */
 const SERVER_COVER_CACHE_TTL_MS = 60 * 60 * 1000;
+const SERVER_COVER_NEGATIVE_CACHE_TTL_MS = 30 * 1000;
 const serverCoverCache = new Map<string, ServerCoverCacheEntry>();
+
+export function _resetServerCoverCacheForTest(): void {
+  serverCoverCache.clear();
+}
 
 /**
  * Resolve a credential-free Discord cover URL for `albumId` via the
@@ -93,19 +158,26 @@ const serverCoverCache = new Map<string, ServerCoverCacheEntry>();
 export async function resolveServerCoverForDiscord(
   albumId: string,
   shareBase: string | null,
+  serverAddresses?: readonly string[] | null,
 ): Promise<string | null> {
   const cacheKey = `${shareBase ?? ''}|${albumId}`;
   const cached = serverCoverCache.get(cacheKey);
-  if (cached && Date.now() - cached.fetchedAt < SERVER_COVER_CACHE_TTL_MS) {
-    return cached.url;
+  if (cached) {
+    const ttl = cached.url ? SERVER_COVER_CACHE_TTL_MS : SERVER_COVER_NEGATIVE_CACHE_TTL_MS;
+    if (Date.now() - cached.fetchedAt < ttl) {
+      return cached.url;
+    }
   }
 
   let result: string | null = null;
   const info = await getAlbumInfo2(albumId);
   const raw = info?.largeImageUrl || info?.mediumImageUrl || info?.smallImageUrl;
   if (raw) {
-    const rewritten = shareBase ? rewriteOriginToShareBase(raw, shareBase) : raw;
-    result = sanitizeDiscordCoverUrl(rewritten);
+    const normalized = normalizeServerCoverUrl(raw, shareBase, serverAddresses);
+    const clean = sanitizeDiscordCoverUrl(normalized);
+    if (clean && isRealArtistImage(clean)) {
+      result = clean;
+    }
   }
 
   serverCoverCache.set(cacheKey, { url: result, fetchedAt: Date.now() });
@@ -118,6 +190,7 @@ export interface CoverResolveContext {
   album?: string;
   title?: string;
   shareBase: string | null;
+  serverAddresses?: readonly string[] | null;
 }
 
 /**
@@ -135,7 +208,7 @@ export async function resolveCoverForDiscord(
     let raw: string | null = null;
     switch (source) {
       case 'server':
-        if (ctx.albumId) raw = await resolveServerCoverForDiscord(ctx.albumId, ctx.shareBase);
+        if (ctx.albumId) raw = await resolveServerCoverForDiscord(ctx.albumId, ctx.shareBase, ctx.serverAddresses);
         break;
       case 'apple':
         if (ctx.artist && ctx.album) {

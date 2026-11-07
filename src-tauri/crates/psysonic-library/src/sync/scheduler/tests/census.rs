@@ -114,9 +114,12 @@ async fn a_tick_censuses_and_schedules_the_next_one() {
         seed_album(&store, "s1", &format!("al-{index}"), &format!("t-{index}"));
     }
     seed_album(&store, "s1", "al-gone", "t-gone");
-    let listed: Vec<_> = (0..10)
+    let mut listed: Vec<_> = (0..10)
             .map(|i| json!({ "id": format!("al-{i}"), "name": "Album", "songCount": 1, "duration": 100 }))
             .collect();
+    // One album brings release years the index has not stored yet.
+    listed[0]["originalReleaseDate"] = json!({ "year": 1971 });
+    listed[0]["releaseDate"] = json!({ "year": 2005 });
     Mock::given(wm_method("GET"))
         .and(wm_path("/rest/getAlbumList2.view"))
         .and(wiremock::matchers::query_param("offset", "0"))
@@ -155,7 +158,7 @@ async fn a_tick_censuses_and_schedules_the_next_one() {
     // The census only runs for a server whose catalogue is in.
     sync_state.set_sync_phase("s1", "", "ready").unwrap();
 
-    BackgroundScheduler::new(
+    let report = BackgroundScheduler::new(
         &store,
         &subsonic,
         "s1",
@@ -167,6 +170,10 @@ async fn a_tick_censuses_and_schedules_the_next_one() {
     .await
     .unwrap();
 
+    assert!(
+        report.census_release_years_updated,
+        "new release years must reach the report, or loaded album views keep the old ones"
+    );
     assert_eq!(live_rows(&store, "al-gone"), 0, "the census removed it");
     assert_eq!(live_rows(&store, "al-0"), 1, "the rest is untouched");
     // Retiring an album moves the live count more than any delta does, and

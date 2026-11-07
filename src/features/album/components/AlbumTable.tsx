@@ -6,6 +6,19 @@ import { VirtualCardGrid } from '@/ui/VirtualCardGrid';
 import { albumGridWarmCovers, COVER_TRACK_ROW_CSS_PX } from '@/cover/layoutSizes';
 import { ALBUM_TABLE_ROW_HEIGHT_PX } from '@/lib/util/cardGridLayout';
 import AlbumTableRow from './AlbumTableRow';
+import { fittedWidth, useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
+import { TracklistHeader } from '@/ui/tracklist/TracklistHeader';
+import { TracklistViewport } from '@/ui/tracklist/TracklistViewport';
+import { measureColumnContent } from '@/ui/tracklist/measureColumnContent';
+import { albumArtistDisplayName } from '@/features/album/utils/deriveAlbumHeaderArtistRefs';
+import { ALBUM_TABLE_COLUMNS, ALBUM_TABLE_STORAGE_KEY } from '@/features/album/utils/albumTableColumns';
+
+/** Header sort keys of the columns that can drive the page sort. */
+const SORT_KEY_OF_COLUMN: Record<string, AlbumBrowseSort> = {
+  title: 'alphabeticalByName',
+  artist: 'alphabeticalByArtist',
+  year: 'byYear',
+};
 
 /** Sort keys the table's clickable headers drive, when the page has them. */
 export interface AlbumTableSortControl {
@@ -96,50 +109,75 @@ export default function AlbumTable({
     ? 'descending'
     : sort?.value === 'byYear' ? 'ascending' : 'none';
 
+  const {
+    visibleCols, gridStyle, contentWidth, colWidths, colVisible, setColumnWidth, startResize,
+    moveColumn, toggleColumn, resetColumns, tracklistRef,
+  } = useTracklistColumns(ALBUM_TABLE_COLUMNS, ALBUM_TABLE_STORAGE_KEY);
+
+  const columnTexts = (key: string): string[] | null => {
+    if (key === 'title') return albums.map(a => a.name);
+    if (key === 'artist') return albums.map(a => albumArtistDisplayName(a));
+    return null;
+  };
+  const handleAutofit = (colIndex: number) => {
+    const col = visibleCols[colIndex];
+    const root = tracklistRef.current;
+    if (!col || !root) return;
+    setColumnWidth(col.key, fittedWidth(measureColumnContent(root, col.key, columnTexts(col.key)), col.minWidth));
+  };
+
+  const ariaSortOf = (key: string): 'ascending' | 'descending' | 'none' | undefined => {
+    if (!sort || !SORT_KEY_OF_COLUMN[key]) return undefined;
+    if (key === 'title') return sortedByTitle ? 'ascending' : 'none';
+    if (key === 'artist') return sortedByArtist ? 'ascending' : 'none';
+    return yearSortDir;
+  };
+
+  const header = (
+    <TracklistHeader
+      cols={visibleCols}
+      gridStyle={gridStyle}
+      headCellClassName={col => `album-table__head-cell album-table__head-cell--${col.key}`}
+      ariaSortOf={ariaSortOf}
+      ariaRowIndex={1}
+      renderLabel={col => {
+        const label = t(col.i18nKey ?? '');
+        if (col.key === 'cover') return <span className="visually-hidden">{label}</span>;
+        const sortKey = SORT_KEY_OF_COLUMN[col.key];
+        return sortKey ? <SortableHeader label={label} sortKey={sortKey} sort={sort} /> : label;
+      }}
+      onResizeStart={(e, colIndex) => {
+        const col = visibleCols[colIndex];
+        if (col) startResize(e, col.key);
+      }}
+      onAutofit={handleAutofit}
+      onResizeBy={(colIndex, deltaPx) => {
+        const col = visibleCols[colIndex];
+        if (col) setColumnWidth(col.key, (colWidths[col.key] ?? col.defaultWidth) + deltaPx);
+      }}
+      onReorder={moveColumn}
+      menu={{
+        allColumns: ALBUM_TABLE_COLUMNS,
+        colVisible,
+        toggleColumn,
+        resetColumns,
+        onFitAll: () => visibleCols.forEach((_, i) => handleAutofit(i)),
+      }}
+      widthOf={key => colWidths[key] ?? 0}
+      t={t}
+    />
+  );
+
   return (
     <div
       className="album-table"
+      ref={tracklistRef}
       role="table"
       aria-label={t('albums.tableLabel')}
       aria-rowcount={albums.length + 1}
       style={{ ['--album-table-row-height' as string]: `${ALBUM_TABLE_ROW_HEIGHT_PX}px` }}
     >
-      <div className="album-table__header album-table__grid" role="row" aria-rowindex={1}>
-        <span className="album-table__cell album-table__cell--cover" role="columnheader">
-          <span className="visually-hidden">{t('albums.columnCover')}</span>
-        </span>
-        <span
-          className="album-table__cell album-table__cell--title"
-          role="columnheader"
-          aria-sort={sort ? (sortedByTitle ? 'ascending' : 'none') : undefined}
-        >
-          <SortableHeader label={t('albums.columnTitle')} sortKey="alphabeticalByName" sort={sort} />
-        </span>
-        <span
-          className="album-table__cell album-table__cell--artist"
-          role="columnheader"
-          aria-sort={sort ? (sortedByArtist ? 'ascending' : 'none') : undefined}
-        >
-          <SortableHeader label={t('albums.columnArtist')} sortKey="alphabeticalByArtist" sort={sort} />
-        </span>
-        <span className="album-table__cell album-table__cell--songs" role="columnheader">
-          {t('albums.columnSongs')}
-        </span>
-        <span
-          className="album-table__cell album-table__cell--year"
-          role="columnheader"
-          aria-sort={sort ? yearSortDir : undefined}
-        >
-          <SortableHeader label={t('albums.columnYear')} sortKey="byYear" sort={sort} />
-        </span>
-        <span className="album-table__cell album-table__cell--duration" role="columnheader">
-          {t('albums.columnDuration')}
-        </span>
-        <span className="album-table__cell album-table__cell--added" role="columnheader">
-          {t('albums.columnAdded')}
-        </span>
-      </div>
-
+      <TracklistViewport contentWidth={contentWidth} header={header}>
       <VirtualCardGrid
         items={albums}
         itemKey={(a, _i) => itemKey(a)}
@@ -155,6 +193,8 @@ export default function AlbumTable({
         renderItem={a => (
           <AlbumTableRow
             album={a}
+            visibleCols={visibleCols}
+            gridStyle={gridStyle}
             rowIndex={rowIndexByKey.get(itemKey(a)) ?? 2}
             selectionMode={selectionMode}
             selected={selectedIds.has(itemKey(a))}
@@ -165,6 +205,7 @@ export default function AlbumTable({
           />
         )}
       />
+      </TracklistViewport>
     </div>
   );
 }

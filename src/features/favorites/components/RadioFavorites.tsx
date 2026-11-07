@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useThemeStore } from '@/store/themeStore';
 import { useOverflowTooltip } from '@/lib/hooks/useOverflowTooltip';
-import { Cast, ChevronLeft, ChevronRight, Heart, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Heart, Play, Radio, X } from 'lucide-react';
 import type { InternetRadioStation } from '@/lib/api/subsonicTypes';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { radioCoverRef } from '@/cover/ref';
@@ -97,7 +97,7 @@ function RadioFavCard({ station: s, isActive, isPlaying, serverLabel, onPlay, on
           />
         ) : (
           <div className="album-card-cover-placeholder playlist-card-icon">
-            <Cast size={48} strokeWidth={1.2} />
+            <Radio size={48} strokeWidth={1.2} />
           </div>
         )}
         {isActive && isPlaying && (
@@ -111,7 +111,7 @@ function RadioFavCard({ station: s, isActive, isPlaying, serverLabel, onPlay, on
             onClick={onPlay}
             aria-label={isActive && isPlaying ? t('radio.stopStation') : t('radio.playStation')}
           >
-            {isActive && isPlaying ? <X size={15} /> : <Cast size={14} />}
+            {isActive && isPlaying ? <X size={15} /> : <Play size={15} fill="currentColor" />}
           </button>
         </div>
       </div>

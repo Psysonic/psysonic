@@ -1,4 +1,4 @@
 export const randomAlbums = {
-  title: 'Album Casuali',
+  title: 'Album casuali',
   refresh: 'Aggiorna',
 };

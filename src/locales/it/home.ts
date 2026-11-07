@@ -5,17 +5,18 @@ export const home = {
   recentlyPlayed: 'Ascoltati di recente',
   losslessAlbums: 'Album lossless',
   discover: 'Scopri',
-  discoverSongs: 'Scopri nuovi brani',
-  loadMore: 'Carica altri',
+  discoverSongs: 'Scopri brani',
+  loadMore: 'Carica altro',
   discoverMore: 'Scopri altro',
-  discoverArtists: 'Scopri nuovi artisti',
+  discoverArtists: 'Scopri artisti',
   discoverArtistsMore: 'Tutti gli artisti',
   becauseYouLike: 'Perché hai ascoltato…',
   becauseYouLikeFor: 'Perché hai ascoltato {{artist}}',
-  becauseYouLikeSoundFor: 'Se ti piace il suono di {{artist}}',
+  becauseYouLikeSoundFor: 'Se ti piace il sound di {{artist}}',
   similarTo: 'Simile a {{artist}}',
-  soundsLike: 'Suona come {{artist}}',
+  soundsLike: 'Ricorda {{artist}}',
   becauseYouLikeTracks_one: '{{count}} brano',
+  becauseYouLikeTracks_many: '{{count}} brani',
   becauseYouLikeTracks_other: '{{count}} brani',
   becauseYouLikeSource: 'Suggerimenti da',
   becauseYouLikeSourceSimilarArtists: 'Artisti simili',
@@ -24,10 +25,10 @@ export const home = {
   becauseYouLikeSourceAudiomuseUnavailable: 'AudioMuse diventa disponibile non appena viene rilevato su uno dei tuoi server.',
   becauseYouLikeSourceAudiomuseHint: 'Album dal suono simile, trovati da AudioMuse. I server senza AudioMuse continuano a usare gli artisti simili.',
   mainstageEmptyTitle: 'Il tuo Mainstage è vuoto',
-  mainstageEmptyBody: 'Tutte le sezioni sono disattivate. Riattivale, oppure nascondi Mainstage dalla barra laterale.',
-  mainstageEmptyCta: 'Apri le impostazioni di Personalizzazione',
+  mainstageEmptyBody: 'Tutte le sezioni sono disattivate. Riattiva le sezioni oppure nascondi il Mainstage dalla barra laterale.',
+  mainstageEmptyCta: 'Apri le impostazioni di personalizzazione',
   diagnostics: {
-    copyAll: 'Copy Mainstage diagnostics',
+    copyAll: 'Copia la diagnostica del Mainstage',
     enableSection: 'Attiva {{section}}',
     generationInfo: 'Informazioni sulla generazione',
     duration: 'Durata',
@@ -36,8 +37,13 @@ export const home = {
     detail: 'Dettaglio',
     unavailable: 'N/D',
     statuses: {
-      idle: 'Inattivo', loading: 'Caricamento', ready: 'Pronto', empty: 'Vuoto',
-      error: 'Errore', timeout: 'Tempo scaduto', disabled: 'Disattivato'
+      idle: 'Inattivo',
+      loading: 'Caricamento',
+      ready: 'Pronto',
+      empty: 'Vuoto',
+      error: 'Errore',
+      timeout: 'Tempo scaduto',
+      disabled: 'Disattivato'
     }
   }
 };

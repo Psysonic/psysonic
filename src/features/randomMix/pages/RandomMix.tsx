@@ -26,6 +26,9 @@ import RandomMixHeader from '@/features/randomMix/components/RandomMixHeader';
 import RandomMixFiltersPanel from '@/features/randomMix/components/RandomMixFiltersPanel';
 import RandomMixGenrePanel from '@/features/randomMix/components/RandomMixGenrePanel';
 import RandomMixTrackRow from '@/features/randomMix/components/RandomMixTrackRow';
+import RandomMixTracklist from '@/features/randomMix/components/RandomMixTracklist';
+import { RANDOM_MIX_COLUMNS, RANDOM_MIX_STORAGE_KEY } from '@/features/randomMix/utils/randomMixColumns';
+import { useTracklistColumns } from '@/lib/hooks/useTracklistColumns';
 
 export default function RandomMix() {
   const { t } = useTranslation();
@@ -151,6 +154,12 @@ export default function RandomMix() {
     : `${selectedGenres.length} ${t('genres.genreCount')}`;
 
   // Only one of the two tracklists is on screen at a time, so they share one cursor.
+  const columns = useTracklistColumns(RANDOM_MIX_COLUMNS, RANDOM_MIX_STORAGE_KEY);
+  // Every song in the genre mix has the picked genres, so that table hides the column.
+  const genreMixCols = useMemo(
+    () => columns.visibleCols.filter(c => c.key !== 'genre'),
+    [columns.visibleCols],
+  );
   const cursorSongs = hasSelectedGenres ? filteredGenreMixSongs : filteredSongs;
   const cursor = useTrackListCursor({
     keys: cursorSongs.map(song => song.id),
@@ -315,16 +324,14 @@ export default function RandomMix() {
               {t('randomMix.noSongsMatchFilters')}
             </div>
           ) : (
-            <div className="tracklist" data-preview-loc="randomMix" {...cursor.listProps}>
-              <div className="tracklist-header" style={{ gridTemplateColumns: '60px minmax(150px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) 70px 65px' }}>
-                <div></div>
-                <div>{t('randomMix.trackTitle')}</div>
-                <div>{t('randomMix.trackArtist')}</div>
-                <div>{t('randomMix.trackAlbum')}</div>
-                <div className="col-center">{t('randomMix.trackFavorite')}</div>
-                <div className="col-center">{t('randomMix.trackDuration')}</div>
-              </div>
-              {filteredGenreMixSongs.map((song, idx) => {
+            <RandomMixTracklist
+              columns={columns}
+              displayCols={genreMixCols}
+              withGenre={false}
+              songs={filteredGenreMixSongs}
+              listProps={cursor.listProps}
+            >
+              {gridStyle => filteredGenreMixSongs.map((song, idx) => {
                 const track = songToTrack(song);
                 const queueSongs = filteredGenreMixSongs.map(songToTrack);
                 const isStarred = ownedOverrideValue(starredOverrides, song) ?? starredSongs.has(song.id);
@@ -333,7 +340,8 @@ export default function RandomMix() {
                     key={song.id}
                     song={song}
                     idx={idx}
-                    gridTemplateColumns="60px minmax(150px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) 70px 65px"
+                    visibleCols={genreMixCols}
+                    gridStyle={gridStyle}
                     track={track}
                     queueSongs={queueSongs}
                     isCurrentTrack={currentTrack?.id === song.id}
@@ -350,7 +358,6 @@ export default function RandomMix() {
                     customGenreBlacklist={customGenreBlacklist}
                     addedArtist={addedArtist}
                     addedGenre={addedGenre}
-                    showGenreCol={false}
                     isGenreBlocked={false}
                     onPlay={() => playTrack(track, queueSongs)}
                     onQueueHint={queueHint}
@@ -372,7 +379,7 @@ export default function RandomMix() {
                   />
                 );
               })}
-            </div>
+            </RandomMixTracklist>
           )}
         </div>
       )}
@@ -386,20 +393,8 @@ export default function RandomMix() {
           {t('randomMix.noSongsMatchFilters')}
         </div>
       ) : (
-        <div className="tracklist" data-preview-loc="randomMix" {...cursor.listProps}>
-          <div className="tracklist-header" style={{ gridTemplateColumns: '60px minmax(150px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) 120px 70px 65px' }}>
-            <div></div>
-            <div>{t('randomMix.trackTitle')}</div>
-            <div>{t('randomMix.trackArtist')}</div>
-            <div>{t('randomMix.trackAlbum')}</div>
-            <div data-tooltip={t('randomMix.genreClickHint')} data-tooltip-wrap style={{ cursor: 'help' }}>
-              {t('randomMix.trackGenre')} <span style={{ color: 'var(--accent)', fontWeight: 700, fontSize: 13 }}>ⓘ</span>
-            </div>
-            <div className="col-center">{t('randomMix.trackFavorite')}</div>
-            <div className="col-center">{t('randomMix.trackDuration')}</div>
-          </div>
-
-          {filteredSongs.map((song, idx) => {
+        <RandomMixTracklist columns={columns} displayCols={columns.visibleCols} songs={filteredSongs} listProps={cursor.listProps}>
+          {gridStyle => filteredSongs.map((song, idx) => {
             const track = songToTrack(song);
             const queueSongs = filteredSongs.map(songToTrack);
             const genre = song.genre;
@@ -413,7 +408,8 @@ export default function RandomMix() {
                 key={song.id}
                 song={song}
                 idx={idx}
-                gridTemplateColumns="60px minmax(150px, 1fr) minmax(80px, 1fr) minmax(80px, 1fr) 120px 70px 65px"
+                visibleCols={columns.visibleCols}
+                gridStyle={gridStyle}
                 track={track}
                 queueSongs={queueSongs}
                 isCurrentTrack={currentTrack?.id === song.id}
@@ -430,7 +426,6 @@ export default function RandomMix() {
                 customGenreBlacklist={customGenreBlacklist}
                 addedArtist={addedArtist}
                 addedGenre={addedGenre}
-                showGenreCol
                 isGenreBlocked={isGenreBlocked}
                 onPlay={() => playTrack(track, queueSongs)}
                 onQueueHint={queueHint}
@@ -458,7 +453,7 @@ export default function RandomMix() {
               />
             );
           })}
-        </div>
+        </RandomMixTracklist>
       ))}
 
     </div>

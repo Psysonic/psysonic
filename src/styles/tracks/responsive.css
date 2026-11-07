@@ -16,18 +16,5 @@
   .tracks-hero-actions {
     justify-content: center;
   }
-
-  .song-list-row {
-    grid-template-columns: 64px minmax(0, 1.5fr) minmax(0, 1fr) 64px;
-  }
-
-  .song-list-row--with-bpm {
-    grid-template-columns: 64px minmax(0, 1.5fr) minmax(0, 1fr) 48px 64px;
-  }
-
-  .song-list-row-cell:nth-child(4),  /* album — cover is inside title, not a column */
-  .song-list-row-cell:nth-child(5) { /* genre */
-    display: none;
-  }
 }
 

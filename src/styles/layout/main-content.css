@@ -46,6 +46,45 @@
 
 .content-header .spacer { flex: 1; }
 
+/* Back / forward through the page history, left of the search field. */
+.history-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  margin-right: calc(var(--space-4) * -0.5);
+}
+
+.history-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.history-nav-btn:hover:not(:disabled) {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.history-nav-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.history-nav-btn:disabled {
+  color: var(--text-muted);
+  opacity: 0.45;
+  cursor: default;
+}
+
 .content-header > * {
   transition: opacity 0.14s ease, visibility 0.14s ease;
 }

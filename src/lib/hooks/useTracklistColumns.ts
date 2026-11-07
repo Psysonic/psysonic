@@ -1,13 +1,20 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 
+export type ColumnAlign = 'start' | 'center' | 'end';
+
 export interface ColDef {
   readonly key: string;
   readonly i18nKey?: string | null;
+  /**
+   * Full translation key of the column's name when its header shows no label
+   * (a column of row buttons): read out on its divider and shown while it is moved.
+   */
+  readonly nameKey?: string;
   readonly minWidth: number;
   readonly defaultWidth: number;
   readonly required: boolean;
-  /** If true the column uses minmax(minWidth, 1fr) instead of a fixed px width. */
-  readonly flex?: boolean;
+  /** Horizontal alignment of the cell content and of the header label. Absent = `start`. */
+  readonly align?: ColumnAlign;
   /**
    * Offered in the picker but off until someone turns it on. For lists that can
    * define more columns than fit at once, so the default view stays inside the
@@ -16,29 +23,104 @@ export interface ColDef {
   readonly defaultHidden?: boolean;
 }
 
-/** Shared flex title column — room for play/preview/cover controls + readable title text. */
-export const TRACK_TITLE_FLEX_COL = {
+/** Shared title column — room for play/preview/cover controls + readable title text. */
+export const TRACK_TITLE_COL = {
   minWidth: 240,
-  defaultWidth: 320,
-  flex: true as const,
-};
+  defaultWidth: 340,
+} as const;
 
-function flexColumnMin(c: ColDef, widths: Record<string, number>): number {
-  const w = widths[c.key];
-  if (typeof w === 'number' && w >= c.minWidth) return w;
-  if (c.defaultWidth >= c.minWidth) return c.defaultWidth;
-  return c.minWidth;
+/** Widest a double-click on a divider may make a column, so one huge title cannot blow the table up. */
+export const AUTOFIT_MAX_PX = 560;
+
+/**
+ * Stored-prefs format. Version 2 is the "every column has a real width" model.
+ * Before it, the title column was `minmax(<stored>, 1fr)`: the stored value was
+ * a minimum, not the width the user saw, so it is dropped on the first load.
+ */
+const PREFS_VERSION = 2;
+
+/** Width after dragging a divider by `deltaPx`: only that column changes, never below its minimum. */
+export function resizedWidth(startWidth: number, deltaPx: number, minWidth: number): number {
+  return Math.max(minWidth, Math.round(startWidth + deltaPx));
 }
 
-function fixedColumnWidth(c: ColDef, widths: Record<string, number>): number {
+/** Width for a double-click autofit: the content width, rounded up, between the minimum and the cap. */
+export function fittedWidth(contentPx: number, minWidth: number): number {
+  return Math.min(AUTOFIT_MAX_PX, Math.max(minWidth, Math.ceil(contentPx)));
+}
+
+function columnWidth(c: ColDef, widths: Record<string, number>): number {
   const w = widths[c.key];
-  return typeof w === 'number' && w > 0 ? w : c.defaultWidth;
+  return typeof w === 'number' && w >= c.minWidth ? w : c.defaultWidth;
+}
+
+/**
+ * Grid and total width for a list of columns. For tables that show a subset of
+ * the hook's visible columns (offline album lists drop `favorite`, the genre mix
+ * drops `genre`); a column without a stored width gets its default.
+ */
+export function gridFor(
+  cols: readonly ColDef[],
+  widths: Record<string, number>,
+): { gridStyle: React.CSSProperties; contentWidth: number } {
+  const px = cols.map(c => columnWidth(c, widths));
+  return {
+    gridStyle: { gridTemplateColumns: px.map(w => `${w}px`).join(' ') },
+    contentWidth: px.reduce((sum, w) => sum + w, 0),
+  };
+}
+
+/** The number column (selection box + track number) always stays first. */
+const PINNED_FIRST = 'num';
+
+function pinFirst(order: string[]): string[] {
+  const at = order.indexOf(PINNED_FIRST);
+  if (at <= 0) return order;
+  return [PINNED_FIRST, ...order.slice(0, at), ...order.slice(at + 1)];
+}
+
+/**
+ * Stored column order, cleaned up for the current column list: unknown keys go,
+ * and a column the list gained since the order was saved slots in right after
+ * the column that precedes it in the list's own definition.
+ */
+function resolveOrder(stored: readonly string[] | undefined, columns: readonly ColDef[]): string[] {
+  const defined = columns.map(c => c.key);
+  if (!stored || stored.length === 0) return pinFirst(defined);
+  const order = stored.filter((key, i) => defined.includes(key) && stored.indexOf(key) === i);
+  defined.forEach((key, defIndex) => {
+    if (order.includes(key)) return;
+    let insertAt = 0;
+    for (let k = defIndex - 1; k >= 0; k--) {
+      const at = order.indexOf(defined[k]);
+      if (at >= 0) { insertAt = at + 1; break; }
+    }
+    order.splice(insertAt, 0, key);
+  });
+  return pinFirst(order);
+}
+
+/** Order after dropping `key` before or after `targetKey`. The number column never moves. */
+export function movedOrder(
+  order: readonly string[],
+  key: string,
+  targetKey: string,
+  side: 'before' | 'after',
+): string[] {
+  if (key === PINNED_FIRST || key === targetKey || !order.includes(key) || !order.includes(targetKey)) {
+    return [...order];
+  }
+  const rest = order.filter(k => k !== key);
+  const targetAt = rest.indexOf(targetKey);
+  const insertAt = targetKey === PINNED_FIRST ? targetAt + 1 : targetAt + (side === 'after' ? 1 : 0);
+  rest.splice(insertAt, 0, key);
+  return rest;
 }
 
 function loadPrefs(
   storageKey: string,
   columns: readonly ColDef[],
-): { widths: Record<string, number>; visible: Set<string> } {
+): { widths: Record<string, number>; visible: Set<string>; order: string[] } {
   const defaultWidths: Record<string, number> = Object.fromEntries(
     columns.map(c => [c.key, c.defaultWidth]),
   );
@@ -47,8 +129,10 @@ function loadPrefs(
   );
   try {
     const raw = localStorage.getItem(storageKey);
-    if (!raw) return { widths: defaultWidths, visible: defaultVisible };
-    const parsed = JSON.parse(raw) as { widths?: Record<string, number>; visible?: string[]; known?: string[] };
+    if (!raw) return { widths: defaultWidths, visible: defaultVisible, order: resolveOrder(undefined, columns) };
+    const parsed = JSON.parse(raw) as {
+      v?: number; widths?: Record<string, number>; visible?: string[]; known?: string[]; order?: string[];
+    };
     const visible = new Set<string>(parsed.visible ?? [...defaultVisible]);
     columns.filter(c => c.required).forEach(c => visible.add(c.key));
     // Auto-show columns that are new since prefs were last saved.
@@ -59,36 +143,44 @@ function loadPrefs(
         .filter(c => !c.required && !c.defaultHidden && !known.has(c.key))
         .forEach(c => visible.add(c.key));
     }
-    const widths = { ...defaultWidths, ...(parsed.widths ?? {}) };
-    const durationCol = columns.find(c => c.key === 'duration');
-    if (durationCol && typeof widths.duration === 'number' && widths.duration < durationCol.minWidth) {
-      widths.duration = defaultWidths.duration;
-    }
-    // Flex title columns persisted `0` before resizable flex mins — seed a usable default.
-    columns.forEach(c => {
-      if (!c.flex || c.defaultWidth < c.minWidth) return;
-      const w = widths[c.key];
-      if (typeof w !== 'number' || w < c.minWidth) {
-        widths[c.key] = c.defaultWidth;
-      }
-    });
-    return { widths, visible };
+    const stored = { ...(parsed.widths ?? {}) };
+    if (parsed.v !== PREFS_VERSION) delete stored.title;
+    const widths = { ...defaultWidths, ...stored };
+    // Anything below a column's minimum (old flex `0`s, tampered values) falls back to its default.
+    columns.forEach(c => { widths[c.key] = columnWidth(c, widths); });
+    return { widths, visible, order: resolveOrder(parsed.order, columns) };
   } catch {
-    return { widths: defaultWidths, visible: defaultVisible };
+    return { widths: defaultWidths, visible: defaultVisible, order: resolveOrder(undefined, columns) };
   }
 }
 
-function savePrefs(storageKey: string, widths: Record<string, number>, visible: Set<string>) {
+function savePrefs(
+  storageKey: string,
+  widths: Record<string, number>,
+  visible: Set<string>,
+  order: readonly string[],
+) {
   const known = Object.keys(widths);
-  localStorage.setItem(storageKey, JSON.stringify({ widths, visible: [...visible], known }));
+  localStorage.setItem(storageKey, JSON.stringify({
+    v: PREFS_VERSION, widths, visible: [...visible], known, order,
+  }));
 }
 
+/**
+ * Column engine of the track tables: spreadsheet / file-manager model.
+ * Every visible column has a width in px; dragging a divider changes only the
+ * column left of it; the table is as wide as the sum of its columns and the
+ * surrounding viewport scrolls sideways when that is wider than the view.
+ */
 export function useTracklistColumns(columns: readonly ColDef[], storageKey: string) {
   const [colWidths, setColWidths] = useState<Record<string, number>>(
     () => loadPrefs(storageKey, columns).widths,
   );
   const [colVisible, setColVisible] = useState<Set<string>>(
     () => loadPrefs(storageKey, columns).visible,
+  );
+  const [colOrder, setColOrder] = useState<string[]>(
+    () => loadPrefs(storageKey, columns).order,
   );
   const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -97,163 +189,86 @@ export function useTracklistColumns(columns: readonly ColDef[], storageKey: stri
   // Refs to avoid stale closures in drag/save handlers
   const colWidthsRef = useRef(colWidths);
   const colVisibleRef = useRef(colVisible);
+  const colOrderRef = useRef(colOrder);
   useEffect(() => { colWidthsRef.current = colWidths; }, [colWidths]);
   useEffect(() => { colVisibleRef.current = colVisible; }, [colVisible]);
+  useEffect(() => { colOrderRef.current = colOrder; }, [colOrder]);
 
-  const visibleCols = useMemo(
-    () => columns.filter(c => colVisible.has(c.key)),
-    [columns, colVisible],
-  );
+  const visibleCols = useMemo(() => {
+    const byKey = new Map(columns.map(c => [c.key, c]));
+    return resolveOrder(colOrder, columns)
+      .map(key => byKey.get(key)!)
+      .filter(c => colVisible.has(c.key));
+  }, [columns, colVisible, colOrder]);
 
-  const gridTemplate = useMemo(
-    () =>
-      visibleCols
-        .map(c => {
-          if (c.flex) return `minmax(${flexColumnMin(c, colWidths)}px, 1fr)`;
-          // Defensive fallback: a column added since the last persist would have
-          // no saved width, leaving the grid template with `undefinedpx` and
-          // collapsing the row visually until the user resets defaults.
-          return `${fixedColumnWidth(c, colWidths)}px`;
-        })
-        .join(' '),
+  const { gridStyle, contentWidth } = useMemo(
+    () => gridFor(visibleCols, colWidths),
     [visibleCols, colWidths],
   );
 
-  // Minimum total width so the grid never squishes below its current column sizes.
-  // When .tracklist is narrower, overflow-x: auto triggers a scrollbar.
-  // Formula (box-sizing: border-box): colSum + gaps + left/right padding (12px each = 24px)
-  const gridMinWidth = useMemo(() => {
-    const gapPx = 12; // --space-3
-    const boxPaddingH = 24; // var(--space-3) * 2
-    const colSum = visibleCols.reduce<number>(
-      (s, c) => s + (c.flex ? flexColumnMin(c, colWidths) : fixedColumnWidth(c, colWidths)),
-      0,
-    );
-    const gaps = Math.max(0, visibleCols.length - 1) * gapPx;
-    return colSum + gaps + boxPaddingH;
-  }, [visibleCols, colWidths]);
+  const setColumnWidth = useCallback((key: string, px: number) => {
+    const def = columns.find(c => c.key === key);
+    if (!def) return;
+    const next = { ...colWidthsRef.current, [key]: Math.max(def.minWidth, Math.round(px)) };
+    colWidthsRef.current = next;
+    setColWidths(next);
+    savePrefs(storageKey, next, colVisibleRef.current, colOrderRef.current);
+  }, [columns, storageKey]);
 
-  const gridStyle = useMemo(
-    () => ({ gridTemplateColumns: gridTemplate, minWidth: `${gridMinWidth}px` }),
-    [gridTemplate, gridMinWidth],
-  );
-
-  // Excel-style column resize:
-  //   direction =  1 → right-edge handle: drag right → column grows, 1fr title shrinks
-  //   direction = -1 → left-edge handle : drag right → next px col shrinks, 1fr title grows
+  // Drag a divider: only the column left of it changes, the divider follows the pointer.
   const startResize = useCallback(
-    (e: React.MouseEvent, colIndex: number, direction: 1 | -1 = 1) => {
+    (e: React.PointerEvent, key: string) => {
       e.preventDefault();
       e.stopPropagation();
-
-      const visCols = visibleCols; // stable for the drag duration
-      const colDef = visCols[colIndex];
+      const colDef = columns.find(c => c.key === key);
+      if (!colDef) return;
       const colKey = colDef.key;
-      const colDefFull = columns.find(c => c.key === colKey)!;
-      const colMin = colDefFull.minWidth;
       const startX = e.clientX;
-      const startW = fixedColumnWidth(colDefFull, colWidths);
+      const startW = columnWidth(colDef, colWidthsRef.current);
+      // The ref only catches up after React has rendered a move; a release can
+      // arrive before that, so the width to save is kept here.
+      let lastW = startW;
+      // Keep receiving the pointer even when it leaves the window mid-drag.
+      const target = e.currentTarget as Element | null;
+      try { target?.setPointerCapture?.(e.pointerId); } catch { /* not capturable */ }
 
-      let maxW = Infinity;
-      const el = tracklistRef.current;
-      if (el) {
-        const style = getComputedStyle(el);
-        const paddingH = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-        const containerW = el.clientWidth - paddingH;
-        const headerEl = el.querySelector('.tracklist-header') as HTMLElement | null;
-        const gapPx = headerEl
-          ? parseFloat(getComputedStyle(headerEl).columnGap) || 12
-          : 12;
-        const totalGaps = (visCols.length - 1) * gapPx;
-        const widthsNow = colWidthsRef.current;
-        const otherFixed = visCols
-          .filter((_, i) => i !== colIndex)
-          .reduce<number>(
-            (s, c) => s + (c.flex ? flexColumnMin(c, widthsNow) : fixedColumnWidth(c, widthsNow)),
-            0,
-          );
-        maxW = Math.max(colMin, containerW - totalGaps - otherFixed);
-      }
-
-      const onMove = (me: MouseEvent) => {
-        const delta = me.clientX - startX;
-        const newW = Math.min(Math.max(colMin, startW + direction * delta), maxW);
-        setColWidths(prev => ({ ...prev, [colKey]: newW }));
+      const onMove = (me: PointerEvent) => {
+        // The release got lost (let go outside the window): no button is down any more.
+        if (me.buttons === 0) {
+          onUp();
+          return;
+        }
+        const newW = resizedWidth(startW, me.clientX - startX, colDef.minWidth);
+        lastW = newW;
+        setColWidths(prev => (prev[colKey] === newW ? prev : { ...prev, [colKey]: newW }));
       };
 
       const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onUp);
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
-        savePrefs(storageKey, colWidthsRef.current, colVisibleRef.current);
+        const widths = { ...colWidthsRef.current, [colKey]: lastW };
+        colWidthsRef.current = widths;
+        savePrefs(storageKey, widths, colVisibleRef.current, colOrderRef.current);
       };
 
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onUp);
     },
-    [columns, visibleCols, colWidths, storageKey],
+    [columns, storageKey],
   );
 
-  // Drag the flex (title) column min width — persisted in colWidths[key].
-  const startFlexColumnResize = useCallback(
-    (e: React.MouseEvent, colIndex: number, direction: 1 | -1 = 1) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const visCols = visibleCols;
-      const colDef = visCols[colIndex];
-      if (!colDef?.flex) return;
-
-      const colKey = colDef.key;
-      const colMin = colDef.minWidth;
-      const startX = e.clientX;
-      const startW = flexColumnMin(colDef, colWidths);
-
-      let maxW = Infinity;
-      const el = tracklistRef.current;
-      if (el) {
-        const style = getComputedStyle(el);
-        const paddingH = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-        const containerW = el.clientWidth - paddingH;
-        const headerEl = el.querySelector('.tracklist-header') as HTMLElement | null;
-        const gapPx = headerEl
-          ? parseFloat(getComputedStyle(headerEl).columnGap) || 12
-          : 12;
-        const totalGaps = (visCols.length - 1) * gapPx;
-        const widthsNow = colWidthsRef.current;
-        const otherFixed = visCols
-          .filter((_, i) => i !== colIndex)
-          .reduce<number>(
-            (s, c) => s + (c.flex ? flexColumnMin(c, widthsNow) : fixedColumnWidth(c, widthsNow)),
-            0,
-          );
-        maxW = Math.max(colMin, containerW - totalGaps - otherFixed);
-      }
-
-      const onMove = (me: MouseEvent) => {
-        const delta = me.clientX - startX;
-        const newW = Math.min(Math.max(colMin, startW + direction * delta), maxW);
-        setColWidths(prev => ({ ...prev, [colKey]: newW }));
-      };
-
-      const onUp = () => {
-        document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-        savePrefs(storageKey, colWidthsRef.current, colVisibleRef.current);
-      };
-
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-      document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
-    },
-    [visibleCols, colWidths, storageKey],
-  );
+  const moveColumn = useCallback((key: string, targetKey: string, side: 'before' | 'after') => {
+    const next = movedOrder(resolveOrder(colOrderRef.current, columns), key, targetKey, side);
+    colOrderRef.current = next;
+    setColOrder(next);
+    savePrefs(storageKey, colWidthsRef.current, colVisibleRef.current, next);
+  }, [columns, storageKey]);
 
   const toggleColumn = useCallback(
     (key: string) => {
@@ -263,7 +278,7 @@ export function useTracklistColumns(columns: readonly ColDef[], storageKey: stri
         const next = new Set(prev);
         if (next.has(key)) next.delete(key);
         else next.add(key);
-        savePrefs(storageKey, colWidthsRef.current, next);
+        savePrefs(storageKey, colWidthsRef.current, next, colOrderRef.current);
         return next;
       });
     },
@@ -278,6 +293,7 @@ export function useTracklistColumns(columns: readonly ColDef[], storageKey: stri
     const defaultVisible = new Set(columns.filter(c => !c.defaultHidden).map(c => c.key));
     setColWidths(defaultWidths);
     setColVisible(defaultVisible);
+    setColOrder(resolveOrder(undefined, columns));
     localStorage.removeItem(storageKey);
   }, [columns, storageKey]);
 
@@ -290,8 +306,10 @@ export function useTracklistColumns(columns: readonly ColDef[], storageKey: stri
     colVisible,
     visibleCols,
     gridStyle,
+    contentWidth,
+    setColumnWidth,
+    moveColumn,
     startResize,
-    startFlexColumnResize,
     toggleColumn,
     resetColumns,
     pickerOpen,

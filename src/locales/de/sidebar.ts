@@ -42,7 +42,7 @@ export const sidebar = {
   expandPlaylists: 'Playlists ausklappen',
   collapsePlaylists: 'Playlists einklappen',
   more: 'Mehr',
-  feelingLucky: 'Glücks-Mix',
+  feelingLucky: 'Lucky Mix',
 
   themeUpdatesTitle: 'Theme-Updates',
   themeUpdatesTooltip: 'Theme-Updates verfügbar',

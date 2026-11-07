@@ -3,7 +3,7 @@ import { useArtistCoverRef } from '@/cover/useLibraryCoverRef';
 import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
 import { useEffect, useState, Fragment, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router';
-import { AlbumCard } from '@/features/album';
+import { AlbumCard, useAlbumYearDisplayStore, type AlbumYearDisplay } from '@/features/album';
 import { open } from '@tauri-apps/plugin-shell';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
@@ -104,6 +104,10 @@ export default function ArtistDetail() {
     s => s.orderByServer[activeServerId] ?? DEFAULT_ARTIST_ALBUM_ORDER,
   );
   const setAlbumOrder = useArtistAlbumSortStore(s => s.setOrder);
+  // The same stored choice as Settings → Appearance → Album year: changing it
+  // here changes the year on every album card and header.
+  const albumYearDisplay = useAlbumYearDisplayStore(s => s.display);
+  const setAlbumYearDisplay = useAlbumYearDisplayStore(s => s.setDisplay);
   // MUST stay above the loading / !artist early returns or React's hook
   // call order will mismatch between renders.
   const sectionConfig = useArtistLayoutStore(s => s.sections);
@@ -423,18 +427,31 @@ export default function ArtistDetail() {
                     : t('artistDetail.albumsBy', { name: artist.name })}
                 </h2>
                 {albums.length > 0 && (
-                  <CustomSelect
-                    value={albumOrder}
-                    options={[
-                      { value: 'yearDesc', label: t('artistDetail.sortYearDesc') },
-                      { value: 'yearAsc', label: t('artistDetail.sortYearAsc') },
-                      { value: 'nameAsc', label: t('artistDetail.sortNameAsc') },
-                      { value: 'nameDesc', label: t('artistDetail.sortNameDesc') },
-                    ]}
-                    onChange={v => setAlbumOrder(activeServerId, v as ArtistAlbumOrder)}
-                    ariaLabel={t('artistDetail.sortAlbumsAria')}
-                    style={{ width: 'max-content', minWidth: 170, maxWidth: 240, flexShrink: 0 }}
-                  />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <CustomSelect
+                      value={albumYearDisplay}
+                      options={[
+                        { value: 'original', label: t('settings.albumYearDisplayOriginal') },
+                        { value: 'release', label: t('settings.albumYearDisplayRelease') },
+                        { value: 'both', label: t('settings.albumYearDisplayBoth') },
+                      ]}
+                      onChange={v => setAlbumYearDisplay(v as AlbumYearDisplay)}
+                      ariaLabel={t('settings.albumYearDisplay')}
+                      style={{ width: 'max-content', minWidth: 150, maxWidth: 240, flexShrink: 0 }}
+                    />
+                    <CustomSelect
+                      value={albumOrder}
+                      options={[
+                        { value: 'yearDesc', label: t('artistDetail.sortYearDesc') },
+                        { value: 'yearAsc', label: t('artistDetail.sortYearAsc') },
+                        { value: 'nameAsc', label: t('artistDetail.sortNameAsc') },
+                        { value: 'nameDesc', label: t('artistDetail.sortNameDesc') },
+                      ]}
+                      onChange={v => setAlbumOrder(activeServerId, v as ArtistAlbumOrder)}
+                      ariaLabel={t('artistDetail.sortAlbumsAria')}
+                      style={{ width: 'max-content', minWidth: 170, maxWidth: 240, flexShrink: 0 }}
+                    />
+                  </div>
                 )}
               </div>
               {albums.length > 0 ? (

@@ -1,0 +1,258 @@
+/* ── Track tables: spreadsheet model ─────────────────────────────────────────
+   Every column has a real width, dividers sit on the column boundary, the
+   table scrolls sideways inside .tl-viewport when the columns are wider than
+   the view, with a thin bar pinned to the bottom of the visible area.
+   See src/ui/tracklist/ (TracklistViewport, TracklistHeader, TracklistCell). */
+
+/* The tables using the viewport must not be scroll boxes themselves, or the
+   pinned bar would stick to them instead of to the page. */
+.tracklist.tracklist--model-a {
+  overflow: visible;
+}
+
+.tl-viewport {
+  position: relative;
+}
+
+/* The header stays visible while the page scrolls the rows past it, and sits
+   above the virtual rows (each a transformed layer of its own). */
+.tl-head-clip {
+  overflow: hidden;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--tl-head-bg, var(--bg-app));
+}
+
+/* The paged song lists sit on a card. */
+.song-list-table {
+  --tl-head-bg: var(--bg-card);
+}
+
+.tl-body {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+.tl-body::-webkit-scrollbar {
+  display: none;
+}
+
+/* The thin bar comes from the ::-webkit-scrollbar rules below, which WebView2,
+   WebKitGTK and WKWebView all support. Chromium (and WebKit, where it knows
+   scrollbar-width) ignores those rules once scrollbar-width or scrollbar-color
+   is set and draws its own bar instead, so the standard properties are only
+   for engines without the prefixed rules. */
+.tl-hbar {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  height: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+@supports not selector(::-webkit-scrollbar) {
+  .tl-hbar {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--text-muted) 60%, transparent) transparent;
+  }
+}
+.tl-hbar::-webkit-scrollbar {
+  height: 6px;
+}
+.tl-hbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tl-hbar::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 60%, transparent);
+  border-radius: 3px;
+}
+.tl-hbar::-webkit-scrollbar-thumb:hover {
+  background: var(--col-resize-active);
+}
+
+/* Columns touch: the space between them is the cells' own padding, so a
+   divider is exactly the boundary and a centred column looks centred. */
+.tl-viewport .tracklist-header,
+.tl-viewport .track-row,
+.tl-viewport .song-list-row {
+  column-gap: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* Header cells fill the whole row, the row's vertical padding included: a cell
+   without a label (a column of row buttons) would otherwise collapse to 0 px,
+   and its divider and the area that holds or right-clicks the column with it. */
+.tl-viewport .tracklist-header {
+  align-items: stretch;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+.tl-viewport .tl-head-cell {
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+.tl-cell,
+.tl-head-cell {
+  box-sizing: border-box;
+  min-width: 0;
+  padding-left: 10px;
+  padding-right: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.tl-cell {
+  overflow: hidden;
+}
+
+.tl-cell--start { justify-content: flex-start; text-align: left; }
+.tl-cell--center { justify-content: center; text-align: center; }
+.tl-cell--end { justify-content: flex-end; text-align: right; }
+
+.tl-cell > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Text cells take the whole width so their own ellipsis can kick in. */
+.tl-cell--start > * {
+  flex: 1 1 auto;
+}
+
+/* The number cell keeps its selection box on the left, the number goes right. */
+.tl-cell--end > .track-num {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+}
+
+/* ── Header cells ── */
+.tl-head-cell {
+  position: relative;
+  gap: 4px;
+  user-select: none;
+}
+
+.tl-head-cell--sortable {
+  cursor: pointer;
+}
+
+.tl-head-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-head-cell[data-tl-col="num"] .tl-head-label {
+  flex: 1 1 auto;
+  overflow: visible;
+}
+.tl-head-cell .track-num {
+  justify-content: flex-end;
+}
+
+.tl-sort-indicator {
+  flex: none;
+  font-size: 10px;
+  opacity: 0.7;
+}
+
+/* Divider: a 10 px grab area centred on the column boundary. */
+.tl-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -5px;
+  width: 10px;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+.tl-grip::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 20%;
+  bottom: 20%;
+  width: 1px;
+  border-radius: 1px;
+  transform: translateX(-50%);
+  background: var(--bg-hover);
+  transition: background 0.15s, width 0.15s;
+}
+.tl-grip:hover::after,
+.tl-grip:active::after {
+  width: 2px;
+  background: var(--col-resize-active);
+}
+
+/* ── Moving a column: hold a header, drag, let go ── */
+.tl-head-cell--dragging {
+  opacity: 0.4;
+}
+.tl-head-cell--drop-before {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.tl-head-cell--drop-after {
+  box-shadow: inset -2px 0 0 var(--accent);
+}
+
+.tl-drag-ghost {
+  position: fixed;
+  z-index: 100001;
+  pointer-events: none;
+  transform: translate(-50%, -130%);
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated, var(--bg-card));
+  border: 1px solid var(--accent);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+/* ── Autofit: one column's cells laid out at their natural width while it is
+   measured (measureColumnContent sets and removes the attribute in one go). */
+.tl-cell[data-tl-measuring] {
+  width: max-content;
+  justify-self: start;
+  overflow: visible;
+}
+.tl-cell[data-tl-measuring] > * {
+  flex: none;
+  max-width: none;
+}
+.tl-cell[data-tl-measuring] * {
+  overflow: visible !important;
+  text-overflow: clip !important;
+  max-width: none !important;
+  white-space: nowrap;
+}
+
+/* ── Keyboard focus on headers and dividers ── */
+.tl-head-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm, 4px);
+}
+.tl-grip:focus-visible {
+  outline: none;
+}
+.tl-grip:focus-visible::after {
+  width: 2px;
+  background: var(--accent);
+}
+
+/* Rows reached with the arrow keys stay clear of the sticky header
+   (TRACKLIST_STICKY_HEADER_PX in TracklistViewport.tsx — keep in step). */
+.tl-viewport .track-row--cursor,
+.tl-viewport .song-list-row--cursor {
+  scroll-margin-top: 48px;
+}
