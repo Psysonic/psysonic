@@ -123,6 +123,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * The PsyLab debug window (Ctrl+Shift+D) kept a fixed size, so on a large screen it was a small box with a cramped scroll area. It now takes most of the app window, up to 1280 × 1000 px, and still fits small windows with Reset all and Close in view.
 
+### Security updates for the zip library and a network dependency
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1845](https://github.com/Psysonic/psysonic/pull/1845)**
+
+* Updated the zip library used for theme imports and backups to pick up upstream fixes for crafted archives, and updated a redirect-handling dependency with a fix for forwarding credentials on redirects. Backups and theme imports work as before.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
