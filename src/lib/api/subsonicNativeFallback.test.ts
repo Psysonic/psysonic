@@ -22,7 +22,10 @@ import axios from 'axios';
 import { onInvoke } from '@/test/mocks/tauri';
 import { pingWithCredentialsForProfile } from '@/lib/api/subsonic';
 import { apiWithCredentials } from '@/lib/api/subsonicClient';
-import { clearNativeTransportFallback } from '@/lib/server/nativeTransportFallback';
+import {
+  clearNativeTransportFallback,
+  nativeTransportRequiredFor,
+} from '@/lib/server/nativeTransportFallback';
 
 const BASE = 'https://music.example.com';
 
@@ -205,5 +208,106 @@ describe('REST calls — once the probe pinned the address', () => {
       apiWithCredentials(BASE, 'tester', 'pw', 'getMusicFolders.view'),
     ).rejects.toThrow();
     expect(proxied).toBe(0);
+  });
+});
+
+describe('gated dual-address profile — per-address transport choice', () => {
+  // Gate headers apply to the public address only; the local one sends no CORS
+  // headers. Where the WebView attempt is skipped, that never gets learned.
+
+  const LOCAL = 'http://192.168.0.10:4533';
+  const GATED = {
+    url: BASE,
+    alternateUrl: LOCAL,
+    username: 'tester',
+    password: 'pw',
+    customHeaders: [{ name: 'CF-Access-Client-Token', value: 'gate-token' }],
+    customHeadersApplyTo: 'public' as const,
+  };
+
+  it('tries the WebView for the gate-less local address and pins it on native retry', async () => {
+    vi.mocked(axios.get).mockRejectedValue(networkError());
+    let probes = 0;
+    onInvoke('probe_server_connection', () => {
+      probes += 1;
+      return { ok: true, type: 'BandcampServer', serverVersion: '1.0', openSubsonic: true };
+    });
+
+    const result = await pingWithCredentialsForProfile(GATED, LOCAL);
+
+    expect(result.ok).toBe(true);
+    // No gate headers here, so the WebView attempt is what proves the pin.
+    expect(vi.mocked(axios.get).mock.calls.length).toBe(1);
+    expect(probes).toBe(1);
+    expect(nativeTransportRequiredFor(LOCAL)).toBe(true);
+  });
+
+  it('reaches the native proxy for later local-address calls after that pin', async () => {
+    vi.mocked(axios.get).mockRejectedValue(networkError());
+    onInvoke('probe_server_connection', () => ({
+      ok: true, type: 'BandcampServer', serverVersion: '1.0', openSubsonic: true,
+    }));
+    await pingWithCredentialsForProfile(GATED, LOCAL);
+
+    let proxied = 0;
+    onInvoke('subsonic_proxy_request', () => {
+      proxied += 1;
+      return JSON.stringify({
+        'subsonic-response': { status: 'ok', musicFolders: { musicFolder: [] } },
+      });
+    });
+
+    const data = await apiWithCredentials<{ musicFolders: unknown }>(
+      LOCAL, 'tester', 'pw', 'getMusicFolders.view', {}, 15000, GATED,
+    );
+
+    expect(data.musicFolders).toEqual({ musicFolder: [] });
+    expect(proxied).toBe(1);
+    // Only the ping's own WebView attempt ran; the body call skipped it.
+    expect(vi.mocked(axios.get).mock.calls.length).toBe(1);
+  });
+
+  it('keeps a CORS-enabled local address off the pin and off the proxy', async () => {
+    vi.mocked(axios.get).mockResolvedValue({
+      data: {
+        'subsonic-response': { status: 'ok', type: 'Navidrome', serverVersion: '0.62.0', openSubsonic: true },
+      },
+    });
+    let probes = 0;
+    onInvoke('probe_server_connection', () => {
+      probes += 1;
+      return { ok: true, type: 'Navidrome', serverVersion: '0.62.0', openSubsonic: true };
+    });
+
+    const result = await pingWithCredentialsForProfile(GATED, LOCAL);
+
+    expect(result.ok).toBe(true);
+    // A healthy CORS-enabled address must never end up on the proxy.
+    expect(vi.mocked(axios.get).mock.calls.length).toBe(1);
+    expect(probes).toBe(0);
+    expect(nativeTransportRequiredFor(LOCAL)).toBe(false);
+
+    let proxied = 0;
+    onInvoke('subsonic_proxy_request', () => {
+      proxied += 1;
+      return JSON.stringify({ 'subsonic-response': { status: 'ok' } });
+    });
+    await apiWithCredentials(LOCAL, 'tester', 'pw', 'getGenres.view', {}, 15000, GATED);
+    expect(proxied).toBe(0);
+  });
+
+  it('still probes the gated public address natively, with the header context', async () => {
+    let received: { httpContext: unknown } | undefined;
+    onInvoke('probe_server_connection', args => {
+      received = args as { httpContext: unknown };
+      return { ok: true, type: 'Navidrome', serverVersion: '0.62.0', openSubsonic: true };
+    });
+
+    const result = await pingWithCredentialsForProfile(GATED, BASE);
+
+    expect(result.ok).toBe(true);
+    // Gate headers make the WebView preflight useless: native straight away.
+    expect(vi.mocked(axios.get).mock.calls.length).toBe(0);
+    expect(received?.httpContext).not.toBeNull();
   });
 });

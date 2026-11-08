@@ -114,9 +114,11 @@ export async function pingWithCredentialsForProfile(
     }
   };
 
-  // Gate headers force the native path; so does an address a previous call
-  // already found to be CORS-less (see `nativeTransportFallback`).
-  if (httpContext || nativeTransportRequiredFor(base)) return probeNatively();
+  // Without a WebView attempt the app never learns a gate-less address is
+  // CORS-less, so go native only when the headers apply here or it is pinned.
+  const gateHeadersApplyHere =
+    Object.keys(headersForServerRequest(profile, endpointBaseUrl)).length > 0;
+  if (gateHeadersApplyHere || nativeTransportRequiredFor(base)) return probeNatively();
 
   try {
     const salt = secureRandomSalt();

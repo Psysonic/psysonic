@@ -27,6 +27,7 @@ vi.mock('@/lib/network/subsonicNetworkGuard', () => ({
 
 import axios from 'axios';
 import { onInvoke } from '@/test/mocks/tauri';
+import { clearNativeTransportFallback } from '@/lib/server/nativeTransportFallback';
 import { pingWithCredentials, pingWithCredentialsForProfile, ping } from '@/lib/api/subsonic';
 import { getAlbumInfo2 } from '@/lib/api/subsonicAlbumInfo';
 import { getStarred } from '@/lib/api/subsonicStarRating';
@@ -71,6 +72,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.mocked(axios.get).mockReset();
+  clearNativeTransportFallback();
 });
 
 describe('api() helper — response envelope', () => {
@@ -496,14 +498,17 @@ describe('pingWithCredentialsForProfile — custom gate headers (native probe)',
     ]);
   });
 
-  it('still probes the LAN endpoint through the native command (header omission delegated to Rust)', async () => {
+  it('probes the gate-less LAN endpoint over the WebView, retrying natively with the header context on a CORS-less answer', async () => {
+    // No gate headers apply here, so the WebView tries first; the retry still
+    // carries the full httpContext, so Rust omits them per endpoint.
+    vi.mocked(axios.get).mockRejectedValue(new Error('Network Error'));
     let received: ProbeArgs | undefined;
     onInvoke('probe_server_connection', (args) => {
       received = args as ProbeArgs;
       return { ok: true, type: null, serverVersion: null, openSubsonic: false };
     });
 
-    await pingWithCredentialsForProfile(
+    const result = await pingWithCredentialsForProfile(
       {
         url: 'https://music.example.com',
         alternateUrl: 'http://192.168.0.10:4533',
@@ -515,8 +520,12 @@ describe('pingWithCredentialsForProfile — custom gate headers (native probe)',
       'http://192.168.0.10:4533',
     );
 
-    expect(axios.get).not.toHaveBeenCalled();
+    expect(result.ok).toBe(true);
+    expect(axios.get).toHaveBeenCalledTimes(1);
+    // The WebView request carries no gate header — it does not apply here.
+    expect(vi.mocked(axios.get).mock.calls[0]?.[1]).toMatchObject({ headers: {} });
     expect(received?.baseUrl).toBe('http://192.168.0.10:4533');
+    expect(received?.httpContext?.customHeadersApplyTo).toBe('public');
   });
 
   it('returns ok=false when the native probe errors', async () => {
