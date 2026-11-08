@@ -129,6 +129,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Updated the zip library used for theme imports and backups to pick up upstream fixes for crafted archives, and updated a redirect-handling dependency with a fix for forwarding credentials on redirects. Backups and theme imports work as before.
 
+### Seekbar no longer flashes while nothing plays
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1847](https://github.com/Psysonic/psysonic/pull/1847)**
+
+* After a queue had played to its end, the seekbar could light up completely for a second or two every few seconds while nothing was playing, and the last track was reloaded each time. A queue that finished now simply starts at the beginning of its last track.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
