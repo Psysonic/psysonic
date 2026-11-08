@@ -153,6 +153,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * After one track had flowed into the next with gapless playback, pausing made the mini player's progress bar jump, often to the very end of the track, until playback resumed. It now stays where the music stopped.
 
+### Auth-gated servers pair with a local address that is strict about CORS
+
+**By [@enncoded](https://github.com/enncoded), PR [#1850](https://github.com/Psysonic/psysonic/pull/1850)**
+
+* Follow-up to [#1817](https://github.com/Psysonic/psysonic/pull/1817): a server whose public address sits behind a header-auth gate still refused to pair with a local address that sends no CORS headers (a strict reverse proxy, or Bandcamp's Subsonic API). The connection check reached the local address over the wrong route and so never noticed what it needed. The check now reaches every address the way the rest of the app does, and those two addresses can be saved together.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
