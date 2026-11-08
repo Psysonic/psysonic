@@ -248,6 +248,7 @@ mod tests {
             chained_info: Arc::new(Mutex::new(None)),
             current_source_done: Arc::new(Mutex::new(None)),
             samples_played: Arc::new(AtomicU64::new(0)),
+            chained_sample_counter: Arc::new(Mutex::new(None)),
             pending_seek: Arc::new(Mutex::new(Default::default())),
             current_sample_rate: Arc::new(AtomicU32::new(44_100)),
             current_channels: Arc::new(AtomicU32::new(2)),

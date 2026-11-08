@@ -348,6 +348,8 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
     drop(stream_attach);
     drop(commit_guard);
 
+    // The rebuilt source counts into `samples_played` again, in the same generation.
+    *state.chained_sample_counter.lock().unwrap() = None;
     state.samples_played.store(
         raw_counter_samples_for_content_position(
             snap.position_secs,
