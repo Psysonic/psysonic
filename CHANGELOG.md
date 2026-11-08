@@ -135,6 +135,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * After a queue had played to its end, the seekbar could light up completely for a second or two every few seconds while nothing was playing, and the last track was reloaded each time. A queue that finished now simply starts at the beginning of its last track.
 
+### Album and artist pages keep their place during a library scan
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Svenni on Discord, PR [#1848](https://github.com/Psysonic/psysonic/pull/1848)**
+
+* When a background sync picked up changes after a server scan, the Albums and Artists pages emptied and reloaded, which sent you back to the top. The list now stays where it is and updates in place.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
