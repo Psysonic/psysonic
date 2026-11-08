@@ -155,7 +155,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Auth-gated servers pair with a local address that is strict about CORS
 
-**By [@enncoded](https://github.com/enncoded), PR [#1850](https://github.com/Psysonic/psysonic/pull/1850)**
+**By [@enncoded](https://github.com/enncoded), PR [#1851](https://github.com/Psysonic/psysonic/pull/1851)**
 
 * Follow-up to [#1817](https://github.com/Psysonic/psysonic/pull/1817): a server whose public address sits behind a header-auth gate still refused to pair with a local address that sends no CORS headers (a strict reverse proxy, or Bandcamp's Subsonic API). The connection check reached the local address over the wrong route and so never noticed what it needed. The check now reaches every address the way the rest of the app does, and those two addresses can be saved together.
 
