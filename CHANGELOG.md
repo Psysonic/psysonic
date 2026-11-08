@@ -91,6 +91,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Linux media widgets that look up the application through MPRIS can now resolve Psysonic's icon instead of showing a generic or blank one. Media controls and desktop notifications use the package's desktop identity, including the different names used by Nix and Flatpak.
 
+### Servers behind an auth gate can pair with a local address
+
+**By [@enncoded](https://github.com/enncoded), PR [#1817](https://github.com/Psysonic/psysonic/pull/1817)**
+
+* Adding a server whose public address sits behind a header-auth gate (Pangolin, Cloudflare Access) failed with "Could not reach <address>" as soon as a second address was filled in, even with a correct gate header. The same-server check pinged the gated address from the WebView, whose preflight carries no token, so the gate refused it. Those two addresses can be paired again.
+
 ### Reissues tagged with the original year stay separate albums
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1820](https://github.com/Psysonic/psysonic/pull/1820)**
