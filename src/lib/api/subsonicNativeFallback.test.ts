@@ -212,9 +212,8 @@ describe('REST calls — once the probe pinned the address', () => {
 });
 
 describe('gated dual-address profile — per-address transport choice', () => {
-  // Gate headers scoped to the public address, local address sends no CORS
-  // headers. A profile-wide transport test skipped the WebView for the local
-  // address, so that was never learned and its body calls all failed.
+  // Gate headers apply to the public address only; the local one sends no CORS
+  // headers. Where the WebView attempt is skipped, that never gets learned.
 
   const LOCAL = 'http://192.168.0.10:4533';
   const GATED = {
@@ -237,8 +236,7 @@ describe('gated dual-address profile — per-address transport choice', () => {
     const result = await pingWithCredentialsForProfile(GATED, LOCAL);
 
     expect(result.ok).toBe(true);
-    // The gate headers do not apply to this address, so the WebView must be
-    // tried first — that failure is the evidence that pins it.
+    // No gate headers here, so the WebView attempt is what proves the pin.
     expect(vi.mocked(axios.get).mock.calls.length).toBe(1);
     expect(probes).toBe(1);
     expect(nativeTransportRequiredFor(LOCAL)).toBe(true);
@@ -284,8 +282,7 @@ describe('gated dual-address profile — per-address transport choice', () => {
     const result = await pingWithCredentialsForProfile(GATED, LOCAL);
 
     expect(result.ok).toBe(true);
-    // WebView ping, no native probe, no pin: a healthy CORS-enabled local
-    // address must not end up on the proxy for the rest of the session.
+    // A healthy CORS-enabled address must never end up on the proxy.
     expect(vi.mocked(axios.get).mock.calls.length).toBe(1);
     expect(probes).toBe(0);
     expect(nativeTransportRequiredFor(LOCAL)).toBe(false);
