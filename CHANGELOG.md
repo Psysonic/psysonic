@@ -141,6 +141,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * When a background sync picked up changes after a server scan, the Albums and Artists pages emptied and reloaded, which sent you back to the top. The list now stays where it is and updates in place.
 
+### Pausing after a gapless transition keeps the position
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by VirtualWolf on Discord, PR [#1849](https://github.com/Psysonic/psysonic/pull/1849)**
+
+* After one track had flowed into the next with gapless playback, pausing made the mini player's progress bar jump, often to the very end of the track, until playback resumed. It now stays where the music stopped.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases

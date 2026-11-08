@@ -765,6 +765,7 @@ pub async fn audio_play(
         app,
         Some(analysis_app),
         state.samples_played.clone(),
+        state.chained_sample_counter.clone(),
         state.current_sample_rate.clone(),
         state.current_channels.clone(),
         state.gapless_switch_at.clone(),
