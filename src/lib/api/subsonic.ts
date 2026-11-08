@@ -114,10 +114,8 @@ export async function pingWithCredentialsForProfile(
     }
   };
 
-  // The same per-address question `requiresNativeTransport` asks for REST
-  // calls: native only when the gate headers apply here or a previous call
-  // proved this address CORS-less (see `nativeTransportFallback`). The WebView
-  // attempt below is what teaches the app about the latter.
+  // Without a WebView attempt the app never learns a gate-less address is
+  // CORS-less, so go native only when the headers apply here or it is pinned.
   const gateHeadersApplyHere =
     Object.keys(headersForServerRequest(profile, endpointBaseUrl)).length > 0;
   if (gateHeadersApplyHere || nativeTransportRequiredFor(base)) return probeNatively();
