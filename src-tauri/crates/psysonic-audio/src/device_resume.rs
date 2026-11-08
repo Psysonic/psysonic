@@ -361,6 +361,7 @@ pub(crate) async fn try_resume_after_device_change(
         app.clone(),
         Some(analysis_app),
         engine.samples_played.clone(),
+        engine.chained_sample_counter.clone(),
         engine.current_sample_rate.clone(),
         engine.current_channels.clone(),
         engine.gapless_switch_at.clone(),

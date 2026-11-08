@@ -19,6 +19,7 @@ use super::playback_rate::{
     content_position_from_samples, raw_counter_samples_for_content_position,
 };
 use super::preview::preview_clear_for_new_main_playback;
+use super::state::active_sample_counter;
 use super::stream::{radio_download_task, RADIO_BUF_CAPACITY};
 
 pub(crate) async fn seek_player_with_timeout(
@@ -95,6 +96,8 @@ pub fn audio_pause(fade_secs: Option<f32>, state: State<'_, AudioEngine>) {
         if let Some(sink) = sink {
             let current = Arc::clone(&state.current);
             let samples_played = Arc::clone(&state.samples_played);
+            let chained_sample_counter = Arc::clone(&state.chained_sample_counter);
+            let generation = Arc::clone(&state.generation);
             let sample_rate = Arc::clone(&state.current_sample_rate);
             let channels = Arc::clone(&state.current_channels);
             let playback_rate = state.playback_rate.clone();
@@ -109,7 +112,8 @@ pub fn audio_pause(fade_secs: Option<f32>, state: State<'_, AudioEngine>) {
                     return;
                 }
                 let pos = content_position_from_samples(
-                    samples_played.load(Ordering::Relaxed),
+                    active_sample_counter(&chained_sample_counter, &generation, &samples_played)
+                        .load(Ordering::Relaxed),
                     sample_rate.load(Ordering::Relaxed),
                     channels.load(Ordering::Relaxed),
                     &playback_rate,
@@ -256,7 +260,7 @@ fn pause_current_sink(state: &AudioEngine) {
     if let Some(sink) = &cur.sink {
         if !sink.is_paused() {
             let pos = content_position_from_samples(
-                state.samples_played.load(Ordering::Relaxed),
+                state.active_samples_played().load(Ordering::Relaxed),
                 state.current_sample_rate.load(Ordering::Relaxed),
                 state.current_channels.load(Ordering::Relaxed),
                 &state.playback_rate,
@@ -369,7 +373,7 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
 
     // Seeking back invalidates any pending gapless chain.
     let cur_pos = content_position_from_samples(
-        state.samples_played.load(Ordering::Relaxed),
+        state.active_samples_played().load(Ordering::Relaxed),
         state.current_sample_rate.load(Ordering::Relaxed),
         state.current_channels.load(Ordering::Relaxed),
         &state.playback_rate,
@@ -561,7 +565,7 @@ pub async fn audio_seek(seconds: f64, state: State<'_, AudioEngine>) -> Result<(
         cur.play_started = Some(Instant::now());
     }
     state
-        .samples_played
+        .active_samples_played()
         .store(target_samples, Ordering::Relaxed);
     pending_seek.finish(seek_request_id, seek_generation);
     Ok(())

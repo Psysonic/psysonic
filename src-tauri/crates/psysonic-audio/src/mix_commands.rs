@@ -222,7 +222,7 @@ pub fn audio_set_playback_rate(
         let channels = state.current_channels.load(Ordering::Relaxed);
         if sample_rate > 0 && channels > 0 {
             Some(content_position_from_samples(
-                state.samples_played.load(Ordering::Relaxed),
+                state.active_samples_played().load(Ordering::Relaxed),
                 sample_rate,
                 channels,
                 &state.playback_rate,
@@ -255,7 +255,7 @@ pub fn audio_set_playback_rate(
         if is_effect_active(&state.playback_rate) {
             let sample_rate = state.current_sample_rate.load(Ordering::Relaxed);
             let channels = state.current_channels.load(Ordering::Relaxed);
-            state.samples_played.store(
+            state.active_samples_played().store(
                 raw_counter_samples_for_content_position(
                     content_secs,
                     sample_rate,

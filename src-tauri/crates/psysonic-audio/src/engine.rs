@@ -5,7 +5,10 @@ use std::time::{Duration, Instant};
 
 use rodio::Player;
 
-use super::state::{ChainedInfo, CurrentSourceDone, PreloadedTrack, StreamCompletedSpill};
+use super::state::{
+    active_sample_counter, ChainedInfo, ChainedSampleCounter, CurrentSourceDone, PreloadedTrack,
+    StreamCompletedSpill,
+};
 
 mod http;
 mod output_stream;
@@ -128,6 +131,9 @@ pub struct AudioEngine {
     /// Atomic sample counter — incremented by CountingSource in the audio thread.
     /// Progress task reads this for drift-free position tracking.
     pub samples_played: Arc<AtomicU64>,
+    /// Set at a gapless transition: the successor's counter replaces
+    /// `samples_played` until the generation changes.
+    pub(crate) chained_sample_counter: ChainedSampleCounter,
     /// Pending seek ownership + visual target as one snapshot. Progress and
     /// lifecycle changes take the same short lock, so they cannot combine an
     /// old owner with a newer target.
@@ -252,6 +258,19 @@ impl PendingSeekState {
         {
             self.active = None;
         }
+    }
+}
+
+impl AudioEngine {
+    /// Counter of the audible source. Use it instead of `samples_played` to
+    /// read or set the current position: after a gapless transition the
+    /// successor counts elsewhere and `samples_played` holds the old track's end.
+    pub(crate) fn active_samples_played(&self) -> Arc<AtomicU64> {
+        active_sample_counter(
+            &self.chained_sample_counter,
+            &self.generation,
+            &self.samples_played,
+        )
     }
 }
 
@@ -416,6 +435,7 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
         chained_info: Arc::new(Mutex::new(None)),
         current_source_done: Arc::new(Mutex::new(None)),
         samples_played: Arc::new(AtomicU64::new(0)),
+        chained_sample_counter: Arc::new(Mutex::new(None)),
         pending_seek: Arc::new(Mutex::new(PendingSeekState {
             next_request_id: 0,
             active: None,
