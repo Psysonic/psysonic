@@ -499,12 +499,9 @@ describe('pingWithCredentialsForProfile — custom gate headers (native probe)',
   });
 
   it('probes the gate-less LAN endpoint over the WebView, retrying natively with the header context on a CORS-less answer', async () => {
-    // The gate headers apply to the public endpoint only, so the WebView path
-    // is safe for this address — and it is the only path that can learn the
-    // address sends no CORS headers (see `nativeTransportFallback`). A bare
-    // Network Error still recovers over the native command, carrying the same
-    // httpContext as the gate probe: header omission stays delegated to Rust,
-    // which resolves the headers per endpoint (public only, here).
+    // The gate headers do not apply to this address, so the WebView path is
+    // safe — and it is what learns a CORS-less address. The native retry still
+    // carries the full httpContext, so header omission stays delegated to Rust.
     vi.mocked(axios.get).mockRejectedValue(new Error('Network Error'));
     let received: ProbeArgs | undefined;
     onInvoke('probe_server_connection', (args) => {

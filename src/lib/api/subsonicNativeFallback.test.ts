@@ -212,11 +212,9 @@ describe('REST calls — once the probe pinned the address', () => {
 });
 
 describe('gated dual-address profile — per-address transport choice', () => {
-  // The pairing #1817 surfaced: gate headers scoped to the public address, while
-  // the local address sends no CORS headers at all. A profile-wide header
-  // context test pushed every address onto the native path, so the WebView was
-  // never tried for the local address and its CORS-less-ness was never learned
-  // — the ping succeeded, then every body call failed with a bare Network Error.
+  // Gate headers scoped to the public address, local address sends no CORS
+  // headers. A profile-wide transport test skipped the WebView for the local
+  // address, so that was never learned and its body calls all failed.
 
   const LOCAL = 'http://192.168.0.10:4533';
   const GATED = {
