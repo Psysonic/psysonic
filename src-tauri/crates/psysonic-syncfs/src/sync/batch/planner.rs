@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 use std::path::Path;
 
+use super::model::{DeviceSyncSkippedTrack, DeviceSyncTrackLabel};
 use super::payload::{device_sync_source_key, playlist_collision_source_keys};
 use super::plan::read_device_sync_plan;
 use super::{
@@ -65,8 +66,8 @@ struct DesiredState {
     files: BTreeMap<String, DesiredFile>,
     playlists: Vec<DeviceSyncPlannedPlaylist>,
     manifest_playlists: Vec<DeviceSyncManifestPlaylist>,
-    /// Tracks whose file name another track already took (see `add_file`).
-    skipped_track_ids: BTreeSet<String>,
+    /// Tracks whose file name another track already took, by track id (see `add_file`).
+    skipped: BTreeMap<String, DeviceSyncSkippedTrack>,
 }
 
 struct DesiredFileInput<'a> {
@@ -212,12 +213,29 @@ fn physical_key(
     }
 }
 
+fn track_label(track: &serde_json::Value) -> DeviceSyncTrackLabel {
+    let text = |field: &str| {
+        track
+            .get(field)
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or_default()
+            .to_string()
+    };
+    DeviceSyncTrackLabel {
+        title: text("title"),
+        artist: text("artist"),
+        album: text("album"),
+    }
+}
+
 /// Plans one file and returns its device path, or `None` when another track
 /// already takes that path — two editions of an album under one name, or the
-/// same song tagged twice. The first track keeps the path; the run goes on.
+/// same song tagged twice. The first track keeps the path; the run goes on and
+/// the conflict is recorded in `skipped` so the summary can name both tracks.
 fn add_file(
     files: &mut BTreeMap<String, DesiredFile>,
     paths: &mut HashMap<String, String>,
+    skipped: &mut BTreeMap<String, DeviceSyncSkippedTrack>,
     input: DesiredFileInput<'_>,
     flat: bool,
     transcode: DeviceSyncTranscode,
@@ -240,10 +258,20 @@ fn add_file(
     }
     let relative_path = portable_track_path(&sync_info);
     let path_identity = portable_path_identity(&relative_path);
-    if paths
+    if let Some(existing_key) = paths
         .get(&path_identity)
-        .is_some_and(|existing_key| existing_key != &input.key)
+        .filter(|existing_key| *existing_key != &input.key)
     {
+        let kept = files.get(existing_key);
+        skipped
+            .entry(input.track_id.to_string())
+            .or_insert_with(|| DeviceSyncSkippedTrack {
+                track: track_label(input.track),
+                kept_track: kept
+                    .map(|file| track_label(&file.track))
+                    .unwrap_or_default(),
+                relative_path: kept.map_or(relative_path, |file| file.relative_path.clone()),
+            });
         return None;
     }
     paths.insert(path_identity, input.key.clone());
@@ -287,7 +315,7 @@ fn build_desired_state(
     let flat = layout_mode == DeviceSyncLayoutMode::Flat;
     let mut files = BTreeMap::new();
     let mut paths = HashMap::new();
-    let mut skipped_track_ids = BTreeSet::new();
+    let mut skipped = BTreeMap::new();
 
     // Album/artist metadata wins when a shared track is also present in a playlist.
     for entry in fetched.iter().filter(|entry| {
@@ -300,9 +328,10 @@ fn build_desired_state(
                 continue;
             };
             let key = physical_key(&entry.source, &source_key, track_id, 0, layout_mode);
-            let planned = add_file(
+            add_file(
                 &mut files,
                 &mut paths,
+                &mut skipped,
                 DesiredFileInput {
                     key,
                     source_key: &source_key,
@@ -315,9 +344,6 @@ fn build_desired_state(
                 flat,
                 transcode,
             );
-            if planned.is_none() {
-                skipped_track_ids.insert(track_id.to_string());
-            }
         }
     }
 
@@ -359,6 +385,7 @@ fn build_desired_state(
             let Some(relative_track_path) = add_file(
                 &mut files,
                 &mut paths,
+                &mut skipped,
                 DesiredFileInput {
                     key,
                     source_key: &source_key,
@@ -372,7 +399,6 @@ fn build_desired_state(
                 transcode,
             ) else {
                 // The path belongs to another song; listing it would play that one.
-                skipped_track_ids.insert(track_id.to_string());
                 continue;
             };
             // Self-contained copies sit next to their playlist file, so a bare
@@ -416,13 +442,13 @@ fn build_desired_state(
             .values()
             .map(|file| file.track_id.as_str())
             .collect::<HashSet<_>>();
-        skipped_track_ids.retain(|track_id| !planned.contains(track_id.as_str()));
+        skipped.retain(|track_id, _| !planned.contains(track_id.as_str()));
     }
     Ok(DesiredState {
         files,
         playlists,
         manifest_playlists,
-        skipped_track_ids,
+        skipped,
     })
 }
 
@@ -889,6 +915,8 @@ pub(super) fn build_sync_plan_with_resume(
         &desired_playlist_paths,
     ));
     desired_manifest_playlists.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
+    let mut skipped_tracks = desired.skipped.into_values().collect::<Vec<_>>();
+    skipped_tracks.sort_by(|left, right| left.relative_path.cmp(&right.relative_path));
     Ok(SyncDeltaResult {
         plan_id: String::new(),
         device_id: String::new(),
@@ -903,7 +931,8 @@ pub(super) fn build_sync_plan_with_resume(
         deferred_delete_paths,
         move_count: move_paths.len() as u32,
         move_paths,
-        skipped_count: desired.skipped_track_ids.len() as u32,
+        skipped_count: skipped_tracks.len() as u32,
+        skipped_tracks,
         playlists: desired.playlists,
         manifest_files: desired_manifest_files,
         manifest_playlists: desired_manifest_playlists,

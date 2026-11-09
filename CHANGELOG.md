@@ -159,6 +159,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Clicking a featured artist in a track's credits could show a mixed page, with the name and albums of the artist you came from next to the biography of the one you clicked, or just "Artist not found". The page now belongs to the artist you clicked and lists the albums they appear on.
 
+### Device Sync names the tracks in a file name conflict
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator, PR [#1853](https://github.com/Psysonic/psysonic/pull/1853)**
+
+* The sync summary only counted tracks skipped because another track already takes their file name. The row now opens into a list of each skipped track, the track that keeps the file and its path.
+* When another file already occupies a planned path, the error now says so and names the path instead of blaming two tracks.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases

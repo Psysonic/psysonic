@@ -636,6 +636,67 @@ fn a_case_insensitive_path_collision_keeps_the_first_track_and_counts_the_other(
 }
 
 #[test]
+fn a_path_collision_names_both_tracks_and_the_file() {
+    let device = tempfile::tempdir().unwrap();
+    let album = source("album", "album-1", "Album");
+    let mut kept = track("track-1", "Song");
+    kept["artist"] = serde_json::json!("Keeper");
+    let mut skipped = track("track-2", "Song");
+    skipped["artist"] = serde_json::json!("Guest");
+    let album_name = kept["album"].as_str().unwrap_or("").to_string();
+    let fetched = vec![FetchedDeviceSyncSource {
+        source: album,
+        tracks: vec![kept, skipped],
+    }];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::SharedAlbumTree,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.skipped_tracks.len(), 1);
+    let conflict = &plan.skipped_tracks[0];
+    assert_eq!(conflict.track.title, "Song");
+    assert_eq!(conflict.track.artist, "Guest");
+    assert_eq!(conflict.track.album, album_name);
+    assert_eq!(conflict.kept_track.artist, "Keeper");
+    assert_eq!(conflict.relative_path, plan.manifest_files[0].relative_path);
+}
+
+#[test]
+fn a_track_planned_through_another_source_is_not_reported_as_skipped() {
+    let device = tempfile::tempdir().unwrap();
+    let first = source("album", "album-1", "First");
+    let second = source("album", "album-2", "Second");
+    let fetched = vec![
+        FetchedDeviceSyncSource {
+            source: first,
+            tracks: vec![track("track-1", "Song"), track("track-2", "Song")],
+        },
+        FetchedDeviceSyncSource {
+            source: second,
+            tracks: vec![track("track-2", "Other Song")],
+        },
+    ];
+
+    let plan = build_sync_plan(
+        &fetched,
+        &[],
+        device.path().to_str().unwrap(),
+        DeviceSyncLayoutMode::SharedAlbumTree,
+        DeviceSyncPlaylistPathMode::PlaylistRelative,
+    )
+    .unwrap();
+
+    assert_eq!(plan.skipped_count, 0);
+    assert!(plan.skipped_tracks.is_empty());
+}
+
+#[test]
 fn a_playlist_entry_whose_path_another_track_holds_is_left_out() {
     let device = tempfile::tempdir().unwrap();
     let album = source("album", "album-1", "Album");

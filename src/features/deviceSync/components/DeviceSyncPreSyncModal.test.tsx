@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import i18n from '@/lib/i18n';
 import type { SyncDelta } from '@/features/deviceSync/utils/runDeviceSyncExecution';
@@ -20,6 +20,7 @@ function delta(overrides: Partial<SyncDelta> = {}): SyncDelta {
     deferredDeletePaths: [],
     moveCount: 0,
     skippedCount: 0,
+    skippedTracks: [],
     playlists: [],
     manifestFiles: [],
     manifestPlaylists: [],
@@ -47,6 +48,28 @@ describe('DeviceSyncPreSyncModal skipped duplicates', () => {
     renderModal(delta({ skippedCount: 3 }));
     const row = screen.getByText(label()).parentElement;
     expect(row).toHaveTextContent('3');
+  });
+
+  it('lists both tracks and the file once the row is opened', () => {
+    renderModal(delta({
+      skippedCount: 1,
+      skippedTracks: [{
+        track: { title: 'Song (Live)', artist: 'Guest', album: 'Album' },
+        keptTrack: { title: 'Song', artist: 'Headliner', album: 'Album' },
+        relativePath: 'Headliner/Album/01 - Song.flac',
+      }],
+    }));
+    const row = screen.getByRole('button', { name: new RegExp(label().replace(/[()]/g, '\\$&')) });
+
+    expect(row).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByText('Headliner/Album/01 - Song.flac')).not.toBeInTheDocument();
+
+    fireEvent.click(row);
+
+    expect(row).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Song (Live) · Guest · Album')).toBeInTheDocument();
+    expect(screen.getByText(/Song · Headliner · Album/)).toBeInTheDocument();
+    expect(screen.getByText('Headliner/Album/01 - Song.flac')).toBeInTheDocument();
   });
 
   it('shows no row when nothing was skipped', () => {
