@@ -103,6 +103,30 @@ describe('useArtistDetailData — multi-library selection', () => {
     expect(result.current.topSongs.map(s => s.id)).toEqual(['trk-high', 'trk-low']);
   });
 
+  it('drops the previous artist when the next route resolves to nothing', async () => {
+    // The page stays mounted across /artist/A -> /artist/B. An empty result for B must
+    // not leave A's header and albums standing next to B's route-keyed biography.
+    tryLoadArtistDetailMultiScopeMock.mockImplementation(async (_scopes, _server, id: string) => (
+      id === 'art-1'
+        ? { artist: { id: 'art-1', name: 'Primary' }, albums: [{ id: 'alb-1', name: 'Album' }], topSongs: [] }
+        : null
+    ));
+
+    const { result, rerender } = renderHook(
+      ({ id }: { id: string }) => useArtistDetailData(id),
+      { initialProps: { id: 'art-1' }, wrapper: routerWrapper },
+    );
+    await waitFor(() => expect(result.current.artist?.name).toBe('Primary'));
+
+    rerender({ id: 'art-2' });
+
+    await waitFor(() => expect(tryLoadArtistDetailMultiScopeMock).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.artist).toBeNull();
+    expect(result.current.albums).toEqual([]);
+    expect(result.current.isStarred).toBe(false);
+  });
+
   it('loads artist info under a multi-server scope from the server the route names', async () => {
     tryLoadArtistDetailMultiScopeMock.mockResolvedValue({
       // The merged header won on another server than the route names; the explicit
