@@ -7,7 +7,10 @@
 
 use super::encode::write_webp_tier;
 use super::CoverCacheEnsureArgs;
-use super::{decode_image_bytes, disk, external, fetch, peek_fallback_tiers, peek_tier_path};
+use super::{
+    decode_image_bytes, disk, external, fetch, peek_fallback_tiers, peek_tier_path,
+    purge_entity_server_art,
+};
 use psysonic_integration::discord::ArtworkCacheEntry;
 use psysonic_library::LibraryRuntime;
 use reqwest::Client;
@@ -84,13 +87,16 @@ fn write_marker_with(path: &Path, content: &[u8]) {
 /// Written on a HIT so the coverless-album path (which runs the provider chain
 /// before trusting a cached placeholder) stops re-querying apple/lastfm on every
 /// re-ensure once real art is on disk — the normal peek then finds it. Unlike
-/// `.miss-album-ext` (30-min cooldown), a HIT is never re-checked: the album now
-/// has art, so the chain has nothing more to do until the cache is cleared.
+/// `.miss-album-ext` (30-min cooldown), the chain is never asked again after a
+/// HIT. Only real art from the server retires the marker, see
+/// [`settle_server_placeholder_recheck`].
 ///
 /// Holds the name of the source that supplied the art (`apple` / `lastfm`), so
 /// switching one source off can drop exactly its images. Markers written before
 /// that carry `1`.
 pub(super) const ALBUM_EXT_HIT_MARKER: &str = ".album-ext-hit";
+
+const ALBUM_EXT_MISS_MARKER: &str = ".miss-album-ext";
 
 /// True when this album has already been resolved by the external chain (HIT).
 pub(super) fn album_ext_hit(dir: &Path) -> bool {
@@ -104,6 +110,46 @@ const SERVER_PLACEHOLDER_MARKER: &str = ".server-placeholder";
 
 pub(super) fn server_placeholder_seen(dir: &Path) -> bool {
     dir.join(SERVER_PLACEHOLDER_MARKER).is_file()
+}
+
+/// How long a stored placeholder is believed before the server is asked again.
+/// A server that is still importing freshly tagged files answers with its
+/// placeholder for albums whose art it has by now.
+const SERVER_PLACEHOLDER_RECHECK_AFTER: Duration = Duration::from_secs(30 * 60);
+
+/// True when this album's placeholder verdict is old enough to ask the server again.
+pub(super) fn server_placeholder_recheck_due(dir: &Path) -> bool {
+    let marker = dir.join(SERVER_PLACEHOLDER_MARKER);
+    marker.is_file() && !marker_recent(&marker, SERVER_PLACEHOLDER_RECHECK_AFTER)
+}
+
+/// Apply the answer to a placeholder re-check. Real art wins over whatever is
+/// stored: the placeholder ladder or the external chain's art goes, along with
+/// the markers describing them, and the bytes are returned for the caller to
+/// encode. Any other answer keeps the stored art and restarts the wait, so an
+/// album the server has no art for is not fetched on every request.
+pub(super) fn settle_server_placeholder_recheck(
+    dir: &Path,
+    download: Result<Vec<u8>, String>,
+    is_placeholder: impl Fn(&[u8]) -> bool,
+) -> Option<Vec<u8>> {
+    match download {
+        Ok(bytes) if !is_placeholder(&bytes) => {
+            for marker in [
+                ALBUM_EXT_HIT_MARKER,
+                ALBUM_EXT_MISS_MARKER,
+                SERVER_PLACEHOLDER_MARKER,
+            ] {
+                let _ = std::fs::remove_file(dir.join(marker));
+            }
+            purge_entity_server_art(dir);
+            Some(bytes)
+        }
+        _ => {
+            write_marker(&dir.join(SERVER_PLACEHOLDER_MARKER));
+            None
+        }
+    }
 }
 
 /// Record what the latest server download for this album was: its placeholder
@@ -492,7 +538,7 @@ pub(super) async fn try_external_album_cover(
     let artist = args.artist_name.as_deref()?;
     let album = args.album_title.as_deref()?;
 
-    let miss_marker = dir.join(".miss-album-ext");
+    let miss_marker = dir.join(ALBUM_EXT_MISS_MARKER);
     if marker_recent(&miss_marker, Duration::from_secs(30 * 60)) {
         return None;
     }
@@ -614,6 +660,104 @@ pub(super) async fn try_external_album_cover(
     write_marker_with(&dir.join(ALBUM_EXT_HIT_MARKER), hit_source.as_bytes());
 
     Some(disk::tier_path(dir, requested))
+}
+
+#[cfg(test)]
+mod server_placeholder_recheck_tests {
+    use super::{
+        album_ext_hit, server_placeholder_recheck_due, server_placeholder_seen,
+        settle_server_placeholder_recheck,
+    };
+    use crate::cover_cache::disk::tier_path;
+    use crate::cover_cache::test_support::{age_file, fresh_tmpdir};
+    use std::fs;
+    use std::path::{Path, PathBuf};
+
+    const AN_HOUR_SECS: u64 = 60 * 60;
+
+    fn album_dir(root: &Path) -> PathBuf {
+        let dir = root.join("album").join("al-1");
+        fs::create_dir_all(&dir).unwrap();
+        for tier in [128, 256, 512, 800, 2000] {
+            fs::write(tier_path(&dir, tier), b"stored").unwrap();
+        }
+        dir
+    }
+
+    fn is_vinyl(bytes: &[u8]) -> bool {
+        bytes == b"vinyl"
+    }
+
+    #[test]
+    fn recheck_is_due_only_for_an_old_placeholder_marker() {
+        let root = fresh_tmpdir("recheck-due");
+        let dir = album_dir(&root);
+        assert!(!server_placeholder_recheck_due(&dir), "no marker");
+
+        fs::write(dir.join(".server-placeholder"), b"1").unwrap();
+        assert!(!server_placeholder_recheck_due(&dir), "fresh marker");
+
+        age_file(&dir.join(".server-placeholder"), AN_HOUR_SECS);
+        assert!(server_placeholder_recheck_due(&dir), "old marker");
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn real_server_art_replaces_the_placeholder_and_the_chain_art() {
+        let root = fresh_tmpdir("recheck-real-art");
+        let dir = album_dir(&root);
+        for marker in [".server-placeholder", ".album-ext-hit", ".miss-album-ext"] {
+            fs::write(dir.join(marker), b"1").unwrap();
+        }
+
+        let got = settle_server_placeholder_recheck(&dir, Ok(b"real".to_vec()), is_vinyl);
+
+        assert_eq!(got.as_deref(), Some(&b"real"[..]));
+        for tier in [128, 256, 512, 800, 2000] {
+            assert!(!tier_path(&dir, tier).exists(), "{tier} should be gone");
+        }
+        assert!(!server_placeholder_seen(&dir));
+        assert!(!album_ext_hit(&dir));
+        assert!(!dir.join(".miss-album-ext").exists());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_placeholder_answer_keeps_the_stored_art_and_restarts_the_wait() {
+        let root = fresh_tmpdir("recheck-still-vinyl");
+        let dir = album_dir(&root);
+        fs::write(dir.join(".server-placeholder"), b"1").unwrap();
+        fs::write(dir.join(".album-ext-hit"), b"apple").unwrap();
+        age_file(&dir.join(".server-placeholder"), AN_HOUR_SECS);
+
+        let got = settle_server_placeholder_recheck(&dir, Ok(b"vinyl".to_vec()), is_vinyl);
+
+        assert!(got.is_none());
+        assert_eq!(fs::read(tier_path(&dir, 256)).unwrap(), b"stored");
+        assert!(album_ext_hit(&dir));
+        assert!(server_placeholder_seen(&dir));
+        assert!(!server_placeholder_recheck_due(&dir));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_failed_download_keeps_the_stored_art_and_restarts_the_wait() {
+        let root = fresh_tmpdir("recheck-failed");
+        let dir = album_dir(&root);
+        fs::write(dir.join(".server-placeholder"), b"1").unwrap();
+        age_file(&dir.join(".server-placeholder"), AN_HOUR_SECS);
+
+        let got = settle_server_placeholder_recheck(&dir, Err("offline".to_string()), is_vinyl);
+
+        assert!(got.is_none());
+        assert_eq!(fs::read(tier_path(&dir, 256)).unwrap(), b"stored");
+        assert!(!server_placeholder_recheck_due(&dir));
+
+        let _ = fs::remove_dir_all(&root);
+    }
 }
 
 #[cfg(test)]

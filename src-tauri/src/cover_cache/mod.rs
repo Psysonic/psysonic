@@ -38,7 +38,7 @@ use metrics::{
 };
 pub(crate) use metrics::{count_cached_cover_ids, dir_usage_for_server};
 pub use migration::CoverCacheNavidromeMigrationDto;
-use peek::peek_plain_cover_tier;
+use peek::peek_batch_cover_tier;
 use peek::{peek_fallback_tiers, peek_tier_path};
 use psysonic_core::cover_cache_layout::cover_server_dir;
 use psysonic_library::cover_backfill::{
@@ -322,7 +322,7 @@ pub async fn cover_cache_peek_batch(
         // Value format `path|mtimeVersion` — the webview's image cache keys on the
         // full URL, so the version suffix busts stale bytes after an in-place
         // tier overwrite (chain art replacing backfill vinyl).
-        let path = peek_plain_cover_tier(&dir, item.tier);
+        let path = peek_batch_cover_tier(&dir, item.tier);
         if let Some(p) = path {
             let entry = format!("{}|{}", p.to_string_lossy(), tier_version(&p));
             out.insert(item.storage_key, entry);
