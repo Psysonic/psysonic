@@ -68,6 +68,7 @@ fn payload(
         move_count: 0,
         move_paths: Vec::new(),
         skipped_count: 0,
+        skipped_tracks: Vec::new(),
         playlists: planned_playlists,
         manifest_files: files.clone(),
         manifest_playlists: manifest_playlists.clone(),
@@ -248,6 +249,7 @@ fn flat_layout_writes_the_playlist_into_the_root() {
         move_count: 0,
         move_paths: Vec::new(),
         skipped_count: 0,
+        skipped_tracks: Vec::new(),
         playlists: vec![crate::sync::batch::DeviceSyncPlannedPlaylist {
             source_key: source_key.clone(),
             name: "Mix".to_string(),
@@ -339,6 +341,7 @@ fn finalize_records_the_size_each_file_has_on_the_device() {
         move_count: 0,
         move_paths: Vec::new(),
         skipped_count: 0,
+        skipped_tracks: Vec::new(),
         playlists: vec![crate::sync::batch::DeviceSyncPlannedPlaylist {
             source_key: source_key.clone(),
             name: "Mix".to_string(),
@@ -444,6 +447,7 @@ fn finalize_writes_absolute_playlist_references() {
         move_count: 0,
         move_paths: Vec::new(),
         skipped_count: 0,
+        skipped_tracks: Vec::new(),
         playlists: vec![crate::sync::batch::DeviceSyncPlannedPlaylist {
             source_key: source_key.clone(),
             name: "Mix".to_string(),
@@ -552,6 +556,7 @@ fn finalize_applies_planned_moves_before_checking_the_device() {
             to: new_copy.to_string(),
         }],
         skipped_count: 0,
+        skipped_tracks: Vec::new(),
         playlists: vec![crate::sync::batch::DeviceSyncPlannedPlaylist {
             source_key: source_key.clone(),
             name: "Mix".to_string(),
