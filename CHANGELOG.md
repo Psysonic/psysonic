@@ -153,6 +153,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * After one track had flowed into the next with gapless playback, pausing made the mini player's progress bar jump, often to the very end of the track, until playback resumed. It now stays where the music stopped.
 
+### Featured artists open on their own page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Peewee on Discord, PR [#1852](https://github.com/Psysonic/psysonic/pull/1852)**
+
+* Clicking a featured artist in a track's credits could show a mixed page, with the name and albums of the artist you came from next to the biography of the one you clicked, or just "Artist not found". The page now belongs to the artist you clicked and lists the albums they appear on.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
