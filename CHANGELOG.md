@@ -180,6 +180,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Bandcamp's Subsonic API reports a successful connection test even when the username or password is wrong. Psysonic then saved the server, and the library stayed empty without an error. The connection test now also checks the login with a real request and fails when Bandcamp rejects it.
 * Copying a password by double-click can pick up a space at the start or end. The login page and the server form now show a hint below the password field when that happens. The password itself is kept as you entered it, because a space can be part of a real password.
 
+### Playlist covers stay sharp in the grid
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@Ter0zak](https://github.com/Ter0zak), PR [#1856](https://github.com/Psysonic/psysonic/pull/1856)**
+
+* Covers that are not square, such as many imported playlist images, turned blurry after a second or two once the cover cache had saved them. The cache scaled them by their longer side, so the image was too small to fill a square card. It now scales by the shorter side. Covers cached by earlier versions are fetched again once, in the background after the first start.
+* A grid card could keep a small thumbnail that the sidebar had already loaded for the same playlist. Cards now load their own size and show the small image only until then.
+* Playlist cards request a cover size that matches how large they are drawn, instead of a fixed size.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
