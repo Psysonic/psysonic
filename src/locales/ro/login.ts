@@ -9,6 +9,7 @@ export const login = {
   password: 'Parolă',
   showPassword: 'Arată parola',
   hidePassword: 'Ascunde parola',
+  passwordEdgeSpace: 'Parola începe sau se termină cu un spațiu. Șterge-l dacă nu face parte din parolă.',
   connect: 'Conectează-te',
   connecting: 'Se conectează…',
   connected: 'Conectat!',

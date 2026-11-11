@@ -9,6 +9,7 @@ export const login = {
   password: 'Wachtwoord',
   showPassword: 'Wachtwoord tonen',
   hidePassword: 'Wachtwoord verbergen',
+  passwordEdgeSpace: 'Het wachtwoord begint of eindigt met een spatie. Verwijder de spatie als die niet bij je wachtwoord hoort.',
   connect: 'Verbinden',
   connecting: 'Verbinden…',
   connected: 'Verbonden!',

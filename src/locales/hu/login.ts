@@ -9,6 +9,7 @@ export const login = {
   password: 'Jelszó',
   showPassword: 'Jelszó megjelenítése',
   hidePassword: 'Jelszó elrejtése',
+  passwordEdgeSpace: 'A jelszó szóközzel kezdődik vagy végződik. Töröld, ha nem tartozik a jelszóhoz.',
   connect: 'Csatlakozás',
   connecting: 'Csatlakozás…',
   connected: 'Csatlakozva!',

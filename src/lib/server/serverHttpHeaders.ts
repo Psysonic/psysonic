@@ -11,7 +11,11 @@ import {
   serverAddressEndpoints,
   type ServerEndpointKind,
 } from '@/lib/server/serverAddress';
-import { isNavidromeServer, type SubsonicServerIdentity } from '@/lib/server/subsonicServerIdentity';
+import {
+  isBandcampServer,
+  isNavidromeServer,
+  type SubsonicServerIdentity,
+} from '@/lib/server/subsonicServerIdentity';
 
 export const DEFAULT_CUSTOM_HEADERS_APPLY_TO: CustomHeadersApplyTo = 'public';
 
@@ -197,7 +201,6 @@ export function serverHttpContextWireForProfile(
     // Bandcamp's API exposes a fixed MP3 source via stream, not download.
     // Reuse raw probing and revision checks for that API source; this does not
     // identify the artist's uploaded master. Unknown servers stay download-only.
-    supportsRawStream: isNavidromeServer(identity)
-      || identity?.type?.trim().toLowerCase() === 'bandcampserver',
+    supportsRawStream: isNavidromeServer(identity) || isBandcampServer(identity),
   };
 }

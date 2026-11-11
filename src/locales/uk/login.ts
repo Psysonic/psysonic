@@ -9,6 +9,7 @@ export const login = {
   password: 'Пароль',
   showPassword: 'Показати пароль',
   hidePassword: 'Сховати пароль',
+  passwordEdgeSpace: 'Пароль починається або закінчується пробілом. Видаліть його, якщо він не є частиною пароля.',
   connect: 'Підключитися',
   connecting: 'Підключення…',
   connected: 'Підключено!',

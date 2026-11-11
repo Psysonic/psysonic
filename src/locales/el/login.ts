@@ -9,6 +9,7 @@ export const login = {
   password: 'Κωδικός πρόσβασης',
   showPassword: 'Εμφάνιση κωδικού',
   hidePassword: 'Απόκρυψη κωδικού',
+  passwordEdgeSpace: 'Ο κωδικός πρόσβασης ξεκινά ή τελειώνει με κενό. Αφαιρέστε το, αν δεν είναι μέρος του κωδικού.',
   connect: 'Σύνδεση',
   connecting: 'Σύνδεση…',
   connected: 'Συνδεδεμένο!',

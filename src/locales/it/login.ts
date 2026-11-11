@@ -9,6 +9,7 @@ export const login = {
   password: 'Password',
   showPassword: 'Mostra password',
   hidePassword: 'Nascondi password',
+  passwordEdgeSpace: 'La password inizia o finisce con uno spazio. Rimuovilo se non fa parte della password.',
   connect: 'Connetti',
   connecting: 'Connessione…',
   connected: 'Connesso!',

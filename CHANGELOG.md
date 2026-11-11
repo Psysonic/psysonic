@@ -173,6 +173,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * An album could keep the server's "no artwork" image on Home and in lists after retagging, even once the server had the cover. Psysonic now asks the server again when that image is older than 30 minutes and replaces it with the real cover.
 * The album page also asks the server first, so the album's own cover replaces one fetched earlier from an external source.
 
+### Bandcamp servers with a wrong password no longer connect
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by belfast on Discord, PR [#1855](https://github.com/Psysonic/psysonic/pull/1855)**
+
+* Bandcamp's Subsonic API reports a successful connection test even when the username or password is wrong. Psysonic then saved the server, and the library stayed empty without an error. The connection test now also checks the login with a real request and fails when Bandcamp rejects it.
+* Copying a password by double-click can pick up a space at the start or end. The login page and the server form now show a hint below the password field when that happens. The password itself is kept as you entered it, because a space can be part of a real password.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases

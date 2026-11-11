@@ -9,6 +9,7 @@ export const login = {
   password: 'パスワード',
   showPassword: 'パスワードを表示',
   hidePassword: 'パスワードを隠す',
+  passwordEdgeSpace: 'パスワードの先頭または末尾にスペースがあります。パスワードの一部でない場合は削除してください。',
   connect: '接続',
   connecting: '接続中…',
   connected: '接続しました!',
