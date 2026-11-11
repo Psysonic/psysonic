@@ -166,3 +166,29 @@ describe('Login — v2 magic string paste persistence', () => {
     );
   });
 });
+
+describe('Login — password with a space at the edge', () => {
+  it('describes the password field with the warning and sends the password as entered', async () => {
+    const Login = (await import('@/features/auth/pages/Login')).default;
+    renderWithProviders(<Login />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByLabelText(/server url/i));
+    await user.paste('https://music.example.com');
+    await user.click(screen.getByLabelText(/username/i));
+    await user.paste('tester');
+    const password = screen.getByPlaceholderText('••••••••');
+    await user.click(password);
+    await user.paste(' pw');
+
+    expect(password).toHaveAccessibleDescription(/starts or ends with a space/i);
+
+    await user.click(screen.getByRole('button', { name: /connect/i }));
+    await waitFor(() => {
+      expect(vi.mocked(pingWithCredentialsForProfile)).toHaveBeenCalledWith(
+        expect.objectContaining({ password: ' pw' }),
+        'https://music.example.com',
+      );
+    });
+  });
+});
