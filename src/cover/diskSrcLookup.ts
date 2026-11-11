@@ -1,7 +1,7 @@
 import { getDiskSrc, rememberDiskSrc, splitPathVersion } from './diskSrcCache';
 import { hasCoverDiskReadyListeners, notifyCoverDiskReady } from './diskHandoff';
 import { coverStorageKeyFromRef } from './storageKeys';
-import type { CoverArtRef, CoverArtTier } from './types';
+import { COVER_ART_TIERS, type CoverArtRef, type CoverArtTier } from './types';
 
 /** Tier embedded in a cover file path (`…/512.webp`, `…/2000-fanart.webp`). */
 function coverPathTier(fsPath: string): number | null {
@@ -68,9 +68,24 @@ export function getDiskSrcForGrid(ref: CoverArtRef, wantTier: CoverArtTier): str
 }
 
 /**
- * Seed every grid lookup-order key for a path. A full-res (≥2000) file seeds
- * ONLY its own key (see isFullResSeedFile) — a tier-2000 path must never
- * poison display keys. Shared by the peek/ensure seeder and the
+ * True when the peek/ensure for `wantTier` can stop. For a display tier that
+ * takes a file of at least `wantTier` px: the wanted key or a larger display
+ * key (seeding never stores a smaller file under a larger key). The smaller
+ * rungs {@link getDiskSrcForGrid} falls back to are a stand-in picture only —
+ * otherwise a sidebar thumb's 128.webp would stay on a 256 grid card for good
+ * (#1829). Full-res surfaces keep settling for any tier already in memory.
+ */
+export function hasDiskSrcForTier(ref: CoverArtRef, wantTier: CoverArtTier): boolean {
+  if (wantTier >= 2000) return Boolean(getDiskSrcForGrid(ref, wantTier));
+  return COVER_ART_TIERS
+    .filter(t => t >= wantTier && t < 2000)
+    .some(tier => Boolean(getDiskSrc(coverStorageKeyFromRef(ref, tier))));
+}
+
+/**
+ * Seed every grid lookup-order key for a path, up to the file's own tier. A
+ * full-res (≥2000) file seeds ONLY its own key (see isFullResSeedFile) — a
+ * tier-2000 path must never poison display keys. Shared by the peek/ensure seeder and the
  * `cover:tier-ready` seeder, which differ only in how keys are built.
  */
 function seedLadderKeys(
@@ -80,10 +95,14 @@ function seedLadderKeys(
 ): boolean {
   const { path, version } = splitPathVersion(fsPath);
   const fullResFile = isFullResSeedFile(fsPath);
+  const fileTier = coverPathTier(path);
   let hit = false;
   for (const tier of gridDiskSrcLookupOrder(wantTier)) {
     if (fullResFile && tier < 2000) continue;
     if (skipFullResSeedTier(tier, fsPath)) continue;
+    // A file only stands in for keys up to its own size: a 128.webp under
+    // `:800` would be read as done by every 256/512 cell (#1829).
+    if (fileTier != null && tier > fileTier) continue;
     if (rememberDiskSrc(keyFor(tier), joinPathVersion(path, version))) hit = true;
   }
   return hit;
