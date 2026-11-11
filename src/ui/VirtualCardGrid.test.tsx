@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { render } from '@testing-library/react';
+import { computeCellWidthPx } from '@/lib/util/cardGridLayout';
 import { VirtualCardGrid, type VirtualCardGridProps } from './VirtualCardGrid';
 
 type GridItem = { id: string };
@@ -66,5 +67,30 @@ describe('VirtualCardGrid', () => {
   it('leaves the wrappers without a role by default', () => {
     const { container } = renderGrid({ wrapClassName: 'probe-wrap' });
     expect(container.querySelector('.probe-wrap')?.getAttribute('role')).toBeNull();
+  });
+
+  // Cards size their cover tier from this value; a fixed guess under-requests
+  // on wide windows and HiDPI screens.
+  it('hands each card the measured cell width', () => {
+    const widths: number[] = [];
+    renderGrid({
+      renderItem: (item, cellCssPx) => {
+        widths.push(cellCssPx);
+        return <div data-testid="cell">{item.id}</div>;
+      },
+    });
+    expect(widths[widths.length - 1]).toBe(Math.round(computeCellWidthPx(CONTAINER_WIDTH_PX, 6)));
+  });
+
+  it('hands a pinned single column the full width', () => {
+    const widths: number[] = [];
+    renderGrid({
+      singleColumn: true,
+      renderItem: (item, cellCssPx) => {
+        widths.push(cellCssPx);
+        return <div data-testid="cell">{item.id}</div>;
+      },
+    });
+    expect(widths[widths.length - 1]).toBe(CONTAINER_WIDTH_PX);
   });
 });
