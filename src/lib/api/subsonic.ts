@@ -6,6 +6,7 @@ import type { ServerProfile } from '@/store/authStoreTypes';
 import { headersForServerRequest, serverHttpContextWireForProbe } from '@/lib/server/serverHttpHeaders';
 import { findServerByIdOrIndexKey } from '@/lib/server/serverLookup';
 import {
+  isBandcampServer,
   type InstantMixProbeResult,
   type SubsonicServerIdentity,
 } from '@/lib/server/subsonicServerIdentity';
@@ -71,12 +72,43 @@ export async function pingWithCredentials(
   }
 }
 
-/** Profile-aware ping for connect probe — attaches custom headers per endpoint. */
+type ConnectProbeProfile = Pick<
+  ServerProfile,
+  'url' | 'alternateUrl' | 'username' | 'password' | 'customHeaders' | 'customHeadersApplyTo'
+>;
+
+/**
+ * Profile-aware ping for connect probe — attaches custom headers per endpoint.
+ *
+ * A server whose `ping` does not check credentials (Bandcamp) gets one extra
+ * authenticated call. Without it a wrong password passes the connect test, the
+ * server is saved, and every later call fails while the library stays empty.
+ */
 export async function pingWithCredentialsForProfile(
-  profile: Pick<
-    ServerProfile,
-    'url' | 'alternateUrl' | 'username' | 'password' | 'customHeaders' | 'customHeadersApplyTo'
-  >,
+  profile: ConnectProbeProfile,
+  endpointBaseUrl: string,
+): Promise<PingWithCredentialsResult> {
+  const ping = await pingEndpointForProfile(profile, endpointBaseUrl);
+  if (!ping.ok || !isBandcampServer(ping)) return ping;
+  try {
+    await apiWithCredentials(
+      endpointBaseUrl,
+      profile.username,
+      profile.password,
+      'getMusicFolders.view',
+      {},
+      15000,
+      profile,
+    );
+    return ping;
+  } catch (err) {
+    console.warn('[psysonic] credential check after ping failed:', endpointBaseUrl, err);
+    return { ...ping, ok: false, error: undefined };
+  }
+}
+
+async function pingEndpointForProfile(
+  profile: ConnectProbeProfile,
   endpointBaseUrl: string,
 ): Promise<PingWithCredentialsResult> {
   const base = endpointBaseUrl.startsWith('http')
