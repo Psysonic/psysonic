@@ -19,9 +19,9 @@ mod peek;
 mod test_support;
 
 use bucket::{
-    external_album_art_dirs, purge_entity_server_art, purge_external_files,
-    purge_misattributed_external_album_art_once, rename_bucket_inner,
-    reset_cover_cache_for_index_key_layout,
+    external_album_art_dirs, has_long_edge_display_tiers, long_edge_display_tier_dirs,
+    purge_entity_server_art, purge_external_files, purge_misattributed_external_album_art_once,
+    rename_bucket_inner, reset_cover_cache_for_index_key_layout, SHORT_EDGE_REFIT_STAMP,
 };
 use cache_state::state;
 pub use cache_state::CoverCacheState;
@@ -171,7 +171,56 @@ pub fn init_cover_cache(app: &AppHandle) -> Result<(), String> {
     app.manage(Arc::new(Mutex::new(CoverCacheState::new(root)?)));
     app.manage(Arc::new(CoverBackfillWorker::new()));
     setup_library_sync_idle_listener(app);
+    spawn_short_edge_refit(app.clone());
     Ok(())
+}
+
+/// One-time refit of display tiers written with the old long-edge fit
+/// (#1829): drops the server art of those non-square covers so the next
+/// ensure writes short-edge tiers. The scan reads one header per cover dir —
+/// seconds on a large cache — so it runs off the startup path. Each purge
+/// takes the dir's flight lock and re-checks, so no ensure is mid-write and
+/// fresh tiers stay. The stamp lands only after a full pass; an interrupted
+/// pass runs again on the next start.
+fn spawn_short_edge_refit(app: AppHandle) {
+    tauri::async_runtime::spawn(async move {
+        let Ok(st) = state(&app) else {
+            return;
+        };
+        let root = st.lock().await.root.clone();
+        let stamp = root.join(SHORT_EDGE_REFIT_STAMP);
+        if stamp.is_file() {
+            return;
+        }
+        let scan_root = root.clone();
+        let Ok(dirs) =
+            tauri::async_runtime::spawn_blocking(move || long_edge_display_tier_dirs(&scan_root))
+                .await
+        else {
+            return;
+        };
+        let mut refit = 0usize;
+        for dir in dirs {
+            if ensure_migration_write_allowed(&app).is_err() {
+                return;
+            }
+            let flight = {
+                let guard = st.lock().await;
+                inflight_dir_flight(&guard.inflight_dirs, &dir)
+            };
+            let _flight = flight.lock().await;
+            if has_long_edge_display_tiers(&dir) && purge_entity_server_art(&dir) > 0 {
+                refit += 1;
+            }
+        }
+        let _ = std::fs::write(&stamp, b"1");
+        if refit > 0 {
+            clear_dir_usage_cache();
+            crate::app_eprintln!(
+                "[cover] dropped display tiers of {refit} non-square covers to rebuild them short-edge"
+            );
+        }
+    });
 }
 
 #[tauri::command]
