@@ -5,7 +5,7 @@
 //! by `ensure_inner` (feature flag, `!library_bulk`, artist kind) — see the call
 //! site in `mod.rs`. Pure code move; behaviour unchanged.
 
-use super::encode::write_webp_tier;
+use super::encode::{write_webp_tier, write_webp_tier_contain};
 use super::CoverCacheEnsureArgs;
 use super::{
     decode_image_bytes, disk, external, fetch, peek_fallback_tiers, peek_tier_path,
@@ -470,7 +470,8 @@ pub(super) async fn try_external_fanart(
         let img = decode_image_bytes(&bytes)?;
         std::fs::create_dir_all(&dir_owned).map_err(|e| e.to_string())?;
         for tier in [2000u32, 512u32] {
-            write_webp_tier(
+            // Fanart/banner surfaces show the image whole, so the long edge fits.
+            write_webp_tier_contain(
                 &img,
                 tier,
                 &disk::provider_tier_path(&dir_owned, tier, &surface_owned),

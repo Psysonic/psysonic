@@ -15,6 +15,7 @@ mod layout_tests;
 mod metrics;
 mod migration;
 mod peek;
+mod refit;
 #[cfg(test)]
 mod test_support;
 
@@ -171,6 +172,7 @@ pub fn init_cover_cache(app: &AppHandle) -> Result<(), String> {
     app.manage(Arc::new(Mutex::new(CoverCacheState::new(root)?)));
     app.manage(Arc::new(CoverBackfillWorker::new()));
     setup_library_sync_idle_listener(app);
+    refit::spawn_short_edge_refit(app.clone());
     Ok(())
 }
 

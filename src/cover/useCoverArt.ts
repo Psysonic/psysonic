@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import type { CoverEnsureOpts } from '@/lib/api/coverCache';
 import { coverEnsureQueued, coverEnsureRelease } from './ensureQueue';
 import { coverPeekQueued } from './peekQueue';
-import { getDiskSrcForGrid, seedGridDiskSrcCache } from './diskSrcLookup';
+import { getDiskSrcForGrid, hasDiskSrcForTier, seedGridDiskSrcCache } from './diskSrcLookup';
 import {
   forgetDiskSrcPrefix,
   getDiskSrcCacheGeneration,
@@ -81,6 +81,13 @@ export function useCoverArt(
     return getDiskSrcForGrid(ref, tier);
   }, [ref, tier]);
 
+  // `readCachedSrc` may return a smaller tier as a stand-in; only a file of at
+  // least `tier` px ends the peek/ensure below.
+  const hasWantedTier = useCallback(
+    () => (ref ? hasDiskSrcForTier(ref, tier) : false),
+    [ref, tier],
+  );
+
   useSyncExternalStore(subscribeDiskSrcCache, getDiskSrcCacheGeneration);
 
   const cachedSrc = readCachedSrc();
@@ -97,14 +104,14 @@ export function useCoverArt(
   useEffect(() => {
     if (!ref || !storageKey) return;
 
-    if (readCachedSrc() && !ensureOpts?.allowExternalAlbum) return;
+    if (hasWantedTier() && !ensureOpts?.allowExternalAlbum) return;
 
     let cancelled = false;
 
     void (async () => {
       await coverPeekQueued(storageKey, ref, tier);
       if (cancelled) return;
-      if (readCachedSrc() && !ensureOpts?.allowExternalAlbum) return;
+      if (hasWantedTier() && !ensureOpts?.allowExternalAlbum) return;
 
       if (reachable && !deferEnsureUntilVisible) {
         const result = await coverEnsureQueued(storageKey, ref, tier, ensurePriority, ensureOpts);
@@ -132,7 +139,7 @@ export function useCoverArt(
     deferEnsureUntilVisible,
     ensureOpts,
     applyDiskPath,
-    readCachedSrc,
+    hasWantedTier,
   ]);
 
   useEffect(() => {
