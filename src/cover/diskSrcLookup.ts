@@ -1,7 +1,7 @@
 import { getDiskSrc, rememberDiskSrc, splitPathVersion } from './diskSrcCache';
 import { hasCoverDiskReadyListeners, notifyCoverDiskReady } from './diskHandoff';
 import { coverStorageKeyFromRef } from './storageKeys';
-import { COVER_ART_TIERS, type CoverArtRef, type CoverArtTier } from './types';
+import type { CoverArtRef, CoverArtTier } from './types';
 
 /** Tier embedded in a cover file path (`…/512.webp`, `…/2000-fanart.webp`). */
 function coverPathTier(fsPath: string): number | null {
@@ -69,16 +69,19 @@ export function getDiskSrcForGrid(ref: CoverArtRef, wantTier: CoverArtTier): str
 
 /**
  * True when the peek/ensure for `wantTier` can stop. For a display tier that
- * takes a file of at least `wantTier` px: the wanted key or a larger display
- * key (seeding never stores a smaller file under a larger key). The smaller
- * rungs {@link getDiskSrcForGrid} falls back to are a stand-in picture only —
- * otherwise a sidebar thumb's 128.webp would stay on a 256 grid card for good
- * (#1829). Full-res surfaces keep settling for any tier already in memory.
+ * takes a file of at least `wantTier` px among the keys {@link getDiskSrcForGrid}
+ * reads, so a "done" cell always shows that file: the keys are evicted one by
+ * one, and a larger key the lookup never reads (`:512` for a 128 cell) would
+ * leave the cell blank with no peek to recover it. Seeding never stores a
+ * smaller file under a larger key. The smaller rungs the lookup falls back to
+ * are a stand-in picture only — otherwise a sidebar thumb's 128.webp would
+ * stay on a 256 grid card for good (#1829). Full-res surfaces keep settling
+ * for any tier already in memory.
  */
 export function hasDiskSrcForTier(ref: CoverArtRef, wantTier: CoverArtTier): boolean {
   if (wantTier >= 2000) return Boolean(getDiskSrcForGrid(ref, wantTier));
-  return COVER_ART_TIERS
-    .filter(t => t >= wantTier && t < 2000)
+  return gridDiskSrcLookupOrder(wantTier)
+    .filter(t => t >= wantTier)
     .some(tier => Boolean(getDiskSrc(coverStorageKeyFromRef(ref, tier))));
 }
 

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { albumCoverRef } from './ref';
+import { coverStorageKeyFromRef } from './storageKeys';
 
 vi.mock('./diskSrcCache', () => ({
   rememberDiskSrc: vi.fn(() => 'asset://cover.webp'),
@@ -177,6 +178,30 @@ describe('a small thumb never stands in for a larger cell', () => {
     rememberDiskSrcLadder('_', { cacheKind: 'album', cacheEntityId: 'pl-1' }, 128, '/cache/pl-1/128.webp|1787826019');
     expect(tiersInStore()).toEqual(['128']);
     expect(hasDiskSrcForTier(ref, 256)).toBe(false);
+  });
+
+  it('loads again when eviction leaves only a larger key the lookup never reads', () => {
+    // A 512 card keeps `:512` recent; the LRU dropped the 128 cell's `:128` and `:800`.
+    store.set(coverStorageKeyFromRef(ref, 512), '/cache/pl-1/512.webp');
+    expect(getDiskSrcForGrid(ref, 128)).toBe('');
+    expect(hasDiskSrcForTier(ref, 128)).toBe(false);
+  });
+
+  it('reports done only when the lookup shows a file of at least the wanted tier', () => {
+    const displayTiers = [64, 128, 256, 512, 800] as const;
+    let done = 0;
+    for (const want of displayTiers) {
+      for (const held of displayTiers) {
+        store.clear();
+        store.set(coverStorageKeyFromRef(ref, held), `/cache/pl-1/${held}.webp`);
+        if (!hasDiskSrcForTier(ref, want)) continue;
+        done += 1;
+        const shown = getDiskSrcForGrid(ref, want);
+        expect(shown, `want ${want}, held ${held}`).not.toBe('');
+        expect(Number(/(\d+)\.webp$/.exec(shown)?.[1])).toBeGreaterThanOrEqual(want);
+      }
+    }
+    expect(done).toBeGreaterThan(0);
   });
 
   // Making hero/fullscreen load their 2000 tier here would add full-res

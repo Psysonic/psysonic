@@ -159,44 +159,6 @@ pub(super) fn purge_misattributed_external_album_art_once(root: &Path) -> usize 
     removed
 }
 
-/// Short edge below which a long-edge `128.webp` counts as non-square — a
-/// near-square cover looks the same under both fits and keeps its tiers.
-const SHORT_EDGE_PURGE_BELOW: u32 = 121;
-
-/// Written to the cache root once the short-edge refit has run to the end.
-pub(super) const SHORT_EDGE_REFIT_STAMP: &str = ".display-tier-short-edge-v1";
-
-/// True when the dir's `128.webp` was written with the old long-edge fit from
-/// a non-square cover: long edge at 128, short edge clearly below it. Tiers
-/// written now put the SHORT edge at the tier (#1829), so they never match.
-pub(super) fn has_long_edge_display_tiers(entity_dir: &Path) -> bool {
-    let Ok((w, h)) = image::image_dimensions(entity_dir.join("128.webp")) else {
-        return false;
-    };
-    (127..=128).contains(&w.max(h)) && w.min(h) < SHORT_EDGE_PURGE_BELOW
-}
-
-/// Cover dirs across every server bucket whose display tiers still carry the
-/// long-edge fit. Chain-owned album dirs are left out: their art is not the
-/// server's, so dropping it would not bring it back. Reads one header per dir.
-pub(super) fn long_edge_display_tier_dirs(root: &Path) -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-    for server in std::fs::read_dir(root).into_iter().flatten().flatten() {
-        for kind in psysonic_core::cover_cache_layout::SEGMENT_KINDS {
-            let Ok(entities) = std::fs::read_dir(server.path().join(kind)) else {
-                continue;
-            };
-            for entity in entities.flatten() {
-                let dir = entity.path();
-                if !dir.join(ALBUM_EXT_HIT_MARKER).exists() && has_long_edge_display_tiers(&dir) {
-                    dirs.push(dir);
-                }
-            }
-        }
-    }
-    dirs
-}
-
 /// FS-only worker for `cover_cache_rename_server_bucket`.
 pub(super) fn rename_bucket_inner(root: &Path, old_key: &str, new_key: &str) -> Result<(), String> {
     if old_key.is_empty() || new_key.is_empty() {
@@ -272,62 +234,13 @@ pub(super) fn merge_cover_bucket(old_dir: &Path, new_dir: &Path) -> Result<(), S
 #[cfg(test)]
 mod tests {
     use super::{
-        external_album_art_dirs, has_long_edge_display_tiers, is_safe_index_key,
-        long_edge_display_tier_dirs, merge_cover_bucket, purge_entity_server_art,
+        external_album_art_dirs, is_safe_index_key, merge_cover_bucket, purge_entity_server_art,
         purge_external_album_art, purge_external_files,
         purge_misattributed_external_album_art_once, rename_bucket_inner,
     };
-    use crate::cover_cache::encode::encode_webp;
     use crate::cover_cache::test_support::fresh_tmpdir;
-    use image::{DynamicImage, RgbaImage};
     use std::fs;
     use std::path::{Path, PathBuf};
-
-    /// `{root}/srv/{kind}/{id}` with a real `128.webp` of `w`×`h` px.
-    fn tier_dir(root: &Path, kind: &str, id: &str, w: u32, h: u32) -> PathBuf {
-        let dir = root.join("srv").join(kind).join(id);
-        fs::create_dir_all(&dir).unwrap();
-        let img = DynamicImage::ImageRgba8(RgbaImage::new(w, h));
-        fs::write(dir.join("128.webp"), encode_webp(&img, 128).unwrap()).unwrap();
-        dir
-    }
-
-    #[test]
-    fn refit_scan_finds_only_long_edge_tiers_of_non_square_server_art() {
-        let root = fresh_tmpdir("short-edge-scan");
-        let portrait = tier_dir(&root, "album", "pl-1", 72, 128);
-        let artist = tier_dir(&root, "artist", "ar-1", 128, 85);
-        let _square = tier_dir(&root, "album", "al-1", 128, 128);
-        let _near_square = tier_dir(&root, "album", "al-2", 124, 128);
-        let _already_short_edge = tier_dir(&root, "album", "pl-2", 128, 228);
-        let chain_art = tier_dir(&root, "album", "al-3", 72, 128);
-        fs::write(chain_art.join(".album-ext-hit"), b"apple").unwrap();
-        fs::write(root.join(".storage-layout"), b"stamp").unwrap();
-
-        assert_eq!(
-            sorted(long_edge_display_tier_dirs(&root)),
-            sorted(vec![portrait, artist])
-        );
-
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn refit_purge_drops_server_tiers_and_keeps_provider_art() {
-        let root = fresh_tmpdir("short-edge-purge");
-        let portrait = tier_dir(&root, "album", "pl-1", 72, 128);
-        fs::write(portrait.join("256.webp"), b"old").unwrap();
-        fs::write(portrait.join("meta.json"), b"{}").unwrap();
-        fs::write(portrait.join("512-fanart.webp"), b"f").unwrap();
-
-        assert_eq!(purge_entity_server_art(&portrait), 3);
-
-        assert!(!has_long_edge_display_tiers(&portrait));
-        assert!(portrait.join("512-fanart.webp").exists());
-        assert!(long_edge_display_tier_dirs(&root).is_empty());
-
-        let _ = fs::remove_dir_all(&root);
-    }
 
     /// `{root}/{server}/album/{id}` with a `128.webp`, and the chain marker
     /// holding `marker` when given.

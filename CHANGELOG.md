@@ -184,7 +184,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@Ter0zak](https://github.com/Ter0zak), PR [#1856](https://github.com/Psysonic/psysonic/pull/1856)**
 
-* Covers that are not square, such as many imported playlist images, turned blurry after a second or two once the cover cache had saved them. The cache scaled them by their longer side, so the image was too small to fill a square card. It now scales by the shorter side. Covers cached by earlier versions are fetched again once, in the background after the first start.
+* Covers that are not square, such as many imported playlist images, turned blurry after a second or two once the cover cache had saved them. The cache scaled them by their longer side, so the image was too small to fill a square card. It now scales by the shorter side. Covers cached by earlier versions are redrawn once from the copy already on disk, in the background after the first start, so they stay available while the server is offline.
 * A grid card could keep a small thumbnail that the sidebar had already loaded for the same playlist. Cards now load their own size and show the small image only until then.
 * Playlist cards request a cover size that matches how large they are drawn, instead of a fixed size.
 
