@@ -146,8 +146,30 @@ pub(super) fn default_config(device: &Device) -> Result<SupportedStreamConfig, S
     ))
 }
 
+/// PipeWire quantum, in frames, requested for a stream at `rate`.
+pub(super) fn latency_frames(rate: u32) -> u32 {
+    if rate > 48_000 {
+        8192
+    } else {
+        4096
+    }
+}
+
+/// Rodio's `from_device` sizes the fixed buffer from the device's *default* rate
+/// (44.1/48 kHz -> 2048 frames) and `with_sample_rate` leaves it alone, so cpal
+/// ends up with a 4096-frame ALSA buffer (two 2048-frame periods) at any rate.
+/// At 96/192 kHz the quantum asked for by [`latency_hint`] is 8192 frames; the
+/// pipewire-alsa plugin can then hand PipeWire only 4096 of every 8192 frames and
+/// the rest is silence: playback runs at half speed and stutters, with no xrun
+/// counted. The ALSA buffer (cpal: twice the fixed size) must be at least one
+/// quantum, i.e. the fixed size at least half of it. Never below rodio's 2048.
+pub(super) fn alsa_period_frames(rate: u32) -> u32 {
+    const RODIO_DEFAULT_PERIOD: u32 = 2048;
+    (latency_frames(rate) / 2).max(RODIO_DEFAULT_PERIOD)
+}
+
 pub(super) fn latency_hint(rate: u32) -> (String, String) {
-    let frames = if rate > 48_000 { 8192 } else { 4096 };
+    let frames = latency_frames(rate);
     let millis = (f64::from(frames) / f64::from(rate.max(1)) * 1000.0).round() as u64;
     (format!("{frames}/{rate}"), millis.to_string())
 }
@@ -209,6 +231,24 @@ mod tests {
         assert_eq!(latency_hint(48_000), ("4096/48000".into(), "85".into()));
         assert_eq!(latency_hint(44_100), ("4096/44100".into(), "93".into()));
         assert_eq!(latency_hint(96_000), ("8192/96000".into(), "85".into()));
+    }
+
+    #[test]
+    fn alsa_buffer_always_covers_the_requested_pipewire_quantum() {
+        // cpal configures the ALSA buffer as twice the fixed size.
+        for rate in [
+            8_000, 22_050, 44_100, 48_000, 88_200, 96_000, 176_400, 192_000, 384_000,
+        ] {
+            assert!(
+                2 * alsa_period_frames(rate) >= latency_frames(rate),
+                "{rate} Hz: ALSA buffer smaller than the PipeWire quantum"
+            );
+        }
+        // Standard rates keep rodio's own 2048-frame default (no behaviour change).
+        assert_eq!(alsa_period_frames(44_100), 2048);
+        assert_eq!(alsa_period_frames(48_000), 2048);
+        // The reported bug: 192 kHz asked for 8192 but only 4096 were buffered.
+        assert_eq!(alsa_period_frames(192_000), 4096);
     }
 
     #[test]

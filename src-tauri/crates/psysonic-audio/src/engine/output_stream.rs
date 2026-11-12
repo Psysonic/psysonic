@@ -61,7 +61,12 @@ fn open_stream_with_verified_rate(
             std::num::NonZeroU16::new(config.channels())
                 .ok_or_else(|| "audio output configuration has zero channels".to_string())?,
         )
-        .with_sample_format(config.sample_format());
+        .with_sample_format(config.sample_format())
+        // Rodio sized the buffer for the device default rate; keep the ALSA buffer
+        // at least as large as the PipeWire quantum requested above.
+        .with_buffer_size(rodio::cpal::BufferSize::Fixed(
+            super::linux_output_rate::alsa_period_frames(actual_rate),
+        ));
     #[cfg(not(target_os = "linux"))]
     let builder = rodio::DeviceSinkBuilder::from_device(device.clone())
         .map_err(|error| format!("failed to configure audio output device: {error}"))?;
