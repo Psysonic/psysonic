@@ -58,6 +58,13 @@ pub fn write_webp_tier(img: &DynamicImage, tier: u32, path: &Path) -> Result<(),
     write_resized(&resize_tier(img, tier), tier, path)
 }
 
+/// Rewrite an existing plain cover tier ([`resize_tier`]) through
+/// [`super::disk::replace_file`]: the old file stays until the new one is
+/// complete. Unlike [`write_webp_tier`] it never creates the dir.
+pub fn rewrite_webp_tier(img: &DynamicImage, tier: u32, path: &Path) -> Result<(), String> {
+    super::disk::replace_file(path, &encode_webp(&resize_tier(img, tier), tier)?)
+}
+
 /// Write a tier of an image shown whole ([`resize_tier_contain`]).
 pub fn write_webp_tier_contain(img: &DynamicImage, tier: u32, path: &Path) -> Result<(), String> {
     write_resized(&resize_tier_contain(img, tier), tier, path)
