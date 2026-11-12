@@ -94,18 +94,35 @@ fn refit_dir(dir: &Path) -> DirRefit {
 /// first failed write, which keeps its old file. The source tier,
 /// `2000.webp` and provider files are not touched.
 fn refit_display_tiers(dir: &Path) -> DirRefit {
-    refit_display_tiers_with(dir, rewrite_webp_tier)
+    refit_display_tiers_with(dir, |path| std::fs::read(path), rewrite_webp_tier)
 }
 
+/// A source tier that exists but cannot be read (file in use, I/O error)
+/// fails the dir, which is then retried on the next start. Falling back to
+/// a smaller tier would rewrite `128.webp` and drop the dir from the scan
+/// while the tiers between kept the old fit. A source that reads but does
+/// not decode stays broken on every start, so the next tier down is used.
 fn refit_display_tiers_with(
     dir: &Path,
+    mut read: impl FnMut(&Path) -> std::io::Result<Vec<u8>>,
     mut write: impl FnMut(&DynamicImage, u32, &Path) -> Result<(), String>,
 ) -> DirRefit {
     let mut refit = DirRefit::default();
-    let Some((source_tier, img)) = SOURCE_TIERS.into_iter().find_map(|tier| {
-        let img = image::open(tier_exists(dir, tier)?).ok()?;
-        Some((tier, img))
-    }) else {
+    let mut source = None;
+    for tier in SOURCE_TIERS {
+        let Some(path) = tier_exists(dir, tier) else {
+            continue;
+        };
+        let Ok(bytes) = read(&path) else {
+            refit.failed = true;
+            return refit;
+        };
+        if let Ok(img) = image::load_from_memory(&bytes) {
+            source = Some((tier, img));
+            break;
+        }
+    }
+    let Some((source_tier, img)) = source else {
         return refit;
     };
     for tier in REFIT_TIERS.into_iter().filter(|tier| *tier < source_tier) {
@@ -411,6 +428,80 @@ mod tests {
     }
 
     #[test]
+    fn a_source_that_cannot_be_read_is_retried_on_the_next_start() {
+        let root = fresh_tmpdir("short-edge-read-fail");
+        let dir = cover_dir(&root, "album", "pl-1");
+        write_tier(&dir, 512, 288, 512);
+        write_tier(&dir, 128, 72, 128);
+        let thumb = fs::read(dir.join("128.webp")).unwrap();
+
+        let refit = refit_display_tiers_with(
+            &dir,
+            |_| Err(std::io::Error::other("file in use")),
+            rewrite_webp_tier,
+        );
+
+        assert!(refit.failed);
+        assert!(refit.rewritten.is_empty());
+        assert_eq!(fs::read(dir.join("128.webp")).unwrap(), thumb);
+        assert_eq!(long_edge_display_tier_dirs(&root), vec![dir.clone()]);
+
+        // Readable again on the next start.
+        let refit = refit_display_tiers(&dir);
+        assert!(!refit.failed);
+        assert_eq!(refit.rewritten, vec![dir.join("128.webp")]);
+        assert_eq!(dims(&dir, 128), (128, 228));
+        assert!(long_edge_display_tier_dirs(&root).is_empty());
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn refit_does_not_fall_back_past_a_source_it_cannot_read() {
+        // Refitting from 512 would leave 512.webp old and take the dir out of
+        // the scan with its new 128.webp.
+        let root = fresh_tmpdir("short-edge-read-fail-800");
+        let dir = old_fit_portrait(&root);
+        let before = [512, 256, 128].map(|t| fs::read(dir.join(format!("{t}.webp"))).unwrap());
+
+        let refit = refit_display_tiers_with(
+            &dir,
+            |path| {
+                if path.ends_with("800.webp") {
+                    return Err(std::io::Error::other("file in use"));
+                }
+                fs::read(path)
+            },
+            rewrite_webp_tier,
+        );
+
+        assert!(refit.failed);
+        assert!(refit.rewritten.is_empty());
+        let after = [512, 256, 128].map(|t| fs::read(dir.join(format!("{t}.webp"))).unwrap());
+        assert_eq!(after, before);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_source_that_does_not_decode_falls_back_to_the_next_tier() {
+        // Broken bytes stay broken, so retrying them on every start gains nothing.
+        let root = fresh_tmpdir("short-edge-corrupt-800");
+        let dir = cover_dir(&root, "album", "pl-1");
+        fs::write(dir.join("800.webp"), b"not a webp").unwrap();
+        write_tier(&dir, 512, 288, 512);
+        write_tier(&dir, 128, 72, 128);
+
+        let refit = refit_display_tiers(&dir);
+
+        assert!(!refit.failed);
+        assert_eq!(refit.rewritten, vec![dir.join("128.webp")]);
+        assert_eq!(dims(&dir, 128), (128, 228));
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn a_refit_that_stops_early_is_found_again_and_finished_on_the_next_start() {
         // A failed write, or the app closing, after any number of rewrites.
         for done in 0..3 {
@@ -419,13 +510,17 @@ mod tests {
             let thumb = fs::read(dir.join("128.webp")).unwrap();
             let mut writes = 0;
 
-            let refit = refit_display_tiers_with(&dir, |img, tier, path| {
-                if writes == done {
-                    return Err("no space left on device".to_string());
-                }
-                writes += 1;
-                rewrite_webp_tier(img, tier, path)
-            });
+            let refit = refit_display_tiers_with(
+                &dir,
+                |path| fs::read(path),
+                |img, tier, path| {
+                    if writes == done {
+                        return Err("no space left on device".to_string());
+                    }
+                    writes += 1;
+                    rewrite_webp_tier(img, tier, path)
+                },
+            );
 
             assert!(refit.failed, "stopped after {done}");
             assert_eq!(refit.rewritten.len(), done);
