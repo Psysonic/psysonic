@@ -12,7 +12,9 @@ import {
   forgetDiskSrcForServer,
   forgetDiskSrcPrefix,
   getDiskSrc,
+  refreshDiskSrcVersions,
   rememberDiskSrc,
+  subscribeDiskSrcCache,
 } from './diskSrcCache';
 
 describe('coverDiskUrl', () => {
@@ -93,6 +95,60 @@ describe('rememberDiskSrc', () => {
     vi.mocked(convertFileSrc).mockReturnValue(fsPath);
     expect(rememberDiskSrc('srv:cover:al-1:128', fsPath)).toBe('');
     expect(getDiskSrc('srv:cover:al-1:128')).toBe('');
+  });
+});
+
+describe('refreshDiskSrcVersions (short-edge refit rewrote tiers in place)', () => {
+  const url = (p: string, v: number) => `asset://localhost/${encodeURIComponent(p)}?v=${v}`;
+  let generations = 0;
+  let unsubscribe = () => {};
+
+  beforeEach(() => {
+    vi.mocked(convertFileSrc).mockImplementation((p: string) =>
+      `asset://localhost/${encodeURIComponent(p)}`,
+    );
+    clearAllDiskSrcCache();
+    unsubscribe();
+    generations = 0;
+    unsubscribe = subscribeDiskSrcCache(() => {
+      generations += 1;
+    });
+  });
+
+  it('moves every key cached for a rewritten file to its new version', () => {
+    rememberDiskSrc('srv:cover:album:pl-1:128', '/disk/pl-1/128.webp|100');
+    rememberDiskSrc('srv:cover:album:pl-1:64', '/disk/pl-1/128.webp|100');
+    rememberDiskSrc('srv:cover:album:pl-1:800', '/disk/pl-1/800.webp|100');
+    generations = 0;
+
+    refreshDiskSrcVersions(['/disk/pl-1/128.webp|200', '/disk/pl-2/128.webp|200']);
+
+    expect(getDiskSrc('srv:cover:album:pl-1:128')).toBe(url('/disk/pl-1/128.webp', 200));
+    expect(getDiskSrc('srv:cover:album:pl-1:64')).toBe(url('/disk/pl-1/128.webp', 200));
+    // Untouched file keeps its URL; nothing is dropped or added.
+    expect(getDiskSrc('srv:cover:album:pl-1:800')).toBe(url('/disk/pl-1/800.webp', 100));
+    expect(getDiskSrc('srv:cover:album:pl-2:128')).toBe('');
+    expect(generations).toBe(1);
+  });
+
+  it('does not wake subscribers when no cached entry matches', () => {
+    rememberDiskSrc('srv:cover:album:pl-1:800', '/disk/pl-1/800.webp|100');
+    generations = 0;
+    refreshDiskSrcVersions(['/disk/pl-9/128.webp|200']);
+    expect(generations).toBe(0);
+  });
+
+  it('keeps the rewritten version when a peek read before the rewrite answers late', () => {
+    rememberDiskSrc('srv:cover:album:pl-1:128', '/disk/pl-1/128.webp|100');
+    refreshDiskSrcVersions(['/disk/pl-1/128.webp|200']);
+
+    expect(rememberDiskSrc('srv:cover:album:pl-1:128', '/disk/pl-1/128.webp|100')).toBe(
+      url('/disk/pl-1/128.webp', 200),
+    );
+    expect(getDiskSrc('srv:cover:album:pl-1:128')).toBe(url('/disk/pl-1/128.webp', 200));
+    // A newer version still replaces it.
+    rememberDiskSrc('srv:cover:album:pl-1:128', '/disk/pl-1/128.webp|300');
+    expect(getDiskSrc('srv:cover:album:pl-1:128')).toBe(url('/disk/pl-1/128.webp', 300));
   });
 });
 
