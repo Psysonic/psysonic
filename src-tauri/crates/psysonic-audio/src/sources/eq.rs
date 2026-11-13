@@ -111,8 +111,8 @@ impl<S: Source<Item = f32>> Iterator for EqSource<S> {
         let pre_gain_db = f32::from_bits(self.pre_gain.load(Ordering::Relaxed));
         let pre_gain_factor = 10_f32.powf(pre_gain_db / 20.0);
         let mut s = sample * pre_gain_factor;
-        for band in 0..10 {
-            s = self.filters[band][ch].run(s);
+        for filters in &mut self.filters {
+            s = filters[ch].run(s);
         }
         Some(s.clamp(-1.0, 1.0))
     }
