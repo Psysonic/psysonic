@@ -624,6 +624,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Browse albums by file mood tags (PR #1675)',
       'Browse individual tracks by mood (PR #1685)',
       'Search and sort genre and mood catalogs (PR #1733)',
+      'AutoDJ crossfades — keep the seekbar and lyrics in sync (PR #1826)',
     ],
   },
   {
