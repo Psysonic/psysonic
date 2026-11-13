@@ -105,6 +105,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The New Releases row compares a not yet indexed album by its edition's release date as well, so a fresh reissue no longer lands on the original's card.
 * After the update the library rebuilds its album groups once in the background.
 
+### AutoDJ crossfades keep the playback position aligned
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1826](https://github.com/Psysonic/psysonic/pull/1826)**
+
+* After successive AutoDJ crossfades, the seekbar and synchronised lyrics could run ahead of the music and trigger the next transition too early. Outgoing audio no longer advances the incoming track's playback clock, so the drift does not accumulate.
+
 ### Song Info for downloaded and cached tracks
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1827](https://github.com/Psysonic/psysonic/pull/1827)**
