@@ -1,3 +1,4 @@
+import { serverHasExternalCatalog } from '@/lib/server/externalCatalog';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { search, searchForServer } from '@/lib/api/subsonicSearch';
@@ -174,6 +175,7 @@ export function useArtistDetailData(
     setArtistOwner(null);
 
     (async () => {
+      let externalCatalogOnly = false;
       try {
         const currentBrowseScope = getLibraryBrowseScope();
         const currentBrowseScopeConfigured = hasConfiguredLibraryBrowseScope();
@@ -226,10 +228,21 @@ export function useArtistDetailData(
             }
             return;
           }
-          setLoading(false);
-          return;
+          const catalogOwnerAllowed = routeServerId
+            && currentBrowseScope.serverIds.includes(routeServerId)
+            && serverHasExternalCatalog(useAuthStore.getState(), routeServerId)
+            && !offlineBrowseActive && !losslessOnly
+            && shouldAttemptSubsonicForServer(routeServerId);
+          if (!catalogOwnerAllowed) {
+            setLoading(false);
+            return;
+          }
+          // The scoped index cannot contain an outside catalog artist. Only an
+          // explicitly owned catalog response may fill this miss. Octo marks
+          // relayed local roots false; older external detail roots omit the flag.
+          externalCatalogOnly = true;
         }
-        if (preferLocalArtist && serverId && id) {
+        if (preferLocalArtist && serverId && id && !externalCatalogOnly) {
           const local = preferLocalBytesOnly
             ? await loadArtistFromLocalPlayback(serverId, id)
             : await loadArtistFromLibraryIndex(serverId, id);
@@ -275,6 +288,10 @@ export function useArtistDetailData(
           ? await getArtistForServer(serverId, id)
           : await getArtist(id);
         if (cancelled) return;
+        if (externalCatalogOnly && artistData.artist.isExternal === false) {
+          setLoading(false);
+          return;
+        }
         setArtist(artistData.artist);
         let nextAlbums = artistData.albums;
         setIsStarred(!!artistData.artist.starred);
@@ -303,7 +320,7 @@ export function useArtistDetailData(
         // to the local library index (the same id space the card came from)
         // before showing "Artist not found"; this also keeps artist pages
         // reachable on a transient network hiccup when the library is indexed.
-        if (serverId && id) {
+        if (serverId && id && !externalCatalogOnly) {
           try {
             const local = preferLocalBytesOnly
               ? await loadArtistFromLocalPlayback(serverId, id)
@@ -334,6 +351,7 @@ export function useArtistDetailData(
     offlineBrowseActive,
     preferLocalArtist,
     preferLocalBytesOnly,
+    routeServerId,
     searchParams,
     serverId,
   ]);

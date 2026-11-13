@@ -1,4 +1,5 @@
 import { canonicalNavidromeId } from '@/lib/server/navidromeCanonicalId';
+import { storedServerHasExternalCatalog } from '@/lib/server/externalCatalog';
 import {
   readRawAuthServerProfileGroups,
   type RawAuthServerProfileGroup,
@@ -97,6 +98,7 @@ export function rewriteNavidromeCanonicalHistoryForScope(
   scope: NavidromeCanonicalFrontendScope,
   storage: Storage = localStorage,
 ): boolean {
+  if (storedServerHasExternalCatalog(scope.serverIndexKey, storage)) return false;
   const fallbackOwner = activeProfileId(storage);
   const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
   const rewrittenUrl = rewriteDetailUrl(currentUrl, scope, fallbackOwner);
@@ -127,6 +129,7 @@ export function rewriteNavidromeCanonicalHistoryForReadyServers(
   const checkpoint = readNavidromeCanonicalMigrationCheckpoint(storage);
   let changed = false;
   for (const group of groups) {
+    if (storedServerHasExternalCatalog(group.serverIndexKey, storage)) continue;
     const saved = checkpoint?.servers[group.serverIndexKey];
     if (saved?.phase !== 'ready' || !saved.checkedVersion) continue;
     if (classifyNavidromeCanonicalVersion({

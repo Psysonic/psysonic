@@ -1,3 +1,4 @@
+import { storedServerHasExternalCatalog } from '@/lib/server/externalCatalog';
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { MigrationBeginResultDto } from '@/generated/bindings';
@@ -766,6 +767,7 @@ async function observeNavidromeCanonicalSuccessfulPingNow(args: {
   const group = groups.find(candidate => candidate.profiles.some(profile => profile.id === args.profile.id));
   if (!group) throw new Error(`Could not resolve canonical migration owner for ${args.profile.id}`);
   const serverId = group.serverIndexKey;
+  if (args.ping.type === 'octo' || storedServerHasExternalCatalog(serverId, storage)) return false;
   const sourceVersion = args.ping.serverVersion ?? null;
   const classification = classifyNavidromeCanonicalVersion(args.ping);
   const checkpoint = readCheckpoint(storage);
@@ -927,6 +929,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const activeProfileId = typeof authState.activeServerId === 'string' ? authState.activeServerId : null;
   const groupsToProbe = backendAtStart.state === 'inactive'
     ? groups.filter(group => {
+        if (storedServerHasExternalCatalog(group.serverIndexKey, storage)) return false;
         const saved = checkpoint.servers[group.serverIndexKey];
         if (checkpointIsTrustedReady(saved)) return false;
         if (activeProfileId && group.profiles.some(profile => profile.id === activeProfileId)) return true;
@@ -944,7 +947,8 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const reachableIds = new Set(reachable.map(server => server.group.serverIndexKey));
   const unavailableBlocking = groups.find(group => {
     const saved = checkpoint.servers[group.serverIndexKey];
-    return !reachableIds.has(group.serverIndexKey) && saved && BLOCKING_PHASES.has(saved.phase);
+    return !storedServerHasExternalCatalog(group.serverIndexKey, storage)
+      && !reachableIds.has(group.serverIndexKey) && saved && BLOCKING_PHASES.has(saved.phase);
   });
   if (unavailableBlocking) {
     throw new Error(
@@ -955,6 +959,23 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const migrationServers: ReachableServer[] = [];
   for (const server of reachable) {
     const serverId = server.group.serverIndexKey;
+    if (server.ping.type === 'octo' || storedServerHasExternalCatalog(serverId, storage)) {
+      // Persist before loading stores/history so an older ready checkpoint cannot
+      // canonicalize opaque proxy IDs on this launch.
+      const root = JSON.parse(storage.getItem('psysonic-auth') ?? '{}');
+      const identities = root.state.subsonicServerIdentityByServer ?? {};
+      for (const profile of server.group.profiles) identities[profile.id] = { type: 'octo', openSubsonic: true };
+      root.state.subsonicServerIdentityByServer = identities;
+      storage.setItem('psysonic-auth', JSON.stringify(root));
+      if (backendAtStart.state === 'active'
+        && backendAtStart.servers.some(candidate => candidate.serverId === serverId)) {
+        await invoke('library_migration_finish_server', {
+          generation: backendAtStart.generation, serverId, phase: 'not-applicable',
+        });
+        finishedBackendServerIds.add(serverId);
+      }
+      continue;
+    }
     const sourceVersion = server.ping.serverVersion ?? null;
     const classification = classifyNavidromeCanonicalVersion(server.ping);
     const saved = write.get(serverId);

@@ -3,6 +3,7 @@ import { useAuthStore } from '../store/authStore';
 import { coverServerScopeForOwnerServerId, coverServerScopeForServerId } from './serverScope';
 import type { InternetRadioStation, SubsonicSong } from '@/lib/api/subsonicTypes';
 import { coverArtIdFromRadio } from './ids';
+import { coverScopeHasExternalCatalog } from './serverCatalog';
 import type { CoverArtId, CoverArtRef, CoverCacheKind, CoverServerScope } from './types';
 import {
   albumHasDistinctDiscCovers,
@@ -135,7 +136,7 @@ export function albumCoverRef(
   scopeOrOpts: CoverServerScope | AlbumCoverRefOptions = { kind: 'active' },
 ): CoverArtRef {
   const { serverScope, distinctDiscCovers } = resolveAlbumCoverRefOptions(scopeOrOpts);
-  const entry = resolveAlbumCoverEntry(albumId, fetchCoverArtId, distinctDiscCovers);
+  const entry = resolveAlbumCoverEntry(albumId, fetchCoverArtId, distinctDiscCovers, coverScopeHasExternalCatalog(serverScope));
   if (!entry) {
     const id = (fetchCoverArtId ?? albumId).trim();
     return coverEntryToRef(
@@ -157,7 +158,7 @@ export function radioCoverRef(
 }
 
 export function albumCoverRefForSong(
-  song: Pick<SubsonicSong, 'albumId' | 'coverArt' | 'id' | 'discNumber' | 'serverId'>,
+  song: Pick<SubsonicSong, 'albumId' | 'coverArt' | 'id' | 'discNumber' | 'serverId' | 'isExternal'>,
   distinctDiscCovers?: boolean,
   serverScope: CoverServerScope = { kind: 'active' },
 ): CoverArtRef | undefined {
@@ -165,7 +166,7 @@ export function albumCoverRefForSong(
   const distinct =
     distinctDiscCovers
     ?? (albumId ? resolveDistinctDiscCoversForAlbum(albumId, song.serverId) : false);
-  const entry = resolveTrackCoverEntry(song, distinct);
+  const entry = resolveTrackCoverEntry(song, distinct, coverScopeHasExternalCatalog(serverScope, song.serverId));
   return entry ? coverEntryToRef(entry, serverScope) : undefined;
 }
 
@@ -197,7 +198,7 @@ export function navidromeDiscCoverRef(
 }
 
 export function albumCoverRefForPlayback(
-  track: Pick<SubsonicSong, 'coverArt' | 'id' | 'discNumber' | 'serverId'> & { albumId?: string | null },
+  track: Pick<SubsonicSong, 'coverArt' | 'id' | 'discNumber' | 'serverId' | 'isExternal'> & { albumId?: string | null },
   serverScope: CoverServerScope = resolvePlaybackCoverScope(),
 ): CoverArtRef | undefined {
   const albumId = track.albumId?.trim();
