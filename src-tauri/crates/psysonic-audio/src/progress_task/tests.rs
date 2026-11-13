@@ -51,6 +51,7 @@ struct TaskHarness {
     done: Arc<AtomicBool>,
     current_source_done: CurrentSourceDone,
     samples_played: Arc<AtomicU64>,
+    chained_sample_counter: ChainedSampleCounter,
     sample_rate: Arc<AtomicU32>,
     channels: Arc<AtomicU32>,
     gapless_switch_at: Arc<AtomicU64>,
@@ -87,6 +88,7 @@ impl TaskHarness {
             current_source_done: Arc::new(Mutex::new(Some((1, done.clone())))),
             done,
             samples_played: Arc::new(AtomicU64::new(0)),
+            chained_sample_counter: Arc::new(Mutex::new(None)),
             sample_rate: Arc::new(AtomicU32::new(44_100)),
             channels: Arc::new(AtomicU32::new(2)),
             gapless_switch_at: Arc::new(AtomicU64::new(0)),
@@ -111,6 +113,7 @@ impl TaskHarness {
             emitter,
             None,
             self.samples_played.clone(),
+            self.chained_sample_counter.clone(),
             self.sample_rate.clone(),
             self.channels.clone(),
             self.gapless_switch_at.clone(),
@@ -362,6 +365,42 @@ async fn done_with_chained_info_swaps_to_chain_and_emits_track_switched() {
     chained_done.store(true, Ordering::SeqCst);
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert_eq!(emitter.ended_count(), 1);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn gapless_transition_publishes_the_successor_counter() {
+    let h = TaskHarness::new(120.0);
+    h.done.store(true, Ordering::SeqCst);
+    let successor_counter = Arc::new(AtomicU64::new(0));
+    *h.chained.lock().unwrap() = Some(ChainedInfo {
+        url: "psysonic-local:///next/track.flac".to_string(),
+        analysis_track_id: None,
+        server_id: None,
+        local_original_verified: None,
+        generation: 1,
+        raw_bytes: Arc::new(Vec::new()),
+        resolved_format: None,
+        output_rate: 44_100,
+        output_channels: 2,
+        duration_secs: 200.0,
+        replay_gain_linear: 1.0,
+        base_volume: 1.0,
+        source_done: Arc::new(AtomicBool::new(false)),
+        cancel: Arc::new(AtomicBool::new(false)),
+        sample_counter: successor_counter.clone(),
+    });
+
+    let emitter = Arc::new(MockEmitter::default());
+    h.spawn_with(emitter.clone());
+    tokio::time::sleep(Duration::from_millis(200)).await;
+
+    assert_eq!(emitter.track_switched_count(), 1);
+    let active = crate::state::active_sample_counter(
+        &h.chained_sample_counter,
+        &h.gen_counter,
+        &h.samples_played,
+    );
+    assert!(Arc::ptr_eq(&active, &successor_counter));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

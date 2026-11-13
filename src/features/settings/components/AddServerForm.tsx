@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CustomHeaderEntry, CustomHeadersApplyTo, ServerProfile } from '@/store/authStoreTypes';
 import { showToast } from '@/lib/dom/toast';
@@ -20,6 +20,7 @@ import { resolveHostAddresses } from '@/lib/api/network';
 import { useAuthStore } from '@/store/authStore';
 import { isNavidromeServer } from '@/lib/server/subsonicServerIdentity';
 import { ServerStreamQualityEditor } from '@/features/settings/components/ServerStreamQualityEditor';
+import { PasswordEdgeSpaceHint } from '@/ui/PasswordEdgeSpaceHint';
 
 type FormState = {
   name: string;
@@ -67,6 +68,8 @@ export function AddServerForm({
   editingServer?: ServerProfile | null;
 }) {
   const { t } = useTranslation();
+  const passwordInputId = useId();
+  const passwordHintId = useId();
   const isEdit = editingServer != null;
   const editingServerIdentity = useAuthStore(s => (
     editingServer ? s.subsonicServerIdentityByServer[editingServer.id] : undefined
@@ -392,7 +395,9 @@ export function AddServerForm({
           />
         </div>
         <div className="form-group">
-          <label style={{ fontSize: 13 }}>{t('settings.serverPassword')}</label>
+          <label htmlFor={blockPasswordReveal ? undefined : passwordInputId} style={{ fontSize: 13 }}>
+            {t('settings.serverPassword')}
+          </label>
           {blockPasswordReveal ? (
             <input
               className="input"
@@ -404,13 +409,18 @@ export function AddServerForm({
               style={{ letterSpacing: '0.12em', cursor: 'default' }}
             />
           ) : (
-            <input
-              className="input"
-              type="password"
-              value={form.password}
-              onChange={update('password')}
-              placeholder="••••••••"
-            />
+            <>
+              <input
+                id={passwordInputId}
+                className="input"
+                type="password"
+                value={form.password}
+                onChange={update('password')}
+                placeholder="••••••••"
+                aria-describedby={passwordHintId}
+              />
+              <PasswordEdgeSpaceHint id={passwordHintId} password={form.password} />
+            </>
           )}
         </div>
       </div>

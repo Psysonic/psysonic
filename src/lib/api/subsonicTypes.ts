@@ -274,6 +274,8 @@ export interface SubsonicDirectory {
 
 export type PingWithCredentialsResult = SubsonicServerIdentity & {
   ok: boolean;
+  /** Subsonic envelope `version` (e.g. `1.16.1`) when the server advertises one. */
+  apiVersion?: string;
   /** Short reason when `ok` is false (server message / HTTP status / transport error). */
   error?: string;
 };

@@ -64,6 +64,11 @@ import {
   storeAlbumBrowseCatalogCache,
 } from '@/lib/library/albumBrowseInflight';
 import { librarySelectionForServer } from '@/lib/api/subsonicClient';
+import {
+  isSyncOnlyCatalogChange,
+  refetchCatalogWindow,
+  type BrowseCatalogView,
+} from '@/lib/library/browseCatalogSyncRefresh';
 
 const PAGE_SIZE = 30;
 const CLIENT_SLICE_PAGE_SIZE = 60;
@@ -164,21 +169,25 @@ export function useAlbumBrowseData({
     compFilter,
   }), [sort, yearFilterActive, yearFilterBounds, losslessOnly, starredOnly, compFilter]);
 
+  const catalogViewKey = useMemo(
+    () => albumBrowseInitialLoadKey(
+      serverId,
+      musicLibraryFilterVersion,
+      browseQuery,
+      offlineBrowseActive,
+    ),
+    [serverId, musicLibraryFilterVersion, browseQuery, offlineBrowseActive],
+  );
+
   const catalogLoadKey = useMemo(
     () => {
-      const base = albumBrowseInitialLoadKey(
-        serverId,
-        musicLibraryFilterVersion,
-        browseQuery,
-        offlineBrowseActive,
-      );
       // Online index browse re-keys on the library sync revision so a completed
       // resync surfaces renamed/pruned albums without an app restart; offline
       // browse already re-keys via its own (sync-driven) reload key.
-      if (!offlineBrowseActive) return albumBrowseOnlineCatalogKey(base, librarySyncRevision);
-      return `${base}\0${offlineLocalBrowseReloadKey}`;
+      if (!offlineBrowseActive) return albumBrowseOnlineCatalogKey(catalogViewKey, librarySyncRevision);
+      return `${catalogViewKey}\0${offlineLocalBrowseReloadKey}`;
     },
-    [serverId, musicLibraryFilterVersion, browseQuery, offlineBrowseActive, offlineLocalBrowseReloadKey, librarySyncRevision],
+    [catalogViewKey, offlineBrowseActive, offlineLocalBrowseReloadKey, librarySyncRevision],
   );
 
   const compFilterActive = compFilter !== 'all';
@@ -257,6 +266,11 @@ export function useAlbumBrowseData({
   // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
   // eslint-disable-next-line react-hooks/refs
   browseModeRef.current = browseMode;
+  const albumsRef = useRef(albums);
+  // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
+  // eslint-disable-next-line react-hooks/refs
+  albumsRef.current = albums;
+  const catalogViewRef = useRef<BrowseCatalogView | null>(null);
 
   useEffect(() => {
     while (coverTrafficGridPaginationDepth() > 0) {
@@ -405,8 +419,55 @@ export function useAlbumBrowseData({
   useEffect(() => {
     let cancelled = false;
     const loadKey = catalogLoadKey;
+    const previousView = catalogViewRef.current;
+    catalogViewRef.current = { viewKey: catalogViewKey, syncRevision: librarySyncRevision };
 
     if (readAlbumBrowseCatalogCache(loadKey)) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (
+      !offlineBrowseActive
+      && indexEnabled
+      && serverId
+      && browseModeRef.current === 'slice'
+      && albumsRef.current.length > 0
+      && isSyncOnlyCatalogChange(previousView, catalogViewKey, librarySyncRevision)
+    ) {
+      const generation = ++loadGenerationRef.current;
+      // The bump drops any in-flight append or tail load, which then can no
+      // longer clear its own loading state.
+      catalogLoadingRef.current = false;
+      setCatalogLoadingMore(false);
+      void refetchCatalogWindow<SubsonicAlbum>(
+        Math.max(albumsRef.current.length, CATALOG_CHUNK_SIZE),
+        CATALOG_CHUNK_SIZE,
+        async (offset, chunkSize, cursor) => {
+          const chunk = await fetchLocalAlbumCatalogChunk(
+            serverId,
+            indexEnabled,
+            browseQuery,
+            offset,
+            chunkSize,
+            cursor,
+          );
+          return chunk && { items: chunk.albums, hasMore: chunk.hasMore, nextCursor: chunk.nextCursor };
+        },
+      ).catch(() => null).then(refreshed => {
+        if (cancelled || generation !== loadGenerationRef.current || refreshed == null) return;
+        setAlbums(refreshed.items);
+        catalogOffsetRef.current = refreshed.items.length;
+        catalogCursorRef.current = refreshed.nextCursor ?? null;
+        setCatalogHasMore(refreshed.hasMore);
+        storeAlbumBrowseCatalogCache(loadKey, {
+          albums: refreshed.items,
+          hasMore: refreshed.hasMore,
+          nextCursor: refreshed.nextCursor,
+        });
+        emitAlbumBrowseDebug('sync_refresh_done', { albumCount: refreshed.items.length });
+      });
       return () => {
         cancelled = true;
       };
@@ -426,8 +487,6 @@ export function useAlbumBrowseData({
       catalogCursorRef.current = null;
       loadPendingRef.current = false;
       catalogLoadingRef.current = false;
-      // React Compiler set-state-in-effect rule: state set from an async result resolved in this effect.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPage(0);
       setAlbums([]);
       setHasMore(true);

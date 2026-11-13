@@ -9,6 +9,7 @@ export const login = {
   password: '密码',
   showPassword: '显示密码',
   hidePassword: '隐藏密码',
+  passwordEdgeSpace: '密码开头或结尾有空格。如果空格不是密码的一部分，请将其删除。',
   connect: '连接',
   connecting: '正在连接…',
   connected: '已连接！',

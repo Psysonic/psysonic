@@ -246,6 +246,7 @@ pub async fn audio_play_radio(
         app,
         None,
         state.samples_played.clone(),
+        state.chained_sample_counter.clone(),
         state.current_sample_rate.clone(),
         state.current_channels.clone(),
         state.gapless_switch_at.clone(),

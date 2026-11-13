@@ -36,6 +36,21 @@ export type PlayQueueFingerprint = {
 export type ApplyPlayQueueResult = 'applied' | 'noop' | 'empty' | 'error';
 
 const POSITION_TOLERANCE_MS = 2000;
+/** Matches the engine's own limit for seeking near the end of a track. */
+const TRACK_END_MARGIN_MS = 50;
+
+/**
+ * Position to resume from. A queue that played to its end is saved with the
+ * full track length, which is not a resume point: the engine cannot seek there
+ * and stays at 0, so the local position never matches and every idle poll would
+ * reload the track and flash a full seekbar.
+ */
+function serverResumePositionMs(q: PlayQueueResult): number {
+  const position = q.position ?? 0;
+  const currentId = q.current ?? q.songs[0]?.id;
+  const durationMs = (q.songs.find(s => s.id === currentId)?.duration ?? 0) * 1000;
+  return durationMs > 0 && position >= durationMs - TRACK_END_MARGIN_MS ? 0 : position;
+}
 
 export function fingerprintFromServer(q: PlayQueueResult): PlayQueueFingerprint {
   const trackIds = q.songs.map(s => s.id);
@@ -43,7 +58,7 @@ export function fingerprintFromServer(q: PlayQueueResult): PlayQueueFingerprint 
   return {
     trackIds,
     currentId,
-    positionMs: q.position ?? 0,
+    positionMs: serverResumePositionMs(q),
   };
 }
 
@@ -103,7 +118,7 @@ export function applyMappedQueue(
     }
   }
 
-  const serverTime = q.position ? q.position / 1000 : 0;
+  const serverTime = serverResumePositionMs(q) / 1000;
   const atSeconds = preferServerPosition
     ? serverTime
     : (serverTime > 0 ? serverTime : localTimeFallback);
@@ -216,7 +231,7 @@ export function applyMappedQueueProjection(
   const queueIndex = queueItems.findIndex(ref => (
     profileIdFromQueueRef(ref) === serverProfileId && ref.trackId === currentTrack.id
   ));
-  const atSeconds = q.position ? q.position / 1000 : 0;
+  const atSeconds = serverResumePositionMs(q) / 1000;
   usePlayerStore.setState({
     queueItems,
     queueIndex: queueIndex >= 0 ? queueIndex : 0,

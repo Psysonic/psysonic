@@ -79,7 +79,7 @@ symphonia-adapter-libopus = "0.3"
 rusqlite = { version = "0.40", features = ["bundled"] }
 ebur128 = "0.1"
 dasp_sample = "0.11.0"
-zip = "8"
+zip = "9"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 webp = "0.3"
 tauri-plugin-clipboard-manager = "2"

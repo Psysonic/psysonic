@@ -349,6 +349,8 @@ pub(crate) async fn rebuild_current_track_at_blend_rate(
         cur.fadeout_trigger = Some(ps.built.fadeout_trigger);
         cur.fadeout_samples = Some(ps.built.fadeout_samples);
         cur.streaming_seek = None;
+        // The rebuilt source counts into `samples_played` again, in the same generation.
+        *state.chained_sample_counter.lock().unwrap() = None;
         // Publish the recovered offset before releasing the paused source.
         state.samples_played.store(
             raw_counter_samples_for_content_position(

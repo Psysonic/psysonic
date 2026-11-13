@@ -13,7 +13,9 @@ use tauri::{AppHandle, Emitter, Runtime};
 use super::engine::{AudioCurrent, PendingSeekState};
 use super::helpers::{ramp_sink_volume, ProgressPayload, MASTER_HEADROOM};
 use super::playback_rate::{effective_duration_secs, effective_position_secs, PlaybackRateAtomics};
-use super::state::{install_current_source_done, ChainedInfo, CurrentSourceDone};
+use super::state::{
+    install_current_source_done, ChainedInfo, ChainedSampleCounter, CurrentSourceDone,
+};
 
 /// Sink for the three progress events the task emits. Production wraps an
 /// `AppHandle<R>` (any Tauri runtime) via the blanket impl below; tests pass
@@ -72,6 +74,7 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
     emitter: E,
     analysis_app: Option<AppHandle>,
     samples_played: Arc<AtomicU64>,
+    chained_sample_counter: ChainedSampleCounter,
     sample_rate_arc: Arc<AtomicU32>,
     channels_arc: Arc<AtomicU32>,
     gapless_switch_at: Arc<AtomicU64>,
@@ -209,6 +212,9 @@ pub(crate) fn spawn_progress_task<E: ProgressEmitter>(
                     // The chained CountingSource increments its own Arc,
                     // so we must rebind our local reference to it —
                     // a one-time value copy would go stale immediately.
+                    // Pause and seek read the same counter through this slot.
+                    *chained_sample_counter.lock().unwrap() =
+                        Some((gen, info.sample_counter.clone()));
                     samples_played = info.sample_counter;
 
                     // Update tracking state and apply the chained track's

@@ -34,6 +34,11 @@ import {
 } from '@/lib/library/artistBrowseInflight';
 import type { LibraryScopePair } from '@/lib/api/library/scopeReads';
 import { refreshStarredArtistIndexes } from '@/lib/library/starredArtistIndexSync';
+import {
+  isSyncOnlyCatalogChange,
+  refetchCatalogWindow,
+  type BrowseCatalogView,
+} from '@/lib/library/browseCatalogSyncRefresh';
 
 /** Local-index artist catalog buffer grows by this many rows per background SQL chunk. */
 export const ARTIST_CATALOG_CHUNK_SIZE = 200;
@@ -86,10 +91,19 @@ export function useArtistsBrowseCatalog({
   useEffect(() => {
     libraryScopesRef.current = libraryScopes;
   }, [libraryScopes, libraryScopeKey]);
+  const browseModeRef = useRef(browseMode);
+  // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
+  // eslint-disable-next-line react-hooks/refs
+  browseModeRef.current = browseMode;
+  const catalogArtistsRef = useRef(catalogArtists);
+  // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
+  // eslint-disable-next-line react-hooks/refs
+  catalogArtistsRef.current = catalogArtists;
+  const catalogViewRef = useRef<BrowseCatalogView | null>(null);
 
-  const catalogLoadKey = useMemo(() => {
+  const catalogViewKey = useMemo(() => {
     if (!serverId) return '';
-    const base = artistBrowseInitialLoadKey(
+    return artistBrowseInitialLoadKey(
       serverId,
       musicLibraryFilterVersion,
       libraryScopeKey,
@@ -98,12 +112,16 @@ export function useArtistsBrowseCatalog({
       starredOnly,
       offlineBrowseActive,
     );
+  }, [serverId, musicLibraryFilterVersion, libraryScopeKey, creditMode, letterFilter, starredOnly, offlineBrowseActive]);
+
+  const catalogLoadKey = useMemo(() => {
+    if (!catalogViewKey) return '';
     // Offline browse already re-keys via its own reload key (also sync-driven);
     // online index browse re-keys on the library sync revision so a completed
     // resync surfaces renamed/pruned artists without an app restart.
-    if (!offlineBrowseActive) return artistBrowseOnlineCatalogKey(base, librarySyncRevision);
-    return `${base}\0${offlineLocalBrowseReloadKey}`;
-  }, [serverId, musicLibraryFilterVersion, libraryScopeKey, creditMode, letterFilter, starredOnly, offlineBrowseActive, offlineLocalBrowseReloadKey, librarySyncRevision]);
+    if (!offlineBrowseActive) return artistBrowseOnlineCatalogKey(catalogViewKey, librarySyncRevision);
+    return `${catalogViewKey}\0${offlineLocalBrowseReloadKey}`;
+  }, [catalogViewKey, offlineBrowseActive, offlineLocalBrowseReloadKey, librarySyncRevision]);
 
   useLayoutEffect(() => {
     const cached = readArtistBrowseCatalogCache(catalogLoadKey);
@@ -214,8 +232,56 @@ export function useArtistsBrowseCatalog({
   useEffect(() => {
     let cancelled = false;
     const loadKey = catalogLoadKey;
+    const previousView = catalogViewRef.current;
+    catalogViewRef.current = { viewKey: catalogViewKey, syncRevision: librarySyncRevision };
 
     if (readArtistBrowseCatalogCache(loadKey)) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    if (
+      !offlineBrowseActive
+      && indexEnabled
+      && serverId
+      && browseModeRef.current === 'slice'
+      && catalogArtistsRef.current.length > 0
+      && isSyncOnlyCatalogChange(previousView, catalogViewKey, librarySyncRevision)
+    ) {
+      const generation = ++loadGenerationRef.current;
+      // The bump drops any in-flight append, which then can no longer clear
+      // its own loading state.
+      catalogLoadingRef.current = false;
+      setCatalogLoadingMore(false);
+      void refetchCatalogWindow<SubsonicArtist>(
+        starredOnly ? 1 : Math.max(catalogArtistsRef.current.length, ARTIST_CATALOG_CHUNK_SIZE),
+        starredOnly ? 10_000 : ARTIST_CATALOG_CHUNK_SIZE,
+        async (offset, chunkSize) => {
+          const chunk = await fetchLocalArtistCatalogChunk(
+            serverId,
+            offset,
+            chunkSize,
+            creditMode,
+            starredOnly ? undefined : letterFilter,
+            {
+              libraryScopes: libraryScopesRef.current,
+              ...(starredOnly ? { starredOnly: true } : {}),
+            },
+          );
+          return chunk && { items: chunk.artists, hasMore: chunk.hasMore };
+        },
+      ).catch(() => null).then(refreshed => {
+        if (cancelled || generation !== loadGenerationRef.current || refreshed == null) return;
+        const hasMore = !starredOnly && refreshed.hasMore;
+        setCatalogArtists(refreshed.items);
+        catalogOffsetRef.current = refreshed.items.length;
+        setCatalogHasMore(hasMore);
+        if (!starredOnly) {
+          storeArtistBrowseCatalogCache(loadKey, { artists: refreshed.items, hasMore });
+        }
+        emitArtistsBrowseDebug('sync_refresh_done', { artistCount: refreshed.items.length });
+      });
       return () => {
         cancelled = true;
       };
@@ -232,8 +298,6 @@ export function useArtistsBrowseCatalog({
         && artistBrowseCatalogInflight(bootKey));
     catalogOffsetRef.current = 0;
     catalogLoadingRef.current = false;
-    // React Compiler set-state-in-effect rule: state set from an async result resolved in this effect.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setCatalogArtists([]);
     setCatalogHasMore(false);
     setCatalogLoadingMore(false);
@@ -481,7 +545,7 @@ export function useArtistsBrowseCatalog({
     return () => {
       cancelled = true;
     };
-  }, [catalogLoadKey, creditMode, ignoredArticles, letterFilter, musicLibraryFilterVersion, indexEnabled, multiServer, offlineBrowseActive, offlineBrowseReloadTs, serverId, starredOnly]);
+  }, [catalogLoadKey, catalogViewKey, librarySyncRevision, creditMode, ignoredArticles, letterFilter, musicLibraryFilterVersion, indexEnabled, multiServer, offlineBrowseActive, offlineBrowseReloadTs, serverId, starredOnly]);
 
   return {
     catalogArtists,

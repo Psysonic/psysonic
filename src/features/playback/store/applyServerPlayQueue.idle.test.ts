@@ -70,12 +70,14 @@ import {
   touchQueueMutationClock,
 } from '@/features/playback/store/queuePlaybackIdle';
 import { usePlayQueueSyncSettingsStore } from '@/features/playback/store/playQueueSyncSettingsStore';
+import { preparePausedRestoreOnStartup } from '@/features/playback/store/pausedRestorePrepare';
 
 describe('applyServerPlayQueue idle guards', () => {
   beforeEach(() => {
     _resetQueuePlaybackIdleForTest();
     usePlayQueueSyncSettingsStore.setState({ enabled: true });
     getPlayQueueForServerMock.mockReset();
+    vi.mocked(preparePausedRestoreOnStartup).mockClear();
     playerState.queueServerId = null;
     playerState.queueItems = [{ serverId: 'srv-a', trackId: 'local-only' }];
     playerState.queueIndex = 0;
@@ -231,6 +233,49 @@ describe('applyServerPlayQueue idle guards', () => {
     await expect(pullPlayQueueFromActiveServer()).resolves.toBe('applied');
     expect(getPlayQueueForServerMock).toHaveBeenCalledWith('srv-a');
     expect(playerState.queueItems.map(ref => ref.trackId)).toEqual(['a1', 'b1', 'a3']);
+  });
+
+  describe('server position at the end of the current track', () => {
+    const finishedQueue = {
+      songs: [{ id: 'a1', duration: 60 }],
+      current: 'a1',
+      position: 60_000,
+    };
+
+    beforeEach(() => {
+      playerState.queueItems = [{ serverId: 'srv-a', trackId: 'a1' }];
+      playerState.currentTrack = {
+        id: 'a1', title: 'a1', artist: '', album: '', albumId: '', duration: 60,
+      };
+      playerState.currentTime = 0;
+    });
+
+    it('does not reload a finished queue on every idle poll', async () => {
+      getPlayQueueForServerMock.mockResolvedValue(finishedQueue);
+
+      await expect(applyServerPlayQueue('srv-a', { mode: 'idle' })).resolves.toBe('noop');
+
+      expect(preparePausedRestoreOnStartup).not.toHaveBeenCalled();
+    });
+
+    it('restores a finished queue at the start of the track, not at 100 %', async () => {
+      getPlayQueueForServerMock.mockResolvedValue(finishedQueue);
+      playerState.queueItems = [{ serverId: 'srv-a', trackId: 'local-only' }];
+
+      await expect(applyServerPlayQueue('srv-a', { mode: 'startup' })).resolves.toBe('applied');
+
+      expect(preparePausedRestoreOnStartup).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(preparePausedRestoreOnStartup).mock.calls[0]?.[3]).toBe(0);
+      expect(playerState.currentTime).toBe(0);
+    });
+
+    it('still restores a position inside the track', async () => {
+      getPlayQueueForServerMock.mockResolvedValue({ ...finishedQueue, position: 30_000 });
+
+      await expect(applyServerPlayQueue('srv-a', { mode: 'idle' })).resolves.toBe('applied');
+
+      expect(vi.mocked(preparePausedRestoreOnStartup).mock.calls[0]?.[3]).toBe(30);
+    });
   });
 
   it('applies server queue on startup even when share refs are still in memory', async () => {

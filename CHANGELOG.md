@@ -62,6 +62,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Cut-off text shows its full value on hover. Titles, artists and albums stay left-aligned; the other columns are centred.
 * Works the same everywhere: albums, playlists, favourites, artist pages, random mix, the Tracks page, search and the albums list view — and fully from the keyboard (Tab to a header, Enter sorts, Ctrl+Shift+←/→ moves it, Shift+F10 opens the menu, arrow keys resize a focused divider).
 
+### Export new albums as an image
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1844](https://github.com/Psysonic/psysonic/pull/1844)**
+
+* The new **image button** in the New Releases header saves every album added since a chosen date as PNG images in a compact two-column catalog layout that stays readable when scaled down in a chat. Ctrl+Shift+Alt+N opens the same dialog.
+* Pick the start date and a dark or light color scheme; the dialog shows how many albums and images it will make, where they are saved, and the result.
+* All text in the image follows the app language. Hide the button under **Settings → Personalisation → New Releases**.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited
@@ -83,6 +91,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Linux media widgets that look up the application through MPRIS can now resolve Psysonic's icon instead of showing a generic or blank one. Media controls and desktop notifications use the package's desktop identity, including the different names used by Nix and Flatpak.
 
+### Servers behind an auth gate can pair with a local address
+
+**By [@enncoded](https://github.com/enncoded), PR [#1817](https://github.com/Psysonic/psysonic/pull/1817)**
+
+* Adding a server whose public address sits behind a header-auth gate (Pangolin, Cloudflare Access) failed with "Could not reach <address>" as soon as a second address was filled in, even with a correct gate header. The same-server check pinged the gated address from the WebView, whose preflight carries no token, so the gate refused it. Those two addresses can be paired again.
+
 ### Reissues tagged with the original year stay separate albums
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1820](https://github.com/Psysonic/psysonic/pull/1820)**
@@ -90,6 +104,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * An original and its reissue in the same library were shown as one album when the reissue is tagged with the original's year. Psysonic now tells them apart by the release year Navidrome reports for each edition. Songs read through the Subsonic API carry no release year, so for those it still goes by the year tag. That includes Navidrome libraries synced that way, as scoped syncs and the first sync of a large library are; a copy of a reissue read like this can still be grouped with the original.
 * The New Releases row compares a not yet indexed album by its edition's release date as well, so a fresh reissue no longer lands on the original's card.
 * After the update the library rebuilds its album groups once in the background.
+
+### AutoDJ crossfades keep the playback position aligned
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1826](https://github.com/Psysonic/psysonic/pull/1826)**
+
+* After successive AutoDJ crossfades, the seekbar and synchronised lyrics could run ahead of the music and trigger the next transition too early. Outgoing audio no longer advances the incoming track's playback clock, so the drift does not accumulate.
 
 ### Song Info for downloaded and cached tracks
 
@@ -114,6 +134,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1839](https://github.com/Psysonic/psysonic/pull/1839)**
 
 * The PsyLab debug window (Ctrl+Shift+D) kept a fixed size, so on a large screen it was a small box with a cramped scroll area. It now takes most of the app window, up to 1280 × 1000 px, and still fits small windows with Reset all and Close in view.
+
+### Security updates for the zip library and a network dependency
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1845](https://github.com/Psysonic/psysonic/pull/1845)**
+
+* Updated the zip library used for theme imports and backups to pick up upstream fixes for crafted archives, and updated a redirect-handling dependency with a fix for forwarding credentials on redirects. Backups and theme imports work as before.
+
+### Seekbar no longer flashes while nothing plays
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by zunoz on Discord, PR [#1847](https://github.com/Psysonic/psysonic/pull/1847)**
+
+* After a queue had played to its end, the seekbar could light up completely for a second or two every few seconds while nothing was playing, and the last track was reloaded each time. A queue that finished now simply starts at the beginning of its last track.
+
+### Album and artist pages keep their place during a library scan
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Svenni on Discord, PR [#1848](https://github.com/Psysonic/psysonic/pull/1848)**
+
+* When a background sync picked up changes after a server scan, the Albums and Artists pages emptied and reloaded, which sent you back to the top. The list now stays where it is and updates in place.
+
+### Pausing after a gapless transition keeps the position
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by VirtualWolf on Discord, PR [#1849](https://github.com/Psysonic/psysonic/pull/1849)**
+
+* After one track had flowed into the next with gapless playback, pausing made the mini player's progress bar jump, often to the very end of the track, until playback resumed. It now stays where the music stopped.
+
+### Featured artists open on their own page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Peewee on Discord, PR [#1852](https://github.com/Psysonic/psysonic/pull/1852)**
+
+* Clicking a featured artist in a track's credits could show a mixed page, with the name and albums of the artist you came from next to the biography of the one you clicked, or just "Artist not found". The page now belongs to the artist you clicked and lists the albums they appear on.
+
+### Device Sync names the tracks in a file name conflict
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator, PR [#1853](https://github.com/Psysonic/psysonic/pull/1853)**
+
+* The sync summary only counted tracks skipped because another track already takes their file name. The row now opens into a list of each skipped track, the track that keeps the file and its path.
+* When another file already occupies a planned path, the error now says so and names the path instead of blaming two tracks.
+
+### Album covers recover after retagging
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1854](https://github.com/Psysonic/psysonic/pull/1854)**
+
+* An album could keep the server's "no artwork" image on Home and in lists after retagging, even once the server had the cover. Psysonic now asks the server again when that image is older than 30 minutes and replaces it with the real cover.
+* The album page also asks the server first, so the album's own cover replaces one fetched earlier from an external source.
+
+### Bandcamp servers with a wrong password no longer connect
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by belfast on Discord, PR [#1855](https://github.com/Psysonic/psysonic/pull/1855)**
+
+* Bandcamp's Subsonic API reports a successful connection test even when the username or password is wrong. Psysonic then saved the server, and the library stayed empty without an error. The connection test now also checks the login with a real request and fails when Bandcamp rejects it.
+* Copying a password by double-click can pick up a space at the start or end. The login page and the server form now show a hint below the password field when that happens. The password itself is kept as you entered it, because a space can be part of a real password.
+
+### Playlist covers stay sharp in the grid
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@Ter0zak](https://github.com/Ter0zak), PR [#1856](https://github.com/Psysonic/psysonic/pull/1856)**
+
+* Covers that are not square, such as many imported playlist images, turned blurry after a second or two once the cover cache had saved them. The cache scaled them by their longer side, so the image was too small to fill a square card. It now scales by the shorter side. Covers cached by earlier versions are redrawn once from the copy already on disk, in the background after the first start, so they stay available while the server is offline.
+* A grid card could keep a small thumbnail that the sidebar had already loaded for the same playlist. Cards now load their own size and show the small image only until then.
+* Playlist cards request a cover size that matches how large they are drawn, instead of a fixed size.
 
 ## Changed
 

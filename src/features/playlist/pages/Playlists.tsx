@@ -377,9 +377,10 @@ export default function Playlists() {
     selectedPlaylists, isPlaylistDeletable, removeId, clearSelection, t,
   });
 
-  const renderCard = (pl: SubsonicPlaylist) => (
+  const renderCard = (pl: SubsonicPlaylist, cellCssPx: number) => (
     <PlaylistCard
       pl={pl}
+      coverCssPx={cellCssPx}
       selectionMode={selectionMode}
       draggable={showFolderView}
       selectedIds={visibleSelectedIds}

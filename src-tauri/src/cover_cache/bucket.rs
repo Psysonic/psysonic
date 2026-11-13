@@ -73,7 +73,7 @@ pub(super) fn purge_external_files(server_dir: &Path) -> usize {
 /// downloads the server's art again (cover-art-pipeline contract §10: after an
 /// upload). External-provider artifacts stay; they don't depend on the
 /// server's art. A dir carrying `.album-ext-hit` is left alone: its tiers are
-/// chain art and the marker must never be removed. Returns the number of
+/// chain art, and an upload is no reason to drop them. Returns the number of
 /// files removed.
 pub(super) fn purge_entity_server_art(entity_dir: &Path) -> usize {
     fn is_server_art(name: &str) -> bool {

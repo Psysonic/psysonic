@@ -158,6 +158,11 @@ export function useArtistDetailData(
     // React Compiler set-state-in-effect rule: state set from an async result resolved in this effect.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
+    // The page stays mounted across artist routes, and several branches below end
+    // without a result. Anything left here would then head the next artist's page.
+    setArtist(null);
+    setAlbums([]);
+    setIsStarred(false);
     setInfoEntry(null);
     setTopSongs([]);
     setTopSongsLoading(false);

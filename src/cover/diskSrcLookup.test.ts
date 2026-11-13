@@ -1,5 +1,6 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { albumCoverRef } from './ref';
+import { coverStorageKeyFromRef } from './storageKeys';
 
 vi.mock('./diskSrcCache', () => ({
   rememberDiskSrc: vi.fn(() => 'asset://cover.webp'),
@@ -18,9 +19,15 @@ vi.mock('./diskHandoff', () => ({
   notifyCoverDiskReady: vi.fn(),
 }));
 
-import { rememberDiskSrc } from './diskSrcCache';
+import { getDiskSrc, rememberDiskSrc } from './diskSrcCache';
 import { notifyCoverDiskReady } from './diskHandoff';
-import { gridDiskSrcLookupOrder, rememberDiskSrcLadder, rememberGridDiskSrc } from './diskSrcLookup';
+import {
+  getDiskSrcForGrid,
+  gridDiskSrcLookupOrder,
+  hasDiskSrcForTier,
+  rememberDiskSrcLadder,
+  rememberGridDiskSrc,
+} from './diskSrcLookup';
 
 describe('gridDiskSrcLookupOrder', () => {
   it('prefers 800 right after 512 when 512 is wanted', () => {
@@ -125,5 +132,83 @@ describe('full-res (2000) seed guard', () => {
     expect(keys.some(k => k.endsWith(':512'))).toBe(true);
     expect(keys.some(k => k.endsWith(':256'))).toBe(true);
     expect(keys.some(k => k.endsWith(':128'))).toBe(true);
+  });
+});
+
+describe('a small thumb never stands in for a larger cell', () => {
+  const store = new Map<string, string>();
+  const ref = albumCoverRef('pl-1', 'pl-1');
+  const tiersInStore = () => [...store.keys()].map(k => k.split(':').pop());
+
+  beforeEach(() => {
+    store.clear();
+    vi.mocked(rememberDiskSrc).mockImplementation((key: string, path: string) => {
+      store.set(key, path);
+      return path;
+    });
+    vi.mocked(getDiskSrc).mockImplementation((key: string) => store.get(key) ?? '');
+  });
+
+  afterEach(() => {
+    vi.mocked(rememberDiskSrc).mockImplementation(() => 'asset://cover.webp');
+    vi.mocked(getDiskSrc).mockImplementation(() => '');
+  });
+
+  it('keeps a 128 file out of the larger keys a grid cell reads', () => {
+    // The 20px sidebar thumb peeks 128.webp; a 256 card reads `:800` second.
+    rememberGridDiskSrc(ref, 128, '/cache/pl-1/128.webp');
+    expect(tiersInStore()).toEqual(['128']);
+  });
+
+  it('shows the smaller file only as a stand-in until the wanted tier is loaded', () => {
+    rememberGridDiskSrc(ref, 128, '/cache/pl-1/128.webp');
+    expect(getDiskSrcForGrid(ref, 256)).toBe('/cache/pl-1/128.webp');
+    expect(hasDiskSrcForTier(ref, 256)).toBe(false);
+    expect(hasDiskSrcForTier(ref, 128)).toBe(true);
+  });
+
+  it('counts a larger file as loaded for every smaller cell', () => {
+    rememberGridDiskSrc(ref, 256, '/cache/pl-1/800.webp');
+    expect(hasDiskSrcForTier(ref, 128)).toBe(true);
+    expect(hasDiskSrcForTier(ref, 256)).toBe(true);
+    expect(hasDiskSrcForTier(ref, 512)).toBe(true);
+  });
+
+  it('applies the rule to versioned paths and tier-ready events', () => {
+    rememberDiskSrcLadder('_', { cacheKind: 'album', cacheEntityId: 'pl-1' }, 128, '/cache/pl-1/128.webp|1787826019');
+    expect(tiersInStore()).toEqual(['128']);
+    expect(hasDiskSrcForTier(ref, 256)).toBe(false);
+  });
+
+  it('loads again when eviction leaves only a larger key the lookup never reads', () => {
+    // A 512 card keeps `:512` recent; the LRU dropped the 128 cell's `:128` and `:800`.
+    store.set(coverStorageKeyFromRef(ref, 512), '/cache/pl-1/512.webp');
+    expect(getDiskSrcForGrid(ref, 128)).toBe('');
+    expect(hasDiskSrcForTier(ref, 128)).toBe(false);
+  });
+
+  it('reports done only when the lookup shows a file of at least the wanted tier', () => {
+    const displayTiers = [64, 128, 256, 512, 800] as const;
+    let done = 0;
+    for (const want of displayTiers) {
+      for (const held of displayTiers) {
+        store.clear();
+        store.set(coverStorageKeyFromRef(ref, held), `/cache/pl-1/${held}.webp`);
+        if (!hasDiskSrcForTier(ref, want)) continue;
+        done += 1;
+        const shown = getDiskSrcForGrid(ref, want);
+        expect(shown, `want ${want}, held ${held}`).not.toBe('');
+        expect(Number(/(\d+)\.webp$/.exec(shown)?.[1])).toBeGreaterThanOrEqual(want);
+      }
+    }
+    expect(done).toBeGreaterThan(0);
+  });
+
+  // Making hero/fullscreen load their 2000 tier here would add full-res
+  // downloads on every visit; that stays outside this fix.
+  it('lets full-res surfaces settle for a display tier as before', () => {
+    expect(hasDiskSrcForTier(ref, 2000)).toBe(false);
+    rememberGridDiskSrc(ref, 800, '/cache/pl-1/800.webp');
+    expect(hasDiskSrcForTier(ref, 2000)).toBe(true);
   });
 });

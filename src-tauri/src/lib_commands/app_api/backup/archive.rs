@@ -76,12 +76,12 @@ pub(super) fn extract_databases_archive(
     let library_target_index = archive
         .file_names()
         .enumerate()
-        .find_map(|(i, name)| (name == LIBRARY_ARCHIVE_ENTRY).then_some(i))
+        .find_map(|(i, name)| name.is_ok_and(|n| n == LIBRARY_ARCHIVE_ENTRY).then_some(i))
         .ok_or_else(|| "archive does not contain library.sqlite".to_string())?;
     let analysis_target_index = archive
         .file_names()
         .enumerate()
-        .find_map(|(i, name)| (name == ANALYSIS_ARCHIVE_ENTRY).then_some(i))
+        .find_map(|(i, name)| name.is_ok_and(|n| n == ANALYSIS_ARCHIVE_ENTRY).then_some(i))
         .ok_or_else(|| "archive does not contain audio-analysis.sqlite".to_string())?;
 
     if let Some(parent) = library_destination_sqlite.parent() {
@@ -135,4 +135,77 @@ pub(super) fn extract_full_archive(
         analysis_destination_sqlite,
     )?;
     Ok(payload)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use super::*;
+
+    static TEST_DIR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    struct TestDir(PathBuf);
+
+    impl TestDir {
+        fn new() -> Self {
+            let nonce = TEST_DIR_COUNTER.fetch_add(1, Ordering::Relaxed);
+            let dir = std::env::temp_dir().join(format!(
+                "psysonic-backup-archive-{}-{nonce}",
+                std::process::id()
+            ));
+            fs::create_dir_all(&dir).unwrap();
+            Self(dir)
+        }
+
+        fn path(&self) -> &Path {
+            &self.0
+        }
+    }
+
+    impl Drop for TestDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
+
+    #[test]
+    fn databases_archive_round_trips_both_entries() {
+        let dir = TestDir::new();
+        let library = dir.path().join("library-in.sqlite");
+        let analysis = dir.path().join("analysis-in.sqlite");
+        fs::write(&library, b"library bytes").unwrap();
+        fs::write(&analysis, b"analysis bytes").unwrap();
+        let archive = dir.path().join("backup.zip");
+        write_databases_archive(&library, &analysis, &archive).unwrap();
+
+        let library_out = dir.path().join("out").join("library.sqlite");
+        let analysis_out = dir.path().join("out").join("analysis.sqlite");
+        extract_databases_archive(&archive, &library_out, &analysis_out).unwrap();
+
+        assert_eq!(fs::read(&library_out).unwrap(), b"library bytes");
+        assert_eq!(fs::read(&analysis_out).unwrap(), b"analysis bytes");
+    }
+
+    #[test]
+    fn databases_archive_without_library_entry_is_rejected() {
+        let dir = TestDir::new();
+        let archive = dir.path().join("backup.zip");
+        {
+            let mut zip = ZipWriter::new(fs::File::create(&archive).unwrap());
+            zip.start_file(ANALYSIS_ARCHIVE_ENTRY, SimpleFileOptions::default())
+                .unwrap();
+            zip.write_all(b"analysis bytes").unwrap();
+            zip.finish().unwrap();
+        }
+
+        let err = extract_databases_archive(
+            &archive,
+            &dir.path().join("library.sqlite"),
+            &dir.path().join("analysis.sqlite"),
+        )
+        .unwrap_err();
+        assert_eq!(err, "archive does not contain library.sqlite");
+    }
 }

@@ -25,6 +25,26 @@ pub(crate) fn install_current_source_done(
     true
 }
 
+/// Sample counter of the gapless successor that is currently audible. A chained
+/// source counts into its own `Arc` because its predecessor is still counting
+/// into `samples_played` while the successor waits in the sink.
+pub(crate) type ChainedSampleCounter = Arc<Mutex<Option<(u64, Arc<AtomicU64>)>>>;
+
+/// The counter the audible source writes to. Falls back to `base` unless a
+/// gapless transition of the current generation published a successor's counter,
+/// so a new play invalidates the slot just by bumping the generation.
+pub(crate) fn active_sample_counter(
+    slot: &ChainedSampleCounter,
+    generation: &AtomicU64,
+    base: &Arc<AtomicU64>,
+) -> Arc<AtomicU64> {
+    slot.lock()
+        .unwrap()
+        .as_ref()
+        .filter(|(counter_generation, _)| *counter_generation == generation.load(Ordering::SeqCst))
+        .map_or_else(|| base.clone(), |(_, counter)| counter.clone())
+}
+
 pub(crate) struct PreloadedTrack {
     pub(crate) url: String,
     pub(crate) data: Vec<u8>,
@@ -97,5 +117,39 @@ mod tests {
         let (slot_generation, slot_done) = guard.as_ref().unwrap();
         assert_eq!(*slot_generation, 2);
         assert!(Arc::ptr_eq(slot_done, &current_done));
+    }
+
+    #[test]
+    fn active_counter_is_the_successor_of_the_current_generation() {
+        let generation = AtomicU64::new(3);
+        let base = Arc::new(AtomicU64::new(0));
+        let successor = Arc::new(AtomicU64::new(0));
+        let slot = Arc::new(Mutex::new(Some((3, successor.clone()))));
+
+        let active = active_sample_counter(&slot, &generation, &base);
+
+        assert!(Arc::ptr_eq(&active, &successor));
+    }
+
+    #[test]
+    fn active_counter_ignores_a_successor_of_an_older_generation() {
+        let generation = AtomicU64::new(4);
+        let base = Arc::new(AtomicU64::new(0));
+        let slot = Arc::new(Mutex::new(Some((3, Arc::new(AtomicU64::new(0))))));
+
+        let active = active_sample_counter(&slot, &generation, &base);
+
+        assert!(Arc::ptr_eq(&active, &base));
+    }
+
+    #[test]
+    fn active_counter_is_the_base_without_a_successor() {
+        let generation = AtomicU64::new(1);
+        let base = Arc::new(AtomicU64::new(0));
+        let slot: ChainedSampleCounter = Arc::new(Mutex::new(None));
+
+        let active = active_sample_counter(&slot, &generation, &base);
+
+        assert!(Arc::ptr_eq(&active, &base));
     }
 }

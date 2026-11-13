@@ -114,6 +114,10 @@ pub struct ServerProbeResult {
     /// Server build version when advertised.
     #[serde(rename = "serverVersion")]
     pub server_version: Option<String>,
+    /// Subsonic API protocol level from the envelope `version` (`1.16.1`),
+    /// when the server advertises one. Informational: nothing compares it.
+    #[serde(rename = "apiVersion")]
+    pub api_version: Option<String>,
     /// Whether the server advertises OpenSubsonic extensions.
     #[serde(rename = "openSubsonic")]
     pub open_subsonic: bool,
@@ -130,6 +134,7 @@ impl ServerProbeResult {
             ok: true,
             server_type: info.server_type,
             server_version: info.server_version,
+            api_version: info.api_version,
             open_subsonic: info.open_subsonic,
             error: None,
         }
@@ -140,6 +145,7 @@ impl ServerProbeResult {
             ok: false,
             server_type: None,
             server_version: None,
+            api_version: None,
             open_subsonic: false,
             error: Some(probe_failure_reason(err)),
         }
@@ -338,6 +344,7 @@ mod tests {
         assert!(r.ok);
         assert_eq!(r.server_type.as_deref(), Some("navidrome"));
         assert_eq!(r.server_version.as_deref(), Some("0.62.0"));
+        assert_eq!(r.api_version.as_deref(), Some("1.16.1"));
         assert!(r.open_subsonic);
         assert!(r.error.is_none());
     }
@@ -351,6 +358,7 @@ mod tests {
         assert!(!r.ok);
         assert!(r.server_type.is_none());
         assert!(r.server_version.is_none());
+        assert!(r.api_version.is_none());
         assert!(!r.open_subsonic);
         assert_eq!(r.error.as_deref(), Some("Wrong username or password"));
     }

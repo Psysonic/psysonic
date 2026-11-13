@@ -110,12 +110,28 @@ export function coverDiskUrl(fsPath: string): string {
   return src;
 }
 
+/** Disk URL without its `?v=` mtime, and that mtime (0 when unversioned). */
+function splitUrlVersion(url: string): { base: string; version: number } {
+  const m = /^(.*)\?v=(\d+)$/.exec(url);
+  return m ? { base: m[1]!, version: Number(m[2]) } : { base: url, version: 0 };
+}
+
+/** True when `next` is an older version of the same file as `prev`. */
+function isOlderVersion(next: string, prev: string): boolean {
+  const a = splitUrlVersion(next);
+  const b = splitUrlVersion(prev);
+  return a.base === b.base && a.version < b.version;
+}
+
 export function rememberDiskSrc(storageKey: string, fsPath: string): string {
   if (!storageKey || !fsPath) return '';
   const src = coverDiskUrl(fsPath);
   if (!src) return '';
   const prev = diskSrcByStorageKey.get(storageKey);
   if (prev === src) return src;
+  // A file only gets newer: a peek that read its mtime before a rewrite must
+  // not undo `refreshDiskSrcVersions` when its answer arrives later.
+  if (prev && isOlderVersion(src, prev)) return prev;
   if (diskSrcByStorageKey.size >= MAX_DISK_SRC_CACHE_ENTRIES) {
     const oldest = diskSrcByStorageKey.keys().next().value;
     if (oldest !== undefined) diskSrcByStorageKey.delete(oldest);
@@ -168,6 +184,30 @@ export function forgetDiskSrcForServer(serverIndexKey: string): void {
   for (const key of diskSrcByStorageKey.keys()) {
     if (key.startsWith(prefix)) {
       diskSrcByStorageKey.delete(key);
+      changed = true;
+    }
+  }
+  if (changed) bumpDiskSrcCache();
+}
+
+/**
+ * Rust `cover:tiers-rewritten`: tier files rewritten in place (`path|version`).
+ * Entries already cached for them switch to the new version, so cells that
+ * showed the old file reload it — the webview keys decoded images on the full
+ * URL. Entries for other files stay as they are, so nothing blanks meanwhile.
+ */
+export function refreshDiskSrcVersions(fsPaths: readonly string[]): void {
+  const fresh = new Map<string, string>();
+  for (const fsPath of fsPaths) {
+    const src = coverDiskUrl(fsPath);
+    if (src) fresh.set(splitUrlVersion(src).base, src);
+  }
+  if (fresh.size === 0) return;
+  let changed = false;
+  for (const [key, src] of diskSrcByStorageKey) {
+    const next = fresh.get(splitUrlVersion(src).base);
+    if (next && next !== src && !isOlderVersion(next, src)) {
+      diskSrcByStorageKey.set(key, next);
       changed = true;
     }
   }

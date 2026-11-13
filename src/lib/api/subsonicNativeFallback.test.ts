@@ -70,6 +70,9 @@ describe('connect probe — CORS-less server', () => {
       probes += 1;
       return { ok: true, type: 'BandcampServer', serverVersion: '1.0', openSubsonic: true };
     });
+    onInvoke('subsonic_proxy_request', () =>
+      JSON.stringify({ 'subsonic-response': { status: 'ok', musicFolders: { musicFolder: [] } } }),
+    );
 
     const result = await pingWithCredentialsForProfile(PROFILE, BASE);
 
@@ -132,6 +135,63 @@ describe('connect probe — CORS-less server', () => {
 
     expect(result.ok).toBe(false);
     expect(probes).toBe(0);
+  });
+});
+
+describe('connect probe — server whose ping skips the credential check', () => {
+  // Bandcamp answers `ping` with `status: ok` for any credentials and only
+  // rejects them on real calls (HTTP 500). The probe must not report such a
+  // server as connected before one authenticated call went through.
+
+  function bandcampPing(): void {
+    vi.mocked(axios.get).mockRejectedValue(networkError());
+    onInvoke('probe_server_connection', () => ({
+      ok: true, type: 'BandcampServer', serverVersion: '1.0', openSubsonic: true,
+    }));
+  }
+
+  it('fails the probe when the authenticated call is rejected', async () => {
+    bandcampPing();
+    onInvoke('subsonic_proxy_request', () => {
+      throw new Error('subsonic http status: 500 Internal Server Error');
+    });
+
+    const result = await pingWithCredentialsForProfile(PROFILE, BASE);
+
+    expect(result.ok).toBe(false);
+    // Identity survives, so callers can still tell which server answered.
+    expect(result.type).toBe('BandcampServer');
+  });
+
+  it('passes once the authenticated call goes through', async () => {
+    bandcampPing();
+    let params: [string, string][] = [];
+    onInvoke('subsonic_proxy_request', args => {
+      params = (args as { params: [string, string][] }).params;
+      return JSON.stringify({ 'subsonic-response': { status: 'ok', musicFolders: {} } });
+    });
+
+    const result = await pingWithCredentialsForProfile(PROFILE, BASE);
+
+    expect(result.ok).toBe(true);
+    expect(params).toContainEqual(['u', 'tester']);
+  });
+
+  it('skips the extra call for servers whose ping checks credentials', async () => {
+    vi.mocked(axios.get).mockRejectedValue(networkError());
+    onInvoke('probe_server_connection', () => ({
+      ok: true, type: 'navidrome', serverVersion: '0.58.0', openSubsonic: true,
+    }));
+    let proxied = 0;
+    onInvoke('subsonic_proxy_request', () => {
+      proxied += 1;
+      return JSON.stringify({ 'subsonic-response': { status: 'ok' } });
+    });
+
+    const result = await pingWithCredentialsForProfile(PROFILE, BASE);
+
+    expect(result.ok).toBe(true);
+    expect(proxied).toBe(0);
   });
 });
 

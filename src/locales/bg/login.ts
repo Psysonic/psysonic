@@ -9,6 +9,7 @@ export const login = {
   password: 'Парола',
   showPassword: 'Покажи парола',
   hidePassword: 'Скрий парола',
+  passwordEdgeSpace: 'Паролата започва или завършва с интервал. Премахнете го, ако не е част от паролата.',
   connect: 'Свържи се',
   connecting: 'Свързване…',
   connected: 'Свързан!',
