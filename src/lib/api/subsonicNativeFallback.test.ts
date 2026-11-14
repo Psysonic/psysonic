@@ -22,6 +22,7 @@ import axios from 'axios';
 import { onInvoke } from '@/test/mocks/tauri';
 import { pingWithCredentialsForProfile } from '@/lib/api/subsonic';
 import { apiWithCredentials } from '@/lib/api/subsonicClient';
+import { serverHttpContextWireForProbe } from '@/lib/server/serverHttpHeaders';
 import {
   clearNativeTransportFallback,
   nativeTransportRequiredFor,
@@ -292,10 +293,20 @@ describe('gated dual-address profile — per-address transport choice', () => {
       probes += 1;
       return { ok: true, type: 'BandcampServer', serverVersion: '1.0', openSubsonic: true };
     });
+    const proxied = vi.fn(() => JSON.stringify({
+      'subsonic-response': { status: 'ok', musicFolders: { musicFolder: [] } },
+    }));
+    onInvoke('subsonic_proxy_request', proxied);
 
     const result = await pingWithCredentialsForProfile(GATED, LOCAL);
 
     expect(result.ok).toBe(true);
+    expect(proxied).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      baseUrl: LOCAL,
+      endpoint: 'getMusicFolders.view',
+      params: expect.arrayContaining([['u', 'tester']]),
+      httpContext: serverHttpContextWireForProbe(GATED),
+    }));
     // No gate headers here, so the WebView attempt is what proves the pin.
     expect(vi.mocked(axios.get).mock.calls.length).toBe(1);
     expect(probes).toBe(1);
@@ -307,22 +318,27 @@ describe('gated dual-address profile — per-address transport choice', () => {
     onInvoke('probe_server_connection', () => ({
       ok: true, type: 'BandcampServer', serverVersion: '1.0', openSubsonic: true,
     }));
-    await pingWithCredentialsForProfile(GATED, LOCAL);
+    const proxied = vi.fn(() => JSON.stringify({
+      'subsonic-response': { status: 'ok', musicFolders: { musicFolder: [] } },
+    }));
+    onInvoke('subsonic_proxy_request', proxied);
+    const result = await pingWithCredentialsForProfile(GATED, LOCAL);
 
-    let proxied = 0;
-    onInvoke('subsonic_proxy_request', () => {
-      proxied += 1;
-      return JSON.stringify({
-        'subsonic-response': { status: 'ok', musicFolders: { musicFolder: [] } },
-      });
-    });
+    expect(result.ok).toBe(true);
+    expect(proxied).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      baseUrl: LOCAL,
+      endpoint: 'getMusicFolders.view',
+      params: expect.arrayContaining([['u', 'tester']]),
+      httpContext: serverHttpContextWireForProbe(GATED),
+    }));
+    const callsAfterPing = proxied.mock.calls.length;
 
     const data = await apiWithCredentials<{ musicFolders: unknown }>(
       LOCAL, 'tester', 'pw', 'getMusicFolders.view', {}, 15000, GATED,
     );
 
     expect(data.musicFolders).toEqual({ musicFolder: [] });
-    expect(proxied).toBe(1);
+    expect(proxied).toHaveBeenCalledTimes(callsAfterPing + 1);
     // Only the ping's own WebView attempt ran; the body call skipped it.
     expect(vi.mocked(axios.get).mock.calls.length).toBe(1);
   });

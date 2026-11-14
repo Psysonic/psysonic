@@ -24,13 +24,11 @@ import {
   api,
   apiWithCredentials,
   isMissingHttpResponseError,
+  requiresNativeTransport,
   secureRandomSalt,
   type ServerHttpHeaderProfile,
 } from '@/lib/api/subsonicClient';
-import {
-  markNativeTransportRequired,
-  nativeTransportRequiredFor,
-} from '@/lib/server/nativeTransportFallback';
+import { markNativeTransportRequired } from '@/lib/server/nativeTransportFallback';
 import type { PingWithCredentialsResult, SubsonicSong } from '@/lib/api/subsonicTypes';
 
 export async function ping(): Promise<boolean> {
@@ -148,9 +146,7 @@ async function pingEndpointForProfile(
 
   // Without a WebView attempt the app never learns a gate-less address is
   // CORS-less, so go native only when the headers apply here or it is pinned.
-  const gateHeadersApplyHere =
-    Object.keys(headersForServerRequest(profile, endpointBaseUrl)).length > 0;
-  if (gateHeadersApplyHere || nativeTransportRequiredFor(base)) return probeNatively();
+  if (requiresNativeTransport(profile, base)) return probeNatively();
 
   try {
     const salt = secureRandomSalt();
