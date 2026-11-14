@@ -305,3 +305,44 @@ describe('AddServerForm — streaming quality', () => {
     expect(screen.queryByRole('button', { name: /Streaming Quality/ })).not.toBeInTheDocument();
   });
 });
+
+describe('AddServerForm — password with a space at the edge', () => {
+  beforeEach(() => {
+    resetAuthStore();
+    vi.clearAllMocks();
+  });
+
+  it('warns about a pasted leading space and keeps the password as entered', async () => {
+    const onSave = vi.fn();
+    renderWithProviders(<AddServerForm onSave={onSave} onCancel={vi.fn()} />);
+    const user = userEvent.setup();
+
+    const inputs = screen.getAllByRole('textbox');
+    await user.click(inputs[1]!);
+    await user.paste('https://music.example.com');
+    await user.click(inputs[3]!);
+    await user.paste('tester');
+    const password = screen.getByPlaceholderText('••••••••');
+    await user.click(password);
+    await user.paste(' pw');
+
+    expect(screen.getByLabelText('Password')).toBe(password);
+    expect(password).toHaveAccessibleDescription(/starts or ends with a space/i);
+
+    await user.click(screen.getByRole('button', { name: /add/i }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    // A space can belong to a real password: the form never strips it.
+    expect(onSave.mock.calls[0]![0].password).toBe(' pw');
+  });
+
+  it('stays quiet for a space inside the password', async () => {
+    renderWithProviders(<AddServerForm onSave={vi.fn()} onCancel={vi.fn()} />);
+    const user = userEvent.setup();
+
+    const password = screen.getByPlaceholderText('••••••••');
+    await user.click(password);
+    await user.paste('p w');
+
+    expect(password).toHaveAccessibleDescription('');
+  });
+});

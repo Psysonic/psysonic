@@ -38,6 +38,9 @@ use fallback::{
 pub(crate) struct BuildSourceArgs<'a> {
     pub url: &'a str,
     pub gen: u64,
+    /// Owner of the shared progress clock; an outgoing Hi-Res rebuild
+    /// keeps A's owner even when its decode task uses B's request generation.
+    pub clock_generation: u64,
     pub cache_id_for_tasks: Option<&'a str>,
     pub server_id: Option<&'a str>,
     pub url_format_hint: Option<&'a str>,
@@ -53,6 +56,7 @@ pub(crate) struct BuildSourceArgs<'a> {
 /// Decoder/output-shaping inputs shared by [`build_source_from_play_input`].
 struct PlaybackSourceShape {
     done_flag: Arc<AtomicBool>,
+    clock_generation: u64,
     fade_in_dur: Duration,
     hi_res_enabled: bool,
     resample_target_hz: u32,
@@ -105,6 +109,7 @@ pub(crate) async fn build_playback_source_with_probe_fallback(
     let BuildSourceArgs {
         url,
         gen,
+        clock_generation,
         cache_id_for_tasks,
         server_id,
         url_format_hint,
@@ -130,6 +135,7 @@ pub(crate) async fn build_playback_source_with_probe_fallback(
 
     let shape = PlaybackSourceShape {
         done_flag: done_flag.clone(),
+        clock_generation,
         fade_in_dur,
         hi_res_enabled,
         resample_target_hz,
@@ -319,13 +325,7 @@ pub(crate) async fn build_playback_source_with_probe_fallback(
                         PlayInput::Bytes(fresh.clone()),
                         state,
                         fresh_hint.as_deref(),
-                        &PlaybackSourceShape {
-                            done_flag,
-                            fade_in_dur,
-                            hi_res_enabled,
-                            resample_target_hz,
-                            duration_hint,
-                        },
+                        &shape,
                     )
                     .await;
                     if result.is_ok() {
@@ -392,6 +392,7 @@ async fn build_source_from_play_input(
 ) -> Result<PlaybackSource, String> {
     let PlaybackSourceShape {
         done_flag,
+        clock_generation,
         fade_in_dur,
         hi_res_enabled,
         resample_target_hz,
@@ -402,7 +403,7 @@ async fn build_source_from_play_input(
     // 0 = device unknown; the source is then left at its own channel count.
     let target_channels: u16 = crate::engine::output_device_channels(state);
     let mut is_seekable = true;
-    let built = match play_input {
+    let mut built = match play_input {
         PlayInput::Bytes(data) => build_source(
             data,
             *duration_hint,
@@ -496,6 +497,11 @@ async fn build_source_from_play_input(
             )
         }
     }?;
+    // Bind every successful decoding path, including full-buffer fallbacks,
+    // before any source can be published to an active playback sink.
+    built
+        .source
+        .track_sample_counter_generation(state.current_generation.clone(), *clock_generation);
     Ok(PlaybackSource { built, is_seekable })
 }
 

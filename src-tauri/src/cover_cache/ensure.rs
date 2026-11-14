@@ -145,6 +145,23 @@ pub(super) fn chain_ladder_vinyl_guard(
     }
 }
 
+/// Should this request ask the server again about an album stored as a
+/// placeholder? Only requests from the UI do: the library backfill stays quiet,
+/// and external artist surfaces have no server placeholder.
+pub(super) fn server_recheck_applies(args: &CoverCacheEnsureArgs, dir: &Path) -> bool {
+    args.cache_kind == "album"
+        && !args.library_bulk
+        && args.surface_kind.is_none()
+        && external_ensure::server_placeholder_recheck_due(dir)
+}
+
+fn cover_http_registry(
+    app: &AppHandle,
+) -> Option<Arc<psysonic_core::server_http::ServerHttpRegistry>> {
+    app.try_state::<Arc<psysonic_core::server_http::ServerHttpRegistry>>()
+        .map(|s| Arc::clone(&*s))
+}
+
 impl CoverCacheState {
     pub(crate) async fn ensure_inner(
         state: &Arc<Mutex<CoverCacheState>>,
@@ -198,6 +215,22 @@ impl CoverCacheState {
         // flight, so the redirect/peek below sees the first flight's writes
         // (queued-flight-slip rationale: see `inflight_dir_flight`).
         let _flight_guard = flight.lock().await;
+
+        // A placeholder may be out of date: ask the server before anything below
+        // trusts it or hands the album to the external chain. Real art clears
+        // the stored ladder and markers, so the checks below see a fresh album.
+        let rechecked_server_art = if auto_dl && server_recheck_applies(args, &dir) {
+            let download =
+                download_cover_payload(&client, &http_sem, args, cover_http_registry(app)).await;
+            super::ensure_migration_write_allowed(app)?;
+            external_ensure::settle_server_placeholder_recheck(
+                &dir,
+                download,
+                fetch::is_navidrome_album_placeholder,
+            )
+        } else {
+            None
+        };
 
         // §5 full-res redirect: for a chain-hit coverless album a tier-≥2000
         // request is served from the chain's on-disk ladder — never the
@@ -345,13 +378,12 @@ impl CoverCacheState {
         } else {
             load_image_from_disk(&dir)
         };
-        let source = if let Some(img) = disk_source {
+        let source = if let Some(bytes) = rechecked_server_art {
+            CoverSource::Bytes(bytes)
+        } else if let Some(img) = disk_source {
             CoverSource::Image(img)
         } else {
-            let http_registry = app
-                .try_state::<Arc<psysonic_core::server_http::ServerHttpRegistry>>()
-                .map(|s| Arc::clone(&*s));
-            match download_cover_payload(&client, &http_sem, args, http_registry).await {
+            match download_cover_payload(&client, &http_sem, args, cover_http_registry(app)).await {
                 Ok(bytes) => {
                     if args.cache_kind == "album" {
                         let placeholder = fetch::is_navidrome_album_placeholder(&bytes);
@@ -648,10 +680,10 @@ fn spawn_derive_remaining_tiers(
 mod tests {
     use super::{
         chain_hit_fullres_redirect, chain_ladder_vinyl_guard, decode_image_bytes,
-        inflight_dir_flight, FullresRedirect, VinylGuardDecision,
+        inflight_dir_flight, server_recheck_applies, FullresRedirect, VinylGuardDecision,
     };
     use crate::cover_cache::disk::tier_path;
-    use crate::cover_cache::test_support::fresh_tmpdir;
+    use crate::cover_cache::test_support::{age_file, fresh_tmpdir};
     use crate::cover_cache::{CoverCacheEnsureArgs, CoverCacheEnsureResult};
     use image::{ImageBuffer, ImageFormat, Rgba};
     use std::collections::HashMap;
@@ -679,6 +711,42 @@ mod tests {
             external_artwork_byok: None,
             external_album_sources: None,
         }
+    }
+
+    /// Only a foreground album request re-asks the server: the library backfill
+    /// stays quiet, and external artist surfaces have no server placeholder.
+    #[test]
+    fn server_recheck_runs_for_foreground_album_requests_only() {
+        let root = fresh_tmpdir("server-recheck-scope");
+        let dir = root.join("album").join("al-1");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join(".server-placeholder"), b"1").unwrap();
+        age_file(&dir.join(".server-placeholder"), 60 * 60);
+
+        assert!(server_recheck_applies(
+            &fullres_args("mf-1", 256, false),
+            &dir
+        ));
+        assert!(!server_recheck_applies(
+            &fullres_args("mf-1", 256, true),
+            &dir
+        ));
+
+        let mut artist_args = fullres_args("mf-1", 256, false);
+        artist_args.cache_kind = "artist".into();
+        assert!(!server_recheck_applies(&artist_args, &dir));
+
+        let mut surface_args = fullres_args("mf-1", 256, false);
+        surface_args.surface_kind = Some("fanart".into());
+        assert!(!server_recheck_applies(&surface_args, &dir));
+
+        fs::remove_file(dir.join(".server-placeholder")).unwrap();
+        assert!(!server_recheck_applies(
+            &fullres_args("mf-1", 256, false),
+            &dir
+        ));
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

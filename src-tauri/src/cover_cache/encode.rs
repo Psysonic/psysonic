@@ -2,16 +2,36 @@ use image::imageops::FilterType;
 use image::DynamicImage;
 use std::path::Path;
 
+/// Full-res tier: shown whole (lightbox), so it keeps the long-edge fit.
+const FULL_RES_TIER: u32 = 2000;
+
+/// Plain cover tier. Display tiers fit the SHORT edge to `tier`: the UI draws
+/// covers into square cells with `object-fit: cover`, so a non-square cover
+/// needs `tier` px across its short edge. A long-edge fit turned a 450×800
+/// playlist cover into a 72×128 `128.webp` that a grid card stretched (#1829).
+/// Never upscales.
 pub fn resize_tier(img: &DynamicImage, tier: u32) -> DynamicImage {
-    let (w, h) = (img.width(), img.height());
-    let max_dim = w.max(h);
-    if max_dim <= tier {
+    if tier >= FULL_RES_TIER {
+        return resize_tier_contain(img, tier);
+    }
+    scale_to(img, tier, img.width().min(img.height()))
+}
+
+/// Long-edge fit: for images shown whole rather than cropped into a square
+/// (artist fanart/banner surfaces). Never upscales.
+pub fn resize_tier_contain(img: &DynamicImage, tier: u32) -> DynamicImage {
+    scale_to(img, tier, img.width().max(img.height()))
+}
+
+/// Scale so that `edge` (one of the image's edges) becomes `tier`.
+fn scale_to(img: &DynamicImage, tier: u32, edge: u32) -> DynamicImage {
+    if edge <= tier {
         return img.clone();
     }
-    let scale = tier as f32 / max_dim as f32;
-    let nw = (w as f32 * scale).round().max(1.0) as u32;
-    let nh = (h as f32 * scale).round().max(1.0) as u32;
-    img.resize(nw, nh, FilterType::Triangle)
+    let scale = tier as f32 / edge as f32;
+    let nw = (img.width() as f32 * scale).round().max(1.0) as u32;
+    let nh = (img.height() as f32 * scale).round().max(1.0) as u32;
+    img.resize_exact(nw, nh, FilterType::Triangle)
 }
 
 /// Lossy WebP quality (0–100). Larger tiers use lower Q — UI rarely shows 800px raw;
@@ -33,12 +53,28 @@ pub fn encode_webp(img: &DynamicImage, tier: u32) -> Result<Vec<u8>, String> {
     Ok(enc.encode(webp_quality_for_tier(tier)).to_vec())
 }
 
+/// Write a plain cover tier ([`resize_tier`]).
 pub fn write_webp_tier(img: &DynamicImage, tier: u32, path: &Path) -> Result<(), String> {
+    write_resized(&resize_tier(img, tier), tier, path)
+}
+
+/// Rewrite an existing plain cover tier ([`resize_tier`]) through
+/// [`super::disk::replace_file`]: the old file stays until the new one is
+/// complete. Unlike [`write_webp_tier`] it never creates the dir.
+pub fn rewrite_webp_tier(img: &DynamicImage, tier: u32, path: &Path) -> Result<(), String> {
+    super::disk::replace_file(path, &encode_webp(&resize_tier(img, tier), tier)?)
+}
+
+/// Write a tier of an image shown whole ([`resize_tier_contain`]).
+pub fn write_webp_tier_contain(img: &DynamicImage, tier: u32, path: &Path) -> Result<(), String> {
+    write_resized(&resize_tier_contain(img, tier), tier, path)
+}
+
+fn write_resized(resized: &DynamicImage, tier: u32, path: &Path) -> Result<(), String> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    let resized = resize_tier(img, tier);
-    let bytes = encode_webp(&resized, tier)?;
+    let bytes = encode_webp(resized, tier)?;
     std::fs::write(path, bytes).map_err(|e| e.to_string())
 }
 
@@ -47,12 +83,49 @@ mod tests {
     use super::*;
     use image::RgbaImage;
 
+    fn canvas(w: u32, h: u32) -> DynamicImage {
+        DynamicImage::ImageRgba8(RgbaImage::new(w, h))
+    }
+
+    fn dims(img: &DynamicImage) -> (u32, u32) {
+        (img.width(), img.height())
+    }
+
     #[test]
-    fn resize_tier_scales_down_large_canvas() {
-        let img = DynamicImage::ImageRgba8(RgbaImage::new(800, 600));
-        let out = resize_tier(&img, 128);
-        assert!(out.width() <= 128);
-        assert!(out.height() <= 128);
+    fn resize_tier_contain_fits_the_long_edge() {
+        assert_eq!(
+            dims(&resize_tier_contain(&canvas(800, 600), 128)),
+            (128, 96)
+        );
+    }
+
+    #[test]
+    fn display_tier_fits_the_short_edge_of_a_portrait_cover() {
+        // A 450×800 playlist cover used to become 72×128 / 144×256.
+        assert_eq!(dims(&resize_tier(&canvas(450, 800), 128)), (128, 228));
+        assert_eq!(dims(&resize_tier(&canvas(450, 800), 256)), (256, 455));
+    }
+
+    #[test]
+    fn display_tier_fits_the_short_edge_of_a_landscape_cover() {
+        assert_eq!(dims(&resize_tier(&canvas(800, 450), 128)), (228, 128));
+    }
+
+    #[test]
+    fn display_tier_scales_a_square_cover_as_before() {
+        assert_eq!(dims(&resize_tier(&canvas(800, 800), 256)), (256, 256));
+    }
+
+    #[test]
+    fn display_tier_never_upscales() {
+        // Short edge already within the tier: the cover is kept as is.
+        assert_eq!(dims(&resize_tier(&canvas(450, 800), 512)), (450, 800));
+        assert_eq!(dims(&resize_tier(&canvas(100, 60), 128)), (100, 60));
+    }
+
+    #[test]
+    fn full_res_tier_keeps_the_long_edge_fit() {
+        assert_eq!(dims(&resize_tier(&canvas(3000, 1500), 2000)), (2000, 1000));
     }
 
     #[test]

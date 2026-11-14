@@ -167,6 +167,24 @@ pub struct DeviceSyncManifestPlaylist {
     pub relative_path: String,
 }
 
+/// Display fields of one track in a file-name conflict.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DeviceSyncTrackLabel {
+    pub(crate) title: String,
+    pub(crate) artist: String,
+    pub(crate) album: String,
+}
+
+/// A track left off the device, the track that keeps the file name, and that file.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct DeviceSyncSkippedTrack {
+    pub(crate) track: DeviceSyncTrackLabel,
+    pub(crate) kept_track: DeviceSyncTrackLabel,
+    pub(crate) relative_path: String,
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SyncDeltaResult {
@@ -190,6 +208,7 @@ pub struct SyncDeltaResult {
     /// Tracks left off the device because another track already takes their
     /// file name (same album artist, album, disc, number, title and format).
     pub(crate) skipped_count: u32,
+    pub(crate) skipped_tracks: Vec<DeviceSyncSkippedTrack>,
     pub(crate) playlists: Vec<DeviceSyncPlannedPlaylist>,
     pub(crate) manifest_files: Vec<DeviceSyncManifestFile>,
     pub(crate) manifest_playlists: Vec<DeviceSyncManifestPlaylist>,

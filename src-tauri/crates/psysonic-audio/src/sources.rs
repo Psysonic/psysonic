@@ -402,6 +402,9 @@ pub(crate) struct CountingSource<S: Source<Item = f32>> {
     counter: Arc<AtomicU64>,
     /// When set, count samples only while the flag is true (legacy track stream).
     count_gate: Option<Arc<AtomicBool>>,
+    /// Optional active-playback generation. Outgoing crossfade tails must not
+    /// keep advancing the incoming track's shared progress counter.
+    owner_generation: Option<(Arc<AtomicU64>, u64)>,
 }
 
 impl<S: Source<Item = f32>> CountingSource<S> {
@@ -410,6 +413,7 @@ impl<S: Source<Item = f32>> CountingSource<S> {
             inner,
             counter,
             count_gate: None,
+            owner_generation: None,
         }
     }
 
@@ -418,13 +422,22 @@ impl<S: Source<Item = f32>> CountingSource<S> {
             inner,
             counter,
             count_gate: Some(gate),
+            owner_generation: None,
         }
     }
 
+    pub(crate) fn track_generation(&mut self, current_generation: Arc<AtomicU64>, generation: u64) {
+        self.owner_generation = Some((current_generation, generation));
+    }
+
     fn should_count(&self) -> bool {
-        self.count_gate
+        self.owner_generation
             .as_ref()
-            .is_none_or(|g| g.load(Ordering::Relaxed))
+            .is_none_or(|(active, generation)| active.load(Ordering::Acquire) == *generation)
+            && self
+                .count_gate
+                .as_ref()
+                .is_none_or(|g| g.load(Ordering::Relaxed))
     }
 }
 
@@ -466,6 +479,21 @@ impl<S: Source<Item = f32>> Source for CountingSource<S> {
         }
         result
     }
+}
+
+/// Transfer the shared progress clock to a new source at its starting offset.
+/// The brief ownerless state excludes newly checked samples from old sources.
+/// An in-flight sample or a successful seek that already passed the ownership
+/// check can still race this handoff; no hard atomic fencing is implied.
+pub(crate) fn activate_sample_counter_generation(
+    current_generation: &AtomicU64,
+    samples_played: &AtomicU64,
+    generation: u64,
+    start_samples: u64,
+) {
+    current_generation.store(0, Ordering::SeqCst);
+    samples_played.store(start_samples, Ordering::SeqCst);
+    current_generation.store(generation, Ordering::SeqCst);
 }
 
 // ─── PriorityBoostSource — promote the calling thread on first sample ────────
@@ -538,6 +566,17 @@ impl<S: Source<Item = f32>> PriorityBoostSource<S> {
 }
 
 impl<S: Source<Item = f32>> PriorityBoostSource<CountingSource<S>> {
+    /// Bind normal playback progress to this source's generation. After a
+    /// crossfade handoff, the outgoing source may still emit audio but cannot
+    /// mutate the next track's elapsed-time counter.
+    pub(crate) fn track_sample_counter_generation(
+        &mut self,
+        current_generation: Arc<AtomicU64>,
+        generation: u64,
+    ) {
+        self.inner.track_generation(current_generation, generation);
+    }
+
     /// Isolate a private startup seek from the live engine's progress counter.
     pub(crate) fn replace_sample_counter(&mut self, counter: Arc<AtomicU64>) {
         self.inner.counter = counter;

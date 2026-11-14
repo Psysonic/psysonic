@@ -41,6 +41,18 @@ pub(super) fn peek_plain_cover_tier(dir: &Path, tier: u32) -> Option<PathBuf> {
     peek_tier_path(dir, tier)
 }
 
+/// Disk peek for `cover_cache_peek_batch`. A hit here ends the frontend's work,
+/// so a placeholder due for a re-check has to read as a miss for ensure to run.
+/// Art from the external chain stays a hit: it is a real image the user can see
+/// offline, and the album page re-checks it through its own ensure.
+pub(super) fn peek_batch_cover_tier(dir: &Path, tier: u32) -> Option<PathBuf> {
+    if external_ensure::server_placeholder_recheck_due(dir) && !external_ensure::album_ext_hit(dir)
+    {
+        return None;
+    }
+    peek_plain_cover_tier(dir, tier)
+}
+
 /// Peek used by the ensure path. External surfaces keep their own ladder; plain
 /// covers go through [`peek_plain_cover_tier`] (full-res exact).
 pub(super) fn ensure_peek(dir: &Path, tier: u32, args: &CoverCacheEnsureArgs) -> Option<PathBuf> {
@@ -52,10 +64,10 @@ pub(super) fn ensure_peek(dir: &Path, tier: u32, args: &CoverCacheEnsureArgs) ->
 
 #[cfg(test)]
 mod tests {
-    use super::{ensure_peek, peek_plain_cover_tier};
+    use super::{ensure_peek, peek_batch_cover_tier, peek_plain_cover_tier};
     use crate::cover_cache::disk::tier_path;
     use crate::cover_cache::dto::CoverCacheEnsureArgs;
-    use crate::cover_cache::test_support::fresh_tmpdir;
+    use crate::cover_cache::test_support::{age_file, fresh_tmpdir};
     use std::fs;
 
     fn test_ensure_args(tier: u32, surface_kind: Option<&str>) -> CoverCacheEnsureArgs {
@@ -77,6 +89,41 @@ mod tests {
             external_artwork_byok: None,
             external_album_sources: None,
         }
+    }
+
+    #[test]
+    fn batch_peek_misses_an_old_placeholder_so_ensure_asks_the_server() {
+        let root = fresh_tmpdir("batch-peek-old-placeholder");
+        let dir = root.join("album").join("al-1");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(tier_path(&dir, 256), b"vinyl").unwrap();
+        fs::write(dir.join(".server-placeholder"), b"1").unwrap();
+
+        assert_eq!(
+            peek_batch_cover_tier(&dir, 256),
+            Some(tier_path(&dir, 256)),
+            "a fresh placeholder stays a hit"
+        );
+
+        age_file(&dir.join(".server-placeholder"), 60 * 60);
+        assert_eq!(peek_batch_cover_tier(&dir, 256), None);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn batch_peek_keeps_serving_chain_art_past_the_recheck_wait() {
+        let root = fresh_tmpdir("batch-peek-chain-art");
+        let dir = root.join("album").join("al-1");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(tier_path(&dir, 256), b"chain-art").unwrap();
+        fs::write(dir.join(".server-placeholder"), b"1").unwrap();
+        fs::write(dir.join(".album-ext-hit"), b"apple").unwrap();
+        age_file(&dir.join(".server-placeholder"), 60 * 60);
+
+        assert_eq!(peek_batch_cover_tier(&dir, 256), Some(tier_path(&dir, 256)));
+
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]

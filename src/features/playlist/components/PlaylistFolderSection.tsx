@@ -12,7 +12,7 @@ interface Props {
   /** The folder this section renders, or null for the ungrouped remainder. */
   folder: PlaylistFolder | null;
   items: SubsonicPlaylist[];
-  renderCard: (pl: SubsonicPlaylist) => React.ReactNode;
+  renderCard: (pl: SubsonicPlaylist, cellCssPx: number) => React.ReactNode;
   disableVirtualization: boolean;
 }
 

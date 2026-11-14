@@ -20,6 +20,7 @@ mod lifecycle;
 mod migrations;
 mod queries;
 mod schema;
+mod write_barrier;
 
 fn key(track_id: &str) -> TrackKey {
     TrackKey {

@@ -5,7 +5,9 @@ use super::artist_tracks::{
     fetch_top_tracks_server_id,
 };
 use super::common::{ensure_cluster_keys_for_all_scopes, non_empty_scopes};
-use super::entity_sources::{lookup_artist_name, lookup_artist_row, resolve_artist_detail_anchor};
+use super::entity_sources::{
+    lookup_artist_credit_row, lookup_artist_name, lookup_artist_row, resolve_artist_detail_anchor,
+};
 use crate::album_compilation_filter::{album_credits_artist, various_artists_label};
 use crate::browse_support::overlay_album_artist_links;
 use crate::dto::{LibraryScopeArtistDetailRequest, LibraryScopeArtistDetailResponse};
@@ -67,7 +69,11 @@ pub fn artist_detail(
         // album evidence: VA label matches or structured participant credits. A plain
         // scoped miss stays empty so the frontend cannot escape the authoritative scope.
         if candidates.is_empty() && (va_mode || !all_albums.is_empty()) {
-            if let Some(row) = lookup_artist_row(conn, server_id, &canonical_artist_id)? {
+            let header = match lookup_artist_row(conn, server_id, &canonical_artist_id)? {
+                Some(row) => Some(row),
+                None => lookup_artist_credit_row(conn, server_id, &canonical_artist_id)?,
+            };
+            if let Some(row) = header {
                 candidates.push(row);
                 artist = merge_artist_by_priority(&candidates);
             }

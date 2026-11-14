@@ -167,6 +167,37 @@ pub(super) fn lookup_artist_row(
     .optional()
 }
 
+/// Header for an artist known only from structured track credits. Navidrome can list
+/// a guest in `artists[]` without the artist list ever returning that id, so the
+/// credit is the only place its name exists locally.
+pub(super) fn lookup_artist_credit_row(
+    conn: &rusqlite::Connection,
+    server_id: &str,
+    artist_id: &str,
+) -> rusqlite::Result<Option<LibraryArtistDto>> {
+    conn.query_row(
+        "SELECT server_id, artist_id, artist_name, synced_at \
+         FROM artist_credit_projection \
+         WHERE server_id = ? AND artist_id = ? \
+         ORDER BY credit_kind DESC, track_id ASC LIMIT 1",
+        rusqlite::params![server_id, artist_id],
+        |r| {
+            let name: String = r.get(2)?;
+            Ok(LibraryArtistDto {
+                server_id: r.get(0)?,
+                id: r.get(1)?,
+                name_sort: Some(sort_key_for_display_name(&name, DEFAULT_IGNORED_ARTICLES)),
+                name,
+                album_count: None,
+                starred_at: None,
+                synced_at: r.get(3)?,
+                raw_json: Value::Null,
+            })
+        },
+    )
+    .optional()
+}
+
 fn lookup_track_partition(
     conn: &rusqlite::Connection,
     server_id: &str,

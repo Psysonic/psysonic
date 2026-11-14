@@ -175,7 +175,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
     expect(invokeMock).not.toHaveBeenCalledWith('calculate_sync_payload', expect.anything());
   });
 
-  it('shows a specific error when two tracks map to the same device path', async () => {
+  it('shows a specific error when another file holds the device path', async () => {
     const owner = makeServer({ id: 'owner', url: 'https://owner.test' });
     const serverIndexKey = serverIndexKeyForProfile(owner);
     const source: DeviceSyncSource = {
@@ -202,7 +202,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
       setSyncDelta: vi.fn(),
     });
 
-    expect(showToast).toHaveBeenCalledWith('deviceSync.pathCollision', 5000, 'error');
+    expect(showToast).toHaveBeenCalledWith('deviceSync.pathCollision', 10000, 'error');
   });
 
   it('refuses to execute a preview after its source selection changes', async () => {
@@ -237,7 +237,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
         deviceId: 'device-1',
         addBytes: 0, addCount: 0, delBytes: 0, delCount: 0, reclaimableBytes: 0,
         availableBytes: 1, tracks: [], deletePaths: [], deferredDeletePaths: [], moveCount: 0,
-        skippedCount: 0, playlists: [], manifestFiles: [], manifestPlaylists: [], context,
+        skippedCount: 0, skippedTracks: [], playlists: [], manifestFiles: [], manifestPlaylists: [], context,
       },
       t: ((key: string) => key) as never,
       setPreSyncOpen,
@@ -304,6 +304,7 @@ describe('runDeviceSyncSummaryPrompt ownership', () => {
         deferredDeletePaths: [],
         moveCount: 0,
         skippedCount: 0,
+        skippedTracks: [],
         playlists: [],
         manifestFiles: [],
         manifestPlaylists: [],

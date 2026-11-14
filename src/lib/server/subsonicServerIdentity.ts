@@ -41,6 +41,14 @@ export function isNavidromeServer(identity: SubsonicServerIdentity | undefined):
 }
 
 /**
+ * Bandcamp's Subsonic API. Its `ping` answers `status: ok` without checking
+ * credentials — only real calls reject them (HTTP 500).
+ */
+export function isBandcampServer(identity: SubsonicServerIdentity | undefined): boolean {
+  return identity?.type?.trim().toLowerCase() === 'bandcampserver';
+}
+
+/**
  * Human-facing server software label from a ping identity — e.g. `Navidrome 0.62.0`.
  * Capitalises the leading word of `type` (OpenSubsonic reports it lower-case) and
  * appends the leading version token. Navidrome reports `serverVersion` with a build

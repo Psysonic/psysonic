@@ -16,7 +16,7 @@
 //!   - HTTP track whose download was only partial
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use tauri::Emitter;
 use tauri::Manager;
@@ -187,6 +187,7 @@ pub(crate) async fn try_resume_after_device_change(
         BuildSourceArgs {
             url,
             gen,
+            clock_generation: gen,
             cache_id_for_tasks: snap.analysis_track_id.as_deref(),
             server_id: Some(resume_server.as_str()),
             url_format_hint: format_hint.as_deref(),
@@ -283,7 +284,6 @@ pub(crate) async fn try_resume_after_device_change(
     } else {
         0.0
     };
-    sink.play();
 
     let commit_guard = engine.playback_commit_lock.lock().unwrap();
     if engine.generation.load(Ordering::SeqCst) != gen {
@@ -296,6 +296,8 @@ pub(crate) async fn try_resume_after_device_change(
             generation: gen,
             sink,
             duration_secs: ps.built.duration_secs,
+            output_rate: ps.built.output_rate,
+            output_channels: ps.built.output_channels,
             volume: snap.base_volume,
             gain_linear: snap.gain_linear,
             fadeout_trigger: ps.built.fadeout_trigger,
@@ -304,24 +306,12 @@ pub(crate) async fn try_resume_after_device_change(
             actual_fade_secs: 0.0,
             outgoing_fade_secs: 0.0,
             start_paused: false,
+            start_playback: true,
+            start_position_secs: Some(resumed_at),
             streaming_seek: None,
         },
     );
     drop(stream_attach);
-    if resumed_at > 0.0 {
-        let mut cur = engine.current.lock().unwrap();
-        cur.seek_offset = resumed_at;
-        cur.play_started = Some(Instant::now());
-        engine.samples_played.store(
-            crate::playback_rate::raw_counter_samples_for_content_position(
-                resumed_at,
-                engine.current_sample_rate.load(Ordering::Relaxed),
-                engine.current_channels.load(Ordering::Relaxed),
-                &engine.playback_rate,
-            ),
-            Ordering::Relaxed,
-        );
-    }
     drop(commit_guard);
 
     // Inform the frontend of the new duration (keeps seekbar range correct).

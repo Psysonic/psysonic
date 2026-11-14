@@ -9,6 +9,7 @@ export const login = {
   password: 'Passord',
   showPassword: 'Vis passord',
   hidePassword: 'Skjul passord',
+  passwordEdgeSpace: 'Passordet begynner eller slutter med et mellomrom. Fjern det hvis det ikke hører til passordet.',
   connect: 'Koble til',
   connecting: 'Kobler til…',
   connected: 'Tilkoblet!',

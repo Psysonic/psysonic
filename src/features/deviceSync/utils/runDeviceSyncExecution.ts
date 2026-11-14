@@ -29,6 +29,19 @@ import { getAuthParams, restBaseFromUrl } from '@/lib/api/subsonicClient';
 import { finalizeDeviceSyncJob } from '@/features/deviceSync/utils/finalizeDeviceSyncJob';
 import { showDeviceSyncErrorToast } from '@/features/deviceSync/utils/deviceSyncErrorToast';
 
+export interface DeviceSyncTrackLabel {
+  title: string;
+  artist: string;
+  album: string;
+}
+
+/** A track left off the device and the track that keeps its file name. */
+export interface DeviceSyncSkippedTrack {
+  track: DeviceSyncTrackLabel;
+  keptTrack: DeviceSyncTrackLabel;
+  relativePath: string;
+}
+
 export interface SyncDelta {
   planId: string;
   deviceId: string;
@@ -45,6 +58,7 @@ export interface SyncDelta {
   moveCount: number;
   /** Tracks left off because another track already takes their file name. */
   skippedCount: number;
+  skippedTracks: DeviceSyncSkippedTrack[];
   playlists: DeviceSyncPlannedPlaylist[];
   manifestFiles: DeviceSyncManifestFile[];
   manifestPlaylists: DeviceSyncManifestPlaylist[];

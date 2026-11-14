@@ -7,13 +7,17 @@ const PLAYLIST_QUAD_CELL_CSS_PX = 100;
 /** Full playlist hero / card cover square. */
 const PLAYLIST_MAIN_COVER_CSS_PX = 200;
 
-export function PlaylistSmartCoverCell({ coverId, serverId }: { coverId: string; serverId?: string }) {
+export function PlaylistSmartCoverCell({ coverId, serverId, displayCssPx = PLAYLIST_QUAD_CELL_CSS_PX }: {
+  coverId: string;
+  serverId?: string;
+  displayCssPx?: number;
+}) {
   return (
     <AlbumCoverArtImage
       albumId={coverId}
       coverArt={coverId}
       serverScope={coverServerScopeForServerId(serverId)}
-      displayCssPx={PLAYLIST_QUAD_CELL_CSS_PX}
+      displayCssPx={displayCssPx}
       surface="dense"
       className="playlist-cover-cell"
       alt=""
@@ -21,13 +25,19 @@ export function PlaylistSmartCoverCell({ coverId, serverId }: { coverId: string;
   );
 }
 
-export function PlaylistCardMainCover({ coverArt, alt, serverId }: { coverArt: string; alt: string; serverId?: string }) {
+export function PlaylistCardMainCover({ coverArt, alt, serverId, displayCssPx = PLAYLIST_MAIN_COVER_CSS_PX }: {
+  coverArt: string;
+  alt: string;
+  serverId?: string;
+  /** Measured grid cell width; the default is only the estimate before the first measure. */
+  displayCssPx?: number;
+}) {
   return (
     <AlbumCoverArtImage
       albumId={coverArt}
       coverArt={coverArt}
       serverScope={coverServerScopeForServerId(serverId)}
-      displayCssPx={PLAYLIST_MAIN_COVER_CSS_PX}
+      displayCssPx={displayCssPx}
       surface="dense"
       libraryResolve={false}
       alt={alt}

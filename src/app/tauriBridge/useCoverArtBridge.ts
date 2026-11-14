@@ -4,6 +4,7 @@ import {
   clearAllDiskSrcCache,
   forgetDiskSrcForServer,
   forgetDiskSrcPrefix,
+  refreshDiskSrcVersions,
 } from '@/cover/diskSrcCache';
 import { rememberDiskSrcLadder } from '@/cover/diskSrcLookup';
 import { notifyCoverDiskReady } from '@/cover/diskHandoff';
@@ -18,6 +19,11 @@ type CoverTierReadyPayload = {
   tier: CoverArtTier;
   path: string;
   pathVersion?: number;
+};
+
+/** Files the one-time short-edge refit rewrote in place, as `path|version`. */
+type CoverTiersRewrittenPayload = {
+  paths: string[];
 };
 
 type CoverEvictedPayload = {
@@ -45,6 +51,11 @@ export function useCoverArtBridge(): void {
           rememberDiskSrcLadder(serverIndexKey, { cacheKind, cacheEntityId }, tier, versioned);
           notifyCoverDiskReady(key, versioned);
           void invalidateCacheKey(key);
+        }),
+      );
+      unsubs.push(
+        await listen<CoverTiersRewrittenPayload>('cover:tiers-rewritten', ev => {
+          refreshDiskSrcVersions(ev.payload?.paths ?? []);
         }),
       );
       unsubs.push(

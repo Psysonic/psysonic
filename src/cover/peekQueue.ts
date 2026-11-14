@@ -1,13 +1,13 @@
 import { coverCachePeekBatch } from '@/lib/api/coverCache';
 import { getDiskSrc } from './diskSrcCache';
-import { getDiskSrcForGrid } from './diskSrcLookup';
+import { hasDiskSrcForTier } from './diskSrcLookup';
 import { coverTrafficServerSwitchPaused } from './coverTraffic';
 import { rememberGridDiskSrc } from './diskSrcLookup';
 import type { CoverArtRef, CoverArtTier } from './types';
 
 function peekMemoryHit(storageKey: string, ref: CoverArtRef, tier: CoverArtTier): boolean {
   if (getDiskSrc(storageKey)) return true;
-  return Boolean(getDiskSrcForGrid(ref, tier));
+  return hasDiskSrcForTier(ref, tier);
 }
 
 type PeekJob = {

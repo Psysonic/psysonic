@@ -7,12 +7,16 @@ import { useElementClientHeightById } from '@/lib/hooks/useResizeClientHeight';
 import { useCardGridMetrics } from '@/lib/hooks/useCardGridMetrics';
 import { useRemeasureGridVirtualizer } from '@/lib/hooks/useRemeasureGridVirtualizer';
 import { useVirtualizerScrollMargin } from '@/lib/hooks/useVirtualizerScrollMargin';
-import type { CardGridRowHeightVariant } from '@/lib/util/cardGridLayout';
+import { computeCellWidthPx, type CardGridRowHeightVariant } from '@/lib/util/cardGridLayout';
 
 export type VirtualCardGridProps<T> = {
   items: readonly T[];
   itemKey: (item: T, flatIndex: number) => string;
-  renderItem: (item: T) => React.ReactNode;
+  /**
+   * `cellCssPx` is the measured cell width (0 before the first measure) — the
+   * one per-grid value a card passes to its cover as `displayCssPx`.
+   */
+  renderItem: (item: T, cellCssPx: number) => React.ReactNode;
   rowVariant: CardGridRowHeightVariant;
   disableVirtualization: boolean;
   /** Bumps layout when list shape changes (e.g. `items.length`). */
@@ -87,8 +91,9 @@ export function VirtualCardGrid<T>({
   });
 
   const wrapRef = useRef<HTMLDivElement>(null);
-  const { gridCols, rowHeightEst } = useCardGridMetrics(wrapRef, true, rowVariant, layoutSignal);
+  const { gridCols, rowHeightEst, containerWidthPx } = useCardGridMetrics(wrapRef, true, rowVariant, layoutSignal);
   const cols = singleColumn ? 1 : Math.max(1, gridCols);
+  const cellCssPx = containerWidthPx > 0 ? Math.round(computeCellWidthPx(containerWidthPx, cols)) : 0;
   const virtualRowCount = Math.max(0, Math.ceil(items.length / cols));
   const scrollMetricsElementId = scrollRootId ?? APP_MAIN_SCROLL_VIEWPORT_ID;
   const scrollViewportClientHeight = useElementClientHeightById(scrollMetricsElementId);
@@ -143,7 +148,7 @@ export function VirtualCardGrid<T>({
         }}
       >
         {items.map((item, i) => (
-          <React.Fragment key={itemKey(item, i)}>{renderItem(item)}</React.Fragment>
+          <React.Fragment key={itemKey(item, i)}>{renderItem(item, cellCssPx)}</React.Fragment>
         ))}
       </div>
     );
@@ -187,7 +192,7 @@ export function VirtualCardGrid<T>({
               }}
             >
               {rowItems.map((item, i) => (
-                <React.Fragment key={itemKey(item, start + i)}>{renderItem(item)}</React.Fragment>
+                <React.Fragment key={itemKey(item, start + i)}>{renderItem(item, cellCssPx)}</React.Fragment>
               ))}
             </div>
           );

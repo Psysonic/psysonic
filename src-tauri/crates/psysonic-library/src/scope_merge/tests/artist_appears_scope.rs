@@ -394,6 +394,56 @@ fn participant_only_artist_uses_structured_credit_inside_selected_scope() {
 }
 
 #[test]
+fn participant_only_artist_without_artist_row_takes_header_from_credit() {
+    let store = LibraryStore::open_in_memory();
+    let mut guest = track(
+        "s1",
+        "guest-track",
+        "Duet",
+        Some("Headliner feat. Guest Singer"),
+        "Headliner Album",
+        "headliner-album",
+        Some("headliner"),
+        240,
+        "lib-a",
+        Some(2024),
+        None,
+        None,
+    );
+    guest.raw_json = serde_json::json!({
+        "artists": [
+            { "id": "headliner", "name": "Headliner" },
+            { "id": "guest-singer", "name": " Guest Singer" }
+        ],
+        "albumArtists": [
+            { "id": "headliner", "name": "Headliner" }
+        ]
+    })
+    .to_string();
+    seed_and_rebuild(&store, &[guest]);
+
+    let response = artist_detail(
+        &store,
+        &LibraryScopeArtistDetailRequest {
+            scopes: vec![scope_pair("s1", "lib-a")],
+            server_id: "s1".into(),
+            artist_id: "guest-singer".into(),
+            include_tracks: false,
+            top_tracks_limit: None,
+        },
+    )
+    .unwrap();
+
+    assert_eq!(response.artist.id, "guest-singer");
+    assert_eq!(response.artist.server_id, "s1");
+    assert_eq!(response.artist.name, "Guest Singer");
+    assert!(response.albums.is_empty());
+    assert_eq!(response.appears_on_albums.len(), 1);
+    assert_eq!(response.appears_on_albums[0].id, "headliner-album");
+    assert_eq!(response.artist.album_count, Some(1));
+}
+
+#[test]
 fn participant_only_same_name_alias_resolves_to_primary_artist_and_unique_album_count() {
     let store = LibraryStore::open_in_memory();
     let primary = track(

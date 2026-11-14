@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertCircle, Loader2 } from 'lucide-react';
-import type { SyncDelta } from '@/features/deviceSync/utils/runDeviceSyncExecution';
+import { AlertCircle, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import type {
+  DeviceSyncSkippedTrack,
+  DeviceSyncTrackLabel,
+  SyncDelta,
+} from '@/features/deviceSync/utils/runDeviceSyncExecution';
 import { formatMb } from '@/lib/format/formatBytes';
 
 interface Props {
@@ -10,6 +14,55 @@ interface Props {
   syncDelta: SyncDelta;
   onCancel: () => void;
   onProceed: () => void;
+}
+
+function trackLabel({ title, artist, album }: DeviceSyncTrackLabel): string {
+  return [title, artist, album].filter(Boolean).join(' · ');
+}
+
+function SkippedTracksRow({ count, tracks }: { count: number; tracks: DeviceSyncSkippedTrack[] }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const listId = useId();
+  const Chevron = expanded ? ChevronDown : ChevronRight;
+
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={listId}
+        onClick={() => setExpanded(open => !open)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '6px', width: '100%', padding: '4px 0',
+          background: 'none', border: 'none', color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer',
+        }}
+      >
+        <Chevron size={14} style={{ flexShrink: 0 }} aria-hidden="true" />
+        <span style={{ flex: 1 }}>{t('deviceSync.filesSkippedDuplicate')}</span>
+        <span>{count}</span>
+      </button>
+      {expanded && (
+        <ul
+          id={listId}
+          style={{
+            listStyle: 'none', margin: '4px 0 0', padding: 0, maxHeight: '220px', overflowY: 'auto',
+            display: 'flex', flexDirection: 'column', gap: '10px',
+          }}
+        >
+          {tracks.map((skipped, index) => (
+            <li key={`${skipped.relativePath}:${index}`} style={{ overflowWrap: 'anywhere' }}>
+              <div>{trackLabel(skipped.track)}</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>
+                {t('deviceSync.filesSkippedSameFileAs', { track: trackLabel(skipped.keptTrack) })}
+              </div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.85em' }}>{skipped.relativePath}</div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 export default function DeviceSyncPreSyncModal({
@@ -46,10 +99,7 @@ export default function DeviceSyncPreSyncModal({
               </div>
             )}
             {syncDelta.skippedCount > 0 && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0' }}>
-                <span>{t('deviceSync.filesSkippedDuplicate')}</span>
-                <span>{syncDelta.skippedCount}</span>
-              </div>
+              <SkippedTracksRow count={syncDelta.skippedCount} tracks={syncDelta.skippedTracks} />
             )}
             <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '10px 0' }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>

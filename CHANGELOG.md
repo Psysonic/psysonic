@@ -105,6 +105,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The New Releases row compares a not yet indexed album by its edition's release date as well, so a fresh reissue no longer lands on the original's card.
 * After the update the library rebuilds its album groups once in the background.
 
+### AutoDJ crossfades keep the playback position aligned
+
+**By [@Puppies-On-Acid](https://github.com/Puppies-On-Acid), PR [#1826](https://github.com/Psysonic/psysonic/pull/1826)**
+
+* After successive AutoDJ crossfades, the seekbar and synchronised lyrics could run ahead of the music and trigger the next transition too early. Outgoing audio no longer advances the incoming track's playback clock, so the drift does not accumulate.
+
 ### Song Info for downloaded and cached tracks
 
 **By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1827](https://github.com/Psysonic/psysonic/pull/1827)**
@@ -158,6 +164,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@enncoded](https://github.com/enncoded), PR [#1851](https://github.com/Psysonic/psysonic/pull/1851)**
 
 * Follow-up to [#1817](https://github.com/Psysonic/psysonic/pull/1817): a server whose public address sits behind a header-auth gate still refused to pair with a local address that sends no CORS headers (a strict reverse proxy, or Bandcamp's Subsonic API). The connection check reached the local address over the wrong route and so never noticed what it needed. The check now reaches every address the way the rest of the app does, and those two addresses can be saved together.
+
+### Featured artists open on their own page
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by Peewee on Discord, PR [#1852](https://github.com/Psysonic/psysonic/pull/1852)**
+
+* Clicking a featured artist in a track's credits could show a mixed page, with the name and albums of the artist you came from next to the biography of the one you clicked, or just "Artist not found". The page now belongs to the artist you clicked and lists the albums they appear on.
+
+### Device Sync names the tracks in a file name conflict
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by untitled-operator, PR [#1853](https://github.com/Psysonic/psysonic/pull/1853)**
+
+* The sync summary only counted tracks skipped because another track already takes their file name. The row now opens into a list of each skipped track, the track that keeps the file and its path.
+* When another file already occupies a planned path, the error now says so and names the path instead of blaming two tracks.
+
+### Album covers recover after retagging
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1854](https://github.com/Psysonic/psysonic/pull/1854)**
+
+* An album could keep the server's "no artwork" image on Home and in lists after retagging, even once the server had the cover. Psysonic now asks the server again when that image is older than 30 minutes and replaces it with the real cover.
+* The album page also asks the server first, so the album's own cover replaces one fetched earlier from an external source.
+
+### Bandcamp servers with a wrong password no longer connect
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by belfast on Discord, PR [#1855](https://github.com/Psysonic/psysonic/pull/1855)**
+
+* Bandcamp's Subsonic API reports a successful connection test even when the username or password is wrong. Psysonic then saved the server, and the library stayed empty without an error. The connection test now also checks the login with a real request and fails when Bandcamp rejects it.
+* Copying a password by double-click can pick up a space at the start or end. The login page and the server form now show a hint below the password field when that happens. The password itself is kept as you entered it, because a space can be part of a real password.
+
+### Playlist covers stay sharp in the grid
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), reported by [@Ter0zak](https://github.com/Ter0zak), PR [#1856](https://github.com/Psysonic/psysonic/pull/1856)**
+
+* Covers that are not square, such as many imported playlist images, turned blurry after a second or two once the cover cache had saved them. The cache scaled them by their longer side, so the image was too small to fill a square card. It now scales by the shorter side. Covers cached by earlier versions are redrawn once from the copy already on disk, in the background after the first start, so they stay available while the server is offline.
+* A grid card could keep a small thumbnail that the sidebar had already loaded for the same playlist. Cards now load their own size and show the small image only until then.
+* Playlist cards request a cover size that matches how large they are drawn, instead of a fixed size.
+
+### Linux Hi-Res playback keeps the correct speed
+
+**By [@RookieeOfTheYear](https://github.com/RookieeOfTheYear), PR [#1857](https://github.com/Psysonic/psysonic/pull/1857)**
+
+* On affected PipeWire setups, Native Hi-Res Playback at high sample rates such as 192 kHz no longer plays at half speed with rhythmic gaps.
 
 ## Changed
 

@@ -1,6 +1,6 @@
 import { coverCacheEnsure, type CoverEnsureOpts } from '@/lib/api/coverCache';
 import { getDiskSrc } from './diskSrcCache';
-import { getDiskSrcForGrid } from './diskSrcLookup';
+import { hasDiskSrcForTier } from './diskSrcLookup';
 import { coverIndexKeyFromRef } from './storageKeys';
 import type { CoverArtRef, CoverArtTier, CoverPrefetchPriority } from './types';
 
@@ -305,7 +305,7 @@ export function __test_queuedCoverIds(): string[] {
 
 function ensureMemoryHit(storageKey: string, ref: CoverArtRef, tier: CoverArtTier): boolean {
   if (getDiskSrc(storageKey)) return true;
-  return Boolean(getDiskSrcForGrid(ref, tier));
+  return hasDiskSrcForTier(ref, tier);
 }
 
 /** Rust disk ensure — parallel slots; one download chain per cover art ID. */

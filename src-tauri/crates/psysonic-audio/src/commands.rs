@@ -15,7 +15,7 @@ use super::helpers::*;
 use super::hi_res_blend::{self, OutgoingBlendSnapshot};
 use super::ipc::{maybe_emit_normalization_state, NormalizationStatePayload};
 use super::play_input::{select_play_input, url_format_hint, PlayInputContext};
-use super::playback_rate::{preserve_pitch_will_run, raw_counter_samples_for_content_position};
+use super::playback_rate::preserve_pitch_will_run;
 use super::preload_commands::{publish_preloaded_if_current, PreloadSnapshot};
 use super::preview::preview_clear_for_new_main_playback;
 use super::progress_task::spawn_progress_task;
@@ -359,13 +359,14 @@ pub async fn audio_play(
 
     // Build source: decode → trim → resample → EQ → fade-in → fade-out → notify → count.
     let done_flag = Arc::new(AtomicBool::new(false));
-    // Reset sample counter for the new track.
-    state.samples_played.store(0, Ordering::Relaxed);
+    // The current source still owns progress while we decode the replacement.
+    // Its clock is reset only at the sink handoff.
     let playback_source = build_playback_source_with_probe_fallback(
         play_input,
         BuildSourceArgs {
             url: &url,
             gen,
+            clock_generation: gen,
             cache_id_for_tasks: cache_id_for_tasks.as_deref(),
             server_id: analysis_server_id,
             url_format_hint: format_hint.as_deref(),
@@ -537,9 +538,9 @@ pub async fn audio_play(
     let needs_prefill =
         (hi_res_enabled && blend_rate.unwrap_or(output_rate) > 48_000) || needs_preserve_prefill;
     let defer_playback_start = !state.stream_playback_armed.load(Ordering::Relaxed);
-    if needs_prefill || defer_playback_start || start_paused {
-        sink.pause();
-    }
+    // The incoming source cannot consume audio until it owns the progress
+    // counter. This also preserves the existing hi-res/deferred prefill pause.
+    sink.pause();
 
     // Gapless OFF: prepend a short silence so tracks are clearly separated.
     // Only when this is an auto-advance (near end), not on manual skip.
@@ -652,9 +653,7 @@ pub async fn audio_play(
         if state.generation.load(Ordering::SeqCst) != gen {
             return Ok(()); // skipped during pre-fill — abort silently
         }
-        if !defer_playback_start && !start_paused {
-            sink.play();
-        }
+        // Start only after the atomic sink/counter handoff below.
     }
 
     // A staged cold start owns arming itself. Do not let the legacy background
@@ -685,8 +684,10 @@ pub async fn audio_play(
         &state,
         SinkSwapInputs {
             generation: gen,
-            sink,
+            sink: sink.clone(),
             duration_secs,
+            output_rate,
+            output_channels,
             volume,
             gain_linear,
             fadeout_trigger: built.fadeout_trigger,
@@ -695,32 +696,15 @@ pub async fn audio_play(
             actual_fade_secs,
             outgoing_fade_secs,
             start_paused,
+            start_playback: !defer_playback_start && !start_paused,
+            start_position_secs: did_start_seek.then_some(start_secs),
             streaming_seek,
         },
     );
     drop(stream_attach);
 
-    // B-head: `swap_in_new_sink` resets `seek_offset` to 0 and starts the play
-    // clock — re-anchor both the wall-clock baseline (`seek_offset`) and the
-    // sample counter to the content offset so position reporting is correct.
-    if did_start_seek {
-        {
-            let mut cur = state.current.lock().unwrap();
-            cur.seek_offset = start_secs;
-            if start_paused {
-                cur.paused_at = Some(start_secs);
-            }
-        }
-        state.samples_played.store(
-            raw_counter_samples_for_content_position(
-                start_secs,
-                output_rate,
-                output_channels as u32,
-                &state.playback_rate,
-            ),
-            Ordering::Relaxed,
-        );
-    }
+    // Sink ownership, optional B-head offset and initial play() are committed
+    // under `current`; a pause after the handoff cannot race a later start.
     drop(commit_guard);
 
     if defer_playback_start && !require_start_seek {

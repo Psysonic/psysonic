@@ -1,4 +1,6 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use psysonic_core::cover_cache_layout;
 
@@ -80,4 +82,100 @@ pub fn write_derived_webp_tiers(
         write_webp_tier(img, tier, &tier_path(dir, tier))?;
     }
     Ok(())
+}
+
+/// Numbers the temp files of [`replace_file`] within this process.
+static REPLACE_SEQ: AtomicU64 = AtomicU64::new(0);
+
+/// Replaces `path` with `bytes` without a moment of partial content: the bytes
+/// go to a new hidden file next to it, which is then renamed over `path`. A
+/// failed write or rename keeps the old file and removes the new one. Asset
+/// reads take no flight lock, so they see the old file or the new one. Never
+/// creates the dir: a dir moved away meanwhile is not brought back.
+pub(super) fn replace_file(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    replace_file_with(path, |file| file.write_all(bytes))
+}
+
+fn replace_file_with(
+    path: &Path,
+    write: impl FnOnce(&mut std::fs::File) -> std::io::Result<()>,
+) -> Result<(), String> {
+    let name = path
+        .file_name()
+        .ok_or_else(|| format!("no file name in {}", path.display()))?;
+    let temp = path.with_file_name(format!(
+        ".{}.{}-{}.tmp",
+        name.to_string_lossy(),
+        std::process::id(),
+        REPLACE_SEQ.fetch_add(1, Ordering::Relaxed)
+    ));
+    let result = std::fs::File::options()
+        .write(true)
+        .create_new(true)
+        .open(&temp)
+        .and_then(|mut file| write(&mut file))
+        .and_then(|()| std::fs::rename(&temp, path));
+    result.map_err(|e| {
+        let _ = std::fs::remove_file(&temp);
+        e.to_string()
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{replace_file, replace_file_with};
+    use crate::cover_cache::test_support::fresh_tmpdir;
+    use std::fs;
+    use std::io::Write;
+    use std::path::Path;
+
+    fn entries(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = fs::read_dir(dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn replace_file_swaps_in_the_new_bytes() {
+        let dir = fresh_tmpdir("replace-ok");
+        let path = dir.join("128.webp");
+        fs::write(&path, b"old").unwrap();
+
+        replace_file(&path, b"new bytes").unwrap();
+
+        assert_eq!(fs::read(&path).unwrap(), b"new bytes");
+        assert_eq!(entries(&dir), ["128.webp"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_write_that_fails_halfway_keeps_the_old_file() {
+        // Disk full after the first bytes: the old tier must survive whole.
+        let dir = fresh_tmpdir("replace-fail");
+        let path = dir.join("128.webp");
+        fs::write(&path, b"old tier").unwrap();
+
+        let result = replace_file_with(&path, |file| {
+            file.write_all(b"par")?;
+            Err(std::io::Error::other("no space left on device"))
+        });
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&path).unwrap(), b"old tier");
+        assert_eq!(entries(&dir), ["128.webp"]);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn replace_file_does_not_bring_back_a_moved_dir() {
+        let root = fresh_tmpdir("replace-moved");
+        let dir = root.join("al-1");
+
+        assert!(replace_file(&dir.join("128.webp"), b"new").is_err());
+        assert!(!dir.exists());
+        let _ = fs::remove_dir_all(&root);
+    }
 }

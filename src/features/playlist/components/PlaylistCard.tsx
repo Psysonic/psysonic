@@ -35,6 +35,8 @@ interface Props {
   filteredSongCountByPlaylist: Record<string, number>;
   filteredDurationByPlaylist: Record<string, number>;
   serverLabel?: string;
+  /** Measured grid cell width in CSS px (0 before the first measure). */
+  coverCssPx?: number;
 }
 
 export default function PlaylistCard({
@@ -44,9 +46,11 @@ export default function PlaylistCard({
   handleOpenSmartEditor, handleDelete, handlePlay, playingId,
   smartCoverIdsByPlaylist, pendingSmart,
   filteredSongCountByPlaylist, filteredDurationByPlaylist,
-  serverLabel,
+  serverLabel, coverCssPx = 0,
 }: Props) {
   const { t } = useTranslation();
+  const mainCoverCssPx = coverCssPx > 0 ? coverCssPx : undefined;
+  const quadCellCssPx = coverCssPx > 0 ? Math.round(coverCssPx / 2) : undefined;
   const showCardTooltips = useThemeStore(st => st.showCardTooltips);
   const nameTooltip = useOverflowTooltip(playlistDisplayName(pl), showCardTooltips);
   const navigate = useNavigate();
@@ -129,14 +133,14 @@ export default function PlaylistCard({
             {Array.from({ length: 4 }, (_, i) => {
               const id = smartCoverIdsByPlaylist[playlistKey][i % smartCoverIdsByPlaylist[playlistKey].length];
               return id ? (
-                <PlaylistSmartCoverCell key={i} coverId={id} serverId={pl.serverId} />
+                <PlaylistSmartCoverCell key={i} coverId={id} serverId={pl.serverId} displayCssPx={quadCellCssPx} />
               ) : (
                 <div key={i} className="playlist-cover-cell playlist-cover-cell--empty" />
               );
             })}
           </div>
         ) : pl.coverArt ? (
-          <PlaylistCardMainCover coverArt={pl.coverArt} alt={pl.name} serverId={pl.serverId} />
+          <PlaylistCardMainCover coverArt={pl.coverArt} alt={pl.name} serverId={pl.serverId} displayCssPx={mainCoverCssPx} />
         ) : (
           <div className="album-card-cover-placeholder playlist-card-icon">
             <ListMusic size={48} strokeWidth={1.2} />

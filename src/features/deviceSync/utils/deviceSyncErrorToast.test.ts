@@ -17,7 +17,6 @@ describe('showDeviceSyncErrorToast', () => {
     ['write failed; DEVICE_SYNC_DEVICE_CHANGED', 'deviceSync.deviceChanged'],
     ['DEVICE_SYNC_PENDING_PLAN_DEVICE_MISMATCH', 'deviceSync.deviceChanged'],
     ['DEVICE_SYNC_CLEANUP_FAILED', 'deviceSync.cleanupFailed'],
-    ['DEVICE_SYNC_PATH_IDENTITY_COLLISION:artist/album/song.flac', 'deviceSync.pathCollision'],
     // Used to land on the generic "failed to fetch tracks" text, which named
     // the wrong problem for a run that never intended to fetch anything.
     ['DEVICE_SYNC_SERVER_UNRESOLVED', 'deviceSync.serverUnresolved'],
@@ -26,6 +25,21 @@ describe('showDeviceSyncErrorToast', () => {
     showDeviceSyncErrorToast(new Error(message), t);
 
     expect(showToast).toHaveBeenCalledWith(key, 5000, 'error');
+  });
+
+  it('names the device path another file already occupies', () => {
+    const withPath = ((key: string, options: { path: string }) => `${key}|${options.path}`) as never;
+
+    showDeviceSyncErrorToast(
+      new Error('DEVICE_SYNC_PATH_IDENTITY_COLLISION:artist/album/song: live.flac'),
+      withPath,
+    );
+
+    expect(showToast).toHaveBeenCalledWith(
+      'deviceSync.pathCollision|artist/album/song: live.flac',
+      10000,
+      'error',
+    );
   });
 
   it('keeps unexpected failures on the generic fallback', () => {

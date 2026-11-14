@@ -421,6 +421,7 @@ mod tests {
             move_count: 0,
             move_paths: Vec::new(),
             skipped_count: 0,
+            skipped_tracks: Vec::new(),
             playlists: Vec::new(),
             manifest_files: Vec::new(),
             manifest_playlists: Vec::new(),

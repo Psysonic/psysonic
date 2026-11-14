@@ -8,7 +8,7 @@ import PlaylistFolderSection from '@/features/playlist/components/PlaylistFolder
 interface Props {
   serverId: string;
   playlists: SubsonicPlaylist[];
-  renderCard: (pl: SubsonicPlaylist) => React.ReactNode;
+  renderCard: (pl: SubsonicPlaylist, cellCssPx: number) => React.ReactNode;
   disableVirtualization: boolean;
   /** When true, omit folder sections that currently have no matching playlists. */
   hideEmptyFolders?: boolean;
