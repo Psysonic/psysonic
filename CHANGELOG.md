@@ -194,6 +194,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A grid card could keep a small thumbnail that the sidebar had already loaded for the same playlist. Cards now load their own size and show the small image only until then.
 * Playlist cards request a cover size that matches how large they are drawn, instead of a fixed size.
 
+### Linux Hi-Res playback keeps the correct speed
+
+**By [@RookieeOfTheYear](https://github.com/RookieeOfTheYear), PR [#1857](https://github.com/Psysonic/psysonic/pull/1857)**
+
+* On affected PipeWire setups, Native Hi-Res Playback at high sample rates such as 192 kHz no longer plays at half speed with rhythmic gaps.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases

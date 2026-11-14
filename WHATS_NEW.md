@@ -55,6 +55,7 @@ Within each section, order by **user impact** (most noticeable first) — not PR
 
 ### Playback and audio
 
+- **Linux:** Native Hi-Res playback no longer runs at half speed with rhythmic gaps on affected PipeWire setups.
 - Repeated AutoDJ crossfades no longer leave the seekbar and synchronised lyrics ahead of the music or trigger the next transition too early.
 - Gapless playlists continue after tracks with trimmed encoder padding, including affected AAC/M4A files. Pausing after a gapless transition also keeps the mini player's progress bar at the correct position.
 - A finished queue no longer flashes the seekbar or repeatedly reloads its last track.
