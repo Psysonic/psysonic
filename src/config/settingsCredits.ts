@@ -648,6 +648,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Discord Rich Presence — progress bar, seek sync and server covers (PR #1819)',
     ],
   },
+  {
+    github: 'RookieeOfTheYear',
+    since: '1.57.0',
+    contributions: [
+      'Linux Hi-Res playback — correct speed without rhythmic gaps on PipeWire (PR #1857)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the

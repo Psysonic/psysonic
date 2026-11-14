@@ -146,8 +146,32 @@ pub(super) fn default_config(device: &Device) -> Result<SupportedStreamConfig, S
     ))
 }
 
+/// PipeWire quantum, in frames, requested for a stream at `rate`.
+pub(super) fn latency_frames(rate: u32) -> u32 {
+    if rate > 48_000 {
+        8192
+    } else {
+        4096
+    }
+}
+
+/// Requested Linux ALSA period, sized to cover PipeWire's latency hint.
+/// For the common 44.1/48 kHz
+/// Rodio default-device configuration the default is 2048 frames; `from_device`
+/// does not necessarily use that size at other rates (for example, Rodio's
+/// 192 kHz default yields 8192 frames). Changing the stream rate does not resize
+/// that default buffer. CPAL 0.17.3 requests an ALSA buffer of
+/// twice the period using `NEAR`, so the actual negotiated size is not guaranteed
+/// to equal this arithmetic. Keep the requested buffer at least as large as the
+/// requested PipeWire quantum; this is not a guarantee against xruns on all
+/// hardware.
+pub(super) fn alsa_period_frames(rate: u32) -> u32 {
+    const RODIO_DEFAULT_PERIOD: u32 = 2048;
+    (latency_frames(rate) / 2).max(RODIO_DEFAULT_PERIOD)
+}
+
 pub(super) fn latency_hint(rate: u32) -> (String, String) {
-    let frames = if rate > 48_000 { 8192 } else { 4096 };
+    let frames = latency_frames(rate);
     let millis = (f64::from(frames) / f64::from(rate.max(1)) * 1000.0).round() as u64;
     (format!("{frames}/{rate}"), millis.to_string())
 }
@@ -209,6 +233,67 @@ mod tests {
         assert_eq!(latency_hint(48_000), ("4096/48000".into(), "85".into()));
         assert_eq!(latency_hint(44_100), ("4096/44100".into(), "93".into()));
         assert_eq!(latency_hint(96_000), ("8192/96000".into(), "85".into()));
+    }
+
+    #[test]
+    fn requested_latency_and_period_sizes_match_rate_policy() {
+        for (rate, quantum, period) in [
+            (8_000, 4096, 2048),
+            (22_050, 4096, 2048),
+            (44_100, 4096, 2048),
+            (47_999, 4096, 2048),
+            (48_000, 4096, 2048),
+            (48_001, 8192, 4096),
+            (88_200, 8192, 4096),
+            (96_000, 8192, 4096),
+            (176_400, 8192, 4096),
+            (192_000, 8192, 4096),
+            (384_000, 8192, 4096),
+        ] {
+            assert_eq!(latency_frames(rate), quantum, "{rate} Hz quantum");
+            assert_eq!(alsa_period_frames(rate), period, "{rate} Hz period");
+            assert_eq!(
+                latency_hint(rate).0,
+                format!("{quantum}/{rate}"),
+                "{rate} Hz latency hint"
+            );
+            // CPAL requests twice the period via NEAR; hardware may negotiate differently.
+            assert!(2 * period >= quantum, "{rate} Hz requested sizes");
+        }
+    }
+
+    #[test]
+    fn selected_fallback_rate_drives_both_latency_and_period_policy() {
+        for (requested_rate, selected_rate, hint, millis) in [
+            (192_000, 48_000, "4096/48000", "85"),
+            (96_000, 44_100, "4096/44100", "93"),
+        ] {
+            let supported = range(selected_rate, selected_rate, 2);
+            let selected = select_default_config(
+                supported.with_sample_rate(selected_rate),
+                [supported].into_iter(),
+                requested_rate,
+            );
+            assert_eq!(selected.sample_rate(), selected_rate);
+            assert_eq!(
+                latency_hint(selected.sample_rate()),
+                (hint.into(), millis.into())
+            );
+            assert_eq!(alsa_period_frames(selected.sample_rate()), 2048);
+        }
+    }
+
+    #[test]
+    fn supported_high_default_rate_remains_native() {
+        let supported = range(192_000, 192_000, 2);
+        let selected = select_default_config(
+            supported.with_sample_rate(192_000),
+            [supported].into_iter(),
+            FALLBACK_RATE,
+        );
+        assert_eq!(selected.sample_rate(), 192_000);
+        assert_eq!(latency_frames(selected.sample_rate()), 8192);
+        assert_eq!(alsa_period_frames(selected.sample_rate()), 4096);
     }
 
     #[test]
