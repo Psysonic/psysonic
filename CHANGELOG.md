@@ -206,6 +206,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * On affected PipeWire setups, Native Hi-Res Playback at high sample rates such as 192 kHz no longer plays at half speed with rhythmic gaps.
 
+### Non-Navidrome servers no longer trigger a false migration block
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@Infinifar](https://github.com/Infinifar), PR [#1862](https://github.com/Psysonic/psysonic/pull/1862)**
+
+* Connecting to MusicTagWeb or another non-Navidrome server no longer creates a false Navidrome migration block. Existing blocks with no migration work are recovered when the server still reports the same version, without resetting the library or settings.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
