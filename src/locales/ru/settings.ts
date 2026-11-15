@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Размер текста песни',
+  lyricsSizeIndicator: 'Показывать размер в тексте песни',
+  lyricsSizeDesc: 'Только для текста песни в панели и полноэкранном плеере. Ctrl или ⌘ + колёсико мыши над текстом также меняет размер.',
+  lyricsSizeReset: 'Сбросить размер',
+  lyricsZoomKeyboardHint: 'Колесо — размер · Ctrl+0 — сброс',
+  lyricsRomanizationPrimary: 'Произношение как основная строка',
+  lyricsRomanizationPrimaryDesc: 'Если произношение включено и доступно, оно отображается первым и крупнее, а оригинальный текст — под ним.',
   title: 'Настройки',
   language: 'Язык',
   languageEn: 'English',

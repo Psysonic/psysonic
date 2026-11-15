@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Dalszöveg mérete',
+  lyricsSizeIndicator: 'Méret megjelenítése a dalszövegben',
+  lyricsSizeDesc: 'Csak a panel és a teljes képernyős lejátszó dalszövegére vonatkozik. A dalszöveg felett a Ctrl vagy ⌘ + egérgörgő is módosítja a méretet.',
+  lyricsSizeReset: 'Méret visszaállítása',
+  lyricsZoomKeyboardHint: 'Görgő: méret · Ctrl+0: visszaállítás',
+  lyricsRomanizationPrimary: 'Kiejtés fő sorként',
+  lyricsRomanizationPrimaryDesc: 'Ha a kiejtés be van kapcsolva és elérhető, először és nagyobb méretben jelenik meg, alatta az eredeti szöveggel.',
   title: 'Beállítások',
   language: 'Nyelv',
   languageEn: 'English',

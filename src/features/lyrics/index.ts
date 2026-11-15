@@ -12,6 +12,10 @@
 export { default as LyricsPane } from './components/LyricsPane';
 export { LyricsLineContent } from './components/LyricsLineContent';
 export { useLyrics } from './hooks/useLyrics';
+export { useLyricsAppearance } from './hooks/useLyricsAppearance';
+export { LyricsZoomControls } from './components/LyricsZoomControls';
+export { useLyricsZoomKeyboard } from './hooks/useLyricsZoomKeyboard';
+export { useLyricsRailLayout } from './hooks/useLyricsRailLayout';
 export { useLyricsRomanization } from './hooks/useLyricsRomanization';
 export { useLyricsTranslation } from './hooks/useLyricsTranslation';
 export { useWordLyricsSync } from './hooks/useWordLyricsSync';

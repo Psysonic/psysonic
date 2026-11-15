@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Розмір тексту пісні',
+  lyricsSizeIndicator: 'Показувати розмір у тексті пісні',
+  lyricsSizeDesc: 'Лише для тексту пісні в панелі та повноекранному плеєрі. Ctrl або ⌘ + коліщатко миші над текстом також змінює розмір.',
+  lyricsSizeReset: 'Скинути розмір',
+  lyricsZoomKeyboardHint: 'Коліщатко — розмір · Ctrl+0 — скидання',
+  lyricsRomanizationPrimary: 'Вимова як основний рядок',
+  lyricsRomanizationPrimaryDesc: 'Якщо вимову ввімкнено й вона доступна, вона відображається першою та більшим шрифтом, а оригінальний текст — під нею.',
   title: 'Налаштування',
   language: 'Мова',
   languageEn: 'English',

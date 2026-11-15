@@ -630,13 +630,16 @@
 
 .fsr-lyrics-overlay {
   position: absolute;
-  top: 15vh;
+  top: var(--lyrics-rail-top, max(15vh, 72px));
   left: clamp(28px, 4vw, 64px);
   right: 52%;
   height: 30vh;
+  /* The owner already publishes cluster height. Clip to that live boundary
+     while observer-driven row measurement is coalesced to the next frame. */
+  max-height: max(0px, calc(100vh - var(--fs-cluster-h, 0px) - var(--fs-cluster-bottom, 0px) - var(--lyrics-rail-top, max(15vh, 72px)) - 8px));
   z-index: 3;
   overflow: hidden;
-  pointer-events: none;
+  pointer-events: auto;
   contain: layout style;
   -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
   mask-image: linear-gradient(to bottom, transparent 0%, #000 20%, #000 80%, transparent 100%);
@@ -650,14 +653,13 @@
 }
 
 .fsr-lyric-line {
-  height: 6vh;
+  min-height: min(6vh, var(--lyrics-rail-row-max, 6vh));
   display: flex;
   align-items: center;
-  overflow: hidden;
   white-space: normal;
   overflow-wrap: break-word;
   word-break: break-word;
-  font-size: 2vh;
+  font-size: calc(2vh * var(--lyrics-scale, 1));
   line-height: 1.4;
   color: rgba(255, 255, 255, 0.22);
   font-weight: 400;
@@ -670,10 +672,14 @@
 
 .fsr-lyric-line .lyrics-line-content {
   width: 100%;
+  /* Measured from the clear region above the real info cluster, not a fixed
+     viewport fraction. Exceptionally tall lines remain scrollable. */
+  max-height: var(--lyrics-rail-row-max, 18vh);
+  overflow-y: auto;
 }
 
-/* Romanization and translation together would overflow the fixed 6vh slot;
-   tightening both secondary lines keeps three rows inside it. */
+/* Preserve the compact secondary-layer treatment in the legacy 6vh minimum;
+   wrapped rows can now grow rather than clipping their extra lines. */
 .fsr-lyric-line .lyrics-line-content:has(.lyrics-romanization):has(.lyrics-translation) :is(.lyrics-romanization, .lyrics-translation) {
   margin-top: 0;
   line-height: 1.15;
@@ -697,7 +703,7 @@
 
 .fsr-lyric-word {
   display: inline;
-  white-space: pre;
+  white-space: pre-wrap;
   transition: color 0.18s ease, text-shadow 0.18s ease;
 }
 
@@ -717,6 +723,11 @@
 
 html.no-compositing .fsr-lyrics-overlay { -webkit-mask-image: none; mask-image: none; }
 html.no-compositing .fsr-lyrics-rail    { will-change: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fsr-lyrics-rail,
+  .fsr-lyric-line { transition: none; }
+}
 
 /* ── no-compositing overrides ─────────────────────────────────────────────────
    Applied only when WEBKIT_DISABLE_COMPOSITING_MODE=1 is set (Arch Linux etc).

@@ -70,6 +70,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Pick the start date and a dark or light color scheme; the dialog shows how many albums and images it will make, where they are saved, and the result.
 * All text in the image follows the app language. Hide the button under **Settings → Personalisation → New Releases**.
 
+### Lyrics — choose text size and the primary pronunciation line
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1863](https://github.com/Psysonic/psysonic/pull/1863)**
+
+* **Settings → Lyrics → Lyrics size** changes only lyrics in the panel and fullscreen player, from 50% to 200%, and remembers your choice. A small percentage in lyrics supports wheel resizing and click-to-reset; turn off **Show size in lyrics** to hide it without leaving an empty row.
+* **Ctrl/⌘ + plus or minus** changes lyrics size and **Ctrl/⌘ + 0** resets it. Modified wheel over lyrics still works when the percentage is hidden; ordinary scrolling elsewhere stays unchanged.
+* **Pronunciation as the primary line** puts available pronunciation or romaji first and larger, with the original text underneath. Lines without pronunciation keep their original text.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited

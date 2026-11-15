@@ -8,9 +8,48 @@
    Full-screen scrollable list. Active line scrolls to ~35% from top.
    User scroll pauses auto-scroll for 4 s. Word-sync via imperative DOM updates. */
 
-.fsa-lyrics-container {
+.fsa-lyrics-surface,
+.fsr-lyrics-surface {
   position: absolute;
   inset: 0;
+  pointer-events: none;
+}
+
+.fsa-lyrics-surface {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Quiet text-sized chrome, aligned with the lyrics column. The immersive
+   close button owns the first 64px; the badge has its own unmasked row below. */
+:is(.fsa-lyrics-surface, .fsr-lyrics-surface) > .lyrics-zoom-badge {
+  position: relative;
+  z-index: 6;
+  pointer-events: auto;
+  color: #fff;
+  opacity: 0.7;
+}
+
+.fsa-lyrics-surface > .lyrics-zoom-badge {
+  margin: 72px 0 0 clamp(28px, 5vw, 72px);
+}
+
+.fsr-lyrics-surface > .lyrics-zoom-badge {
+  position: absolute;
+  top: var(--lyrics-rail-badge-top, max(15vh, 72px));
+  left: clamp(28px, 4vw, 64px);
+  margin: 0;
+}
+
+:is(.fsa-lyrics-surface, .fsr-lyrics-surface) > .lyrics-zoom-badge:hover,
+:is(.fsa-lyrics-surface, .fsr-lyrics-surface) > .lyrics-zoom-badge:focus-visible {
+  opacity: 1;
+}
+
+.fsa-lyrics-container {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   z-index: 3;
   overflow-y: auto;
   overflow-x: hidden;
@@ -25,10 +64,16 @@
   display: none;
 }
 
-/* Top padding — clears the close button (44 px) + some breathing room */
+/* Small breathing room below the pinned, unscaled percentage badge. */
 .fsa-lyrics-top-pad {
-  height: 80px;
+  height: 16px;
   pointer-events: none;
+}
+
+/* Keep close-button clearance outside the scrollport so text cannot scroll
+   behind it. Static and Prism already position their own lyrics panels. */
+.fs-player .fsa-lyrics-surface--no-size-indicator {
+  top: 64px;
 }
 
 /* Bottom padding — lets last line scroll to ~35% from top even on short tracks */
@@ -41,7 +86,7 @@
 .fsa-lyric-line {
   /* Fixed font-size avoids layout reflow on active-line switch.
      Visual "size" difference is done via transform: scale below. */
-  font-size: clamp(1.4rem, 3.2vh, 3rem);
+  font-size: calc(clamp(1.4rem, 3.2vh, 3rem) * var(--lyrics-scale, 1));
   font-weight: 600;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.28);
@@ -126,7 +171,7 @@
 }
 
 .fsa-plain-line {
-  font-size: clamp(1.1rem, 2.5vh, 2.2rem);
+  font-size: calc(clamp(1.1rem, 2.5vh, 2.2rem) * var(--lyrics-scale, 1));
   font-weight: 500;
   line-height: 1.55;
   color: rgba(255, 255, 255, 0.72);

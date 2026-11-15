@@ -46,6 +46,7 @@ import { createDiscordBannerActions } from './authDiscordBannerActions';
 import { setLibraryBrowseScopeSource } from '@/lib/library/libraryBrowseScope';
 import { createNavidromeCanonicalMigrationAwareJSONStorage } from '@/lib/util/safeStorage';
 import { PAUSE_RESUME_FADE_DEFAULT_SECS } from '@/lib/audio/pauseResumeFade';
+import { LYRICS_SCALE_DEFAULT } from '@/lib/media/lyricsAppearance';
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -131,6 +132,9 @@ export const useAuthStore = create<AuthState>()(
       lyricsSources: DEFAULT_LYRICS_SOURCES,
       lyricsStaticOnly: false,
       lyricsRomanizationEnabled: false,
+      lyricsScale: LYRICS_SCALE_DEFAULT,
+      lyricsSizeIndicatorEnabled: true,
+      lyricsRomanizationPrimary: false,
       lyricsTranslationEnabled: false,
       lyricsWordHighlightMode: 'step',
       sidebarLyricsStyle: 'classic',

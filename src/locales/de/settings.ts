@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Liedtextgröße',
+  lyricsSizeIndicator: 'Größe im Liedtext anzeigen',
+  lyricsSizeDesc: 'Gilt nur für Liedtexte im Panel und Vollbildplayer. Strg oder ⌘ + Mausrad über dem Liedtext ändert ebenfalls die Größe.',
+  lyricsSizeReset: 'Größe zurücksetzen',
+  lyricsZoomKeyboardHint: 'Mausrad: Größe · Strg+0: zurücksetzen',
+  lyricsRomanizationPrimary: 'Aussprache als Hauptzeile',
+  lyricsRomanizationPrimaryDesc: 'Wenn die Aussprache aktiviert und verfügbar ist, wird sie zuerst und größer angezeigt, mit dem Originaltext darunter.',
   title: 'Einstellungen',
   language: 'Sprache',
   languageEn: 'English',

@@ -220,6 +220,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Favorites scoped search and reliable collapsed search entry (PR #1629)',
       'Artist credits — scoped browse and detail support for guest and participant artists (PR #1631)',
       'Responsive off-thread seeking for streamed lossless audio (PR #1633)',
+      'Lyrics size, compact zoom controls and primary pronunciation preference (PR #1863)',
     ],
   },
   {

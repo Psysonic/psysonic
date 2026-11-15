@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Μέγεθος στίχων',
+  lyricsSizeIndicator: 'Εμφάνιση μεγέθους στους στίχους',
+  lyricsSizeDesc: 'Μόνο για τους στίχους στο πλαίσιο και στην αναπαραγωγή πλήρους οθόνης. Το Ctrl ή ⌘ + ροδέλα ποντικιού πάνω στους στίχους αλλάζει επίσης το μέγεθος.',
+  lyricsSizeReset: 'Επαναφορά μεγέθους',
+  lyricsZoomKeyboardHint: 'Ροδέλα: μέγεθος · Ctrl+0: επαναφορά',
+  lyricsRomanizationPrimary: 'Προφορά ως κύρια γραμμή',
+  lyricsRomanizationPrimaryDesc: 'Όταν η προφορά είναι ενεργή και διαθέσιμη, εμφανίζεται πρώτη και μεγαλύτερη, με το αρχικό κείμενο από κάτω.',
   title: 'Ρυθμίσεις',
   language: 'Γλώσσα',
   languageEn: 'English',

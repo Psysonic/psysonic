@@ -338,6 +338,16 @@ describe('genre blacklist + audio output device', () => {
 });
 
 describe('lyrics source setters', () => {
+  it('toggles size visibility without touching scale, content layers or source settings', () => {
+    useAuthStore.getState().setLyricsScale(1.5);
+    useAuthStore.getState().setLyricsRomanizationPrimary(true);
+    const before = useAuthStore.getState();
+    for (const enabled of [false, true]) {
+      useAuthStore.getState().setLyricsSizeIndicatorEnabled(enabled);
+      expect(useAuthStore.getState()).toEqual({ ...before, lyricsSizeIndicatorEnabled: enabled });
+    }
+  });
+
   it('setLyricsSources replaces the source list verbatim', () => {
     const sources = [
       { id: 'lrclib' as const, enabled: true },

@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Dimensione del testo',
+  lyricsSizeIndicator: 'Mostra la dimensione nel testo',
+  lyricsSizeDesc: 'Solo per i testi nel pannello e nel lettore a schermo intero. Anche Ctrl o ⌘ + rotellina sui testi ne cambia la dimensione.',
+  lyricsSizeReset: 'Ripristina dimensione',
+  lyricsZoomKeyboardHint: 'Rotellina: dimensione · Ctrl+0: ripristina',
+  lyricsRomanizationPrimary: 'Pronuncia come riga principale',
+  lyricsRomanizationPrimaryDesc: 'Quando la pronuncia è attiva e disponibile, viene mostrata per prima e più grande, con il testo originale sotto.',
   title: 'Impostazioni',
   language: 'Lingua',
   languageEn: 'English',
