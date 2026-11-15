@@ -298,6 +298,12 @@ export interface AuthState {
   lyricsStaticOnly: boolean;
   /** Show a pronunciation layer, generating Japanese Hepburn romaji locally when needed. */
   lyricsRomanizationEnabled: boolean;
+  /** Lyrics-only font scale, shared by sidebar and fullscreen surfaces. */
+  lyricsScale: number;
+  /** Show the current lyrics scale badge on lyrics surfaces. */
+  lyricsSizeIndicatorEnabled: boolean;
+  /** Prefer pronunciation as the primary line when that layer is available. */
+  lyricsRomanizationPrimary: boolean;
   /** Show a server-provided translation layer beneath the lyrics. */
   lyricsTranslationEnabled: boolean;
   /** Word-synced lyrics: switch whole words or continuously fill them, with optional full-word glow. */
@@ -542,6 +548,9 @@ export interface AuthState {
   setLyricsSources: (sources: LyricsSourceConfig[]) => void;
   setLyricsStaticOnly: (v: boolean) => void;
   setLyricsRomanizationEnabled: (v: boolean) => void;
+  setLyricsScale: (v: number) => void;
+  setLyricsSizeIndicatorEnabled: (v: boolean) => void;
+  setLyricsRomanizationPrimary: (v: boolean) => void;
   setLyricsTranslationEnabled: (v: boolean) => void;
   setLyricsWordHighlightMode: (v: LyricsWordHighlightMode) => void;
   setSidebarLyricsStyle: (v: 'classic' | 'apple') => void;

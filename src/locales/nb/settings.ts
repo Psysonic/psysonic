@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Sangtekststørrelse',
+  lyricsSizeIndicator: 'Vis størrelsen i sangteksten',
+  lyricsSizeDesc: 'Gjelder bare sangtekster i panelet og fullskjermspilleren. Ctrl eller ⌘ + musehjul over sangteksten endrer også størrelsen.',
+  lyricsSizeReset: 'Tilbakestill størrelse',
+  lyricsZoomKeyboardHint: 'Musehjul: størrelse · Ctrl+0: tilbakestill',
+  lyricsRomanizationPrimary: 'Uttale som hovedlinje',
+  lyricsRomanizationPrimaryDesc: 'Når uttale er aktivert og tilgjengelig, vises den først og større, med originalteksten under.',
   title: 'Innstillinger',
   language: 'Språk',
   languageEn: 'English',

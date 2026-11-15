@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Tamaño de la letra',
+  lyricsSizeIndicator: 'Mostrar el tamaño en la letra',
+  lyricsSizeDesc: 'Solo afecta a la letra del panel y del reproductor a pantalla completa. Ctrl o ⌘ + rueda del ratón sobre la letra también cambia el tamaño.',
+  lyricsSizeReset: 'Restablecer tamaño',
+  lyricsZoomKeyboardHint: 'Rueda: tamaño · Ctrl+0: restablecer',
+  lyricsRomanizationPrimary: 'Pronunciación como línea principal',
+  lyricsRomanizationPrimaryDesc: 'Si la pronunciación está activada y disponible, se muestra primero y más grande, con el texto original debajo.',
   title: 'Configuración',
   language: 'Idioma',
   languageEn: 'English',

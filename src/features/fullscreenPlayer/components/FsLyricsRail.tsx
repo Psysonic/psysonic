@@ -7,6 +7,10 @@ import {
 import { useAuthStore } from '@/store/authStore';
 import {
   LyricsLineContent,
+  LyricsZoomControls,
+  useLyricsZoomKeyboard,
+  useLyricsAppearance,
+  useLyricsRailLayout,
   useLyrics,
   useLyricsRomanization,
   useLyricsTranslation,
@@ -18,8 +22,11 @@ import type { LrcLine } from '@/features/lyrics';
 import type { Track } from '@/lib/media/trackTypes';
 
 // Classic 5-line rail lyrics (original "Rail" style).
-// Slot height = 6vh = window.innerHeight * 0.06 — must match CSS height: 6vh.
+// Rows retain a 6vh minimum; measured offsets also support wrapped/zoomed text.
 export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { currentTrack: Track | null }) {
+  const appearance = useLyricsAppearance();
+  const { romanizationPrimary, appearanceRef, appearanceStyle } = appearance;
+  const keyboardRef = useLyricsZoomKeyboard(true);
   const {
     syncedLines,
     wordLines,
@@ -87,12 +94,11 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
   const duration = usePlayerStore(s => s.currentTrack?.duration ?? 0);
   const seek     = usePlayerStore(s => s.seek);
 
-  const slotH = useRef(window.innerHeight * 0.06);
-  useEffect(() => {
-    const onResize = () => { slotH.current = window.innerHeight * 0.06; };
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+  const overlayRef = useLyricsRailLayout(activeIdx);
+  const setOverlayRef = useCallback((node: HTMLDivElement | null) => {
+    overlayRef.current = node;
+    appearanceRef(node);
+  }, [overlayRef, appearanceRef]);
 
   const handleLineClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>('[data-time]');
@@ -110,13 +116,12 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
 
   if (!currentTrack || loading || !hasSynced) return null;
 
-  const railY = (2 - Math.max(0, activeIdx)) * slotH.current;
-
   return (
-    <div className="fsr-lyrics-overlay" aria-hidden="true">
+    <div className="fsr-lyrics-surface" ref={keyboardRef}>
+      <LyricsZoomControls {...appearance} />
+    <div className="fsr-lyrics-overlay" ref={setOverlayRef} style={appearanceStyle} aria-hidden="true">
       <div
         className="fsr-lyrics-rail"
-        style={{ transform: `translateY(${railY}px)` }}
         onClick={handleLineClick}
       >
         {useWords
@@ -127,6 +132,7 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
                 data-time={line.time}
               >
                 <LyricsLineContent
+                  romanizationPrimary={romanizationPrimary}
                   romanization={romanizedLines?.[i]}
                   romanizationRef={setRomanizationRef(i)}
                   translation={translatedLines?.[i]}
@@ -147,12 +153,13 @@ export const FsLyricsRail = memo(function FsLyricsRail({ currentTrack }: { curre
                 className={`fsr-lyric-line${i === activeIdx ? ' fsrl-active' : i < activeIdx ? ' fsrl-past' : ''}`}
                 data-time={line.time}
               >
-                <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
+                <LyricsLineContent romanizationPrimary={romanizationPrimary} romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                   {line.text || ' '}
                 </LyricsLineContent>
               </div>
             ))}
       </div>
+    </div>
     </div>
   );
 });

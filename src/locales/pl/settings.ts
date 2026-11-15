@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Rozmiar tekstu piosenki',
+  lyricsSizeIndicator: 'Pokaż rozmiar w tekście piosenki',
+  lyricsSizeDesc: 'Tylko dla tekstu w panelu i odtwarzaczu pełnoekranowym. Ctrl lub ⌘ + kółko myszy nad tekstem również zmienia rozmiar.',
+  lyricsSizeReset: 'Przywróć rozmiar',
+  lyricsZoomKeyboardHint: 'Kółko: rozmiar · Ctrl+0: przywróć',
+  lyricsRomanizationPrimary: 'Wymowa jako główny wiersz',
+  lyricsRomanizationPrimaryDesc: 'Gdy wymowa jest włączona i dostępna, jest wyświetlana jako pierwsza i większa, z oryginalnym tekstem poniżej.',
   title: 'Ustawienia',
   language: 'Język',
   languageEn: 'English',

@@ -187,6 +187,18 @@ describe('computeAuthStoreRehydration — lyrics', () => {
     localStorage.clear();
   });
 
+  it.each([undefined, null, 'false', 'true', 0, 1, {}, []])(
+    'defaults a missing or invalid size-indicator value %j to on', value => {
+      const state = { ...useAuthStore.getState(), lyricsSizeIndicatorEnabled: value } as unknown as AuthState;
+      expect(computeAuthStoreRehydration(state).lyricsSizeIndicatorEnabled).toBe(true);
+    },
+  );
+
+  it.each([true, false])('preserves the explicit size-indicator choice %s', value => {
+    const state = { ...useAuthStore.getState(), lyricsSizeIndicatorEnabled: value };
+    expect(computeAuthStoreRehydration(state).lyricsSizeIndicatorEnabled).toBe(value);
+  });
+
   // The removed YouLyPlus option (issue #1386) was the only lyrics source for
   // some users. Retiring it must not leave them without lyrics.
   it('enables LRCLIB for a user who only had YouLyPlus on', () => {

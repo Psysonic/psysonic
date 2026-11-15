@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Dimensiunea versurilor',
+  lyricsSizeIndicator: 'Afișează dimensiunea în versuri',
+  lyricsSizeDesc: 'Doar pentru versurile din panou și playerul pe tot ecranul. Ctrl sau ⌘ + rotița mouse-ului deasupra versurilor schimbă și dimensiunea.',
+  lyricsSizeReset: 'Resetează dimensiunea',
+  lyricsZoomKeyboardHint: 'Rotiță: dimensiune · Ctrl+0: resetare',
+  lyricsRomanizationPrimary: 'Pronunția ca rând principal',
+  lyricsRomanizationPrimaryDesc: 'Când pronunția este activată și disponibilă, apare prima și mai mare, cu textul original dedesubt.',
   title: 'Setări',
   language: 'Limbă',
   languageEn: 'Engleză',

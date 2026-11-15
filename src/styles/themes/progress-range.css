@@ -5,7 +5,6 @@ input[type="range"] {
   height: 4px;
   border-radius: var(--radius-full);
   background: var(--slider-track);
-  outline: none;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
@@ -25,4 +24,3 @@ input[type="range"]:hover::-webkit-slider-thumb {
   transform: scale(1.2);
   background: var(--slider-thumb-hover);
 }
-

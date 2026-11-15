@@ -1,4 +1,5 @@
 import { IS_LINUX } from '@/lib/util/platform';
+import { normalizeLyricsScale } from '@/lib/media/lyricsAppearance';
 import { sanitizeHiResCrossfadeResampleHz } from '@/lib/audio/hiResCrossfadeResample';
 import { sanitizeStreamMaxBitRateKbps, sanitizeStreamRequestFormat } from '@/lib/audio/streamQuality';
 import { sanitizePauseResumeFadeSecs } from '@/lib/audio/pauseResumeFade';
@@ -381,6 +382,9 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
 
   return {
     ...mediaDirMigrated,
+    lyricsScale: normalizeLyricsScale(state.lyricsScale),
+    lyricsSizeIndicatorEnabled: state.lyricsSizeIndicatorEnabled !== false,
+    lyricsRomanizationPrimary: state.lyricsRomanizationPrimary === true,
     ...musicNetworkMigrated,
     libraryBrowseServerIds,
     musicFoldersByServer,

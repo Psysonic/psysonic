@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Grootte songtekst',
+  lyricsSizeIndicator: 'Grootte in songtekst tonen',
+  lyricsSizeDesc: 'Alleen voor songteksten in het paneel en de schermvullende speler. Ctrl of ⌘ + muiswiel boven de tekst verandert ook de grootte.',
+  lyricsSizeReset: 'Grootte herstellen',
+  lyricsZoomKeyboardHint: 'Muiswiel: grootte · Ctrl+0: herstellen',
+  lyricsRomanizationPrimary: 'Uitspraak als hoofdregel',
+  lyricsRomanizationPrimaryDesc: 'Als de uitspraak is ingeschakeld en beschikbaar is, verschijnt deze eerst en groter, met de oorspronkelijke tekst eronder.',
   title: 'Instellingen',
   language: 'Taal',
   languageEn: 'English',

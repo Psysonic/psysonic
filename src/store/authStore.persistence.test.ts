@@ -28,6 +28,45 @@ beforeEach(() => {
 });
 
 describe('hydration — loads existing localStorage shape', () => {
+  it('preserves legacy lyrics defaults and independently reloads scale/primary pronunciation', async () => {
+    writePersistedState({ servers: [] });
+    await useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState().lyricsScale).toBe(1);
+    expect(useAuthStore.getState().lyricsSizeIndicatorEnabled).toBe(true);
+    expect(useAuthStore.getState().lyricsRomanizationPrimary).toBe(false);
+    useAuthStore.getState().setLyricsScale(1.6);
+    useAuthStore.getState().setLyricsRomanizationPrimary(true);
+    const saved = localStorage.getItem(PERSIST_KEY)!;
+    resetAuthStore();
+    localStorage.setItem(PERSIST_KEY, saved);
+    await useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState().lyricsScale).toBe(1.6);
+    expect(useAuthStore.getState().lyricsRomanizationPrimary).toBe(true);
+    expect(useAuthStore.getState().lyricsRomanizationEnabled).toBe(false);
+    useAuthStore.getState().setLyricsRomanizationEnabled(true);
+    useAuthStore.getState().setLyricsRomanizationEnabled(false);
+    expect(useAuthStore.getState().lyricsRomanizationPrimary).toBe(true);
+  });
+
+  it.each([null, '2', {}, false])('repairs malformed persisted lyrics scale %s', value => {
+    writePersistedState({ lyricsScale: value, lyricsRomanizationPrimary: 'true' });
+    useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState().lyricsScale).toBe(1);
+    expect(useAuthStore.getState().lyricsRomanizationPrimary).toBe(false);
+  });
+
+  it.each([[-2, 0.5], [1.43, 1.4], [9, 2]])('normalizes scale on both write and rehydrate: %s', async (value, expected) => {
+    useAuthStore.getState().setLyricsScale(value);
+    expect(useAuthStore.getState().lyricsScale).toBe(expected);
+    writePersistedState({ lyricsScale: value });
+    await useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState().lyricsScale).toBe(expected);
+    useAuthStore.getState().setLyricsScale(NaN);
+    expect(useAuthStore.getState().lyricsScale).toBe(1);
+    useAuthStore.getState().setLyricsScale(Infinity);
+    expect(useAuthStore.getState().lyricsScale).toBe(1);
+  });
+
   it('restores servers + activeServerId from a fresh-shape payload', async () => {
     const server = { id: 's1', name: 'Home', url: 'https://x.test', username: 'u', password: 'p' };
     writePersistedState({ servers: [server], activeServerId: 's1' });
@@ -189,6 +228,34 @@ describe('onRehydrate migrations', () => {
 });
 
 describe('partialize — what gets persisted', () => {
+  it.each([false, true])('reloads the explicit size-indicator choice %s independently of appearance settings', async enabled => {
+    expect(useAuthStore.getState().lyricsSizeIndicatorEnabled).toBe(true);
+    useAuthStore.getState().setLyricsSizeIndicatorEnabled(enabled);
+    useAuthStore.getState().setLyricsScale(1.7);
+    useAuthStore.getState().setLyricsRomanizationPrimary(true);
+    const saved = localStorage.getItem(PERSIST_KEY)!;
+    expect(JSON.parse(saved).state.lyricsSizeIndicatorEnabled).toBe(enabled);
+    resetAuthStore();
+    useAuthStore.getState().setLyricsSizeIndicatorEnabled(!enabled);
+    localStorage.setItem(PERSIST_KEY, saved);
+    await useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState()).toMatchObject({
+      lyricsSizeIndicatorEnabled: enabled,
+      lyricsScale: 1.7,
+      lyricsRomanizationPrimary: true,
+      lyricsRomanizationEnabled: false,
+    });
+    useAuthStore.getState().setLyricsSizeIndicatorEnabled(!enabled);
+    expect(useAuthStore.getState().lyricsScale).toBe(1.7);
+    expect(useAuthStore.getState().lyricsRomanizationPrimary).toBe(true);
+  });
+
+  it.each([null, 'false', 0, {}, []])('repairs malformed persisted size-indicator value %j', async value => {
+    writePersistedState({ lyricsSizeIndicatorEnabled: value });
+    await useAuthStore.persist.rehydrate();
+    expect(useAuthStore.getState().lyricsSizeIndicatorEnabled).toBe(true);
+  });
+
   it('strips `musicFolders` from the persisted payload', () => {
     useAuthStore.setState({ musicFolders: [{ id: 'mf-1', name: 'Music' }] });
     // Trigger persist (Zustand persist writes on every state change).

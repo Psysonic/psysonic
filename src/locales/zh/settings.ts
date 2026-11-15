@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: '歌词大小',
+  lyricsSizeIndicator: '在歌词中显示字号',
+  lyricsSizeDesc: '仅影响面板和全屏播放器中的歌词。在歌词上按住 Ctrl 或 ⌘ 并滚动鼠标滚轮也可调整大小。',
+  lyricsSizeReset: '重置大小',
+  lyricsZoomKeyboardHint: '滚轮：大小 · Ctrl+0：重置',
+  lyricsRomanizationPrimary: '将发音作为主行',
+  lyricsRomanizationPrimaryDesc: '启用发音且有可用内容时，优先以大字显示发音，原文显示在下方。',
   title: '设置',
   language: '语言',
   languageEn: 'English',

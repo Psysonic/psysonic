@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: '歌詞の文字サイズ',
+  lyricsSizeIndicator: '歌詞にサイズを表示',
+  lyricsSizeDesc: 'パネルと全画面プレーヤーの歌詞のみに適用します。歌詞の上で Ctrl または ⌘ を押しながらマウスホイールを回しても変更できます。',
+  lyricsSizeReset: 'サイズをリセット',
+  lyricsZoomKeyboardHint: 'ホイール：サイズ · Ctrl+0：リセット',
+  lyricsRomanizationPrimary: '読みをメインの行にする',
+  lyricsRomanizationPrimaryDesc: '読みの表示が有効で、読みがある場合は、読みを先に大きく表示し、その下に原文を表示します。',
   title: '設定',
   language: '言語',
   languageEn: 'English',

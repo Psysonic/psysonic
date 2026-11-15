@@ -3,6 +3,9 @@ import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useAuthStore } from '@/store/authStore';
 import {
   LyricsLineContent,
+  LyricsZoomControls,
+  useLyricsZoomKeyboard,
+  useLyricsAppearance,
   useLyrics,
   useLyricsRomanization,
   useLyricsTranslation,
@@ -14,6 +17,7 @@ import { getSmoothPlaybackTime, subscribeSmoothPlaybackTime } from '@/features/p
 import type { LrcLine } from '@/features/lyrics';
 import type { Track } from '@/lib/media/trackTypes';
 import { EaseScroller, targetForFraction } from '@/lib/dom/easeScroll';
+import { isLyricsZoomWheel } from '@/lib/media/lyricsAppearance';
 
 // Fullscreen synced lyrics.
 // Full-screen scrollable list. The active line auto-scrolls following the
@@ -21,6 +25,9 @@ import { EaseScroller, targetForFraction } from '@/lib/dom/easeScroll';
 // centres it. Word-sync runs imperatively (no React re-renders on every time tick).
 // User scroll pauses auto-scroll for 4 s then resumes.
 export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { currentTrack: Track | null }) {
+  const appearance = useLyricsAppearance();
+  const { scale, romanizationPrimary, appearanceRef, appearanceStyle } = appearance;
+  const keyboardRef = useLyricsZoomKeyboard(true);
   const {
     syncedLines,
     wordLines,
@@ -79,7 +86,8 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
     containerRef.current = el;
     scrollerRef.current?.stop();
     scrollerRef.current = el ? new EaseScroller(el) : null;
-  }, []);
+    appearanceRef(el);
+  }, [appearanceRef]);
 
   // Reset everything on track change.
   useEffect(() => {
@@ -132,7 +140,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
       scrollerRef.current.stop();
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [activeIdx, romanizedLines, translatedLines, sidebarLyricsStyle]);
+  }, [activeIdx, romanizedLines, translatedLines, sidebarLyricsStyle, scale, romanizationPrimary]);
 
   const { setWordRef, setRomanizationRef } = useWordLyricsSync({
     enabled: useWords,
@@ -142,11 +150,17 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
     highlightMode: wordHighlightMode,
   });
 
-  const handleUserScroll = useCallback(() => {
+  const handleUserScroll = useCallback((event: React.WheelEvent | React.TouchEvent) => {
+    if ('deltaY' in event && isLyricsZoomWheel(event)) return;
     scrollerRef.current?.stop();
     isUserScroll.current = true;
     if (scrollTimer.current) clearTimeout(scrollTimer.current);
     scrollTimer.current = setTimeout(() => { isUserScroll.current = false; }, 4000);
+  }, []);
+
+  useEffect(() => () => {
+    if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    scrollerRef.current?.stop();
   }, []);
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
@@ -160,9 +174,12 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
   const isPlain = !hasSynced && !!plainLyrics;
 
   return (
+    <div className={`fsa-lyrics-surface${appearance.showSizeIndicator ? '' : ' fsa-lyrics-surface--no-size-indicator'}`} ref={keyboardRef}>
+      <LyricsZoomControls {...appearance} />
     <div
       className={`fsa-lyrics-container${isPlain ? ' fsa-lyrics-container--plain' : ''}`}
       ref={setContainerRef}
+      style={appearanceStyle}
       onWheel={handleUserScroll}
       onTouchMove={handleUserScroll}
       onClick={handleClick}
@@ -180,6 +197,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
               style={{ '--fsa-dist': activeIdx < 0 ? 0 : i - activeIdx } as React.CSSProperties}
             >
               <LyricsLineContent
+                romanizationPrimary={romanizationPrimary}
                 romanization={romanizedLines?.[i]}
                 romanizationRef={setRomanizationRef(i)}
                 translation={translatedLines?.[i]}
@@ -204,7 +222,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
               data-time={line.time}
               style={{ '--fsa-dist': activeIdx < 0 ? 0 : i - activeIdx } as React.CSSProperties}
             >
-              <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
+              <LyricsLineContent romanizationPrimary={romanizationPrimary} romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                 {line.text || ' '}
               </LyricsLineContent>
             </div>
@@ -215,7 +233,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
         <div className="fsa-plain-lyrics">
           {plainLyrics.split('\n').map((line, i) => (
             <p key={i} className="fsa-plain-line">
-              <LyricsLineContent romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
+              <LyricsLineContent romanizationPrimary={romanizationPrimary} romanization={romanizedLines?.[i]} translation={translatedLines?.[i]}>
                 {line || ' '}
               </LyricsLineContent>
             </p>
@@ -224,6 +242,7 @@ export const FsLyricsApple = memo(function FsLyricsApple({ currentTrack }: { cur
       )}
 
       <div className="fsa-lyrics-bottom-pad" />
+    </div>
     </div>
   );
 });

@@ -1,4 +1,11 @@
 export const settings = {
+  lyricsSize: 'Taille des paroles',
+  lyricsSizeIndicator: 'Afficher la taille dans les paroles',
+  lyricsSizeDesc: 'Uniquement pour les paroles du panneau et du lecteur plein écran. Ctrl ou ⌘ + molette sur les paroles change aussi la taille.',
+  lyricsSizeReset: 'Réinitialiser la taille',
+  lyricsZoomKeyboardHint: 'Molette : taille · Ctrl+0 : réinitialiser',
+  lyricsRomanizationPrimary: 'Prononciation comme ligne principale',
+  lyricsRomanizationPrimaryDesc: 'Si la prononciation est activée et disponible, elle apparaît en premier et en plus grand, avec le texte original en dessous.',
   title: 'Paramètres',
   language: 'Langue',
   languageEn: 'English',

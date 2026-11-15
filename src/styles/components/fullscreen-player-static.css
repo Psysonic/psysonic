@@ -521,8 +521,7 @@
 }
 
 /* ── Scrolling lyrics overlay (reuses FsLyricsApple) — semi-transparent, no blur.
-   FsLyricsApple's .fsa-lyrics-container is position:absolute inset:0, so it fills
-   this box. ── */
+   Its surface fills this box; only the text viewport is faded. ── */
 .fsp-lyrics-overlay {
   position: absolute;
   top: var(--space-6);
@@ -539,6 +538,9 @@
   background: rgba(0, 0, 0, 0.88);
   border-radius: var(--radius-lg);
   overflow: hidden;
+}
+
+.fsp-lyrics-overlay .fsa-lyrics-container {
   /* The scrolling lines used to be cut mid-glyph at the lower edge. Fading the
      last 64px out reads as "there is more below" instead of as a clipping bug.
      Masking takes the panel's own background with it, which is what makes the
@@ -549,10 +551,12 @@
 
 /* Compositing-free mode has no working mask — keep the hard edge there rather
    than a fully transparent panel (same handling as `.fsr-lyrics-overlay`). */
-html.no-compositing .fsp-lyrics-overlay {
+html.no-compositing .fsp-lyrics-overlay .fsa-lyrics-container {
   -webkit-mask-image: none;
   mask-image: none;
 }
+
+.fsp-lyrics-overlay .lyrics-zoom-badge { margin: 8px 0 0 clamp(28px, 5vw, 72px); }
 
 /* Centered lyrics text in the fullscreen overlay (FsLyricsApple defaults to
    left-aligned for the old layout). */

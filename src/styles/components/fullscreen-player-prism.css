@@ -45,6 +45,8 @@
   -webkit-backdrop-filter: blur(28px) saturate(1.1);
 }
 /* The reused FsLyricsApple container fills the panel; give it inner breathing room. */
+.fsp2-lyrics-panel .lyrics-zoom-badge { margin: 8px 0 0 40px; }
+
 .fsp2-lyrics-panel .fsa-lyrics-container {
   padding-left: 40px;
   padding-right: 40px;
