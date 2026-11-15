@@ -38,6 +38,12 @@ import {
 } from './navidromeCanonicalIdb';
 import { rewriteNavidromeCanonicalHistoryForScope } from './navidromeCanonicalHistory';
 import { commitImportedBackupRecovery } from '@/features/settings/utils/backup';
+import {
+  canonicalNamespaceDowngradeError,
+  checkpointHasCanonicalNamespace,
+  checkpointIsFalseNonNavidromeBlock,
+} from './navidromeCanonicalNamespace';
+import { recoverFalseNonNavidromeBackendBlock, type MigrationSnapshot } from './navidromeCanonicalRecovery';
 
 const NATIVE_STEPS = ['artist', 'album', 'track'] as const;
 const ANALYSIS_STEPS = ['analysis-track', 'waveform-cache', 'loudness-cache'] as const;
@@ -70,14 +76,6 @@ type ReachableServer = {
   baseUrl: string;
   ping: ProbeResult;
 };
-
-type MigrationSnapshot =
-  | { state: 'inactive'; lastGeneration: number }
-  | {
-      state: 'active';
-      generation: number;
-      servers: Array<{ serverId: string; phase: NavidromeCanonicalMigrationPhase; error?: string | null }>;
-    };
 
 type MigrationBatch = {
   cursorRowid: number;
@@ -212,16 +210,6 @@ function defaultServerCheckpoint(
     syncCompletedAt: null,
     lastError: null,
   };
-}
-
-function checkpointHasCanonicalNamespace(
-  checkpoint: NavidromeCanonicalMigrationServerCheckpointV1 | undefined,
-): boolean {
-  return Boolean(checkpoint?.checkedVersion
-    && classifyNavidromeCanonicalVersion({
-      type: 'navidrome',
-      serverVersion: checkpoint.checkedVersion,
-    }) === 'canonical');
 }
 
 function checkpointIsTrustedReady(
@@ -773,8 +761,18 @@ async function observeNavidromeCanonicalSuccessfulPingNow(args: {
   const saved = write.get(serverId);
 
   if (classification !== 'canonical') {
+    if (checkpointIsFalseNonNavidromeBlock(serverId, saved, args.ping)) {
+      // Mounted stores must not be unlocked in place. Bootstrap will re-probe and
+      // reconcile the native owner under its own lock before publishing anything.
+      if (storage.getItem(NAVIDROME_CANONICAL_BOOTSTRAP_LOCK_KEY) === null) {
+        setRuntimeBootstrapLock(storage, serverId);
+        await args.beforeAdmission?.();
+        if (!admissionIsCurrent()) throw staleAdmissionError();
+      }
+      return true;
+    }
     if (checkpointHasCanonicalNamespace(saved)) {
-      const message = `Navidrome canonical ID namespace for ${serverId} cannot be downgraded after ${saved?.checkedVersion}`;
+      const message = canonicalNamespaceDowngradeError(serverId, saved?.checkedVersion ?? null);
       const lockToken = setRuntimeBootstrapLock(storage, serverId);
       await args.beforeAdmission?.();
       const admission = await beginRuntimeMigrationAdmission(storage, [serverId], lockToken);
@@ -793,7 +791,7 @@ async function observeNavidromeCanonicalSuccessfulPingNow(args: {
         `Canonical ID migration for ${serverId} cannot discard its ${saved.phase} checkpoint after a ${classification} probe`,
       );
     }
-    const checkedVersion = classification === 'retryable' ? null : sourceVersion;
+    const checkedVersion = classification === 'legacy' ? sourceVersion : null;
     if (saved?.phase === classification
       && saved.sourceVersion === sourceVersion
       && saved.checkedVersion === checkedVersion) return false;
@@ -904,6 +902,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   const checkpoint = readCheckpoint(storage);
   const write = checkpointWriter(storage, checkpoint);
   const finishedBackendServerIds = new Set<string>();
+  let recoveredBackendBlock = false;
   const configuredServerIds = new Set(groups.map(group => group.serverIndexKey));
   const removedBlockingServer = Object.entries(checkpoint.servers).find(([serverId, saved]) => (
     !configuredServerIds.has(serverId) && BLOCKING_PHASES.has(saved.phase)
@@ -1011,18 +1010,36 @@ export async function runNavidromeCanonicalMigrationCoordinator(
       continue;
     }
     const pendingBackupImport = saved?.phase === 'pending' && saved.step === 'backup-import';
+    const falseNonNavidromeBlock = checkpointIsFalseNonNavidromeBlock(serverId, saved, server.ping);
+    if (falseNonNavidromeBlock) {
+      const recovered = await recoverFalseNonNavidromeBackendBlock({
+        serverId,
+        error: saved.lastError,
+        backendAtStart,
+      });
+      if (recovered) {
+        finishedBackendServerIds.add(serverId);
+        recoveredBackendBlock = true;
+      }
+    }
     if (pendingBackupImport && classification === 'retryable') {
       throw new Error(
         `Canonical ID namespace for imported server ${serverId} cannot be determined from its current version`,
       );
     }
-    if (saved && BLOCKING_PHASES.has(saved.phase) && !pendingBackupImport) {
+    if (saved && BLOCKING_PHASES.has(saved.phase) && !pendingBackupImport && !falseNonNavidromeBlock) {
       throw new Error(
         `Canonical ID migration for ${serverId} cannot discard its ${saved.phase} checkpoint after a ${classification} probe`,
       );
     }
-    if (checkpointHasCanonicalNamespace(saved)) {
-      const message = `Navidrome canonical ID namespace for ${serverId} cannot be downgraded after ${saved?.checkedVersion}`;
+    if (!falseNonNavidromeBlock && backendAtStart.state === 'active'
+      && backendAtStart.servers.some(candidate => candidate.serverId === serverId && candidate.phase === 'blocked')) {
+      // A native-only error has no progress provenance in v1. Do not manufacture
+      // a terminal frontend checkpoint or retry an unproven native owner.
+      throw new Error(`Canonical ID migration for ${serverId} has an unproven blocked backend checkpoint`);
+    }
+    if (!falseNonNavidromeBlock && checkpointHasCanonicalNamespace(saved)) {
+      const message = canonicalNamespaceDowngradeError(serverId, saved?.checkedVersion ?? null);
       const { generation } = await beginMigrationAdmission([serverId]);
       write.set(serverId, sourceVersion, {
         phase: 'blocked',
@@ -1035,7 +1052,7 @@ export async function runNavidromeCanonicalMigrationCoordinator(
     const phase: NavidromeCanonicalMigrationPhase = classification;
     write.set(serverId, sourceVersion, {
       phase,
-      checkedVersion: classification === 'retryable' ? null : sourceVersion,
+      checkedVersion: classification === 'legacy' ? sourceVersion : null,
       step: null,
       cursorRowid: 0,
       upperRowid: 0,
@@ -1055,16 +1072,22 @@ export async function runNavidromeCanonicalMigrationCoordinator(
   }
 
   if (migrationServers.length === 0) {
-    if (backendAtStart.state === 'active'
-      && backendAtStart.servers.every(server => (
-        finishedBackendServerIds.has(server.serverId)
+    const backendAtCompletion = recoveredBackendBlock ? await inspectBackend() : backendAtStart;
+    if (recoveredBackendBlock && (backendAtCompletion.state !== 'active'
+      || backendAtStart.state !== 'active'
+      || backendAtCompletion.generation !== backendAtStart.generation)) {
+      throw new Error('Canonical checkpoint recovery lost its migration generation before release');
+    }
+    if (backendAtCompletion.state === 'active'
+      && backendAtCompletion.servers.every(server => (
+        (!recoveredBackendBlock && finishedBackendServerIds.has(server.serverId))
         || ['ready', 'legacy', 'not-applicable'].includes(server.phase)
       ))) {
-      await invoke('library_migration_release', { generation: backendAtStart.generation });
+      await invoke('library_migration_release', { generation: backendAtCompletion.generation });
     }
-    if (backendAtStart.state === 'active'
-      && backendAtStart.servers.some(server => (
-        !finishedBackendServerIds.has(server.serverId)
+    if (backendAtCompletion.state === 'active'
+      && backendAtCompletion.servers.some(server => (
+        (recoveredBackendBlock || !finishedBackendServerIds.has(server.serverId))
         && !['ready', 'legacy', 'not-applicable'].includes(server.phase)
       ))) {
       throw new Error('A canonical ID migration is active for a server that is currently unreachable');
