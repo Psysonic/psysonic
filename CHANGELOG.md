@@ -220,6 +220,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Connecting to MusicTagWeb or another non-Navidrome server no longer creates a false Navidrome migration block. Existing blocks with no migration work are recovered when the server still reports the same version, without resetting the library or settings.
 
+### Security updates for the Windows updater and code checks
+
+**By [@cucadmuh](https://github.com/cucadmuh), PR [#1865](https://github.com/Psysonic/psysonic/pull/1865)**
+
+* Updated the in-app updater to remove its older ZIP dependency with known crafted-archive vulnerabilities. Update signing keys and settings are unchanged; theme imports and backups already use the patched ZIP library.
+* Updated the development-only glob matcher to fix a denial-of-service issue during code checks.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
