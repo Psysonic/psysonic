@@ -22,7 +22,8 @@ import {
   clearQueueNaturallyEnded,
 } from '@/features/playback/store/queuePlaybackIdle';
 import { clearQueueHandoffPending } from '@/features/playback/store/queueSyncUiState';
-import { sameQueueTrack } from '@/features/playback/utils/playback/queueIdentity';
+import { sameQueueItemRef, sameQueueTrack } from '@/features/playback/utils/playback/queueIdentity';
+import { withQueueSource } from '@/features/playback/store/pendingQueueSource';
 import { isPlayQueueSyncEnabled } from '@/features/playback/store/playQueueSyncSettingsStore';
 
 export type ApplyPlayQueueMode = 'startup' | 'idle' | 'manual';
@@ -100,6 +101,18 @@ function resolveServerProfileId(serverId: string): string {
   return resolveServerIdForIndexKey(serverId) || serverId;
 }
 
+/** Position/metadata sync keeps provenance; a different ordered owner-qualified list does not. */
+function queueSourceAfterSync(
+  player: ReturnType<typeof usePlayerStore.getState>,
+  queueItems: QueueItemRef[],
+) {
+  if (!player.queueSource) return null;
+  return player.queueItems.length === queueItems.length
+    && player.queueItems.every((ref, index) => sameQueueItemRef(ref, queueItems[index]))
+    ? player.queueSource
+    : null;
+}
+
 export function applyMappedQueue(
   mappedTracks: Track[],
   q: PlayQueueResult,
@@ -130,9 +143,11 @@ export function applyMappedQueue(
   const player = usePlayerStore.getState();
   const wasPlaying = player.isPlaying;
   const sameCurrent = sameQueueTrack(player.currentTrack, currentTrack);
+  const queueSource = queueSourceAfterSync(player, queueItems);
 
   usePlayerStore.setState({
     queueItems,
+    queueSource,
     queueIndex,
     currentTrack,
     currentTime: atSeconds,
@@ -141,7 +156,11 @@ export function applyMappedQueue(
 
   if (wasPlaying) {
     if (!sameCurrent) {
-      player.playTrack(currentTrack, mappedTracks, true, false, queueIndex);
+      // playTrack treats a supplied queue as a replacement and consumes its
+      // source synchronously, even when this sync only moved the current slot.
+      const play = () => player.playTrack(currentTrack, mappedTracks, true, false, queueIndex);
+      if (queueSource) withQueueSource(queueSource, play);
+      else play();
       if (atSeconds > 0.05) {
         player.seek(atSeconds / Math.max(currentTrack.duration, 1));
       }
@@ -204,6 +223,7 @@ export function applyMappedQueueProjection(
     remoteRefs,
     preserveLocalSurplus,
   );
+  const queueSource = queueSourceAfterSync(player, queueItems);
 
   const exactPreservedIndex = previousCurrentRef ? queueItems.indexOf(previousCurrentRef) : -1;
   const preservedIndex = exactPreservedIndex >= 0
@@ -216,7 +236,7 @@ export function applyMappedQueueProjection(
       : -1;
 
   if (preservedIndex >= 0) {
-    usePlayerStore.setState({ queueItems, queueIndex: preservedIndex });
+    usePlayerStore.setState({ queueItems, queueSource, queueIndex: preservedIndex });
     return;
   }
 
@@ -224,7 +244,7 @@ export function applyMappedQueueProjection(
   const remoteIndex = mappedTracks.findIndex(track => track.id === currentId);
   const currentTrack = mappedTracks[remoteIndex >= 0 ? remoteIndex : 0];
   if (!currentTrack) {
-    usePlayerStore.setState({ queueItems, queueIndex: Math.min(player.queueIndex, Math.max(0, queueItems.length - 1)) });
+    usePlayerStore.setState({ queueItems, queueSource, queueIndex: Math.min(player.queueIndex, Math.max(0, queueItems.length - 1)) });
     return;
   }
 
@@ -234,6 +254,7 @@ export function applyMappedQueueProjection(
   const atSeconds = serverResumePositionMs(q) / 1000;
   usePlayerStore.setState({
     queueItems,
+    queueSource,
     queueIndex: queueIndex >= 0 ? queueIndex : 0,
     currentTrack,
     currentTime: atSeconds,

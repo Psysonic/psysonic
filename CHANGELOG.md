@@ -227,6 +227,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Updated the in-app updater to remove its older ZIP dependency with known crafted-archive vulnerabilities. Update signing keys and settings are unchanged; theme imports and backups already use the patched ZIP library.
 * Updated the development-only glob matcher to fix a denial-of-service issue during code checks.
 
+### Continue Listening keeps resume points tied to their list
+
+**By [@cucadmuh](https://github.com/cucadmuh), reported by [@chriswdail](https://github.com/chriswdail), PR [#1866](https://github.com/Psysonic/psysonic/pull/1866)**
+
+* Restoring a queue saved by another client no longer overwrites the previous album or playlist's Continue Listening point with tracks from the new queue. Position-only updates keep the current list's session.
+* Existing corrupted points are not repaired automatically.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
