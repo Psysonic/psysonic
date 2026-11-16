@@ -83,7 +83,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 **By [@cucadmuh](https://github.com/cucadmuh), PR [#1867](https://github.com/Psysonic/psysonic/pull/1867)**
 
 * Song Info shows the channel count reported by your server. During original-file playback, supported FLAC, extensible WAV and Vorbis files can show a verified speaker grouping such as **5.1** instead.
-* A channel count alone is never treated as a speaker layout, and a transcoded stream cannot relabel the original file. The queue display stays unchanged.
+* A channel count alone is never treated as a speaker layout, and a transcoded stream cannot relabel the original file.
 
 ## Fixed
 
