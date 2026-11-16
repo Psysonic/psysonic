@@ -53,6 +53,22 @@ pub(super) fn build_pcm16_wav(samples: &[i16], sample_rate: u32, num_channels: u
     out
 }
 
+pub(super) fn extensible_wav(channels: u16, mask: u32, frames: usize) -> Vec<u8> {
+    let wav = build_pcm16_wav(&vec![8192; frames * channels as usize], 48_000, channels);
+    let mut out = wav[..36].to_vec();
+    out[4..8].copy_from_slice(&((wav.len() + 24 - 8) as u32).to_le_bytes());
+    out[16..20].copy_from_slice(&40u32.to_le_bytes());
+    out[20..22].copy_from_slice(&0xfffeu16.to_le_bytes());
+    out.extend_from_slice(&22u16.to_le_bytes());
+    out.extend_from_slice(&16u16.to_le_bytes());
+    out.extend_from_slice(&mask.to_le_bytes());
+    out.extend_from_slice(&[
+        1, 0, 0, 0, 0, 0, 0x10, 0, 0x80, 0, 0, 0xaa, 0, 0x38, 0x9b, 0x71,
+    ]);
+    out.extend_from_slice(&wav[36..]);
+    out
+}
+
 pub(super) fn synthetic_wav_bytes(secs: f32) -> Vec<u8> {
     let sample_rate = 44_100u32;
     let n = (sample_rate as f32 * secs) as usize;

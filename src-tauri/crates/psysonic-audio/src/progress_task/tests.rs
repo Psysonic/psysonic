@@ -334,6 +334,7 @@ async fn done_with_chained_info_swaps_to_chain_and_emits_track_switched() {
             sample_rate: Some(96_000),
             bits_per_sample: Some(16),
             channels: Some(1),
+            channel_layout: None,
             lossless: true,
         }),
         output_rate: 96_000,

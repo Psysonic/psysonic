@@ -1,4 +1,5 @@
 import type { Track } from '@/lib/media/trackTypes';
+import type { ChannelLayout } from '@/lib/media/channelLayout';
 
 export type StreamProvenance = 'original' | 'transcoded' | 'unknown';
 
@@ -24,6 +25,7 @@ export interface ResolvedStreamFormat {
   /** Bit depth — only meaningful (and only sent) for lossless codecs. */
   bitsPerSample?: number;
   channels?: number;
+  channelLayout?: ChannelLayout;
   lossless: boolean;
   /**
    * Streaming bitrate cap (kbps) in effect when this stream was opened; 0 =

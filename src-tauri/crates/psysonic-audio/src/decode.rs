@@ -1,6 +1,8 @@
 //! Symphonia decoding, gapless trim, and playback source construction.
 
 mod builders;
+mod channel_layout;
+mod channel_layout_capture;
 mod decoder;
 mod decoder_bytes;
 mod decoder_streaming;

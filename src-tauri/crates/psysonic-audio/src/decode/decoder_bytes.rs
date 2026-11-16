@@ -15,6 +15,7 @@ use symphonia::core::{
 
 use crate::codec::psysonic_codec_registry;
 
+use super::channel_layout_capture::LayoutCapture;
 use super::decoder::{
     encoder_gap_reported, should_use_builtin_gapless, SizedDecoder, IN_MEMORY_PROBE_FAILED,
     MAX_CONSECUTIVE_DECODE_ERRORS, NO_AUDIO_TRACK, PACKET_READ_FAILED,
@@ -36,6 +37,7 @@ impl SizedDecoder {
             inner: Cursor::new(data),
             len: data_len,
         };
+        let (source, layout_capture) = LayoutCapture::wrap(Box::new(source));
         // Symphonia 0.6 scans trailing metadata on seekable sources — hide
         // seekability during probe (same as `new_streaming`) so preview does not
         // read the entire in-memory file before the first sample.
@@ -50,10 +52,10 @@ impl SizedDecoder {
         let probe_seek_gate = gate_needed.then(|| Arc::new(AtomicBool::new(false)));
         let media: Box<dyn MediaSource> = match &probe_seek_gate {
             Some(gate) => Box::new(ProbeSeekGate {
-                inner: Box::new(source),
+                inner: source,
                 seekable: gate.clone(),
             }),
-            None => Box::new(source),
+            None => source,
         };
         // Hi-Res: 4 MB read-ahead so Symphonia demuxes fewer Read calls for
         // high-bitrate files (88.2 kHz/24-bit FLAC ≈ 1800 kbps).
@@ -146,7 +148,7 @@ impl SizedDecoder {
             .clone();
 
         log_codec_resolution("bytes", &audio_params, format_hint);
-        let codec_info = resolve_codec_info(&audio_params);
+        let mut codec_info = resolve_codec_info(&audio_params);
 
         // Encoder-gap trimming has exactly one owner per stream:
         //   • the decoder, when the demuxer actually reported an encoder gap
@@ -250,6 +252,10 @@ impl SizedDecoder {
             }
         };
 
+        layout_capture.finish(
+            &mut codec_info,
+            (!buffer.is_empty()).then_some(spec.channels().count()),
+        );
         Ok(SizedDecoder {
             decoder,
             current_frame_offset: 0,

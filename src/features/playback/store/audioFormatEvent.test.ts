@@ -42,6 +42,31 @@ describe('audio:format event identity', () => {
     expect(usePlayerStore.getState().resolvedStreamFormat?.codec).toBe('opus');
   });
 
+  it('stores only verified layouts for explicit matching identity and clears them on count-only events', () => {
+    usePlayerStore.setState({ currentTrack: track('a', 's1') });
+    handleAudioFormat({ trackId: 'a', serverId: 's1', generation: 2, codec: 'flac', lossless: true,
+      channels: 6, channelLayout: { mainChannels: 5, lfeChannels: 1, provenance: 'flac-mask' } });
+    expect(usePlayerStore.getState().resolvedStreamFormat?.channelLayout).toEqual({
+      mainChannels: 5, lfeChannels: 1, provenance: 'flac-mask',
+    });
+    handleAudioFormat({ trackId: 'a', serverId: 's1', generation: 2, codec: 'flac', lossless: true, channels: 6 });
+    expect(usePlayerStore.getState().resolvedStreamFormat?.channelLayout).toBeUndefined();
+  });
+
+  it('does not promote layouts from identityless, stale, wrong-track, or wrong-owner events', () => {
+    usePlayerStore.setState({ currentTrack: track('a', 's1') });
+    const layout = { mainChannels: 5, lfeChannels: 1, provenance: 'flac-mask' as const };
+    for (const identity of [
+      { serverId: 's1', generation: 2 },
+      { trackId: 'a', serverId: 's1', generation: -1 },
+      { trackId: 'b', serverId: 's1', generation: 2 },
+      { trackId: 'a', serverId: 's2', generation: 2 },
+    ]) {
+      handleAudioFormat({ ...identity, codec: 'flac', lossless: true, channels: 6, channelLayout: layout });
+      expect(usePlayerStore.getState().resolvedStreamFormat?.channelLayout).toBeUndefined();
+    }
+  });
+
   it('does NOT attach a format resolved for a since-skipped track', () => {
     // Event was resolved for track "a", but the user skipped to "b" first.
     usePlayerStore.setState({ currentTrack: track('b', 's1') });
@@ -105,6 +130,38 @@ describe('audio:format event identity', () => {
     });
     expect(usePlayerStore.getState().resolvedStreamFormat).toBeNull();
   });
+
+  it('retires the exact cleared generation but accepts the next playback', () => {
+    usePlayerStore.setState({ currentTrack: track('a', 's1') });
+    const payload = {
+      trackId: 'a', serverId: 's1', generation: 7, codec: 'flac', lossless: true,
+      channels: 6, channelLayout: { mainChannels: 5, lfeChannels: 1, provenance: 'flac-mask' as const },
+    };
+    handleAudioFormat(payload);
+    expect(usePlayerStore.getState().resolvedStreamFormat?.channelLayout).toEqual(payload.channelLayout);
+    usePlayerStore.setState({ resolvedStreamFormat: null });
+    // Repeated stale delivery must not reopen the retired instance either.
+    handleAudioFormat(payload);
+    handleAudioFormat(payload);
+    handleAudioStreamProvenance({ trackId: 'a', serverId: 's1', generation: 7, provenance: 'original' });
+    expect(usePlayerStore.getState().resolvedStreamFormat).toBeNull();
+    handleAudioFormat({ ...payload, generation: 8 });
+    expect(usePlayerStore.getState().resolvedStreamFormat?.channelLayout).toEqual(payload.channelLayout);
+  });
+
+  it.each([0, -1, 1.5, NaN, Infinity, -Infinity, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects unsupported generation %s before changing format or floor', generation => {
+      usePlayerStore.setState({ currentTrack: track('a', 's1') });
+      handleAudioFormat({
+        trackId: 'a', serverId: 's1', generation, codec: 'flac', lossless: true,
+        channels: 6, channelLayout: { mainChannels: 5, lfeChannels: 1, provenance: 'flac-mask' },
+      });
+      expect(usePlayerStore.getState().resolvedStreamFormat).toBeNull();
+      expect(usePlayerStore.getState().streamFormatGenerationFloor).toBe(0);
+      handleAudioFormat({ trackId: 'a', serverId: 's1', generation: 1, codec: 'flac', lossless: true });
+      expect(usePlayerStore.getState().resolvedStreamFormat?.generation).toBe(1);
+    },
+  );
 
   it('does NOT relabel an uncapped stream when the engine sends an explicit null cap', () => {
     // Rust `None` serializes as null — that is a REAL "no cap", not a missing

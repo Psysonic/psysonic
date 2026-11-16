@@ -116,6 +116,7 @@ import {
   shouldAutoAdvanceAfterUnavailableFailure,
 } from '@/features/playback/store/playbackAlternativeStore';
 import type { StreamProvenance } from '@/lib/media/streamFormat';
+import { parseChannelLayout, type ChannelLayout } from '@/lib/media/channelLayout';
 
 // Silence-aware crossfade (A-tail): guards the early advance to once per play
 // generation so a single playback instance triggers at most one trim-advance
@@ -180,6 +181,7 @@ export type AudioFormatPayload = {
   sampleRate?: number | null;
   bitsPerSample?: number | null;
   channels?: number | null;
+  channelLayout?: ChannelLayout | null;
   lossless: boolean;
 };
 
@@ -189,6 +191,11 @@ export type AudioStreamProvenancePayload = {
   generation: number;
   provenance: StreamProvenance;
 };
+
+// Native play generations start at one; zero is the unobserved initial floor.
+function isAudioFormatGeneration(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
+}
 
 /**
  * The engine resolved the real codec/format of the live stream. Stamp it with
@@ -202,6 +209,7 @@ export function handleAudioFormat(payload: AudioFormatPayload): void {
   const state = usePlayerStore.getState();
   const cur = state.currentTrack;
   if (!cur || !payload?.codec) return;
+  if (payload.generation != null && !isAudioFormatGeneration(payload.generation)) return;
   // Identity guard: the engine resolves format asynchronously, so an event may
   // land after a skip, or a duplicate Subsonic id on another server may collide.
   // When the event names its track/server it must match what's playing now;
@@ -219,6 +227,17 @@ export function handleAudioFormat(payload: AudioFormatPayload): void {
   // so the object itself cannot carry the guard.
   const floor = state.streamFormatGenerationFloor;
   if (payload.generation != null && payload.generation < floor) return;
+  // Clearing a stream retires its last observed generation, even on a same-id
+  // replay. Equal-generation updates are valid only while that stream is active.
+  if (payload.generation === floor
+    && state.resolvedStreamFormat?.generation !== payload.generation) return;
+  const channelLayout = payload.trackId === cur.id
+    && isAudioFormatGeneration(payload.generation)
+    && cur.serverId != null
+    && payload.serverId != null
+    && indexKeyBelongsToServer(payload.serverId, cur.serverId)
+    ? parseChannelLayout(payload.channelLayout, payload.channels)
+    : undefined;
   usePlayerStore.setState({
     streamFormatGenerationFloor: payload.generation != null
       ? Math.max(floor, payload.generation)
@@ -231,6 +250,7 @@ export function handleAudioFormat(payload: AudioFormatPayload): void {
       sampleRate: payload.sampleRate ?? undefined,
       bitsPerSample: payload.bitsPerSample ?? undefined,
       channels: payload.channels ?? undefined,
+      channelLayout,
       lossless: !!payload.lossless,
       // The cap the stream was actually opened with, latched by Rust from the
       // stream URL — a mid-playback settings change affects the next stream,
@@ -247,6 +267,7 @@ export function handleAudioFormat(payload: AudioFormatPayload): void {
 /** Merge trusted HTTP stream provenance only into the exact format instance. */
 export function handleAudioStreamProvenance(payload: AudioStreamProvenancePayload): void {
   if (!payload || !['original', 'transcoded', 'unknown'].includes(payload.provenance)) return;
+  if (!isAudioFormatGeneration(payload.generation)) return;
   const state = usePlayerStore.getState();
   const cur = state.currentTrack;
   const resolved = state.resolvedStreamFormat;
