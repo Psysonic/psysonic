@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { QueueItemRef } from '@/lib/media/trackTypes';
+import type { QueueSource } from '@/features/playback/store/pendingQueueSource';
 import { useAuthStore } from '@/store/authStore';
 
 const getPlayQueueForServerMock = vi.fn();
@@ -43,6 +44,7 @@ vi.mock('@/features/playback/store/queueSyncUiState', () => ({
 const playerState = {
   queueServerId: null as string | null,
   queueItems: [] as QueueItemRef[],
+  queueSource: null as QueueSource | null,
   queueIndex: 0,
   currentTrack: null as { id: string; title: string; artist: string; album: string; albumId: string; duration: number } | null,
   currentTime: 0,
@@ -79,6 +81,7 @@ describe('applyServerPlayQueue idle guards', () => {
     getPlayQueueForServerMock.mockReset();
     vi.mocked(preparePausedRestoreOnStartup).mockClear();
     playerState.queueServerId = null;
+    playerState.queueSource = { kind: 'album', id: 'local-album' };
     playerState.queueItems = [{ serverId: 'srv-a', trackId: 'local-only' }];
     playerState.queueIndex = 0;
     playerState.currentTrack = {
@@ -107,6 +110,7 @@ describe('applyServerPlayQueue idle guards', () => {
     expect(getPlayQueueForServerMock).not.toHaveBeenCalled();
     expect(playerState.queueItems).toEqual([{ serverId: 'srv-a', trackId: 'local-only' }]);
     expect(isIdleQueuePullSuspended()).toBe(true);
+    expect(playerState.queueSource).toEqual({ kind: 'album', id: 'local-album' });
   });
 
   it('does not fetch or apply a server queue when sync is disabled for this device', async () => {
@@ -214,6 +218,7 @@ describe('applyServerPlayQueue idle guards', () => {
     expect(getPlayQueueForServerMock).toHaveBeenCalledWith('srv-a');
     expect(playerState.queueItems.map(ref => ref.trackId)).toEqual(['a1', 'b1', 'a3']);
     expect(playerState.queueIndex).toBe(1);
+    expect(playerState.queueSource).toBeNull();
   });
 
   it('updates the active-server projection in a mixed queue', async () => {
@@ -256,6 +261,7 @@ describe('applyServerPlayQueue idle guards', () => {
       await expect(applyServerPlayQueue('srv-a', { mode: 'idle' })).resolves.toBe('noop');
 
       expect(preparePausedRestoreOnStartup).not.toHaveBeenCalled();
+      expect(playerState.queueSource).toEqual({ kind: 'album', id: 'local-album' });
     });
 
     it('restores a finished queue at the start of the track, not at 100 %', async () => {
@@ -267,6 +273,7 @@ describe('applyServerPlayQueue idle guards', () => {
       expect(preparePausedRestoreOnStartup).toHaveBeenCalledTimes(1);
       expect(vi.mocked(preparePausedRestoreOnStartup).mock.calls[0]?.[3]).toBe(0);
       expect(playerState.currentTime).toBe(0);
+      expect(playerState.queueSource).toBeNull();
     });
 
     it('still restores a position inside the track', async () => {
@@ -275,7 +282,17 @@ describe('applyServerPlayQueue idle guards', () => {
       await expect(applyServerPlayQueue('srv-a', { mode: 'idle' })).resolves.toBe('applied');
 
       expect(vi.mocked(preparePausedRestoreOnStartup).mock.calls[0]?.[3]).toBe(30);
+      expect(playerState.queueSource).toEqual({ kind: 'album', id: 'local-album' });
     });
+  });
+
+  it('leaves the source untouched when the fetched server queue is empty', async () => {
+    getPlayQueueForServerMock.mockResolvedValue({ songs: [] });
+
+    await expect(applyServerPlayQueue('srv-a', { mode: 'manual' })).resolves.toBe('empty');
+
+    expect(playerState.queueItems).toEqual([{ serverId: 'srv-a', trackId: 'local-only' }]);
+    expect(playerState.queueSource).toEqual({ kind: 'album', id: 'local-album' });
   });
 
   it('applies server queue on startup even when share refs are still in memory', async () => {

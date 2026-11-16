@@ -8,12 +8,20 @@ import { withQueueSource, type QueueSource } from '@/features/playback/store/pen
 import { emitNaturalTrackEnd } from '@/features/playback/store/naturalTrackEnd';
 import { usePrivateModeStore } from '@/features/privateMode/privateModeStore';
 import { resetAllStores } from '@/test/helpers/storeReset';
-import { makeTracks } from '@/test/helpers/factories';
+import { makeTrack, makeTracks } from '@/test/helpers/factories';
 import { onInvoke, registerDefaultCoverInvokeHandlers } from '@/test/mocks/tauri';
 import { useAuthStore } from '@/store/authStore';
 import type { Track } from '@/lib/media/trackTypes';
 import { initResumeTracker, _resetResumeTrackerForTest } from './resumeTracker';
 import { useResumePointsStore } from './resumePointsStore';
+import { applyMappedQueue, applyMappedQueueProjection } from '@/features/playback/store/applyServerPlayQueue';
+import type { PlayQueueResult } from '@/lib/api/subsonicPlayQueue';
+
+// Keep the real queue/player/tracker graph, but do not bind a paused native
+// engine or prefetch bytes during server restore.
+vi.mock('@/features/playback/store/pausedRestorePrepare', () => ({
+  preparePausedRestoreOnStartup: vi.fn(),
+}));
 
 const ALBUM: QueueSource = { kind: 'album', id: 'al-1' };
 const PLAYLIST: QueueSource = { kind: 'playlist', id: 'pl-1' };
@@ -62,6 +70,108 @@ async function finishCurrentTrack() {
   usePlayerStore.getState().next(false);
   await vi.waitFor(() => expect(usePlayerStore.getState().queueIndex).toBe(queueIndex + 1));
 }
+
+describe('server queue replacement resume provenance', () => {
+  it.each([
+    { projection: false, playing: false },
+    { projection: false, playing: true },
+    { projection: true, playing: false },
+    { projection: true, playing: true },
+  ])('flushes A before B replaces it (projection=$projection, playing=$playing)', async ({ projection, playing }) => {
+    const serverId = useAuthStore.getState().activeServerId!;
+    const album = makeTracks(4, () => ({ album: 'Album A', albumId: ALBUM.id, serverId }));
+    const list = projection ? [...album, makeTrack({ serverId: 'other', albumId: 'physical-other' })] : album;
+    await playList(list, { ...ALBUM, serverId });
+    await finishCurrentTrack();
+    usePlayerStore.setState({ currentTime: 61, isPlaying: playing });
+    const remoteTracks = makeTracks(3, () => ({ album: 'Album B', albumId: 'album-b', serverId, duration: 40 }));
+    const remote: PlayQueueResult = { songs: remoteTracks, current: remoteTracks[1].id, position: 11_605 };
+    const audioPlay = vi.fn();
+    onInvoke('audio_play', audioPlay);
+
+    if (projection) applyMappedQueueProjection(remoteTracks, remote, serverId);
+    else applyMappedQueue(remoteTracks, remote, serverId, true, 0);
+
+    // Immediate save must use the snapshot from BEFORE the atomic queue/source
+    // update, not A's list identity combined with B's current track or slot.
+    expect(useResumePointsStore.getState().points).toHaveLength(1);
+    const saved = useResumePointsStore.getState().points[0];
+    expect(saved).toMatchObject({
+      kind: 'album', id: ALBUM.id, name: 'Album A', trackId: album[1].id,
+      trackIndex: 1, trackCount: list.length, positionSec: 61, durationSec: 180,
+      cover: { albumId: ALBUM.id, coverArt: album[1].coverArt },
+    });
+    expect(usePlayerStore.getState().queueSource).toBeNull();
+    expect(useResumePointsStore.getState().session).toBeNull();
+    if (playing && !projection) {
+      await vi.waitFor(() => expect(audioPlay).toHaveBeenCalledWith(expect.objectContaining({ analysisTrackId: remoteTracks[1].id })));
+    }
+    expect(usePlayerStore.getState().currentTrack?.id).toBe(remoteTracks[1].id);
+
+    usePlayerStore.setState({ currentTime: 22 });
+    await finishCurrentTrack();
+    await finishCurrentTrack();
+    await playList(makeTracks(2, () => ({ albumId: 'new-album' })), { kind: 'album', id: 'new-album' });
+
+    // Foreign progress/end events must neither overwrite nor remove A's point.
+    expect(useResumePointsStore.getState().points).toEqual([saved]);
+  });
+
+  it('flushes the original index/count when projection preserves but shifts the current track', async () => {
+    const serverId = useAuthStore.getState().activeServerId!;
+    const other = makeTrack({ serverId: 'other', albumId: 'physical-other' });
+    const album = makeTracks(2, () => ({ album: 'Album A', albumId: ALBUM.id, serverId }));
+    await playList([...album, other], { ...ALBUM, serverId });
+    await finishCurrentTrack();
+    usePlayerStore.getState().playTrack(other, undefined, true, false, 2);
+    await vi.waitFor(() => expect(usePlayerStore.getState().queueIndex).toBe(2));
+    usePlayerStore.setState({ currentTime: 61 });
+    // Reattaching after startup must retain a persisted qualified session and
+    // snapshot the pre-projection queue, just as for uninterrupted playback.
+    stopTracker();
+    stopTracker = initResumeTracker({ playlistName: () => 'Road mix' });
+    expect(useResumePointsStore.getState().session).toMatchObject({ id: ALBUM.id, qualified: true });
+    const mapped = [...album, makeTrack({ serverId, albumId: 'album-b' })];
+
+    applyMappedQueueProjection(mapped, { songs: mapped, current: mapped[0].id, position: 0 }, serverId);
+
+    expect(usePlayerStore.getState().currentTrack?.id).toBe(other.id);
+    expect(usePlayerStore.getState().queueIndex).toBe(3);
+    expect(useResumePointsStore.getState().points[0]).toMatchObject({
+      id: ALBUM.id, trackId: other.id, trackIndex: 2, trackCount: 3, positionSec: 61,
+    });
+    expect(usePlayerStore.getState().queueSource).toBeNull();
+  });
+
+  it.each([1, 2])('retains a playing album source through position/current-slot sync to slot %i', async index => {
+    const serverId = useAuthStore.getState().activeServerId!;
+    // A merged album may legitimately contain different physical album ids.
+    const album = makeTracks(4, i => ({ album: 'Merged A', albumId: `physical-${i % 2}`, serverId }));
+    await playList(album, { ...ALBUM, serverId });
+    await finishCurrentTrack();
+    usePlayerStore.setState({ currentTime: 61, isPlaying: true });
+    const source = usePlayerStore.getState().queueSource;
+    const audioPlay = vi.fn();
+    onInvoke('audio_play', audioPlay);
+
+    applyMappedQueue(album, { songs: album, current: album[index].id, position: 12_000 }, serverId, true, 0);
+
+    if (index !== 1) {
+      // Observe the real asynchronous playTrack replacement, not just the
+      // immediate server-sync setState that precedes its source handoff.
+      await vi.waitFor(() => expect(audioPlay).toHaveBeenCalledWith(expect.objectContaining({ analysisTrackId: album[index].id })));
+    } else {
+      expect(audioPlay).not.toHaveBeenCalled();
+    }
+    expect(usePlayerStore.getState().queueSource).toBe(source);
+    expect(useResumePointsStore.getState().session).toMatchObject({ id: ALBUM.id, qualified: true });
+    expect(useResumePointsStore.getState().points).toEqual([]);
+    await playList(makeTracks(2));
+    expect(useResumePointsStore.getState().points[0]).toMatchObject({
+      id: ALBUM.id, name: 'Merged A', trackId: album[index].id, trackIndex: index, trackCount: 4,
+    });
+  });
+});
 
 describe('resume points', () => {
   it('stores where an album was left once one of its tracks played to the end', async () => {

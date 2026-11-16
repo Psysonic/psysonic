@@ -54,6 +54,7 @@ beforeEach(() => {
       { serverId: 'a', trackId: 'a2' },
     ],
     queueIndex: 1,
+    queueSource: { kind: 'playlist', id: 'persisted-mixed-list' },
     currentTrack: { id: 'b1', title: 'b1', artist: 'Artist', album: 'Album', albumId: 'album', duration: 100, serverId: 'b' },
     isPlaying: false,
     currentRadio: null,
@@ -123,6 +124,7 @@ describe('reconcileStartupPlayQueues', () => {
     ));
     await expect(reconcileStartupPlayQueues()).resolves.toBe('kept-local');
     expect(applyMappedQueueMock).not.toHaveBeenCalled();
+    expect(usePlayerStore.getState().queueSource).toEqual({ kind: 'playlist', id: 'persisted-mixed-list' });
   });
 
   it('applies a changed non-active server projection with the reconciled owner', async () => {
@@ -141,6 +143,7 @@ describe('reconcileStartupPlayQueues', () => {
     ]);
     expect(usePlayerStore.getState().queueIndex).toBe(0);
     expect(usePlayerStore.getState().currentTrack).toBe(currentTrack);
+    expect(usePlayerStore.getState().queueSource).toBeNull();
     expect(getCachedTrack({ serverId: 'b.test', trackId: 'b2' })?.serverId).toBe('b');
   });
 
