@@ -221,6 +221,7 @@ const CONTRIBUTOR_ENTRIES = [
       'Artist credits — scoped browse and detail support for guest and participant artists (PR #1631)',
       'Responsive off-thread seeking for streamed lossless audio (PR #1633)',
       'Lyrics size, compact zoom controls and primary pronunciation preference (PR #1863)',
+      'Song Info channel counts and verified speaker layouts (PR #1867)',
     ],
   },
   {
