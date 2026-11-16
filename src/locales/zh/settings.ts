@@ -829,6 +829,7 @@ export const settings = {
   waveformCacheCleared: '波形缓存已清除（{{count}} 行）。',
   waveformCacheClearFailed: '清除波形缓存失败。',
   useCustomTitlebar: '自定义标题栏',
+  useCustomTitlebarDescWindows: '用与应用主题匹配的内置标题栏替换 Windows 标题栏。关闭后将使用原生 Windows 标题栏。',
   useCustomTitlebarDesc: '用与应用主题匹配的内置标题栏替换系统标题栏。关闭后将使用原生 GNOME/GTK 标题栏。',
   windowButtonStyle: '窗口按钮',
   windowButtonStyleDesc: '选择最小化、最大化和关闭按钮的外观。',

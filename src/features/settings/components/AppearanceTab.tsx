@@ -226,11 +226,11 @@ export function AppearanceTab() {
             )}
           </SettingsGroup>
 
-          {IS_LINUX && !isTilingWm && (
+          {((IS_LINUX && !isTilingWm) || IS_WINDOWS) && (
             <SettingsGroup title={t('settings.groupWindow')}>
               <SettingsToggle
                 label={t('settings.useCustomTitlebar')}
-                desc={t('settings.useCustomTitlebarDesc')}
+                desc={t(IS_WINDOWS ? 'settings.useCustomTitlebarDescWindows' : 'settings.useCustomTitlebarDesc')}
                 checked={auth.useCustomTitlebar}
                 onChange={auth.setUseCustomTitlebar}
               />

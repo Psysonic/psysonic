@@ -296,6 +296,7 @@ export const settings = {
   discordRichPresenceDesc: 'Відображати поточний трек у вашому профілі Discord. Потребує запущеного Discord.',
   discordRichPresenceNotice: 'Зверніть увагу: це вбудований Discord Rich Presence у Psysonic. Якщо ви використовуєте офіційний плагін Navidrome Discord Rich Presence, залиште це вимкненим та увімкніть «Показувати в Хто слухає».',
   useCustomTitlebar: 'Власна панель заголовка',
+  useCustomTitlebarDescWindows: 'Замінити панель заголовка Windows на вбудовану під стиль теми додатку. Вимкніть, щоб використовувати нативний заголовок Windows.',
   useCustomTitlebarDesc: 'Замінити системну панель заголовка на вбудовану під стиль теми додатку. Вимкніть, щоб використовувати нативний заголовок GNOME/GTK.',
   windowButtonStyle: 'Кнопки вікна',
   windowButtonStyleDesc: 'Вигляд кнопок згортання, розгортання та закриття.',

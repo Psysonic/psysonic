@@ -293,6 +293,7 @@ export const settings = {
   discordRichPresenceDesc: 'Zeigt den aktuell gespielten Titel im Discord-Profil an. Discord muss dafür geöffnet sein.',
   discordRichPresenceNotice: 'Achtung: Dies ist die in Psysonic integrierte Discord Rich Presence. Wenn du stattdessen das offizielle Navidrome-Discord-Rich-Presence-Plugin nutzen möchtest, lass diese Funktion deaktiviert und aktiviere stattdessen weiter unten auf dieser Seite „Im Livefenster anzeigen".',
   useCustomTitlebar: 'Eigene Titelleiste',
+  useCustomTitlebarDescWindows: 'Ersetzt die Windows-Titelleiste durch eine eingebaute, die zum App-Theme passt. Deaktivieren, um die native Windows-Titelleiste zu verwenden.',
   useCustomTitlebarDesc: 'Ersetzt die System-Titelleiste durch eine eingebaute, die zum App-Theme passt. Deaktivieren, um die native GNOME/GTK-Titelleiste zu verwenden.',
   windowButtonStyle: 'Fenster-Buttons',
   windowButtonStyleDesc: 'Wähle das Aussehen der Minimieren-, Maximieren- und Schließen-Buttons.',

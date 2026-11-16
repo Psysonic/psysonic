@@ -295,6 +295,7 @@ export const settings = {
   discordRichPresenceDesc: 'Arată piesa redată curent pe profilul tău de Discord. Necesită Discord să ruleze.',
   discordRichPresenceNotice: 'Atenție: aceasta este Discord Rich Presence integrată în Psysonic. Dacă preferi să folosești pluginul oficial Discord Rich Presence de la Navidrome, lasă această funcție dezactivată și activează în schimb „Se afișează în Now Playing" mai jos pe această pagină.',
   useCustomTitlebar: 'Bară de titlu personalizată',
+  useCustomTitlebarDescWindows: 'Înlocuiește bara de titlu Windows cu una care corespunde cu tema aplicației. Dezactivează pentru a folosi bara de titlu nativă Windows.',
   useCustomTitlebarDesc: 'Înlocuiește bara de titlu a sistemului cu una care corespunde cu tema aplicației. Dezactivează pentru a folosi bara de titlu nativ GNOME/GTK.',
   windowButtonStyle: 'Butoane de fereastră',
   windowButtonStyleDesc: 'Alege aspectul butoanelor de minimizare, maximizare și închidere.',

@@ -296,6 +296,7 @@ export const settings = {
   discordRichPresenceDesc: 'Показва текущо изпълняваната песен в профила ти в Discord. Изисква Discord да работи.',
   discordRichPresenceNotice: 'Забележка: това е вграденият Discord Rich Presence на Psysonic. Ако предпочиташ да използваш официалния плъгин Discord Rich Presence за Navidrome, остави това изключено и включи „Показвай в „В момента се изпълнява““ по-надолу на страницата.',
   useCustomTitlebar: 'Персонализирана заглавна лента',
+  useCustomTitlebarDescWindows: 'Заменя заглавната лента на Windows с вградена, която съответства на темата на приложението. Изключи, за да използваш родната заглавна лента на Windows.',
   useCustomTitlebarDesc: 'Заменя системната заглавна лента с вградена, която съответства на темата на приложението. Изключи, за да използваш родната заглавна лента на GNOME/GTK.',
   windowButtonStyle: 'Бутони на прозореца',
   windowButtonStyleDesc: 'Избери вида на бутоните за минимизиране, максимизиране и затваряне.',

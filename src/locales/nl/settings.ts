@@ -830,6 +830,7 @@ export const settings = {
   waveformCacheCleared: 'Waveform-cache gewist ({{count}} rijen).',
   waveformCacheClearFailed: 'Waveform-cache wissen mislukt.',
   useCustomTitlebar: 'Aangepaste titelbalk',
+  useCustomTitlebarDescWindows: 'Vervang de Windows-titelbalk door een ingebouwde balk die bij het app-thema past. Schakel uit om de native Windows-titelbalk te gebruiken.',
   useCustomTitlebarDesc: 'Vervang de systeemtitelbalk door een ingebouwde balk die bij het app-thema past. Schakel uit om de native GNOME/GTK-titelbalk te gebruiken.',
   windowButtonStyle: 'Vensterknoppen',
   windowButtonStyleDesc: 'Kies het uiterlijk van de knoppen minimaliseren, maximaliseren en sluiten.',

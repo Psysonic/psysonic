@@ -831,6 +831,7 @@ export const settings = {
   showTrayIcon: 'Vis systemstatusikon',
   showTrayIconDesc: 'Vis Psysonic-ikonet i systemstatusfeltet / menylinjen.',
   useCustomTitlebar: 'Tilpasset tittellinje',
+  useCustomTitlebarDescWindows: 'Erstatt Windows-tittellinjen med en innebygd som matcher app-temaet. Slå av for å bruke den native Windows-tittellinjen.',
   useCustomTitlebarDesc: 'Erstatt systemets tittellinje med en innebygd som matcher app-temaet. Slå av for å bruke den native GNOME/GTK-tittellinjen.',
   windowButtonStyle: 'Vindusknapper',
   windowButtonStyleDesc: 'Velg utseendet på knappene for minimer, maksimer og lukk.',

@@ -296,6 +296,7 @@ export const settings = {
   discordRichPresenceDesc: 'Mostra il brano in riproduzione sul tuo profilo Discord. Discord deve essere in esecuzione.',
   discordRichPresenceNotice: 'Nota: questa è la Discord Rich Presence integrata in Psysonic. Se preferisci il plugin ufficiale Discord Rich Presence di Navidrome, lascia questa opzione disattivata e attiva invece “Mostra in «In riproduzione»” più in basso in questa pagina.',
   useCustomTitlebar: 'Barra del titolo personalizzata',
+  useCustomTitlebarDescWindows: 'Sostituisce la barra del titolo di Windows con una integrata che segue il tema dell’app. Disattivala per usare la barra nativa di Windows.',
   useCustomTitlebarDesc: 'Sostituisce la barra del titolo di sistema con una integrata che segue il tema dell’app. Disattivala per usare la barra nativa GNOME/GTK.',
   windowButtonStyle: 'Pulsanti della finestra',
   windowButtonStyleDesc: 'Scegli l’aspetto dei pulsanti riduci, ingrandisci e chiudi.',

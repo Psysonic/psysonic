@@ -13,6 +13,10 @@ import { useAuthStore } from '@/store/authStore';
 import type { LinuxWaylandTextRenderProfile } from '@/store/authStoreTypes';
 import { IS_LINUX, IS_MACOS, IS_WINDOWS } from '@/lib/util/platform';
 
+// Platforms whose main window can swap the native caption for the in-page
+// TitleBar. macOS always shows its own overlay bar and needs no toggle.
+const CUSTOM_TITLEBAR_PLATFORM = IS_LINUX || IS_WINDOWS;
+
 const DECORATION_TRANSITION_TIMEOUT_MS = 1500;
 const DECORATION_TRANSITION_BASE = Date.now() * 1000;
 let decorationTransitionSequence = 0;
@@ -42,10 +46,13 @@ function withDecorationTimeout<T>(work: Promise<T>): Promise<T> {
  */
 export function usePlatformShellSetup(): {
   isTilingWm: boolean;
-  linuxCustomTitlebarActive: boolean;
+  customTitlebarActive: boolean;
 } {
-  const [isTilingWm, setIsTilingWm] = useState<boolean | null>(() => window.__psyIsTilingWm ?? null);
-  const [linuxCustomTitlebarActive, setLinuxCustomTitlebarActive] = useState(false);
+  const [isTilingWm, setIsTilingWm] = useState<boolean | null>(
+    // Tiling-WM detection is Linux-only; Windows never has one.
+    () => (IS_LINUX ? window.__psyIsTilingWm ?? null : false),
+  );
+  const [customTitlebarActive, setCustomTitlebarActive] = useState(false);
   const titlebarTransition = useRef<Promise<void>>(Promise.resolve());
   const titlebarTransitionId = useRef(0);
   const customTitlebarCommitted = useRef(false);
@@ -62,12 +69,12 @@ export function usePlatformShellSetup(): {
   }, [isTilingWm]);
 
   useLayoutEffect(() => {
-    customTitlebarCommitted.current = linuxCustomTitlebarActive;
-    if (linuxCustomTitlebarActive) {
+    customTitlebarCommitted.current = customTitlebarActive;
+    if (customTitlebarActive) {
       customTitlebarCommitResolver.current?.();
       customTitlebarCommitResolver.current = null;
     }
-  }, [linuxCustomTitlebarActive]);
+  }, [customTitlebarActive]);
 
   useEffect(() => {
     if (!IS_LINUX) return;
@@ -135,10 +142,10 @@ export function usePlatformShellSetup(): {
   // Serialize decoration changes so a stale async completion cannot leave both
   // native and custom controls disabled after rapid preference changes.
   useEffect(() => {
-    if (!IS_LINUX) return;
+    if (!CUSTOM_TITLEBAR_PLATFORM) return;
     if (isTilingWm === null) return;
     const enabled = isTilingWm ? false : !useCustomTitlebar;
-    const customTitlebarActive = !isTilingWm && useCustomTitlebar;
+    const wantsCustomTitlebar = !isTilingWm && useCustomTitlebar;
     const transitionId = ++titlebarTransitionId.current;
     const nativeTransition = DECORATION_TRANSITION_BASE + (++decorationTransitionSequence);
     let cancelled = false;
@@ -150,12 +157,12 @@ export function usePlatformShellSetup(): {
         ?? await withDecorationTimeout(windowLifecycleGeneration());
       window.__psyLifecycleGeneration = generation;
 
-      if (customTitlebarActive) {
+      if (wantsCustomTitlebar) {
         if (!customTitlebarCommitted.current) {
           await new Promise<void>(resolve => {
             releaseCommitWait = resolve;
             customTitlebarCommitResolver.current = resolve;
-            setLinuxCustomTitlebarActive(true);
+            setCustomTitlebarActive(true);
           });
         }
         if (cancelled || transitionId !== titlebarTransitionId.current) return;
@@ -179,7 +186,7 @@ export function usePlatformShellSetup(): {
           transition: nativeTransition,
         }));
         if (accepted && !cancelled && transitionId === titlebarTransitionId.current) {
-          setLinuxCustomTitlebarActive(false);
+          setCustomTitlebarActive(false);
         }
       } catch {
         // Keep the currently mounted controls when the native transition fails.
@@ -197,7 +204,7 @@ export function usePlatformShellSetup(): {
   }, [useCustomTitlebar, isTilingWm]);
 
   useEffect(() => () => {
-    if (!IS_LINUX || isTilingWmRef.current !== false || !customTitlebarCommitted.current) return;
+    if (!CUSTOM_TITLEBAR_PLATFORM || isTilingWmRef.current !== false || !customTitlebarCommitted.current) return;
     const transitionId = ++titlebarTransitionId.current;
     const nativeTransition = DECORATION_TRANSITION_BASE + (++decorationTransitionSequence);
     titlebarTransition.current = titlebarTransition.current.catch(() => {}).then(async () => {
@@ -241,6 +248,6 @@ export function usePlatformShellSetup(): {
 
   return {
     isTilingWm: isTilingWm ?? false,
-    linuxCustomTitlebarActive,
+    customTitlebarActive,
   };
 }

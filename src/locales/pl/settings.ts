@@ -296,6 +296,7 @@ export const settings = {
   discordRichPresenceDesc: 'Pokaż aktualnie odtwarzany utwór na Twoim profilu Discord. Wymaga uruchomienia Discorda.',
   discordRichPresenceNotice: 'Uwaga: to wbudowana wtyczka Discord Rich Presence od Psysonic. Jeśli wolisz korzystać z oficjalnej wtyczki Discord Rich Presence od Navidrome, zostaw tę opcję wyłączoną i włącz opcję "Pokaż w Teraz odtwarzane" poniżej.',
   useCustomTitlebar: 'Niestandardowy pasek tytułu',
+  useCustomTitlebarDescWindows: 'Zastąp pasek tytułu Windows wbudowanym, pasującym do motywu aplikacji. Wyłącz, aby używać natywnego paska tytułowego Windows.',
   useCustomTitlebarDesc: 'Zastąp systemowy pasek tytułu wbudowanym w aplikację, pasującym do motywu aplikacji. Wyłącz, aby używać natywnego paska tytułowego GNOME/GTK.',
   windowButtonStyle: 'Przyciski okna',
   windowButtonStyleDesc: 'Wybierz wygląd przycisków minimalizacji, maksymalizacji i zamknięcia.',

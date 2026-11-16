@@ -1,4 +1,4 @@
-/* ─── Custom title bar — Linux (decorations: false) + macOS (titleBarStyle: Overlay) ─── */
+/* ─── Custom title bar — Linux + Windows (decorations: false) + macOS (titleBarStyle: Overlay) ─── */
 :root {
   --titlebar-height: 32px;
 }
