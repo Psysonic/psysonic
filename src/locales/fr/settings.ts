@@ -830,6 +830,7 @@ export const settings = {
   waveformCacheCleared: 'Cache des formes d’onde vidé ({{count}} lignes).',
   waveformCacheClearFailed: 'Impossible de vider le cache des formes d’onde.',
   useCustomTitlebar: 'Barre de titre personnalisée',
+  useCustomTitlebarDescWindows: 'Remplace la barre de titre Windows par une barre intégrée assortie au thème de l’app. Désactivez pour utiliser la barre Windows native.',
   useCustomTitlebarDesc: 'Remplace la barre de titre système par une barre intégrée assortie au thème de l’app. Désactivez pour utiliser la barre GNOME/GTK native.',
   windowButtonStyle: 'Boutons de fenêtre',
   windowButtonStyleDesc: 'Choisissez l’apparence des boutons réduire, agrandir et fermer.',

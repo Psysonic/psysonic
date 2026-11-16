@@ -289,6 +289,7 @@ export const settings = {
   discordRichPresenceDesc: 'Show the currently playing track on your Discord profile. Requires Discord to be running.',
   discordRichPresenceNotice: 'Heads up: this is Psysonic\'s built-in Discord Rich Presence. If you\'d rather use the official Navidrome Discord Rich Presence plugin, leave this switched off and enable "Show in Now Playing" further down this page instead.',
   useCustomTitlebar: 'Custom title bar',
+  useCustomTitlebarDescWindows: 'Replace the Windows title bar with a built-in one that matches the app theme. Disable to use the native Windows title bar.',
   useCustomTitlebarDesc: 'Replace the system title bar with a built-in one that matches the app theme. Disable to use the native GNOME/GTK title bar.',
   windowButtonStyle: 'Window buttons',
   windowButtonStyleDesc: 'Pick the look of the minimize, maximize and close buttons.',

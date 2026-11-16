@@ -36,7 +36,7 @@ export default function TitleBar() {
       )}
 
       {/* macOS keeps its native traffic lights (floating over the bar via
-          titleBarStyle: Overlay); only Linux draws in-page window buttons. */}
+          titleBarStyle: Overlay); Linux and Windows draw in-page window buttons. */}
       {!IS_MACOS && (
       <div className="titlebar-controls" data-btnstyle={windowButtonStyle}>
         {showMinimizeButton && (

@@ -296,6 +296,7 @@ export const settings = {
   discordRichPresenceDesc: '現在再生中のトラックを Discord プロフィールに表示します。Discord が起動している必要があります。',
   discordRichPresenceNotice: '注意: これは Psysonic 内蔵の Discord Rich Presence です。公式 Navidrome Discord Rich Presence プラグインを使いたい場合は、これをオフのままにして、このページ下部の "Now Playing に表示" を有効にしてください。',
   useCustomTitlebar: 'カスタムタイトルバー',
+  useCustomTitlebarDescWindows: 'Windows のタイトルバーを、アプリテーマに合う内蔵タイトルバーへ置き換えます。無効にするとネイティブの Windows タイトルバーを使います。',
   useCustomTitlebarDesc: 'システムタイトルバーを、アプリテーマに合う内蔵タイトルバーへ置き換えます。無効にするとネイティブ GNOME/GTK タイトルバーを使います。',
   windowButtonStyle: 'ウィンドウボタン',
   windowButtonStyleDesc: '最小化、最大化、閉じるボタンの見た目を選びます。',

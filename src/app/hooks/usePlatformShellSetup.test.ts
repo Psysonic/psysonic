@@ -65,7 +65,7 @@ describe('usePlatformShellSetup', () => {
 
     const { result } = renderHook(() => usePlatformShellSetup());
 
-    await waitFor(() => expect(result.current.linuxCustomTitlebarActive).toBe(true));
+    await waitFor(() => expect(result.current.customTitlebarActive).toBe(true));
     expect(mocks.setWindowDecorations).toHaveBeenCalledWith({
       enabled: false,
       generation: 3,
@@ -73,7 +73,7 @@ describe('usePlatformShellSetup', () => {
     });
 
     finishDecorationChange?.();
-    await waitFor(() => expect(result.current.linuxCustomTitlebarActive).toBe(true));
+    await waitFor(() => expect(result.current.customTitlebarActive).toBe(true));
   });
 
   it('serializes rapid titlebar changes and keeps custom controls until native controls return', async () => {
@@ -83,7 +83,7 @@ describe('usePlatformShellSetup', () => {
     }));
 
     const { result, rerender } = renderHook(() => usePlatformShellSetup());
-    await waitFor(() => expect(result.current.linuxCustomTitlebarActive).toBe(true));
+    await waitFor(() => expect(result.current.customTitlebarActive).toBe(true));
     expect(mocks.setWindowDecorations).toHaveBeenNthCalledWith(1, {
       enabled: false,
       generation: 3,
@@ -98,10 +98,10 @@ describe('usePlatformShellSetup', () => {
       generation: 3,
       transition: expect.any(Number),
     }));
-    expect(result.current.linuxCustomTitlebarActive).toBe(true);
+    expect(result.current.customTitlebarActive).toBe(true);
 
     decorationResolvers[1]?.();
-    await waitFor(() => expect(result.current.linuxCustomTitlebarActive).toBe(false));
+    await waitFor(() => expect(result.current.customTitlebarActive).toBe(false));
   });
 
   it('keeps custom controls mounted when disabling native decorations fails', async () => {
@@ -114,7 +114,7 @@ describe('usePlatformShellSetup', () => {
       generation: 3,
       transition: expect.any(Number),
     }));
-    expect(result.current.linuxCustomTitlebarActive).toBe(true);
+    expect(result.current.customTitlebarActive).toBe(true);
   });
 
   it('keeps custom controls when a stale native transition is rejected', async () => {
@@ -122,18 +122,18 @@ describe('usePlatformShellSetup', () => {
       .mockResolvedValueOnce(true)
       .mockResolvedValueOnce(false);
     const { result, rerender } = renderHook(() => usePlatformShellSetup());
-    await waitFor(() => expect(result.current.linuxCustomTitlebarActive).toBe(true));
+    await waitFor(() => expect(result.current.customTitlebarActive).toBe(true));
 
     mocks.authState.useCustomTitlebar = false;
     rerender();
     await waitFor(() => expect(mocks.setWindowDecorations).toHaveBeenCalledTimes(2));
 
-    expect(result.current.linuxCustomTitlebarActive).toBe(true);
+    expect(result.current.customTitlebarActive).toBe(true);
   });
 
   it('restores native decorations when the custom-titlebar owner unmounts', async () => {
     const { result, unmount } = renderHook(() => usePlatformShellSetup());
-    await waitFor(() => expect(result.current.linuxCustomTitlebarActive).toBe(true));
+    await waitFor(() => expect(result.current.customTitlebarActive).toBe(true));
     await waitFor(() => expect(mocks.setWindowDecorations).toHaveBeenCalledWith({
       enabled: false,
       generation: 3,

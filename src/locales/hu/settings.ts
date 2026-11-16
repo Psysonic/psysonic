@@ -296,6 +296,7 @@ export const settings = {
   discordRichPresenceDesc: 'Az éppen lejátszott szám megjelenítése a Discord-profilodon. A Discordnak futnia kell.',
   discordRichPresenceNotice: 'Figyelem: ez a Psysonic beépített Discord Rich Presence funkciója. Ha inkább a hivatalos Navidrome Discord Rich Presence bővítményt használnád, hagyd ezt kikapcsolva, és ehelyett a lejjebb található „Megjelenítés a Most szólban" lehetőséget engedélyezd.',
   useCustomTitlebar: 'Egyéni címsor',
+  useCustomTitlebarDescWindows: 'A Windows címsorának lecserélése egy beépítettre, amely illeszkedik az alkalmazás témájához. Kapcsold ki a natív Windows címsor használatához.',
   useCustomTitlebarDesc: 'A rendszer címsorának lecserélése egy beépítettre, amely illeszkedik az alkalmazás témájához. Kapcsold ki a natív GNOME/GTK címsor használatához.',
   windowButtonStyle: 'Ablakgombok',
   windowButtonStyleDesc: 'Válaszd ki a kis méretre, teljes méretre és bezárás gombok kinézetét.',
