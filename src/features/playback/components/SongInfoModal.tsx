@@ -24,6 +24,8 @@ import {
   type ParsedTrackEnrichment,
 } from '@/lib/library/trackEnrichment';
 import i18n from '@/lib/i18n';
+import { parseChannelLayout, formatChannelLayout } from '@/lib/media/channelLayout';
+import { sameQueueTrack } from '@/features/playback/utils/playback/queueIdentity';
 
 function formatSize(bytes?: number): string | null {
   if (!bytes) return null;
@@ -71,7 +73,19 @@ export default function SongInfoModal() {
   const { songInfoModal, closeSongInfo } = usePlayerStore(
     useShallow(s => ({ songInfoModal: s.songInfoModal, closeSongInfo: s.closeSongInfo }))
   );
-  const [song, setSong] = useState<SubsonicSong | null>(null);
+  const { currentTrack, resolvedStreamFormat } = usePlayerStore(useShallow(s => ({
+    currentTrack: songInfoModal.isOpen ? s.currentTrack : null,
+    resolvedStreamFormat: songInfoModal.isOpen ? s.resolvedStreamFormat : null,
+  })));
+  const [loadedSong, setLoadedSong] = useState<{
+    song: SubsonicSong;
+    owner: string | null;
+    requestedId: string;
+    requestedOwner: string | undefined;
+  } | null>(null);
+  const matchesRequest = loadedSong?.requestedId === songInfoModal.songId
+    && loadedSong?.requestedOwner === songInfoModal.serverId;
+  const song = matchesRequest ? loadedSong?.song : null;
   const [enrichment, setEnrichment] = useState<ParsedTrackEnrichment | null>(null);
   const [loading, setLoading] = useState(false);
   // Absolute filesystem path resolved via Navidrome's native API in parallel
@@ -84,7 +98,7 @@ export default function SongInfoModal() {
     if (!songInfoModal.isOpen || !songInfoModal.songId) {
       // React Compiler set-state-in-effect rule: state set from an async result resolved in this effect.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSong(null);
+      setLoadedSong(null);
       setEnrichment(null);
       setAbsolutePath(null);
       return;
@@ -95,19 +109,23 @@ export default function SongInfoModal() {
     setAbsolutePath(null);
     const songId = songInfoModal.songId;
     const ownerServerId = songInfoModal.serverId;
+    const auth = useAuthStore.getState();
+    const capturedOwner = ownerServerId ?? auth.activeServerId;
     void (async () => {
       // A downloaded or hot-cached track would otherwise skip the server and leave the dialog empty.
       const s = ownerServerId
         ? await getSongForServer(ownerServerId, songId, { evenIfLocal: true })
         : await getSong(songId);
       if (cancelled) return;
-      setSong(s);
+      setLoadedSong(s ? {
+        song: s, owner: capturedOwner, requestedId: songId, requestedOwner: ownerServerId,
+      } : null);
       setLoading(false);
       if (!s) {
         setEnrichment(null);
         return;
       }
-      const sid = ownerServerId ?? useAuthStore.getState().activeServerId;
+      const sid = capturedOwner;
       const indexEnabled = sid ? useLibraryIndexStore.getState().isIndexEnabled(sid) : false;
       if (sid && indexEnabled && await libraryIsReady(sid)) {
         try {
@@ -125,8 +143,7 @@ export default function SongInfoModal() {
     // Try the native API in parallel; only when the active server is Navidrome
     // and we have credentials. Failures are silent — modal falls back to
     // whatever the Subsonic `path` field carried (typically nothing).
-    const auth = useAuthStore.getState();
-    const sid = ownerServerId ?? auth.activeServerId;
+    const sid = capturedOwner;
     const profile = sid ? auth.servers.find(p => p.id === sid) : null;
     const identity = sid ? auth.subsonicServerIdentityByServer[sid] : undefined;
     const isNavidrome = identity?.type?.trim().toLowerCase() === 'navidrome';
@@ -148,13 +165,31 @@ export default function SongInfoModal() {
 
   if (!songInfoModal.isOpen) return null;
 
-  const channels = song?.channelCount === 1
-    ? t('songInfo.mono')
-    : song?.channelCount === 2
-      ? t('songInfo.stereo')
-      : song?.channelCount
-        ? `${song.channelCount} ch`
-        : null;
+  const modalOwner = matchesRequest ? loadedSong?.owner : null;
+  const sourceChannelCount = typeof song?.channelCount === 'number'
+    && Number.isSafeInteger(song.channelCount) && song.channelCount > 0
+    ? song.channelCount : undefined;
+  const songIsCurrent = !!song && !!currentTrack && !!modalOwner && !!currentTrack.serverId && sameQueueTrack(
+    { id: song.id, serverId: modalOwner ?? undefined }, currentTrack,
+  );
+  const verifiedOriginalLayout = songIsCurrent
+    && resolvedStreamFormat?.provenance === 'original'
+    && !!resolvedStreamFormat.channelLayout
+    && !!resolvedStreamFormat.serverId
+    && sameQueueTrack(currentTrack, {
+      id: resolvedStreamFormat.trackId,
+      serverId: resolvedStreamFormat.serverId ?? undefined,
+    })
+    && (sourceChannelCount == null || resolvedStreamFormat.channels === sourceChannelCount)
+    ? parseChannelLayout(resolvedStreamFormat.channelLayout, resolvedStreamFormat.channels)
+    : undefined;
+  const channels = verifiedOriginalLayout
+    ? formatChannelLayout(verifiedOriginalLayout)
+    : sourceChannelCount === 1
+      ? t('songInfo.mono')
+      : sourceChannelCount === 2
+        ? t('songInfo.stereo')
+        : sourceChannelCount != null ? `${sourceChannelCount} ch` : null;
 
   const trackLabel = song?.discNumber && song.discNumber > 1
     ? `${song.discNumber} – ${song.track}`

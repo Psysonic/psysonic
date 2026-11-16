@@ -2,6 +2,8 @@ use symphonia::core::codecs::audio::AudioCodecParameters;
 
 use crate::codec::psysonic_codec_registry;
 
+use super::channel_layout::VerifiedChannelLayout;
+
 /// Resolved audio format of a decoded stream — the real codec/rate/depth the
 /// engine is playing, which can differ from the server's stored file metadata
 /// when the server transcodes on the fly.
@@ -12,6 +14,9 @@ pub(crate) struct ResolvedCodecInfo {
     pub(crate) sample_rate: Option<u32>,
     pub(crate) bits_per_sample: Option<u32>,
     pub(crate) channels: Option<u16>,
+    /// Received-stream authority, attached only after a nonempty initial decode.
+    /// Independent of any later device folding or original-file provenance.
+    pub(crate) channel_layout: Option<VerifiedChannelLayout>,
     pub(crate) lossless: bool,
 }
 
@@ -40,6 +45,7 @@ pub(crate) fn resolve_codec_info(params: &AudioCodecParameters) -> ResolvedCodec
         sample_rate: params.sample_rate,
         bits_per_sample: params.bits_per_sample.or(params.bits_per_coded_sample),
         channels: params.channels.as_ref().map(|c| c.count() as u16),
+        channel_layout: None,
         lossless,
     }
 }
@@ -64,6 +70,8 @@ pub(crate) struct AudioFormatEvent {
     pub(crate) sample_rate: Option<u32>,
     pub(crate) bits_per_sample: Option<u32>,
     pub(crate) channels: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(crate) channel_layout: Option<VerifiedChannelLayout>,
     pub(crate) lossless: bool,
 }
 
@@ -92,6 +100,7 @@ impl AudioFormatEvent {
             },
             sample_rate: info.sample_rate,
             channels: info.channels,
+            channel_layout: info.channel_layout,
             lossless: info.lossless,
         }
     }

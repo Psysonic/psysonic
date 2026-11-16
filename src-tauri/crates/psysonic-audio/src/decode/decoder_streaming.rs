@@ -12,6 +12,7 @@ use symphonia::core::{
 
 use crate::codec::try_make_radio_decoder;
 
+use super::channel_layout_capture::LayoutCapture;
 use super::decoder::{
     encoder_gap_reported, should_use_builtin_gapless, SizedDecoder, MAX_CONSECUTIVE_DECODE_ERRORS,
     PACKET_READ_FAILED, STREAM_PROBE_TIMEOUT,
@@ -62,6 +63,7 @@ impl SizedDecoder {
         // and ranged sources with on-demand fetches all make those seeks cheap.
         // Legacy non-seekable AIFF retries from completed full-buffer bytes.
         let stream_len = media.byte_len();
+        let (media, layout_capture) = LayoutCapture::wrap(media);
         let random_access_needs_seekable_probe = source_random_access
             && (crate::stream::container_hint_is_ogg(format_hint)
                 || crate::stream::container_hint_is_aiff(format_hint));
@@ -162,7 +164,7 @@ impl SizedDecoder {
             .ok_or_else(|| format!("{source_tag}: track has no audio codec parameters"))?
             .clone();
         log_codec_resolution(source_tag, &audio_params, format_hint);
-        let codec_info = resolve_codec_info(&audio_params);
+        let mut codec_info = resolve_codec_info(&audio_params);
         // A finite, seekable source (local file, ranged HTTP) carries a real frame
         // count, and with trimming active that count is what actually comes out —
         // the server's duration is the untrimmed length. Consumers that schedule
@@ -323,6 +325,10 @@ impl SizedDecoder {
                 Err(e) => return Err(format!("{source_tag}: decode error: {e}")),
             }
         };
+        layout_capture.finish(
+            &mut codec_info,
+            (!buffer.is_empty()).then_some(spec.channels().count()),
+        );
         Ok(SizedDecoder {
             decoder,
             current_frame_offset: 0,

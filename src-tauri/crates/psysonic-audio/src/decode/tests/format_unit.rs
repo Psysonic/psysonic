@@ -54,6 +54,7 @@ fn audio_format_event_drops_bit_depth_for_lossy() {
         sample_rate: Some(44_100),
         bits_per_sample: Some(16),
         channels: Some(2),
+        channel_layout: None,
         lossless: false,
     };
     let ev = AudioFormatEvent::from_info(
@@ -75,6 +76,7 @@ fn audio_format_event_drops_bit_depth_for_lossy() {
     assert_eq!(json["serverId"], "srv");
     assert_eq!(json["generation"], 7);
     assert_eq!(json["streamCapKbps"], 128);
+    assert!(json.get("channelLayout").is_none());
 }
 
 #[test]
@@ -84,8 +86,44 @@ fn audio_format_event_keeps_bit_depth_for_lossless() {
         sample_rate: Some(96_000),
         bits_per_sample: Some(24),
         channels: Some(2),
+        channel_layout: None,
         lossless: true,
     };
     let ev = AudioFormatEvent::from_info(&lossless, AudioFormatIdentity::default());
     assert_eq!(ev.bits_per_sample, Some(24));
+}
+
+#[test]
+fn audio_format_event_adds_verified_layout_without_changing_identity_or_count() {
+    let mut params = AudioCodecParameters::new();
+    params.codec = symphonia::core::codecs::audio::well_known::CODEC_ID_VORBIS;
+    params.channels = Some(symphonia::core::audio::Channels::Discrete(6));
+    let mut info = resolve_codec_info(&params);
+    assert!(
+        info.channel_layout.is_none(),
+        "parameters alone are not authority"
+    );
+    info.channel_layout =
+        crate::decode::channel_layout::verify_channel_layout("vorbis", info.channels, Some(6), &[]);
+    let ev = AudioFormatEvent::from_info(
+        &info,
+        AudioFormatIdentity {
+            track_id: Some("t1".into()),
+            server_id: Some("srv".into()),
+            generation: Some(9),
+            stream_cap_kbps: Some(320),
+        },
+    );
+    let json = serde_json::to_value(ev).unwrap();
+    assert_eq!(
+        json["channelLayout"],
+        serde_json::json!({
+            "mainChannels": 5, "lfeChannels": 1, "provenance": "vorbis-mapping",
+        })
+    );
+    assert_eq!(json["channels"], 6);
+    assert_eq!(json["trackId"], "t1");
+    assert_eq!(json["serverId"], "srv");
+    assert_eq!(json["generation"], 9);
+    assert_eq!(json["streamCapKbps"], 320);
 }

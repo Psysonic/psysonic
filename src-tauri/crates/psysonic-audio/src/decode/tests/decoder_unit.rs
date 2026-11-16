@@ -183,3 +183,110 @@ fn new_streaming_returns_err_for_garbage_input() {
     );
     assert!(result.is_err());
 }
+
+#[test]
+fn extensible_wav_layout_is_verified_equally_for_bytes_and_streaming() {
+    use crate::decode::test_support::extensible_wav;
+    use crate::decode::{AudioFormatEvent, AudioFormatIdentity};
+
+    let wav = extensible_wav(6, 0x3f, 64);
+    let bytes = SizedDecoder::new(wav.clone(), Some("wav"), false).unwrap();
+    let stream =
+        SizedDecoder::new_streaming(seekable_source(wav), Some("wav"), "layout-test", true, None)
+            .unwrap();
+    for mut decoder in [bytes, stream] {
+        let json = serde_json::to_value(AudioFormatEvent::from_info(
+            decoder.codec_info(),
+            AudioFormatIdentity::default(),
+        ))
+        .unwrap();
+        assert_eq!(json["channels"], 6);
+        assert_eq!(
+            json["channelLayout"],
+            serde_json::json!({
+                "mainChannels": 5, "lfeChannels": 1, "provenance": "wav-mask",
+            })
+        );
+        assert_eq!(decoder.channels().get(), 6);
+        let samples: Vec<_> = decoder.by_ref().take(48).collect();
+        assert_eq!(
+            samples,
+            vec![0.25; 48],
+            "display evidence must not change PCM"
+        );
+    }
+}
+
+#[test]
+fn repaired_wav_masks_and_plain_wav_keep_count_without_verified_layout() {
+    use crate::decode::test_support::extensible_wav;
+    for wav in [
+        extensible_wav(6, 0, 64),
+        extensible_wav(6, 3, 64),
+        build_pcm16_wav(&[8192; 384], 48_000, 6),
+    ] {
+        let bytes = SizedDecoder::new(wav.clone(), Some("wav"), false).unwrap();
+        let stream = SizedDecoder::new_streaming(
+            seekable_source(wav),
+            Some("wav"),
+            "unverified-layout",
+            true,
+            None,
+        )
+        .unwrap();
+        for decoder in [bytes, stream] {
+            assert_eq!(decoder.codec_info().channels, Some(6));
+            assert!(decoder.codec_info().channel_layout.is_none());
+        }
+    }
+}
+
+#[test]
+fn empty_or_truncated_wav_never_acquires_layout_without_decoded_audio() {
+    use crate::decode::test_support::extensible_wav;
+    for frames in [0, 64] {
+        let mut wav = extensible_wav(6, 0x3f, frames);
+        wav.truncate(68);
+        let bytes = SizedDecoder::new(wav.clone(), Some("wav"), false);
+        let stream = SizedDecoder::new_streaming(
+            seekable_source(wav),
+            Some("wav"),
+            "empty-layout",
+            true,
+            None,
+        );
+        // Preserve the constructors' existing error/empty-EOF distinction.
+        for decoder in [bytes, stream].into_iter().flatten() {
+            assert!(decoder.buffer.is_empty());
+            assert!(decoder.codec_info().channel_layout.is_none());
+        }
+    }
+}
+
+#[test]
+fn repository_flac_fixture_has_the_same_native_authority_in_both_paths() {
+    let flac = include_bytes!("../../../fixtures/five_one_sine.flac").to_vec();
+    let bytes = SizedDecoder::new(flac.clone(), Some("flac"), false).unwrap();
+    let stream = SizedDecoder::new_streaming(
+        seekable_source(flac),
+        Some("flac"),
+        "flac-layout",
+        true,
+        None,
+    )
+    .unwrap();
+    for decoder in [bytes, stream] {
+        let json = serde_json::to_value(crate::decode::AudioFormatEvent::from_info(
+            decoder.codec_info(),
+            crate::decode::AudioFormatIdentity::default(),
+        ))
+        .unwrap();
+        assert_eq!(json["channels"], 6);
+        assert_eq!(
+            json["channelLayout"],
+            serde_json::json!({
+                "mainChannels": 5, "lfeChannels": 1, "provenance": "flac-mask",
+            })
+        );
+    }
+}
