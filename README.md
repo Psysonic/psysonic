@@ -1,3 +1,23 @@
+<!-- psy-suite:start -->
+<p align="center"><sub>Part of the <b>Psy Suite</b></sub></p>
+<table align="center">
+  <tr>
+    <td align="center" valign="top" width="33%">
+      <a href="https://github.com/Psysonic/psysonic-mobile"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Psysonic/psysonic-mobile/main/.github/psy-suite/psysonic-mobile-dark.svg"><img src="https://raw.githubusercontent.com/Psysonic/psysonic-mobile/main/.github/psy-suite/psysonic-mobile-light.svg" alt="Psysonic Mobile" height="28"></picture></a><br>
+      <sub>Psysonic on iPhone, iPad and Android (beta)</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="https://github.com/Psysonic/PsyTags"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Psysonic/PsyTags/main/.github/psy-suite/psytags-dark.svg"><img src="https://raw.githubusercontent.com/Psysonic/PsyTags/main/.github/psy-suite/psytags-light.svg" alt="PsyTags" height="28"></picture></a><br>
+      <sub>Tag editor with automatic album tagging</sub>
+    </td>
+    <td align="center" valign="top" width="33%">
+      <a href="https://github.com/Psysonic/PsyAudio"><picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Psysonic/PsyAudio/main/.github/psy-suite/psyaudio-dark.svg"><img src="https://raw.githubusercontent.com/Psysonic/PsyAudio/main/.github/psy-suite/psyaudio-light.svg" alt="PsyAudio" height="28"></picture></a><br>
+      <sub>Bit-perfect CD ripper and audio converter</sub>
+    </td>
+  </tr>
+</table>
+<!-- psy-suite:end -->
+
 <div align="center">
 
   <img src="public/psysonic-inapp-logo.svg" alt="Psysonic Logo" width="320"/>
