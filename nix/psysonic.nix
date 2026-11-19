@@ -14,6 +14,7 @@
   pkg-config,
   cmake,
   openssl,
+  aws-lc,
   gtk3,
   webkitgtk_4_1,
   libsoup_3,
@@ -103,6 +104,9 @@ stdenv.mkDerivation (finalAttrs: {
     libsoup_3
     glib-networking
     openssl
+    # rustPlatform.cargoSetupHook exports AWS_LC_SYS_USE_SYSTEM=1, so aws-lc-sys
+    # (pulled in by rustls) links the system AWS-LC instead of building it.
+    aws-lc
     alsa-lib
     libayatana-appindicator
     atk
