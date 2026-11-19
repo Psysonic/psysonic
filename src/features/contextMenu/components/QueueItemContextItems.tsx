@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Play, Radio, Heart, ChevronRight, User, Disc3, ListMusic, Info, Sparkles, Star, Trash2 } from 'lucide-react';
 import { queueSongStar } from '@/features/playback/store/pendingStarSync';
 import { getMusicNetworkRuntime } from '@/music-network';
+import { firstArtistName, structuredArtistNames } from '@/lib/api/openArtistRefs';
 import type { Track } from '@/lib/media/trackTypes';
 import { useAuthStore } from '@/store/authStore';
 import { renderPresetIcon, useEnrichmentPrimary } from '@/music-network/ui';
@@ -89,13 +90,19 @@ export default function QueueItemContextItems(props: ContextMenuItemsProps) {
                 {isStarred(song.id, song.starred, song.serverId) ? t('contextMenu.unfavorite') : t('contextMenu.favorite')}
               </div>
               {auth.enrichmentPrimaryId !== null && (() => {
-                const loveKey = `${song.title}::${song.artist}`;
+                const artists = structuredArtistNames(song.artists);
+                const loveArtist = firstArtistName(song.artist, artists);
+                const loveKey = `${song.title}::${loveArtist}`;
                 const loved = networkLovedCache[loveKey] ?? false;
                 return (
                   <div className="context-menu-item" onClick={() => handleAction(() => {
                     const newLoved = !loved;
-                    setNetworkLovedForSong(song.title, song.artist, newLoved);
-                    void getMusicNetworkRuntime().setTrackLoved({ title: song.title, artist: song.artist }, newLoved);
+                    setNetworkLovedForSong(song.title, song.artist, newLoved, artists);
+                    void getMusicNetworkRuntime().setTrackLoved({
+                      title: song.title,
+                      artist: song.artist,
+                      ...(artists ? { artists } : {}),
+                    }, newLoved);
                   })}>
                     {renderPresetIcon(networkIcon, 14)}
                     {loved ? t('contextMenu.networkUnlove', { provider: networkLabel }) : t('contextMenu.networkLove', { provider: networkLabel })}

@@ -222,6 +222,36 @@ describe('setNetworkLoved / toggleNetworkLove', () => {
     expect(usePlayerStore.getState().networkLovedCache['T::A']).toBe(true);
     expect(runtimeMock.setTrackLoved).toHaveBeenCalledWith({ title: 'T', artist: 'A' }, true);
   });
+
+  it('normalizes cache keys to the first artist and forwards structured artists on toggleNetworkLove', async () => {
+    runtimeMock.getEnrichmentPrimaryId.mockReturnValue('primary');
+    usePlayerStore.setState({
+      currentTrack: makeTrack({
+        title: 'Collab',
+        artist: 'Alice, Bob',
+        artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+      }),
+      networkLoved: false,
+      networkLovedCache: {},
+    });
+
+    usePlayerStore.getState().toggleNetworkLove();
+    expect(usePlayerStore.getState().networkLovedCache['Collab::Alice']).toBe(true);
+    expect(usePlayerStore.getState().networkLovedCache['Collab::Alice, Bob']).toBeUndefined();
+    expect(runtimeMock.setTrackLoved).toHaveBeenCalledWith({
+      title: 'Collab',
+      artist: 'Alice, Bob',
+      artists: ['Alice', 'Bob'],
+    }, true);
+
+    usePlayerStore.getState().setNetworkLoved(false);
+    expect(usePlayerStore.getState().networkLovedCache['Collab::Alice']).toBe(false);
+
+    runtimeMock.syncLovedTracks.mockResolvedValue({ 'Collab::Alice': true });
+    usePlayerStore.setState({ networkLoved: false, networkLovedCache: {} });
+    await usePlayerStore.getState().syncNetworkLovedTracks();
+    expect(usePlayerStore.getState().networkLoved).toBe(true);
+  });
 });
 
 describe('setNetworkLovedForSong', () => {
@@ -231,6 +261,39 @@ describe('setNetworkLovedForSong', () => {
 
     usePlayerStore.getState().setNetworkLovedForSong('Hello', 'Adele', false);
     expect(usePlayerStore.getState().networkLovedCache['Hello::Adele']).toBe(false);
+  });
+
+  it('normalizes joined artist names and syncs networkLoved for a playing multi-artist track', () => {
+    usePlayerStore.setState({
+      currentTrack: makeTrack({
+        title: 'Collab',
+        artist: 'Alice, Bob',
+        artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+      }),
+      networkLoved: false,
+      networkLovedCache: {},
+    });
+
+    usePlayerStore.getState().setNetworkLovedForSong('Collab', 'Alice feat. Bob', true);
+    expect(usePlayerStore.getState().networkLovedCache['Collab::Alice']).toBe(true);
+    expect(usePlayerStore.getState().networkLoved).toBe(true);
+  });
+
+  it('does not re-split a structured primary artist containing a separator when artists[] is passed', () => {
+    usePlayerStore.setState({
+      currentTrack: makeTrack({
+        title: 'Collab',
+        artist: 'Foo / Bar, Baz',
+        artists: [{ id: 'a1', name: 'Foo / Bar' }, { id: 'a2', name: 'Baz' }],
+      }),
+      networkLoved: false,
+      networkLovedCache: {},
+    });
+
+    usePlayerStore.getState().setNetworkLovedForSong('Collab', 'Foo / Bar, Baz', true, ['Foo / Bar', 'Baz']);
+    expect(usePlayerStore.getState().networkLovedCache['Collab::Foo / Bar']).toBe(true);
+    expect(usePlayerStore.getState().networkLovedCache['Collab::Foo']).toBeUndefined();
+    expect(usePlayerStore.getState().networkLoved).toBe(true);
   });
 });
 

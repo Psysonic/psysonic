@@ -219,7 +219,7 @@ export interface PlayerState {
 
   toggleNetworkLove: () => void;
   setNetworkLoved: (v: boolean) => void;
-  setNetworkLovedForSong: (title: string, artist: string, v: boolean) => void;
+  setNetworkLovedForSong: (title: string, artist: string, v: boolean, artists?: string[]) => void;
   syncNetworkLovedTracks: () => Promise<void>;
 
   resetAudioPause: () => void;

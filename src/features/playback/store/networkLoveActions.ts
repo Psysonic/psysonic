@@ -1,4 +1,5 @@
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
+import { firstArtistName, structuredArtistNames } from '@/lib/api/openArtistRefs';
 import type { PlayerState } from '@/features/playback/store/playerStoreTypes';
 
 type SetState = (
@@ -25,15 +26,20 @@ export function createNetworkLoveActions(set: SetState, get: GetState): Pick<
       const runtime = getMusicNetworkRuntimeOrNull();
       if (!currentTrack || !runtime?.getEnrichmentPrimaryId()) return;
       const newLoved = !networkLoved;
-      const cacheKey = `${currentTrack.title}::${currentTrack.artist}`;
+      const artists = structuredArtistNames(currentTrack.artists);
+      const cacheKey = `${currentTrack.title}::${firstArtistName(currentTrack.artist, artists)}`;
       set(s => ({ networkLoved: newLoved, networkLovedCache: { ...s.networkLovedCache, [cacheKey]: newLoved } }));
-      void runtime.setTrackLoved({ title: currentTrack.title, artist: currentTrack.artist }, newLoved);
+      void runtime.setTrackLoved({
+        title: currentTrack.title,
+        artist: currentTrack.artist,
+        ...(artists ? { artists } : {}),
+      }, newLoved);
     },
 
     setNetworkLoved: (v) => {
       const { currentTrack } = get();
       if (currentTrack) {
-        const cacheKey = `${currentTrack.title}::${currentTrack.artist}`;
+        const cacheKey = `${currentTrack.title}::${firstArtistName(currentTrack.artist, currentTrack.artists)}`;
         set(s => ({ networkLoved: v, networkLovedCache: { ...s.networkLovedCache, [cacheKey]: v } }));
       } else {
         set({ networkLoved: v });
@@ -48,14 +54,16 @@ export function createNetworkLoveActions(set: SetState, get: GetState): Pick<
       set(s => ({ networkLovedCache: { ...newCache, ...s.networkLovedCache } }));
       const { currentTrack } = get();
       if (currentTrack) {
-        const loved = newCache[`${currentTrack.title}::${currentTrack.artist}`] ?? false;
+        const loved = newCache[`${currentTrack.title}::${firstArtistName(currentTrack.artist, currentTrack.artists)}`] ?? false;
         set({ networkLoved: loved });
       }
     },
 
-    setNetworkLovedForSong: (title, artist, v) => {
-      const cacheKey = `${title}::${artist}`;
-      const isCurrentTrack = get().currentTrack?.title === title && get().currentTrack?.artist === artist;
+    setNetworkLovedForSong: (title, artist, v, artists) => {
+      const normalizedArtist = firstArtistName(artist, artists);
+      const cacheKey = `${title}::${normalizedArtist}`;
+      const cur = get().currentTrack;
+      const isCurrentTrack = cur?.title === title && firstArtistName(cur.artist, cur.artists) === normalizedArtist;
       set(s => ({
         networkLovedCache: { ...s.networkLovedCache, [cacheKey]: v },
         ...(isCurrentTrack ? { networkLoved: v } : {}),

@@ -85,3 +85,91 @@ describe('updateNowPlaying — single (non-indexed) form', () => {
     });
   });
 });
+
+describe('first-artist normalization for Audioscrobbler v2', () => {
+  it('sends only the first structured artist on scrobble and now-playing even with comma-joined display credits', async () => {
+    await audioscrobblerWire.scrobble(ctx(), {
+      title: 'Collab',
+      artist: 'Alice, Bob & Carol',
+      artists: ['Alice', 'Bob', 'Carol'],
+      album: 'Album',
+      duration: 180,
+      timestamp: 1_700_000_000_000,
+    });
+    expect(lastParams()['artist[0]']).toBe('Alice');
+
+    await audioscrobblerWire.updateNowPlaying(ctx(), {
+      title: 'Collab',
+      artist: 'Alice, Bob & Carol',
+      artists: ['Alice', 'Bob', 'Carol'],
+      album: 'Album',
+      duration: 180,
+      timestamp: 1_700_000_000_000,
+    });
+    expect(lastParams().artist).toBe('Alice');
+  });
+
+  it('splits joined display credits on scrobble and now-playing when structured artists are absent', async () => {
+    await audioscrobblerWire.scrobble(ctx(), {
+      title: 'Collab',
+      artist: 'Alice feat. Bob',
+      album: 'Album',
+      duration: 180,
+      timestamp: 1_700_000_000_000,
+    });
+    expect(lastParams()['artist[0]']).toBe('Alice');
+
+    await audioscrobblerWire.updateNowPlaying(ctx(), {
+      title: 'Collab',
+      artist: 'Alice ft. Bob',
+      album: 'Album',
+      duration: 180,
+      timestamp: 1_700_000_000_000,
+    });
+    expect(lastParams().artist).toBe('Alice');
+  });
+
+  it('uses the first artist for getTrackLoved, loveTrack, getTrackStats, and buildTrackUrl', async () => {
+    invokeMock.mockResolvedValue({ track: { userloved: '1', listeners: '10', playcount: '20' } });
+
+    await audioscrobblerWire.getTrackLoved(ctx(), {
+      title: 'Collab',
+      artist: 'Alice, Bob',
+      artists: ['Alice', 'Bob'],
+    });
+    expect(lastParams().artist).toBe('Alice');
+
+    await audioscrobblerWire.loveTrack(ctx(), {
+      title: 'Collab',
+      artist: 'Alice feat. Bob',
+    }, true);
+    expect(lastParams().artist).toBe('Alice');
+
+    await audioscrobblerWire.getTrackStats(ctx(), {
+      title: 'Collab',
+      artist: 'Alice • Bob',
+    });
+    expect(lastParams().artist).toBe('Alice');
+
+    expect(audioscrobblerWire.buildTrackUrl(ctx(), {
+      title: 'Collab',
+      artist: 'Alice, Bob',
+      artists: ['Alice', 'Bob'],
+    })).toBe('https://www.last.fm/music/Alice/_/Collab');
+  });
+
+  it('keeps single artists containing slashes like AC/DC intact', async () => {
+    await audioscrobblerWire.scrobble(ctx(), {
+      title: 'Thunderstruck',
+      artist: 'AC/DC',
+      album: 'The Razors Edge',
+      duration: 292,
+      timestamp: 1_700_000_000_000,
+    });
+    expect(lastParams()['artist[0]']).toBe('AC/DC');
+    expect(audioscrobblerWire.buildTrackUrl(ctx(), {
+      title: 'Thunderstruck',
+      artist: 'AC/DC',
+    })).toBe('https://www.last.fm/music/AC%2FDC/_/Thunderstruck');
+  });
+});
