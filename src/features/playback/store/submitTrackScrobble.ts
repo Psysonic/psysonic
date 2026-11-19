@@ -1,4 +1,5 @@
 import { scrobbleSong } from '@/lib/api/subsonicScrobble';
+import { structuredArtistNames } from '@/lib/api/openArtistRefs';
 import type { Track } from '@/lib/media/trackTypes';
 import type { TrackPlayStats } from '@/lib/media/trackPlayStats';
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
@@ -31,9 +32,11 @@ export function submitTrackScrobble(
   void scrobbleSong(track.id, startedAtMs, serverId).then(stats => {
     if (stats) rememberPlayStats(track.id, serverId, stats);
   });
+  const artists = structuredArtistNames(track.artists);
   void getMusicNetworkRuntimeOrNull()?.dispatchScrobble({
     title: track.title,
     artist: track.artist,
+    ...(artists ? { artists } : {}),
     album: track.album,
     duration: track.duration,
     timestamp: startedAtMs,

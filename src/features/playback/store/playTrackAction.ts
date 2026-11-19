@@ -2,6 +2,7 @@ import { playbackReportStart, playbackReportStopped } from '@/features/playback/
 import { invoke } from '@tauri-apps/api/core';
 import { audioSeek } from '@/lib/api/audio';
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
+import { firstArtistName, structuredArtistNames } from '@/lib/api/openArtistRefs';
 import { isPrivateModeActive } from '@/features/privateMode';
 import { setDeferHotCachePrefetch } from '@/lib/cache/hotCacheGate';
 import { orbitAllowsTrackServer, orbitBulkGuard, orbitSnapshot } from '@/store/orbitRuntime';
@@ -711,10 +712,12 @@ export function runPlayTrack(
       // mode holds back both.
       playbackReportStart(trackForPlay.id, playbackSid);
       const runtime = getMusicNetworkRuntimeOrNull();
+      const trackArtists = structuredArtistNames(trackForPlay.artists);
       if (!isPrivateModeActive()) {
         void runtime?.dispatchNowPlaying({
           title: trackForPlay.title,
           artist: trackForPlay.artist,
+          ...(trackArtists ? { artists: trackArtists } : {}),
           album: trackForPlay.album,
           duration: trackForPlay.duration,
           timestamp: Date.now(),
@@ -722,9 +725,13 @@ export function runPlayTrack(
       }
       if (runtime?.getEnrichmentPrimaryId()) {
         void runtime
-          .isTrackLoved({ title: trackForPlay.title, artist: trackForPlay.artist })
+          .isTrackLoved({
+            title: trackForPlay.title,
+            artist: trackForPlay.artist,
+            ...(trackArtists ? { artists: trackArtists } : {}),
+          })
           .then(loved => {
-            const cacheKey = `${trackForPlay.title}::${trackForPlay.artist}`;
+            const cacheKey = `${trackForPlay.title}::${firstArtistName(trackForPlay.artist, trackArtists)}`;
             set(s => ({
               networkLoved: loved,
               networkLovedCache: { ...s.networkLovedCache, [cacheKey]: loved },

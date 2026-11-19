@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   coerceOpenArtistRefs,
   displayArtistRefs,
+  firstArtistName,
   splitDisplayArtistName,
+  structuredArtistNames,
 } from '@/lib/api/openArtistRefs';
 
 describe('coerceOpenArtistRefs', () => {
@@ -90,5 +92,62 @@ describe('displayArtistRefs', () => {
 
   it('omits the id when the server gave none', () => {
     expect(displayArtistRefs('Alice feat. Bob')).toEqual([{ name: 'Alice' }, { name: 'Bob' }]);
+  });
+});
+
+describe('structuredArtistNames', () => {
+  it('returns trimmed names in order from structured refs', () => {
+    expect(structuredArtistNames([
+      { id: 'a1', name: ' Alice ' },
+      { id: 'a2', name: 'Bob ' },
+    ])).toEqual(['Alice', 'Bob']);
+  });
+
+  it('wraps a single ref object and drops empty trailing names', () => {
+    expect(structuredArtistNames({ id: 'a1', name: 'Solo' })).toEqual(['Solo']);
+    expect(structuredArtistNames([{ name: 'Alice' }, { id: 'a2', name: '  ' }, { name: 'Bob' }]))
+      .toEqual(['Alice', 'Bob']);
+  });
+
+  it('returns undefined when absent or when slot 0 has no name', () => {
+    expect(structuredArtistNames(undefined)).toBeUndefined();
+    expect(structuredArtistNames(null)).toBeUndefined();
+    expect(structuredArtistNames([])).toBeUndefined();
+    expect(structuredArtistNames([{ id: 'a1' }, { id: 'a2', name: 'Bob' }])).toBeUndefined();
+    expect(structuredArtistNames([{ id: 'a1', name: '   ' }, { id: 'a2', name: 'Bob' }])).toBeUndefined();
+  });
+});
+
+describe('firstArtistName', () => {
+  it('prefers slot 0 of structured refs even when the display string uses commas or ampersands', () => {
+    expect(firstArtistName('Alice, Bob & Carol', [
+      { id: 'a1', name: 'Alice' },
+      { id: 'a2', name: 'Bob' },
+    ])).toBe('Alice');
+    expect(firstArtistName('Alice & Bob', { id: 'a1', name: 'Alice' })).toBe('Alice');
+  });
+
+  it('prefers slot 0 of string[] and trims whitespace', () => {
+    expect(firstArtistName('Alice, Bob', [' Alice ', 'Bob'])).toBe('Alice');
+  });
+
+  it('falls back to splitting the display string without promoting a guest when slot 0 has no name', () => {
+    expect(firstArtistName('Alice feat. Bob', [{ id: 'a1' }, { id: 'a2', name: 'Bob' }])).toBe('Alice');
+    expect(firstArtistName('Alice feat. Bob', ['   ', 'Bob'])).toBe('Alice');
+  });
+
+  it('splits joined display strings when structured artists are absent', () => {
+    expect(firstArtistName('Alice feat. Bob')).toBe('Alice');
+    expect(firstArtistName('Alice ft Bob / Carol')).toBe('Alice');
+    expect(firstArtistName('Alice; Bob')).toBe('Alice');
+    expect(firstArtistName('Alice • Bob')).toBe('Alice');
+  });
+
+  it('keeps unsplittable names intact and handles blank strings', () => {
+    expect(firstArtistName('AC/DC')).toBe('AC/DC');
+    expect(firstArtistName('Daniel Hope, Konzerthaus Kammerorchester Berlin'))
+      .toBe('Daniel Hope, Konzerthaus Kammerorchester Berlin');
+    expect(firstArtistName('  Solo Artist  ')).toBe('Solo Artist');
+    expect(firstArtistName('   ')).toBe('');
   });
 });

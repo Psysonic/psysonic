@@ -76,3 +76,44 @@ export function displayArtistRefs(
     index === 0 && primaryId ? { id: primaryId, name } : { name }
   ));
 }
+
+/**
+ * Extract trimmed artist names from OpenSubsonic `artists` when the first
+ * entry carries a usable name. Returns `undefined` when absent or when slot 0
+ * has no name, so a later guest artist is never promoted into slot 0.
+ */
+export function structuredArtistNames(
+  refs: SubsonicOpenArtistRef[] | SubsonicOpenArtistRef | undefined | null,
+): string[] | undefined {
+  const coerced = coerceOpenArtistRefs(refs);
+  if (!coerced[0]?.name) return undefined;
+  const names = coerced
+    .map(ref => ref.name)
+    .filter((name): name is string => Boolean(name));
+  return names.length > 0 ? names : undefined;
+}
+
+/**
+ * Resolve the primary (first) artist name for a track credit.
+ * Prefers slot 0 of structured `artists` when it has a non-empty name,
+ * otherwise falls back to splitting the joined display string.
+ */
+export function firstArtistName(
+  artist: string,
+  artists?: string[] | SubsonicOpenArtistRef[] | SubsonicOpenArtistRef | null,
+): string {
+  if (Array.isArray(artists)) {
+    const firstEntry = artists[0];
+    if (typeof firstEntry === 'string') {
+      const trimmed = firstEntry.trim();
+      if (trimmed) return trimmed;
+    } else if (firstEntry) {
+      const name = coerceOpenArtistRefs(firstEntry)[0]?.name;
+      if (name) return name;
+    }
+  } else if (artists) {
+    const name = coerceOpenArtistRefs(artists)[0]?.name;
+    if (name) return name;
+  }
+  return splitDisplayArtistName(artist)[0] ?? artist.trim();
+}

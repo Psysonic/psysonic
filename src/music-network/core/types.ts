@@ -28,6 +28,8 @@ export type PresetId =
 export interface TrackRef {
   title: string;
   artist: string;
+  /** Optional structured artist list (first entry is primary performer). */
+  artists?: string[];
   /** Optional — used by wires that accept an album hint (e.g. MBID-less LB). */
   album?: string;
 }
@@ -36,6 +38,8 @@ export interface TrackRef {
 export interface ScrobbleEvent {
   title: string;
   artist: string;
+  /** Optional structured artist list (first entry is primary performer). */
+  artists?: string[];
   album: string;
   /** Seconds. */
   duration: number;

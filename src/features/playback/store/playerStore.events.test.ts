@@ -297,6 +297,47 @@ describe('audio:track_switched', () => {
     expect(usePlayerStore.getState().scrobbled).toBe(false);
     expect(usePlayerStore.getState().networkLoved).toBe(false);
   });
+
+  it('forwards structured nextTrack.artists to dispatchNowPlaying and isTrackLoved on gapless switch', async () => {
+    const runtime = getMusicNetworkRuntime();
+    const dispatchNowPlaying = vi.mocked(runtime.dispatchNowPlaying);
+    const isTrackLoved = vi.mocked(runtime.isTrackLoved);
+    const getPrimary = vi.mocked(runtime.getEnrichmentPrimaryId);
+    dispatchNowPlaying.mockClear();
+    isTrackLoved.mockClear();
+    isTrackLoved.mockResolvedValue(true);
+    getPrimary.mockReturnValue('lastfm-1');
+
+    try {
+      const first = makeTrack({ id: 't1' });
+      const second = makeTrack({
+        id: 't2',
+        title: 'Collab Gapless',
+        artist: 'Alice, Bob',
+        artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+      });
+      seedQueue([first, second], { index: 0, currentTrack: first });
+      usePlayerStore.setState({ repeatMode: 'off' });
+
+      emitTauriEvent('audio:track_switched', second.duration);
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(dispatchNowPlaying).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Collab Gapless',
+        artist: 'Alice, Bob',
+        artists: ['Alice', 'Bob'],
+      }));
+      expect(isTrackLoved).toHaveBeenCalledWith({
+        title: 'Collab Gapless',
+        artist: 'Alice, Bob',
+        artists: ['Alice', 'Bob'],
+      });
+      expect(usePlayerStore.getState().networkLovedCache['Collab Gapless::Alice']).toBe(true);
+    } finally {
+      getPrimary.mockReturnValue(null);
+    }
+  });
 });
 
 describe('audio:ended', () => {

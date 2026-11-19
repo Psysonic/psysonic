@@ -253,6 +253,7 @@ export interface SubsonicDirectoryEntry {
   artist?: string;
   albumId?: string;
   artistId?: string;
+  artists?: SubsonicOpenArtistRef[];
   coverArt?: string;
   duration?: number;
   track?: number;
