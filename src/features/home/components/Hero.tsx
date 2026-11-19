@@ -148,92 +148,37 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
   const windowHidden = useWindowVisibility();
   const windowBlurred = useWindowBlurred();
   const heroRef = useRef<HTMLDivElement | null>(null);
-  const heroScrollRootRef = useRef<HTMLElement | null>(null);
-  const visibilityRafRef = useRef<number | null>(null);
-  const [heroInView, setHeroInView] = useState(true);
-  const heroInViewRef = useRef(true);
-  // React Compiler refs rule: ref kept in sync with the latest value for use in effects/handlers/cleanup; not render data.
-  // eslint-disable-next-line react-hooks/refs
-  heroInViewRef.current = heroInView;
-
-  const computeHeroVisibleNow = useCallback((): boolean => {
-    const node = heroRef.current;
-    if (!node) return false;
-    const rect = node.getBoundingClientRect();
-    if (rect.height <= 0 || rect.width <= 0) {
-      return false;
-    }
-    const root = heroScrollRootRef.current;
-    const viewportTop = root ? root.getBoundingClientRect().top : 0;
-    const viewportBottom = root ? root.getBoundingClientRect().bottom : window.innerHeight;
-    const overlap = Math.max(0, Math.min(rect.bottom, viewportBottom) - Math.max(rect.top, viewportTop));
-    // Consider hero visible only when at least a meaningful slice is on screen.
-    const minVisiblePx = Math.min(56, rect.height * 0.2);
-    return overlap >= minVisiblePx;
-  }, []);
-
-  const updateHeroVisibility = useCallback(() => {
-    const visible = computeHeroVisibleNow();
-    setHeroInView(prev => (prev === visible ? prev : visible));
-  }, [computeHeroVisibleNow]);
+  const [heroInView, setHeroInView] = useState(false);
 
   useEffect(() => {
     const node = heroRef.current;
     if (!node) return;
-    // Prefer the nearest actual scrolling ancestor; class fallback for safety.
-    let scrollRoot: HTMLElement | null = null;
-    let parent = node.parentElement;
-    while (parent) {
-      const styles = window.getComputedStyle(parent);
-      const overflowY = styles.overflowY;
-      if ((overflowY === 'auto' || overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight + 2) {
-        scrollRoot = parent;
-        break;
+    // The viewport observer also accounts for clipping by the route scroller.
+    // Recalculate the threshold when switching between mobile and desktop heights.
+    let observer: IntersectionObserver | undefined;
+    let previousHeight = -1;
+    const resize = new ResizeObserver(() => {
+      const height = node.clientHeight;
+      if (height === previousHeight) return;
+      previousHeight = height;
+      observer?.disconnect();
+      if (!height) {
+        setHeroInView(false);
+        return;
       }
-      parent = parent.parentElement;
-    }
-    heroScrollRootRef.current =
-      scrollRoot ?? (node.closest('.app-shell-route-scroll__viewport') as HTMLElement | null);
-    updateHeroVisibility();
-    // Layout may settle after first paint (hero mounts after albums hydrate from props).
-    const layoutRaf = window.requestAnimationFrame(() => updateHeroVisibility());
-    const root = heroScrollRootRef.current;
-    const onScroll = () => {
-      if (visibilityRafRef.current != null) return;
-      visibilityRafRef.current = window.requestAnimationFrame(() => {
-        visibilityRafRef.current = null;
-        updateHeroVisibility();
-      });
-    };
-    const onResize = () => updateHeroVisibility();
-    const onFocusLike = () => updateHeroVisibility();
-    root?.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onResize);
-    window.addEventListener('focus', onFocusLike);
-    document.addEventListener('visibilitychange', onFocusLike);
+      const threshold = Math.min(0.2, 56 / height);
+      observer = new IntersectionObserver((entries, current) => {
+        const entry = entries[entries.length - 1];
+        setHeroInView(entry.isIntersecting && entry.intersectionRatio >= current.thresholds[0]);
+      }, { threshold });
+      observer.observe(node);
+    });
+    resize.observe(node);
     return () => {
-      root?.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('focus', onFocusLike);
-      document.removeEventListener('visibilitychange', onFocusLike);
-      if (visibilityRafRef.current != null) {
-        window.cancelAnimationFrame(visibilityRafRef.current);
-        visibilityRafRef.current = null;
-      }
-      window.cancelAnimationFrame(layoutRaf);
+      resize.disconnect();
+      observer?.disconnect();
     };
-  }, [updateHeroVisibility, albums.length]);
-
-  useEffect(() => {
-    if (heroInView || windowHidden) return;
-    // Recovery guard: if a scroll/RAF event was missed while hero was outside
-    // viewport, keep checking briefly so autoplay/background resume immediately
-    // after returning into view.
-    const id = window.setInterval(() => {
-      updateHeroVisibility();
-    }, 220);
-    return () => window.clearInterval(id);
-  }, [heroInView, windowHidden, updateHeroVisibility]);
+  }, [albums.length]);
 
   useEffect(() => {
     // React Compiler set-state-in-effect rule: state set from a timer/animation callback.
@@ -262,27 +207,16 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
   const startTimer = useCallback((len: number) => {
     if (timerRef.current) clearInterval(timerRef.current);
     timerRef.current = null;
-    if (len <= 1 || windowHidden || windowBlurred || !heroInViewRef.current || !computeHeroVisibleNow()) return;
+    if (len <= 1 || windowHidden || windowBlurred || !heroInView) return;
     timerRef.current = setInterval(() => {
-      const visibleNow = computeHeroVisibleNow();
-      if (!visibleNow && heroInViewRef.current) setHeroInView(false);
-      if (document.hidden || window.__psyHidden || window.__psyBlurred || !heroInViewRef.current || !visibleNow) {
+      if (document.hidden || window.__psyHidden || window.__psyBlurred) {
         if (timerRef.current) clearInterval(timerRef.current);
         timerRef.current = null;
         return;
       }
       setActiveIdx(prev => (prev + 1) % len);
     }, INTERVAL_MS);
-  }, [windowHidden, windowBlurred, computeHeroVisibleNow]);
-
-  useEffect(() => {
-    // Hard-stop timer immediately when hero leaves viewport.
-    if (heroInView && !windowBlurred) return;
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, [heroInView, windowBlurred]);
+  }, [windowHidden, windowBlurred, heroInView]);
 
   useEffect(() => {
     startTimer(albums.length);
@@ -290,7 +224,7 @@ export default function Hero({ albums: albumsProp }: HeroProps = {}) {
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = null;
     };
-  }, [albums.length, heroInView, startTimer]);
+  }, [albums.length, startTimer]);
 
   const goPrev = useCallback(() => {
     const len = albums.length;

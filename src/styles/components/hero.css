@@ -16,9 +16,11 @@
 
 .hero-bg-image {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  /* Extend the blur past the clipping edge to keep the banner filled. */
+  inset: -36px;
+  width: calc(100% + 72px);
+  height: calc(100% + 72px);
+  filter: blur(12px);
   object-fit: cover;
   object-position: center center;
   pointer-events: none;
