@@ -241,6 +241,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Restoring a queue saved by another client no longer overwrites the previous album or playlist's Continue Listening point with tracks from the new queue. Position-only updates keep the current list's session.
 * Existing corrupted points are not repaired automatically.
 
+### Songs with several artists scrobble under the main artist
+
+**By [@RdrSeraphim](https://github.com/RdrSeraphim), PR [#1879](https://github.com/Psysonic/psysonic/pull/1879)**
+
+* Last.fm, Libre.fm, Rocksky, custom GNU FM servers and Maloja's Audioscrobbler API received the full artist line of a song with several artists, such as "Artist A feat. Artist B", and counted every combination as an artist of its own. Scrobbles, Now Playing, loves and track stats now go to the first artist only. ListenBrainz, Koito and Maloja's native and ListenBrainz APIs still receive the full line.
+* Songs you loved earlier under such a combined name show as not loved in Psysonic, and the old scrobbles stay with the combined name.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
