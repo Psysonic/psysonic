@@ -255,6 +255,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Last.fm, Libre.fm, Rocksky, custom GNU FM servers and Maloja's Audioscrobbler API received the full artist line of a song with several artists, such as "Artist A feat. Artist B", and counted every combination as an artist of its own. Scrobbles, Now Playing, loves and track stats now go to the first artist only. ListenBrainz, Koito and Maloja's native and ListenBrainz APIs still receive the full line.
 * Songs you loved earlier under such a combined name show as not loved in Psysonic, and the old scrobbles stay with the combined name.
 
+### Library sync keeps working past Navidrome's session timeout
+
+**By [@kris-anderson](https://github.com/kris-anderson), PR [#1875](https://github.com/Psysonic/psysonic/pull/1875)**
+
+* On Navidrome, background library sync stopped about two days after Psysonic started: the login it used had expired (Navidrome's default session timeout is 48 hours), and every check failed until Psysonic was restarted. Psysonic now logs in again when that happens, so new albums and tag edits keep reaching the local library.
+* If that login fails, Psysonic waits 10 minutes before trying again.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
