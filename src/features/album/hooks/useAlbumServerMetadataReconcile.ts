@@ -1,20 +1,27 @@
 import { useEffect, useRef } from 'react';
-import type { SubsonicAlbum } from '@/lib/api/subsonicTypes';
+import { usePlayerStore } from '@/features/playback';
+import type { SubsonicAlbum, SubsonicSong } from '@/lib/api/subsonicTypes';
 import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGuard';
 import {
   albumIsStarred,
   albumUserRating,
   applyAlbumServerMetadataPatch,
+  applyTrackUserRatings,
   diffAlbumServerMetadata,
+  diffTrackUserRatings,
   fetchAlbumServerMetadataForReconcile,
   patchAlbumStarToIndexFromReconcile,
+  patchTrackRatingsToIndexFromReconcile,
 } from '@/lib/library/albumServerMetadataReconcile';
+import { ownedOverrideValue } from '@/lib/util/ownedEntityKey';
 import type { ResolvedAlbum } from '@/store/mediaResolver';
 
 interface Args {
   serverId: string;
   albumId: string;
   album: SubsonicAlbum | undefined;
+  /** Tracks as painted; their ratings are reconciled from the same `#getAlbum`. */
+  songs: SubsonicSong[] | undefined;
   setAlbum: React.Dispatch<React.SetStateAction<ResolvedAlbum | null>>;
   /** Skip while offline browse or explicit offline-only policy. */
   enabled: boolean;
@@ -26,12 +33,13 @@ interface Args {
 
 /**
  * After album detail paints from the local index, reconcile album-level
- * album metadata against the server in the background.
+ * metadata and track ratings against the server in the background.
  */
 export function useAlbumServerMetadataReconcile({
   serverId,
   albumId,
   album,
+  songs,
   setAlbum,
   enabled,
   userMutationInFlightRef,
@@ -40,10 +48,15 @@ export function useAlbumServerMetadataReconcile({
   const reconciledKeyRef = useRef<string | null>(null);
   const inFlightKeyRef = useRef<string | null>(null);
   const albumRef = useRef(album);
+  const songsRef = useRef(songs);
 
   useEffect(() => {
     albumRef.current = album;
   }, [album]);
+
+  useEffect(() => {
+    songsRef.current = songs;
+  }, [songs]);
 
   useEffect(() => {
     reconciledKeyRef.current = null;
@@ -79,21 +92,34 @@ export function useAlbumServerMetadataReconcile({
         }
 
         const patch = diffAlbumServerMetadata(current, fetched.server);
-        if (!patch) return;
+        // A track the user rated this session keeps its override: it is the
+        // newer value, and the server may not have it yet.
+        const ratingOverrides = usePlayerStore.getState().userRatingOverrides;
+        const trackRatings = diffTrackUserRatings(serverId, songsRef.current ?? [], fetched.songs)
+          .filter(change => ownedOverrideValue(ratingOverrides, { id: change.id, serverId }) === undefined);
+        if (!patch && trackRatings.length === 0) return;
 
         setAlbum(prev =>
           prev && prev.album.id === albumId
-            ? { ...prev, album: applyAlbumServerMetadataPatch(prev.album, patch) }
+            ? {
+              ...prev,
+              album: patch ? applyAlbumServerMetadataPatch(prev.album, patch) : prev.album,
+              songs: applyTrackUserRatings(serverId, prev.songs, trackRatings),
+            }
             : prev,
         );
 
-        patchAlbumStarToIndexFromReconcile(serverId, albumId, patch);
+        patchTrackRatingsToIndexFromReconcile(serverId, trackRatings);
 
-        if (
-          patch.userRating !== albumUserRating(current)
-          || 'starred' in patch
-        ) {
-          onReconcileApplied?.(albumId);
+        if (patch) {
+          patchAlbumStarToIndexFromReconcile(serverId, albumId, patch);
+
+          if (
+            patch.userRating !== albumUserRating(current)
+            || 'starred' in patch
+          ) {
+            onReconcileApplied?.(albumId);
+          }
         }
         reconciledKeyRef.current = reconcileKey;
       } catch {
