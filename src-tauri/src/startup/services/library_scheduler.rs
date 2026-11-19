@@ -419,11 +419,19 @@ pub(super) fn spawn(app_for_sched: tauri::AppHandle) {
                                 );
                             }
                         }
-                        Err(err) => crate::app_deprintln!(
-                            "[library-sync] scheduler recorded server failure server_id={}: {}",
-                            session.server_id,
-                            err
-                        ),
+                        Err(err) => {
+                            crate::app_deprintln!(
+                                "[library-sync] scheduler recorded server failure server_id={}: {}",
+                                session.server_id,
+                                err
+                            );
+                            // An expired Navidrome bearer fails every tick until
+                            // the next bind; fetch a new one for the next tick.
+                            psysonic_library::commands::refresh_navidrome_token_after_unauthorized(
+                                runtime, &registry, &session, &err,
+                            )
+                            .await;
+                        }
                     }
                 }
             })
