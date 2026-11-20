@@ -125,6 +125,11 @@ export function trackToSong(t: LibraryTrackDto): SubsonicSong {
   // than counting locally (`scrobbleSong`). There is therefore no local tally
   // that could stand next to a server total in a unit of its own.
   if (t.playCount != null) merged.playCount = t.playCount;
+  // The rating follows the same rule: the album reconcile and a rating sent
+  // from Psysonic patch the column, while a Subsonic-synced snapshot keeps the
+  // `userRating` the server reported at sync time. 0 is how a cleared rating
+  // reaches the column.
+  if (t.userRating != null) merged.userRating = t.userRating > 0 ? t.userRating : undefined;
   if (t.playedAt != null) {
     merged.played = new Date(t.playedAt).toISOString();
   } else if (merged.played == null) {

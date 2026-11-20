@@ -658,6 +658,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Linux Hi-Res playback — correct speed without rhythmic gaps on PipeWire (PR #1857)',
     ],
   },
+  {
+    github: 'kris-anderson',
+    since: '1.57.0',
+    contributions: [
+      'Album page — track ratings set in other apps (PR #1873)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the

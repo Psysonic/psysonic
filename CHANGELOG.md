@@ -241,6 +241,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Restoring a queue saved by another client no longer overwrites the previous album or playlist's Continue Listening point with tracks from the new queue. Position-only updates keep the current list's session.
 * Existing corrupted points are not repaired automatically.
 
+### Album pages show track ratings set in other apps
+
+**By [@kris-anderson](https://github.com/kris-anderson), PR [#1873](https://github.com/Psysonic/psysonic/pull/1873)**
+
+* A track rating set in another app, such as a phone client or the Navidrome web UI, now shows on the album page when you open it, and the local library keeps it from then on. Before, Psysonic kept showing the rating a track had when it was first synced, so an album rated elsewhere could look mostly unrated.
+* Ratings you set in Psysonic during the current session stay as they are.
+
 ### Songs with several artists scrobble under the main artist
 
 **By [@RdrSeraphim](https://github.com/RdrSeraphim), PR [#1879](https://github.com/Psysonic/psysonic/pull/1879)**
