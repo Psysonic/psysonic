@@ -185,6 +185,10 @@ pub struct LibraryRuntime {
     migration_generation: Mutex<MigrationGenerationState>,
     /// Serializes cross-store migration activation, rollback, and release.
     migration_admission: Arc<AsyncMutex<()>>,
+    /// Per-server time before which a failed Navidrome bearer refresh is not
+    /// tried again, so a password the server rejects doesn't turn every
+    /// scheduler tick into a failed login.
+    navidrome_refresh_blocked_until: Mutex<HashMap<String, Instant>>,
 }
 
 impl LibraryRuntime {
@@ -203,6 +207,7 @@ impl LibraryRuntime {
                 last_generation: 0,
             }),
             migration_admission: Arc::new(AsyncMutex::new(())),
+            navidrome_refresh_blocked_until: Mutex::new(HashMap::new()),
         }
     }
 
@@ -784,6 +789,41 @@ impl LibraryRuntime {
             .map_err(|_| "library sync session lock poisoned".to_string())?;
         sessions.insert(session.server_id.clone(), session);
         Ok(())
+    }
+
+    /// Store a new Navidrome bearer for `stale`'s server. Changes nothing and
+    /// returns `false` when the session was rebound or cleared after `stale`
+    /// was read, so a late refresh never overwrites a newer bind.
+    pub fn replace_navidrome_token(&self, stale: &SyncSession, token: String) -> bool {
+        let Ok(mut sessions) = self.sync_sessions.lock() else {
+            return false;
+        };
+        match sessions.get_mut(&stale.server_id) {
+            Some(current) if current == stale => {
+                current.navidrome_token = Some(token);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// `false` while a failed Navidrome bearer refresh for `server_id` is
+    /// still backing off.
+    pub fn navidrome_refresh_allowed(&self, server_id: &str) -> bool {
+        self.navidrome_refresh_blocked_until
+            .lock()
+            .map(
+                |blocked| !matches!(blocked.get(server_id), Some(until) if Instant::now() < *until),
+            )
+            .unwrap_or(false)
+    }
+
+    /// Block Navidrome bearer refreshes for `server_id` for `backoff` after a
+    /// failed login.
+    pub fn defer_navidrome_refresh(&self, server_id: &str, backoff: Duration) {
+        if let Ok(mut blocked) = self.navidrome_refresh_blocked_until.lock() {
+            blocked.insert(server_id.to_string(), Instant::now() + backoff);
+        }
     }
 
     pub fn clear_session(&self, server_id: &str) {

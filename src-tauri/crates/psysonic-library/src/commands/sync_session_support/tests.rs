@@ -214,3 +214,152 @@ async fn navidrome_token_with_retry_returns_none_after_exhausting_attempts() {
     let tok = navidrome_token_with_retry(None, &server.uri(), "user", "pw").await;
     assert!(tok.is_none());
 }
+
+fn expired_session(base_url: &str) -> SyncSession {
+    SyncSession {
+        server_id: "s1".into(),
+        base_url: base_url.into(),
+        username: "user".into(),
+        password: "pw".into(),
+        navidrome_token: Some("expired-token".into()),
+        library_scope: None,
+    }
+}
+
+fn unauthorized() -> SyncError {
+    SyncError::Navidrome("HTTP 401 Unauthorized".into())
+}
+
+async fn mock_login(token: Option<&str>, expected_calls: u64) -> wiremock::MockServer {
+    use wiremock::matchers::{method, path};
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+    let server = MockServer::start().await;
+    let body = match token {
+        Some(token) => serde_json::json!({ "token": token, "userId": "u1" }),
+        None => serde_json::json!({}),
+    };
+    Mock::given(method("POST"))
+        .and(path("/auth/login"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(body))
+        .expect(expected_calls)
+        .mount(&server)
+        .await;
+    server
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn unauthorized_sync_error_stores_a_new_navidrome_bearer() {
+    let server = mock_login(Some("fresh-token"), 1).await;
+    let runtime = LibraryRuntime::new(Arc::new(LibraryStore::open_in_memory()));
+    let session = expired_session(&server.uri());
+    runtime.set_session(session.clone()).unwrap();
+
+    let refreshed = refresh_navidrome_token_after_unauthorized(
+        &runtime,
+        &ServerHttpRegistry::new(),
+        &session,
+        &unauthorized(),
+    )
+    .await;
+
+    assert!(refreshed);
+    let stored = runtime.get_session("s1").unwrap();
+    assert_eq!(stored.navidrome_token.as_deref(), Some("fresh-token"));
+    assert_eq!(
+        stored,
+        SyncSession {
+            navidrome_token: Some("fresh-token".into()),
+            ..session
+        }
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn other_failures_and_subsonic_only_sessions_do_not_log_in_again() {
+    let server = mock_login(Some("fresh-token"), 0).await;
+    let runtime = LibraryRuntime::new(Arc::new(LibraryStore::open_in_memory()));
+    let registry = ServerHttpRegistry::new();
+    let session = expired_session(&server.uri());
+    runtime.set_session(session.clone()).unwrap();
+
+    for error in [
+        SyncError::Navidrome("HTTP 500 Internal Server Error".into()),
+        SyncError::Navidrome("HTTP 403 Forbidden".into()),
+        SyncError::Transport("http 401".into()),
+    ] {
+        assert!(
+            !refresh_navidrome_token_after_unauthorized(&runtime, &registry, &session, &error)
+                .await
+        );
+    }
+    let subsonic_only = SyncSession {
+        navidrome_token: None,
+        ..session.clone()
+    };
+    assert!(
+        !refresh_navidrome_token_after_unauthorized(
+            &runtime,
+            &registry,
+            &subsonic_only,
+            &unauthorized()
+        )
+        .await
+    );
+    assert_eq!(runtime.get_session("s1"), Some(session));
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn bearer_refresh_never_overwrites_a_newer_bind() {
+    let server = mock_login(Some("fresh-token"), 1).await;
+    let runtime = LibraryRuntime::new(Arc::new(LibraryStore::open_in_memory()));
+    let stale = expired_session(&server.uri());
+    let rebound = SyncSession {
+        navidrome_token: Some("rebound-token".into()),
+        ..stale.clone()
+    };
+    runtime.set_session(rebound.clone()).unwrap();
+
+    let refreshed = refresh_navidrome_token_after_unauthorized(
+        &runtime,
+        &ServerHttpRegistry::new(),
+        &stale,
+        &unauthorized(),
+    )
+    .await;
+
+    assert!(!refreshed);
+    assert_eq!(runtime.get_session("s1"), Some(rebound));
+
+    runtime.clear_session("s1");
+    assert!(!runtime.replace_navidrome_token(&stale, "fresh-token".into()));
+    assert!(runtime.get_session("s1").is_none());
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn failed_bearer_refresh_keeps_the_session_and_backs_off() {
+    // Three attempts from `navidrome_token_with_retry` on the first call, and
+    // none on the second: the backoff holds the next login back.
+    let server = mock_login(None, 3).await;
+    let runtime = LibraryRuntime::new(Arc::new(LibraryStore::open_in_memory()));
+    let registry = ServerHttpRegistry::new();
+    let session = expired_session(&server.uri());
+    runtime.set_session(session.clone()).unwrap();
+
+    for _ in 0..2 {
+        assert!(
+            !refresh_navidrome_token_after_unauthorized(
+                &runtime,
+                &registry,
+                &session,
+                &unauthorized()
+            )
+            .await
+        );
+    }
+
+    assert_eq!(runtime.get_session("s1"), Some(session));
+    assert!(!runtime.navidrome_refresh_allowed("s1"));
+    assert!(runtime.navidrome_refresh_allowed("s2"));
+    runtime.defer_navidrome_refresh("s1", Duration::ZERO);
+    assert!(runtime.navidrome_refresh_allowed("s1"));
+}
