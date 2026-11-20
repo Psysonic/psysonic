@@ -5,7 +5,9 @@ use std::time::Duration;
 use tauri::AppHandle;
 
 use crate::decode::SizedDecoder;
-use crate::engine::{audio_http_client, AudioEngine, PlaybackHttpHeaders};
+use crate::engine::{
+    audio_http_client, audio_http_client_builder, AudioEngine, PlaybackHttpHeaders,
+};
 use crate::helpers::{
     content_type_to_hint, format_hint_from_content_disposition, normalize_stream_suffix_for_hint,
     resolve_playback_format_hint, sniff_stream_format_extension, STREAM_FORMAT_SNIFF_PROBE_BYTES,
@@ -50,10 +52,8 @@ pub(crate) fn resolve_preview_format_hint(
 }
 
 fn preview_http_client(state: &AudioEngine) -> reqwest::Client {
-    reqwest::Client::builder()
+    audio_http_client_builder(&psysonic_core::user_agent::subsonic_wire_user_agent())
         .timeout(Duration::from_secs(300))
-        .use_rustls_tls()
-        .user_agent(psysonic_core::user_agent::subsonic_wire_user_agent())
         .build()
         .unwrap_or_else(|_| audio_http_client(state))
 }
