@@ -58,3 +58,14 @@ describe('normalizeNavidromeExternalId', () => {
       .toThrow('canonical_migration_active');
   });
 });
+
+it('preserves Octo preview and playlist IDs despite a previous ready checkpoint', () => {
+  seed('ready');
+  const root = JSON.parse(localStorage.getItem('psysonic-auth')!);
+  root.state.openSubsonicExtensionsByServer = { [PROFILE_ID]: ['octoAcquisitions'] };
+  localStorage.setItem('psysonic-auth', JSON.stringify(root));
+  for (const id of ['oiAqcKf8v0Ds0duXdDPVQz', 'eYaVcNk6mlD3CL8aR6c637']) {
+    expect(normalizeNavidromeExternalId(PROFILE_ID, id)).toBe(id);
+    expect(normalizeNavidromeExternalId('music.test', id)).toBe(id);
+  }
+});

@@ -67,6 +67,7 @@ describe('useArtistDetailData — multi-library selection', () => {
         { id: 'srv-2', name: 'S2', url: 'https://s2.test', username: 'u', password: 'p' },
       ],
       favoritesOfflineEnabled: false,
+      openSubsonicExtensionsByServer: {},
       musicFoldersByServer: {
         'srv-1': [{ id: 'lib-a', name: 'A' }],
         'srv-2': [{ id: 'lib-b', name: 'B' }],
@@ -80,6 +81,33 @@ describe('useArtistDetailData — multi-library selection', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it.each([true, undefined])('opens an external Octo artist with or without a detail flag (%s)', async isExternal => {
+    useAuthStore.setState({ openSubsonicExtensionsByServer: { 'srv-2': ['octoAcquisitions'] } });
+    tryLoadArtistDetailMultiScopeMock.mockResolvedValue(null);
+    vi.mocked(getArtistForServer).mockResolvedValue({
+      artist: { id: 'outside', name: 'Outside', isExternal }, albums: [],
+    });
+    const { result } = renderHook(() => useArtistDetailData('outside'), {
+      wrapper: serverScopedWrapper('/artist/outside?server=srv-2'),
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(getArtistForServer).toHaveBeenCalledWith('srv-2', 'outside');
+    expect(result.current.artist?.id).toBe('outside');
+  });
+
+  it('does not use the external fallback to reveal a local artist outside the selected folders', async () => {
+    useAuthStore.setState({ openSubsonicExtensionsByServer: { 'srv-2': ['octoAcquisitions'] } });
+    tryLoadArtistDetailMultiScopeMock.mockResolvedValue(null);
+    vi.mocked(getArtistForServer).mockResolvedValue({
+      artist: { id: 'outside', name: 'Outside', isExternal: false }, albums: [],
+    });
+    const { result } = renderHook(() => useArtistDetailData('outside'), {
+      wrapper: serverScopedWrapper('/artist/outside?server=srv-2'),
+    });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(result.current.artist).toBeNull();
   });
 
   it('loads via the authoritative cross-server browse scope', async () => {

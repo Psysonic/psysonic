@@ -53,6 +53,7 @@ describe('useAlbumDetailData — multi-library selection', () => {
         { id: 'srv-2', name: 'S2', url: 'https://s2.test', username: 'u', password: 'p' },
       ],
       favoritesOfflineEnabled: false,
+      openSubsonicExtensionsByServer: {},
       musicFoldersByServer: {
         'srv-1': [{ id: 'lib-a', name: 'A' }],
         'srv-2': [{ id: 'lib-b', name: 'B' }],
@@ -65,6 +66,19 @@ describe('useAlbumDetailData — multi-library selection', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+  });
+
+  it.each([true, undefined, false])('accepts Octo catalog roots and rejects marked local roots after a scoped miss (%s)', async isExternal => {
+    useAuthStore.setState({ openSubsonicExtensionsByServer: { 'srv-2': ['octoAcquisitions'] } });
+    tryLoadAlbumDetailMultiScopeMock.mockResolvedValue(null);
+    resolveAlbumMock.mockResolvedValue({ album: { id: 'outside', name: 'Outside', isExternal }, songs: [] });
+    const wrapper = ({ children }: { children: React.ReactNode }) => React.createElement(
+      MemoryRouter, { initialEntries: ['/album/outside?server=srv-2'] }, children,
+    );
+    const { result } = renderHook(() => useAlbumDetailData('outside'), { wrapper });
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    expect(resolveAlbumMock).toHaveBeenCalledWith('srv-2', 'outside');
+    expect(result.current.album?.album.id ?? null).toBe(isExternal === false ? null : 'outside');
   });
 
   it('loads via the authoritative cross-server browse scope', async () => {

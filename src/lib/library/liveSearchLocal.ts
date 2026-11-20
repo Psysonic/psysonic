@@ -151,15 +151,17 @@ export async function runNetworkLiveSearch(
   query: string,
   signal?: AbortSignal,
   serverId?: string | null,
+  timeout = LIVE_SEARCH_NETWORK_TIMEOUT_MS,
+  songCount: number = LIVE_SEARCH_LIMITS.songs,
 ): Promise<SearchResults | null> {
   const q = query.trim();
   if (liveSearchQueryRejected(q)) return null;
   try {
     const options = {
-      timeout: LIVE_SEARCH_NETWORK_TIMEOUT_MS,
+      timeout,
       artistCount: LIVE_SEARCH_LIMITS.artists,
       albumCount: LIVE_SEARCH_LIMITS.albums,
-      songCount: LIVE_SEARCH_LIMITS.songs,
+      songCount,
     };
     if (!serverId) return await search(q, { ...options, signal });
 
@@ -168,7 +170,7 @@ export async function runNetworkLiveSearch(
     return {
       artists: result.artists.map(artist => ({ ...artist, serverId: ownerServerId })),
       albums: result.albums.map(album => ({ ...album, serverId: ownerServerId })),
-      songs: result.songs.map(song => ({ ...song, serverId: ownerServerId })),
+      songs: result.songs.slice(0, LIVE_SEARCH_LIMITS.songs).map(song => ({ ...song, serverId: ownerServerId })),
     };
   } catch (err) {
     const name = err instanceof Error ? err.name : '';

@@ -87,3 +87,24 @@ async fn get_song_with_raw_maps_error_70_to_not_found_like_get_song() {
         .unwrap_err();
     assert!(matches!(err, SubsonicError::NotFound));
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn server_info_recognizes_octo_behind_a_navidrome_ping() {
+    let server = MockServer::start().await;
+    Mock::given(wm_method("GET"))
+        .and(wm_path("/rest/ping.view"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "subsonic-response": { "status": "ok", "type": "navidrome", "serverVersion": "0.64.0", "openSubsonic": true }
+        })))
+        .mount(&server).await;
+    Mock::given(wm_method("GET"))
+        .and(wm_path("/rest/getOpenSubsonicExtensions.view"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "subsonic-response": { "status": "ok", "openSubsonicExtensions": [{ "name": "octoAcquisitions", "versions": [1] }] }
+        })))
+        .mount(&server).await;
+    let info = test_client(&server.uri()).server_info().await.unwrap();
+    assert_eq!(info.server_type.as_deref(), Some("octo"));
+    assert!(info.server_version.is_none());
+    assert!(info.open_subsonic);
+}

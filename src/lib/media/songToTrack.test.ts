@@ -108,3 +108,11 @@ describe('songToTrack', () => {
     expect(t.artists).toBeUndefined();
   });
 });
+
+it('retains preview metadata and supplies a finite duration for native playback', () => {
+  for (const duration of [undefined, NaN, Infinity, -1]) {
+    const song = makeSubsonicSong({ isExternal: true });
+    Object.assign(song, { duration });
+    expect(songToTrack(song)).toMatchObject({ isExternal: true, duration: 0 });
+  }
+});
