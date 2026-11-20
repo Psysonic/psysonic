@@ -42,6 +42,47 @@ describe('submitTrackScrobble', () => {
     });
   });
 
+  it('forwards structured track.artists to Music Network and omits artists when absent', () => {
+    const collab = makeTrack({
+      id: 't2',
+      title: 'Collab',
+      artist: 'Alice, Bob',
+      artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+      album: 'Album',
+      duration: 210,
+      serverId: 'srv-a',
+    });
+    submitTrackScrobble(collab, 'srv-a', 5678);
+
+    expect(dispatchScrobble).toHaveBeenCalledWith({
+      title: 'Collab',
+      artist: 'Alice, Bob',
+      artists: ['Alice', 'Bob'],
+      album: 'Album',
+      duration: 210,
+      timestamp: 5678,
+    });
+
+    const malformed = makeTrack({
+      id: 't3',
+      title: 'Malformed',
+      artist: 'Alice feat. Bob',
+      artists: [{ id: 'a1' }, { id: 'a2', name: 'Bob' }],
+      album: 'Album',
+      duration: 180,
+      serverId: 'srv-a',
+    });
+    submitTrackScrobble(malformed, 'srv-a', 9999);
+
+    expect(dispatchScrobble).toHaveBeenLastCalledWith({
+      title: 'Malformed',
+      artist: 'Alice feat. Bob',
+      album: 'Album',
+      duration: 180,
+      timestamp: 9999,
+    });
+  });
+
   it('shows the play on rows that are already on screen before the server answers', () => {
     const track = makeTrack({ id: 't1', serverId: 'srv-a' });
     submitTrackScrobble(track, 'srv-queue', 1234);

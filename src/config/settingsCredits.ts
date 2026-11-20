@@ -565,6 +565,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.51.0',
     contributions: [
       'Internet radio metadata — preserve UTF-8 titles with Latin-1 fallback (PR #1389)',
+      'Music Network — scrobble songs with several artists under the main artist (PR #1879)',
     ],
   },
   {

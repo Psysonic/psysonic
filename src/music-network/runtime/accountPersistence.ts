@@ -108,6 +108,12 @@ export function sanitizeScrobbleQueue(raw: unknown, now: number = Date.now()): Q
     if (typeof event.timestamp !== 'number' || !Number.isFinite(event.timestamp)) return false;
     if (typeof event.duration !== 'number' || !Number.isFinite(event.duration)) return false;
     if (typeof event.album !== 'string') return false;
+    if (
+      event.artists !== undefined
+      && (!Array.isArray(event.artists) || !event.artists.every(a => typeof a === 'string'))
+    ) {
+      return false;
+    }
     return typeof event.title === 'string' && typeof event.artist === 'string';
   });
   // Same ceilings a live write goes through, so a restored blob cannot come back

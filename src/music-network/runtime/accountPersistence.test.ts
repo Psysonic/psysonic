@@ -116,4 +116,12 @@ describe('sanitizeScrobbleQueue — event completeness', () => {
     const { album: _a, ...noAlbum } = base.event;
     expect(sanitizeScrobbleQueue([{ ...base, event: noAlbum }])).toEqual([]);
   });
+
+  it('keeps valid optional artists arrays, keeps legacy entries without artists, and drops malformed artists', () => {
+    const withArtists = { ...base, event: { ...base.event, artists: ['Alice', 'Bob'] } };
+    expect(sanitizeScrobbleQueue([withArtists])).toEqual([withArtists]);
+    expect(sanitizeScrobbleQueue([base])).toEqual([base]);
+    expect(sanitizeScrobbleQueue([{ ...base, event: { ...base.event, artists: 'Alice' } }])).toEqual([]);
+    expect(sanitizeScrobbleQueue([{ ...base, event: { ...base.event, artists: ['Alice', 42] } }])).toEqual([]);
+  });
 });

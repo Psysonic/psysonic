@@ -13,18 +13,31 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SubsonicArtistInfo, SubsonicSong, SubsonicAlbum, SubsonicArtist } from '@/lib/api/subsonicTypes';
 
+const musicNetworkMock = vi.hoisted(() => ({
+  getEnrichmentPrimaryId: vi.fn<() => string | null>(() => null),
+  getTrackStats: vi.fn(async () => null),
+  getArtistStats: vi.fn(async () => null),
+}));
+
 vi.mock('@/lib/api/subsonicArtists');
 vi.mock('@/lib/api/subsonicLibrary');
 vi.mock('@/lib/api/bandsintown');
 vi.mock('@/lib/network/subsonicNetworkGuard', () => ({
   shouldAttemptSubsonicForServer: vi.fn(() => true),
 }));
+vi.mock('@/music-network', () => ({
+  getMusicNetworkRuntimeOrNull: () => musicNetworkMock,
+}));
 
 import { shouldAttemptSubsonicForServer } from '@/lib/network/subsonicNetworkGuard';
 import { getArtistForServer, getArtistInfoForServer, getTopSongsForServer } from '@/lib/api/subsonicArtists';
 import { getAlbumForServer, getSongForServer } from '@/lib/api/subsonicLibrary';
 import { fetchBandsintownEvents } from '@/lib/api/bandsintown';
-import { useNowPlayingFetchers, type NowPlayingFetchersDeps } from '@/features/nowPlaying/hooks/useNowPlayingFetchers';
+import {
+  prewarmNowPlayingFetchers,
+  useNowPlayingFetchers,
+  type NowPlayingFetchersDeps,
+} from '@/features/nowPlaying/hooks/useNowPlayingFetchers';
 
 // Resolved return shapes of the mocked API calls — used to cast deliberately
 // partial test fixtures without `any`.
@@ -57,6 +70,9 @@ beforeEach(() => {
   vi.mocked(getTopSongsForServer).mockResolvedValue([]);
   vi.mocked(getArtistForServer).mockResolvedValue({ albums: [] } as unknown as ArtistForServer);
   vi.mocked(fetchBandsintownEvents).mockResolvedValue([]);
+  musicNetworkMock.getEnrichmentPrimaryId.mockReturnValue(null);
+  musicNetworkMock.getTrackStats.mockClear();
+  musicNetworkMock.getArtistStats.mockClear();
 });
 
 afterEach(() => {
@@ -261,5 +277,96 @@ describe('useNowPlayingFetchers — local-playback metadata', () => {
     await waitFor(() => expect(result.current.albumData?.album.id).toBe('np-al'));
     await waitFor(() => expect(result.current.discography.map(a => a.id)).toEqual(['np-al']));
     await waitFor(() => expect(result.current.topSongs.map(s => s.id)).toEqual(['np-top']));
+  });
+});
+
+describe('useNowPlayingFetchers — Music Network track and artist stats', () => {
+  afterEach(() => {
+    musicNetworkMock.getEnrichmentPrimaryId.mockReturnValue(null);
+  });
+
+  it('skips getArtistStats when artist is blank, and forwards structured artists in prewarm', async () => {
+    musicNetworkMock.getEnrichmentPrimaryId.mockReturnValue('lastfm-1');
+
+    await prewarmNowPlayingFetchers({
+      ...baseDeps,
+      enrichmentKey: 'lastfm-1',
+      artistName: '',
+      currentTrack: {
+        title: 'Blank Artist Track',
+        artist: '   ',
+      },
+    });
+    expect(musicNetworkMock.getArtistStats).not.toHaveBeenCalled();
+
+    await prewarmNowPlayingFetchers({
+      ...baseDeps,
+      enrichmentKey: 'lastfm-1',
+      artistName: '',
+      currentTrack: {
+        title: 'Prewarm Collab',
+        artist: 'Alice, Bob',
+        artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+      },
+    });
+
+    expect(musicNetworkMock.getTrackStats).toHaveBeenCalledWith({
+      title: 'Prewarm Collab',
+      artist: 'Alice, Bob',
+      artists: ['Alice', 'Bob'],
+    });
+    expect(musicNetworkMock.getArtistStats).toHaveBeenCalledWith('Alice');
+  });
+
+  it('reuses the prewarmed artist cache entry while fetching getTrackStats for a new track', async () => {
+    musicNetworkMock.getEnrichmentPrimaryId.mockReturnValue('lastfm-1');
+
+    renderHook(() =>
+      useNowPlayingFetchers({
+        ...baseDeps,
+        enrichmentKey: 'lastfm-1',
+        artistName: 'Alice',
+        currentTrack: {
+          title: 'Hook Collab',
+          artist: 'Alice, Bob',
+          artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(musicNetworkMock.getTrackStats).toHaveBeenCalledWith({
+        title: 'Hook Collab',
+        artist: 'Alice, Bob',
+        artists: ['Alice', 'Bob'],
+      });
+    });
+    expect(musicNetworkMock.getArtistStats).not.toHaveBeenCalled();
+  });
+
+  it('forwards structured artists to getTrackStats and queries getArtistStats for an uncached artist', async () => {
+    musicNetworkMock.getEnrichmentPrimaryId.mockReturnValue('lastfm-1');
+
+    renderHook(() =>
+      useNowPlayingFetchers({
+        ...baseDeps,
+        enrichmentKey: 'lastfm-1',
+        artistName: 'Charlie',
+        currentTrack: {
+          title: 'Hook Uncached Collab',
+          artist: 'Charlie, Dana',
+          artists: [{ id: 'a3', name: 'Charlie' }, { id: 'a4', name: 'Dana' }],
+        },
+      }),
+    );
+
+    await waitFor(() => {
+      expect(musicNetworkMock.getTrackStats).toHaveBeenCalledWith({
+        title: 'Hook Uncached Collab',
+        artist: 'Charlie, Dana',
+        artists: ['Charlie', 'Dana'],
+      });
+      expect(musicNetworkMock.getArtistStats).toHaveBeenCalledWith('Charlie');
+    });
   });
 });

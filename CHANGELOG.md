@@ -248,6 +248,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * A track rating set in another app, such as a phone client or the Navidrome web UI, now shows on the album page when you open it, and the local library keeps it from then on. Before, Psysonic kept showing the rating a track had when it was first synced, so an album rated elsewhere could look mostly unrated.
 * Ratings you set in Psysonic during the current session stay as they are.
 
+### Songs with several artists scrobble under the main artist
+
+**By [@RdrSeraphim](https://github.com/RdrSeraphim), PR [#1879](https://github.com/Psysonic/psysonic/pull/1879)**
+
+* Last.fm, Libre.fm, Rocksky, custom GNU FM servers and Maloja's Audioscrobbler API received the full artist line of a song with several artists, such as "Artist A feat. Artist B", and counted every combination as an artist of its own. Scrobbles, Now Playing, loves and track stats now go to the first artist only. ListenBrainz, Koito and Maloja's native and ListenBrainz APIs still receive the full line.
+* Songs you loved earlier under such a combined name show as not loved in Psysonic, and the old scrobbles stay with the combined name.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases

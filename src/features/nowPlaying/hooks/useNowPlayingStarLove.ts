@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { queueSongStar } from '@/features/playback/store/pendingStarSync';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
+import { structuredArtistNames } from '@/lib/api/openArtistRefs';
 import type { Track } from '@/lib/media/trackTypes';
 import type { TrackStats } from '@/music-network';
 import { getMusicNetworkRuntime } from '@/music-network';
 
 export interface NowPlayingStarLoveDeps {
-  currentTrack: Pick<Track, 'id' | 'title' | 'artist' | 'serverId'> | null;
+  currentTrack: Pick<Track, 'id' | 'title' | 'artist' | 'artists' | 'serverId'> | null;
   songMeta: SubsonicSong | null;
   networkTrack: TrackStats | null;
   networkLoveEnabled: boolean;
@@ -41,7 +42,12 @@ export function useNowPlayingStarLove(deps: NowPlayingStarLoveDeps): NowPlayingS
   useEffect(() => { setNetworkLoved(!!networkTrack?.userLoved); }, [networkTrack]);
   const toggleNetworkLove = useCallback(async () => {
     if (!currentTrack || !networkLoveEnabled) return;
-    const track = { title: currentTrack.title, artist: currentTrack.artist };
+    const artists = structuredArtistNames(currentTrack.artists);
+    const track = {
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      ...(artists ? { artists } : {}),
+    };
     if (networkLoved) { await getMusicNetworkRuntime().setTrackLoved(track, false); setNetworkLoved(false); }
     else              { await getMusicNetworkRuntime().setTrackLoved(track, true);  setNetworkLoved(true);  }
   }, [currentTrack, networkLoved, networkLoveEnabled]);

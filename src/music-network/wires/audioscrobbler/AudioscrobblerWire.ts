@@ -14,6 +14,7 @@ import {
 import type {
   ArtistStats,
   RecentTrack,
+  ScrobbleEvent,
   StatsPeriod,
   TopItem,
   TopKind,
@@ -28,6 +29,7 @@ import type {
   ConnectResult,
   WireContext,
 } from '../../contracts/ScrobbleWire';
+import { firstArtistName } from '@/lib/api/openArtistRefs';
 import { audioscrobblerCall } from './client';
 import { tokenPollStrategy } from './auth/tokenPoll';
 import { apiKeyOnlyStrategy } from '../shared/apiKeyOnly';
@@ -40,6 +42,10 @@ function toArray<T>(v: T | T[] | undefined | null): T[] {
 
 function topTags(raw: unknown, max = 5): string[] {
   return toArray(raw).map(tg => String((tg as { name?: unknown }).name)).slice(0, max);
+}
+
+function primaryArtistFor(item: { artist: string; artists?: string[] }): string {
+  return firstArtistName(item.artist, item.artists);
 }
 
 class AudioscrobblerWireImpl implements EnrichmentWire {
@@ -57,7 +63,7 @@ class AudioscrobblerWireImpl implements EnrichmentWire {
     // Session teardown is store-side; nothing to revoke on the wire.
   }
 
-  async scrobble(ctx: WireContext, event: { title: string; artist: string; album: string; duration: number; timestamp: number }): Promise<void> {
+  async scrobble(ctx: WireContext, event: ScrobbleEvent): Promise<void> {
     // Batch/array form (`artist[0]`, `track[0]`, …) is the documented
     // Audioscrobbler track.scrobble shape. Last.fm/Libre.fm also accept the bare
     // single form, but Rocksky requires the indexed array form — so we use the
@@ -65,7 +71,7 @@ class AudioscrobblerWireImpl implements EnrichmentWire {
     await audioscrobblerCall(ctx, {
       method: 'track.scrobble',
       'track[0]': event.title,
-      'artist[0]': event.artist,
+      'artist[0]': primaryArtistFor(event),
       'album[0]': event.album,
       'duration[0]': String(Math.round(event.duration)),
       'timestamp[0]': String(Math.floor(event.timestamp / 1000)),
@@ -73,11 +79,11 @@ class AudioscrobblerWireImpl implements EnrichmentWire {
     }, true, false);
   }
 
-  async updateNowPlaying(ctx: WireContext, event: { title: string; artist: string; album: string; duration: number }): Promise<void> {
+  async updateNowPlaying(ctx: WireContext, event: ScrobbleEvent): Promise<void> {
     await audioscrobblerCall(ctx, {
       method: 'track.updateNowPlaying',
       track: event.title,
-      artist: event.artist,
+      artist: primaryArtistFor(event),
       album: event.album,
       duration: String(Math.round(event.duration)),
       sk: ctx.sessionKey,
@@ -134,7 +140,7 @@ class AudioscrobblerWireImpl implements EnrichmentWire {
 
   async getTrackLoved(ctx: WireContext, ref: TrackRef): Promise<boolean> {
     try {
-      const data = await audioscrobblerCall(ctx, { method: 'track.getInfo', track: ref.title, artist: ref.artist, sk: ctx.sessionKey }, false, true);
+      const data = await audioscrobblerCall(ctx, { method: 'track.getInfo', track: ref.title, artist: primaryArtistFor(ref), sk: ctx.sessionKey }, false, true);
       return data?.track?.userloved === '1' || data?.track?.userloved === 1;
     } catch {
       return false;
@@ -145,7 +151,7 @@ class AudioscrobblerWireImpl implements EnrichmentWire {
     await audioscrobblerCall(ctx, {
       method: loved ? 'track.love' : 'track.unlove',
       track: ref.title,
-      artist: ref.artist,
+      artist: primaryArtistFor(ref),
       sk: ctx.sessionKey,
     }, true, false);
   }
@@ -189,7 +195,7 @@ class AudioscrobblerWireImpl implements EnrichmentWire {
 
   async getTrackStats(ctx: WireContext, ref: TrackRef): Promise<TrackStats | null> {
     try {
-      const params: Record<string, string> = { method: 'track.getInfo', artist: ref.artist, track: ref.title };
+      const params: Record<string, string> = { method: 'track.getInfo', artist: primaryArtistFor(ref), track: ref.title };
       if (ctx.username) params.username = ctx.username;
       const data = await audioscrobblerCall(ctx, params, false, true);
       const t = data?.track;
@@ -299,7 +305,7 @@ class AudioscrobblerWireImpl implements EnrichmentWire {
 
   buildTrackUrl(ctx: WireContext, ref: TrackRef): string {
     if (!ctx.profileBase) return '';
-    return `${ctx.profileBase}/music/${encodeURIComponent(ref.artist)}/_/${encodeURIComponent(ref.title)}`;
+    return `${ctx.profileBase}/music/${encodeURIComponent(primaryArtistFor(ref))}/_/${encodeURIComponent(ref.title)}`;
   }
 }
 

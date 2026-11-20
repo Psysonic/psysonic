@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getArtistInfoForServer } from '@/lib/api/subsonicArtists';
-import type { SubsonicAlbum, SubsonicArtistInfo, SubsonicSong } from '@/lib/api/subsonicTypes';
+import type { SubsonicAlbum, SubsonicArtistInfo, SubsonicOpenArtistRef, SubsonicSong } from '@/lib/api/subsonicTypes';
+import { firstArtistName, structuredArtistNames } from '@/lib/api/openArtistRefs';
 import { resolveNpAlbum, resolveNpDiscography, resolveNpSongMeta, resolveNpTopSongs } from '@/features/nowPlaying/utils/nowPlayingMetadataResolve';
 import { fetchBandsintownEvents, type BandsintownEvent } from '@/lib/api/bandsintown';
 import type { ArtistStats, TrackStats } from '@/music-network';
@@ -27,7 +28,7 @@ export interface NowPlayingFetchersDeps {
   enableBandsintown: boolean;
   audiomuseNavidromeEnabled: boolean;
   enrichmentKey: string;
-  currentTrack: { artist: string; title: string } | null;
+  currentTrack: { artist: string; artists?: SubsonicOpenArtistRef[]; title: string } | null;
   /** Subsonic server for API calls — must match the playing queue server. */
   subsonicServerId: string;
   /**
@@ -153,18 +154,25 @@ export async function prewarmNowPlayingFetchers(
 
   const prewarmRuntime = getMusicNetworkRuntimeOrNull();
   if (prewarmRuntime?.getEnrichmentPrimaryId() && currentTrack) {
-    const trackKey = `${currentTrack.artist} ${currentTrack.title} ${enrichmentKey}`;
+    const trackArtists = structuredArtistNames(currentTrack.artists);
+    const primaryTrackArtist = firstArtistName(currentTrack.artist, trackArtists);
+    const trackKey = `${primaryTrackArtist} ${currentTrack.title} ${enrichmentKey}`;
     if (networkTrackCache.get(trackKey) === undefined) {
       jobs.push(
-        prewarmRuntime.getTrackStats({ title: currentTrack.title, artist: currentTrack.artist })
+        prewarmRuntime.getTrackStats({
+          title: currentTrack.title,
+          artist: currentTrack.artist,
+          ...(trackArtists ? { artists: trackArtists } : {}),
+        })
           .then(v => networkTrackCache.set(trackKey, v))
           .catch(() => networkTrackCache.set(trackKey, null)),
       );
     }
-    const artistKey = `${currentTrack.artist} ${enrichmentKey}`;
-    if (networkArtistCache.get(artistKey) === undefined) {
+    const resolvedArtistName = artistName || primaryTrackArtist;
+    const artistKey = `${resolvedArtistName} ${enrichmentKey}`;
+    if (resolvedArtistName && networkArtistCache.get(artistKey) === undefined) {
       jobs.push(
-        prewarmRuntime.getArtistStats(currentTrack.artist)
+        prewarmRuntime.getArtistStats(resolvedArtistName)
           .then(v => networkArtistCache.set(artistKey, v))
           .catch(() => networkArtistCache.set(artistKey, null)),
       );
@@ -199,7 +207,8 @@ export function useNowPlayingFetchers(deps: NowPlayingFetchersDeps): NowPlayingF
   const [tourEventsEntry, setTourEventsEntry] = useState<KeySlot<BandsintownEvent[]>>(() =>
     seedKeySlot(tourKey, k => tourCache.get(k)));
   const [tourLoading, setTourLoading] = useState(false);
-  const networkTrackKey = currentTrack ? `${currentTrack.artist} ${currentTrack.title} ${enrichmentKey}` : '';
+  const primaryTrackArtist = currentTrack ? firstArtistName(currentTrack.artist, currentTrack.artists) : '';
+  const networkTrackKey = currentTrack ? `${primaryTrackArtist} ${currentTrack.title} ${enrichmentKey}` : '';
   const networkArtistKey = artistName ? `${artistName} ${enrichmentKey}` : '';
   const [networkTrackEntry, setNetworkTrackEntry] = useState<KeySlot<TrackStats | null>>(() =>
     seedKeySlot(networkTrackKey, k => networkTrackCache.get(k)));
@@ -315,7 +324,12 @@ export function useNowPlayingFetchers(deps: NowPlayingFetchersDeps): NowPlayingF
     if (cached !== undefined) { setNetworkTrackEntry({ key: networkTrackKey, value: cached }); return; }
     setNetworkTrackEntry(null);
     let cancelled = false;
-    runtime.getTrackStats({ title: currentTrack.title, artist: currentTrack.artist })
+    const artists = structuredArtistNames(currentTrack.artists);
+    runtime.getTrackStats({
+      title: currentTrack.title,
+      artist: currentTrack.artist,
+      ...(artists ? { artists } : {}),
+    })
       .then(v => { if (!cancelled) { networkTrackCache.set(networkTrackKey, v); setNetworkTrackEntry({ key: networkTrackKey, value: v }); } })
       .catch(() => { if (!cancelled) { networkTrackCache.set(networkTrackKey, null); setNetworkTrackEntry({ key: networkTrackKey, value: null }); } });
     return () => { cancelled = true; };

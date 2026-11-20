@@ -1,7 +1,8 @@
 import type React from 'react';
-import type { SubsonicAlbum, SubsonicDirectoryEntry } from '@/lib/api/subsonicTypes';
+import type { SubsonicAlbum, SubsonicDirectoryEntry, SubsonicOpenArtistRef } from '@/lib/api/subsonicTypes';
 import type { Track } from '@/lib/media/trackTypes';
 import type { LibraryAlbumDto, LibraryArtistDto, LibraryTrackDto } from '@/lib/api/library/dto';
+import { coerceOpenArtistRefs } from '@/lib/api/openArtistRefs';
 
 export type ColumnKind = 'roots' | 'artists' | 'albums' | 'tracks';
 export type NavPos = { colIndex: number; rowIndex: number };
@@ -56,12 +57,18 @@ export function albumDtoToFolderEntry(album: LibraryAlbumDto): SubsonicDirectory
 }
 
 export function trackDtoToFolderEntry(track: LibraryTrackDto): SubsonicDirectoryEntry {
+  const rawArtists = track.rawJson && typeof track.rawJson === 'object' && !Array.isArray(track.rawJson)
+    ? coerceOpenArtistRefs(
+        (track.rawJson as { artists?: SubsonicOpenArtistRef[] | SubsonicOpenArtistRef | null }).artists,
+      )
+    : [];
   return {
     id: track.id,
     serverId: track.serverId,
     title: track.title,
     artist: track.artist ?? undefined,
     artistId: track.artistId ?? undefined,
+    ...(rawArtists.length > 0 ? { artists: rawArtists } : {}),
     album: track.album,
     albumId: track.albumId ?? undefined,
     coverArt: track.coverArtId ?? undefined,
@@ -99,6 +106,7 @@ export function entryToAlbumIfPresent(item: SubsonicDirectoryEntry): SubsonicAlb
 }
 
 export function entryToTrack(e: SubsonicDirectoryEntry): Track {
+  const artists = coerceOpenArtistRefs(e.artists);
   return {
     id: e.id,
     serverId: e.serverId,
@@ -107,6 +115,7 @@ export function entryToTrack(e: SubsonicDirectoryEntry): Track {
     album: e.album ?? '',
     albumId: e.albumId ?? '',
     artistId: e.artistId,
+    ...(artists.length > 0 ? { artists } : {}),
     coverArt: e.coverArt,
     duration: e.duration ?? 0,
     track: e.track,

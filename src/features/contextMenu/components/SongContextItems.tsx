@@ -5,6 +5,7 @@ import { useNavigateToArtist } from '@/features/artist';
 import { resolveAlbum, resolveMediaServerId } from '@/features/offline';
 import { queueSongStar } from '@/features/playback/store/pendingStarSync';
 import { getMusicNetworkRuntime } from '@/music-network';
+import { firstArtistName, structuredArtistNames } from '@/lib/api/openArtistRefs';
 import { renderPresetIcon, useEnrichmentPrimary } from '@/music-network/ui';
 import type { Track } from '@/lib/media/trackTypes';
 import { useAuthStore } from '@/store/authStore';
@@ -173,13 +174,19 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                 </div>
               )}
               {auth.enrichmentPrimaryId !== null && (() => {
-                const loveKey = `${song.title}::${song.artist}`;
+                const artists = structuredArtistNames(song.artists);
+                const loveArtist = firstArtistName(song.artist, artists);
+                const loveKey = `${song.title}::${loveArtist}`;
                 const loved = networkLovedCache[loveKey] ?? false;
                 return (
                   <div className="context-menu-item" onClick={() => handleAction(() => {
                     const newLoved = !loved;
-                    setNetworkLovedForSong(song.title, song.artist, newLoved);
-                    void getMusicNetworkRuntime().setTrackLoved({ title: song.title, artist: song.artist }, newLoved);
+                    setNetworkLovedForSong(song.title, song.artist, newLoved, artists);
+                    void getMusicNetworkRuntime().setTrackLoved({
+                      title: song.title,
+                      artist: song.artist,
+                      ...(artists ? { artists } : {}),
+                    }, newLoved);
                   })}>
                     {renderPresetIcon(networkIcon, 14)}
                     {loved ? t('contextMenu.networkUnlove', { provider: networkLabel }) : t('contextMenu.networkLove', { provider: networkLabel })}
@@ -337,13 +344,19 @@ export default function SongContextItems(props: ContextMenuItemsProps) {
                 </div>
               )}
               {auth.enrichmentPrimaryId !== null && (() => {
-                const loveKey = `${song.title}::${song.artist}`;
+                const artists = structuredArtistNames(song.artists);
+                const loveArtist = firstArtistName(song.artist, artists);
+                const loveKey = `${song.title}::${loveArtist}`;
                 const loved = networkLovedCache[loveKey] ?? false;
                 return (
                   <div className="context-menu-item" onClick={() => handleAction(() => {
                     const newLoved = !loved;
-                    setNetworkLovedForSong(song.title, song.artist, newLoved);
-                    void getMusicNetworkRuntime().setTrackLoved({ title: song.title, artist: song.artist }, newLoved);
+                    setNetworkLovedForSong(song.title, song.artist, newLoved, artists);
+                    void getMusicNetworkRuntime().setTrackLoved({
+                      title: song.title,
+                      artist: song.artist,
+                      ...(artists ? { artists } : {}),
+                    }, newLoved);
                   })}>
                     {renderPresetIcon(networkIcon, 14)}
                     {loved ? t('contextMenu.networkUnlove', { provider: networkLabel }) : t('contextMenu.networkLove', { provider: networkLabel })}
