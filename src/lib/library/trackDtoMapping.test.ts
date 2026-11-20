@@ -77,6 +77,26 @@ describe('trackToSong play statistics', () => {
   });
 });
 
+describe('trackToSong user rating', () => {
+  it('prefers a patched rating over the snapshot from the last sync', () => {
+    const song = trackToSong(dto({ userRating: 4, rawJson: { id: 't1', userRating: 2 } }));
+
+    expect(song.userRating).toBe(4);
+  });
+
+  it('treats a cleared rating in the column as unrated', () => {
+    const song = trackToSong(dto({ userRating: 0, rawJson: { id: 't1', userRating: 3 } }));
+
+    expect(song.userRating).toBeUndefined();
+  });
+
+  it('falls back to the snapshot when the column holds nothing', () => {
+    const song = trackToSong(dto({ rawJson: { id: 't1', userRating: 3 } }));
+
+    expect(song.userRating).toBe(3);
+  });
+});
+
 describe('trackToSong play count against a stale snapshot', () => {
   it('prefers the column over the frozen snapshot', () => {
     const song = trackToSong(dto({ playCount: 6, rawJson: { playCount: 5 } }));
