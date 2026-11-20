@@ -28,10 +28,14 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
-    { self, nixpkgs }:
+    { self, nixpkgs, rust-overlay }:
     let
       inherit (nixpkgs) lib;
       systems = [
@@ -43,7 +47,27 @@
       mkShellFor =
         system:
         let
-          pkgs = nixpkgs.legacyPackages.${system};
+          pkgs = import nixpkgs {
+            inherit system;
+            overlays = [ rust-overlay.overlays.default ];
+          };
+          # Temporary until nixpkgs' Rust coverage runtime and LLVM agree again.
+          # Keep the compiler, profiler runtime and LLVM tools in one upstream release.
+          rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+            extensions = [ "llvm-tools-preview" ];
+          };
+          llvmBin = "${rustToolchain}/lib/rustlib/${pkgs.stdenv.hostPlatform.rust.rustcTarget}/bin";
+          cargoLlvmCov = (pkgs.cargo-llvm-cov.override {
+            rustPlatform = pkgs.makeRustPlatform {
+              cargo = rustToolchain;
+              rustc = rustToolchain;
+            };
+          }).overrideAttrs (old: {
+            env = (old.env or { }) // {
+              LLVM_COV = "${llvmBin}/llvm-cov";
+              LLVM_PROFDATA = "${llvmBin}/llvm-profdata";
+            };
+          });
           gstPlugins = with pkgs.gst_all_1; [
             gstreamer
             gst-plugins-base
@@ -55,12 +79,8 @@
         pkgs.mkShell {
           packages = with pkgs; [
             nodejs_24
-            rustc
-            cargo
-            clippy
-            rustfmt
-            cargo-llvm-cov
-            llvmPackages.llvm
+            rustToolchain
+            cargoLlvmCov
             jq
             cmake
             pkg-config
@@ -88,8 +108,8 @@
             export LD_LIBRARY_PATH="${pkgs.libayatana-appindicator}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
             export GST_PLUGIN_PATH="${gstPluginPath}''${GST_PLUGIN_PATH:+:$GST_PLUGIN_PATH}"
             export GIO_EXTRA_MODULES="${pkgs.glib-networking}/lib/gio/modules''${GIO_EXTRA_MODULES:+:$GIO_EXTRA_MODULES}"
-            export LLVM_COV="${pkgs.llvmPackages.llvm}/bin/llvm-cov"
-            export LLVM_PROFDATA="${pkgs.llvmPackages.llvm}/bin/llvm-profdata"
+            export LLVM_COV="${llvmBin}/llvm-cov"
+            export LLVM_PROFDATA="${llvmBin}/llvm-profdata"
             unset CI
           '';
 
