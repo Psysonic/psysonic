@@ -47,22 +47,24 @@ class MockIntersectionObserver implements IntersectionObserver {
   readonly root: Element | Document | null = null;
   readonly rootMargin: string = '0px';
   readonly scrollMargin: string = '0px';
-  readonly thresholds: ReadonlyArray<number> = [];
+  readonly thresholds: ReadonlyArray<number>;
   readonly callback: IntersectionObserverCallback;
   observe = vi.fn<(target: Element) => void>();
   unobserve = vi.fn<(target: Element) => void>();
   disconnect = vi.fn<() => void>();
   takeRecords = vi.fn<() => IntersectionObserverEntry[]>(() => []);
 
-  constructor(callback: IntersectionObserverCallback) {
+  constructor(callback: IntersectionObserverCallback, { threshold = 0 }: IntersectionObserverInit = {}) {
     this.callback = callback;
+    const thresholds = Array.isArray(threshold) ? [...threshold] : [threshold];
+    this.thresholds = thresholds.length ? thresholds.sort((a, b) => a - b) : [0];
     MockIntersectionObserver.instances.push(this);
   }
 
   /** Report a visibility change the way the browser would. */
-  emit(isIntersecting: boolean): void {
+  emit(isIntersecting: boolean, intersectionRatio = isIntersecting ? 1 : 0): void {
     this.callback(
-      [{ isIntersecting } as IntersectionObserverEntry],
+      [{ isIntersecting, intersectionRatio } as IntersectionObserverEntry],
       this as unknown as IntersectionObserver,
     );
   }
