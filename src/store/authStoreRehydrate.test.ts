@@ -21,22 +21,6 @@ describe('computeAuthStoreRehydration — scrobbling', () => {
     } as unknown as AuthState;
     expect(computeAuthStoreRehydration(state).scrobbleThresholdPercent).toBe(expected);
   });
-
-  it.each([undefined, null, 'true', 1, false] as const)(
-    'keeps force scrobble off for non-true persisted value %j',
-    value => {
-      const state = {
-        ...useAuthStore.getState(),
-        forceScrobbleEnabled: value,
-      } as unknown as AuthState;
-      expect(computeAuthStoreRehydration(state).forceScrobbleEnabled).toBe(false);
-    },
-  );
-
-  it('preserves an explicit force-scrobble opt-in', () => {
-    const state = { ...useAuthStore.getState(), forceScrobbleEnabled: true };
-    expect(computeAuthStoreRehydration(state).forceScrobbleEnabled).toBe(true);
-  });
 });
 
 describe('computeAuthStoreRehydration — fullscreenAutoOpenMinutes', () => {

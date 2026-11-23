@@ -5,4 +5,3 @@ export { useEnrichmentPrimary, type EnrichmentPrimary } from './useEnrichmentPri
 export { useEnrichmentPrimaryIcon } from './useEnrichmentPrimaryIcon';
 export { useEnrichmentPrimaryLabel } from './useEnrichmentPrimaryLabel';
 export { renderPresetIcon } from './presetIcon';
-export { default as MusicNetworkIndicator } from './MusicNetworkIndicator';

@@ -75,6 +75,7 @@ export const player = {
   showDuration: 'Arată durata',
   showRemainingTime: 'Arată timpul rămas',
   scrobbleStatus: 'Starea scrobble-ului',
+  scrobbleAccountSettings: 'Deschide în setări',
   scrobbleProgress: '{{current}}% din {{threshold}}%',
   forceScrobble: 'Forțează scrobble-ul',
   scrobbleAlreadySent: 'Deja trimis',

@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobble etter',
   thresholdDesc: 'Send en scrobble når avspillingen når denne prosentandelen av sporet (25–90 %). Standard: 50 %.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Tving scrobble manuelt',
-  forceScrobbleDesc: 'Vis en avansert spillerkontroll som sender inn gjeldende spor umiddelbart.',
   addService: 'Legg til en tjeneste',
   connect: 'Koble til',
   connecting: 'Kobler til…',

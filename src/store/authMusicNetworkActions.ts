@@ -17,7 +17,6 @@ export function createMusicNetworkActions(set: SetState): Pick<
   | 'setEnrichmentPrimaryId'
   | 'setScrobblingMasterEnabled'
   | 'setScrobbleThresholdPercent'
-  | 'setForceScrobbleEnabled'
   | 'setMusicNetworkScrobbleQueue'
 > {
   return {
@@ -29,8 +28,6 @@ export function createMusicNetworkActions(set: SetState): Pick<
       set({ scrobblingMasterEnabled: v }),
     setScrobbleThresholdPercent: (v: number) =>
       set({ scrobbleThresholdPercent: clampScrobbleThresholdPercent(v) }),
-    setForceScrobbleEnabled: (v: boolean) =>
-      set({ forceScrobbleEnabled: v }),
     setMusicNetworkScrobbleQueue: (queue: QueuedScrobble[]) =>
       set({ musicNetworkScrobbleQueue: queue }),
   };

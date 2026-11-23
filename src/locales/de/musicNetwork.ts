@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobbeln nach',
   thresholdDesc: 'Sendet einen Scrobble, sobald die Wiedergabe diesen Anteil des Titels erreicht (25–90 %). Standard: 50 %.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Scrobble manuell erzwingen',
-  forceScrobbleDesc: 'Zeigt eine erweiterte Player-Steuerung an, die den aktuellen Titel sofort übermittelt.',
   addService: 'Dienst hinzufügen',
   connect: 'Verbinden',
   connecting: 'Verbinde…',

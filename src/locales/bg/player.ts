@@ -75,6 +75,7 @@ export const player = {
   showDuration: 'Покажи времетраенето',
   showRemainingTime: 'Покажи оставащото време',
   scrobbleStatus: 'Състояние на скробването',
+  scrobbleAccountSettings: 'Отвори в настройките',
   scrobbleProgress: '{{current}}% от {{threshold}}%',
   forceScrobble: 'Принудително скробване',
   scrobbleAlreadySent: 'Вече е скробнато',

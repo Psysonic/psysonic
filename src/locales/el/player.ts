@@ -75,6 +75,7 @@ export const player = {
   showDuration: 'Προβολή διάρκειας',
   showRemainingTime: 'Προβολή υπολειπόμενου χρόνου',
   scrobbleStatus: 'Κατάσταση σκρομπλαρίσματος',
+  scrobbleAccountSettings: 'Άνοιγμα στις ρυθμίσεις',
   scrobbleProgress: '{{current}}% από {{threshold}}%',
   forceScrobble: 'Αναγκαστικό σκρομπλάρισμα',
   scrobbleAlreadySent: 'Ήδη σκρομπλαρισμένο',

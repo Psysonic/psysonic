@@ -373,6 +373,31 @@ html[data-platform="windows"] .player-bar.floating {
   color: var(--text-secondary);
 }
 
+.player-scrobble-popover__bar {
+  position: relative;
+  height: 4px;
+  margin: 2px 0 4px;
+  border-radius: 2px;
+  background: var(--bg-elevated, var(--border));
+}
+
+.player-scrobble-popover__bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.player-scrobble-popover__bar-mark {
+  position: absolute;
+  top: -3px;
+  width: 2px;
+  height: 10px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--text-muted);
+}
+
 .player-scrobble-popover__blocked {
   color: var(--text-muted);
 }
@@ -396,13 +421,102 @@ html[data-platform="windows"] .player-bar.floating {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
+/* Account row (the music-network account that used to sit in the top bar). */
+.player-scrobble-popover__account {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.player-scrobble-popover__account:hover {
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+
+.player-scrobble-popover__account-text,
+.player-scrobble-popover__private-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.player-scrobble-popover__account-name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+}
+
+.player-scrobble-popover__hint {
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text-muted);
+}
+
+.player-scrobble-popover__account--error .player-scrobble-popover__hint {
+  color: var(--danger);
+}
+
+.player-scrobble-popover__private {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 8px;
+}
+
+.player-scrobble-popover__private .toggle-switch {
+  flex-shrink: 0;
+}
+
+.player-scrobble-popover__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+/* Inside the compact overflow menu: a plain section, not a floating card. */
+.player-scrobble-popover--inline {
+  padding: 0 0 10px;
+  margin-bottom: 10px;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
 .player-scrobble-btn.active {
   color: var(--accent);
 }
 
-.player-overflow-menu-btn--icon {
-  flex: 0 0 auto;
-  padding-inline: 9px;
+/* A sign-in problem with the music-network account: red dot on the scrobble button. */
+.player-scrobble-btn--alert {
+  position: relative;
+}
+
+.player-scrobble-btn__alert {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 2px var(--bg-player);
+  pointer-events: none;
 }
 
 .player-time:last-child {

@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Enviar scrobble al',
   thresholdDesc: 'Envía un scrobble cuando la reproducción alcance este porcentaje de la pista (25–90 %). Predeterminado: 50 %.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Forzar scrobble manualmente',
-  forceScrobbleDesc: 'Muestra un control avanzado del reproductor que envía la pista actual inmediatamente.',
   addService: 'Añadir un servicio',
   connect: 'Conectar',
   connecting: 'Conectando…',

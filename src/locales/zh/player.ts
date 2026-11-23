@@ -75,6 +75,7 @@ export const player = {
   showDuration: '显示时长',
   showRemainingTime: '显示剩余时间',
   scrobbleStatus: 'Scrobble 状态',
+  scrobbleAccountSettings: '在设置中打开',
   scrobbleProgress: '已播放 {{current}}%，阈值 {{threshold}}%',
   forceScrobble: '立即 scrobble',
   scrobbleAlreadySent: '已 scrobble',

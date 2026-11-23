@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Скробблити після',
   thresholdDesc: 'Надсилати скроббл, коли трек відтворено на цей відсоток тривалості (25–90%). За замовчуванням 50%.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Примусовий скробблінг вручну',
-  forceScrobbleDesc: 'Показувати елемент керування в плеєрі для негайного надсилання поточного треку.',
   addService: 'Додати сервіс',
   connect: 'Підключити',
   connecting: 'Підключення…',
