@@ -40,7 +40,49 @@
   transform: translateY(0);
 }
 
+/* Removes the card from the rail; shown on hover and keyboard focus like the play badge. */
+.resume-card-remove {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border-subtle, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--bg-app) 80%, transparent);
+  color: var(--text-primary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  z-index: 3;
+}
+
+.resume-card:hover .resume-card-remove,
+.resume-card:focus-within .resume-card-remove {
+  opacity: 1;
+}
+
+.resume-card-remove:hover,
+.resume-card-remove:focus-visible {
+  background: var(--accent);
+  color: var(--text-on-accent, var(--bg-app));
+}
+
+.resume-rail-clear {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .resume-card-remove {
+    transition: none;
+  }
+
   .resume-card-play {
     transition: none;
     transform: none;

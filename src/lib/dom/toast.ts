@@ -137,10 +137,50 @@ function announce(text: string, politeness: Politeness): void {
   window.setTimeout(() => { region.textContent = text; }, ANNOUNCE_DELAY_MS);
 }
 
-export function showToast(text: string, durationMs = 4000, variant: ToastVariant = 'info'): void {
+export interface ToastAction {
+  label: string;
+  onClick: () => void;
+}
+
+function buildActionButton(action: ToastAction, notice: HTMLElement): HTMLButtonElement {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'psysonic-toast-action';
+  button.textContent = action.label;
+  Object.assign(button.style, {
+    flexShrink: '0',
+    padding: '4px 10px',
+    borderRadius: '6px',
+    border: '1px solid var(--border-subtle, var(--accent))',
+    background: 'transparent',
+    color: 'var(--accent)',
+    font: 'inherit',
+    fontWeight: '600',
+    cursor: 'pointer',
+  });
+  button.addEventListener('click', () => {
+    dismiss(notice);
+    action.onClick();
+  });
+  return button;
+}
+
+export function showToast(
+  text: string,
+  durationMs = 4000,
+  variant: ToastVariant = 'info',
+  action?: ToastAction,
+): void {
   const notice = buildNotice(text, LOOKS[variant]);
-  // The live region speaks for it; hiding the visual copy keeps it from being read twice.
-  notice.setAttribute('aria-hidden', 'true');
+  if (action) {
+    // The live region speaks the text; the button stays reachable for keyboard and screen readers.
+    for (const child of Array.from(notice.children)) child.setAttribute('aria-hidden', 'true');
+    notice.style.pointerEvents = 'auto';
+    notice.append(buildActionButton(action, notice));
+  } else {
+    // The live region speaks for it; hiding the visual copy keeps it from being read twice.
+    notice.setAttribute('aria-hidden', 'true');
+  }
   document.body.appendChild(notice);
   onScreen.push(notice);
   placeStack();

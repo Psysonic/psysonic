@@ -62,3 +62,20 @@ describe('showToast for screen readers', () => {
     expect(region('polite')).toHaveTextContent('Volume is at 0');
   });
 });
+
+describe('showToast with an action', () => {
+  it('shows a reachable button that runs the action and closes the toast', () => {
+    const onClick = vi.fn();
+    showToast('List cleared', 6000, 'info', { label: 'Undo', onClick });
+    const notice = document.querySelector<HTMLElement>('.psysonic-toast:last-of-type')!;
+    const button = notice.querySelector<HTMLButtonElement>('button')!;
+
+    expect(notice).not.toHaveAttribute('aria-hidden');
+    expect(notice.style.pointerEvents).toBe('auto');
+    expect(button).toHaveTextContent('Undo');
+
+    button.click();
+    expect(onClick).toHaveBeenCalledOnce();
+    expect(notice.isConnected).toBe(false);
+  });
+});

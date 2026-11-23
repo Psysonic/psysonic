@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'Die Liste konnte zum Fortsetzen nicht geladen werden.',
   untitledAlbum: 'Unbekanntes Album',
   untitledPlaylist: 'Playlist',
+  remove: '{{name}} aus Weiterhören entfernen',
+  removeTooltip: 'Entfernen',
+  removed: '{{name}} aus Weiterhören entfernt',
+  clear: 'Leeren',
+  clearLabel: 'Weiterhören leeren',
+  cleared: 'Weiterhören geleert',
+  undo: 'Rückgängig',
 };

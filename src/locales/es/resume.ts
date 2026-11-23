@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'No se pudo cargar la lista para continuarla.',
   untitledAlbum: 'Álbum desconocido',
   untitledPlaylist: 'Lista de reproducción',
+  remove: 'Quitar {{name}} de Seguir escuchando',
+  removeTooltip: 'Quitar',
+  removed: '{{name}} quitado de Seguir escuchando',
+  clear: 'Borrar',
+  clearLabel: 'Borrar Seguir escuchando',
+  cleared: 'Seguir escuchando borrado',
+  undo: 'Deshacer',
 };

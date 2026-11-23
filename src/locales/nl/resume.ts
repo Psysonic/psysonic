@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'De lijst kon niet worden geladen om verder te gaan.',
   untitledAlbum: 'Onbekend album',
   untitledPlaylist: 'Afspeellijst',
+  remove: '{{name}} verwijderen uit Verder luisteren',
+  removeTooltip: 'Verwijderen',
+  removed: '{{name}} verwijderd uit Verder luisteren',
+  clear: 'Wissen',
+  clearLabel: 'Verder luisteren wissen',
+  cleared: 'Verder luisteren gewist',
+  undo: 'Ongedaan maken',
 };

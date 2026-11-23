@@ -7,4 +7,11 @@ export const resume = {
   unavailable: '无法加载该列表以继续播放。',
   untitledAlbum: '未知专辑',
   untitledPlaylist: '播放列表',
+  remove: '从“继续收听”中移除 {{name}}',
+  removeTooltip: '移除',
+  removed: '已从“继续收听”中移除 {{name}}',
+  clear: '清空',
+  clearLabel: '清空“继续收听”',
+  cleared: '已清空“继续收听”',
+  undo: '撤销',
 };

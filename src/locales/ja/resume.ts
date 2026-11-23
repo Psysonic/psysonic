@@ -7,4 +7,11 @@ export const resume = {
   unavailable: '再開するためのリストを読み込めませんでした。',
   untitledAlbum: '不明なアルバム',
   untitledPlaylist: 'プレイリスト',
+  remove: '{{name}} を「続きを聴く」から削除',
+  removeTooltip: '削除',
+  removed: '{{name}} を「続きを聴く」から削除しました',
+  clear: 'クリア',
+  clearLabel: '「続きを聴く」をクリア',
+  cleared: '「続きを聴く」をクリアしました',
+  undo: '元に戻す',
 };

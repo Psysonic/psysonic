@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'A listát nem sikerült betölteni a folytatáshoz.',
   untitledAlbum: 'Ismeretlen album',
   untitledPlaylist: 'Lejátszási lista',
+  remove: '{{name}} eltávolítása a „Hallgasd tovább” sorból',
+  removeTooltip: 'Eltávolítás',
+  removed: '{{name}} eltávolítva a „Hallgasd tovább” sorból',
+  clear: 'Ürítés',
+  clearLabel: '„Hallgasd tovább” sor ürítése',
+  cleared: '„Hallgasd tovább” sor kiürítve',
+  undo: 'Visszavonás',
 };

@@ -85,6 +85,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Song Info shows the channel count reported by your server. During original-file playback, supported FLAC, extensible WAV and Vorbis files can show a verified speaker grouping such as **5.1** instead.
 * A channel count alone is never treated as a speaker layout, and a transcoded stream cannot relabel the original file.
 
+### Remove albums and playlists from Continue listening
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), suggested by Ethmaker on Discord, PR [#1883](https://github.com/Psysonic/psysonic/pull/1883)**
+
+* Hover a card in **Continue listening** on Mainstage and click the **X** to remove that album or playlist. **Clear** in the header of the row empties it at once.
+* Removed something by mistake? The notice that follows has an **Undo** button.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited
@@ -240,6 +247,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Restoring a queue saved by another client no longer overwrites the previous album or playlist's Continue Listening point with tracks from the new queue. Position-only updates keep the current list's session.
 * Existing corrupted points are not repaired automatically.
+
+### Mainstage banner does less work while you scroll
+
+**By [@carnation-sys](https://github.com/carnation-sys), PR [#1871](https://github.com/Psysonic/psysonic/pull/1871)**
+
+* The featured album banner on Mainstage measured its position on every scroll step and kept checking every 220 ms while it was out of view. The browser now tells it when the banner is visible: albums keep changing while you can see it, pause when you scroll away, and continue when you scroll back.
 
 ### Album pages show track ratings set in other apps
 
