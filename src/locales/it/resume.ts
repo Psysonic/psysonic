@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'Impossibile caricare questo elenco per continuarlo.',
   untitledAlbum: 'Album sconosciuto',
   untitledPlaylist: 'Playlist',
+  remove: 'Rimuovi {{name}} da Continua ad ascoltare',
+  removeTooltip: 'Rimuovi',
+  removed: '{{name}} rimosso da Continua ad ascoltare',
+  clear: 'Svuota',
+  clearLabel: 'Svuota Continua ad ascoltare',
+  cleared: 'Continua ad ascoltare svuotato',
+  undo: 'Annulla',
 };

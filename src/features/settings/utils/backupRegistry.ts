@@ -261,6 +261,7 @@ export const BACKUP_EXCLUSIONS: Readonly<Record<string, string>> = {
   'psysonic_psylab_debug_traces_v1': 'diagnostics',
   // Not a storage key.
   'psysonic-toast': 'component id, not stored',
+  'psysonic-toast-action': 'component id, not stored',
 };
 
 export const BACKUP_KEYS = BACKUP_REGISTRY.map(entry => entry.key);

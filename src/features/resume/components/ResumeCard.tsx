@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { StepForward } from 'lucide-react';
+import { StepForward, X } from 'lucide-react';
 import { CoverArtImage } from '@/cover/CoverArtImage';
 import { useTrackCoverRef } from '@/cover/useLibraryCoverRef';
 import { coverServerScopeForServerId } from '@/cover/serverScope';
@@ -14,13 +14,14 @@ interface Props {
   point: ResumePoint;
   displayCssPx: number;
   disableArtwork?: boolean;
+  onRemove: (point: ResumePoint) => void;
 }
 
 /**
  * One unfinished album or playlist on Home. Everything it shows comes from the
  * stored point; the cover is the album art of the track playback stopped in.
  */
-function ResumeCard({ point, displayCssPx, disableArtwork = false }: Props) {
+function ResumeCard({ point, displayCssPx, disableArtwork = false, onRemove }: Props) {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
   const coverSong = useMemo(() => ({
@@ -72,6 +73,16 @@ function ResumeCard({ point, displayCssPx, disableArtwork = false }: Props) {
             <StepForward size={40} />
           </div>
         )}
+        <button
+          type="button"
+          className="resume-card-remove"
+          aria-label={t('resume.remove', { name })}
+          data-tooltip={t('resume.removeTooltip')}
+          onClick={e => { e.stopPropagation(); onRemove(point); }}
+          onKeyDown={e => e.stopPropagation()}
+        >
+          <X size={14} />
+        </button>
         <div className="resume-card-play" aria-hidden="true">
           <StepForward size={18} />
         </div>

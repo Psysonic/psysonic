@@ -1,10 +1,13 @@
 import { Profiler } from 'react';
-import { act, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import { useResumePointsStore, type ResumePoint } from '@/features/resume/store/resumePointsStore';
 import { resetAllStores } from '@/test/helpers/storeReset';
 import { ContinueListeningRail } from './ContinueListeningRail';
+import { resumeFromPoint } from '@/features/resume/utils/resumePlayback';
+
+vi.mock('@/features/resume/utils/resumePlayback', () => ({ resumeFromPoint: vi.fn(async () => true) }));
 
 function point(id: string, serverKey: string, updatedAt: number): ResumePoint {
   return {
@@ -60,5 +63,37 @@ describe('ContinueListeningRail', () => {
     const afterMount = commits;
     act(() => { useResumePointsStore.getState().savePoint(point('d', 'srv', 9)); });
     expect(commits).toBeGreaterThan(afterMount);
+  });
+});
+
+describe('removing from ContinueListeningRail', () => {
+  afterEach(() => { document.querySelectorAll('.psysonic-toast').forEach(el => el.remove()); });
+
+  const undoButton = () => {
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.psysonic-toast-action');
+    return buttons[buttons.length - 1];
+  };
+
+  it('removes one card without starting it and offers to undo', () => {
+    render(<ContinueListeningRail serverIds={['srv']} artworkSize={300} disableArtwork />);
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Record b from Continue listening' }));
+
+    expect(screen.queryByText('Record b')).toBeNull();
+    expect(useResumePointsStore.getState().points.map(p => p.id).sort()).toEqual(['a', 'c']);
+    expect(resumeFromPoint).not.toHaveBeenCalled();
+
+    act(() => { undoButton().click(); });
+    expect(screen.getByText('Record b')).toBeInTheDocument();
+  });
+
+  it('clears the shown servers only and brings them back on undo', () => {
+    render(<ContinueListeningRail serverIds={['srv']} artworkSize={300} disableArtwork />);
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Continue listening' }));
+
+    expect(useResumePointsStore.getState().points.map(p => p.id)).toEqual(['c']);
+    expect(screen.queryByText(/^Record /)).toBeNull();
+
+    act(() => { undoButton().click(); });
+    expect(useResumePointsStore.getState().points.map(p => p.id).sort()).toEqual(['a', 'b', 'c']);
   });
 });

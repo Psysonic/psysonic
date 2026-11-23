@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'Не вдалося завантажити список, щоб продовжити.',
   untitledAlbum: 'Невідомий альбом',
   untitledPlaylist: 'Плейлист',
+  remove: 'Прибрати {{name}} з «Продовжити слухати»',
+  removeTooltip: 'Прибрати',
+  removed: '{{name}} прибрано з «Продовжити слухати»',
+  clear: 'Очистити',
+  clearLabel: 'Очистити «Продовжити слухати»',
+  cleared: '«Продовжити слухати» очищено',
+  undo: 'Скасувати',
 };
