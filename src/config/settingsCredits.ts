@@ -665,6 +665,13 @@ const CONTRIBUTOR_ENTRIES = [
       'Album page — track ratings set in other apps (PR #1873)',
     ],
   },
+  {
+    github: 'carnation-sys',
+    since: '1.57.0',
+    contributions: [
+      'Mainstage banner — visibility tracking without scroll-time polling (PR #1871)',
+    ],
+  },
 ] as const;
 
 // PR number of a contributor's first listed contribution, used as the
