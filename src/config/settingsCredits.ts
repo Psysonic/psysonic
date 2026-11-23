@@ -635,6 +635,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.56.0',
     contributions: [
       'AppImage launches against the system WebKitGTK when one is installed (PR #1348)',
+      'Playback — seeking behind reverse proxies that compress responses (PR #1881)',
     ],
   },
   {
