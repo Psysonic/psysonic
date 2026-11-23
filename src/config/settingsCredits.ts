@@ -565,6 +565,7 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.51.0',
     contributions: [
       'Internet radio metadata — preserve UTF-8 titles with Latin-1 fallback (PR #1389)',
+      'Music Network — scrobble songs with several artists under the main artist (PR #1879)',
     ],
   },
   {
@@ -655,6 +656,13 @@ const CONTRIBUTOR_ENTRIES = [
     since: '1.57.0',
     contributions: [
       'Linux Hi-Res playback — correct speed without rhythmic gaps on PipeWire (PR #1857)',
+    ],
+  },
+  {
+    github: 'kris-anderson',
+    since: '1.57.0',
+    contributions: [
+      'Album page — track ratings set in other apps (PR #1873)',
     ],
   },
 ] as const;

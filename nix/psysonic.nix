@@ -126,6 +126,13 @@ stdenv.mkDerivation (finalAttrs: {
 
   dontUseCargoParallelJobs = true;
 
+  # Since NixOS/nixpkgs 44cddf92c4, cargoSetupHook forces system libraries
+  # (AWS_LC_SYS_USE_SYSTEM=1 and friends). aws-lc-sys only probes pkg-config
+  # when OPENSSL_DIR is unset, and the OPENSSL_* variables in env below point it
+  # at OpenSSL only, so the build stops. Keep the previous behaviour: aws-lc-sys
+  # builds its bundled AWS-LC with cmake.
+  dontCargoUseSystemLibs = true;
+
   env = {
     # makeDesktopItem below installs psysonic.desktop, not Psysonic.desktop.
     PSYSONIC_DESKTOP_ENTRY = "psysonic";

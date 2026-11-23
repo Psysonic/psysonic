@@ -61,6 +61,15 @@ describe('mergePlaybackTrackMetadata', () => {
     const merged = mergePlaybackTrackMetadata(base, track({ explicitStatus: 'explicit' }));
     expect(merged.explicitStatus).toBe('explicit');
   });
+
+  it('keeps resolved structured artists when the snapshot has artists: undefined', () => {
+    const base = { ...track(), artists: undefined };
+    const resolved = track({
+      artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+    });
+    const merged = mergePlaybackTrackMetadata(base, resolved);
+    expect(merged.artists).toEqual([{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }]);
+  });
 });
 
 describe('trackNeedsPlaybackMetadataPrefetch', () => {

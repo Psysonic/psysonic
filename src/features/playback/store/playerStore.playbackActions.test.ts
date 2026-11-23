@@ -668,6 +668,49 @@ describe('private mode', () => {
   });
 });
 
+describe('Music Network artist forwarding', () => {
+  it('forwards structured track.artists to dispatchNowPlaying and isTrackLoved on playTrack', async () => {
+    const runtime = getMusicNetworkRuntime();
+    const dispatchNowPlaying = vi.mocked(runtime.dispatchNowPlaying);
+    const isTrackLoved = vi.mocked(runtime.isTrackLoved);
+    const getPrimary = vi.mocked(runtime.getEnrichmentPrimaryId);
+    dispatchNowPlaying.mockClear();
+    isTrackLoved.mockClear();
+    isTrackLoved.mockResolvedValue(true);
+    getPrimary.mockReturnValue('lastfm-1');
+
+    try {
+      const server = makeServer({ id: 'srv-a', url: 'https://a.test' });
+      useAuthStore.setState({ servers: [server], activeServerId: server.id });
+      const collab = makeTrack({
+        id: 't-collab',
+        title: 'Collab',
+        artist: 'Alice, Bob',
+        artists: [{ id: 'a1', name: 'Alice' }, { id: 'a2', name: 'Bob' }],
+        serverId: server.id,
+      });
+      seedQueue([collab], { index: 0, currentTrack: collab, serverId: server.id });
+
+      usePlayerStore.getState().playTrack(collab);
+      await vi.runAllTimersAsync();
+
+      expect(dispatchNowPlaying).toHaveBeenCalledWith(expect.objectContaining({
+        title: 'Collab',
+        artist: 'Alice, Bob',
+        artists: ['Alice', 'Bob'],
+      }));
+      expect(isTrackLoved).toHaveBeenCalledWith({
+        title: 'Collab',
+        artist: 'Alice, Bob',
+        artists: ['Alice', 'Bob'],
+      });
+      expect(usePlayerStore.getState().networkLovedCache['Collab::Alice']).toBe(true);
+    } finally {
+      getPrimary.mockReturnValue(null);
+    }
+  });
+});
+
 describe('audio_play failure', () => {
   it('auto-skips only after alternative lookup finds no source', async () => {
     const server = makeServer({ id: 'srv-a', url: 'https://a.test' });

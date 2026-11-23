@@ -1,7 +1,7 @@
 import { getAlbumForServer } from '@/lib/api/subsonicLibrary';
 import { parseSubsonicEntityStarRating } from '@/lib/api/subsonicRatings';
-import type { SubsonicAlbum, SubsonicDiscTitle } from '@/lib/api/subsonicTypes';
-import { patchLibraryAlbumOnUse } from '@/lib/library/patchOnUse';
+import type { SubsonicAlbum, SubsonicDiscTitle, SubsonicSong } from '@/lib/api/subsonicTypes';
+import { patchLibraryAlbumOnUse, patchLibraryTrackOnUse } from '@/lib/library/patchOnUse';
 
 export type AlbumServerMetadataPatch = {
   userRating: number;
@@ -82,8 +82,69 @@ export function patchAlbumStarToIndexFromReconcile(
   });
 }
 
+/** A track whose server rating differs from the one the page painted (0 = unrated). */
+export type TrackUserRatingChange = { id: string; userRating: number };
+
+export function trackUserRating(song: SubsonicSong): number {
+  return parseSubsonicEntityStarRating(song) ?? 0;
+}
+
+/** Whether `song` belongs to the server that answered `#getAlbum`. */
+function songIsOnServer(song: SubsonicSong, serverId: string): boolean {
+  return !song.serverId || song.serverId === serverId;
+}
+
+/**
+ * Compare the songs painted from the local index with a fresh `#getAlbum`
+ * body from `serverId`. A rating set on the server by another client never
+ * reaches the index (delta sync only re-fetches tracks whose metadata
+ * changed), so the album page is where it gets corrected. Songs missing from
+ * either side, or owned by another server, are left alone.
+ */
+export function diffTrackUserRatings(
+  serverId: string,
+  local: SubsonicSong[],
+  server: SubsonicSong[],
+): TrackUserRatingChange[] {
+  const serverById = new Map(server.map(song => [song.id, song]));
+  const changes: TrackUserRatingChange[] = [];
+  for (const song of local) {
+    if (!songIsOnServer(song, serverId)) continue;
+    const fresh = serverById.get(song.id);
+    if (!fresh) continue;
+    const userRating = trackUserRating(fresh);
+    if (userRating !== trackUserRating(song)) changes.push({ id: song.id, userRating });
+  }
+  return changes;
+}
+
+export function applyTrackUserRatings(
+  serverId: string,
+  songs: SubsonicSong[],
+  changes: TrackUserRatingChange[],
+): SubsonicSong[] {
+  if (changes.length === 0) return songs;
+  const ratingById = new Map(changes.map(change => [change.id, change.userRating]));
+  return songs.map(song => {
+    const userRating = songIsOnServer(song, serverId) ? ratingById.get(song.id) : undefined;
+    if (userRating === undefined) return song;
+    return { ...song, userRating: userRating > 0 ? userRating : undefined };
+  });
+}
+
+/** Persist reconciled track ratings into the index so the next local paint is right. */
+export function patchTrackRatingsToIndexFromReconcile(
+  serverId: string,
+  changes: TrackUserRatingChange[],
+): void {
+  for (const change of changes) {
+    patchLibraryTrackOnUse(serverId, change.id, { userRating: change.userRating });
+  }
+}
+
 export type AlbumServerMetadataReconcileFetch = {
   server: SubsonicAlbum;
+  songs: SubsonicSong[];
 };
 
 /**
@@ -94,8 +155,8 @@ export async function fetchAlbumServerMetadataForReconcile(
   serverId: string,
   albumId: string,
 ): Promise<AlbumServerMetadataReconcileFetch | null> {
-  const { album: server } = await getAlbumForServer(serverId, albumId, { mirrorToIndex: false });
-  return { server };
+  const { album: server, songs } = await getAlbumForServer(serverId, albumId, { mirrorToIndex: false });
+  return { server, songs };
 }
 
 /** @deprecated use {@link fetchAlbumServerMetadataForReconcile} + fresh diff */

@@ -57,6 +57,7 @@ export function mergePlaybackTrackMetadata(base: Track, resolved: Track): Track 
     coverArt: resolved.coverArt ?? base.coverArt,
     explicitStatus: resolved.explicitStatus ?? base.explicitStatus,
     artistId: resolved.artistId ?? base.artistId,
+    artists: resolved.artists?.length ? resolved.artists : base.artists,
     serverId: base.serverId ?? resolved.serverId,
   };
 }

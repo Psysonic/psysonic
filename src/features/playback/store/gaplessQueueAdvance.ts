@@ -3,6 +3,7 @@
  * store + side-effects without calling `playTrack` / `audio_play`.
  */
 import { getMusicNetworkRuntimeOrNull } from '@/music-network';
+import { structuredArtistNames } from '@/lib/api/openArtistRefs';
 import { isPrivateModeActive } from '@/features/privateMode';
 import {
   playbackReportStart,
@@ -137,10 +138,12 @@ function applyGaplessSuccessorUi(
 
   playbackReportStart(nextTrack.id, playbackProfileIdForTrack(nextTrack, switchRef));
   const runtime = getMusicNetworkRuntimeOrNull();
+  const nextArtists = structuredArtistNames(nextTrack.artists);
   if (!isPrivateModeActive()) {
     void runtime?.dispatchNowPlaying({
       title: nextTrack.title,
       artist: nextTrack.artist,
+      ...(nextArtists ? { artists: nextArtists } : {}),
       album: nextTrack.album,
       duration: nextTrack.duration,
       timestamp: Date.now(),
@@ -148,7 +151,11 @@ function applyGaplessSuccessorUi(
   }
   if (runtime?.getEnrichmentPrimaryId()) {
     void runtime
-      .isTrackLoved({ title: nextTrack.title, artist: nextTrack.artist })
+      .isTrackLoved({
+        title: nextTrack.title,
+        artist: nextTrack.artist,
+        ...(nextArtists ? { artists: nextArtists } : {}),
+      })
       .then(loved => {
         usePlayerStore.getState().setNetworkLoved(loved);
       });
