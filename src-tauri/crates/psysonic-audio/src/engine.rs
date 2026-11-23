@@ -1,7 +1,7 @@
 //! `AudioEngine` / `AudioCurrent`, stream thread, and HTTP client refresh.
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64};
 use std::sync::{Arc, Condvar, Mutex, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use rodio::Player;
 
@@ -16,8 +16,8 @@ mod output_stream;
 pub use http::refresh_http_user_agent;
 #[allow(unused_imports)]
 pub(crate) use http::{
-    apply_playback_request_headers, audio_http_client, playback_scoped_get, scoped_http_get,
-    PlaybackHttpHeaders,
+    apply_playback_request_headers, audio_http_client, audio_http_client_builder,
+    playback_scoped_get, scoped_http_get, PlaybackHttpHeaders,
 };
 #[allow(unused_imports)]
 pub(crate) use output_stream::{
@@ -407,10 +407,7 @@ pub fn create_engine() -> (AudioEngine, std::thread::JoinHandle<()>) {
         generation: Arc::new(AtomicU64::new(0)),
         preload_epoch: Arc::new(AtomicU64::new(0)),
         http_client: Arc::new(RwLock::new(
-            reqwest::Client::builder()
-                .timeout(Duration::from_secs(30))
-                .use_rustls_tls()
-                .user_agent(psysonic_core::user_agent::subsonic_wire_user_agent())
+            audio_http_client_builder(&psysonic_core::user_agent::subsonic_wire_user_agent())
                 .build()
                 .unwrap_or_default(),
         )),

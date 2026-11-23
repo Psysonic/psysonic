@@ -13,13 +13,20 @@ pub(crate) fn audio_http_client(state: &AudioEngine) -> reqwest::Client {
         .unwrap_or_default()
 }
 
-pub fn refresh_http_user_agent(state: &AudioEngine, ua: &str) {
-    let client = reqwest::Client::builder()
+/// Builder for the playback HTTP clients. Audio is already compressed, and a
+/// proxy that compresses it anyway drops `Content-Length` and `Accept-Ranges`,
+/// which sends playback to the non-seekable stream reader.
+pub(crate) fn audio_http_client_builder(ua: &str) -> reqwest::ClientBuilder {
+    reqwest::Client::builder()
         .timeout(Duration::from_secs(30))
         .use_rustls_tls()
         .user_agent(ua)
-        .build()
-        .unwrap_or_default();
+        .no_gzip()
+        .no_brotli()
+}
+
+pub fn refresh_http_user_agent(state: &AudioEngine, ua: &str) {
+    let client = audio_http_client_builder(ua).build().unwrap_or_default();
     if let Ok(mut slot) = state.http_client.write() {
         *slot = client;
     }
@@ -85,4 +92,27 @@ pub(crate) fn playback_scoped_get(
         .map(str::to_string)
         .or_else(|| state.current_playback_server_id.lock().unwrap().clone());
     scoped_http_get(state, registry.as_deref(), sid.as_deref(), url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::audio_http_client_builder;
+    use wiremock::matchers::method;
+    use wiremock::{Mock, MockServer, ResponseTemplate};
+
+    #[tokio::test]
+    async fn audio_client_does_not_offer_content_coding() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .respond_with(ResponseTemplate::new(200))
+            .mount(&server)
+            .await;
+
+        let client = audio_http_client_builder("psysonic-test").build().unwrap();
+        client.get(server.uri()).send().await.unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        assert_eq!(requests.len(), 1);
+        assert!(requests[0].headers.get("accept-encoding").is_none());
+    }
 }

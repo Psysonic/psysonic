@@ -268,6 +268,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Last.fm, Libre.fm, Rocksky, custom GNU FM servers and Maloja's Audioscrobbler API received the full artist line of a song with several artists, such as "Artist A feat. Artist B", and counted every combination as an artist of its own. Scrobbles, Now Playing, loves and track stats now go to the first artist only. ListenBrainz, Koito and Maloja's native and ListenBrainz APIs still receive the full line.
 * Songs you loved earlier under such a combined name show as not loved in Psysonic, and the old scrobbles stay with the combined name.
 
+### Seeking works behind a reverse proxy that compresses responses
+
+**By [@netherguy4](https://github.com/netherguy4), PR [#1881](https://github.com/Psysonic/psysonic/pull/1881)**
+
+* Seeking in a song did nothing when your server sits behind a reverse proxy that compresses every response, such as Traefik with a global compression rule. Psysonic now asks for audio uncompressed, so the proxy leaves songs alone and seeking works again. Song previews and radio streams are requested the same way.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases
