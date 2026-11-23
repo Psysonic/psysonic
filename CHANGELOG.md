@@ -92,6 +92,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Hover a card in **Continue listening** on Mainstage and click the **X** to remove that album or playlist. **Clear** in the header of the row empties it at once.
 * Removed something by mistake? The notice that follows has an **Undo** button.
 
+### Scrobbling and Private mode in one menu
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1884](https://github.com/Psysonic/psysonic/pull/1884)**
+
+* The scrobble button in the player bar opens one menu for everything about scrobbling: your Last.fm (or other) account with its status, the **Private mode** switch, how much of the song you have heard with a mark where it gets scrobbled, and **Force scrobble**. Clicking the account opens **Settings → Integrations**.
+* The top bar is lighter: the Private mode mask and the account indicator have moved into that menu. While Private mode is on, the scrobble button shows the mask; a red dot on it means the account needs to sign in again.
+* The scrobble button is always there now, and the **Manual force scrobble** setting is gone. Nothing is sent unless you click Force scrobble.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited
