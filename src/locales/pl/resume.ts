@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'Nie udało się wczytać listy, aby ją wznowić.',
   untitledAlbum: 'Nieznany album',
   untitledPlaylist: 'Playlista',
+  remove: 'Usuń {{name}} z Słuchaj dalej',
+  removeTooltip: 'Usuń',
+  removed: 'Usunięto {{name}} z Słuchaj dalej',
+  clear: 'Wyczyść',
+  clearLabel: 'Wyczyść Słuchaj dalej',
+  cleared: 'Wyczyszczono Słuchaj dalej',
+  undo: 'Cofnij',
 };

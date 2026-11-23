@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'Impossible de charger la liste pour la reprendre.',
   untitledAlbum: 'Album inconnu',
   untitledPlaylist: 'Playlist',
+  remove: 'Retirer {{name}} de Reprendre l’écoute',
+  removeTooltip: 'Retirer',
+  removed: '{{name}} retiré de Reprendre l’écoute',
+  clear: 'Effacer',
+  clearLabel: 'Effacer Reprendre l’écoute',
+  cleared: 'Reprendre l’écoute effacé',
+  undo: 'Annuler',
 };

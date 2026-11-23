@@ -46,18 +46,35 @@ export function resumePointKey(
   return `${point.serverKey}\u0001${point.kind}\u0001${point.id}`;
 }
 
+/** Keeps the newest points of each server, at most `RESUME_POINTS_PER_SERVER`. */
+function capPerServer(points: ResumePoint[]): ResumePoint[] {
+  const perServer = new Map<string, number>();
+  const kept = new Set<ResumePoint>();
+  for (const point of [...points].sort((a, b) => b.updatedAt - a.updatedAt)) {
+    const count = perServer.get(point.serverKey) ?? 0;
+    if (count >= RESUME_POINTS_PER_SERVER) continue;
+    perServer.set(point.serverKey, count + 1);
+    kept.add(point);
+  }
+  return points.filter(point => kept.has(point));
+}
+
 interface ResumePointsState {
   points: ResumePoint[];
   session: ResumeSession | null;
   savePoint: (point: ResumePoint) => void;
   removePoint: (point: Pick<ResumePoint, 'kind' | 'id' | 'serverKey'>) => void;
+  /** Drops every point of these servers and returns them, for an undo. */
+  clearServers: (serverKeys: readonly string[]) => ResumePoint[];
+  /** Puts removed points back; a point written for the same list since then wins. */
+  restorePoints: (points: readonly ResumePoint[]) => void;
   setSession: (session: ResumeSession | null) => void;
   updateSession: (patch: Partial<Pick<ResumeSession, 'qualified' | 'finished'>>) => void;
 }
 
 export const useResumePointsStore = create<ResumePointsState>()(
   persist(
-    set => ({
+    (set, get) => ({
       points: [],
       session: null,
       savePoint: point => set(state => {
@@ -77,6 +94,20 @@ export const useResumePointsStore = create<ResumePointsState>()(
         const key = resumePointKey(point);
         if (!state.points.some(p => resumePointKey(p) === key)) return state;
         return { points: state.points.filter(p => resumePointKey(p) !== key) };
+      }),
+      clearServers: serverKeys => {
+        const keys = new Set(serverKeys);
+        const removed = get().points.filter(p => keys.has(p.serverKey));
+        if (removed.length > 0) {
+          set(state => ({ points: state.points.filter(p => !keys.has(p.serverKey)) }));
+        }
+        return removed;
+      },
+      restorePoints: restored => set(state => {
+        const present = new Set(state.points.map(resumePointKey));
+        const missing = restored.filter(p => !present.has(resumePointKey(p)));
+        if (missing.length === 0) return state;
+        return { points: capPerServer([...state.points, ...missing]) };
       }),
       setSession: session => set({ session }),
       updateSession: patch => set(state => (

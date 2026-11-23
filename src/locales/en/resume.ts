@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'This list could not be loaded to continue it.',
   untitledAlbum: 'Unknown album',
   untitledPlaylist: 'Playlist',
+  remove: 'Remove {{name}} from Continue listening',
+  removeTooltip: 'Remove',
+  removed: '{{name}} removed from Continue listening',
+  clear: 'Clear',
+  clearLabel: 'Clear Continue listening',
+  cleared: 'Continue listening cleared',
+  undo: 'Undo',
 };

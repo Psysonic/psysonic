@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'Lista nu a putut fi încărcată pentru a fi reluată.',
   untitledAlbum: 'Album necunoscut',
   untitledPlaylist: 'Playlist',
+  remove: 'Elimină {{name}} din Continuă ascultarea',
+  removeTooltip: 'Elimină',
+  removed: '{{name}} eliminat din Continuă ascultarea',
+  clear: 'Golește',
+  clearLabel: 'Golește Continuă ascultarea',
+  cleared: 'Continuă ascultarea golit',
+  undo: 'Anulează',
 };

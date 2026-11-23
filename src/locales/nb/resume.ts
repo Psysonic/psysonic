@@ -7,4 +7,11 @@ export const resume = {
   unavailable: 'Kunne ikke laste listen for å fortsette.',
   untitledAlbum: 'Ukjent album',
   untitledPlaylist: 'Spilleliste',
+  remove: 'Fjern {{name}} fra Fortsett å lytte',
+  removeTooltip: 'Fjern',
+  removed: '{{name}} fjernet fra Fortsett å lytte',
+  clear: 'Tøm',
+  clearLabel: 'Tøm Fortsett å lytte',
+  cleared: 'Fortsett å lytte tømt',
+  undo: 'Angre',
 };
