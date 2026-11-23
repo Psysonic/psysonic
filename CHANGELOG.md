@@ -241,6 +241,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * Restoring a queue saved by another client no longer overwrites the previous album or playlist's Continue Listening point with tracks from the new queue. Position-only updates keep the current list's session.
 * Existing corrupted points are not repaired automatically.
 
+### Mainstage banner does less work while you scroll
+
+**By [@carnation-sys](https://github.com/carnation-sys), PR [#1871](https://github.com/Psysonic/psysonic/pull/1871)**
+
+* The featured album banner on Mainstage measured its position on every scroll step and kept checking every 220 ms while it was out of view. The browser now tells it when the banner is visible: albums keep changing while you can see it, pause when you scroll away, and continue when you scroll back.
+
 ### Album pages show track ratings set in other apps
 
 **By [@kris-anderson](https://github.com/kris-anderson), PR [#1873](https://github.com/Psysonic/psysonic/pull/1873)**
