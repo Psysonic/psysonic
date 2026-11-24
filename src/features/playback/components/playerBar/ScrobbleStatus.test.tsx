@@ -73,9 +73,9 @@ describe('ScrobbleActionButton', () => {
     expect(getByRole('button', { name: 'Force scrobble' })).toBeInTheDocument();
   });
 
-  it('uses SendHorizontal before submission and BadgeCheck afterward', () => {
+  it('uses the radio tower before submission and BadgeCheck afterward', () => {
     const { container } = renderButton();
-    expect(container.querySelector('.lucide-send-horizontal')).toBeInTheDocument();
+    expect(container.querySelector('.player-btn .lucide-radio-tower')).toBeInTheDocument();
 
     act(() => usePlayerStore.setState({ scrobbled: true }));
     expect(container.querySelector('.lucide-badge-check')).toBeInTheDocument();

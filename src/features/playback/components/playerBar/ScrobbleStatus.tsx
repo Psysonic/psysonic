@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import type { TFunction } from 'i18next';
-import { BadgeCheck, ChevronRight, SendHorizontal, VenetianMask } from 'lucide-react';
+import { BadgeCheck, ChevronRight, RadioTower, SendHorizontal, VenetianMask } from 'lucide-react';
 import { offlineActionPolicy, useOfflineBrowseActive } from '@/features/offline';
 import { usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerBarAnchoredPopover } from '@/features/playback/hooks/usePlayerBarAnchoredPopover';
@@ -219,7 +219,7 @@ export function ScrobbleActionButton({
   const blockedStatusRef = useRef<HTMLDivElement>(null);
   const { scrobbled, blockedReason, canScrobble, privateMode } = useScrobbleStatusState(t, false);
   const sessionError = useEnrichmentPrimary()?.account.sessionError === true;
-  const Icon = privateMode ? VenetianMask : scrobbled ? BadgeCheck : SendHorizontal;
+  const Icon = privateMode ? VenetianMask : scrobbled ? BadgeCheck : RadioTower;
   const tooltip = sessionError
     ? t('musicNetwork.statusError')
     : blockedReason ?? (scrobbled ? t('player.scrobbleAlreadySent') : t('player.forceScrobble'));
