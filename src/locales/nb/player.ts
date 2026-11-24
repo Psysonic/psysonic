@@ -75,6 +75,7 @@ export const player = {
   showDuration: 'Vis varighet',
   showRemainingTime: 'Vis gjenværende tid',
   scrobbleStatus: 'Scrobble-status',
+  scrobbleAccountSettings: 'Åpne i innstillinger',
   scrobbleProgress: '{{current}} % av {{threshold}} %',
   forceScrobble: 'Tving scrobble',
   scrobbleAlreadySent: 'Allerede scrobblet',

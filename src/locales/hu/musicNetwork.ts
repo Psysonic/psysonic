@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobble-olás ennyi után',
   thresholdDesc: 'Scrobble küldése, amikor a lejátszás eléri a szám megadott százalékát (25–90%). Alapértelmezés: 50%.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Kézi scrobble kényszerítése',
-  forceScrobbleDesc: 'Speciális lejátszóvezérlőt jelenít meg, amely azonnal elküldi az aktuális számot.',
   addService: 'Szolgáltatás hozzáadása',
   connect: 'Csatlakozás',
   connecting: 'Csatlakozás…',

@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobbluj po',
   thresholdDesc: 'Wyślij scrobble, gdy odtwarzanie osiągnie ten procent utworu (25–90%). Domyślnie: 50%.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Wymuś scrobble ręcznie',
-  forceScrobbleDesc: 'Pokazuje zaawansowany element sterowania odtwarzacza, który natychmiast wysyła bieżący utwór.',
   addService: 'Dodaj usługę',
   connect: 'Połącz',
   connecting: 'Łączenie…',

@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: '达到此进度后记录',
   thresholdDesc: '播放达到曲目的此百分比时发送 scrobble（25–90%）。默认 50%。',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: '手动强制 scrobble',
-  forceScrobbleDesc: '显示高级播放器控件，用于立即提交当前曲目。',
   addService: '添加服务',
   connect: '连接',
   connecting: '连接中…',

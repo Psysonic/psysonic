@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobble na',
   thresholdDesc: 'Verzend een scrobble wanneer het afspelen dit percentage van het nummer bereikt (25–90%). Standaard: 50%.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Handmatig scrobblen afdwingen',
-  forceScrobbleDesc: 'Toont een geavanceerde spelerbediening die het huidige nummer direct verzendt.',
   addService: 'Dienst toevoegen',
   connect: 'Verbinden',
   connecting: 'Verbinden…',

@@ -406,7 +406,6 @@ export function computeAuthStoreRehydration(state: AuthState): Partial<AuthState
     scrobbleThresholdPercent: clampScrobbleThresholdPercent(
       (state as { scrobbleThresholdPercent?: unknown }).scrobbleThresholdPercent,
     ),
-    forceScrobbleEnabled: state.forceScrobbleEnabled === true,
     libraryGridMaxColumns: clampLibraryGridMaxColumns(
       (state as { libraryGridMaxColumns?: unknown }).libraryGridMaxColumns,
     ),

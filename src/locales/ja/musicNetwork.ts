@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobble の送信タイミング',
   thresholdDesc: 'トラックの再生がこの割合に達したときに scrobble を送信します (25～90%)。デフォルトは 50% です。',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: '手動で Scrobble を送信',
-  forceScrobbleDesc: '現在のトラックをすぐに送信する詳細プレイヤー操作を表示します。',
   addService: 'サービスを追加',
   connect: '接続',
   connecting: '接続中…',

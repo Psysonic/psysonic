@@ -75,6 +75,7 @@ export const player = {
   showDuration: '長さを表示',
   showRemainingTime: '残り時間を表示',
   scrobbleStatus: 'Scrobble の状態',
+  scrobbleAccountSettings: '設定で開く',
   scrobbleProgress: '{{threshold}}% 中 {{current}}%',
   forceScrobble: 'Scrobble を今すぐ送信',
   scrobbleAlreadySent: 'Scrobble 済み',

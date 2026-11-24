@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobble după',
   thresholdDesc: 'Trimite un scrobble când redarea ajunge la acest procent din piesă (25–90%). Implicit: 50%.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Forțează manual scrobble-ul',
-  forceScrobbleDesc: 'Afișează un control avansat al playerului care trimite imediat piesa curentă.',
   addService: 'Adaugă un serviciu',
   connect: 'Conectează',
   connecting: 'Se conectează…',

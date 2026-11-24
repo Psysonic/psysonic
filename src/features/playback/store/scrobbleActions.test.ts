@@ -11,7 +11,6 @@ vi.mock('@/features/playback/store/submitTrackScrobble', () => ({
 import { usePlayerStore } from './playerStore';
 import { usePreviewStore } from './previewStore';
 import { forceScrobbleCurrentTrack, scrobbleCurrentTrackAtNaturalBoundary } from './scrobbleActions';
-import { useAuthStore } from '@/store/authStore';
 import { usePrivateModeStore } from '@/features/privateMode';
 import { emitPlaybackProgress } from './playbackProgress';
 import { _resetScrobblePlaySessionForTest } from './scrobblePlaySession';
@@ -21,7 +20,6 @@ beforeEach(() => {
   resetAllStores();
   submitTrackScrobble.mockClear();
   _resetScrobblePlaySessionForTest();
-  useAuthStore.setState({ forceScrobbleEnabled: true });
 });
 
 describe('forceScrobbleCurrentTrack', () => {

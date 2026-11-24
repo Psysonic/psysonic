@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Scrobbling dopo',
   thresholdDesc: 'Invia lo scrobbling quando la riproduzione raggiunge questa percentuale del brano (25–90%). Predefinito: 50%.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Scrobbling forzato manuale',
-  forceScrobbleDesc: 'Mostra un controllo avanzato nel player che invia subito il brano attuale.',
   addService: 'Aggiungi un servizio',
   connect: 'Collega',
   connecting: 'Collegamento…',

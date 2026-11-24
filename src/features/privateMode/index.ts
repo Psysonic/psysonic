@@ -1,3 +1,3 @@
 // Store only: playback modules on the boot path import this barrel, so UI
-// (lucide-react) lives behind `@/features/privateMode/ui`.
+// (lucide-react) stays out of it.
 export { usePrivateModeStore, isPrivateModeActive } from './privateModeStore';

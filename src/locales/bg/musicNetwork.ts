@@ -6,8 +6,6 @@ export const musicNetwork = {
   thresholdLabel: 'Скробване след',
   thresholdDesc: 'Изпраща скробъл, когато възпроизвеждането достигне този процент от песента (25–90%). По подразбиране: 50%.',
   thresholdValue: '{{n}}%',
-  forceScrobbleLabel: 'Ръчно принудително скробване',
-  forceScrobbleDesc: 'Показва допълнителен контрол в плеъра, който незабавно изпраща текущата песен.',
   addService: 'Добави услуга',
   connect: 'Свържи',
   connecting: 'Свързване…',

@@ -30,7 +30,6 @@ import {
 } from '../constants/appScroll';
 import ConnectionIndicator from '@/app/ConnectionIndicator';
 import { HistoryNavButtons } from '@/app/HistoryNavButtons';
-import { MusicNetworkIndicator } from '@/music-network/ui';
 import AppUpdater from '@/features/updater/components/AppUpdater';
 import TitleBar from '@/app/TitleBar';
 import { OrbitSessionBar, OrbitStartTrigger } from '@/features/orbit';
@@ -64,7 +63,6 @@ import { useConnectionStatus } from '@/lib/hooks/useConnectionStatus';
 import { useIdlePlayQueuePull } from '@/app/hooks/useIdlePlayQueuePull';
 import { useShareBootstrap } from '@/features/share';
 import { DiscordBanner, useAccumulatedUsage } from '@/features/discordBanner';
-import { PrivateModeToggle } from '@/features/privateMode/ui';
 import { useAuthStore } from '../store/authStore';
 import { usePlayerStore } from '@/features/playback/store/playerStore';
 import '@/features/playback/store/previewPlayerVolumeSync';
@@ -303,9 +301,7 @@ export function AppShell() {
           <LiveSearch />
           {import.meta.env.DEV && <DevNetworkModeToggle />}
           <div className="spacer" />
-          <PrivateModeToggle />
           <ConnectionIndicator status={connStatus} isLan={isLan} serverName={serverName} />
-          <MusicNetworkIndicator />
           <NowPlayingDropdown />
           <OrbitStartTrigger />
           {!isMobile && !isQueueVisible && (

@@ -75,6 +75,7 @@ export const player = {
   showDuration: 'Hossz megjelenítése',
   showRemainingTime: 'Hátralévő idő megjelenítése',
   scrobbleStatus: 'Scrobble állapota',
+  scrobbleAccountSettings: 'Megnyitás a beállításokban',
   scrobbleProgress: '{{current}}% / {{threshold}}%',
   forceScrobble: 'Scrobble kényszerítése',
   scrobbleAlreadySent: 'Már scrobble-olva',

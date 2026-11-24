@@ -75,6 +75,7 @@ export const player = {
   showDuration: 'Afficher la durée',
   showRemainingTime: 'Afficher le temps restant',
   scrobbleStatus: 'État du scrobble',
+  scrobbleAccountSettings: 'Ouvrir dans les paramètres',
   scrobbleProgress: '{{current}} % sur {{threshold}} %',
   forceScrobble: 'Forcer le scrobble',
   scrobbleAlreadySent: 'Déjà scrobblé',
