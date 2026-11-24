@@ -14,14 +14,14 @@ import i18n from '@/lib/i18n';
 import { ScrobbleActionButton, ScrobbleMenuSection } from './ScrobbleStatus';
 
 const forceScrobbleCurrentTrack = vi.hoisted(() => vi.fn(() => true));
-const useOfflineBrowseActive = vi.hoisted(() => vi.fn(() => false));
+const useOfflineBrowseStatus = vi.hoisted(() => vi.fn(() => false));
 
 vi.mock('@/features/playback/store/scrobbleActions', () => ({
   forceScrobbleCurrentTrack,
 }));
 
 vi.mock('@/features/offline', () => ({
-  useOfflineBrowseActive,
+  useOfflineBrowseStatus,
   offlineActionPolicy: (_surface: string, offline: boolean) => ({ canScrobble: !offline }),
 }));
 
@@ -55,7 +55,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   resetAllStores();
   forceScrobbleCurrentTrack.mockClear();
-  useOfflineBrowseActive.mockReturnValue(false);
+  useOfflineBrowseStatus.mockReturnValue(false);
   const track = makeTrack({ duration: 100 });
   seedQueue([track], { index: 0, currentTrack: track });
   usePlayerStore.setState({ scrobbled: false });
@@ -114,7 +114,7 @@ describe('ScrobbleActionButton', () => {
   });
 
   it('explains why force scrobble is unavailable offline', () => {
-    useOfflineBrowseActive.mockReturnValue(true);
+    useOfflineBrowseStatus.mockReturnValue(true);
     const { getByRole, queryByRole, getByText } = renderButton();
     fireEvent.click(getByRole('button', { name: 'Unavailable while offline' }));
     expect(queryByRole('button', { name: 'Force scrobble' })).toBeNull();
@@ -196,7 +196,7 @@ describe('ScrobbleMenuSection (compact overflow menu)', () => {
   });
 
   it('does not force-scrobble while blocked, and leaves the menu open', () => {
-    useOfflineBrowseActive.mockReturnValue(true);
+    useOfflineBrowseStatus.mockReturnValue(true);
     const onDone = vi.fn();
     const { container, getByText } = renderWithProviders(
       <ScrobbleMenuSection t={i18n.t} onDone={onDone} />,

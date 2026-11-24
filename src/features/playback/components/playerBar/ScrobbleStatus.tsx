@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router';
 import type { TFunction } from 'i18next';
 import { BadgeCheck, ChevronRight, RadioTower, SendHorizontal, VenetianMask } from 'lucide-react';
-import { offlineActionPolicy, useOfflineBrowseActive } from '@/features/offline';
+import { offlineActionPolicy, useOfflineBrowseStatus } from '@/features/offline';
 import { usePrivateModeStore } from '@/features/privateMode';
 import { usePlayerBarAnchoredPopover } from '@/features/playback/hooks/usePlayerBarAnchoredPopover';
 import {
@@ -28,7 +28,8 @@ function useScrobbleStatusState(t: TFunction, trackProgress: boolean) {
   const previewing = usePreviewStore(s => s.previewingId != null);
   const privateMode = usePrivateModeStore(s => s.active);
   const threshold = useAuthStore(s => s.scrobbleThresholdPercent);
-  const offline = useOfflineBrowseActive();
+  // Passive: the app shell already probes the server; this button must not add a probe of its own.
+  const offline = useOfflineBrowseStatus();
   const canScrobble = offlineActionPolicy('playerBar', offline).canScrobble;
 
   useEffect(() => {
