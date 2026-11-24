@@ -1,31 +1,28 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import { resetAllStores } from '@/test/helpers/storeReset';
-import { onInvoke } from '@/test/mocks/tauri';
-import { useAuthStore } from '@/store/authStore';
-import { resetActiveServerConnectionSnapshot } from '@/lib/network/activeServerReachability';
+import { useOfflineBrowseActive } from '@/features/offline';
 import i18n from '@/lib/i18n';
 import { ScrobbleActionButton } from './ScrobbleStatus';
+
+// The probing hook: every component that calls it probes the server on mount and every 120 s.
+const useConnectionStatus = vi.hoisted(() => vi.fn(() => ({})));
+vi.mock('@/lib/hooks/useConnectionStatus', () => ({ useConnectionStatus }));
 
 describe('ScrobbleActionButton server probing', () => {
   beforeEach(() => {
     resetAllStores();
-    resetActiveServerConnectionSnapshot();
-    const id = useAuthStore.getState().addServer({
-      name: 'T', url: 'https://x.test', username: 'u', password: 'p',
-    });
-    useAuthStore.getState().setActiveServer(id);
+    useConnectionStatus.mockClear();
   });
 
-  it('does not probe the server itself (the app shell does that)', async () => {
-    let probes = 0;
-    onInvoke('probe_server_connection', () => {
-      probes += 1;
-      return { ok: false };
-    });
-
+  it('does not start a server probe of its own (the app shell does that)', () => {
     renderWithProviders(<ScrobbleActionButton t={i18n.t} className="player-btn" />);
-    await new Promise(resolve => setTimeout(resolve, 50));
-    expect(probes).toBe(0);
+    expect(useConnectionStatus).not.toHaveBeenCalled();
+  });
+
+  it('positive control: the probing offline hook does call it', () => {
+    renderHook(() => useOfflineBrowseActive());
+    expect(useConnectionStatus).toHaveBeenCalled();
   });
 });
