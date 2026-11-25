@@ -62,6 +62,7 @@ use read_support::{
     effective_library_scopes, hydrate_refs, parse_ingest_cursor, resolve_local_track_count,
     upsert_songs_from_api, SyncStateRow, TRACKS_BATCH_LIMIT,
 };
+pub use sync_session_support::refresh_navidrome_token_after_unauthorized;
 use sync_session_support::{
     bind_migration_sync_session_inner, bind_sync_session_inner, clear_sync_session,
     library_migration_sync_start_inner, library_sync_start_inner, BindSessionRequest,

@@ -289,6 +289,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * Seeking in a song did nothing when your server sits behind a reverse proxy that compresses every response, such as Traefik with a global compression rule. Psysonic now asks for audio uncompressed, so the proxy leaves songs alone and seeking works again. Song previews and radio streams are requested the same way.
 
+### Library sync keeps working past Navidrome's session timeout
+
+**By [@kris-anderson](https://github.com/kris-anderson), PR [#1875](https://github.com/Psysonic/psysonic/pull/1875)**
+
+* On Navidrome, background library sync stopped about two days after Psysonic started: the login it used had expired (Navidrome's default session timeout is 48 hours), and every check failed until Psysonic was restarted. Psysonic now logs in again when that happens, so new albums and tag edits keep reaching the local library.
+* If that login fails, Psysonic waits 10 minutes before trying again.
+
 ## Changed
 
 ### Code rewritten ahead of the app store releases

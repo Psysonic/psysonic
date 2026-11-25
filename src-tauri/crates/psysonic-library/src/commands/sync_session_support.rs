@@ -116,6 +116,74 @@ async fn navidrome_token_with_retry(
     None
 }
 
+/// How long a failed Navidrome bearer refresh waits before the next login
+/// attempt. Ticks run every 30 seconds, so without it a password the server
+/// rejects would mean three failed logins per tick.
+const NAVIDROME_REFRESH_BACKOFF: Duration = Duration::from_secs(10 * 60);
+
+/// Log in again after Navidrome rejects the cached native-API bearer.
+///
+/// The bearer comes from `/auth/login` at bind time and is a JWT that
+/// expires after the server's session timeout (`ND_SESSIONTIMEOUT`, 48 h by
+/// default). Without a refresh, every N1 request of a long-running app fails
+/// with HTTP 401 until the next bind. When `error` is that 401, fetch a new
+/// bearer with the session's credentials and store it for the next pass.
+/// After a failed login, wait [`NAVIDROME_REFRESH_BACKOFF`] before trying
+/// again. Returns `true` when a new bearer was stored. Never logs the token or
+/// credentials.
+pub async fn refresh_navidrome_token_after_unauthorized(
+    runtime: &LibraryRuntime,
+    registry: &ServerHttpRegistry,
+    session: &SyncSession,
+    error: &SyncError,
+) -> bool {
+    if session.navidrome_token.is_none()
+        || error.navidrome_http_status() != Some(401)
+        || !runtime.navidrome_refresh_allowed(&session.server_id)
+    {
+        return false;
+    }
+    let login = navidrome_token_with_retry(
+        Some(registry),
+        &session.base_url,
+        &session.username,
+        &session.password,
+    );
+    let Ok(Some(token)) = tokio::time::timeout(BIND_SESSION_TIMEOUTS.token, login).await else {
+        runtime.defer_navidrome_refresh(&session.server_id, NAVIDROME_REFRESH_BACKOFF);
+        crate::app_eprintln!(
+            "[library-sync] navidrome bearer refresh failed server_id={}; next try in {} min",
+            session.server_id,
+            NAVIDROME_REFRESH_BACKOFF.as_secs() / 60
+        );
+        return false;
+    };
+    let stored = runtime.replace_navidrome_token(session, token);
+    if stored {
+        crate::app_eprintln!(
+            "[library-sync] navidrome bearer expired; logged in again server_id={}",
+            session.server_id
+        );
+    }
+    stored
+}
+
+/// Foreground initial and delta runs use the same bind-time bearer as the
+/// background scheduler, so they hit the same 401 once it expires.
+async fn refresh_navidrome_token_after_failed_run<T>(
+    app: &AppHandle,
+    registry: &ServerHttpRegistry,
+    session: &SyncSession,
+    outcome: &Result<T, SyncError>,
+) {
+    let Err(error) = outcome else {
+        return;
+    };
+    if let Some(runtime) = app.try_state::<LibraryRuntime>() {
+        refresh_navidrome_token_after_unauthorized(runtime.inner(), registry, session, error).await;
+    }
+}
+
 pub(super) async fn bind_sync_session_inner(
     runtime: &LibraryRuntime,
     http_registry: &ServerHttpRegistry,
@@ -408,7 +476,15 @@ async fn library_sync_start_with_admission(
                     if let Some(creds) = navidrome_creds.clone() {
                         runner = runner.with_navidrome_credentials(creds);
                     }
-                    let run = sync_outcome_to_result(runner.run().await, admission);
+                    let outcome = runner.run().await;
+                    refresh_navidrome_token_after_failed_run(
+                        &app_for_runner,
+                        registry.as_ref(),
+                        &session_clone,
+                        &outcome,
+                    )
+                    .await;
+                    let run = sync_outcome_to_result(outcome, admission);
                     if run.is_ok() {
                         run_tag_pass_best_effort(
                             &store,
@@ -450,6 +526,13 @@ async fn library_sync_start_with_admission(
                         runner = runner.with_navidrome_credentials(creds);
                     }
                     let outcome = runner.run().await;
+                    refresh_navidrome_token_after_failed_run(
+                        &app_for_runner,
+                        registry.as_ref(),
+                        &session_clone,
+                        &outcome,
+                    )
+                    .await;
                     let require_untagged = outcome
                         .as_ref()
                         .map_or(true, |report| force_full_tombstone || report.up_to_date);
