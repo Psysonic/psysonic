@@ -387,6 +387,52 @@ fn list_albums_by_label_scoped(
     })
 }
 
+/// Per-album lookup: walks the album's live tracks through `idx_track_album`, then each
+/// track's label rows by primary key — `track_label` has no album-first index.
+pub(crate) const ALBUM_RECORD_LABELS_SQL: &str = "SELECT tl.label, COUNT(*) \
+     FROM track t INDEXED BY idx_track_album \
+     INNER JOIN track_label tl ON tl.server_id = t.server_id AND tl.track_id = t.id \
+     WHERE t.server_id = ?1 AND t.album_id = ?2 AND t.deleted = 0 \
+     GROUP BY tl.label \
+     ORDER BY COUNT(*) DESC, tl.label";
+
+/// Record labels of one physical album, the label on most tracks first. Spellings that
+/// share a [`crate::label_tags::label_key`] count as one label, shown as the most-tagged one.
+pub fn album_record_labels(
+    store: &LibraryStore,
+    server_id: &str,
+    album_id: &str,
+) -> Result<Vec<String>, String> {
+    let (server_id, album_id) = (server_id.trim(), album_id.trim());
+    if server_id.is_empty() || album_id.is_empty() {
+        return Ok(Vec::new());
+    }
+    let rows = store.with_read_conn(|conn| {
+        let mut stmt = conn.prepare_cached(ALBUM_RECORD_LABELS_SQL)?;
+        let rows = stmt
+            .query_map(rusqlite::params![server_id, album_id], |r| {
+                Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    })?;
+    let mut merged: Vec<(String, i64)> = Vec::new();
+    let mut index_by_key: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    for (label, count) in rows {
+        let key = crate::label_tags::label_key(&label);
+        match index_by_key.get(&key) {
+            Some(&i) => merged[i].1 += count,
+            None => {
+                index_by_key.insert(key, merged.len());
+                merged.push((label, count));
+            }
+        }
+    }
+    merged.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+    Ok(merged.into_iter().map(|(label, _)| label).collect())
+}
+
 #[cfg(test)]
 #[path = "label_album_browse/tests.rs"]
 mod tests;

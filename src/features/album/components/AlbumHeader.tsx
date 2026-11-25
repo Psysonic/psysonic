@@ -1,5 +1,5 @@
 import type { EntityRatingSupportLevel, SubsonicItemGenre, SubsonicOpenArtistRef, SubsonicSong } from '@/lib/api/subsonicTypes';
-import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { type CSSProperties, Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useLocation, useNavigate } from 'react-router';
 import { Play, Heart, X, ChevronLeft, Download, ListPlus, HardDriveDownload, Highlighter, Loader2 } from 'lucide-react';
@@ -9,6 +9,7 @@ import type { CoverArtRef } from '@/cover/types';
 import { useTranslation } from 'react-i18next';
 import { useIsMobile } from '@/lib/hooks/useIsMobile';
 import { useAlbumDetailBack } from '@/features/album/hooks/useAlbumDetailBack';
+import { useAlbumRecordLabels } from '@/features/album/hooks/useAlbumRecordLabels';
 import { useResolvedArtistRefs } from '@/lib/hooks/useResolvedArtistRefs';
 import { useAuthStore } from '@/store/authStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -247,6 +248,7 @@ export default function AlbumHeader({
   // prop is optional, so fall back to the active server like every other consumer.
   const activeServerId = useAuthStore(s => s.activeServerId ?? '');
   const resolvedArtistRefs = useResolvedArtistRefs(headerArtistRefs, serverId ?? activeServerId);
+  const recordLabels = useAlbumRecordLabels(info.recordLabel, serverId ?? activeServerId, info.id);
 
   const totalDuration = songs.reduce((acc, s) => acc + s.duration, 0);
   const totalSize = songs.reduce((acc, s) => acc + (s.size ?? 0), 0);
@@ -390,18 +392,20 @@ export default function AlbumHeader({
                 <span>· {t('albumDetail.tracksCount', { n: songs.length })}</span>
                 <span>· {formatLongDuration(totalDuration)}</span>
                 {formatLabel && <span>· {formatLabel}</span>}
-                {info.recordLabel && (
-                  <>
-                    <span className="album-info-dot">·</span>
+                {recordLabels.map((label, i) => (
+                  <Fragment key={label}>
+                    {i === 0
+                      ? <span className="album-info-dot">·</span>
+                      : <span>,&nbsp;</span>}
                     <button
                       className="album-detail-artist-link"
-                      data-tooltip={t('albumDetail.moreLabelAlbums', { label: info.recordLabel })}
-                      onClick={() => navigate(`/label/${encodeURIComponent(info.recordLabel!)}`)}
+                      data-tooltip={t('albumDetail.moreLabelAlbums', { label })}
+                      onClick={() => navigate(`/label/${encodeURIComponent(label)}`)}
                     >
-                      {info.recordLabel}
+                      {label}
                     </button>
-                  </>
-                )}
+                  </Fragment>
+                ))}
               </div>
               {serverId && (
                 <EntitySourcePicker

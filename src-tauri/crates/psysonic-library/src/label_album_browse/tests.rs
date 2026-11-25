@@ -295,3 +295,43 @@ fn multi_server_label_pages_respect_library_selection_and_unicode_identity() {
         ("s2", "al_b")
     );
 }
+
+#[test]
+fn album_record_labels_lists_the_album_labels_most_tagged_first() {
+    let store = LibraryStore::open_in_memory();
+    let mut gone = track("s1", "t4", "al_a", "lib1", &["Gone Records"]);
+    gone.deleted = true;
+    TrackRepository::new(&store)
+        .upsert_batch(&[
+            track("s1", "t1", "al_a", "lib1", &["Bleep"]),
+            track("s1", "t2", "al_a", "lib1", &["Warp", "Bleep"]),
+            track("s1", "t3", "al_a", "lib1", &["warp", "bleep"]),
+            gone,
+            track("s1", "t5", "al_b", "lib1", &["Ninja Tune"]),
+            track("s2", "t1", "al_a", "lib1", &["Other Server"]),
+        ])
+        .unwrap();
+
+    assert_eq!(
+        album_record_labels(&store, "s1", "al_a").unwrap(),
+        vec!["Bleep".to_string(), "Warp".to_string()]
+    );
+    assert_eq!(
+        album_record_labels(&store, " s1 ", " al_b ").unwrap(),
+        vec!["Ninja Tune".to_string()]
+    );
+    assert!(album_record_labels(&store, "s1", "al_missing")
+        .unwrap()
+        .is_empty());
+    assert!(album_record_labels(&store, "", "al_a").unwrap().is_empty());
+}
+
+#[test]
+fn album_record_labels_drives_from_the_album_index() {
+    assert!(ALBUM_RECORD_LABELS_SQL.contains("track t INDEXED BY idx_track_album"));
+    assert!(ALBUM_RECORD_LABELS_SQL.contains("t.deleted = 0"));
+    let store = LibraryStore::open_in_memory();
+    store
+        .with_read_conn(|conn| conn.prepare(ALBUM_RECORD_LABELS_SQL).map(|_| ()))
+        .unwrap();
+}

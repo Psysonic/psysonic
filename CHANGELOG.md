@@ -100,6 +100,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * The top bar is lighter: the Private mode mask and the account indicator have moved into that menu. While Private mode is on, the scrobble button shows the mask; a red dot on it means the account needs to sign in again.
 * The scrobble button is always there now, and the **Manual force scrobble** setting is gone. Nothing is sent unless you click Force scrobble.
 
+### Record label in the album header
+
+**By [@Psychotoxical](https://github.com/Psychotoxical), PR [#1886](https://github.com/Psysonic/psysonic/pull/1886)**
+
+* The info line under an album's title now ends with its record label, right after the format. Click it to see more albums from that label.
+* Most albums showed no label there before. Psysonic now takes it from the album's songs, and lists every label they carry, the most used first.
+
 ## Fixed
 
 ### Smart playlists keep Navidrome 0.64 rules when edited
