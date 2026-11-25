@@ -179,6 +179,22 @@ pub async fn library_album_disc_count(
     .await
 }
 
+/// Record labels of one album from the local index, the label on most tracks first.
+/// Empty when the album is not indexed or its tracks carry no label tag.
+#[tauri::command]
+#[specta::specta]
+pub async fn library_album_record_labels(
+    runtime: State<'_, LibraryRuntime>,
+    server_id: String,
+    album_id: String,
+) -> Result<Vec<String>, String> {
+    let store = Arc::clone(&runtime.store);
+    library_spawn_blocking(move || {
+        crate::label_album_browse::album_record_labels(&store, &server_id, &album_id)
+    })
+    .await
+}
+
 /// Hard cap on one `library_resolve_artist_ids` call. A joined credit has a handful of
 /// participants; anything beyond this is a caller bug, and the surplus resolves to
 /// `None` rather than turning a render path into an unbounded query loop.

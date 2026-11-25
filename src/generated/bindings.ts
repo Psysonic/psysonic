@@ -32,6 +32,11 @@ export const commands = {
 	 */
 	libraryAlbumDiscCount: (serverId: string, albumId: string) => typedError<number, string>(__TAURI_INVOKE("library_album_disc_count", { serverId, albumId })),
 	/**
+	 *  Record labels of one album from the local index, the label on most tracks first.
+	 *  Empty when the album is not indexed or its tracks carry no label tag.
+	 */
+	libraryAlbumRecordLabels: (serverId: string, albumId: string) => typedError<string[], string>(__TAURI_INVOKE("library_album_record_labels", { serverId, albumId })),
+	/**
 	 *  Resolve credit names to indexed artist ids, positionally aligned with `names`.
 	 *
 	 *  For rows whose server sent only a joined credit string ("A feat. B") instead of the
