@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/helpers/renderWithProviders';
 import AlbumHeader from '@/features/album/components/AlbumHeader';
 import { libraryResolveEntitySources } from '@/lib/api/library';
+import { fetchAlbumRecordLabels } from '@/lib/library/albumRecordLabels';
 import type { SubsonicSong } from '@/lib/api/subsonicTypes';
 import { useAuthStore } from '@/store/authStore';
 
@@ -29,9 +30,13 @@ vi.mock('@/lib/share/copyEntityShareLink', () => ({
 vi.mock('@/lib/api/library', () => ({
   libraryResolveEntitySources: vi.fn(),
 }));
+vi.mock('@/lib/library/albumRecordLabels', () => ({
+  fetchAlbumRecordLabels: vi.fn(async () => []),
+}));
 
 beforeEach(() => {
   vi.mocked(libraryResolveEntitySources).mockReset();
+  vi.mocked(fetchAlbumRecordLabels).mockClear();
 });
 
 function baseProps() {
@@ -185,6 +190,26 @@ describe('AlbumHeader genres', () => {
 
     await user.click(screen.getByRole('button', { name: 'Share album' }));
     await waitFor(() => expect(copyEntityShareLink).toHaveBeenCalledWith('album', 'al1', { serverId: 'srv-b' }));
+  });
+
+  it('shows the server album label without asking the index', () => {
+    renderWithProviders(
+      <AlbumHeader {...baseProps()} info={albumInfo({ recordLabel: 'Northern Press' })} serverId="srv" />,
+    );
+    expect(screen.getByRole('button', { name: 'Northern Press' })).toBeInTheDocument();
+    expect(fetchAlbumRecordLabels).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the indexed track labels, each linking to its label page', async () => {
+    navigate.mockClear();
+    vi.mocked(fetchAlbumRecordLabels).mockResolvedValueOnce(['Bleep', 'Warp']);
+    const user = userEvent.setup();
+    renderWithProviders(<AlbumHeader {...baseProps()} info={albumInfo()} serverId="srv" />);
+
+    await user.click(await screen.findByRole('button', { name: 'Warp' }));
+    expect(screen.getByRole('button', { name: 'Bleep' })).toBeInTheDocument();
+    expect(fetchAlbumRecordLabels).toHaveBeenCalledWith('srv', 'al1');
+    expect(navigate).toHaveBeenCalledWith('/label/Warp');
   });
 
   it('opens a selected concrete source while preserving detail filters', async () => {
