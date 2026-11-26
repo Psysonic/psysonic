@@ -146,11 +146,37 @@ impl SubsonicClient {
 
     /// C1 helper — `#ping` with the envelope metadata captured. Used by
     /// the capability probe to detect server type (`navidrome` →
-    /// `UnstableTrackIds`) and OpenSubsonic support without issuing a
-    /// second request.
+    /// `UnstableTrackIds`) and OpenSubsonic support. Octo can relay a
+    /// Navidrome ping, so check its advertised extensions before applying
+    /// Navidrome-specific ID rules to the proxy's opaque IDs.
     pub async fn server_info(&self) -> Result<ServerInfo, SubsonicError> {
         let body = self.send("ping", &[]).await?;
-        parse_server_info(&body)
+        let mut info = parse_server_info(&body)?;
+        let is_octo = if info.open_subsonic && info.server_type.as_deref() == Some("navidrome") {
+            self.send("getOpenSubsonicExtensions", &[])
+                .await
+                .ok()
+                .and_then(|body| serde_json::from_str::<serde_json::Value>(&body).ok())
+                .is_some_and(|value| {
+                    value["subsonic-response"]["status"] == "ok"
+                        && value["subsonic-response"]["openSubsonicExtensions"]
+                            .as_array()
+                            .is_some_and(|extensions| {
+                                extensions.iter().any(|extension| {
+                                    matches!(extension["name"].as_str(),
+                                        Some("octoAcquisitions" | "octoStations" | "octoImports"))
+                                })
+                            })
+                })
+        } else {
+            false
+        };
+        if is_octo {
+            info.server_type = Some("octo".to_owned());
+            // The relayed version describes Navidrome, not the proxy.
+            info.server_version = None;
+        }
+        Ok(info)
     }
 
     /// B2 — `getScanStatus`. Lightweight poll for huge libraries

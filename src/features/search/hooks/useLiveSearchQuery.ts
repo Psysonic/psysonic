@@ -1,3 +1,4 @@
+import { serverHasExternalCatalog } from '@/lib/server/externalCatalog';
 import { useRef, useEffect, useCallback, useMemo, useState, type Dispatch, type SetStateAction, type MutableRefObject } from 'react';
 import { useTranslation } from 'react-i18next';
 import { subscribeLibrarySyncProgress } from '@/lib/api/library';
@@ -169,6 +170,21 @@ export function useLiveSearchQuery({
         if (isStale()) return;
         const browseScope = getLibraryBrowseScope();
         const queryServerId = browseScope.anchorServerId;
+        const catalogServers = browseScope.serverIds.filter(id => serverHasExternalCatalog(useAuthStore.getState(), id));
+        const runNetwork = async () => {
+          if (!catalogServers.length) return runNetworkLiveSearch(q, abort.signal, queryServerId);
+          // Octo treats requests for at most 12 songs as library-only typeahead.
+          // Request a discovery page, then keep the usual dropdown display limits.
+          const settled = await Promise.allSettled(catalogServers.map(id => runNetworkLiveSearch(q, abort.signal, id, 30000, 20)));
+          let merged: SearchResults | null = null;
+          for (const result of settled) {
+            if (result.status === 'fulfilled' && result.value) {
+              merged = merged ? mergeLiveSearchResults(merged, result.value) : result.value;
+            }
+          }
+          if (!merged && settled.some(result => result.status === 'rejected')) throw new Error('Catalog search failed');
+          return merged;
+        };
         const scopeChanged = resultScopeFingerprintRef.current !== browseScope.fingerprint;
         const raceCtx = { epoch: gen, isStale, suppressLog: indexEnabled && !!queryServerId };
         const queryRejected = liveSearchQueryRejected(q);
@@ -186,6 +202,7 @@ export function useLiveSearchQuery({
           && indexEnabled
           && queryServerId
           && browseScope.multiServer
+          && !catalogServers.length
         ) {
           if ((await readyLibraryServerKeys(readinessServerIds)) == null) return;
           if (isStale()) return;
@@ -225,7 +242,7 @@ export function useLiveSearchQuery({
           }
 
           if (indexEnabled && queryServerId) {
-            if (browseScope.multiServer) {
+            if (browseScope.multiServer && !catalogServers.length) {
               if (multiServerResult) {
                 setResults(multiServerResult);
                 setSearchSource('local');
@@ -235,7 +252,7 @@ export function useLiveSearchQuery({
             }
             const winner = await raceLiveSearch(
               () => runLocalLiveSearch(queryServerId, q, raceCtx, browseScope),
-              () => runNetworkLiveSearch(q, abort.signal, queryServerId),
+              runNetwork,
               isStale,
               meta => {
                 emitLiveSearchDebug('race_settled', {
@@ -305,7 +322,7 @@ export function useLiveSearchQuery({
             }
             showToast(t('search.liveSearchFailed'), 3200, 'error');
           } else if (queryServerId) {
-            const network = await runNetworkLiveSearch(q, abort.signal, queryServerId);
+            const network = await runNetwork();
             if (isStale()) return;
             if (network) {
               setResults(network);

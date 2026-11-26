@@ -1,3 +1,6 @@
+import { useAuthStore } from '@/store/authStore';
+import { serverHasExternalCatalog } from '@/lib/server/externalCatalog';
+import { nextCatalogSearchPage, type CatalogSearchSource } from '@/lib/library/catalogSearch';
 import { useRef, useCallback, type Dispatch, type SetStateAction } from 'react';
 import { getAlbumsByGenreForServer } from '@/lib/api/subsonicGenres';
 import {
@@ -58,6 +61,45 @@ function applySongFilters(
   return r;
 }
 
+function catalogSearchSources(opts: SearchOpts, scope: LibraryBrowseScope, indexEnabled: boolean): CatalogSearchSource[] | null {
+  const servers = scope.serverIds.filter(id => serverHasExternalCatalog(useAuthStore.getState(), id));
+  if (!servers.length || !opts.query.trim() || opts.bpmFrom || opts.bpmTo || opts.moodGroup || opts.losslessOnly) return null;
+  const sources: CatalogSearchSource[] = servers.map(serverId => ({
+    offset: 0, hasMore: true,
+    run: async (offset, limit) => {
+      if (!offset) {
+        const page = await runNetworkAdvancedTextSearch(opts, limit, serverId, 30000);
+        return page ? { ...page, consumed: page.songsConsumed } : null;
+      }
+      const songs = await searchSongsPagedForServer(serverId, opts.query.trim(), limit, offset);
+      return {
+        artists: [], albums: [], consumed: songs.length,
+        songs: opts.resultType === 'artists' || opts.resultType === 'albums' ? [] : applySongFilters(
+          songs, opts.genre,
+          opts.yearFrom ? parseInt(opts.yearFrom, 10) : null,
+          opts.yearTo ? parseInt(opts.yearTo, 10) : null,
+          null, null,
+        ),
+      };
+    },
+  }));
+  if (indexEnabled && scope.anchorServerId) {
+    const serverId = scope.anchorServerId;
+    sources.push({
+      offset: 0, hasMore: true,
+      run: async (offset, limit) => {
+        if (!offset) {
+          const page = await tryRunLocalAdvancedSearch(serverId, opts, limit, true, scope);
+          return page ? { ...page, consumed: page.songsConsumed } : null;
+        }
+        const songs = await loadMoreLocalSongs(serverId, opts, offset, limit, scope);
+        return { artists: [], albums: [], songs, consumed: songs.length };
+      },
+    });
+  }
+  return sources;
+}
+
 interface UseAdvancedSearchRunnerParams {
   serverId: string | null;
   indexEnabled: boolean;
@@ -110,11 +152,13 @@ export function useAdvancedSearchRunner({
   onResultsCommitted,
 }: UseAdvancedSearchRunnerParams) {
   const searchRunRef = useRef(0);
+  const catalogSourcesRef = useRef<CatalogSearchSource[] | null>(null);
   const resultScopeRef = useRef<LibraryBrowseScope | null>(getLibraryBrowseScope());
 
   const runBasicSearch = async (rawQuery: string) => {
     const q = rawQuery.trim();
     const runId = ++searchRunRef.current;
+    catalogSourcesRef.current = null;
     const isStale = () => runId !== searchRunRef.current;
     const browseScope = getLibraryBrowseScope();
     const searchServerId = browseScope.anchorServerId;
@@ -155,6 +199,25 @@ export function useAdvancedSearchRunner({
       setSongsServerOffset(0);
       setSongsHasMore(false);
       setLocalMode(false);
+      return;
+    }
+
+    const catalogSources = catalogSearchSources(pendingSearch, browseScope, indexEnabled);
+    if (catalogSources) {
+      setLoading(true);
+      setSongsHasMore(false);
+      setLocalMode(false);
+      try {
+        const page = await nextCatalogSearchPage(catalogSources, BASIC_SONGS_INITIAL);
+        if (isStale()) return;
+        catalogSourcesRef.current = catalogSources;
+        commitResults(page.results);
+        setSongsHasMore(page.hasMore);
+      } catch {
+        if (!isStale()) commitResults(null);
+      } finally {
+        if (!isStale()) setLoading(false);
+      }
       return;
     }
 
@@ -245,6 +308,7 @@ export function useAdvancedSearchRunner({
 
   const runSearch = async (opts: SearchOpts) => {
     const runId = ++searchRunRef.current;
+    catalogSourcesRef.current = null;
     const isStale = () => runId !== searchRunRef.current;
     const q = opts.query.trim();
     const browseScope = getLibraryBrowseScope();
@@ -274,6 +338,25 @@ export function useAdvancedSearchRunner({
       setSongsServerOffset(0);
       setSongsHasMore(false);
       setLocalMode(false);
+      return;
+    }
+
+    const catalogSources = catalogSearchSources(opts, browseScope, indexEnabled);
+    if (catalogSources) {
+      setLoading(true);
+      setSongsHasMore(false);
+      setLocalMode(false);
+      try {
+        const page = await nextCatalogSearchPage(catalogSources, SONGS_INITIAL);
+        if (isStale()) return;
+        catalogSourcesRef.current = catalogSources;
+        commitResults(page.results);
+        setSongsHasMore(page.hasMore);
+      } catch {
+        if (!isStale()) commitResults({ artists: [], albums: [], songs: [] });
+      } finally {
+        if (!isStale()) setLoading(false);
+      }
       return;
     }
 
@@ -515,6 +598,22 @@ export function useAdvancedSearchRunner({
     const searchServerId = browseScope.anchorServerId;
     if (!searchServerId) {
       setSongsHasMore(false);
+      return;
+    }
+
+    if (catalogSourcesRef.current) {
+      const sources = catalogSourcesRef.current;
+      setLoadingMoreSongs(true);
+      try {
+        const page = await nextCatalogSearchPage(sources, SONGS_PAGE_SIZE);
+        if (isStale()) return;
+        setResults(prev => prev ? { ...prev, songs: dedupeById([...prev.songs, ...page.results.songs]) } : prev);
+        setSongsHasMore(page.hasMore);
+      } catch {
+        if (!isStale()) setSongsHasMore(false);
+      } finally {
+        if (!isStale()) setLoadingMoreSongs(false);
+      }
       return;
     }
 

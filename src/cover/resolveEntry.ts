@@ -19,7 +19,7 @@ export type CoverEntry = {
   fetchCoverArtId: string;
 };
 
-export type CoverArtResolvableSong = Pick<SubsonicSong, 'id' | 'coverArt'> & {
+export type CoverArtResolvableSong = Pick<SubsonicSong, 'id' | 'coverArt' | 'isExternal'> & {
   albumId?: string | null;
 };
 
@@ -39,11 +39,11 @@ export function isFetchOnlyCoverId(id: string): boolean {
 }
 
 /** Navidrome `getCoverArt` id for a song row (ignores echo of track id with no art). */
-export function resolveSongFetchCoverArtId(song: CoverArtResolvableSong): string | undefined {
+export function resolveSongFetchCoverArtId(song: CoverArtResolvableSong, preserveCoverId = false): string | undefined {
   const albumId = song.albumId?.trim();
   const cover = song.coverArt?.trim();
   const songId = song.id?.trim();
-  if (cover && (!songId || cover !== songId)) return cover;
+  if (cover && (preserveCoverId || song.isExternal || !songId || cover !== songId)) return cover;
   if (albumId) return albumId;
   if (cover) return cover;
   return undefined;
@@ -114,6 +114,7 @@ export function resolveAlbumCoverEntry(
   albumId: string,
   coverArtId?: string | null,
   distinctDiscCovers = false,
+  preserveCoverId = false,
 ): CoverEntry | undefined {
   const album = albumId.trim();
   if (!album) return undefined;
@@ -127,7 +128,7 @@ export function resolveAlbumCoverEntry(
   }
   // Bare album ids need `al-<albumId>_0` on Navidrome when no mf id is available.
   // Playlist / radio / other fetch-only ids must keep their native prefix (e.g. `pl-*`).
-  if (!distinctDiscCovers && fetch === album && !isFetchOnlyCoverId(fetch)) {
+  if (!preserveCoverId && !distinctDiscCovers && fetch === album && !isFetchOnlyCoverId(fetch)) {
     fetch = `al-${album}_0`;
   }
   const cacheEntityId =
@@ -158,13 +159,15 @@ export function resolveArtistCoverEntry(
 
 /** Track on an album — album cache by default; per-disc fetch id when `distinctDiscCovers`. */
 export function resolveTrackCoverEntry(
-  song: Pick<SubsonicSong, 'albumId' | 'coverArt' | 'id' | 'discNumber'>,
+  song: Pick<SubsonicSong, 'albumId' | 'coverArt' | 'id' | 'discNumber' | 'isExternal'>,
   distinctDiscCovers = false,
+  preserveCoverId = false,
 ): CoverEntry | undefined {
   const albumId = song.albumId?.trim();
   if (!albumId) return undefined;
-  const fetch = resolveSongFetchCoverArtId(song) ?? albumId;
-  return resolveAlbumCoverEntry(albumId, fetch, distinctDiscCovers);
+  const opaque = preserveCoverId || song.isExternal === true;
+  const fetch = resolveSongFetchCoverArtId(song, opaque) ?? albumId;
+  return resolveAlbumCoverEntry(albumId, fetch, distinctDiscCovers, opaque);
 }
 
 export function coverEntryToRef(

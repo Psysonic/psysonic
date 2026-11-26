@@ -5,6 +5,7 @@ import { activeServerProfileId } from '@/lib/media/trackServerScope';
 
 export function songToTrack(song: SubsonicSong): Track {
   return {
+    isExternal: song.isExternal,
     id: song.id,
     title: song.title,
     artist: song.artist,
@@ -15,7 +16,7 @@ export function songToTrack(song: SubsonicSong): Track {
       const artists = coerceOpenArtistRefs(song.artists);
       return artists.length > 0 ? artists : undefined;
     })(),
-    duration: song.duration,
+    duration: Number.isFinite(song.duration) ? Math.max(0, song.duration) : 0,
     coverArt: song.coverArt,
     discNumber: song.discNumber,
     track: song.track,
